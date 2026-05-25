@@ -1,0 +1,144 @@
+# 技術事件定義設定檔
+# 定義需要計算的事件與相關參數
+
+scoring:
+  alpha: 0.5
+  buy_threshold: 3.0
+  max_bearish: -2.0
+  top_reasons: 3
+  weights:
+    break_20d_high: 2.0
+    ma5_cross_ma20_up: 1.5
+    close_above_bb_mid: 1.0
+    macd_bullish_cross: 1.0
+    rsi_rebound_from_40: 1.0
+    gap_up_close_strong: 1.5
+    volume_spike: 1.0
+    lose_20d_low: -2.0
+    ma5_cross_ma20_down: -1.5
+    close_below_bb_mid: -1.0
+    macd_bearish_cross: -1.0
+    rsi_break_below_50: -1.0
+    long_upper_shadow: -0.5
+    candle_hammer: 0.8
+    candle_dragonfly_doji: 0.8
+    candle_tombstone_doji: -1.0
+    candle_bull_marubozu: 1.0
+    candle_bear_marubozu: -1.0
+    candle_bull_engulfing: 1.2
+    candle_bear_engulfing: -1.2
+    candle_bull_harami: 0.8
+    candle_bear_harami: -0.8
+    candle_piercing: 1.0
+    candle_dark_cloud: -1.0
+    candle_morning_star: 1.2
+    candle_evening_star: -1.5
+    candle_3white: 1.5
+    candle_3black: -1.5
+    td_buy_setup: 0.5
+    td_sell_setup: -2.0
+    pattern_w_bottom: 1.5
+    pattern_m_top: -1.5
+
+events:
+  # 趨勢事件
+  - name: break_20d_high
+    description: 收盤價突破近 20 日最高價
+    type: price_breakout
+    params:
+      period: 20
+      direction: up
+
+  - name: lose_20d_low
+    description: 收盤價跌破近 20 日最低價
+    type: price_breakout
+    params:
+      period: 20
+      direction: down
+
+  - name: ma5_cross_ma20_up
+    description: MA5 向上穿越 MA20 (黃金交叉)
+    type: crossover
+    params:
+      fast_ma: ma5
+      slow_ma: ma20
+      direction: up
+
+  - name: ma5_cross_ma20_down
+    description: MA5 向下穿越 MA20 (死亡交叉)
+    type: crossover
+    params:
+      fast_ma: ma5
+      slow_ma: ma20
+      direction: down
+
+  - name: close_above_bb_mid
+    description: 收盤價突破布林中軌
+    type: threshold_cross
+    params:
+      target: close
+      threshold: bb_middle
+      direction: up
+
+  - name: close_below_bb_mid
+    description: 收盤價跌破布林中軌
+    type: threshold_cross
+    params:
+      target: close
+      threshold: bb_middle
+      direction: down
+
+  - name: macd_bullish_cross
+    description: MACD 線向上穿越 Signal 線
+    type: crossover
+    params:
+      fast_ma: macd
+      slow_ma: macd_signal
+      direction: up
+
+  - name: macd_bearish_cross
+    description: MACD 線向下穿越 Signal 線
+    type: crossover
+    params:
+      fast_ma: macd
+      slow_ma: macd_signal
+      direction: down
+
+  # RSI 事件
+  - name: rsi_rebound_from_40
+    description: RSI 從 40 以下反彈 (昨日 < 40, 今日 > 40)
+    type: threshold_cross
+    params:
+      target: rsi
+      threshold: 40
+      direction: up
+
+  - name: rsi_break_below_50
+    description: RSI 跌破 50 (昨日 > 50, 今日 < 50)
+    type: threshold_cross
+    params:
+      target: rsi
+      threshold: 50
+      direction: down
+
+  # 價格型態
+  - name: gap_up_close_strong
+    description: 跳空上漲且收強 (開盤 > 昨日最高, 收盤 > 開盤)
+    type: pattern
+    params:
+      pattern_type: gap_up_strong
+
+  - name: long_upper_shadow
+    description: 長上影線 (上影線長度 > 實體長度 * 2)
+    type: pattern
+    params:
+      pattern_type: long_upper_shadow
+      ratio: 2.0
+
+  # 量能事件
+  - name: volume_spike
+    description: 爆量 (成交量 > 5日均量 * 2)
+    type: volume
+    params:
+      ratio: 2.0
+      period: 5

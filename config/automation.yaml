@@ -1,0 +1,82 @@
+# NEW-TOP10 自動化設定檔
+# 控制每日執行、手動重訓、PSI 監控等功能
+
+timezone: "Asia/Taipei"
+
+# ========================================
+# 每日執行設定
+# ========================================
+daily:
+  enabled: true
+  run_time: "22:00"          # 每日執行時間
+  weekend_enabled: false      # 週末是否執行 (false = 僅工作日)
+  max_data_lag_days: 7         # features/events/universe 最新交易日允許落後幾個日曆日
+  weekly_snapshot_enabled: true # MOM-01：ranking 後產生本週模型初選池 / 每日快照 artifact
+  daily_report_enabled: true    # DAILY-02：ranking 後產出 PM/使用者可讀的每日決策日報
+  clawd_payload_enabled: true   # CLAWD-01：daily report 後產出 Clawd-ready payload；不實際發送
+  postcheck_enabled: false     # DAILY-03：每日後驗收預設手動執行，避免 launchd 被前端/Chrome 環境卡住
+  postcheck_api_enabled: true
+  postcheck_frontend_enabled: false
+
+# ========================================
+# 模型重訓設定：預設只允許手動觸發，避免未驗證漂移時覆蓋模型
+# ========================================
+retrain:
+  enabled: true
+  schedule: "manual"          # manual, weekly, monthly
+  time: "02:00"               # 執行時間
+  backup_keep_days: 30        # 保留備份天數
+  
+  # Optuna 調優參數
+  optuna_trials: 20           # 每次重訓的調優次數
+  
+# ========================================
+# PSI 漂移監控設定
+# ========================================
+monitor:
+  enabled: true
+  check_days: 30              # 檢查最近幾天的資料
+  psi_warning: 0.25           # PSI 警告閾值
+  psi_critical: 0.5           # PSI 嚴重閾值
+  auto_retrain: false         # 是否在嚴重漂移時自動重訓 (建議 false，手動確認)
+
+# ========================================
+# 外部 reference 維護：產業 / 概念股 / ETF 關聯來源
+# ========================================
+reference:
+  enabled: true
+  schedule: "monthly"
+  day_of_month: 1
+  time: "03:30"
+  allow_partial: true          # 單一來源失敗時保留其他成功來源與 audit
+  
+# ========================================
+# 通知設定
+# ========================================
+notify:
+  line_enabled: false         # Line Notify 開關
+  line_token: ""              # Line Notify Token (若啟用)
+
+  clawd_enabled: false        # Clawd 實際發送開關；CLAWD-01 不會使用它發送
+  clawd_channel: "discord"
+  clawd_to: "channel:1507327845003825154"
+  clawd_dry_run: true
+  clawd_cli_node: "/opt/homebrew/opt/node/bin/node"
+  clawd_cli_entry: "/Users/matt/new clawd/dist/index.js"
+  
+  email_enabled: false        # Email 通知開關 (未來功能)
+  email_to: ""
+  
+# ========================================
+# 日誌設定
+# ========================================
+logging:
+  level: "INFO"               # DEBUG, INFO, WARNING, ERROR
+  keep_days: 90               # 保留日誌天數
+  
+# ========================================
+# 進階設定
+# ========================================
+advanced:
+  parallel_processing: true   # ETL 是否平行處理
+  max_workers: 4              # 平行處理 worker 數量

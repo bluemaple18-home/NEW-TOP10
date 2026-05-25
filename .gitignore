@@ -1,0 +1,102 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+/build/
+/develop-eggs/
+/dist/
+/downloads/
+/eggs/
+/.eggs/
+/lib/
+/lib64/
+/parts/
+/sdist/
+/var/
+/wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Old/local agent tooling from previous workspace snapshots
+.agent/
+.agents/
+.gemini/
+CLAUDE.md
+
+# Data: runtime/generated datasets stay outside git.
+data/*
+!data/clean/
+data/clean/*
+!data/clean/.gitkeep
+!data/raw/
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/reference/
+data/raw/reference/*
+!data/raw/reference/.gitkeep
+!data/reference/
+data/reference/*
+!data/reference/.gitkeep
+!data/fundamentals/
+data/fundamentals/*
+!data/fundamentals/.gitkeep
+!data/test/
+data/test/*
+!data/test/.gitkeep
+!data/test_async/
+data/test_async/*
+!data/test_async/.gitkeep
+
+# Runtime artifacts are reproducible; keep the directory only.
+artifacts/*
+!artifacts/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+
+# MacOS
+.DS_Store
+
+# Logs
+*.log
+*.err
+logs/*
+!logs/.gitkeep
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Frontend
+node_modules/
+web/frontend/dist/
+*.tsbuildinfo
+
+# Local scratch/vendor experiments
+temp_finlab_ai/
+temp_stocksniper/
+
+# Legacy one-off publishing / backup files from the old snapshot
+app/publish_daily.py
+app/chart_generator.py
+app/dashboard_renderer.py
+app/etl_pipeline.py.bak
+scripts/setup_mini.sh
+.github/
+debug_twse.py
+run_agent_a.sh
+run_agent_b.py
+test_agent_a.py
+test_report_gen.py
+test_simple.py
+verify_agent_b.py

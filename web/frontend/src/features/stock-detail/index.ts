@@ -1,0 +1,1 @@
+export { StockDetailPanel } from './StockDetailPanel'

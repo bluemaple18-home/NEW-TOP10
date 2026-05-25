@@ -1,0 +1,10 @@
+# References (Training, Backtesting, Data)
+
+- **Microsoft Qlib** — AI-oriented quant platform (dataset, rolling training/backtest, baselines). [https://github.com/microsoft/qlib](https://github.com/microsoft/qlib)
+- **vectorbt** — Fast vectorized backtesting & parameter sweeps. [https://github.com/polakowo/vectorbt](https://github.com/polakowo/vectorbt)
+- **backtrader** — Event-driven backtesting/trading engine. [https://www.backtrader.com/](https://www.backtrader.com/) ; [https://github.com/mementum/backtrader](https://github.com/mementum/backtrader)
+- **backtesting.py** — Lightweight backtesting framework. [https://github.com/kernc/backtesting.py](https://github.com/kernc/backtesting.py) ; [https://kernc.github.io/backtesting.py/](https://kernc.github.io/backtesting.py/)
+- **Optuna** — Hyperparameter optimization (with pruning). [https://github.com/optuna/optuna](https://github.com/optuna/optuna) ; [https://optuna.org/](https://optuna.org/)
+- **MLflow** — Experiment tracking & model registry. [https://mlflow.org/docs/latest/](https://mlflow.org/docs/latest/)
+- **FinMind** — Taiwan market API (price, institutions, margin/borrow, revenue). [https://api.finmindtrade.com/docs](https://api.finmindtrade.com/docs) ; [https://finmind.github.io/quickstart/](https://finmind.github.io/quickstart/)
+- **Official APIs** — TWSE OpenAPI [https://openapi.twse.com.tw/](https://openapi.twse.com.tw/) ; TPEx OpenAPI [https://www.tpex.org.tw/openapi/](https://www.tpex.org.tw/openapi/)

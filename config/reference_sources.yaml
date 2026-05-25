@@ -1,0 +1,98 @@
+# 外部概念股/產業 reference sources。
+# 這份設定只描述抓取目標；是否成功取得由 probe/audit 寫入 artifacts。
+
+timeout_seconds: 20
+sleep_seconds: 0.8
+retry_count: 2
+retry_sleep_seconds: 10
+merge_aliases: false
+
+enabled_sources:
+  - yahoo
+  - goodinfo
+  - statementdog
+  - wantgoo
+  - moneydj
+  - pchome
+  - tpex_value_chain
+
+sources:
+  yahoo:
+    discover_all: true
+    stop_on_blocked: true
+    # 備援清單。正式匯入會先從 https://tw.stock.yahoo.com/class
+    # 自動展開所有 class-quote 分類頁，再逐頁抓分類內股票。
+    concepts:
+      - AI人工智慧
+      - 台積電
+      - 半導體設備
+      - Tesla
+      - 電動車/油電車
+      - 低軌衛星
+      - 風力發電/離岸風電
+      - 機器人/智慧機械
+      - 大數據
+
+  goodinfo:
+    concepts:
+      - 大數據
+      - 人工智慧
+      - 半導體設備
+      - 電動車
+      - 低軌衛星
+
+  statementdog:
+    tags:
+      - id: "1477"
+        name: 5G
+      - id: "2207"
+        name: 機器人
+      - id: "1169"
+        name: 電子商務
+      - id: "338"
+        name: 金融
+
+  wantgoo:
+    pages:
+      - name: 宅經濟
+        url: https://www.wantgoo.com/index/%5E128/stocks
+      - name: 工業4.0
+        url: https://www.wantgoo.com/index/%255E458/stocks
+      - name: 3D列印
+        url: https://www.wantgoo.com/index/%5E415/stocks
+      - name: 智慧城市
+        url: https://www.wantgoo.com/index/%5E346/stocks
+
+  moneydj:
+    discover_all: true
+    concepts:
+      - code: EH001173
+        name: 人工智慧AI
+      - code: EH000118
+        name: 台積電
+      - code: EH000056
+        name: 電動車
+      - code: EH000189
+        name: 機器人
+      - code: EH001248
+        name: 低軌衛星
+      - code: EH001203
+        name: 離岸風電
+
+  pchome:
+    pages:
+      - name: AI人工智慧
+        url: https://pchome.megatime.com.tw/group/mkt4/cidA201.html
+      - name: 機器人
+        url: https://pchome.megatime.com.tw/group/mkt4/cidA180.html
+      - name: 電動車
+        url: https://pchome.megatime.com.tw/group/mkt4/cidA127.html
+      - name: 太陽能
+        url: https://pchome.megatime.com.tw/group/mkt4/cidA088.html
+      - name: 儲能
+        url: https://pchome.megatime.com.tw/group/mkt4/cidA230.html
+
+  tpex_value_chain:
+    pages:
+      - name: 產業價值鏈平台說明
+        url: https://nweb.tpex.org.tw/TPEX224/news_1.html
