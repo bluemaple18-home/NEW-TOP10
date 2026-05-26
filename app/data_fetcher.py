@@ -52,16 +52,27 @@ class AsyncTWSEFetcher:
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
             
-            async with self.session.get(url, params=params, headers=headers, timeout=30) as response:
-                if response.status != 200:
-                    logger.warning(f"TWSE 連線失敗 ({date}): Status {response.status}")
-                    return None
-                    
-                try:
-                    data = await response.json()
-                except Exception:
-                    logger.warning(f"TWSE 回傳非 JSON 格式 ({date})")
-                    return None
+            data = None
+            retry_statuses = {301, 302, 303, 307, 308, 429, 503}
+            for attempt in range(1, 5):
+                async with self.session.get(url, params=params, headers=headers, timeout=30, allow_redirects=True) as response:
+                    if response.status == 200:
+                        try:
+                            data = await response.json()
+                        except Exception:
+                            logger.warning(f"TWSE 回傳非 JSON 格式 ({date})")
+                            return None
+                        break
+                    if response.status not in retry_statuses:
+                        logger.warning(f"TWSE 連線失敗 ({date}): Status {response.status}")
+                        return None
+                    if attempt == 4:
+                        logger.warning(f"TWSE 連線失敗 ({date}): Status {response.status} after retries")
+                        return None
+                    await asyncio.sleep(0.8 * attempt)
+
+            if data is None:
+                return None
 
             if data.get('stat') != 'OK':
                 return None
