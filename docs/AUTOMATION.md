@@ -72,10 +72,14 @@ tail -f logs/launchd_retrain.log
 **功能**: 每日 PSI 監控 (02:00)，可手動傳入 `retrain` 執行模型重訓
 **流程**:
 1. 預設執行 PSI 漂移監控、factor monitor、M13 產業動能 shadow monitor，不覆蓋模型
-2. 傳入 `retrain` 時才備份 `models/latest_lgbm.pkl`
-3. 手動重訓模式會執行 LightGBM 訓練後再跑監控
-4. 清理 30 天前的舊備份
-5. 所有模式都會更新 `artifacts/automation_status.json`
+2. 傳入 `retrain` 時先檢查舊模型存在、資料 freshness 與 pipeline contract
+3. 備份 `models/latest_lgbm.pkl` 到 `models/backup/`
+4. 執行 LightGBM 訓練後，驗證新模型格式、mtime、feature count 與 metadata
+5. 跑 ranking smoke，確認新模型可產出當期 `ranking_YYYY-MM-DD.csv`
+6. 跑 PSI / factor / industry monitor
+7. 任一訓練後驗證失敗時，從備份回滾 `models/latest_lgbm.pkl`
+8. 清理 30 天前的舊備份
+9. 更新 `artifacts/automation_status.json`；重訓模式另產出 `artifacts/retrain_run_summary_YYYY-MM-DD.json`
 
 ### `scripts/run_automation.py`
 **功能**: 自動化統一入口，shell、launchd、cron 都只呼叫它
@@ -130,6 +134,13 @@ uv run --with-requirements requirements.txt python scripts/run_daily_postcheck.p
 - `metadata.daily_report_artifact`: 每日決策日報 JSON 路徑。
 - `metadata.clawd_publish_payload`: Clawd-ready payload JSON 路徑；只代表可交接，不代表已發送。
 - `metadata.clawd_publish_message`: Clawd-ready Markdown 訊息路徑。
+
+重訓狀態會額外寫入：
+
+- `metadata.retrain.previous_model`: 重訓前正式模型 path / mtime / sha256。
+- `metadata.retrain.backup_model`: 本次備份模型 path / mtime / sha256。
+- `metadata.retrain.new_model`: 新模型 path / mtime / sha256 / feature_count / sha256_changed。
+- `metadata.retrain.rollback`: 若訓練後驗證失敗，記錄回滾來源與原因。
 
 測試指定日期 gate 可用：
 
@@ -209,6 +220,10 @@ retrain:
   schedule: "manual"
   time: "02:00"
   backup_keep_days: 30
+  rollback_on_failure: true
+  ranking_smoke_enabled: true
+  monitor_after_train_enabled: true
+  min_feature_count: 50
   
 monitor:
   psi_warning: 0.25

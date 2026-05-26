@@ -7,8 +7,10 @@ Shell/launchd 只負責啟動這支程式；流程、狀態與設定集中在這
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import pickle
 import shutil
 import subprocess
 import sys
@@ -128,13 +130,29 @@ class AutomationRunner:
         self._run_command("industry_momentum.monitor", ["python", "scripts/monitor_industry_momentum.py"])
 
     def _run_retrain(self) -> None:
-        if not self.config.get("retrain", {}).get("enabled", True):
+        retrain_config = self.config.get("retrain", {})
+        if not retrain_config.get("enabled", True):
             self._record_step("retrain.disabled", "SKIPPED", message="config retrain.enabled=false")
             return
 
-        self._backup_model()
-        self._run_command("model.train", ["python", "-m", "app.agent_b_modeling"])
-        self._run_monitor()
+        self._retrain_preflight()
+        backup_path = self._backup_model()
+        train_started_at = datetime.now(timezone.utc)
+        self.status.metadata.setdefault("retrain", {})["train_started_at"] = train_started_at.isoformat()
+
+        try:
+            self._run_command("model.train", ["python", "-m", "app.agent_b_modeling"])
+            self._validate_retrained_model("model.validate", train_started_at)
+            if retrain_config.get("ranking_smoke_enabled", True):
+                ranking_started_at = datetime.now(timezone.utc)
+                self._run_command("model.ranking_smoke", ["python", "-m", "app.agent_b_ranking"])
+                self._record_latest_ranking("model.ranking_artifact", fresh_after=ranking_started_at)
+            if retrain_config.get("monitor_after_train_enabled", True):
+                self._run_monitor()
+        except Exception as exc:
+            if retrain_config.get("rollback_on_failure", True):
+                self._restore_model_backup(backup_path, reason=str(exc))
+            raise
         self._cleanup_backups()
 
     def _run_reference(self) -> None:
@@ -231,6 +249,15 @@ class AutomationRunner:
         self._record_model_existence()
         self._record_data_freshness("data.freshness.preflight")
 
+    def _retrain_preflight(self) -> None:
+        self._record_step("retrain.schema", "OK", message=STATUS_SCHEMA_VERSION)
+        self._record_step("retrain.run_date", "OK", message=self.run_date)
+        self._record_model_existence()
+        model_path = PROJECT_ROOT / "models" / "latest_lgbm.pkl"
+        self.status.metadata.setdefault("retrain", {})["previous_model"] = self._model_snapshot(model_path)
+        self._record_data_freshness("data.freshness.retrain_preflight")
+        self._run_command("data.validate", ["python", "-m", "app.pipeline_cli", "validate"])
+
     def _should_skip_non_trading_day(self, daily_config: dict[str, Any]) -> bool:
         weekend_enabled = bool(daily_config.get("weekend_enabled", False))
         weekday = self._today_local().weekday()
@@ -294,7 +321,7 @@ class AutomationRunner:
         )
         self._record_step(step_name, "OK", message=latest_summary)
 
-    def _record_latest_ranking(self, step_name: str) -> None:
+    def _record_latest_ranking(self, step_name: str, fresh_after: datetime | None = None) -> None:
         expected_path = self._expected_ranking_path()
         self.status.metadata["expected_ranking_artifact"] = str(expected_path)
         if self.dry_run:
@@ -303,6 +330,12 @@ class AutomationRunner:
         if not expected_path.exists():
             self._record_step(step_name, "FAILED", message=f"missing expected ranking artifact: {expected_path}")
             raise RuntimeError(f"ranking subprocess completed but expected artifact is missing: {expected_path}")
+        if fresh_after is not None:
+            ranking_mtime = datetime.fromtimestamp(expected_path.stat().st_mtime, tz=timezone.utc)
+            if ranking_mtime < fresh_after:
+                message = f"ranking artifact is stale: mtime={ranking_mtime.isoformat()} fresh_after={fresh_after.isoformat()}"
+                self._record_step(step_name, "FAILED", message=message)
+                raise RuntimeError(message)
         self.status.metadata["ranking_artifact"] = str(expected_path)
         self._record_step(step_name, "OK", message=str(expected_path))
 
@@ -322,18 +355,82 @@ class AutomationRunner:
         self.status.skip_reason = reason
         self._record_step(step_name, "SKIPPED", message=reason)
 
-    def _backup_model(self) -> None:
+    def _backup_model(self) -> Path | None:
         model_path = PROJECT_ROOT / "models" / "latest_lgbm.pkl"
         if not model_path.exists():
             self._record_step("model.backup", "SKIPPED", message="models/latest_lgbm.pkl 不存在")
-            return
+            return None
         backup_name = f"lgbm_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl"
         backup_path = PROJECT_ROOT / "models" / "backup" / backup_name
         if self.dry_run:
             self._record_step("model.backup", "DRY_RUN", message=str(backup_path))
-            return
+            self.status.metadata.setdefault("retrain", {})["expected_backup_model"] = str(backup_path)
+            return backup_path
         shutil.copy2(model_path, backup_path)
+        self.status.metadata.setdefault("retrain", {})["backup_model"] = self._model_snapshot(backup_path)
         self._record_step("model.backup", "OK", message=str(backup_path))
+        return backup_path
+
+    def _restore_model_backup(self, backup_path: Path | None, reason: str) -> None:
+        if backup_path is None:
+            self._record_step("model.rollback", "SKIPPED", message="no backup model available")
+            return
+        model_path = PROJECT_ROOT / "models" / "latest_lgbm.pkl"
+        if self.dry_run:
+            self._record_step("model.rollback", "DRY_RUN", message=f"restore={backup_path} reason={reason}")
+            return
+        if not backup_path.exists():
+            self._record_step("model.rollback", "FAILED", message=f"backup missing: {backup_path}")
+            raise RuntimeError(f"模型回滾失敗，備份不存在：{backup_path}")
+        shutil.copy2(backup_path, model_path)
+        self.status.metadata.setdefault("retrain", {})["rollback"] = {
+            "restored_from": str(backup_path),
+            "reason": reason,
+            "restored_model": self._model_snapshot(model_path),
+        }
+        self._record_step("model.rollback", "OK", message=f"restored={backup_path}")
+
+    def _validate_retrained_model(self, step_name: str, train_started_at: datetime) -> None:
+        model_path = PROJECT_ROOT / "models" / "latest_lgbm.pkl"
+        if self.dry_run:
+            self._record_step(step_name, "DRY_RUN", message=str(model_path))
+            return
+        if not model_path.exists():
+            self._record_step(step_name, "FAILED", message="models/latest_lgbm.pkl 不存在")
+            raise RuntimeError("model.train completed but models/latest_lgbm.pkl is missing")
+
+        model_mtime = datetime.fromtimestamp(model_path.stat().st_mtime, tz=timezone.utc)
+        if model_mtime < train_started_at:
+            message = f"model artifact is stale: mtime={model_mtime.isoformat()} train_started={train_started_at.isoformat()}"
+            self._record_step(step_name, "FAILED", message=message)
+            raise RuntimeError(message)
+
+        with model_path.open("rb") as handle:
+            payload = pickle.load(handle)
+        if not isinstance(payload, dict):
+            self._record_step(step_name, "FAILED", message="new model payload is not dict")
+            raise RuntimeError("新模型不是最新 dict 格式，拒絕覆蓋正式模型")
+
+        model = payload.get("model")
+        feature_names = payload.get("feature_names")
+        if not feature_names and hasattr(model, "feature_name"):
+            feature_names = model.feature_name()
+        feature_count = len(feature_names or [])
+        min_feature_count = int(self.config.get("retrain", {}).get("min_feature_count", 50))
+        if feature_count < min_feature_count:
+            message = f"feature_count={feature_count} < min_feature_count={min_feature_count}"
+            self._record_step(step_name, "FAILED", message=message)
+            raise RuntimeError(message)
+        if payload.get("metadata") is None:
+            self._record_step(step_name, "FAILED", message="new model missing metadata")
+            raise RuntimeError("新模型缺少 metadata")
+
+        previous_sha = (self.status.metadata.get("retrain", {}).get("previous_model") or {}).get("sha256")
+        new_snapshot = self._model_snapshot(model_path)
+        new_snapshot["feature_count"] = feature_count
+        new_snapshot["sha256_changed"] = bool(previous_sha and previous_sha != new_snapshot.get("sha256"))
+        self.status.metadata.setdefault("retrain", {})["new_model"] = new_snapshot
+        self._record_step(step_name, "OK", message=f"features={feature_count} sha256_changed={new_snapshot['sha256_changed']}")
 
     def _cleanup_backups(self) -> None:
         keep_days = int(self.config.get("retrain", {}).get("backup_keep_days", 30))
@@ -379,8 +476,17 @@ class AutomationRunner:
                 json.dumps(self._daily_summary_payload(payload), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+        if self.mode == "retrain":
+            summary_path = PROJECT_ROOT / "artifacts" / f"retrain_run_summary_{self.run_date}.json"
+            summary_path.write_text(
+                json.dumps(self._automation_summary_payload(payload), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
 
     def _daily_summary_payload(self, status_payload: dict[str, Any]) -> dict[str, Any]:
+        return self._automation_summary_payload(status_payload)
+
+    def _automation_summary_payload(self, status_payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "schema_version": STATUS_SCHEMA_VERSION,
             "run_date": self.run_date,
@@ -402,6 +508,25 @@ class AutomationRunner:
             ],
             "metadata": status_payload.get("metadata", {}),
         }
+
+    def _model_snapshot(self, path: Path) -> dict[str, Any]:
+        if not path.exists():
+            return {"path": str(path), "exists": False}
+        stat = path.stat()
+        return {
+            "path": str(path),
+            "exists": True,
+            "size_bytes": stat.st_size,
+            "mtime": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+            "sha256": self._sha256(path),
+        }
+
+    def _sha256(self, path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
 
     def _load_config(self) -> dict[str, Any]:
         config_path = PROJECT_ROOT / "config" / "automation.yaml"

@@ -26,6 +26,10 @@ retrain:
   schedule: "manual"          # manual, weekly, monthly
   time: "02:00"               # 執行時間
   backup_keep_days: 30        # 保留備份天數
+  rollback_on_failure: true    # 訓練後驗證、ranking smoke 或 monitor 失敗時回滾舊模型
+  ranking_smoke_enabled: true  # 新模型完成後先跑 ranking smoke，確認可產出當期 ranking
+  monitor_after_train_enabled: true # 新模型完成後跑 PSI / factor / industry monitor
+  min_feature_count: 50        # 新模型 feature 數低於此值視為異常
   
   # Optuna 調優參數
   optuna_trials: 20           # 每次重訓的調優次數
