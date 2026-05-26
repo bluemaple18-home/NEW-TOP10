@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import scripts.run_automation as automation
+from app.pipeline.validation import PipelineDataValidator
 
 
 def main() -> int:
@@ -33,6 +34,12 @@ def main() -> int:
                 assert "TWSE actual=0" in str(exc)
             else:
                 raise AssertionError("missing TWSE latest market coverage should fail")
+            validator = PipelineDataValidator(data_dir=root / "data")
+            summary = validator.validate_contract(validator.features_contract())
+            assert any(
+                issue.severity == "ERROR" and "TWSE actual=0" in issue.message
+                for issue in summary.issues
+            ), "pipeline contract should reject missing TWSE latest market coverage"
 
             write_clean_data(root, twse_count=60, tpex_count=60)
             runner = automation.AutomationRunner(mode="daily", dry_run=True)
@@ -41,6 +48,10 @@ def main() -> int:
             assert step.status == "OK"
             coverage = runner.status.metadata["data_freshness"]["datasets"]["features.parquet"]["latest_market_coverage"]
             assert {item["status"] for item in coverage["markets"]} == {"OK"}
+            validator = PipelineDataValidator(data_dir=root / "data")
+            summary = validator.validate_contract(validator.features_contract())
+            coverage_errors = [issue for issue in summary.issues if "最新日期市場覆蓋不足" in issue.message]
+            assert not coverage_errors, f"pipeline contract should pass balanced latest market coverage: {coverage_errors}"
     finally:
         automation.PROJECT_ROOT = original_root
         automation.STATUS_PATH = original_status
@@ -98,13 +109,20 @@ def write_clean_data(root: Path, twse_count: int, tpex_count: int) -> None:
                     "low": 9.0,
                     "close": 10.5,
                     "volume": 1000,
+                    "ma5": 10.3,
+                    "ma20": 10.0,
+                    "rsi": 55.0,
+                    "macd": 0.1,
+                    "macd_signal": 0.05,
+                    "bb_middle": 10.0,
+                    "avg_value_20d": 30_000_000,
                 }
             )
     clean = root / "data" / "clean"
     frame = pd.DataFrame(rows)
     frame.to_parquet(clean / "features.parquet", index=False)
     frame[["date", "stock_id"]].assign(event_flag=0).to_parquet(clean / "events.parquet", index=False)
-    frame[["date", "stock_id", "close"]].to_parquet(clean / "universe.parquet", index=False)
+    frame[["date", "stock_id", "close", "avg_value_20d"]].to_parquet(clean / "universe.parquet", index=False)
 
 
 if __name__ == "__main__":

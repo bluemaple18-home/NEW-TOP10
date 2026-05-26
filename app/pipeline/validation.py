@@ -89,10 +89,19 @@ class PipelineDataValidator:
         "avg_value_20d",
     )
 
-    def __init__(self, data_dir: str | Path = "data", config_path: str | Path = "config/signals.yaml"):
+    def __init__(
+        self,
+        data_dir: str | Path = "data",
+        config_path: str | Path | None = None,
+        automation_config_path: str | Path | None = None,
+    ):
         self.data_dir = Path(data_dir)
         self.clean_dir = self.data_dir / "clean"
-        self.config_path = Path(config_path)
+        self.project_root = self.data_dir.parent if self.data_dir.name == "data" else self.data_dir
+        self.config_path = Path(config_path) if config_path is not None else self.project_root / "config" / "signals.yaml"
+        self.automation_config_path = (
+            Path(automation_config_path) if automation_config_path is not None else self.project_root / "config" / "automation.yaml"
+        )
 
     def validate_outputs(self) -> ValidationReport:
         contracts = [
@@ -162,6 +171,7 @@ class PipelineDataValidator:
             self._validate_trade_date_keys(df, contract, summary)
             self._validate_numeric_columns(df, contract, summary)
             self._validate_latest_coverage(df, contract, summary)
+            self._validate_latest_market_counts(df, contract, summary)
             self._validate_market_latest_coverage(df, contract, summary)
             self._validate_event_columns(df, contract, summary)
         return summary
@@ -239,6 +249,57 @@ class PipelineDataValidator:
                     )
                 )
 
+    def _validate_latest_market_counts(self, df: pd.DataFrame, contract: DatasetContract, summary: DatasetSummary) -> None:
+        if contract.name != "features" or contract.path.name != "features.parquet" or contract.path.parent.name != "clean":
+            return
+        config = self._daily_market_coverage_config()
+        if not config["enabled"]:
+            return
+        if "date" not in df.columns or "stock_id" not in df.columns:
+            return
+
+        expected_counts = self._expected_market_counts(config["required_markets"])
+        if not expected_counts:
+            summary.issues.append(
+                ValidationIssue("ERROR", contract.name, "無法驗證最新日期市場覆蓋：缺少 tradable_universe.csv 或 market_type", "market")
+            )
+            return
+
+        dates = pd.to_datetime(df["date"], errors="coerce")
+        if dates.notna().sum() == 0:
+            return
+        latest_df = df[dates.dt.normalize() == dates.dt.normalize().max()].copy()
+        if latest_df.empty:
+            return
+        if "market" in latest_df.columns:
+            latest_df["market_type"] = latest_df["market"].astype(str).str.strip().str.lower()
+        else:
+            latest_df["market_type"] = latest_df["stock_id"].astype(str).str.strip().map(self._stock_market_map())
+
+        actual_counts = (
+            latest_df.dropna(subset=["market_type"])
+            .assign(stock_id=lambda frame: frame["stock_id"].astype(str).str.strip())
+            .groupby("market_type")["stock_id"]
+            .nunique()
+            .to_dict()
+        )
+        for market in config["required_markets"]:
+            expected = int(expected_counts.get(market, 0))
+            actual = int(actual_counts.get(market, 0))
+            ratio = round(actual / expected, 4) if expected else 0.0
+            if expected <= 0 or ratio < config["min_ratio"]:
+                summary.issues.append(
+                    ValidationIssue(
+                        "ERROR",
+                        contract.name,
+                        (
+                            f"最新日期市場覆蓋不足：{market.upper()} actual={actual} "
+                            f"expected={expected} ratio={ratio} < min={config['min_ratio']}"
+                        ),
+                        "market",
+                    )
+                )
+
     def _validate_market_latest_coverage(self, df: pd.DataFrame, contract: DatasetContract, summary: DatasetSummary) -> None:
         if contract.name != "features" or "date" not in df.columns or "stock_id" not in df.columns:
             return
@@ -251,12 +312,7 @@ class PipelineDataValidator:
         latest_df = df[dates.dt.normalize() == dates.dt.normalize().max()].copy()
         if latest_df.empty:
             return
-        market_map = {
-            item.stock_id: item.market_type
-            for item in ReferenceRepository(self.data_dir.parent if self.data_dir.name == "data" else Path.cwd())
-            .tradable_universe()
-            .items
-        }
+        market_map = self._stock_market_map()
         latest_df["market_type"] = latest_df["stock_id"].astype(str).str.strip().map(market_map)
         for market_type, group in latest_df.groupby("market_type", dropna=True):
             if group.empty:
@@ -272,6 +328,57 @@ class PipelineDataValidator:
                             col,
                         )
                     )
+
+    def _daily_market_coverage_config(self) -> dict[str, Any]:
+        if not self.automation_config_path.exists():
+            return {"enabled": False, "required_markets": [], "min_ratio": 0.0}
+        config = yaml.safe_load(self.automation_config_path.read_text(encoding="utf-8")) or {}
+        daily = config.get("daily", {}) or {}
+        return {
+            "enabled": bool(daily.get("market_coverage_enabled", True)),
+            "required_markets": [
+                str(market).strip().lower()
+                for market in daily.get("required_market_types", ["twse", "tpex"])
+                if str(market).strip()
+            ],
+            "min_ratio": float(daily.get("min_latest_market_coverage_ratio", 0.5)),
+        }
+
+    def _expected_market_counts(self, required_markets: list[str]) -> dict[str, int]:
+        universe = self._load_tradable_universe().copy()
+        if universe.empty or "market_type" not in universe.columns:
+            return {}
+        if "is_active" in universe.columns:
+            universe = universe[universe["is_active"].map(self._truthy_value).fillna(True)]
+        if "is_etf" in universe.columns:
+            universe = universe[~universe["is_etf"].map(self._truthy_value).fillna(False)]
+        universe["market_type"] = universe["market_type"].astype(str).str.strip().str.lower()
+        counts = universe.groupby("market_type")["stock_id"].nunique().to_dict()
+        return {market: int(counts.get(market, 0)) for market in required_markets}
+
+    def _stock_market_map(self) -> dict[str, str]:
+        universe = self._load_tradable_universe().copy()
+        if universe.empty or "market_type" not in universe.columns:
+            return {}
+        universe["stock_id"] = universe["stock_id"].astype(str).str.strip()
+        universe["market_type"] = universe["market_type"].astype(str).str.strip().str.lower()
+        return dict(zip(universe["stock_id"], universe["market_type"], strict=False))
+
+    def _load_tradable_universe(self) -> pd.DataFrame:
+        return ReferenceRepository(self.project_root).load_tradable_universe()
+
+    @staticmethod
+    def _truthy_value(value: Any) -> bool | None:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return None
+        text = str(value).strip().lower()
+        if text in {"true", "1", "yes", "y"}:
+            return True
+        if text in {"false", "0", "no", "n"}:
+            return False
+        return None
 
     def _validate_event_columns(self, df: pd.DataFrame, contract: DatasetContract, summary: DatasetSummary) -> None:
         for col in contract.event_columns:

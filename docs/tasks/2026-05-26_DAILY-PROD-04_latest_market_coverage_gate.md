@@ -5,8 +5,8 @@
 任務ID：DAILY-PROD-04  
 卡片類型｜派工對象：Ops / Daily Data Contract｜Codex  
 請讀：`scripts/run_automation.py`、`config/automation.yaml`、`scripts/verify_daily_market_coverage_gate.py`、`data/clean/features.parquet`  
-任務目的：補上 daily freshness 的最新交易日市場覆蓋檢查，避免 features/events/universe 日期是新的，但最新日只抓到 TPEX 或 TWSE 單一市場仍被標成 OK  
-證據路徑：`artifacts/automation_status.json`、`artifacts/daily_run_summary_YYYY-MM-DD.json`、`scripts/verify_daily_market_coverage_gate.py`
+任務目的：補上 daily freshness 與 pipeline contract 的最新交易日市場覆蓋檢查，避免 features/events/universe 日期是新的，但最新日只抓到 TPEX 或 TWSE 單一市場仍被標成 OK
+證據路徑：`artifacts/automation_status.json`、`artifacts/daily_run_summary_YYYY-MM-DD.json`、`scripts/verify_daily_market_coverage_gate.py`、`app/pipeline/validation.py`
 
 ## 邊界
 
@@ -27,12 +27,13 @@
 
 - `config/automation.yaml` 明確設定 `market_coverage_enabled`、`required_market_types`、`min_latest_market_coverage_ratio`。
 - `scripts/run_automation.py` 在 `_record_data_freshness()` 中寫入 `latest_market_coverage` metadata。
+- `app.pipeline_cli validate` 對正式 `data/clean/features.parquet` 執行同一套最新日市場覆蓋 gate，不讓資料契約本身把單一市場 latest data 判為 OK。
 - 若最新日 required market 覆蓋不足，`data.freshness.*` step 必須 `FAILED`，且錯誤訊息包含 market、actual、expected、coverage ratio。
-- synthetic regression 必須覆蓋：只有 TPEX 時失敗；TWSE/TPEX 都達門檻時通過。
+- synthetic regression 必須覆蓋：只有 TPEX 時 automation freshness 與 pipeline contract 都失敗；TWSE/TPEX 都達門檻時通過。
 
 ## 本地驗證
 
 - `uv run --with-requirements requirements.txt python scripts/verify_daily_market_coverage_gate.py`
-- `PYTHONPYCACHEPREFIX=/private/tmp/top10_pycache python3 -m py_compile scripts/run_automation.py scripts/verify_daily_market_coverage_gate.py`
+- `PYTHONPYCACHEPREFIX=/private/tmp/top10_pycache python3 -m py_compile scripts/run_automation.py app/pipeline/validation.py scripts/verify_daily_market_coverage_gate.py`
 - `uv run --with-requirements requirements.txt python -m scripts.run_automation daily --dry-run` 目前預期失敗，原因為 `TWSE actual=0 expected=1080 ratio=0.0 < min=0.5`。
 - `artifacts/automation_status.json` evidence：`mode=daily`、`dry_run=true`、`status=FAILED`、`features.parquet.latest_market_coverage` 中 `TWSE=FAILED`、`TPEX=OK`。

@@ -97,7 +97,7 @@ uv run --with-requirements requirements.txt python -m scripts.run_automation ref
 uv run --with-requirements requirements.txt python -m scripts.run_automation status
 ```
 
-每日流程會在 ETL 後執行 `python -m app.pipeline_cli validate`，確認 `features/events/universe` 符合資料契約後才跑排名。
+每日流程會在 ETL 後執行 `python -m app.pipeline_cli validate`，確認 `features/events/universe` 符合資料契約後才跑排名。正式 `data/clean/features.parquet` 的最新日也會在資料契約層檢查 TWSE/TPEX 覆蓋；若只剩單一市場，`validate` 會直接失敗，不只依賴 automation freshness gate。
 
 ranking 後會執行 weekly snapshot：
 
