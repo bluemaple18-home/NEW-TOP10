@@ -299,6 +299,7 @@ class AutomationRunner:
         required = ["features.parquet", "events.parquet", "universe.parquet"]
         freshness: dict[str, Any] = {"datasets": {}, "max_lag_days": self._daily_max_data_lag_days()}
         stale_errors: list[str] = []
+        coverage_errors: list[str] = []
 
         for filename in required:
             path = clean_dir / filename
@@ -317,20 +318,139 @@ class AutomationRunner:
                 "latest_date": latest.isoformat(),
                 "lag_days": int(lag_days),
             }
+            if filename == "features.parquet" and self._market_coverage_enabled():
+                market_coverage = self._latest_market_coverage(pd, df, date_col)
+                info["latest_market_coverage"] = market_coverage
+                for item in market_coverage.get("markets", []):
+                    if item.get("status") == "FAILED":
+                        coverage_errors.append(
+                            "{market} actual={actual} expected={expected} ratio={ratio} < min={minimum}".format(
+                                market=item.get("market_type"),
+                                actual=item.get("actual_count"),
+                                expected=item.get("expected_count"),
+                                ratio=item.get("coverage_ratio"),
+                                minimum=market_coverage.get("min_coverage_ratio"),
+                            )
+                        )
             freshness["datasets"][filename] = info
             if lag_days > freshness["max_lag_days"]:
                 stale_errors.append(f"{filename} latest={latest.isoformat()} lag_days={lag_days}")
 
         self.status.metadata["data_freshness"] = freshness
-        if stale_errors:
-            message = "; ".join(stale_errors)
+        errors = stale_errors + coverage_errors
+        if errors:
+            message = "; ".join(errors)
             self._record_step(step_name, "FAILED", message=message)
-            raise RuntimeError(f"資料過舊：{message}")
+            raise RuntimeError(f"資料 freshness / 市場覆蓋檢查失敗：{message}")
         latest_summary = ", ".join(
             f"{name}:{info['latest_date']} lag={info['lag_days']}"
             for name, info in freshness["datasets"].items()
         )
         self._record_step(step_name, "OK", message=latest_summary)
+
+    def _market_coverage_enabled(self) -> bool:
+        return bool(self.config.get("daily", {}).get("market_coverage_enabled", True))
+
+    def _latest_market_coverage(self, pd: Any, df: Any, date_col: str) -> dict[str, Any]:
+        daily_config = self.config.get("daily", {})
+        required_markets = [
+            str(market).strip().lower()
+            for market in daily_config.get("required_market_types", ["twse", "tpex"])
+            if str(market).strip()
+        ]
+        min_ratio = float(daily_config.get("min_latest_market_coverage_ratio", 0.5))
+        expected_counts = self._expected_market_counts(pd, required_markets)
+
+        trade_dates = pd.to_datetime(df[date_col], errors="coerce").dt.normalize()
+        latest = trade_dates.max()
+        latest_df = df[trade_dates == latest].copy()
+        if latest_df.empty:
+            return {
+                "latest_date": None,
+                "min_coverage_ratio": min_ratio,
+                "markets": [
+                    {
+                        "market_type": market.upper(),
+                        "expected_count": expected_counts.get(market, 0),
+                        "actual_count": 0,
+                        "coverage_ratio": 0.0,
+                        "status": "FAILED",
+                    }
+                    for market in required_markets
+                ],
+            }
+
+        if "market" in latest_df.columns:
+            latest_df["market_type"] = latest_df["market"].astype(str).str.strip().str.lower()
+        else:
+            latest_df["market_type"] = latest_df["stock_id"].astype(str).str.strip().map(self._stock_market_map(pd))
+
+        actual_counts = (
+            latest_df.dropna(subset=["market_type"])
+            .assign(stock_id=lambda frame: frame["stock_id"].astype(str).str.strip())
+            .groupby("market_type")["stock_id"]
+            .nunique()
+            .to_dict()
+        )
+        markets = []
+        for market in required_markets:
+            expected = int(expected_counts.get(market, 0))
+            actual = int(actual_counts.get(market, 0))
+            ratio = round(actual / expected, 4) if expected else 0.0
+            status = "OK" if expected > 0 and ratio >= min_ratio else "FAILED"
+            markets.append(
+                {
+                    "market_type": market.upper(),
+                    "expected_count": expected,
+                    "actual_count": actual,
+                    "coverage_ratio": ratio,
+                    "status": status,
+                }
+            )
+        return {
+            "latest_date": latest.date().isoformat() if pd.notna(latest) else None,
+            "min_coverage_ratio": min_ratio,
+            "markets": markets,
+        }
+
+    def _expected_market_counts(self, pd: Any, required_markets: list[str]) -> dict[str, int]:
+        universe_path = PROJECT_ROOT / "data" / "reference" / "tradable_universe.csv"
+        if not universe_path.exists():
+            return {market: 0 for market in required_markets}
+        universe = pd.read_csv(universe_path, dtype={"stock_id": str})
+        if universe.empty or "market_type" not in universe.columns:
+            return {market: 0 for market in required_markets}
+        if "is_active" in universe.columns:
+            universe = universe[universe["is_active"].map(self._truthy_value).fillna(True)]
+        if "is_etf" in universe.columns:
+            universe = universe[~universe["is_etf"].map(self._truthy_value).fillna(False)]
+        universe["market_type"] = universe["market_type"].astype(str).str.strip().str.lower()
+        counts = universe.groupby("market_type")["stock_id"].nunique().to_dict()
+        return {market: int(counts.get(market, 0)) for market in required_markets}
+
+    def _stock_market_map(self, pd: Any) -> dict[str, str]:
+        universe_path = PROJECT_ROOT / "data" / "reference" / "tradable_universe.csv"
+        if not universe_path.exists():
+            return {}
+        universe = pd.read_csv(universe_path, dtype={"stock_id": str})
+        if universe.empty or "market_type" not in universe.columns:
+            return {}
+        universe["stock_id"] = universe["stock_id"].astype(str).str.strip()
+        universe["market_type"] = universe["market_type"].astype(str).str.strip().str.lower()
+        return dict(zip(universe["stock_id"], universe["market_type"], strict=False))
+
+    @staticmethod
+    def _truthy_value(value: Any) -> bool | None:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return None
+        text = str(value).strip().lower()
+        if text in {"true", "1", "yes", "y"}:
+            return True
+        if text in {"false", "0", "no", "n"}:
+            return False
+        return None
 
     def _record_latest_ranking(self, step_name: str, fresh_after: datetime | None = None) -> None:
         expected_path = self._expected_ranking_path()

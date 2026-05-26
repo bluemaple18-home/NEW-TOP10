@@ -11,6 +11,9 @@ daily:
   run_time: "22:00"          # 每日執行時間
   weekend_enabled: false      # 週末是否執行 (false = 僅工作日)
   max_data_lag_days: 7         # features/events/universe 最新交易日允許落後幾個日曆日
+  market_coverage_enabled: true # 最新交易日必須同時覆蓋上市 / 上櫃，避免只抓到單一市場仍誤判新鮮
+  required_market_types: ["twse", "tpex"]
+  min_latest_market_coverage_ratio: 0.5
   weekly_snapshot_enabled: true # MOM-01：ranking 後產生本週模型初選池 / 每日快照 artifact
   daily_report_enabled: true    # DAILY-02：ranking 後產出 PM/使用者可讀的每日決策日報
   clawd_payload_enabled: true   # CLAWD-01：daily report 後產出 Clawd-ready payload；不實際發送

@@ -56,9 +56,9 @@ tail -f logs/launchd_retrain.log
 ### `scripts/run_daily.sh`
 **功能**: 每日自動執行 (22:00)
 **流程**:
-1. 執行 daily preflight：交易日 gate、模型檔存在、資料 freshness。
+1. 執行 daily preflight：交易日 gate、模型檔存在、資料 freshness 與最新日 TWSE/TPEX 市場覆蓋。
 2. 執行 ETL 更新當日資料。
-3. 執行資料契約驗證與 ETL 後 freshness 檢查。
+3. 執行資料契約驗證與 ETL 後 freshness / 市場覆蓋檢查。
 4. 呼叫 Agent B 選股。
 5. 產出 `artifacts/ranking_YYYY-MM-DD.csv`。
 6. 產出 `artifacts/weekly_candidate_snapshot_YYYY-MM-DD.json`，固定本週模型初選池 / 每日快照 contract。
@@ -131,7 +131,7 @@ uv run --with-requirements requirements.txt python scripts/run_daily_postcheck.p
 - `status`: `OK` / `FAILED` / `SKIPPED`。
 - `skip_reason`: 非交易日或設定停用時必填。
 - `metadata.model`: `models/latest_lgbm.pkl` 是否存在與 mtime。
-- `metadata.data_freshness`: `features.parquet`、`events.parquet`、`universe.parquet` 的最新日期與 lag days。
+- `metadata.data_freshness`: `features.parquet`、`events.parquet`、`universe.parquet` 的最新日期與 lag days；`features.parquet` 會額外記錄 `latest_market_coverage`，避免最新日只抓到單一市場仍被視為完整。
 - `metadata.ranking_artifact`: daily ranking 產物路徑。
 - `metadata.expected_ranking_artifact`: dry-run 或缺檔診斷時的預期 ranking 路徑；dry-run 不會把既有舊檔當正式成功產物。
 - `metadata.daily_report_artifact`: 每日決策日報 JSON 路徑。
