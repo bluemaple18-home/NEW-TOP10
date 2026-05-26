@@ -71,12 +71,12 @@ tail -f logs/launchd_retrain.log
 ### `scripts/daily_retrain.sh`
 **功能**: 每日 PSI 監控 (02:00)，可手動傳入 `retrain` 執行模型重訓
 **流程**:
-1. 預設執行 PSI 漂移監控、factor monitor、M13 產業動能 shadow monitor，不覆蓋模型
+1. 預設執行 PSI 漂移監控、factor monitor、M13 產業動能 shadow monitor 與 model health report，不覆蓋模型
 2. 傳入 `retrain` 時先檢查舊模型存在、資料 freshness 與 pipeline contract
 3. 備份 `models/latest_lgbm.pkl` 到 `models/backup/`
 4. 執行 LightGBM 訓練後，驗證新模型格式、mtime、feature count 與 metadata
 5. 跑 ranking smoke，確認新模型可產出當期 `ranking_YYYY-MM-DD.csv`
-6. 跑 PSI / factor / industry monitor
+6. 跑 PSI / factor / industry monitor 與 model health report
 7. `--trigger auto|scheduled` 時套用 promotion gate；若 PSI `CRITICAL` 或 factor `WARN` 超門檻，拒絕 promote 並回滾
 8. 任一訓練後驗證失敗時，從備份回滾 `models/latest_lgbm.pkl`
 9. 清理 30 天前的舊備份
@@ -206,6 +206,28 @@ uv run --with-requirements requirements.txt python scripts/monitor_industry_mome
 - `artifacts/industry_momentum_walkforward_shadow.md`
 
 輸出只作為離線監控與研究證據，不會修改 production ranking、LightGBM feature list、API contract 或 weekly 推薦文案。
+
+### `scripts/generate_model_health_report.py`
+**功能**: M11 模型健康總覽
+**用法**:
+```bash
+uv run --with-requirements requirements.txt python scripts/generate_model_health_report.py
+```
+
+只讀 `models/latest_lgbm.pkl`、`artifacts/ranking_*.csv`、PSI / factor / industry monitor artifact 與 `data/clean/features.parquet`，輸出：
+
+- `artifacts/model_health_report_YYYY-MM-DD.json`
+- `artifacts/model_health_report_latest.json`
+
+此報告會標記模型檔、ranking artifact、monitor 狀態與已成熟 ranking 的 realized outcome。若 latest ranking 尚未滿足 horizon，會列為 pending，不當作流程失敗。
+
+模型組總驗收可用：
+
+```bash
+uv run --with-requirements requirements.txt python scripts/verify_model_group_acceptance.py
+```
+
+它會重跑模型底座、review regression、data contracts、model health、rollback gate 等只讀驗證，並輸出 `artifacts/model_group_acceptance_YYYY-MM-DD.json`。`status=OK` 代表模型組驗收入口可營運；`auto_retrain_readiness=BLOCKED` 代表仍不可開啟自動重訓。
 
 ---
 

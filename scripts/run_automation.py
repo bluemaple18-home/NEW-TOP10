@@ -129,6 +129,7 @@ class AutomationRunner:
         self._run_command("psi.monitor", ["python", "-m", "app.model_monitor"])
         self._run_command("factor.monitor", ["python", "scripts/monitor_factors.py"])
         self._run_command("industry_momentum.monitor", ["python", "scripts/monitor_industry_momentum.py"])
+        self._run_command("model.health", ["python", "scripts/generate_model_health_report.py"])
 
     def _run_retrain(self) -> None:
         retrain_config = self.config.get("retrain", {})
