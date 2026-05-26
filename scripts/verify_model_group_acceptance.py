@@ -26,6 +26,7 @@ SCHEMA_VERSION = "model-group-acceptance.v1"
 
 CHECKS: tuple[tuple[str, list[str]], ...] = (
     ("model.foundation", ["scripts/verify_model_foundation.py"]),
+    ("sealed_oos.unit", ["scripts/verify_sealed_oos_gate.py"]),
     ("review.regressions", ["scripts/verify_review_fixes.py"]),
     ("data.contracts", ["scripts/verify_data_contracts.py"]),
     ("model.health.unit", ["scripts/verify_model_health_report.py"]),

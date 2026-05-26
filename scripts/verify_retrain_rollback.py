@@ -48,6 +48,15 @@ def _prepare_temp_project(root: Path) -> None:
                 '  promotion_gate_block_psi_statuses: ["CRITICAL"]',
                 '  promotion_gate_block_factor_statuses: ["WARN"]',
                 "  promotion_gate_max_factor_warn_count: 0",
+                "  sealed_oos:",
+                "    enabled: true",
+                "    sealed_trade_days: 20",
+                "    embargo_trade_days: 2",
+                "    min_train_trade_days: 20",
+                "    min_sealed_trade_days: 10",
+                "    min_sealed_samples: 10",
+                "    min_positive_labels: 1",
+                "    min_negative_labels: 1",
             ]
         ),
         encoding="utf-8",
@@ -89,6 +98,28 @@ def _run_case(case_name: str) -> dict[str, object]:
                 if case_name == "ranking" and name == "model.ranking_smoke":
                     self._record_step(name, "FAILED", message="injected ranking failure")
                     raise RuntimeError("injected ranking failure")
+                if name == "model.sealed_oos":
+                    report = {
+                        "status": "OK",
+                        "metrics": {"auc": 0.61, "top_n_return_uplift": 0.01},
+                        "split": {"sealed_start_date": "2024-03-01"},
+                        "failures": [],
+                    }
+                    if case_name == "sealed_oos":
+                        report["status"] = "FAILED"
+                        report["failures"] = ["injected sealed OOS failure"]
+                        self._record_step(name, "FAILED", message="injected sealed OOS failure")
+                        (temp_root / "artifacts" / "sealed_oos_report_latest.json").write_text(
+                            json.dumps(report, ensure_ascii=False),
+                            encoding="utf-8",
+                        )
+                        raise RuntimeError("injected sealed OOS failure")
+                    (temp_root / "artifacts" / "sealed_oos_report_latest.json").write_text(
+                        json.dumps(report, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+                    self._record_step(name, "OK", message="injected sealed OOS ok")
+                    return
                 self._record_step(name, "OK", message="injected ok")
 
             def fake_validate(self: automation.AutomationRunner, step_name: str, train_started_at: datetime) -> None:
@@ -173,7 +204,10 @@ def _run_case(case_name: str) -> dict[str, object]:
 
 
 def main() -> int:
-    cases = [_run_case(case_name) for case_name in ["validate", "ranking", "monitor", "promotion_gate", "manual_promotion_skip"]]
+    cases = [
+        _run_case(case_name)
+        for case_name in ["validate", "sealed_oos", "ranking", "monitor", "promotion_gate", "manual_promotion_skip"]
+    ]
     ok = all(bool(case["passed"]) for case in cases)
     run_date = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y-%m-%d")
     output_path = automation.PROJECT_ROOT / "artifacts" / f"retrain_rollback_injection_{run_date}.json"

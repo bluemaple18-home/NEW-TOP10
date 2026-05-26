@@ -1,4 +1,5 @@
 
+import argparse
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
@@ -17,6 +18,7 @@ import mlflow
 import mlflow.lightgbm
 import webbrowser
 import os
+import yaml
 
 # 引入新的標籤生成器
 try:
@@ -32,6 +34,7 @@ try:
         candidate_feature_columns,
         load_m4_feature_frame,
     )
+    from app.modeling.sealed_oos import SealedOOSConfig, build_sealed_oos_split
 except ImportError:
     from modeling.feature_contract import (
         FeatureFrameMetadata,
@@ -39,6 +42,7 @@ except ImportError:
         candidate_feature_columns,
         load_m4_feature_frame,
     )
+    from modeling.sealed_oos import SealedOOSConfig, build_sealed_oos_split
 
 
 class LightGBMTrainer:
@@ -61,6 +65,7 @@ class LightGBMTrainer:
         self.calibrator = None  # 機率校準器
         self.best_params = None
         self.feature_metadata: FeatureFrameMetadata | None = None
+        self.sealed_oos_metadata: dict[str, Any] | None = None
         self.model_metadata: dict[str, Any] = {}
         self.training_feature_names: list[str] = []
         
@@ -167,6 +172,24 @@ class LightGBMTrainer:
         
         print(f"✓ 準備訓練資料: {len(X)} 筆, {len(feature_cols)} 個特徵")
         return X, y, feature_cols
+
+    def apply_sealed_oos_split(self, df: pd.DataFrame, config: SealedOOSConfig) -> pd.DataFrame:
+        """切出封閉 OOS 視窗，只回傳可用於訓練/調參/校準的 development frame。"""
+        if not config.enabled:
+            self.sealed_oos_metadata = {"enabled": False}
+            print("⚠ Sealed OOS 已停用，本次訓練不切封閉測試視窗")
+            return df
+
+        split = build_sealed_oos_split(df, config, horizon=self.horizon, threshold=self.threshold)
+        self.sealed_oos_metadata = split.metadata
+        print(
+            "🔒 Sealed OOS 已鎖定: "
+            f"train={split.metadata['train_start_date']}~{split.metadata['train_end_date']} "
+            f"embargo_days={split.metadata['embargo_trade_days']} "
+            f"sealed={split.metadata['sealed_start_date']}~{split.metadata['sealed_end_date']} "
+            f"sealed_rows={split.metadata['sealed_rows']}"
+        )
+        return split.development
     
     def walk_forward_train(self, df: pd.DataFrame, n_splits: int = 5):
         """
@@ -302,6 +325,8 @@ class LightGBMTrainer:
             "used_feature_groups": {},
             "notes": [],
         }
+        if self.sealed_oos_metadata is not None:
+            result["sealed_oos"] = self.sealed_oos_metadata
         if metadata is None:
             result["notes"].append("未提供 M4 feature metadata，使用舊版數值欄位選取。")
             return result
@@ -529,22 +554,60 @@ class LightGBMTrainer:
             print(f"❌ SHAP 分析失敗: {e}")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Agent B LightGBM 訓練")
+    parser.add_argument("--config", default="config/automation.yaml", help="讀取 retrain / sealed_oos 設定")
+    parser.add_argument("--data-dir", default="data/clean")
+    parser.add_argument("--model-dir", default="models")
+    parser.add_argument("--artifact-dir", default="artifacts")
+    parser.add_argument("--horizon", type=int, default=10)
+    parser.add_argument("--threshold", type=float, default=0.05)
+    parser.add_argument("--optuna-trials", type=int, default=None)
+    return parser.parse_args()
+
+
+def _load_retrain_config(config_path: str | Path) -> dict[str, Any]:
+    path = Path(config_path)
+    if not path.exists():
+        return {}
+    config = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    retrain = config.get("retrain") if isinstance(config.get("retrain"), dict) else {}
+    return retrain
+
+
 def main():
+    args = parse_args()
+    retrain_config = _load_retrain_config(args.config)
+    optuna_trials = args.optuna_trials
+    if optuna_trials is None:
+        optuna_trials = int(retrain_config.get("optuna_trials", 20))
+    sealed_config = SealedOOSConfig.from_mapping(
+        retrain_config.get("sealed_oos") if isinstance(retrain_config.get("sealed_oos"), dict) else {},
+        horizon=args.horizon,
+    )
+
     print("🚀 Agent B 模型優化訓練啟動 (Mini版 - Classification)...")
-    trainer = LightGBMTrainer()
+    trainer = LightGBMTrainer(
+        data_dir=args.data_dir,
+        model_dir=args.model_dir,
+        artifact_dir=args.artifact_dir,
+        horizon=args.horizon,
+        threshold=args.threshold,
+    )
     
     try:
         # 1. 準備資料
         df = trainer.load_features()
         # 使用 LabelGenerator 生成 D+1 標籤
         df = trainer.generate_labels(df)
+        df_train = trainer.apply_sealed_oos_split(df, sealed_config)
         
-        # 2. 自動調優
-        X, y, feature_cols = trainer.prepare_train_data(df)
-        trainer.optimize_params(X, y, n_trials=20, dates=df['date'])
+        # 2. 自動調優；sealed / embargo 已從 df_train 排除
+        X, y, feature_cols = trainer.prepare_train_data(df_train)
+        trainer.optimize_params(X, y, n_trials=optuna_trials, dates=df_train['date'])
         
-        # 3. 時序滾動驗證與最終訓練
-        trainer.walk_forward_train(df)
+        # 3. 時序滾動驗證與最終訓練；最終模型也只吃 development frame
+        trainer.walk_forward_train(df_train)
         
         # 4. 儲存與產出分析
         trainer.save_model()

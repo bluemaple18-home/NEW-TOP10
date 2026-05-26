@@ -70,11 +70,14 @@ def main() -> int:
         retrain = metadata.get("retrain") or {}
         backup = (retrain.get("backup_model") or {}).get("path") or retrain.get("expected_backup_model")
         new_model = (retrain.get("new_model") or {}).get("path")
+        sealed = retrain.get("sealed_oos_report") or {}
         rollback = retrain.get("rollback") or {}
         if backup:
             print(f"📄 模型備份: {backup}")
         if new_model:
             print(f"📄 新模型: {new_model}")
+        if sealed:
+            print(f"🔒 Sealed OOS: {sealed.get('status')} {sealed.get('path')}")
         if rollback:
             print(f"↩️ 已回滾模型: {rollback.get('restored_from')}")
 

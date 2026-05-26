@@ -146,6 +146,10 @@ class AutomationRunner:
         try:
             self._run_command("model.train", ["python", "-m", "app.agent_b_modeling"])
             self._validate_retrained_model("model.validate", train_started_at)
+            if self._sealed_oos_enabled():
+                sealed_started_at = datetime.now(timezone.utc)
+                self._run_command("model.sealed_oos", ["python", "scripts/run_sealed_oos_gate.py"])
+                self._record_sealed_oos_report("model.sealed_oos_artifact", fresh_after=sealed_started_at)
             if retrain_config.get("baseline_refresh_enabled", True):
                 self._run_command("model.baseline", ["python", "scripts/refresh_model_baseline.py"])
             if retrain_config.get("ranking_smoke_enabled", True):
@@ -469,6 +473,50 @@ class AutomationRunner:
                 raise RuntimeError(message)
         self.status.metadata["ranking_artifact"] = str(expected_path)
         self._record_step(step_name, "OK", message=str(expected_path))
+
+    def _sealed_oos_enabled(self) -> bool:
+        sealed_config = self.config.get("retrain", {}).get("sealed_oos", {})
+        if not isinstance(sealed_config, dict):
+            return True
+        return self._truthy_value(sealed_config.get("enabled", True)) is not False
+
+    def _record_sealed_oos_report(self, step_name: str, fresh_after: datetime | None = None) -> None:
+        report_path = PROJECT_ROOT / "artifacts" / "sealed_oos_report_latest.json"
+        if self.dry_run:
+            self.status.metadata.setdefault("retrain", {})["expected_sealed_oos_report"] = str(report_path)
+            self._record_step(step_name, "DRY_RUN", message=str(report_path))
+            return
+        if not report_path.exists():
+            self._record_step(step_name, "FAILED", message=f"missing expected sealed OOS report: {report_path}")
+            raise RuntimeError(f"sealed OOS gate completed but expected artifact is missing: {report_path}")
+        if fresh_after is not None:
+            report_mtime = datetime.fromtimestamp(report_path.stat().st_mtime, tz=timezone.utc)
+            if report_mtime + timedelta(seconds=2) < fresh_after:
+                message = f"sealed OOS report is stale: mtime={report_mtime.isoformat()} fresh_after={fresh_after.isoformat()}"
+                self._record_step(step_name, "FAILED", message=message)
+                raise RuntimeError(message)
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        status = str(report.get("status", "FAILED")).upper()
+        self.status.metadata.setdefault("retrain", {})["sealed_oos_report"] = {
+            "path": str(report_path),
+            "status": status,
+            "failures": report.get("failures", []),
+            "metrics": report.get("metrics", {}),
+            "split": report.get("split", {}),
+        }
+        if status != "OK":
+            message = f"sealed OOS gate status={status} failures={report.get('failures', [])}"
+            self._record_step(step_name, "FAILED", message=message)
+            raise RuntimeError(message)
+        metrics = report.get("metrics", {})
+        self._record_step(
+            step_name,
+            "OK",
+            message="auc={auc} top_n_return_uplift={uplift}".format(
+                auc=metrics.get("auc"),
+                uplift=metrics.get("top_n_return_uplift"),
+            ),
+        )
 
     def _run_retrain_promotion_gate(self, monitor_started_at: datetime | None) -> None:
         retrain_config = self.config.get("retrain", {})

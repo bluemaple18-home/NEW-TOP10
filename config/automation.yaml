@@ -39,6 +39,20 @@ retrain:
   promotion_gate_block_factor_statuses: ["WARN"]
   promotion_gate_max_factor_warn_count: 0
   min_feature_count: 50        # 新模型 feature 數低於此值視為異常
+  sealed_oos:
+    enabled: true              # 正式封閉測試 gate；失敗會 rollback 候選模型
+    sealed_trade_days: 60      # 最近已成熟標籤交易日保留為 sealed test，不進訓練/調參/校準
+    embargo_trade_days: 10     # sealed 前保留 embargo，避免 horizon 標籤穿越封存期
+    min_train_trade_days: 252
+    min_sealed_trade_days: 40
+    min_sealed_samples: 500
+    min_positive_labels: 20
+    min_negative_labels: 20
+    min_auc: 0.50
+    min_top_n_return_uplift: 0.0
+    min_top_n_hit_rate_uplift: 0.0
+    top_n: 10
+    require_model_split_metadata: true
   
   # Optuna 調優參數
   optuna_trials: 20           # 每次重訓的調優次數

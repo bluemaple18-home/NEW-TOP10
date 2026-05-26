@@ -90,6 +90,13 @@ class ModelMonitor:
         """儲存訓練集特徵分佈作為基準"""
         print("📊 儲存訓練集基準統計...")
         df, numeric_cols, frame_meta = self._load_monitor_frame()
+        date_col = 'trade_date' if 'trade_date' in df.columns else 'date'
+        train_end = self._model_train_end_date()
+        baseline_source_rows = len(df)
+        if train_end is not None and date_col in df.columns:
+            trade_dates = pd.to_datetime(df[date_col], errors='coerce').dt.normalize()
+            df = df[trade_dates <= train_end].copy()
+            print(f"   - 依模型 sealed_oos train_end_date 建立 baseline: <= {train_end.date()}")
         
         # 計算統計量 (mean, std, min, max, quantiles)
         baseline_stats = {}
@@ -114,17 +121,18 @@ class ModelMonitor:
                 skipped_empty_model_features.append(col)
         
         # 儲存
-        date_col = 'trade_date' if 'trade_date' in df.columns else 'date'
         latest_date = pd.to_datetime(df[date_col]).max().date().isoformat() if date_col in df.columns else None
         baseline_stats['metadata'] = {
             'schema_version': 'model-baseline-stats.v1',
             'created_at': datetime.now().isoformat(),
             'total_samples': len(df),
+            'source_samples_before_training_window_filter': baseline_source_rows,
             'features_count': len(baseline_stats),
             'latest_date': latest_date,
             'source': frame_meta['source'],
             'model_path': str(self.model_path),
             'model_sha256': frame_meta.get('model_sha256'),
+            'model_train_end_date': train_end.date().isoformat() if train_end is not None else None,
             'model_feature_count': len(frame_meta.get('model_feature_names') or []),
             'missing_model_features': frame_meta.get('missing_model_features', []),
             'skipped_empty_model_features': skipped_empty_model_features,
@@ -292,23 +300,49 @@ class ModelMonitor:
         }
 
     def _model_feature_names(self) -> list[str]:
-        if not self.model_path.exists():
-            return []
-        try:
-            with self.model_path.open('rb') as handle:
-                payload = pickle.load(handle)
-        except Exception:
-            return []
+        metadata = self._model_metadata()
+        feature_names = metadata.get('feature_names') if isinstance(metadata.get('feature_names'), list) else None
+        if feature_names:
+            return [str(name) for name in feature_names]
+        payload = self._model_payload()
         if isinstance(payload, dict):
-            feature_names = payload.get('feature_names')
-            if feature_names:
-                return [str(name) for name in feature_names]
             model = payload.get('model')
             if hasattr(model, 'feature_name'):
                 return [str(name) for name in model.feature_name()]
         if hasattr(payload, 'feature_name'):
             return [str(name) for name in payload.feature_name()]
         return []
+
+    def _model_train_end_date(self) -> pd.Timestamp | None:
+        metadata = self._model_metadata()
+        sealed = metadata.get('sealed_oos') if isinstance(metadata.get('sealed_oos'), dict) else {}
+        train_end = sealed.get('train_end_date') if sealed else None
+        if not train_end:
+            return None
+        parsed = pd.to_datetime(train_end, errors='coerce')
+        if pd.isna(parsed):
+            return None
+        return pd.Timestamp(parsed).normalize()
+
+    def _model_metadata(self) -> dict:
+        payload = self._model_payload()
+        if isinstance(payload, dict):
+            metadata = payload.get('metadata')
+            if isinstance(metadata, dict):
+                result = dict(metadata)
+                if payload.get('feature_names') and 'feature_names' not in result:
+                    result['feature_names'] = payload.get('feature_names')
+                return result
+        return {}
+
+    def _model_payload(self):
+        if not self.model_path.exists():
+            return None
+        try:
+            with self.model_path.open('rb') as handle:
+                return pickle.load(handle)
+        except Exception:
+            return None
 
     def _sha256(self, path: Path) -> str:
         import hashlib

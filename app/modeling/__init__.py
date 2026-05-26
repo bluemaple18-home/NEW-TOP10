@@ -13,6 +13,7 @@ from .feature_contract import (
 )
 from .contracts import ModelSpec, ModelValidationIssue
 from .registry import MODEL_SPECS, get_model_spec, validate_model_registry
+from .sealed_oos import SealedOOSConfig, build_sealed_oos_split, evaluate_sealed_oos_model
 
 __all__ = [
     "FUNDAMENTAL_FEATURE_COLUMNS",
@@ -21,8 +22,11 @@ __all__ = [
     "FeatureGroupMetadata",
     "ModelSpec",
     "ModelValidationIssue",
+    "SealedOOSConfig",
     "build_m4_feature_frame",
+    "build_sealed_oos_split",
     "candidate_feature_columns",
+    "evaluate_sealed_oos_model",
     "get_model_spec",
     "load_m4_feature_frame",
     "validate_model_registry",

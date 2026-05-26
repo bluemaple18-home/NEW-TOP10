@@ -74,14 +74,16 @@ tail -f logs/launchd_retrain.log
 1. 預設執行 PSI 漂移監控、factor monitor、M13 產業動能 shadow monitor 與 model health report，不覆蓋模型
 2. 傳入 `retrain` 時先檢查舊模型存在、資料 freshness 與 pipeline contract
 3. 備份 `models/latest_lgbm.pkl` 到 `models/backup/`
-4. 執行 LightGBM 訓練後，驗證新模型格式、mtime、feature count 與 metadata
-5. 刷新與新模型 feature list 綁定的 `models/baseline_stats.json`
-6. 跑 ranking smoke，確認新模型可產出當期 `ranking_YYYY-MM-DD.csv`
-7. 跑 PSI / factor / industry monitor 與 model health report
-8. `--trigger auto|scheduled` 時套用 promotion gate；若 PSI `CRITICAL` 或 factor `WARN` 超門檻，拒絕 promote 並回滾
-9. 任一訓練後驗證失敗時，從備份回滾 `models/latest_lgbm.pkl` 與 `models/baseline_stats.json`
-10. 清理 30 天前的舊備份
-11. 更新 `artifacts/automation_status.json`；重訓模式另產出 `artifacts/retrain_run_summary_YYYY-MM-DD.json`
+4. 執行 LightGBM 訓練；訓練程式會先切出 sealed OOS，train / tune / calibration 不得碰 sealed 與 embargo 視窗
+5. 驗證新模型格式、mtime、feature count、metadata 與 sealed split metadata
+6. 跑 `scripts/run_sealed_oos_gate.py`，輸出 `artifacts/sealed_oos_report_YYYY-MM-DD.json`；失敗即 rollback
+7. 刷新與新模型 feature list 綁定的 `models/baseline_stats.json`，baseline 只使用模型訓練視窗
+8. 跑 ranking smoke，確認新模型可產出當期 `ranking_YYYY-MM-DD.csv`
+9. 跑 PSI / factor / industry monitor 與 model health report
+10. `--trigger auto|scheduled` 時套用 promotion gate；若 PSI `CRITICAL` 或 factor `WARN` 超門檻，拒絕 promote 並回滾
+11. 任一訓練後驗證失敗時，從備份回滾 `models/latest_lgbm.pkl` 與 `models/baseline_stats.json`
+12. 清理 30 天前的舊備份
+13. 更新 `artifacts/automation_status.json`；重訓模式另產出 `artifacts/retrain_run_summary_YYYY-MM-DD.json`
 
 ### `scripts/run_automation.py`
 **功能**: 自動化統一入口，shell、launchd、cron 都只呼叫它
@@ -143,6 +145,7 @@ uv run --with-requirements requirements.txt python scripts/run_daily_postcheck.p
 - `metadata.retrain.previous_model`: 重訓前正式模型 path / mtime / sha256。
 - `metadata.retrain.backup_model`: 本次備份模型 path / mtime / sha256。
 - `metadata.retrain.new_model`: 新模型 path / mtime / sha256 / feature_count / sha256_changed。
+- `metadata.retrain.sealed_oos_report`: sealed OOS gate path / status / metrics / split；status 非 `OK` 會 rollback。
 - `metadata.retrain.promotion_gate`: auto/scheduled retrain 的 PSI / factor gate 判定與 blocked reasons。
 - `metadata.retrain.rollback`: 若訓練後驗證失敗，記錄回滾來源與原因。
 
@@ -264,6 +267,20 @@ retrain:
   promotion_gate_block_factor_statuses: ["WARN"]
   promotion_gate_max_factor_warn_count: 0
   min_feature_count: 50
+  sealed_oos:
+    enabled: true
+    sealed_trade_days: 60
+    embargo_trade_days: 10
+    min_train_trade_days: 252
+    min_sealed_trade_days: 40
+    min_sealed_samples: 500
+    min_positive_labels: 20
+    min_negative_labels: 20
+    min_auc: 0.50
+    min_top_n_return_uplift: 0.0
+    min_top_n_hit_rate_uplift: 0.0
+    top_n: 10
+    require_model_split_metadata: true
   
 monitor:
   psi_warning: 0.25
