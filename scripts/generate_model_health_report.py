@@ -67,10 +67,12 @@ def main() -> int:
         threshold=args.threshold,
     )
     monitors = monitor_summary()
+    baseline = baseline_summary()
     checks = build_checks(
         model=model,
         rankings=rankings,
         monitors=monitors,
+        baseline=baseline,
         min_evaluated=args.min_evaluated,
         min_hit_rate=args.min_hit_rate,
     )
@@ -82,6 +84,7 @@ def main() -> int:
         "status": overall_status,
         "model": model,
         "ranking_outcomes": [asdict(outcome) for outcome in rankings],
+        "baseline": baseline,
         "monitors": monitors,
         "checks": checks,
         "notes": [
@@ -249,10 +252,52 @@ def monitor_summary() -> dict[str, Any]:
     }
 
 
+def baseline_summary() -> dict[str, Any]:
+    baseline = read_json(PROJECT_ROOT / "models" / "baseline_stats.json")
+    metadata = baseline.get("metadata") if isinstance(baseline.get("metadata"), dict) else {}
+    distribution_count = max(len(baseline) - (1 if "metadata" in baseline else 0), 0) if baseline else 0
+    model_feature_count = int(metadata.get("model_feature_count") or 0)
+    monitored_model_feature_count = int(metadata.get("monitored_model_feature_count") or 0)
+    skipped_empty = metadata.get("skipped_empty_model_features") or []
+    missing_model = metadata.get("missing_model_features") or []
+    coverage_ratio = (
+        round(monitored_model_feature_count / model_feature_count, 4)
+        if model_feature_count
+        else None
+    )
+    status = "OK"
+    reasons: list[str] = []
+    if not baseline:
+        status = "CRITICAL"
+        reasons.append("missing baseline_stats.json")
+    elif model_feature_count and monitored_model_feature_count < model_feature_count:
+        status = "WARN"
+        reasons.append(f"monitored_model_feature_count={monitored_model_feature_count}<model_feature_count={model_feature_count}")
+    if skipped_empty:
+        status = "WARN" if status == "OK" else status
+        reasons.append(f"skipped_empty_model_features={len(skipped_empty)}")
+    if missing_model:
+        status = "WARN" if status == "OK" else status
+        reasons.append(f"missing_model_features={len(missing_model)}")
+    return {
+        "available": bool(baseline),
+        "status": status,
+        "reason": "; ".join(reasons) if reasons else None,
+        "distribution_count": distribution_count,
+        "metadata": metadata,
+        "model_feature_count": model_feature_count,
+        "monitored_model_feature_count": monitored_model_feature_count,
+        "coverage_ratio": coverage_ratio,
+        "skipped_empty_model_features": skipped_empty,
+        "missing_model_features": missing_model,
+    }
+
+
 def build_checks(
     model: dict[str, Any],
     rankings: list[RankingOutcome],
     monitors: dict[str, Any],
+    baseline: dict[str, Any],
     min_evaluated: int,
     min_hit_rate: float,
 ) -> list[dict[str, Any]]:
@@ -269,6 +314,13 @@ def build_checks(
     )
     psi_status = monitors["psi"]["status"]
     checks.append({"name": "monitor.psi", "status": "CRITICAL" if psi_status == "CRITICAL" else "OK" if psi_status == "OK" else "WARN", "message": psi_status})
+    checks.append(
+        {
+            "name": "monitor.psi_baseline",
+            "status": baseline.get("status", "CRITICAL"),
+            "message": baseline.get("reason") or f"coverage={baseline.get('coverage_ratio')}",
+        }
+    )
     factor_status = monitors["factor"]["status"]
     checks.append({"name": "monitor.factor", "status": "WARN" if factor_status == "WARN" else "OK" if factor_status == "OK" else "CRITICAL", "message": factor_status})
     industry_status = monitors["industry_momentum"]["status"]

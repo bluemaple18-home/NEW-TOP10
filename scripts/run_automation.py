@@ -139,12 +139,15 @@ class AutomationRunner:
 
         self._retrain_preflight()
         backup_path = self._backup_model()
+        baseline_backup_path = self._backup_baseline()
         train_started_at = datetime.now(timezone.utc)
         self.status.metadata.setdefault("retrain", {})["train_started_at"] = train_started_at.isoformat()
 
         try:
             self._run_command("model.train", ["python", "-m", "app.agent_b_modeling"])
             self._validate_retrained_model("model.validate", train_started_at)
+            if retrain_config.get("baseline_refresh_enabled", True):
+                self._run_command("model.baseline", ["python", "scripts/refresh_model_baseline.py"])
             if retrain_config.get("ranking_smoke_enabled", True):
                 ranking_started_at = datetime.now(timezone.utc)
                 self._run_command("model.ranking_smoke", ["python", "-m", "app.agent_b_ranking"])
@@ -159,6 +162,7 @@ class AutomationRunner:
         except Exception as exc:
             if retrain_config.get("rollback_on_failure", True):
                 self._restore_model_backup(backup_path, reason=str(exc))
+                self._restore_baseline_backup(baseline_backup_path, reason=str(exc))
             raise
         self._cleanup_backups()
 
@@ -470,6 +474,41 @@ class AutomationRunner:
         }
         self._record_step("model.rollback", "OK", message=f"restored={backup_path}")
 
+    def _backup_baseline(self) -> Path | None:
+        baseline_path = PROJECT_ROOT / "models" / "baseline_stats.json"
+        if not baseline_path.exists():
+            self._record_step("model.baseline.backup", "SKIPPED", message="models/baseline_stats.json 不存在")
+            return None
+        backup_name = f"baseline_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        backup_path = PROJECT_ROOT / "models" / "backup" / backup_name
+        if self.dry_run:
+            self._record_step("model.baseline.backup", "DRY_RUN", message=str(backup_path))
+            self.status.metadata.setdefault("retrain", {})["expected_backup_baseline"] = str(backup_path)
+            return backup_path
+        shutil.copy2(baseline_path, backup_path)
+        self.status.metadata.setdefault("retrain", {})["backup_baseline"] = self._file_snapshot(backup_path)
+        self._record_step("model.baseline.backup", "OK", message=str(backup_path))
+        return backup_path
+
+    def _restore_baseline_backup(self, backup_path: Path | None, reason: str) -> None:
+        if backup_path is None:
+            self._record_step("model.baseline.rollback", "SKIPPED", message="no baseline backup available")
+            return
+        baseline_path = PROJECT_ROOT / "models" / "baseline_stats.json"
+        if self.dry_run:
+            self._record_step("model.baseline.rollback", "DRY_RUN", message=f"restore={backup_path} reason={reason}")
+            return
+        if not backup_path.exists():
+            self._record_step("model.baseline.rollback", "FAILED", message=f"baseline backup missing: {backup_path}")
+            raise RuntimeError(f"baseline 回滾失敗，備份不存在：{backup_path}")
+        shutil.copy2(backup_path, baseline_path)
+        self.status.metadata.setdefault("retrain", {})["baseline_rollback"] = {
+            "restored_from": str(backup_path),
+            "reason": reason,
+            "restored_baseline": self._file_snapshot(baseline_path),
+        }
+        self._record_step("model.baseline.rollback", "OK", message=f"restored={backup_path}")
+
     def _validate_retrained_model(self, step_name: str, train_started_at: datetime) -> None:
         model_path = PROJECT_ROOT / "models" / "latest_lgbm.pkl"
         if self.dry_run:
@@ -590,6 +629,9 @@ class AutomationRunner:
         }
 
     def _model_snapshot(self, path: Path) -> dict[str, Any]:
+        return self._file_snapshot(path)
+
+    def _file_snapshot(self, path: Path) -> dict[str, Any]:
         if not path.exists():
             return {"path": str(path), "exists": False}
         stat = path.stat()

@@ -35,7 +35,8 @@ def main() -> int:
             model = health.model_snapshot(root / "models" / "latest_lgbm.pkl")
             rankings = health.evaluate_rankings([root / "artifacts" / "ranking_2026-01-02.csv"], horizon=3, threshold=0.05)
             monitors = health.monitor_summary()
-            checks = health.build_checks(model, rankings, monitors, min_evaluated=2, min_hit_rate=0.4)
+            baseline = health.baseline_summary()
+            checks = health.build_checks(model, rankings, monitors, baseline, min_evaluated=2, min_hit_rate=0.4)
             assert model["status"] == "OK"
             assert model["feature_count"] == 2
             assert rankings[0].row_count == 10
@@ -43,6 +44,7 @@ def main() -> int:
             assert rankings[0].pending_count == 0
             assert rankings[0].missing_count == 0
             assert rankings[0].hit_rate == 0.5
+            assert baseline["status"] == "OK"
             assert health.worst_status([check["status"] for check in checks]) == "OK"
 
             (root / "artifacts" / "psi_report.json").write_text(json.dumps({"status": "CRITICAL"}), encoding="utf-8")
@@ -51,8 +53,19 @@ def main() -> int:
                 encoding="utf-8",
             )
             monitors = health.monitor_summary()
-            checks = health.build_checks(model, rankings, monitors, min_evaluated=2, min_hit_rate=0.4)
+            checks = health.build_checks(model, rankings, monitors, baseline, min_evaluated=2, min_hit_rate=0.4)
             assert health.worst_status([check["status"] for check in checks]) == "CRITICAL"
+
+            baseline_path = root / "models" / "baseline_stats.json"
+            baseline_payload = json.loads(baseline_path.read_text(encoding="utf-8"))
+            baseline_payload["metadata"]["model_feature_count"] = 3
+            baseline_payload["metadata"]["monitored_model_feature_count"] = 2
+            baseline_payload["metadata"]["skipped_empty_model_features"] = ["factor_c"]
+            baseline_path.write_text(json.dumps(baseline_payload), encoding="utf-8")
+            baseline = health.baseline_summary()
+            checks = health.build_checks(model, rankings, monitors, baseline, min_evaluated=2, min_hit_rate=0.4)
+            assert baseline["status"] == "WARN"
+            assert any(check["name"] == "monitor.psi_baseline" and check["status"] == "WARN" for check in checks)
 
             assert acceptance_status(commands_ok=True, auto_retrain_enabled=False, auto_retrain_readiness="BLOCKED") == "OK"
             assert acceptance_status(commands_ok=True, auto_retrain_enabled=True, auto_retrain_readiness="BLOCKED") == "FAILED"
@@ -71,6 +84,22 @@ def prepare_project(root: Path) -> None:
     (root / "artifacts").mkdir(parents=True)
     (root / "models" / "latest_lgbm.pkl").write_bytes(
         pickle.dumps({"model": None, "feature_names": ["factor_a", "factor_b"], "metadata": {"source": "test"}, "calibrator": "test"})
+    )
+    (root / "models" / "baseline_stats.json").write_text(
+        json.dumps(
+            {
+                "factor_a": {"distribution": [1, 2, 3]},
+                "factor_b": {"distribution": [1, 2, 3]},
+                "metadata": {
+                    "schema_version": "model-baseline-stats.v1",
+                    "model_feature_count": 2,
+                    "monitored_model_feature_count": 2,
+                    "skipped_empty_model_features": [],
+                    "missing_model_features": [],
+                },
+            }
+        ),
+        encoding="utf-8",
     )
     dates = pd.bdate_range("2026-01-02", periods=5)
     rows = []

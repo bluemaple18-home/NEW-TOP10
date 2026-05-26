@@ -75,12 +75,13 @@ tail -f logs/launchd_retrain.log
 2. 傳入 `retrain` 時先檢查舊模型存在、資料 freshness 與 pipeline contract
 3. 備份 `models/latest_lgbm.pkl` 到 `models/backup/`
 4. 執行 LightGBM 訓練後，驗證新模型格式、mtime、feature count 與 metadata
-5. 跑 ranking smoke，確認新模型可產出當期 `ranking_YYYY-MM-DD.csv`
-6. 跑 PSI / factor / industry monitor 與 model health report
-7. `--trigger auto|scheduled` 時套用 promotion gate；若 PSI `CRITICAL` 或 factor `WARN` 超門檻，拒絕 promote 並回滾
-8. 任一訓練後驗證失敗時，從備份回滾 `models/latest_lgbm.pkl`
-9. 清理 30 天前的舊備份
-10. 更新 `artifacts/automation_status.json`；重訓模式另產出 `artifacts/retrain_run_summary_YYYY-MM-DD.json`
+5. 刷新與新模型 feature list 綁定的 `models/baseline_stats.json`
+6. 跑 ranking smoke，確認新模型可產出當期 `ranking_YYYY-MM-DD.csv`
+7. 跑 PSI / factor / industry monitor 與 model health report
+8. `--trigger auto|scheduled` 時套用 promotion gate；若 PSI `CRITICAL` 或 factor `WARN` 超門檻，拒絕 promote 並回滾
+9. 任一訓練後驗證失敗時，從備份回滾 `models/latest_lgbm.pkl` 與 `models/baseline_stats.json`
+10. 清理 30 天前的舊備份
+11. 更新 `artifacts/automation_status.json`；重訓模式另產出 `artifacts/retrain_run_summary_YYYY-MM-DD.json`
 
 ### `scripts/run_automation.py`
 **功能**: 自動化統一入口，shell、launchd、cron 都只呼叫它
@@ -193,6 +194,14 @@ cat artifacts/psi_report.json
 - PSI > 0.25: 需注意 ⚠️
 - PSI > 0.5: 嚴重漂移 🚨 (建議重訓)
 
+若正式模型已重訓，請刷新與模型 feature list 綁定的 PSI baseline：
+
+```bash
+uv run --with-requirements requirements.txt python scripts/refresh_model_baseline.py --check-after
+```
+
+刷新後 `models/baseline_stats.json` 會記錄模型 sha256、模型 feature count、baseline latest date 與 M4 feature frame 來源。正式 retrain flow 會自動備份並刷新 baseline；若後續驗證失敗，baseline 會與模型一起 rollback。
+
 ### `scripts/monitor_industry_momentum.py`
 **功能**: M13 產業動能 shadow monitor
 
@@ -246,6 +255,7 @@ retrain:
   time: "02:00"
   backup_keep_days: 30
   rollback_on_failure: true
+  baseline_refresh_enabled: true
   ranking_smoke_enabled: true
   monitor_after_train_enabled: true
   promotion_gate_enabled: true

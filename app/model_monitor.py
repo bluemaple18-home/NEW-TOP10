@@ -10,14 +10,25 @@ import numpy as np
 from pathlib import Path
 from datetime import datetime, timedelta
 import json
+import pickle
 import warnings
 warnings.filterwarnings('ignore')
+
+try:
+    from app.modeling.feature_contract import load_m4_feature_frame
+except ImportError:
+    try:
+        from modeling.feature_contract import load_m4_feature_frame
+    except ImportError:
+        load_m4_feature_frame = None
 
 class ModelMonitor:
     """模型漂移監控器"""
     
     def __init__(self, data_dir: str = "data/clean", 
                  baseline_path: str = "models/baseline_stats.json",
+                 model_path: str = "models/latest_lgbm.pkl",
+                 project_root: str | Path | None = None,
                  psi_warning: float = 0.25,
                  psi_critical: float = 0.5):
         """
@@ -28,6 +39,8 @@ class ModelMonitor:
         """
         self.data_dir = Path(data_dir)
         self.baseline_path = Path(baseline_path)
+        self.model_path = Path(model_path)
+        self.project_root = Path(project_root) if project_root is not None else Path.cwd()
         self.psi_warning = psi_warning
         self.psi_critical = psi_critical
         
@@ -76,25 +89,17 @@ class ModelMonitor:
     def save_baseline(self):
         """儲存訓練集特徵分佈作為基準"""
         print("📊 儲存訓練集基準統計...")
-        
-        features_path = self.data_dir / "features.parquet"
-        if not features_path.exists():
-            print("❌ 找不到特徵檔案")
-            return
-            
-        df = pd.read_parquet(features_path)
-        
-        # 只保留數值特徵
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        # 排除 ID 與標籤
-        exclude = ['stock_id', 'date', 'target', 'return_5d', 'future_return', 'return_long']
-        numeric_cols = [c for c in numeric_cols if c not in exclude]
+        df, numeric_cols, frame_meta = self._load_monitor_frame()
         
         # 計算統計量 (mean, std, min, max, quantiles)
         baseline_stats = {}
+        skipped_empty_model_features = []
         for col in numeric_cols:
             data = df[col].dropna()
             if len(data) > 0:
+                sample_size = min(1000, len(data))
+                sample_index = np.linspace(0, len(data) - 1, sample_size, dtype=int)
+                distribution_sample = data.iloc[sample_index]
                 baseline_stats[col] = {
                     'mean': float(data.mean()),
                     'std': float(data.std()),
@@ -103,14 +108,33 @@ class ModelMonitor:
                     'q25': float(data.quantile(0.25)),
                     'q50': float(data.quantile(0.50)),
                     'q75': float(data.quantile(0.75)),
-                    'distribution': data.values.tolist()[:1000]  # 保留部分樣本
+                    'distribution': distribution_sample.values.tolist()
                 }
+            elif col in set(frame_meta.get('model_feature_names') or []):
+                skipped_empty_model_features.append(col)
         
         # 儲存
+        date_col = 'trade_date' if 'trade_date' in df.columns else 'date'
+        latest_date = pd.to_datetime(df[date_col]).max().date().isoformat() if date_col in df.columns else None
         baseline_stats['metadata'] = {
+            'schema_version': 'model-baseline-stats.v1',
             'created_at': datetime.now().isoformat(),
             'total_samples': len(df),
-            'features_count': len(baseline_stats) - 1
+            'features_count': len(baseline_stats),
+            'latest_date': latest_date,
+            'source': frame_meta['source'],
+            'model_path': str(self.model_path),
+            'model_sha256': frame_meta.get('model_sha256'),
+            'model_feature_count': len(frame_meta.get('model_feature_names') or []),
+            'missing_model_features': frame_meta.get('missing_model_features', []),
+            'skipped_empty_model_features': skipped_empty_model_features,
+            'monitored_model_feature_count': len(
+                [
+                    feature
+                    for feature in frame_meta.get('model_feature_names') or []
+                    if feature in baseline_stats
+                ]
+            ),
         }
         
         with open(self.baseline_path, 'w') as f:
@@ -141,23 +165,26 @@ class ModelMonitor:
             baseline_stats = json.load(f)
             
         # 載入最近資料
-        features_path = self.data_dir / "features.parquet"
-        df = pd.read_parquet(features_path)
-        df = df.sort_values('date')
+        df, _, frame_meta = self._load_monitor_frame()
+        date_col = 'trade_date' if 'trade_date' in df.columns else 'date'
+        df[date_col] = pd.to_datetime(df[date_col])
+        df = df.sort_values(date_col)
         
         # 篩選最近 N 天
-        cutoff_date = df['date'].max() - pd.Timedelta(days=days)
-        recent_df = df[df['date'] > cutoff_date]
+        cutoff_date = df[date_col].max() - pd.Timedelta(days=days)
+        recent_df = df[df[date_col] > cutoff_date]
         
         print(f"   - 基準資料: {baseline_stats['metadata']['total_samples']} 筆")
-        print(f"   - 最近資料: {len(recent_df)} 筆 ({cutoff_date.date()} ~ {df['date'].max().date()})")
+        print(f"   - 最近資料: {len(recent_df)} 筆 ({cutoff_date.date()} ~ {df[date_col].max().date()})")
         
         # 計算 PSI
         psi_results = {}
         numeric_cols = [k for k in baseline_stats.keys() if k != 'metadata']
+        missing_recent_features = []
         
         for col in numeric_cols:
             if col not in recent_df.columns:
+                missing_recent_features.append(col)
                 continue
                 
             baseline_dist = pd.Series(baseline_stats[col]['distribution'])
@@ -165,6 +192,17 @@ class ModelMonitor:
             
             psi = self.calculate_psi(baseline_dist, recent_dist)
             psi_results[col] = psi
+        if not psi_results:
+            return {
+                'status': 'no_features',
+                'action': '⚠️ 無可比較特徵，請刷新 baseline 或檢查資料契約',
+                'avg_psi': None,
+                'warning_features': 0,
+                'critical_features': 0,
+                'top_drift_features': [],
+                'missing_recent_features': missing_recent_features,
+                'timestamp': datetime.now().isoformat(),
+            }
         
         # 找出高 PSI 的特徵
         high_psi = {k: v for k, v in psi_results.items() if v > self.psi_warning}
@@ -192,6 +230,10 @@ class ModelMonitor:
             'warning_features': len(high_psi),
             'critical_features': len(critical_psi),
             'top_drift_features': sorted(psi_results.items(), key=lambda x: x[1], reverse=True)[:5],
+            'features_checked': len(psi_results),
+            'missing_recent_features': missing_recent_features,
+            'baseline_metadata': baseline_stats.get('metadata', {}),
+            'frame_source': frame_meta['source'],
             'timestamp': datetime.now().isoformat()
         }
         
@@ -213,6 +255,69 @@ class ModelMonitor:
         print(f"{'='*50}\n")
         
         return drift_report
+
+    def _load_monitor_frame(self) -> tuple[pd.DataFrame, list[str], dict]:
+        features_path = self.data_dir / "features.parquet"
+        if not features_path.exists():
+            raise FileNotFoundError(f"找不到特徵檔案: {features_path}")
+
+        model_feature_names = self._model_feature_names()
+        df = None
+        source = "features.parquet"
+        if model_feature_names and load_m4_feature_frame is not None:
+            try:
+                df, _ = load_m4_feature_frame(self.data_dir, self.project_root)
+                source = "m4_feature_frame"
+            except Exception as exc:
+                print(f"⚠ 無法載入 M4 feature frame，改用原始 features.parquet: {exc}")
+        if df is None:
+            df = pd.read_parquet(features_path)
+
+        numeric_cols = df.select_dtypes(include=[np.number, bool]).columns.tolist()
+        exclude = ['stock_id', 'date', 'trade_date', 'target', 'return_5d', 'future_return', 'return_long']
+        numeric_cols = [col for col in numeric_cols if col not in exclude]
+        missing_model_features = []
+        if model_feature_names:
+            feature_set = set(numeric_cols)
+            selected = [col for col in model_feature_names if col in feature_set]
+            missing_model_features = [col for col in model_feature_names if col not in feature_set]
+            if selected:
+                numeric_cols = selected
+
+        return df, numeric_cols, {
+            'source': source,
+            'model_feature_names': model_feature_names,
+            'model_sha256': self._sha256(self.model_path) if self.model_path.exists() else None,
+            'missing_model_features': missing_model_features,
+        }
+
+    def _model_feature_names(self) -> list[str]:
+        if not self.model_path.exists():
+            return []
+        try:
+            with self.model_path.open('rb') as handle:
+                payload = pickle.load(handle)
+        except Exception:
+            return []
+        if isinstance(payload, dict):
+            feature_names = payload.get('feature_names')
+            if feature_names:
+                return [str(name) for name in feature_names]
+            model = payload.get('model')
+            if hasattr(model, 'feature_name'):
+                return [str(name) for name in model.feature_name()]
+        if hasattr(payload, 'feature_name'):
+            return [str(name) for name in payload.feature_name()]
+        return []
+
+    def _sha256(self, path: Path) -> str:
+        import hashlib
+
+        digest = hashlib.sha256()
+        with path.open('rb') as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                digest.update(chunk)
+        return digest.hexdigest()
 
 
 if __name__ == "__main__":

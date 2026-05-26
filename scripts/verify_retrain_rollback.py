@@ -24,6 +24,8 @@ import scripts.run_automation as automation
 
 ORIGINAL_MODEL_BYTES = b"old-stable-model"
 TRAINED_MODEL_BYTES = b"new-unsafe-model"
+ORIGINAL_BASELINE_BYTES = b'{"baseline":"old"}'
+TRAINED_BASELINE_BYTES = b'{"baseline":"new"}'
 
 
 def _prepare_temp_project(root: Path) -> None:
@@ -51,6 +53,7 @@ def _prepare_temp_project(root: Path) -> None:
         encoding="utf-8",
     )
     (root / "models" / "latest_lgbm.pkl").write_bytes(ORIGINAL_MODEL_BYTES)
+    (root / "models" / "baseline_stats.json").write_bytes(ORIGINAL_BASELINE_BYTES)
 
 
 def _run_case(case_name: str) -> dict[str, object]:
@@ -78,6 +81,10 @@ def _run_case(case_name: str) -> dict[str, object]:
                 if name == "model.train":
                     (temp_root / "models" / "latest_lgbm.pkl").write_bytes(TRAINED_MODEL_BYTES)
                     self._record_step(name, "OK", message="injected train wrote unsafe model")
+                    return
+                if name == "model.baseline":
+                    (temp_root / "models" / "baseline_stats.json").write_bytes(TRAINED_BASELINE_BYTES)
+                    self._record_step(name, "OK", message="injected baseline refresh")
                     return
                 if case_name == "ranking" and name == "model.ranking_smoke":
                     self._record_step(name, "FAILED", message="injected ranking failure")
@@ -120,27 +127,44 @@ def _run_case(case_name: str) -> dict[str, object]:
                 error = str(exc)
 
             model_bytes = (temp_root / "models" / "latest_lgbm.pkl").read_bytes()
+            baseline_bytes = (temp_root / "models" / "baseline_stats.json").read_bytes()
             rollback_steps = [step for step in runner.status.steps if step.name == "model.rollback"]
+            baseline_rollback_steps = [step for step in runner.status.steps if step.name == "model.baseline.rollback"]
             backup_steps = [step for step in runner.status.steps if step.name == "model.backup"]
+            baseline_backup_steps = [step for step in runner.status.steps if step.name == "model.baseline.backup"]
             promotion_gate_steps = [step for step in runner.status.steps if step.name == "retrain.promotion_gate"]
             if case_name == "manual_promotion_skip":
                 passed = (
                     error is None
                     and model_bytes == TRAINED_MODEL_BYTES
+                    and baseline_bytes == TRAINED_BASELINE_BYTES
                     and not rollback_steps
+                    and not baseline_rollback_steps
                     and bool(promotion_gate_steps)
                     and promotion_gate_steps[-1].status == "SKIPPED"
                 )
             else:
-                passed = bool(error) and model_bytes == ORIGINAL_MODEL_BYTES and bool(rollback_steps) and rollback_steps[-1].status == "OK"
+                passed = (
+                    bool(error)
+                    and model_bytes == ORIGINAL_MODEL_BYTES
+                    and baseline_bytes == ORIGINAL_BASELINE_BYTES
+                    and bool(rollback_steps)
+                    and rollback_steps[-1].status == "OK"
+                    and bool(baseline_rollback_steps)
+                    and baseline_rollback_steps[-1].status == "OK"
+                )
             return {
                 "case": case_name,
                 "passed": passed,
                 "error": error,
                 "backup_status": backup_steps[-1].status if backup_steps else None,
+                "baseline_backup_status": baseline_backup_steps[-1].status if baseline_backup_steps else None,
                 "rollback_status": rollback_steps[-1].status if rollback_steps else None,
+                "baseline_rollback_status": baseline_rollback_steps[-1].status if baseline_rollback_steps else None,
                 "restored_original_model": model_bytes == ORIGINAL_MODEL_BYTES,
+                "restored_original_baseline": baseline_bytes == ORIGINAL_BASELINE_BYTES,
                 "kept_trained_model": model_bytes == TRAINED_MODEL_BYTES,
+                "kept_trained_baseline": baseline_bytes == TRAINED_BASELINE_BYTES,
                 "step_summary": [{"name": step.name, "status": step.status, "message": step.message} for step in runner.status.steps],
             }
         finally:

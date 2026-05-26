@@ -27,6 +27,7 @@ retrain:
   time: "02:00"               # 執行時間
   backup_keep_days: 30        # 保留備份天數
   rollback_on_failure: true    # 訓練後驗證、ranking smoke 或 monitor 失敗時回滾舊模型
+  baseline_refresh_enabled: true # 新模型驗證通過後刷新與模型 feature 綁定的 PSI baseline
   ranking_smoke_enabled: true  # 新模型完成後先跑 ranking smoke，確認可產出當期 ranking
   monitor_after_train_enabled: true # 新模型完成後跑 PSI / factor / industry monitor
   promotion_gate_enabled: true # auto/scheduled retrain 若 monitor 報警，拒絕 promote 並 rollback
