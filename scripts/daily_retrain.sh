@@ -15,14 +15,42 @@ mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/retrain_$(date +%Y%m%d).log"
 MODE="${1:-monitor}"
 DRY_RUN=false
+TRIGGER="manual"
 WRAPPER_STARTED_AT_EPOCH="$(date +%s)"
 
-if [ "${2:-}" = "--dry-run" ]; then
-    DRY_RUN=true
-elif [ -n "${2:-}" ]; then
-    echo "❌ 不支援的參數: $2 (可用: --dry-run)" | tee -a "$LOG_FILE"
-    exit 1
+if [ "$#" -gt 0 ]; then
+    shift
 fi
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --dry-run)
+            DRY_RUN=true
+            ;;
+        --trigger)
+            if [ -z "${2:-}" ]; then
+                echo "❌ --trigger 需要值: manual, scheduled, auto" | tee -a "$LOG_FILE"
+                exit 1
+            fi
+            TRIGGER="$2"
+            shift
+            ;;
+        *)
+            echo "❌ 不支援的參數: $1 (可用: --dry-run, --trigger manual|scheduled|auto)" | tee -a "$LOG_FILE"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+case "$TRIGGER" in
+    manual|scheduled|auto)
+        ;;
+    *)
+        echo "❌ 不支援的 trigger: $TRIGGER (可用: manual, scheduled, auto)" | tee -a "$LOG_FILE"
+        exit 1
+        ;;
+esac
 
 case "$MODE" in
     monitor)
@@ -48,10 +76,13 @@ echo "🔧 開始 $JOB_NAME - $(date)" | tee -a "$LOG_FILE"
 if [ "$DRY_RUN" = true ]; then
     echo "🧪 dry-run 模式：不執行長任務、不覆蓋模型" | tee -a "$LOG_FILE"
 fi
+if [ "$MODE" = "retrain" ]; then
+    echo "🚦 retrain trigger: $TRIGGER" | tee -a "$LOG_FILE"
+fi
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e
-COMMAND=(uv run --with-requirements requirements.txt python -m scripts.run_automation "$MODE")
+COMMAND=(uv run --with-requirements requirements.txt python -m scripts.run_automation "$MODE" --trigger "$TRIGGER")
 if [ "$DRY_RUN" = true ]; then
     COMMAND+=(--dry-run)
 fi

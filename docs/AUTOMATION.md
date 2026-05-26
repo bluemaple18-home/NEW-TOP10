@@ -77,9 +77,10 @@ tail -f logs/launchd_retrain.log
 4. 執行 LightGBM 訓練後，驗證新模型格式、mtime、feature count 與 metadata
 5. 跑 ranking smoke，確認新模型可產出當期 `ranking_YYYY-MM-DD.csv`
 6. 跑 PSI / factor / industry monitor
-7. 任一訓練後驗證失敗時，從備份回滾 `models/latest_lgbm.pkl`
-8. 清理 30 天前的舊備份
-9. 更新 `artifacts/automation_status.json`；重訓模式另產出 `artifacts/retrain_run_summary_YYYY-MM-DD.json`
+7. `--trigger auto|scheduled` 時套用 promotion gate；若 PSI `CRITICAL` 或 factor `WARN` 超門檻，拒絕 promote 並回滾
+8. 任一訓練後驗證失敗時，從備份回滾 `models/latest_lgbm.pkl`
+9. 清理 30 天前的舊備份
+10. 更新 `artifacts/automation_status.json`；重訓模式另產出 `artifacts/retrain_run_summary_YYYY-MM-DD.json`
 
 ### `scripts/run_automation.py`
 **功能**: 自動化統一入口，shell、launchd、cron 都只呼叫它
@@ -88,6 +89,7 @@ tail -f logs/launchd_retrain.log
 uv run --with-requirements requirements.txt python -m scripts.run_automation daily --dry-run
 uv run --with-requirements requirements.txt python -m scripts.run_automation monitor --dry-run
 uv run --with-requirements requirements.txt python -m scripts.run_automation retrain --dry-run
+uv run --with-requirements requirements.txt python -m scripts.run_automation retrain --trigger scheduled --dry-run
 uv run --with-requirements requirements.txt python -m scripts.run_automation reference --dry-run
 uv run --with-requirements requirements.txt python -m scripts.run_automation status
 ```
@@ -140,6 +142,7 @@ uv run --with-requirements requirements.txt python scripts/run_daily_postcheck.p
 - `metadata.retrain.previous_model`: 重訓前正式模型 path / mtime / sha256。
 - `metadata.retrain.backup_model`: 本次備份模型 path / mtime / sha256。
 - `metadata.retrain.new_model`: 新模型 path / mtime / sha256 / feature_count / sha256_changed。
+- `metadata.retrain.promotion_gate`: auto/scheduled retrain 的 PSI / factor gate 判定與 blocked reasons。
 - `metadata.retrain.rollback`: 若訓練後驗證失敗，記錄回滾來源與原因。
 
 測試指定日期 gate 可用：
@@ -223,6 +226,11 @@ retrain:
   rollback_on_failure: true
   ranking_smoke_enabled: true
   monitor_after_train_enabled: true
+  promotion_gate_enabled: true
+  promotion_gate_block_triggers: ["auto", "scheduled"]
+  promotion_gate_block_psi_statuses: ["CRITICAL"]
+  promotion_gate_block_factor_statuses: ["WARN"]
+  promotion_gate_max_factor_warn_count: 0
   min_feature_count: 50
   
 monitor:

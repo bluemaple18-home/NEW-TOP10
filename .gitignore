@@ -77,6 +77,9 @@ logs/*
 mlruns/
 mlflow.db
 
+# Model backups are runtime safety artifacts; keep only the promoted model tracked.
+models/backup/
+
 # Frontend
 node_modules/
 web/frontend/dist/

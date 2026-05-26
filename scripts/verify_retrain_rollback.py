@@ -41,6 +41,11 @@ def _prepare_temp_project(root: Path) -> None:
                 "  rollback_on_failure: true",
                 "  ranking_smoke_enabled: true",
                 "  monitor_after_train_enabled: true",
+                "  promotion_gate_enabled: true",
+                '  promotion_gate_block_triggers: ["auto", "scheduled"]',
+                '  promotion_gate_block_psi_statuses: ["CRITICAL"]',
+                '  promotion_gate_block_factor_statuses: ["WARN"]',
+                "  promotion_gate_max_factor_warn_count: 0",
             ]
         ),
         encoding="utf-8",
@@ -60,8 +65,11 @@ def _run_case(case_name: str) -> dict[str, object]:
         try:
             runner = automation.AutomationRunner(mode="retrain", dry_run=False)
             runner.config.setdefault("retrain", {})
-            if case_name == "monitor":
+            if case_name in {"monitor", "promotion_gate", "manual_promotion_skip"}:
                 runner.config["retrain"]["ranking_smoke_enabled"] = False
+            if case_name == "promotion_gate":
+                runner.trigger = "auto"
+                runner.status.metadata["trigger"] = "auto"
 
             def fake_preflight(self: automation.AutomationRunner) -> None:
                 self._record_step("retrain.preflight.injected", "OK", message=case_name)
@@ -86,6 +94,18 @@ def _run_case(case_name: str) -> dict[str, object]:
                 if case_name == "monitor":
                     self._record_step("psi.monitor", "FAILED", message="injected monitor failure")
                     raise RuntimeError("injected monitor failure")
+                if case_name in {"promotion_gate", "manual_promotion_skip"}:
+                    (temp_root / "artifacts" / "psi_report.json").write_text(
+                        json.dumps({"status": "CRITICAL", "avg_psi": 0.75}, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+                    (temp_root / "artifacts" / "factor_monitor_report.json").write_text(
+                        json.dumps({"status": "WARN", "summary": {"warn_count": 3}}, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+                    self._record_step("psi.monitor", "OK", message="injected critical PSI report")
+                    self._record_step("factor.monitor", "OK", message="injected factor WARN report")
+                    return
                 self._record_step("psi.monitor", "OK", message="injected monitor ok")
 
             runner._retrain_preflight = MethodType(fake_preflight, runner)
@@ -102,7 +122,17 @@ def _run_case(case_name: str) -> dict[str, object]:
             model_bytes = (temp_root / "models" / "latest_lgbm.pkl").read_bytes()
             rollback_steps = [step for step in runner.status.steps if step.name == "model.rollback"]
             backup_steps = [step for step in runner.status.steps if step.name == "model.backup"]
-            passed = bool(error) and model_bytes == ORIGINAL_MODEL_BYTES and bool(rollback_steps) and rollback_steps[-1].status == "OK"
+            promotion_gate_steps = [step for step in runner.status.steps if step.name == "retrain.promotion_gate"]
+            if case_name == "manual_promotion_skip":
+                passed = (
+                    error is None
+                    and model_bytes == TRAINED_MODEL_BYTES
+                    and not rollback_steps
+                    and bool(promotion_gate_steps)
+                    and promotion_gate_steps[-1].status == "SKIPPED"
+                )
+            else:
+                passed = bool(error) and model_bytes == ORIGINAL_MODEL_BYTES and bool(rollback_steps) and rollback_steps[-1].status == "OK"
             return {
                 "case": case_name,
                 "passed": passed,
@@ -110,6 +140,7 @@ def _run_case(case_name: str) -> dict[str, object]:
                 "backup_status": backup_steps[-1].status if backup_steps else None,
                 "rollback_status": rollback_steps[-1].status if rollback_steps else None,
                 "restored_original_model": model_bytes == ORIGINAL_MODEL_BYTES,
+                "kept_trained_model": model_bytes == TRAINED_MODEL_BYTES,
                 "step_summary": [{"name": step.name, "status": step.status, "message": step.message} for step in runner.status.steps],
             }
         finally:
@@ -118,7 +149,7 @@ def _run_case(case_name: str) -> dict[str, object]:
 
 
 def main() -> int:
-    cases = [_run_case(case_name) for case_name in ["validate", "ranking", "monitor"]]
+    cases = [_run_case(case_name) for case_name in ["validate", "ranking", "monitor", "promotion_gate", "manual_promotion_skip"]]
     ok = all(bool(case["passed"]) for case in cases)
     run_date = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y-%m-%d")
     output_path = automation.PROJECT_ROOT / "artifacts" / f"retrain_rollback_injection_{run_date}.json"
