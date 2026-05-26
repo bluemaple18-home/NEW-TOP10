@@ -14,6 +14,7 @@ import time
 from tqdm.asyncio import tqdm
 import logging
 import json
+import requests
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -24,6 +25,9 @@ class AsyncTWSEFetcher:
     """台灣證券交易所（上市）資料擷取器 (Async)"""
     
     BASE_URL = "https://www.twse.com.tw"
+    REQUEST_HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
     
     def __init__(self, session: aiohttp.ClientSession):
         self.session = session
@@ -47,108 +51,131 @@ class AsyncTWSEFetcher:
                 'response': 'json'
             }
             
-            # 模擬瀏覽器行為
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-            
             data = None
+            last_error = None
+            requests_fallback_reason = None
             retry_statuses = {301, 302, 303, 307, 308, 429, 503}
             for attempt in range(1, 5):
-                async with self.session.get(url, params=params, headers=headers, timeout=30, allow_redirects=True) as response:
+                async with self.session.get(url, params=params, headers=self.REQUEST_HEADERS, timeout=30, allow_redirects=True) as response:
                     if response.status == 200:
                         try:
                             data = await response.json()
                         except Exception:
-                            logger.warning(f"TWSE 回傳非 JSON 格式 ({date})")
-                            return None
+                            last_error = "non-json response"
+                            break
                         break
                     if response.status not in retry_statuses:
-                        logger.warning(f"TWSE 連線失敗 ({date}): Status {response.status}")
-                        return None
+                        last_error = f"status {response.status}"
+                        break
+                    last_error = f"status {response.status}"
+                    if response.status == 307:
+                        requests_fallback_reason = last_error
                     if attempt == 4:
-                        logger.warning(f"TWSE 連線失敗 ({date}): Status {response.status} after retries")
-                        return None
+                        break
                     await asyncio.sleep(0.8 * attempt)
 
             if data is None:
+                if requests_fallback_reason:
+                    return await asyncio.to_thread(self._fetch_daily_quotes_with_requests, date, requests_fallback_reason)
+                logger.warning(f"TWSE 連線失敗 ({date}): {last_error or 'no data'}")
                 return None
 
-            if data.get('stat') != 'OK':
-                return None
-            
-            # 動態尋找目標表格
-            target_table = None
-            if 'tables' in data:
-                for table in data['tables']:
-                    title = table.get('title', '')
-                    # 關鍵字匹配
-                    if "每日收盤行情" in title:
-                        target_table = table
-                        break
-            
-            if not target_table:
-                # 舊版相容
-                if 'data9' in data:
-                    fields = data.get('fields9', [])
-                    raw_data = data.get('data9', [])
-                    target_table = {'fields': fields, 'data': raw_data}
-                else:
-                    return None
-
-            fields = target_table.get('fields', [])
-            raw_data = target_table.get('data', [])
-            
-            if not raw_data:
-                return None
-                
-            df = pd.DataFrame(raw_data, columns=fields)
-            
-            # 欄位對應
-            col_map = {
-                "證券代號": "stock_id",
-                "證券名稱": "stock_name",
-                "成交股數": "volume",
-                "成交筆數": "transactions",
-                "成交金額": "value",
-                "開盤價": "open",
-                "最高價": "high",
-                "最低價": "low",
-                "收盤價": "close"
-            }
-            
-            rename_dict = {c: col_map[c] for c in df.columns if c in col_map}
-            df = df.rename(columns=rename_dict)
-            
-            # 檢查必要欄位
-            required_cols = ['stock_id', 'stock_name', 'open', 'high', 'low', 'close', 'volume']
-            missing_cols = [c for c in required_cols if c not in df.columns]
-            if missing_cols:
-                return None
-            
-            # 資料清理
-            df['date'] = pd.to_datetime(date, format='%Y%m%d')
-            
-            numeric_cols = ['volume', 'transactions', 'value', 'open', 'high', 'low', 'close']
-            for col in numeric_cols:
-                if col in df.columns:
-                    df[col] = df[col].astype(str).str.replace(',', '').replace('--', 'NaN')
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            df = df.dropna(subset=['close'])
-            
-            self.data_source_log.append({
-                'date': date,
-                'source': 'TWSE',
-                'records': len(df),
-                'status': 'success'
-            })
-            
-            return df
+            df = self._parse_daily_quotes_payload(date, data)
+            if df is not None and not df.empty:
+                self._record_success(date, len(df), method='aiohttp')
+                return df
+            logger.warning(f"TWSE 回傳資料無有效行情表 ({date})")
+            return None
             
         except Exception as e:
             logger.error(f"擷取 TWSE {date} 失敗: {e}")
             return None
+
+    def _fetch_daily_quotes_with_requests(self, date: str, reason: str) -> Optional[pd.DataFrame]:
+        """aiohttp 在 TWSE CDN 307 上偶發失敗時的同步備援。"""
+        url = f"{self.BASE_URL}/rwd/zh/afterTrading/MI_INDEX"
+        params = {
+            'date': date,
+            'type': 'ALLBUT0999',
+            'response': 'json'
+        }
+        try:
+            response = requests.get(url, params=params, headers=self.REQUEST_HEADERS, timeout=30, allow_redirects=True)
+            if response.status_code != 200:
+                logger.warning(f"TWSE requests fallback 失敗 ({date}): Status {response.status_code}; async_reason={reason}")
+                return None
+            data = response.json()
+            df = self._parse_daily_quotes_payload(date, data)
+            if df is None or df.empty:
+                logger.warning(f"TWSE requests fallback 無有效資料 ({date}); async_reason={reason}")
+                return None
+            logger.info(f"TWSE requests fallback 成功 ({date}): records={len(df)}; async_reason={reason}")
+            self._record_success(date, len(df), method='requests_fallback')
+            return df
+        except Exception as exc:
+            logger.warning(f"TWSE requests fallback 例外 ({date}): {exc}; async_reason={reason}")
+            return None
+
+    def _parse_daily_quotes_payload(self, date: str, data: dict) -> Optional[pd.DataFrame]:
+        if data.get('stat') != 'OK':
+            return None
+
+        target_table = None
+        if 'tables' in data:
+            for table in data['tables']:
+                title = table.get('title', '')
+                if "每日收盤行情" in title:
+                    target_table = table
+                    break
+
+        if not target_table:
+            if 'data9' in data:
+                fields = data.get('fields9', [])
+                raw_data = data.get('data9', [])
+                target_table = {'fields': fields, 'data': raw_data}
+            else:
+                return None
+
+        fields = target_table.get('fields', [])
+        raw_data = target_table.get('data', [])
+        if not raw_data:
+            return None
+
+        df = pd.DataFrame(raw_data, columns=fields)
+        col_map = {
+            "證券代號": "stock_id",
+            "證券名稱": "stock_name",
+            "成交股數": "volume",
+            "成交筆數": "transactions",
+            "成交金額": "value",
+            "開盤價": "open",
+            "最高價": "high",
+            "最低價": "low",
+            "收盤價": "close"
+        }
+        df = df.rename(columns={c: col_map[c] for c in df.columns if c in col_map})
+
+        required_cols = ['stock_id', 'stock_name', 'open', 'high', 'low', 'close', 'volume']
+        missing_cols = [c for c in required_cols if c not in df.columns]
+        if missing_cols:
+            return None
+
+        df['date'] = pd.to_datetime(date, format='%Y%m%d')
+        numeric_cols = ['volume', 'transactions', 'value', 'open', 'high', 'low', 'close']
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.replace(',', '').replace('--', 'NaN')
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        return df.dropna(subset=['close'])
+
+    def _record_success(self, date: str, records: int, method: str) -> None:
+        self.data_source_log.append({
+            'date': date,
+            'source': 'TWSE',
+            'records': records,
+            'status': 'success',
+            'method': method,
+        })
 
 
 class AsyncTPEXFetcher:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""驗證 TWSE 307 / 429 類暫時性狀態會 retry 後成功解析。"""
+"""驗證 TWSE 307 retry / fallback 邊界。"""
 
 from __future__ import annotations
 
@@ -53,6 +53,50 @@ class FakeSession:
         )
 
 
+class AlwaysRedirectSession:
+    def __init__(self):
+        self.calls = 0
+
+    def get(self, *args, **kwargs):
+        self.calls += 1
+        return FakeResponse(307)
+
+
+class SingleStatusSession:
+    def __init__(self, status: int):
+        self.status = status
+        self.calls = 0
+
+    def get(self, *args, **kwargs):
+        self.calls += 1
+        return FakeResponse(self.status)
+
+
+class InvalidPayloadSession:
+    def __init__(self):
+        self.calls = 0
+
+    def get(self, *args, **kwargs):
+        self.calls += 1
+        return FakeResponse(200, {"stat": "很抱歉，沒有符合條件的資料"})
+
+
+class FakeRequestsResponse:
+    status_code = 200
+
+    def json(self):
+        return {
+            "stat": "OK",
+            "tables": [
+                {
+                    "title": "每日收盤行情",
+                    "fields": ["證券代號", "證券名稱", "成交股數", "成交筆數", "成交金額", "開盤價", "最高價", "最低價", "收盤價"],
+                    "data": [["2317", "鴻海", "2,000", "80", "900,000", "200", "205", "198", "204"]],
+                }
+            ],
+        }
+
+
 async def fake_sleep(_seconds: float) -> None:
     return None
 
@@ -70,6 +114,94 @@ async def verify() -> None:
     assert len(result) == 1
     assert result.iloc[0]["stock_id"] == "2330"
     assert int(result.iloc[0]["transactions"]) == 50
+    await verify_requests_fallback()
+    await verify_rate_limit_status_does_not_fallback()
+    await verify_non_retry_status_does_not_fallback()
+    await verify_non_transient_payload_does_not_fallback()
+
+
+async def verify_requests_fallback() -> None:
+    original_sleep = data_fetcher.asyncio.sleep
+    original_get = data_fetcher.requests.get
+    calls = {"requests": 0}
+
+    def fake_get(*args, **kwargs):
+        calls["requests"] += 1
+        return FakeRequestsResponse()
+
+    data_fetcher.asyncio.sleep = fake_sleep
+    data_fetcher.requests.get = fake_get
+    try:
+        session = AlwaysRedirectSession()
+        result = await AsyncTWSEFetcher(session).fetch_daily_quotes("20260525")
+    finally:
+        data_fetcher.asyncio.sleep = original_sleep
+        data_fetcher.requests.get = original_get
+    assert session.calls == 4
+    assert calls["requests"] == 1
+    assert result is not None
+    assert len(result) == 1
+    assert result.iloc[0]["stock_id"] == "2317"
+
+
+async def verify_rate_limit_status_does_not_fallback() -> None:
+    original_sleep = data_fetcher.asyncio.sleep
+    original_get = data_fetcher.requests.get
+    calls = {"requests": 0}
+
+    def fake_get(*args, **kwargs):
+        calls["requests"] += 1
+        return FakeRequestsResponse()
+
+    data_fetcher.asyncio.sleep = fake_sleep
+    data_fetcher.requests.get = fake_get
+    try:
+        session = SingleStatusSession(429)
+        result = await AsyncTWSEFetcher(session).fetch_daily_quotes("20260525")
+    finally:
+        data_fetcher.asyncio.sleep = original_sleep
+        data_fetcher.requests.get = original_get
+    assert session.calls == 4
+    assert calls["requests"] == 0
+    assert result is None
+
+
+async def verify_non_retry_status_does_not_fallback() -> None:
+    original_get = data_fetcher.requests.get
+    calls = {"requests": 0}
+
+    def fake_get(*args, **kwargs):
+        calls["requests"] += 1
+        return FakeRequestsResponse()
+
+    data_fetcher.requests.get = fake_get
+    try:
+        session = SingleStatusSession(404)
+        result = await AsyncTWSEFetcher(session).fetch_daily_quotes("20260525")
+    finally:
+        data_fetcher.requests.get = original_get
+    assert session.calls == 1
+    assert calls["requests"] == 0
+    assert result is None
+
+
+async def verify_non_transient_payload_does_not_fallback() -> None:
+    original_get = data_fetcher.requests.get
+    calls = {"requests": 0}
+
+    def fake_get(*args, **kwargs):
+        calls["requests"] += 1
+        return FakeRequestsResponse()
+
+    data_fetcher.requests.get = fake_get
+    try:
+        session = InvalidPayloadSession()
+        result = await AsyncTWSEFetcher(session).fetch_daily_quotes("20260525")
+    finally:
+        data_fetcher.requests.get = original_get
+    assert session.calls == 1
+    assert calls["requests"] == 0
+    assert result is None
 
 
 def main() -> int:
