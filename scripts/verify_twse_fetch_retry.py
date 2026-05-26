@@ -30,6 +30,11 @@ class FakeResponse:
         return self.payload
 
 
+class FakeNonJsonResponse(FakeResponse):
+    async def json(self):
+        raise ValueError("not json")
+
+
 class FakeSession:
     def __init__(self):
         self.calls = 0
@@ -81,6 +86,29 @@ class InvalidPayloadSession:
         return FakeResponse(200, {"stat": "很抱歉，沒有符合條件的資料"})
 
 
+class NonJsonThenSuccessSession:
+    def __init__(self):
+        self.calls = 0
+
+    def get(self, *args, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            return FakeNonJsonResponse(200)
+        return FakeResponse(
+            200,
+            {
+                "stat": "OK",
+                "tables": [
+                    {
+                        "title": "每日收盤行情",
+                        "fields": ["證券代號", "證券名稱", "成交股數", "成交筆數", "成交金額", "開盤價", "最高價", "最低價", "收盤價"],
+                        "data": [["2303", "聯電", "3,000", "90", "120,000", "40", "41", "39", "40.5"]],
+                    }
+                ],
+            },
+        )
+
+
 class FakeRequestsResponse:
     status_code = 200
 
@@ -115,6 +143,7 @@ async def verify() -> None:
     assert result.iloc[0]["stock_id"] == "2330"
     assert int(result.iloc[0]["transactions"]) == 50
     await verify_requests_fallback()
+    await verify_non_json_response_retries_without_fallback()
     await verify_rate_limit_status_does_not_fallback()
     await verify_non_retry_status_does_not_fallback()
     await verify_non_transient_payload_does_not_fallback()
@@ -142,6 +171,30 @@ async def verify_requests_fallback() -> None:
     assert result is not None
     assert len(result) == 1
     assert result.iloc[0]["stock_id"] == "2317"
+
+
+async def verify_non_json_response_retries_without_fallback() -> None:
+    original_sleep = data_fetcher.asyncio.sleep
+    original_get = data_fetcher.requests.get
+    calls = {"requests": 0}
+
+    def fake_get(*args, **kwargs):
+        calls["requests"] += 1
+        return FakeRequestsResponse()
+
+    data_fetcher.asyncio.sleep = fake_sleep
+    data_fetcher.requests.get = fake_get
+    try:
+        session = NonJsonThenSuccessSession()
+        result = await AsyncTWSEFetcher(session).fetch_daily_quotes("20260525")
+    finally:
+        data_fetcher.asyncio.sleep = original_sleep
+        data_fetcher.requests.get = original_get
+    assert session.calls == 2
+    assert calls["requests"] == 0
+    assert result is not None
+    assert len(result) == 1
+    assert result.iloc[0]["stock_id"] == "2303"
 
 
 async def verify_rate_limit_status_does_not_fallback() -> None:

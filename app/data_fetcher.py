@@ -14,6 +14,7 @@ import time
 from tqdm.asyncio import tqdm
 import logging
 import json
+import os
 import requests
 
 # 設定日誌
@@ -62,7 +63,11 @@ class AsyncTWSEFetcher:
                             data = await response.json()
                         except Exception:
                             last_error = "non-json response"
-                            break
+                            if attempt == 4:
+                                break
+                            await asyncio.sleep(0.8 * attempt)
+                            continue
+                        break
                         break
                     if response.status not in retry_statuses:
                         last_error = f"status {response.status}"
@@ -291,8 +296,9 @@ class DataFetcherOrchestrator:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.all_source_logs = []
         
-        # 建立限流器 (Semaphore) - 避免對證交所發出太多併發請求
-        self.semaphore = asyncio.Semaphore(3) # 同時處理 3 個請求 (保守)
+        # 建立限流器 (Semaphore) - TWSE RWD 在全量回補時對併發很敏感，先以單日序列化確保資料完整。
+        self.semaphore = asyncio.Semaphore(1)
+        self.day_delay_seconds = float(os.getenv("TOP10_FETCH_DAY_DELAY_SECONDS", "3.0"))
 
     async def _fetch_day_data(self, session: aiohttp.ClientSession, date: datetime) -> List[pd.DataFrame]:
         """單日資料抓取任務 (TWSE + TPEX 並行)"""
@@ -322,6 +328,9 @@ class DataFetcherOrchestrator:
                 valid_dfs.append(results[1])
                 # 收集 log
                 self.all_source_logs.extend(tpex.data_source_log)
+
+            if self.day_delay_seconds > 0:
+                await asyncio.sleep(self.day_delay_seconds)
             
             return valid_dfs
 
