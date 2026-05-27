@@ -110,7 +110,7 @@ class AutomationRunner:
             return
 
         self._daily_preflight()
-        self._run_command("etl", ["python", "-m", "app.pipeline_cli", "run"])
+        self._run_command("etl", self._pipeline_run_command())
         self._run_command("data.validate", ["python", "-m", "app.pipeline_cli", "validate"])
         self._record_data_freshness("data.freshness.after_etl")
         self._run_command("ranking", ["python", "-m", "app.agent_b_ranking"])
@@ -180,6 +180,21 @@ class AutomationRunner:
     def _run_status(self) -> None:
         self._run_command("data.validate", ["python", "-m", "app.pipeline_cli", "validate"])
         self._record_step("status", "OK", message="狀態檢查完成")
+
+    def _pipeline_run_command(self) -> list[str]:
+        command = ["python", "-m", "app.pipeline_cli", "run"]
+        window: dict[str, str] = {}
+        start_date = os.environ.get("TOP10_PIPELINE_START_DATE")
+        end_date = os.environ.get("TOP10_PIPELINE_END_DATE")
+        if start_date:
+            command.extend(["--start-date", start_date])
+            window["start_date"] = start_date
+        if end_date:
+            command.extend(["--end-date", end_date])
+            window["end_date"] = end_date
+        if window:
+            self.status.metadata["pipeline_window"] = window
+        return command
 
     def _run_daily_postcheck(self, daily_config: dict[str, Any]) -> None:
         if not daily_config.get("postcheck_enabled", False):
