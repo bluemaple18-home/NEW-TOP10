@@ -5,6 +5,14 @@
 
 set -e  # setup 階段遇到錯誤立即停止
 
+# launchd / non-login shell 預設 PATH 很短，需明確納入 uv 常見安裝路徑。
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+UV_BIN="${UV_BIN:-$(command -v uv 2>/dev/null || true)}"
+if [ -z "$UV_BIN" ]; then
+  echo "❌ uv command not found; set UV_BIN or install uv under $HOME/.local/bin, /opt/homebrew/bin, or /usr/local/bin"
+  exit 127
+fi
+
 # 切換到專案目錄
 cd "$(dirname "$0")/.."
 PROJECT_DIR=$(pwd)
@@ -20,7 +28,7 @@ echo "🚀 開始每日自動執行 - $(date)" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e
-uv run --with-requirements requirements.txt python -m scripts.run_automation daily >> "$LOG_FILE" 2>&1
+"$UV_BIN" run --with-requirements requirements.txt python -m scripts.run_automation daily >> "$LOG_FILE" 2>&1
 RUN_EXIT_CODE=$?
 set -e
 
@@ -36,7 +44,7 @@ else
 fi
 
 set +e
-STATUS_OUTPUT="$(uv run --with-requirements requirements.txt python scripts/print_daily_status.py --status "$STATUS_PATH" --min-started-at-epoch "$WRAPPER_STARTED_AT_EPOCH" 2>&1)"
+STATUS_OUTPUT="$("$UV_BIN" run --with-requirements requirements.txt python scripts/print_daily_status.py --status "$STATUS_PATH" --min-started-at-epoch "$WRAPPER_STARTED_AT_EPOCH" 2>&1)"
 STATUS_EXIT_CODE=$?
 set -e
 

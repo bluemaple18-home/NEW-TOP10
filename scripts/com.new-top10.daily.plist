@@ -8,15 +8,15 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>__PROJECT_DIR__/scripts/run_daily.sh</string>
+        <string>__PROJECT_DIR__/scripts/run_daily_publish.sh</string>
     </array>
     
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
-        <integer>22</integer>
+        <integer>17</integer>
         <key>Minute</key>
-        <integer>0</integer>
+        <integer>30</integer>
     </dict>
     
     <key>StandardOutPath</key>

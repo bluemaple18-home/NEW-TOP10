@@ -27,6 +27,7 @@ class FetchStage(PipelineStage):
             raise ValueError("資料擷取失敗，產出為空")
 
         df = self._filter_tradable_universe(df, context)
+        df = self._dedupe_trade_keys(df, context)
             
         # 整合 FinMind 籌碼；缺套件或 API 失敗時不可阻斷價格資料重建。
         try:
@@ -77,3 +78,48 @@ class FetchStage(PipelineStage):
         if filtered.empty:
             raise ValueError("套用 tradable universe 後資料為空")
         return filtered
+
+
+    def _dedupe_trade_keys(self, df: pd.DataFrame, context: dict) -> pd.DataFrame:
+        """確保後續 pivot 前交易日與股票代號唯一。"""
+        if df.empty:
+            return df
+
+        normalized = df.copy()
+        normalized['date'] = pd.to_datetime(normalized['date'])
+        normalized['stock_id'] = normalized['stock_id'].astype(str).str.strip()
+
+        duplicate_mask = normalized.duplicated(['date', 'stock_id'], keep=False)
+        duplicate_rows = int(duplicate_mask.sum())
+        if duplicate_rows == 0:
+            context['stats']['trade_key_dedupe'] = {'status': 'ok', 'duplicate_rows': 0}
+            return normalized
+
+        before_rows = len(normalized)
+        market_priority = {'TWSE': 0, 'TPEX': 1}
+        market_values = normalized['market'] if 'market' in normalized.columns else pd.Series(index=normalized.index, dtype='object')
+        normalized['_market_priority'] = market_values.map(market_priority).fillna(99)
+        normalized = normalized.sort_values(['date', 'stock_id', '_market_priority'])
+        deduped = normalized.drop_duplicates(['date', 'stock_id'], keep='first').drop(columns=['_market_priority'])
+
+        sample = (
+            normalized.loc[duplicate_mask, ['date', 'stock_id', 'stock_name', 'market']]
+            .drop_duplicates()
+            .head(10)
+            .to_dict(orient='records')
+        )
+        context['stats']['trade_key_dedupe'] = {
+            'status': 'deduped',
+            'duplicate_rows': duplicate_rows,
+            'before_rows': before_rows,
+            'after_rows': len(deduped),
+            'sample': sample,
+        }
+        self.logger.warning(
+            'FetchStage 發現同日同股重複資料，已依市場優先序去重: duplicate_rows=%s rows %s -> %s sample=%s',
+            duplicate_rows,
+            before_rows,
+            len(deduped),
+            sample,
+        )
+        return deduped

@@ -54,7 +54,7 @@ tail -f logs/launchd_retrain.log
 ## 📋 腳本說明
 
 ### `scripts/run_daily.sh`
-**功能**: 每日自動執行 (22:00)
+**功能**: 每日資料更新、選股、報表與 Clawd payload 產出
 **流程**:
 1. 執行 daily preflight：交易日 gate、模型檔存在、資料 freshness 與最新日 TWSE/TPEX 市場覆蓋。
 2. 執行 ETL 更新當日資料。
@@ -67,6 +67,14 @@ tail -f logs/launchd_retrain.log
 9. 更新 `artifacts/automation_status.json` 與 `artifacts/daily_run_summary_YYYY-MM-DD.json`。
 10. 若 `daily.postcheck_enabled=true`，執行可選 postcheck，輸出 `artifacts/daily_postcheck_YYYY-MM-DD.json`。
 11. 記錄日誌至 `logs/daily_YYYYMMDD.log`。
+
+### `scripts/run_daily_publish.sh`
+**功能**: 本機 launchd 收盤後排程入口 (17:30)
+**流程**:
+1. 呼叫 `scripts/run_daily.sh` 跑完整 daily 主流程。
+2. 若 daily 失敗，停止推播並保留 daily exit code。
+3. 若 daily 成功，讀取本次 `clawd_publish_message_YYYY-MM-DD.md`。
+4. 呼叫 `scripts/report_stock_status.sh` 交給 New Clawd 正式推播；推播失敗只寫 `logs/stock_notify.jsonl`，不回頭處理 Discord 細節。
 
 ### `scripts/daily_retrain.sh`
 **功能**: 每日 PSI 監控 (02:00)，可手動傳入 `retrain` 執行模型重訓
@@ -115,6 +123,14 @@ uv run --with-requirements requirements.txt python scripts/build_clawd_publish_p
 ```
 
 `build_clawd_publish_payload.py` 只寫 artifact，不會呼叫 Clawd、不會讀 token、不會送出訊息。未設定 `notify.clawd_channel` / `notify.clawd_to` 時，payload 會標記為 `PENDING_TARGET`；實際發送仍受 `notify.clawd_enabled=false` 保護，後續需另開發送卡才會接上 Clawd。
+
+New Clawd 接入只透過本機 CLI 上報訊息事件，股票專案不維護 Discord token、gateway 或 bot 設定。預設 stock-watchlist target 為 `channel:1507327845003825154`，CLI 入口由 `config/automation.yaml` 與 `NEWCLAWD_*` 環境變數指定。可用 thin adapter 做 dry-run 驗證：
+
+```bash
+scripts/report_stock_status.sh --dry-run --message "[stock project dry-run] New Clawd interface OK"
+```
+
+若 New Clawd CLI 失敗，adapter 只會寫入 `logs/stock_notify.jsonl`，不會讓股票主流程失敗；retry / queue / 換平台由 New Clawd 端承接。
 
 每日後驗收可手動執行：
 
@@ -249,7 +265,7 @@ uv run --with-requirements requirements.txt python scripts/verify_model_group_ac
 
 ```yaml
 daily:
-  run_time: "22:00"
+  run_time: "17:30"
   weekend_enabled: false
   max_data_lag_days: 7
   

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,11 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.data.reference_repository import ReferenceRepository  # noqa: E402
+
 REPORT_SCHEMA_VERSION = "daily-decision-report.v1"
 
 
@@ -33,6 +39,7 @@ def main() -> int:
     ranking_path = resolve_ranking_path(artifacts_dir=artifacts_dir, status=status, date=args.date, ranking=args.ranking)
     ranking_date = date_from_ranking_path(ranking_path)
     frame = pd.read_csv(ranking_path)
+    frame = ReferenceRepository(PROJECT_ROOT).annotate_ranking(frame)
     report = build_report(frame=frame, ranking_path=ranking_path, ranking_date=ranking_date, status=status)
 
     json_path = artifacts_dir / f"daily_report_{ranking_date}.json"
@@ -138,9 +145,22 @@ def item_from_row(rank: int, row: pd.Series) -> dict[str, Any]:
             "cash_weight": number_value(row.get("cash_weight")),
             "exposure_note": string_value(row.get("exposure_note")),
         },
+        "reference": reference_from_row(row),
         "trade_plan": trade_plan,
         "market_regime": string_value(row.get("market_regime")),
         "reasons": reasons,
+    }
+
+
+def reference_from_row(row: pd.Series) -> dict[str, Any]:
+    return {
+        "industry_code": string_value(row.get("industry_code")),
+        "industry_name": string_value(row.get("industry_name")),
+        "sector_name": string_value(row.get("sector_name")),
+        "market_type": string_value(row.get("market_type")),
+        "theme_tags": split_tags(row.get("theme_tags")),
+        "concept_tags": split_tags(row.get("concept_tags")),
+        "major_etfs": split_tags(row.get("major_etfs")),
     }
 
 
@@ -306,6 +326,13 @@ def string_value(value: Any) -> str:
     if value is None or pd.isna(value):
         return ""
     return str(value).strip()
+
+
+def split_tags(value: Any) -> list[str]:
+    text = string_value(value)
+    if not text:
+        return []
+    return [tag.strip() for tag in text.split("|") if tag.strip()]
 
 
 def num(value: Any) -> str:

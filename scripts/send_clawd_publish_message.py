@@ -44,7 +44,7 @@ def main() -> int:
     send_allowed = bool(args.send and notify.get("clawd_enabled") is True and notify.get("clawd_dry_run") is False)
     dry_run = not send_allowed
     node_bin = str(notify.get("clawd_cli_node") or "/opt/homebrew/opt/node/bin/node")
-    cli_entry = str(notify.get("clawd_cli_entry") or "/Users/matt/new clawd/dist/index.js")
+    cli_entry = str(notify.get("clawd_cli_entry") or "/Users/mattkuo/new clawd/dist/index.js")
     channel = str(notify.get("clawd_channel") or "")
     target = str(notify.get("clawd_to") or "")
 

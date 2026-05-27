@@ -228,7 +228,7 @@ class ReferenceRepository:
             for stock_id in result["stock_id"].astype(str)
         ]
         result["concept_tags"] = [
-            "|".join(concept.canonical_name for concept in self.stock_concepts(stock_id, limit=8))
+            "|".join(self._ranking_concept_tags(stock_id, limit=8))
             for stock_id in result["stock_id"].astype(str)
         ]
         return result
@@ -274,6 +274,34 @@ class ReferenceRepository:
             confidence=self._float_or_none(row.get("confidence")),
             match_method=self._str_or_none(row.get("match_method")),
         )
+
+    def _ranking_concept_tags(self, stock_id: str, limit: int) -> list[str]:
+        tags = []
+        seen = set()
+        for concept in self.stock_concepts(stock_id, limit=50):
+            if concept.concept_type != "theme":
+                continue
+            label = self._clean_concept_label(concept.canonical_name or concept.raw_concept_name)
+            if not label or self._is_noisy_concept_label(label) or label in seen:
+                continue
+            seen.add(label)
+            tags.append(label)
+            if len(tags) >= limit:
+                break
+        return tags
+
+    def _clean_concept_label(self, value: str) -> str:
+        text = str(value).strip()
+        if "/" in text:
+            text = text.split("/")[-1].strip()
+        return text
+
+    def _is_noisy_concept_label(self, value: str) -> bool:
+        noisy_keywords = ["指數成分股", "基金", "認購", "認售", "集團股"]
+        noisy_exact = {"ESG", "大陸收成股"}
+        if value in noisy_exact:
+            return True
+        return any(keyword in value for keyword in noisy_keywords)
 
     def _safe_stock_id(self, stock_id: str) -> str:
         target = str(stock_id).strip()

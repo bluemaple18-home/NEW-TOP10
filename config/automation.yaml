@@ -8,7 +8,7 @@ timezone: "Asia/Taipei"
 # ========================================
 daily:
   enabled: true
-  run_time: "22:00"          # 每日執行時間
+  run_time: "17:30"          # 每日收盤後執行時間；週末由 daily gate 跳過
   weekend_enabled: false      # 週末是否執行 (false = 僅工作日)
   max_data_lag_days: 7         # features/events/universe 最新交易日允許落後幾個日曆日
   market_coverage_enabled: true # 最新交易日必須同時覆蓋上市 / 上櫃，避免只抓到單一市場仍誤判新鮮
@@ -89,7 +89,7 @@ notify:
   clawd_to: "channel:1507327845003825154"
   clawd_dry_run: true
   clawd_cli_node: "/opt/homebrew/opt/node/bin/node"
-  clawd_cli_entry: "/Users/matt/new clawd/dist/index.js"
+  clawd_cli_entry: "/Users/mattkuo/new clawd/dist/index.js"
   
   email_enabled: false        # Email 通知開關 (未來功能)
   email_to: ""
