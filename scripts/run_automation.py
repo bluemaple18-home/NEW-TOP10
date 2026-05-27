@@ -183,18 +183,27 @@ class AutomationRunner:
 
     def _pipeline_run_command(self) -> list[str]:
         command = ["python", "-m", "app.pipeline_cli", "run"]
+        window = self._pipeline_window_override()
+        if "start_date" in window:
+            command.extend(["--start-date", window["start_date"]])
+        if "end_date" in window:
+            command.extend(["--end-date", window["end_date"]])
+        return command
+
+    def _pipeline_window_override(self) -> dict[str, str]:
         window: dict[str, str] = {}
         start_date = os.environ.get("TOP10_PIPELINE_START_DATE")
         end_date = os.environ.get("TOP10_PIPELINE_END_DATE")
         if start_date:
-            command.extend(["--start-date", start_date])
             window["start_date"] = start_date
         if end_date:
-            command.extend(["--end-date", end_date])
             window["end_date"] = end_date
         if window:
             self.status.metadata["pipeline_window"] = window
-        return command
+        return window
+
+    def _has_pipeline_window_override(self) -> bool:
+        return bool(self._pipeline_window_override())
 
     def _run_daily_postcheck(self, daily_config: dict[str, Any]) -> None:
         if not daily_config.get("postcheck_enabled", False):
@@ -277,7 +286,10 @@ class AutomationRunner:
         self._record_step("daily.schema", "OK", message=STATUS_SCHEMA_VERSION)
         self._record_step("daily.run_date", "OK", message=self.run_date)
         self._record_model_existence()
-        self._record_data_freshness("data.freshness.preflight")
+        self._record_data_freshness(
+            "data.freshness.preflight",
+            fail_on_error=not self._has_pipeline_window_override(),
+        )
 
     def _retrain_preflight(self) -> None:
         self._record_step("retrain.schema", "OK", message=STATUS_SCHEMA_VERSION)
@@ -308,7 +320,7 @@ class AutomationRunner:
         self.status.metadata["model"] = {"path": str(model_path), "exists": False}
         raise RuntimeError("models/latest_lgbm.pkl 不存在，daily ranking 不可使用 fallback model")
 
-    def _record_data_freshness(self, step_name: str) -> None:
+    def _record_data_freshness(self, step_name: str, fail_on_error: bool = True) -> None:
         try:
             import pandas as pd
         except ImportError as exc:
@@ -359,6 +371,9 @@ class AutomationRunner:
         errors = stale_errors + coverage_errors
         if errors:
             message = "; ".join(errors)
+            if not fail_on_error:
+                self._record_step(step_name, "WARN", message=f"deferred until ETL: {message}")
+                return
             self._record_step(step_name, "FAILED", message=message)
             raise RuntimeError(f"資料 freshness / 市場覆蓋檢查失敗：{message}")
         latest_summary = ", ".join(
