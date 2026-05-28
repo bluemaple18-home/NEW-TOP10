@@ -35,6 +35,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fee-rate", type=float, default=0.001425, help="單邊手續費率")
     parser.add_argument("--tax-rate", type=float, default=0.003, help="賣出證交稅率")
     parser.add_argument("--slippage-rate", type=float, default=0.001, help="買賣各一側滑價率")
+    parser.add_argument("--max-position-weight", type=float, default=0.2, help="單檔部位上限；會套用 ranking 內 max_position_weight 與此值的較小者")
+    parser.add_argument("--default-gross-exposure", type=float, default=0.65, help="ranking 缺 gross_exposure 時的預設總曝險")
     parser.add_argument("--output", default=None, help="輸出 JSON；未指定時寫 artifacts/backtest/replay_YYYY-MM-DD.json")
     return parser.parse_args()
 
@@ -73,6 +75,11 @@ def read_ranking(path: Path, top_n: int) -> list[dict[str, Any]]:
                 "stock_name": row.get("stock_name"),
                 "model_prob": parse_float(row.get("model_prob")),
                 "risk_adjusted_score": parse_float(row.get("risk_adjusted_score")),
+                "suggested_weight": parse_float(row.get("suggested_weight")),
+                "max_position_weight": parse_float(row.get("max_position_weight")),
+                "gross_exposure": parse_float(row.get("gross_exposure")),
+                "industry_name": row.get("industry_name"),
+                "sector_name": row.get("sector_name"),
             }
         )
     return result
@@ -180,15 +187,23 @@ def run_replay(args: argparse.Namespace) -> dict[str, Any]:
     files = ranking_files(rankings_dir, args.max_ranking_files)
 
     trades: list[dict[str, Any]] = []
+    portfolio_observations: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
     for ranking_path in files:
         date_text = ranking_date(ranking_path)
+        ranking_items = read_ranking(ranking_path, args.top_n)
         entry_date = next_market_trade_date(trade_dates, date_text)
         if entry_date is None:
-            for item in read_ranking(ranking_path, args.top_n):
+            for item in ranking_items:
                 skipped.append({"ranking_date": date_text, "stock_id": item["stock_id"], "reason": "missing_next_market_trade_day"})
             continue
-        for item in read_ranking(ranking_path, args.top_n):
+        weights = portfolio_weights(
+            ranking_items,
+            default_gross_exposure=args.default_gross_exposure,
+            max_position_weight=args.max_position_weight,
+        )
+        trades_by_horizon: dict[int, list[dict[str, Any]]] = {horizon: [] for horizon in horizons}
+        for item in ranking_items:
             stock_prices = price_index.get(item["stock_id"])
             if stock_prices is None:
                 skipped.append({"ranking_date": date_text, "stock_id": item["stock_id"], "reason": "missing_price_history"})
@@ -262,7 +277,19 @@ def run_replay(args: argparse.Namespace) -> dict[str, Any]:
                         }
                     )
                     continue
-                trades.append({"ranking_date": date_text, "horizon": horizon, **item, **outcome})
+                trade = {
+                    "ranking_date": date_text,
+                    "horizon": horizon,
+                    **item,
+                    "portfolio_weight": weights.get(item["stock_id"], 0.0),
+                    **outcome,
+                }
+                trades.append(trade)
+                trades_by_horizon[horizon].append(trade)
+        for horizon, horizon_trades in trades_by_horizon.items():
+            observation = portfolio_observation(date_text, horizon, horizon_trades, weights)
+            if observation is not None:
+                portfolio_observations.append(observation)
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -272,7 +299,8 @@ def run_replay(args: argparse.Namespace) -> dict[str, Any]:
             "entry_timing": "D+1 open",
             "entry_bar_policy": "use next market trading day; skip stocks without OHLC/open on that date",
             "lookahead_guard": "ranking date only selects future OHLC for simulated execution",
-            "portfolio_equity_curve": False,
+            "portfolio_equity_curve": "bucket_only",
+            "portfolio_policy": "per-ranking-date bucket; no overlapping-position rebalance in v1",
         },
         "inputs": {
             "rankings_dir": str(rankings_dir),
@@ -284,17 +312,86 @@ def run_replay(args: argparse.Namespace) -> dict[str, Any]:
                 "fee_rate": args.fee_rate,
                 "tax_rate": args.tax_rate,
                 "slippage_rate": args.slippage_rate,
+                "max_position_weight": args.max_position_weight,
+                "default_gross_exposure": args.default_gross_exposure,
             },
         },
-        "summary": summarize(trades),
+        "summary": summarize(trades, portfolio_observations),
         "trades": trades,
+        "portfolio": {
+            "observations": portfolio_observations,
+            "equity_curve": equity_curve(portfolio_observations),
+        },
         "skipped": skipped,
     }
 
 
-def summarize(trades: list[dict[str, Any]]) -> dict[str, Any]:
+def portfolio_weights(
+    items: list[dict[str, Any]],
+    default_gross_exposure: float,
+    max_position_weight: float,
+) -> dict[str, float]:
+    raw_weights: dict[str, float] = {}
+    for item in items:
+        suggested = item.get("suggested_weight")
+        weight = suggested if suggested is not None and suggested > 0 else 1 / len(items) if items else 0
+        row_cap = item.get("max_position_weight")
+        cap = min(value for value in [max_position_weight, row_cap] if value is not None and value > 0)
+        raw_weights[item["stock_id"]] = min(float(weight), float(cap))
+
+    total = sum(raw_weights.values())
+    if total <= 0:
+        return {stock_id: 0.0 for stock_id in raw_weights}
+    row_gross = next((item.get("gross_exposure") for item in items if item.get("gross_exposure") is not None), None)
+    gross_exposure = float(row_gross) if row_gross is not None and row_gross > 0 else default_gross_exposure
+    target_total = min(gross_exposure, total)
+    scale = target_total / total
+    return {stock_id: round(weight * scale, 6) for stock_id, weight in raw_weights.items()}
+
+
+def portfolio_observation(
+    ranking_date_text: str,
+    horizon: int,
+    trades: list[dict[str, Any]],
+    weights: dict[str, float],
+) -> dict[str, Any] | None:
+    valid = [trade for trade in trades if trade.get("portfolio_weight", 0) > 0]
+    if not valid:
+        return None
+    invested_weight = sum(float(trade["portfolio_weight"]) for trade in valid)
+    weighted_return = sum(float(trade["portfolio_weight"]) * float(trade["net_return"]) for trade in valid)
+    return {
+        "ranking_date": ranking_date_text,
+        "horizon": horizon,
+        "positions": len(valid),
+        "invested_weight": round(invested_weight, 6),
+        "cash_weight": round(max(0.0, 1 - invested_weight), 6),
+        "portfolio_return": round(weighted_return, 6),
+        "gross_target_weight": round(sum(weights.values()), 6),
+    }
+
+
+def equity_curve(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    equity_by_horizon: dict[int, float] = {}
+    curve: list[dict[str, Any]] = []
+    for item in sorted(observations, key=lambda row: (row["horizon"], row["ranking_date"])):
+        horizon = int(item["horizon"])
+        equity = equity_by_horizon.get(horizon, 1.0) * (1 + float(item["portfolio_return"]))
+        equity_by_horizon[horizon] = equity
+        curve.append(
+            {
+                "ranking_date": item["ranking_date"],
+                "horizon": horizon,
+                "portfolio_return": item["portfolio_return"],
+                "equity": round(equity, 6),
+            }
+        )
+    return curve
+
+
+def summarize(trades: list[dict[str, Any]], portfolio_observations: list[dict[str, Any]]) -> dict[str, Any]:
     if not trades:
-        return {"trade_count": 0, "by_horizon": {}}
+        return {"trade_count": 0, "by_horizon": {}, "portfolio_by_horizon": {}}
     frame = pd.DataFrame(trades)
     by_horizon = {}
     for horizon, group in frame.groupby("horizon"):
@@ -307,7 +404,31 @@ def summarize(trades: list[dict[str, Any]]) -> dict[str, Any]:
             "avg_mae": round(float(pd.to_numeric(group["mae"], errors="coerce").mean()), 6),
             "avg_mfe": round(float(pd.to_numeric(group["mfe"], errors="coerce").mean()), 6),
         }
-    return {"trade_count": int(len(frame)), "by_horizon": by_horizon}
+    portfolio_by_horizon = {}
+    if portfolio_observations:
+        portfolio_frame = pd.DataFrame(portfolio_observations)
+        for horizon, group in portfolio_frame.groupby("horizon"):
+            returns = pd.to_numeric(group["portfolio_return"], errors="coerce")
+            portfolio_by_horizon[str(int(horizon))] = {
+                "observation_count": int(len(group)),
+                "avg_portfolio_return": round(float(returns.mean()), 6),
+                "hit_rate": round(float((returns > 0).mean()), 6),
+                "total_compounded_return": round(float((1 + returns).prod() - 1), 6),
+                "max_drawdown": round(max_drawdown(list(returns)), 6),
+            }
+    return {"trade_count": int(len(frame)), "by_horizon": by_horizon, "portfolio_by_horizon": portfolio_by_horizon}
+
+
+def max_drawdown(returns: list[float]) -> float:
+    equity = 1.0
+    peak = 1.0
+    worst = 0.0
+    for value in returns:
+        equity *= 1 + float(value)
+        peak = max(peak, equity)
+        drawdown = equity / peak - 1
+        worst = min(worst, drawdown)
+    return worst
 
 
 def render_markdown(payload: dict[str, Any]) -> str:
@@ -337,6 +458,27 @@ def render_markdown(payload: dict[str, Any]) -> str:
             )
         )
     lines.append("")
+    if payload["summary"].get("portfolio_by_horizon"):
+        lines.extend(
+            [
+                "## Portfolio Bucket Summary",
+                "",
+                "| Horizon | Buckets | Avg Return | Hit Rate | Compounded | Max DD |",
+                "|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for horizon, item in payload["summary"]["portfolio_by_horizon"].items():
+            lines.append(
+                "| {h} | {n} | {avg:.2%} | {hit:.2%} | {total:.2%} | {mdd:.2%} |".format(
+                    h=horizon,
+                    n=item["observation_count"],
+                    avg=item["avg_portfolio_return"],
+                    hit=item["hit_rate"],
+                    total=item["total_compounded_return"],
+                    mdd=item["max_drawdown"],
+                )
+            )
+        lines.append("")
     return "\n".join(lines)
 
 

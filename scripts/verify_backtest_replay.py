@@ -23,12 +23,63 @@ def main() -> int:
         rankings_dir.mkdir()
         ranking_path = rankings_dir / "ranking_2026-01-02.csv"
         with ranking_path.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["stock_id", "stock_name", "model_prob", "risk_adjusted_score"])
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=[
+                    "stock_id",
+                    "stock_name",
+                    "model_prob",
+                    "risk_adjusted_score",
+                    "suggested_weight",
+                    "max_position_weight",
+                    "gross_exposure",
+                ],
+            )
             writer.writeheader()
-            writer.writerow({"stock_id": "1111", "stock_name": "甲", "model_prob": "0.7", "risk_adjusted_score": "2"})
-            writer.writerow({"stock_id": "2222", "stock_name": "乙", "model_prob": "0.6", "risk_adjusted_score": "1"})
-            writer.writerow({"stock_id": "3333", "stock_name": "丙", "model_prob": "0.5", "risk_adjusted_score": "0.5"})
-            writer.writerow({"stock_id": "4444", "stock_name": "丁", "model_prob": "0.4", "risk_adjusted_score": "0.2"})
+            writer.writerow(
+                {
+                    "stock_id": "1111",
+                    "stock_name": "甲",
+                    "model_prob": "0.7",
+                    "risk_adjusted_score": "2",
+                    "suggested_weight": "0.25",
+                    "max_position_weight": "0.2",
+                    "gross_exposure": "0.6",
+                }
+            )
+            writer.writerow(
+                {
+                    "stock_id": "2222",
+                    "stock_name": "乙",
+                    "model_prob": "0.6",
+                    "risk_adjusted_score": "1",
+                    "suggested_weight": "0.2",
+                    "max_position_weight": "0.2",
+                    "gross_exposure": "0.6",
+                }
+            )
+            writer.writerow(
+                {
+                    "stock_id": "3333",
+                    "stock_name": "丙",
+                    "model_prob": "0.5",
+                    "risk_adjusted_score": "0.5",
+                    "suggested_weight": "0.1",
+                    "max_position_weight": "0.2",
+                    "gross_exposure": "0.6",
+                }
+            )
+            writer.writerow(
+                {
+                    "stock_id": "4444",
+                    "stock_name": "丁",
+                    "model_prob": "0.4",
+                    "risk_adjusted_score": "0.2",
+                    "suggested_weight": "0.05",
+                    "max_position_weight": "0.2",
+                    "gross_exposure": "0.6",
+                }
+            )
 
         features = pd.DataFrame(
             [
@@ -77,6 +128,7 @@ def main() -> int:
         output_text = output.read_text(encoding="utf-8")
         payload = json.loads(output_text)
         first_trade = payload["trades"][0]
+        portfolio_summary = payload["summary"]["portfolio_by_horizon"]
         skipped_by_stock = {item["stock_id"]: item for item in payload["skipped"] if item.get("reason") == "missing_entry_bar"}
         skipped_exit = {
             (item["stock_id"], item.get("horizon")): item
@@ -109,6 +161,15 @@ def main() -> int:
             and skipped_ohlc.get(("4444", 2), {}).get("expected_exit_date") == "2026-01-06",
             "no_nan_json_literal": "NaN" not in output_text,
             "no_missing_ohlc_trade": all(trade["stock_id"] != "4444" for trade in payload["trades"]),
+            "portfolio_summary_exists": set(portfolio_summary) == {"1", "2"},
+            "portfolio_observations_exist": len(payload["portfolio"]["observations"]) == 2,
+            "equity_curve_exists": len(payload["portfolio"]["equity_curve"]) == 2,
+            "contract_declares_bucket_equity_curve": payload["contract"].get("portfolio_equity_curve") == "bucket_only",
+            "contract_declares_bucket_policy": payload["contract"].get("portfolio_policy")
+            == "per-ranking-date bucket; no overlapping-position rebalance in v1",
+            "weights_are_capped": all(trade["portfolio_weight"] <= 0.2 for trade in payload["trades"]),
+            "portfolio_return_is_weighted": portfolio_summary["1"]["observation_count"] == 1
+            and -0.05 < portfolio_summary["1"]["avg_portfolio_return"] < 0.05,
         }
         ok = all(checks.values())
         artifact = PROJECT_ROOT / "artifacts" / "backtest_replay_verification_latest.json"
