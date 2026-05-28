@@ -1,0 +1,17 @@
+{
+  "schema_version": "candidate-persistence-backtest-verification.v1",
+  "status": "OK",
+  "checks": {
+    "schema_ok": true,
+    "model_feature_false": true,
+    "no_future_ranking_contract": true,
+    "has_streak_1": true,
+    "has_streak_2_3": true,
+    "streak_2_3_positive": true,
+    "new_bucket_has_trade": true,
+    "all_trades_have_streak": true,
+    "no_nan_json_literal": true,
+    "future_2026_01_07_not_used_for_2026_01_06_4444": true
+  },
+  "note": "uses TemporaryDirectory synthetic ranking and OHLC data"
+}

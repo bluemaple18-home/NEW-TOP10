@@ -17,7 +17,21 @@
     "equity_curve_moved": true,
     "no_nan_json_literal": true,
     "drift_gross_exposure_capped": true,
-    "drift_deleverage_recorded": true
+    "drift_deleverage_recorded": true,
+    "group_exposure_capped": true,
+    "group_exposure_contract": true,
+    "group_exposure_artifact_exists": true,
+    "group_no_nan_json_literal": true,
+    "event_exit_contract": true,
+    "stop_loss_exit": true,
+    "take_profit_exit": true,
+    "event_exits_before_horizon_close": true,
+    "event_daily_counts": true,
+    "event_no_nan_json_literal": true,
+    "multi_group_drift_capped": true,
+    "multi_group_all_groups_checked": true,
+    "multi_group_deleverage_recorded": true,
+    "multi_group_no_nan_json_literal": true
   },
   "note": "uses TemporaryDirectory synthetic ranking and OHLC data"
 }

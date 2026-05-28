@@ -1,7 +1,7 @@
 # Overlap Portfolio Replay
 
-- final_equity：1.01948
-- total_return：1.95%
-- max_drawdown：-4.03%
+- final_equity：0.994463
+- total_return：-0.55%
+- max_drawdown：-2.59%
 - trade_count：11
-- max_gross_exposure：65.00%
+- max_gross_exposure：54.44%

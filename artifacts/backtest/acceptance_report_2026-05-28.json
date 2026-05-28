@@ -1,0 +1,58 @@
+{
+  "schema_version": "backtest-acceptance-report.v1",
+  "generated_at": "2026-05-28T06:34:15.942374+00:00",
+  "status": "OK",
+  "artifacts": {
+    "portfolio": "/Users/matt/TOP10new/artifacts/backtest/portfolio_replay_2026-05-28.json",
+    "persistence": "/Users/matt/TOP10new/artifacts/backtest/persistence_study_2026-05-28.json"
+  },
+  "checks": {
+    "portfolio": {
+      "schema_ok": true,
+      "overlap_contract": true,
+      "model_feature_false": true,
+      "trade_count_positive": true,
+      "gross_exposure_capped": true,
+      "group_exposure_capped": true,
+      "group_policy_declared": true,
+      "event_exit_policy_declared": true,
+      "event_exit_fields_present": true
+    },
+    "persistence": {
+      "schema_ok": true,
+      "model_feature_false": true,
+      "no_future_rankings": true,
+      "trade_count_positive": true,
+      "streak_summary_exists": true
+    }
+  },
+  "summary": {
+    "portfolio": {
+      "final_equity": 0.994463,
+      "total_return": -0.005537,
+      "max_drawdown": -0.025867,
+      "daily_count": 8,
+      "trade_count": 11,
+      "skipped_count": 11,
+      "win_rate": 0.454545,
+      "avg_trade_return": -0.007431,
+      "max_gross_exposure": 0.544414,
+      "max_group_exposure": 0.185934,
+      "avg_gross_exposure": 0.180361
+    },
+    "persistence": {
+      "trade_count": 43,
+      "streak_bucket_count": 3,
+      "rank_delta_bucket_count": 3
+    }
+  },
+  "decision": {
+    "production_model_change": false,
+    "ranking_score_change": false,
+    "ready_for_review": true,
+    "next_research": [
+      "用較長 ranking window 重跑 portfolio replay，觀察 max_drawdown 與 group concentration",
+      "若 persistence bucket 穩定，下一步只進 shadow feature，不直接進 production score"
+    ]
+  }
+}

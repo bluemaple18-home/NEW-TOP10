@@ -1,0 +1,20 @@
+{
+  "schema_version": "backtest-acceptance-verification.v1",
+  "status": "OK",
+  "checks": {
+    "schema_ok": true,
+    "status_ok": true,
+    "portfolio_checks_ok": true,
+    "persistence_checks_ok": true,
+    "decision_no_production_change": true,
+    "no_nan_json_literal": true,
+    "missing_exposure_metric_fails": true,
+    "missing_exposure_metric_check_false": true,
+    "missing_group_metric_check_false": true,
+    "missing_gross_input_fails": true,
+    "missing_gross_input_check_false": true,
+    "missing_rank_delta_summary_fails": true,
+    "missing_rank_delta_check_false": true
+  },
+  "note": "uses TemporaryDirectory synthetic artifacts"
+}
