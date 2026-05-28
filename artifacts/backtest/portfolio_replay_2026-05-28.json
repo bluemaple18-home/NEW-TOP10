@@ -1,0 +1,330 @@
+{
+  "schema_version": "overlap-portfolio-replay.v1",
+  "generated_at": "2026-05-28T06:04:04.574534+00:00",
+  "contract": {
+    "signal_timing": "D close ranking artifact",
+    "entry_timing": "D+1 open",
+    "exit_timing": "fixed 5 market bars, exit at close",
+    "overlapping_positions": true,
+    "exposure_policy": "close exposure is deleveraged after scheduled exits to stay within max_gross_exposure",
+    "model_feature": false
+  },
+  "inputs": {
+    "rankings_dir": "/Users/matt/TOP10new/artifacts",
+    "features": "/Users/matt/TOP10new/data/clean/features.parquet",
+    "top_n": 10,
+    "horizon": 5,
+    "max_ranking_files": 4,
+    "max_gross_exposure": 0.65,
+    "max_position_weight": 0.2,
+    "costs": {
+      "fee_rate": 0.001425,
+      "tax_rate": 0.003,
+      "slippage_rate": 0.001
+    }
+  },
+  "summary": {
+    "final_equity": 1.01948,
+    "total_return": 0.01948,
+    "max_drawdown": -0.040286,
+    "daily_count": 8,
+    "trade_count": 11,
+    "skipped_count": 11,
+    "win_rate": 0.727273,
+    "avg_trade_return": 0.030578,
+    "max_gross_exposure": 0.65,
+    "avg_gross_exposure": 0.321762
+  },
+  "daily": [
+    {
+      "date": "2026-05-13",
+      "equity": 0.997873,
+      "daily_return": -0.002127,
+      "cash": 0.934842,
+      "gross_exposure": 0.063165,
+      "positions": 1,
+      "entries": 1,
+      "exits": 0,
+      "close_exposure_before_exit": 0.06303,
+      "close_exposure_before_deleverage": 0.06303,
+      "deleveraged_notional": 0.0,
+      "deleverage_count": 0
+    },
+    {
+      "date": "2026-05-14",
+      "equity": 0.997873,
+      "daily_return": 0.0,
+      "cash": 0.934842,
+      "gross_exposure": 0.063165,
+      "positions": 1,
+      "entries": 0,
+      "exits": 0,
+      "close_exposure_before_exit": 0.06303,
+      "close_exposure_before_deleverage": 0.06303,
+      "deleveraged_notional": 0.0,
+      "deleverage_count": 0
+    },
+    {
+      "date": "2026-05-15",
+      "equity": 0.996997,
+      "daily_return": -0.000877,
+      "cash": 0.934842,
+      "gross_exposure": 0.062342,
+      "positions": 1,
+      "entries": 0,
+      "exits": 0,
+      "close_exposure_before_exit": 0.062155,
+      "close_exposure_before_deleverage": 0.062155,
+      "deleveraged_notional": 0.0,
+      "deleverage_count": 0
+    },
+    {
+      "date": "2026-05-18",
+      "equity": 1.000612,
+      "daily_return": 0.003626,
+      "cash": 0.350214,
+      "gross_exposure": 0.65,
+      "positions": 11,
+      "entries": 10,
+      "exits": 0,
+      "close_exposure_before_exit": 0.653099,
+      "close_exposure_before_deleverage": 0.653099,
+      "deleveraged_notional": 0.002701,
+      "deleverage_count": 11
+    },
+    {
+      "date": "2026-05-19",
+      "equity": 0.9836,
+      "daily_return": -0.017002,
+      "cash": 0.411776,
+      "gross_exposure": 0.581358,
+      "positions": 10,
+      "entries": 0,
+      "exits": 1,
+      "close_exposure_before_exit": 0.633721,
+      "close_exposure_before_deleverage": 0.571823,
+      "deleveraged_notional": 0.0,
+      "deleverage_count": 0
+    },
+    {
+      "date": "2026-05-20",
+      "equity": 0.960301,
+      "daily_return": -0.023687,
+      "cash": 0.411776,
+      "gross_exposure": 0.571201,
+      "positions": 10,
+      "entries": 0,
+      "exits": 0,
+      "close_exposure_before_exit": 0.548525,
+      "close_exposure_before_deleverage": 0.548525,
+      "deleveraged_notional": 0.0,
+      "deleverage_count": 0
+    },
+    {
+      "date": "2026-05-21",
+      "equity": 0.987157,
+      "daily_return": 0.027965,
+      "cash": 0.411776,
+      "gross_exposure": 0.582866,
+      "positions": 10,
+      "entries": 0,
+      "exits": 0,
+      "close_exposure_before_exit": 0.57538,
+      "close_exposure_before_deleverage": 0.57538,
+      "deleveraged_notional": 0.0,
+      "deleverage_count": 0
+    },
+    {
+      "date": "2026-05-22",
+      "equity": 1.01948,
+      "daily_return": 0.032744,
+      "cash": 1.01948,
+      "gross_exposure": 0.0,
+      "positions": 0,
+      "entries": 0,
+      "exits": 10,
+      "close_exposure_before_exit": 0.611019,
+      "close_exposure_before_deleverage": 0.0,
+      "deleveraged_notional": 0.0,
+      "deleverage_count": 0
+    }
+  ],
+  "trades": [
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1110",
+      "stock_name": "東泥",
+      "entry_date": "2026-05-13",
+      "exit_date": "2026-05-19",
+      "entry_price": 14.85,
+      "exit_price": 14.2,
+      "entry_notional": 0.064731,
+      "net_return": -0.051259
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "3030",
+      "stock_name": "德律",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 385.5,
+      "exit_price": 419.5,
+      "entry_notional": 0.061489,
+      "net_return": 0.079675
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "6451",
+      "stock_name": "訊芯-KY",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 569.0,
+      "exit_price": 524.0,
+      "entry_notional": 0.060053,
+      "net_return": -0.086298
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "2464",
+      "stock_name": "盟立",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 126.5,
+      "exit_price": 144.0,
+      "entry_notional": 0.059604,
+      "net_return": 0.129426
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "6215",
+      "stock_name": "和椿",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 132.0,
+      "exit_price": 134.5,
+      "entry_notional": 0.059065,
+      "net_return": 0.01096
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "6207",
+      "stock_name": "雷科",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 76.9,
+      "exit_price": 89.9,
+      "entry_notional": 0.058437,
+      "net_return": 0.159896
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "8028",
+      "stock_name": "昇陽半導體",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 285.0,
+      "exit_price": 294.0,
+      "entry_notional": 0.058437,
+      "net_return": 0.023501
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "8091",
+      "stock_name": "翔名",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 248.0,
+      "exit_price": 267.0,
+      "entry_notional": 0.05718,
+      "net_return": 0.068182
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "4576",
+      "stock_name": "大銀微系統",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 274.0,
+      "exit_price": 261.5,
+      "entry_notional": 0.05709,
+      "net_return": -0.053094
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "2359",
+      "stock_name": "所羅門",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 136.5,
+      "exit_price": 141.0,
+      "entry_notional": 0.056731,
+      "net_return": 0.024878
+    },
+    {
+      "ranking_date": "2026-05-15",
+      "stock_id": "4540",
+      "stock_name": "全球傳動",
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-22",
+      "entry_price": 69.9,
+      "exit_price": 72.6,
+      "entry_notional": 0.055385,
+      "net_return": 0.030493
+    }
+  ],
+  "skipped": [
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1119",
+      "reason": "missing_price_history"
+    },
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1161",
+      "reason": "missing_price_history"
+    },
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1167",
+      "reason": "missing_price_history"
+    },
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1158",
+      "reason": "missing_price_history"
+    },
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1149",
+      "reason": "missing_price_history"
+    },
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1181",
+      "reason": "missing_price_history"
+    },
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1156",
+      "reason": "missing_price_history"
+    },
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1141",
+      "reason": "missing_price_history"
+    },
+    {
+      "ranking_date": "2026-05-12",
+      "stock_id": "1118",
+      "reason": "missing_price_history"
+    },
+    {
+      "ranking_date": "2026-05-25",
+      "reason": "insufficient_future_market_bars"
+    },
+    {
+      "ranking_date": "2026-05-26",
+      "reason": "missing_next_market_trade_day"
+    }
+  ]
+}

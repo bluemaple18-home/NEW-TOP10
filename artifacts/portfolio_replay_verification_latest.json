@@ -1,0 +1,23 @@
+{
+  "schema_version": "portfolio-replay-verification.v1",
+  "status": "OK",
+  "checks": {
+    "schema_ok": true,
+    "contract_declares_overlap": true,
+    "model_feature_false": true,
+    "trade_count": true,
+    "entry_is_next_trade_day_first_bucket": true,
+    "entry_is_next_trade_day_second_bucket": true,
+    "not_same_day_entry": true,
+    "overlapping_positions_exist": true,
+    "gross_exposure_capped": true,
+    "has_entries_and_exits": true,
+    "missing_ohlc_skipped": true,
+    "missing_ohlc_not_traded": true,
+    "equity_curve_moved": true,
+    "no_nan_json_literal": true,
+    "drift_gross_exposure_capped": true,
+    "drift_deleverage_recorded": true
+  },
+  "note": "uses TemporaryDirectory synthetic ranking and OHLC data"
+}
