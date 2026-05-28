@@ -22,9 +22,12 @@ LOG_DIR="$PROJECT_DIR/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/daily_$(date +%Y%m%d).log"
 WRAPPER_STARTED_AT_EPOCH="$(date +%s)"
+TOP10_RESOURCE_PROFILE="${TOP10_RESOURCE_PROFILE:-standard}"
+export TOP10_RESOURCE_PROFILE
 
 echo "========================================" | tee -a "$LOG_FILE"
 echo "🚀 開始每日自動執行 - $(date)" | tee -a "$LOG_FILE"
+echo "🧯 resource profile: $TOP10_RESOURCE_PROFILE" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e

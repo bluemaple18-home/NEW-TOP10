@@ -4,6 +4,12 @@
 timezone: "Asia/Taipei"
 
 # ========================================
+# 執行資源模式
+# ========================================
+execution:
+  resource_profile: "standard" # standard / local_safe / host_full；本機測試可用 env TOP10_RESOURCE_PROFILE=local_safe
+
+# ========================================
 # 每日執行設定
 # ========================================
 daily:
@@ -15,6 +21,7 @@ daily:
   required_market_types: ["twse", "tpex"]
   min_latest_market_coverage_ratio: 0.5
   weekly_snapshot_enabled: true # MOM-01：ranking 後產生本週模型初選池 / 每日快照 artifact
+  candidate_persistence_enabled: true # PERSIST-01：ranking 後產生入榜天數 / 排名變化 artifact
   daily_report_enabled: true    # DAILY-02：ranking 後產出 PM/使用者可讀的每日決策日報
   clawd_payload_enabled: true   # CLAWD-01：daily report 後產出 Clawd-ready payload；不實際發送
   postcheck_enabled: false     # DAILY-03：每日後驗收預設手動執行，避免 launchd 被前端/Chrome 環境卡住

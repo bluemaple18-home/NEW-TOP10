@@ -55,11 +55,12 @@ class AutomationStatus:
 
 
 class AutomationRunner:
-    def __init__(self, mode: str, dry_run: bool = False, trigger: str = "manual"):
+    def __init__(self, mode: str, dry_run: bool = False, trigger: str = "manual", resource_profile: str | None = None):
         self.mode = mode
         self.dry_run = dry_run
         self.trigger = trigger
         self.config = self._load_config()
+        self.resource_profile = self._resolve_resource_profile(resource_profile)
         self.tz = ZoneInfo(self.config.get("timezone", "Asia/Taipei"))
         self.run_date = self._today_local().strftime("%Y-%m-%d")
         self.status = AutomationStatus(
@@ -69,7 +70,7 @@ class AutomationRunner:
             dry_run=dry_run,
             started_at=self._now(),
             run_date=self.run_date,
-            metadata={"project_root": str(PROJECT_ROOT), "trigger": trigger},
+            metadata={"project_root": str(PROJECT_ROOT), "trigger": trigger, "resource_profile": self.resource_profile},
         )
 
     def run(self) -> int:
@@ -109,6 +110,7 @@ class AutomationRunner:
             self._skip("daily.trading_day_gate", f"non_trading_day weekday={self._today_local().weekday()}")
             return
 
+        self._guard_daily_resource_profile()
         self._daily_preflight()
         self._run_command("etl", self._pipeline_run_command())
         self._run_command("data.validate", ["python", "-m", "app.pipeline_cli", "validate"])
@@ -116,6 +118,7 @@ class AutomationRunner:
         self._run_command("ranking", ["python", "-m", "app.agent_b_ranking"])
         self._record_latest_ranking("ranking.artifact")
         ranking_path = self._expected_ranking_path()
+        self._run_candidate_persistence(daily_config, ranking_path)
         self._run_weekly_snapshot(daily_config, ranking_path)
         report_path = self._run_daily_report(daily_config, ranking_path)
         self._run_clawd_payload(daily_config, report_path)
@@ -128,7 +131,14 @@ class AutomationRunner:
             return
         self._run_command("psi.monitor", ["python", "-m", "app.model_monitor"])
         self._run_command("factor.monitor", ["python", "scripts/monitor_factors.py"])
-        self._run_command("industry_momentum.monitor", ["python", "scripts/monitor_industry_momentum.py"])
+        if self._is_local_safe() and not self._truthy_env("TOP10_ALLOW_HEAVY_MONITOR"):
+            self._record_step(
+                "industry_momentum.monitor",
+                "SKIPPED",
+                message="resource_profile=local_safe; set TOP10_ALLOW_HEAVY_MONITOR=1 or TOP10_RESOURCE_PROFILE=host_full",
+            )
+        else:
+            self._run_command("industry_momentum.monitor", ["python", "scripts/monitor_industry_momentum.py"])
         self._run_command("model.health", ["python", "scripts/generate_model_health_report.py"])
 
     def _run_retrain(self) -> None:
@@ -137,6 +147,7 @@ class AutomationRunner:
             self._record_step("retrain.disabled", "SKIPPED", message="config retrain.enabled=false")
             return
 
+        self._guard_retrain_resource_profile()
         self._retrain_preflight()
         backup_path = self._backup_model()
         baseline_backup_path = self._backup_baseline()
@@ -205,6 +216,53 @@ class AutomationRunner:
     def _has_pipeline_window_override(self) -> bool:
         return bool(self._pipeline_window_override())
 
+    def _resolve_resource_profile(self, explicit: str | None) -> str:
+        profile = (
+            explicit
+            or os.environ.get("TOP10_RESOURCE_PROFILE")
+            or self.config.get("execution", {}).get("resource_profile")
+            or "standard"
+        )
+        profile = str(profile).strip().lower()
+        if profile not in {"local_safe", "standard", "host_full"}:
+            raise ValueError(f"未知 resource profile：{profile}")
+        return profile
+
+    def _is_local_safe(self) -> bool:
+        return self.resource_profile == "local_safe"
+
+    def _truthy_env(self, name: str) -> bool:
+        return self._truthy_value(os.environ.get(name)) is True
+
+    def _guard_daily_resource_profile(self) -> None:
+        if self.dry_run or not self._is_local_safe():
+            return
+        if self._truthy_env("TOP10_ALLOW_FULL_ETL"):
+            self._record_step("resource_guard.daily", "OK", message="TOP10_ALLOW_FULL_ETL=1")
+            return
+        if self._has_pipeline_window_override():
+            self._record_step("resource_guard.daily", "OK", message="local_safe with explicit pipeline window")
+            return
+        message = (
+            "resource_profile=local_safe blocks daily ETL without TOP10_PIPELINE_START_DATE/"
+            "TOP10_PIPELINE_END_DATE; use TOP10_RESOURCE_PROFILE=host_full for production host runs"
+        )
+        self._record_step("resource_guard.daily", "FAILED", message=message)
+        raise RuntimeError(message)
+
+    def _guard_retrain_resource_profile(self) -> None:
+        if self.dry_run or not self._is_local_safe():
+            return
+        if self._truthy_env("TOP10_ALLOW_HEAVY_RETRAIN"):
+            self._record_step("resource_guard.retrain", "OK", message="TOP10_ALLOW_HEAVY_RETRAIN=1")
+            return
+        message = (
+            "resource_profile=local_safe blocks formal retrain; use --dry-run for tests or "
+            "TOP10_RESOURCE_PROFILE=host_full for production host/manual retrain"
+        )
+        self._record_step("resource_guard.retrain", "FAILED", message=message)
+        raise RuntimeError(message)
+
     def _run_daily_postcheck(self, daily_config: dict[str, Any]) -> None:
         if not daily_config.get("postcheck_enabled", False):
             self._record_step("daily.postcheck", "SKIPPED", message="config daily.postcheck_enabled=false")
@@ -223,6 +281,13 @@ class AutomationRunner:
             return
         command = ["python", "scripts/build_weekly_candidate_snapshot.py", "--ranking", str(ranking_path)]
         self._run_command("weekly.snapshot", command)
+
+    def _run_candidate_persistence(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
+        if not daily_config.get("candidate_persistence_enabled", True):
+            self._record_step("candidate.persistence", "SKIPPED", message="config daily.candidate_persistence_enabled=false")
+            return
+        command = ["python", "scripts/build_candidate_persistence.py", "--ranking", str(ranking_path)]
+        self._run_command("candidate.persistence", command)
 
     def _run_daily_report(self, daily_config: dict[str, Any], ranking_path: Path) -> Path | None:
         report_path = PROJECT_ROOT / "artifacts" / f"daily_report_{self._latest_feature_date()}.json"
@@ -764,7 +829,7 @@ class AutomationRunner:
             )
             return
 
-        completed = subprocess.run(command, cwd=PROJECT_ROOT)
+        completed = subprocess.run(command, cwd=PROJECT_ROOT, env=self._subprocess_env())
         result = StepResult(
             name=name,
             status="OK" if completed.returncode == 0 else "FAILED",
@@ -854,6 +919,14 @@ class AutomationRunner:
             return {}
         return yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
 
+    def _subprocess_env(self) -> dict[str, str]:
+        env = os.environ.copy()
+        env["TOP10_RESOURCE_PROFILE"] = self.resource_profile
+        if self._is_local_safe():
+            for name in ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"]:
+                env.setdefault(name, "1")
+        return env
+
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
 
@@ -874,8 +947,19 @@ def main() -> int:
         default="manual",
         help="標記啟動來源；auto/scheduled retrain 會套用 promotion gate",
     )
+    parser.add_argument(
+        "--resource-profile",
+        choices=["local_safe", "standard", "host_full"],
+        default=None,
+        help="資源模式：local_safe 會阻擋本機高成本流程；host_full 用於主機正式流程",
+    )
     args = parser.parse_args()
-    return AutomationRunner(mode=args.mode, dry_run=args.dry_run, trigger=args.trigger).run()
+    return AutomationRunner(
+        mode=args.mode,
+        dry_run=args.dry_run,
+        trigger=args.trigger,
+        resource_profile=args.resource_profile,
+    ).run()
 
 
 if __name__ == "__main__":

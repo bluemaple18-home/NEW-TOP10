@@ -40,7 +40,14 @@ def main() -> int:
     ranking_date = date_from_ranking_path(ranking_path)
     frame = pd.read_csv(ranking_path)
     frame = ReferenceRepository(PROJECT_ROOT).annotate_ranking(frame)
-    report = build_report(frame=frame, ranking_path=ranking_path, ranking_date=ranking_date, status=status)
+    persistence = load_persistence(artifacts_dir / f"candidate_persistence_{ranking_date}.json")
+    report = build_report(
+        frame=frame,
+        ranking_path=ranking_path,
+        ranking_date=ranking_date,
+        status=status,
+        persistence=persistence,
+    )
 
     json_path = artifacts_dir / f"daily_report_{ranking_date}.json"
     md_path = artifacts_dir / f"daily_report_{ranking_date}.md"
@@ -54,6 +61,17 @@ def load_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_persistence(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return {
+        str(item.get("stock_id", "")).zfill(4): item
+        for item in payload.get("items", [])
+        if item.get("stock_id")
+    }
 
 
 def resolve_ranking_path(artifacts_dir: Path, status: dict[str, Any], date: str | None, ranking: str | None) -> Path:
@@ -86,9 +104,16 @@ def date_from_ranking_path(path: Path) -> str:
     return match.group(1)
 
 
-def build_report(frame: pd.DataFrame, ranking_path: Path, ranking_date: str, status: dict[str, Any]) -> dict[str, Any]:
+def build_report(
+    frame: pd.DataFrame,
+    ranking_path: Path,
+    ranking_date: str,
+    status: dict[str, Any],
+    persistence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     top = frame.head(10).copy()
-    items = [item_from_row(index + 1, row) for index, (_, row) in enumerate(top.iterrows())]
+    persistence = persistence or {}
+    items = [item_from_row(index + 1, row, persistence) for index, (_, row) in enumerate(top.iterrows())]
     score_columns = ["risk_adjusted_score", "prediction_score", "setup_score", "quality_score", "risk_penalty"]
     missing_columns = [column for column in score_columns if column not in frame.columns]
     coverage = coverage_summary(frame)
@@ -115,16 +140,23 @@ def build_report(frame: pd.DataFrame, ranking_path: Path, ranking_date: str, sta
         },
         "coverage": coverage,
         "risk": risk,
+        "persistence": {
+            "available": bool(persistence),
+            "source": f"candidate_persistence_{ranking_date}.json" if persistence else None,
+            "scope": "decision_annotation_only",
+            "model_feature": False,
+        },
         "top10": items,
     }
 
 
-def item_from_row(rank: int, row: pd.Series) -> dict[str, Any]:
+def item_from_row(rank: int, row: pd.Series, persistence: dict[str, Any] | None = None) -> dict[str, Any]:
     reasons = clean_reason_text(row.get("reasons"))
     trade_plan = trade_plan_from_row(row)
+    stock_id = str(row.get("stock_id", "")).zfill(4)
     return {
         "rank": rank,
-        "stock_id": str(row.get("stock_id", "")).zfill(4),
+        "stock_id": stock_id,
         "stock_name": string_value(row.get("stock_name")),
         "close": number_value(row.get("close")),
         "scores": {
@@ -147,8 +179,23 @@ def item_from_row(rank: int, row: pd.Series) -> dict[str, Any]:
         },
         "reference": reference_from_row(row),
         "trade_plan": trade_plan,
+        "persistence": persistence_item(stock_id, persistence or {}),
         "market_regime": string_value(row.get("market_regime")),
         "reasons": reasons,
+    }
+
+
+def persistence_item(stock_id: str, persistence: dict[str, Any]) -> dict[str, Any]:
+    item = persistence.get(stock_id)
+    if not item:
+        return {"available": False}
+    return {
+        "available": True,
+        "first_seen_date": item.get("first_seen_date"),
+        "consecutive_ranked_days": item.get("consecutive_ranked_days"),
+        "ranked_history_count": item.get("ranked_history_count"),
+        "previous_rank": item.get("previous_rank"),
+        "rank_delta": item.get("rank_delta"),
     }
 
 
@@ -243,16 +290,17 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Top10",
         "",
-        "| Rank | 股票 | 勝率 | 風險調整 | Setup | Quality | Risk | 權重 | 進場 / 停損 / 目標 |",
-        "|---:|---|---:|---:|---:|---:|---:|---:|---|",
+        "| Rank | 股票 | 入榜 | 勝率 | 風險調整 | Setup | Quality | Risk | 權重 | 進場 / 停損 / 目標 |",
+        "|---:|---|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for item in report["top10"]:
         trade = item["trade_plan"]
         lines.append(
-            "| {rank} | {stock_id} {stock_name} | {model_prob} | {risk_adjusted} | {setup} | {quality} | {risk} | {weight} | {entry} / {stop} / {target} |".format(
+            "| {rank} | {stock_id} {stock_name} | {streak} | {model_prob} | {risk_adjusted} | {setup} | {quality} | {risk} | {weight} | {entry} / {stop} / {target} |".format(
                 rank=item["rank"],
                 stock_id=item["stock_id"],
                 stock_name=item["stock_name"],
+                streak=streak_label(item.get("persistence", {})),
                 model_prob=pct(item["scores"].get("model_prob")),
                 risk_adjusted=num(item["scores"].get("risk_adjusted_score")),
                 setup=num(item["scores"].get("setup_score")),
@@ -279,6 +327,17 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append(f"- `{name}` latest={info.get('latest_date')} lag_days={info.get('lag_days')} rows={info.get('rows')}")
     lines.append("")
     return "\n".join(lines)
+
+
+def streak_label(persistence: dict[str, Any]) -> str:
+    if not persistence.get("available"):
+        return "--"
+    days = persistence.get("consecutive_ranked_days")
+    delta = persistence.get("rank_delta")
+    delta_text = ""
+    if delta is not None:
+        delta_text = f" ({'+' if delta > 0 else ''}{delta})"
+    return f"{days}天{delta_text}" if days is not None else "--"
 
 
 def clean_reason_text(value: Any) -> list[str]:

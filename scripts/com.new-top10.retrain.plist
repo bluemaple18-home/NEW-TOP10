@@ -4,12 +4,20 @@
 <dict>
     <key>Label</key>
     <string>com.new-top10.retrain</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>TOP10_RESOURCE_PROFILE</key>
+        <string>host_full</string>
+    </dict>
     
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
         <string>__PROJECT_DIR__/scripts/daily_retrain.sh</string>
         <string>monitor</string>
+        <string>--trigger</string>
+        <string>scheduled</string>
     </array>
     
     <key>StartCalendarInterval</key>

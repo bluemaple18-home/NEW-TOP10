@@ -26,7 +26,7 @@ fi
 
 # 建立 crontab 項目
 CRON_DAILY="0 22 * * * cd $PROJECT_DIR && bash scripts/run_daily.sh"
-CRON_RETRAIN="0 2 * * * cd $PROJECT_DIR && bash scripts/daily_retrain.sh monitor"
+CRON_RETRAIN="0 2 * * * cd $PROJECT_DIR && TOP10_RESOURCE_PROFILE=host_full bash scripts/daily_retrain.sh monitor --trigger scheduled"
 CRON_REFERENCE="30 3 1 * * cd $PROJECT_DIR && bash scripts/run_reference_update.sh"
 
 # 檢查是否已存在
@@ -84,7 +84,7 @@ echo "   若 cron 無法運作，請改用 launchd (scripts/setup_launchd.sh)"
 echo ""
 echo "3. 手動測試腳本:"
 echo "   bash $PROJECT_DIR/scripts/run_daily.sh"
-echo "   bash $PROJECT_DIR/scripts/daily_retrain.sh monitor"
+echo "   TOP10_RESOURCE_PROFILE=host_full bash $PROJECT_DIR/scripts/daily_retrain.sh monitor --trigger scheduled"
 echo "   bash $PROJECT_DIR/scripts/daily_retrain.sh retrain"
 echo "   bash $PROJECT_DIR/scripts/run_reference_update.sh"
 echo "========================================="

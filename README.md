@@ -125,8 +125,11 @@ bash scripts/setup_launchd.sh
 # 測試每日執行流程
 bash scripts/run_daily.sh
 
-# 測試 PSI 監控
+# 本機輕量測試 PSI 監控；重型產業監控會被 local_safe 跳過
 bash scripts/daily_retrain.sh monitor
+
+# 模擬正式 02:00 monitor 排程
+TOP10_RESOURCE_PROFILE=host_full bash scripts/daily_retrain.sh monitor --trigger scheduled
 
 # 手動模型重訓
 bash scripts/daily_retrain.sh retrain

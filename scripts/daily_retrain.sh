@@ -17,6 +17,7 @@ MODE="${1:-monitor}"
 DRY_RUN=false
 TRIGGER="manual"
 WRAPPER_STARTED_AT_EPOCH="$(date +%s)"
+export TOP10_RESOURCE_PROFILE="${TOP10_RESOURCE_PROFILE:-local_safe}"
 
 if [ "$#" -gt 0 ]; then
     shift
@@ -79,6 +80,7 @@ fi
 if [ "$MODE" = "retrain" ]; then
     echo "🚦 retrain trigger: $TRIGGER" | tee -a "$LOG_FILE"
 fi
+echo "🧯 resource profile: $TOP10_RESOURCE_PROFILE" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e
