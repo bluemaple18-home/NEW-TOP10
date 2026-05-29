@@ -2,6 +2,7 @@
 """彙整每日 Top10 決策品質摘要。
 
 本腳本只讀既有 ranking / persistence / replay / market context artifacts，
+並可用本地 data/reference mapping 做中性 reference annotation；
 不重跑模型、不重算 ranking score，也不觸發外部 API。
 """
 
@@ -11,6 +12,7 @@ import argparse
 import json
 import math
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,6 +21,11 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.data.reference_repository import ReferenceRepository
+
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 SCHEMA_VERSION = "decision-quality.v1"
 
@@ -108,6 +115,7 @@ def load_json(path: Path | None) -> dict[str, Any]:
 
 def read_top_ranking(path: Path, top_n: int) -> list[dict[str, Any]]:
     frame = pd.read_csv(path, dtype={"stock_id": str}).head(top_n)
+    frame = ReferenceRepository(PROJECT_ROOT).annotate_ranking(frame)
     items: list[dict[str, Any]] = []
     for index, row in frame.iterrows():
         stock_id = str(row.get("stock_id", "")).strip().zfill(4)
@@ -336,7 +344,11 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "ranking_date": target_date,
         "contract": {
             "ranking_score_policy": "read_only_annotation; ranking scores are copied for context only and never recomputed",
-            "data_source_policy": "existing_artifacts_only; no model, ranking, replay, ETL, or external API execution",
+            "data_source_policy": (
+                "existing_artifacts_plus_read_only_local_reference_mapping; "
+                "no model, ranking, replay, ETL, or external API execution"
+            ),
+            "reference_scope": "read-only data/reference mapping for neutral industry/sector/market annotation only",
             "backtest_scope": "stock replay trades with ranking_date < target ranking_date",
             "portfolio_replay_scope": "exact ranking_date artifact only; mismatched artifacts are marked unavailable",
             "market_context_scope": "exact ranking_date artifact by default; explicit --market-context is marked if date mismatches",

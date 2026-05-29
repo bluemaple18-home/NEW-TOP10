@@ -214,8 +214,14 @@ def main() -> int:
         checks = {
             "schema_ok": payload["schema_version"] == "decision-quality.v1",
             "read_only_contract": payload["contract"]["ranking_score_policy"].startswith("read_only_annotation"),
+            "local_reference_mapping_declared": (
+                "read_only_local_reference_mapping" in payload["contract"]["data_source_policy"]
+                and payload["contract"].get("reference_scope")
+                == "read-only data/reference mapping for neutral industry/sector/market annotation only"
+            ),
             "top_count": payload["summary"]["top_count"] == 2,
             "score_copied_not_recomputed": first["scores"]["risk_adjusted_score"] == 2.5,
+            "reference_annotation_added": first["reference"]["industry_name"] != "" and first["reference"]["sector_name"] != "",
             "persistence_included": first["persistence"]["consecutive_ranked_days"] == 3,
             "backtest_uses_only_past_rankings": first["historical_backtest"]["trade_count"] == 2,
             "future_replay_excluded": first_horizon["avg_net_return"] == 0.02,
@@ -235,7 +241,7 @@ def main() -> int:
                     "schema_version": "decision-quality-verification.v1",
                     "status": status,
                     "checks": checks,
-                    "note": "uses TemporaryDirectory synthetic artifacts; no ranking/model/API execution",
+                    "note": "uses TemporaryDirectory synthetic artifacts plus read-only local reference mapping; no ranking/model/API execution",
                 },
                 ensure_ascii=False,
                 indent=2,
