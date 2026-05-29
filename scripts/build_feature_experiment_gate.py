@@ -244,14 +244,15 @@ def blocked_data_candidate(candidate_id: str, label: str, required_artifact: str
 def build_industry_candidate(artifacts_dir: Path) -> dict[str, Any]:
     industry_path = latest_existing(artifacts_dir, "industry_rotation_replay_*.json")
     payload = load_json(industry_path)
-    ready = payload.get("schema_version") is not None and payload.get("contract", {}).get("ranking_score_change") is False
-    blockers = [] if ready else ["missing industry rotation replay artifact"]
+    blockers = ["industry rotation remains monitor_only; production promotion criteria not defined"]
+    if not industry_path:
+        blockers.append("missing industry rotation replay artifact")
     return {
         "id": "industry_rotation",
         "label": "產業輪動 / group momentum overlay",
-        "shadow_status": candidate_status(ready),
+        "shadow_status": "BLOCKED",
         "production_promotion_status": promotion_status(),
-        "allowed_shadow_uses": ["industry overlay shadow test"] if ready else [],
+        "allowed_shadow_uses": [],
         "blocked_production_uses": ["do not change production score before replay and concentration checks"],
         "evidence": {"industry_rotation_replay": evidence_item(industry_path, payload)},
         "blockers": blockers,
