@@ -75,6 +75,14 @@ def build_fixture(root: Path) -> dict[str, Path]:
         artifacts / "model_group_acceptance_2026-01-05.json",
         {"schema_version": "model-group-acceptance.v1", "status": "OK"},
     )
+    write_json(
+        artifacts / "industry_rotation_replay_2026-01-05.json",
+        {
+            "schema_version": "industry-rotation-replay.v1",
+            "contract": {"ranking_score_change": False},
+            "summary": {"sample_count": 10},
+        },
+    )
     return {"artifacts": artifacts, "output": root / "feature_experiment_gate.json"}
 
 
@@ -118,7 +126,7 @@ def main() -> int:
             "portfolio_overlay_ready": by_id["portfolio_risk_overlay"]["shadow_status"] == "READY_FOR_SHADOW",
             "fundamentals_blocked": by_id["fundamentals"]["shadow_status"] == "BLOCKED",
             "chip_blocked": by_id["chip_flow"]["shadow_status"] == "BLOCKED",
-            "industry_rotation_blocked_without_replay": by_id["industry_rotation"]["shadow_status"] == "BLOCKED",
+            "industry_rotation_blocked_even_with_thin_replay": by_id["industry_rotation"]["shadow_status"] == "BLOCKED",
             "model_team_can_start": set(payload["handoff_for_model_team"]["can_start_now"])
             == {"candidate_persistence", "market_context", "portfolio_risk_overlay"},
             "must_not_change_ranking": any(
