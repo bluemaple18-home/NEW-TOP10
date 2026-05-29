@@ -5,19 +5,31 @@
 - `AGENTS.md`：專案規範。
 - `.work/current/status.md`：目前狀態。
 - `.work/current/handoff.md`：接手摘要。
-- `docs/tasks/2026-05-28_MARKET-CONTEXT-01_external_dashboard_research.md`：完整研究與開發建議。
+- `docs/architecture/TRADING_DECISION_LAYER.md`：decision quality / reference annotation 邊界。
+- `docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md`：market context 實作卡。
+- `docs/tasks/2026-05-29_FEATURE-EXP-01_shadow_feature_promotion_gate.md`：shadow feature gate。
 
-## 依需要讀
+## 主線程式
 
-- `app/data_fetcher.py`：現有 TWSE/TPEX 日行情 ETL。
-- `app/trading/market_regime.py`：現有薄版市場狀態判斷。
-- `app/trading/ranking_policy.py`：正式 ranking policy，不得未回測調權重。
-- `scripts/run_daily.sh`、`scripts/run_automation.py`：daily pipeline 接入點。
-- `scripts/generate_daily_report.py`：日報市場背景接入點。
+- `app/market_context_fetcher.py`
+- `scripts/verify_market_context_fetcher.py`
+- `scripts/build_decision_quality.py`
+- `scripts/verify_decision_quality.py`
+- `scripts/build_feature_experiment_gate.py`
+- `scripts/verify_feature_experiment_gate.py`
+- `scripts/run_automation.py`
+- `config/automation.yaml`
 
-## 外部參考
+## 目前要 review 的研究線
 
-- `https://github.com/tetsu811/tw-stock-dashboard`
-- `https://tetsu811.github.io/tw-stock-dashboard/`
+- `scripts/build_market_regime_history.py`
+- `scripts/research_regime_shadow_ranking.py`
+- `scripts/research_feature_group_ablation_by_regime.py`
+- `scripts/run_weekend_research_matrix.py`
+- `scripts/audit_research_dataset_coverage.py`
 
-不要重新爬整站，除非要驗證外部 repo 是否已更新。
+## 邊界
+
+- `artifacts/` 是 runtime evidence，預設不進 git。
+- reference annotation 只讀 `data/reference`，不改 model / ranking score。
+- regime / market context / persistence / portfolio risk 目前都只能走 shadow 或 read-only evidence。
