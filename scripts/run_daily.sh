@@ -21,9 +21,48 @@ PROJECT_DIR=$(pwd)
 LOG_DIR="$PROJECT_DIR/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/daily_$(date +%Y%m%d).log"
+LOCK_DIR="$LOG_DIR/daily.lock"
+LOCK_PID_FILE="$LOCK_DIR/pid"
 WRAPPER_STARTED_AT_EPOCH="$(date +%s)"
 TOP10_RESOURCE_PROFILE="${TOP10_RESOURCE_PROFILE:-standard}"
 export TOP10_RESOURCE_PROFILE
+
+acquire_daily_lock() {
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    echo "$$" > "$LOCK_PID_FILE"
+    trap 'rm -f "$LOCK_PID_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
+    return 0
+  fi
+
+  EXISTING_PID=""
+  if [ -r "$LOCK_PID_FILE" ]; then
+    EXISTING_PID="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
+  fi
+
+  if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+    echo "========================================" | tee -a "$LOG_FILE"
+    echo "⏭️ 每日流程略過 - $(date)" | tee -a "$LOG_FILE"
+    echo "📌 已有 daily run 執行中 pid=$EXISTING_PID lock=$LOCK_DIR" | tee -a "$LOG_FILE"
+    echo "========================================" | tee -a "$LOG_FILE"
+    exit 0
+  fi
+
+  echo "⚠️ 偵測到 stale daily lock，嘗試清理: $LOCK_DIR" | tee -a "$LOG_FILE"
+  rm -f "$LOCK_PID_FILE"
+  if rmdir "$LOCK_DIR" 2>/dev/null && mkdir "$LOCK_DIR" 2>/dev/null; then
+    echo "$$" > "$LOCK_PID_FILE"
+    trap 'rm -f "$LOCK_PID_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
+    return 0
+  fi
+
+  echo "========================================" | tee -a "$LOG_FILE"
+  echo "⏭️ 每日流程略過 - $(date)" | tee -a "$LOG_FILE"
+  echo "📌 無法取得 daily lock=$LOCK_DIR，避免重複寫入 data/artifacts" | tee -a "$LOG_FILE"
+  echo "========================================" | tee -a "$LOG_FILE"
+  exit 0
+}
+
+acquire_daily_lock
 
 echo "========================================" | tee -a "$LOG_FILE"
 echo "🚀 開始每日自動執行 - $(date)" | tee -a "$LOG_FILE"
