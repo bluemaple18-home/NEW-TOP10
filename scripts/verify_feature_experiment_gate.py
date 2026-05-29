@@ -83,6 +83,22 @@ def build_fixture(root: Path) -> dict[str, Path]:
             "summary": {"sample_count": 10},
         },
     )
+    write_json(
+        artifacts / "feature_group_ablation_by_regime_2026-01-05.json",
+        {
+            "schema_version": "feature-group-ablation-by-regime.v1",
+            "contract": {"research_only": True, "trains_model": False, "changes_ranking": False},
+            "summary": {
+                "candidate_metric_rows": 5,
+                "groups": ["price_volume", "industry_momentum"],
+                "regimes": ["NARROW_LEADER"],
+            },
+        },
+    )
+    write_json(
+        artifacts / "feature_group_ablation_by_regime_verification_latest.json",
+        {"status": "OK", "checks": {"strict_gate": True}},
+    )
     return {"artifacts": artifacts, "output": root / "feature_experiment_gate.json"}
 
 
@@ -124,11 +140,12 @@ def main() -> int:
             "candidate_persistence_ready": by_id["candidate_persistence"]["shadow_status"] == "READY_FOR_SHADOW",
             "market_context_ready": by_id["market_context"]["shadow_status"] == "READY_FOR_SHADOW",
             "portfolio_overlay_ready": by_id["portfolio_risk_overlay"]["shadow_status"] == "READY_FOR_SHADOW",
+            "regime_feature_group_ablation_ready": by_id["regime_feature_group_ablation"]["shadow_status"] == "READY_FOR_SHADOW",
             "fundamentals_blocked": by_id["fundamentals"]["shadow_status"] == "BLOCKED",
             "chip_blocked": by_id["chip_flow"]["shadow_status"] == "BLOCKED",
             "industry_rotation_blocked_even_with_thin_replay": by_id["industry_rotation"]["shadow_status"] == "BLOCKED",
             "model_team_can_start": set(payload["handoff_for_model_team"]["can_start_now"])
-            == {"candidate_persistence", "market_context", "portfolio_risk_overlay"},
+            == {"candidate_persistence", "market_context", "portfolio_risk_overlay", "regime_feature_group_ablation"},
             "must_not_change_ranking": any(
                 "RankingPolicy" in item or "risk_adjusted_score" in item for item in payload["handoff_for_model_team"]["must_not_do"]
             ),
@@ -179,6 +196,12 @@ def negative_verification_cases(paths: dict[str, Path]) -> dict[str, bool]:
             artifacts / "portfolio_replay_verification_latest.json",
             {"status": "FAILED", "checks": {"contract": False}},
             "portfolio_risk_overlay",
+        ),
+        (
+            "regime_feature_group_ablation_blocks_when_verification_failed",
+            artifacts / "feature_group_ablation_by_regime_verification_latest.json",
+            {"status": "FAILED", "checks": {"strict_gate": False}},
+            "regime_feature_group_ablation",
         ),
     ]
     for index, (case_name, path, failed_payload, candidate_id) in enumerate(mutations, start=1):

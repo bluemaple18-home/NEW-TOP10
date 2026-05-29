@@ -25,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--replay", required=True, help="run_backtest_replay.py 產出的 JSON")
     parser.add_argument("--sealed-start", default=None, help="sealed 起始日，例如 2026-02-04")
     parser.add_argument("--sealed-end", default=None, help="sealed 結束日，例如 2026-05-13")
+    parser.add_argument("--market-regime-history", default=None, help="build_market_regime_history.py 產出的 JSON")
     parser.add_argument("--output", default=None)
     return parser.parse_args()
 
@@ -43,6 +44,24 @@ def gross_exposure_regime(value: Any) -> str:
     if float(parsed) >= 0.6:
         return "NEUTRAL"
     return "RISK_OFF"
+
+
+def load_market_regime_map(path_value: str | None) -> dict[str, str]:
+    if not path_value:
+        return {}
+    path = resolve_path(path_value)
+    if not path.exists():
+        raise FileNotFoundError(f"market regime history 不存在：{path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    mapping: dict[str, str] = {}
+    for row in payload.get("rows", []):
+        date = str(row.get("trade_date") or "").strip()
+        label = str(row.get("regime_label") or "").strip()
+        if date and label:
+            mapping[date] = label
+    if not mapping:
+        raise ValueError(f"market regime history 沒有可用 rows：{path}")
+    return mapping
 
 
 def rank_bucket(value: Any) -> str:
@@ -111,9 +130,16 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     frame = pd.DataFrame(replay.get("trades", []))
     if frame.empty:
         raise ValueError("replay trades is empty")
+    regime_map = load_market_regime_map(args.market_regime_history)
     frame["ranking_date"] = pd.to_datetime(frame["ranking_date"], errors="coerce")
     frame["split_bucket"] = frame["ranking_date"].map(lambda value: split_bucket(value, args.sealed_start, args.sealed_end))
-    frame["regime_bucket"] = frame["gross_exposure"].map(gross_exposure_regime)
+    date_key = frame["ranking_date"].dt.date.astype(str)
+    if regime_map:
+        frame["regime_bucket"] = date_key.map(regime_map).fillna("UNKNOWN")
+        regime_source = "market_regime_history"
+    else:
+        frame["regime_bucket"] = frame["gross_exposure"].map(gross_exposure_regime)
+        regime_source = "gross_exposure_fallback"
     frame["rank_bucket"] = frame["rank"].map(rank_bucket)
     frame["sector_name"] = frame.get("sector_name", "unknown").fillna("unknown")
     frame["industry_name"] = frame.get("industry_name", "unknown").fillna("unknown")
@@ -132,6 +158,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "replay": str(replay_path),
             "sealed_start": args.sealed_start,
             "sealed_end": args.sealed_end,
+            "market_regime_history": str(resolve_path(args.market_regime_history)) if args.market_regime_history else None,
+            "regime_source": regime_source,
             "trade_count": int(len(frame)),
         },
         "summary": {
