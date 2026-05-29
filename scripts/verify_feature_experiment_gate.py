@@ -166,6 +166,7 @@ def write_weekend_decision_inputs(artifacts: Path) -> None:
     write_json(
         backtest / "replay_variant_comparison_2026-01-05.json",
         {
+            "variants": [{"label": "current"}, {"label": "overlay"}],
             "rows": [
                 {"variant": "current", "horizon": 5, "delta_portfolio_avg_return": 0.0, "delta_portfolio_max_drawdown": 0.0},
                 {"variant": "overlay", "horizon": 5, "delta_portfolio_avg_return": 0.01, "delta_portfolio_max_drawdown": 0.06},
@@ -272,6 +273,7 @@ def main() -> int:
             "weekend_research_matrix_ready": by_id["weekend_research_matrix"]["shadow_status"] == "READY_FOR_SHADOW",
             "weekend_decision_report_builder_ok": valid_report["status"] == "OK",
             "weekend_decision_report_builder_contract_ok": valid_report["contract"]["does_not_fetch_data"] is True,
+            "weekend_decision_report_builder_promotes_shadow": bool(valid_report["summary"]["promote_to_shadow"]),
             "fundamentals_blocked": by_id["fundamentals"]["shadow_status"] == "BLOCKED",
             "chip_blocked": by_id["chip_flow"]["shadow_status"] == "BLOCKED",
             "industry_rotation_blocked_even_with_thin_replay": by_id["industry_rotation"]["shadow_status"] == "BLOCKED",
