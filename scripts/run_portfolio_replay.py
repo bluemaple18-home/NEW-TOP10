@@ -379,6 +379,10 @@ def deleverage_to_group_cap(
 
 def run_portfolio(args: argparse.Namespace) -> dict[str, Any]:
     price_frame = run_backtest_replay.load_price_frame(resolve_path(args.features))
+    return run_portfolio_from_price_frame(args, price_frame)
+
+
+def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.DataFrame) -> dict[str, Any]:
     trade_dates = run_backtest_replay.market_trade_dates(price_frame)
     prices = price_lookup(price_frame)
     group_map = load_group_map(resolve_path(args.group_map), args.group_column) if args.max_group_exposure is not None else {}

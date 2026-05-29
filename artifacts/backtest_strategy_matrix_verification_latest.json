@@ -1,0 +1,17 @@
+{
+  "schema_version": "backtest-strategy-matrix-verification.v1",
+  "status": "OK",
+  "checks": {
+    "schema_ok": true,
+    "contract_no_model_change": true,
+    "features_load_once_contract": true,
+    "scenario_count": true,
+    "best_scenario_exists": true,
+    "rows_sorted": true,
+    "score_zero_sorts_before_negative": true,
+    "event_counts_exist": true,
+    "group_cap_scenarios_exist": true,
+    "no_nan_json_literal": true
+  },
+  "note": "uses TemporaryDirectory synthetic ranking and OHLC data"
+}
