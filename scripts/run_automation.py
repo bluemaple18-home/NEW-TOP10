@@ -471,7 +471,19 @@ class AutomationRunner:
             date_col = "trade_date" if "trade_date" in df.columns else "date" if "date" in df.columns else None
             if date_col is None:
                 raise RuntimeError(f"{filename} 缺少 date/trade_date 欄位")
-            latest = pd.to_datetime(df[date_col]).max().date()
+            latest_ts = pd.to_datetime(df[date_col], errors="coerce").max()
+            if pd.isna(latest_ts):
+                info = {
+                    "path": str(path),
+                    "rows": int(len(df)),
+                    "date_column": date_col,
+                    "latest_date": None,
+                    "lag_days": None,
+                }
+                freshness["datasets"][filename] = info
+                stale_errors.append(f"{filename} has no valid {date_col}")
+                continue
+            latest = latest_ts.date()
             lag_days = (self._today_local().date() - latest).days
             info = {
                 "path": str(path),

@@ -7,6 +7,11 @@ import pandas as pd
 from pathlib import Path
 import logging
 from datetime import datetime, timedelta
+import inspect
+import os
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 class ETLPipeline:
     """整合所有原子化階段的 ETL 流程調度器"""
@@ -16,6 +21,7 @@ class ETLPipeline:
         self.raw_dir = self.data_dir / "raw"
         self.clean_dir = self.data_dir / "clean"
         self.artifacts_dir = Path(artifacts_dir)
+        self._guard_verify_production_write()
         
         # 建立目錄
         self.raw_dir.mkdir(parents=True, exist_ok=True)
@@ -32,6 +38,24 @@ class ETLPipeline:
             }
         }
         self.stages = []
+
+    def _guard_verify_production_write(self):
+        """禁止 verify 腳本把測試輸出寫進正式 data/clean。"""
+        if os.environ.get("TOP10_ALLOW_VERIFY_PRODUCTION_WRITE") == "1":
+            return
+
+        if self.data_dir.resolve() != (PROJECT_ROOT / "data").resolve():
+            return
+
+        argv_name = Path(sys.argv[0]).name
+        stack_names = {Path(frame.filename).name for frame in inspect.stack(context=0)}
+        if not (argv_name.startswith("verify_") or any(name.startswith("verify_") for name in stack_names)):
+            return
+
+        raise RuntimeError(
+            "verify scripts must not write production data_dir='data'; "
+            "use tempfile.TemporaryDirectory(), data/test, or set TOP10_ALLOW_VERIFY_PRODUCTION_WRITE=1 explicitly"
+        )
 
     def add_stage(self, stage):
         """新增一個處理階段"""
