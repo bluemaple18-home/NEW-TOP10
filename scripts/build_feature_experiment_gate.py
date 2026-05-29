@@ -309,6 +309,51 @@ def build_regime_feature_group_candidate(artifacts_dir: Path) -> dict[str, Any]:
     }
 
 
+def build_weekend_research_matrix_candidate(artifacts_dir: Path) -> dict[str, Any]:
+    report_path = latest_existing(artifacts_dir / "backtest", "weekend_research_decision_report_*.json")
+    payload = load_json(report_path)
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else {}
+    promote = list(summary.get("promote_to_shadow") or [])
+    blocked_data = list(summary.get("blocked_data") or [])
+    ready = (
+        payload.get("schema_version") == "weekend-research-decision-report.v1"
+        and contract.get("research_only") is True
+        and contract.get("does_not_train_model") is True
+        and contract.get("does_not_change_production_ranking") is True
+        and bool(promote)
+    )
+    blockers = []
+    if payload.get("schema_version") != "weekend-research-decision-report.v1":
+        blockers.append("missing weekend research decision report")
+    if not promote:
+        blockers.append("no promote_to_shadow variants")
+    if contract.get("does_not_change_production_ranking") is not True:
+        blockers.append("production ranking immutability contract missing")
+    return {
+        "id": "weekend_research_matrix",
+        "label": "週末大量測試矩陣 / replay stability decision",
+        "shadow_status": candidate_status(ready),
+        "production_promotion_status": promotion_status(),
+        "allowed_shadow_uses": [
+            "shadow-run promoted variants only: " + ",".join(promote),
+            "separate 5d candidate track from 10d risk track",
+            "use blocked_data list as data backlog, not as model features",
+        ],
+        "blocked_production_uses": [
+            "do not promote matrix result directly to production ranking",
+            "do not use blocked data dimensions before coverage/as-of gates pass",
+        ],
+        "evidence": {
+            "decision_report": evidence_item(report_path, payload),
+            "promote_to_shadow": promote,
+            "blocked_data": blocked_data,
+        },
+        "blockers": blockers,
+        "promotion_requirements": promotion_requirements("weekend_research_matrix"),
+    }
+
+
 def promotion_requirements(candidate_id: str) -> list[str]:
     return [
         f"{candidate_id} shadow experiment artifact with explicit as-of policy",
@@ -336,6 +381,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         blocked_data_candidate("chip_flow", "籌碼 / 三大法人 / 融資融券 feature candidates", "artifacts/chip_data_contract_YYYY-MM-DD.json"),
         build_industry_candidate(artifacts_dir),
         build_regime_feature_group_candidate(artifacts_dir),
+        build_weekend_research_matrix_candidate(artifacts_dir),
     ]
     ready = [item for item in candidates if item["shadow_status"] == "READY_FOR_SHADOW"]
     blocked = [item for item in candidates if item["shadow_status"] != "READY_FOR_SHADOW"]

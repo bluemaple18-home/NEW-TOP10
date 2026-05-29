@@ -99,6 +99,22 @@ def build_fixture(root: Path) -> dict[str, Path]:
         artifacts / "feature_group_ablation_by_regime_verification_latest.json",
         {"status": "OK", "checks": {"strict_gate": True}},
     )
+    write_json(
+        backtest / "weekend_research_decision_report_2026-01-05.json",
+        {
+            "schema_version": "weekend-research-decision-report.v1",
+            "contract": {
+                "research_only": True,
+                "does_not_train_model": True,
+                "does_not_change_production_ranking": True,
+            },
+            "summary": {
+                "promote_to_shadow": ["overlay", "guard_balanced"],
+                "monitor_only": ["guard_strict"],
+                "blocked_data": ["monthly_revenue"],
+            },
+        },
+    )
     return {"artifacts": artifacts, "output": root / "feature_experiment_gate.json"}
 
 
@@ -141,11 +157,18 @@ def main() -> int:
             "market_context_ready": by_id["market_context"]["shadow_status"] == "READY_FOR_SHADOW",
             "portfolio_overlay_ready": by_id["portfolio_risk_overlay"]["shadow_status"] == "READY_FOR_SHADOW",
             "regime_feature_group_ablation_ready": by_id["regime_feature_group_ablation"]["shadow_status"] == "READY_FOR_SHADOW",
+            "weekend_research_matrix_ready": by_id["weekend_research_matrix"]["shadow_status"] == "READY_FOR_SHADOW",
             "fundamentals_blocked": by_id["fundamentals"]["shadow_status"] == "BLOCKED",
             "chip_blocked": by_id["chip_flow"]["shadow_status"] == "BLOCKED",
             "industry_rotation_blocked_even_with_thin_replay": by_id["industry_rotation"]["shadow_status"] == "BLOCKED",
             "model_team_can_start": set(payload["handoff_for_model_team"]["can_start_now"])
-            == {"candidate_persistence", "market_context", "portfolio_risk_overlay", "regime_feature_group_ablation"},
+            == {
+                "candidate_persistence",
+                "market_context",
+                "portfolio_risk_overlay",
+                "regime_feature_group_ablation",
+                "weekend_research_matrix",
+            },
             "must_not_change_ranking": any(
                 "RankingPolicy" in item or "risk_adjusted_score" in item for item in payload["handoff_for_model_team"]["must_not_do"]
             ),
