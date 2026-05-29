@@ -95,6 +95,11 @@ def build_payload(
         for item in list(report.get("top10", []))[: max(1, max_items)]
     ]
     market_overview = build_market_overview(report, top_items, industry_bucket_map, bucket_rules)
+    for item in top_items:
+        item["market_context"] = stock_market_context(item, market_overview, industry_bucket_map, bucket_rules)
+        raw_signals = raw_signal_texts(item.get("reasons", []))
+        ai_features = ai_feature_names(item.get("reasons", []))
+        item["notification_summary"] = notification_summary(item, raw_signals, ai_features)
     delivery_status = "READY_FOR_CLAWD" if channel and to else "PENDING_TARGET"
     missing = []
     if not channel:
@@ -159,18 +164,18 @@ def render_message(
     automation = report.get("automation_status", {})
     risk = report.get("risk", {})
     lines = [
-        f"# Top10 每日選股｜{ranking_date}",
+        f"Top10 每日選股｜{ranking_date}",
         "",
         f"狀態：{automation.get('status') or 'UNKNOWN'}｜大盤：{market_label(summary.get('market_regime'))}",
         "讀法：這是今天的觀察名單，不是叫你一次買滿。盤勢不夠強時，後段名單只當候補。",
         "",
-        "## 今日大盤與資金",
+        "今日大盤與資金",
         f"- 大盤情況：{market_overview.get('market_text')}",
         f"- 資金分布：{market_overview.get('capital_flow_text')}",
         f"- 資金重心：{market_overview.get('hot_groups_text')}",
         f"- 熱門概念：{market_overview.get('hot_concepts_text')}",
         "",
-        "## 今日名單怎麼讀？",
+        "今日名單怎麼讀？",
         f"- {list_reading_text(summary, len(top_items))}",
     ]
 
@@ -178,23 +183,25 @@ def render_message(
     primary_items = top_items[:primary_count]
     backup_items = top_items[primary_count:]
 
-    lines.extend(["", "## 主觀察"])
+    lines.extend(["", "主觀察"])
     for item in primary_items:
+        item["list_role"] = "primary"
         lines.extend(["", *stock_message_lines(item)])
 
     if backup_items:
         lines.extend(
             [
                 "",
-                "## 候補觀察",
+                "候補觀察",
                 "後面這幾檔有題材或型態，但今天盤勢沒有強到要全部一起追。",
             ]
         )
         for item in backup_items:
+            item["list_role"] = "backup"
             lines.extend(["", *stock_message_lines(item)])
 
     notes = list(risk.get("notes", []))
-    lines.extend(["", "## 風險提醒"])
+    lines.extend(["", "風險提醒"])
     if notes:
         lines.extend(f"- {note}" for note in notes[:3])
     else:
@@ -204,7 +211,7 @@ def render_message(
     if freshness:
         latest_dates = sorted({str(info.get("latest_date")) for info in freshness.values() if info.get("latest_date")})
         if latest_dates:
-            lines.extend(["", "## 資料狀態", f"- 排名使用的資料更新到 {latest_dates[-1]}。"])
+            lines.extend(["", "資料狀態", f"- 排名使用的資料更新到 {latest_dates[-1]}。"])
 
     lines.append("")
     return "\n".join(lines)
@@ -580,6 +587,77 @@ def capital_focus_text(bucket_rows: list[dict[str, Any]], group_rows: list[dict[
     return "；".join(parts) + "。"
 
 
+def stock_market_context(
+    item: dict[str, Any],
+    market_overview: dict[str, Any],
+    industry_bucket_map: dict[str, str],
+    bucket_rules: list[dict[str, Any]],
+) -> dict[str, Any]:
+    group = item.get("audience_group", {})
+    theme = str(group.get("theme") or group.get("sector") or "未分類")
+    sector = str(group.get("sector") or "其他")
+    concepts = [str(value) for value in group.get("concepts", []) if str(value).strip()]
+    bucket = capital_bucket_label(
+        sector=sector,
+        theme=theme,
+        concepts=concepts,
+        industry_bucket_map=industry_bucket_map,
+        rules=bucket_rules,
+    )
+    capital_rows = [row for row in market_overview.get("capital_flow", []) if row.get("sector") != "現金"]
+    bucket_row = next((row for row in capital_rows if row.get("name") == bucket), None)
+    lead = capital_rows[0] if capital_rows else None
+    hot_concepts = [str(row.get("concept")) for row in market_overview.get("hot_concepts", []) if row.get("concept")]
+    matched_concepts = [concept for concept in concepts if concept in hot_concepts]
+    return {
+        "bucket": bucket,
+        "bucket_weight": bucket_row.get("weight") if bucket_row else None,
+        "bucket_count": bucket_row.get("count") if bucket_row else 0,
+        "is_lead_bucket": bool(lead and lead.get("name") == bucket),
+        "lead_bucket": lead.get("name") if lead else None,
+        "lead_weight": lead.get("weight") if lead else None,
+        "market": market_overview.get("market"),
+        "matched_hot_concepts": matched_concepts[:2],
+    }
+
+
+def market_context_text(item: dict[str, Any]) -> str:
+    context = item.get("market_context") if isinstance(item.get("market_context"), dict) else {}
+    stock_name = str(item.get("stock_name") or "這檔").strip() or "這檔"
+    bucket = str(context.get("bucket") or item.get("audience_group", {}).get("theme") or "這個族群")
+    weight = pct(context.get("bucket_weight")) if context.get("bucket_weight") is not None else None
+    lead_bucket = str(context.get("lead_bucket") or "")
+    matched = [str(value) for value in context.get("matched_hot_concepts", []) if str(value).strip()]
+    if context.get("is_lead_bucket"):
+        weight_text = f"（約 {weight}）" if weight else ""
+        text = pick_variant(
+            item,
+            "market_context_lead",
+            [
+                f"{stock_name}落在今天資金最集中的 {bucket}{weight_text}，所以它不是孤立強，是跟著今日主軸被挑出來。",
+                f"今天資金最明顯往 {bucket}{weight_text} 集中，{stock_name}剛好在這條主線上。",
+                f"大盤中性時要挑主軸股，{stock_name}屬於今天資金第一順位的 {bucket}{weight_text}。",
+            ],
+        )
+    elif bucket and lead_bucket:
+        weight_text = f"（約 {weight}）" if weight else ""
+        text = pick_variant(
+            item,
+            "market_context_side",
+            [
+                f"{stock_name}不在第一主軸 {lead_bucket}，但屬於今天有分到資金的 {bucket}{weight_text}，所以要看它能不能比主軸股更有續航。",
+                f"今天盤面主軸是 {lead_bucket}，{stock_name}則是在支線 {bucket}{weight_text}裡轉強。",
+                f"{bucket}{weight_text}不是今天最大資金池，但{stock_name}在這條支線裡有自己的強度。",
+                f"資金最大方向先看 {lead_bucket}；{stock_name}屬於次主線 {bucket}{weight_text}，要更重視後續確認。",
+            ],
+        )
+    else:
+        text = f"{stock_name}不是今天最集中的族群，入選關鍵更偏向個股自己的強度。"
+    if matched:
+        text += f" 同時也連到熱門概念 {compact_tags(matched, 2)}。"
+    return text
+
+
 def hot_groups_text(group_rows: list[dict[str, Any]], total_count: int) -> str:
     if not group_rows:
         return "今天沒有明顯集中族群，名單比較分散。"
@@ -630,20 +708,23 @@ def notification_summary(item: dict[str, Any], raw_signals: list[str], ai_featur
 def stock_message_lines(item: dict[str, Any]) -> list[str]:
     summary = item.get("notification_summary", {})
     lines = [
-        f"## {item.get('rank')}. {item.get('stock_id')} {item.get('stock_name')}｜{stock_tagline(item)}",
+        f"{item.get('rank')}. {item.get('stock_id')} {item.get('stock_name')}｜{stock_tagline(item)}",
         str(summary.get("conclusion") or "💤 觀察中"),
         "",
-        "### 為什麼入選？",
+        "跟今天盤勢的關係：",
+        market_context_text(item),
+        "",
+        "為什麼入選：",
     ]
     for reason in summary.get("why_bullets", []):
         lines.append(f"- {reason}")
     lines.extend(
         [
             "",
-            "### 怎麼看？",
-            *action_summary_lines(item.get("trade_plan", {})),
+            "怎麼看：",
+            *action_summary_lines(item),
             "",
-            "### 白話翻譯",
+            "白話翻譯：",
             str(summary.get("translation") or ""),
             f"提醒：{summary.get('risk')}",
         ]
@@ -672,40 +753,204 @@ def stock_reason_bullets(item: dict[str, Any], raw_signals: list[str], ai_featur
     bullets = []
     group = item.get("audience_group", {})
     concepts = [str(value) for value in group.get("concepts", []) if str(value).strip()]
+    theme = stock_theme(item)
+    stock_name = str(item.get("stock_name") or "這檔").strip() or "這檔"
     if has_signal(raw_signals, "突破20日"):
-        bullets.append("股價突破前面容易卡住的位置，代表買盤願意往上推。")
+        bullets.append(
+            pick_variant(
+                item,
+                "breakout",
+                [
+                    f"{theme}股價剛越過近期壓力，代表上方賣壓被買盤吃掉一部分。",
+                    f"{stock_name}不是只在原地整理，而是往上推過最近容易卡關的位置。",
+                    f"{stock_name}今天買方願意用更高價格接貨，短線氣勢比前幾天更明顯。",
+                    f"{stock_name}近期壓力區被往上突破，市場接受價格正在墊高。",
+                ],
+            )
+        )
+    market_detail = market_signal_bridge(item, raw_signals)
+    if market_detail:
+        bullets.append(market_detail)
     if has_signal(raw_signals, "跳空強勢收紅"):
-        bullets.append("開盤就有人追，收盤也沒有被賣壓打回去。")
+        bullets.append(
+            pick_variant(
+                item,
+                "gap",
+                [
+                    f"{stock_name}早盤買氣先表態，尾盤也沒有被明顯倒貨壓回去。",
+                    f"{stock_name}開高後沒有一路滑掉，代表追價資金至少守到收盤。",
+                    f"{stock_name}今天不是只有盤中衝一下，收盤仍留在相對強的位置。",
+                    f"{stock_name}一開盤氣勢就偏多，收盤沒有把優勢全部吐回去。",
+                ],
+            )
+        )
     if has_signal(raw_signals, "MACD"):
-        bullets.append("短線動能開始轉強，不是只有單日亂拉。")
+        bullets.append(
+            pick_variant(
+                item,
+                "macd",
+                [
+                    f"{stock_name}整理一段時間後動能開始翻正，不是只有單日硬拉價格。",
+                    f"{stock_name}短線動能剛轉強，接下來重點看買盤能不能延續。",
+                    f"{stock_name}價格和動能開始同方向，這比單純突破更有參考性。",
+                ],
+            )
+        )
     if has_signal(raw_signals, "成交量暴增"):
-        bullets.append("交易明顯變熱，市場注意力正在靠過來。")
+        bullets.append(
+            pick_variant(
+                item,
+                "volume",
+                [
+                    f"{stock_name}成交突然放大，代表今天有更多資金開始盯這檔。",
+                    f"{stock_name}量能比平常熱，短線關注度明顯升溫。",
+                    f"{theme}買賣變得更活躍，市場注意力正在靠過來。",
+                    f"{stock_name}不是只有價格動，成交也跟著放大，這點比單純上漲更重要。",
+                ],
+            )
+        )
     if has_signal(raw_signals, "紅三兵"):
-        bullets.append("股價連續幾天墊高，多方氣勢還在。")
+        bullets.append(
+            pick_variant(
+                item,
+                "red_three",
+                [
+                    f"{stock_name}股價連續幾天墊高，多方還沒有明顯退場。",
+                    f"{stock_name}不是第一天轉強，前面已經有資金連續推進。",
+                    f"{stock_name}短線走勢一階一階往上，買方節奏還算完整。",
+                ],
+            )
+        )
     if has_signal(raw_signals, "錘子線"):
-        bullets.append("盤中被賣下去後有人接，低檔承接力道不差。")
+        bullets.append(
+            pick_variant(
+                item,
+                "hammer",
+                [
+                    f"{stock_name}盤中被賣下去後有人接，低檔承接力道不差。",
+                    f"{stock_name}下殺時沒有一路破底，代表低位仍有買盤願意接。",
+                    f"{stock_name}賣壓出來時沒有失控，短線支撐感比前面好。",
+                ],
+            )
+        )
+    ai_bullet = ai_reason_bullet(item, ai_features)
+    if ai_bullet:
+        bullets.append(ai_bullet)
     if concepts:
-        bullets.append(f"題材落在 {compact_tags(concepts, 2)}，和今天熱門概念有連動。")
+        bullets.append(
+            pick_variant(
+                item,
+                "theme",
+                [
+                    f"產業標籤偏 {compact_tags(concepts, 2)}，不是完全沒有題材支撐。",
+                    f"題材線索落在 {compact_tags(concepts, 2)}，容易被同族群資金一起檢視。",
+                    f"它連到 {compact_tags(concepts, 2)}，後面要一起看同題材有沒有續強。",
+                    f"從族群來看，{compact_tags(concepts, 2)} 是它今天比較容易被注意的原因。",
+                ],
+            )
+        )
     if not bullets:
         bullets.append("價格和成交狀況比前幾天更積極，先放進觀察名單。")
-    return bullets[:4]
+    return dedupe_keep_order(bullets)[:4]
+
+
+def market_signal_bridge(item: dict[str, Any], raw_signals: list[str]) -> str | None:
+    context = item.get("market_context") if isinstance(item.get("market_context"), dict) else {}
+    stock_name = str(item.get("stock_name") or "這檔").strip() or "這檔"
+    bucket = str(context.get("bucket") or "").strip()
+    if not bucket:
+        return None
+    if context.get("is_lead_bucket") and has_signal(raw_signals, "成交量暴增"):
+        return f"{bucket}是今天資金主軸，{stock_name}又同步放量，代表族群和個股都有熱度。"
+    if context.get("is_lead_bucket") and has_signal(raw_signals, "跳空強勢收紅"):
+        return f"{bucket}今天資金集中，{stock_name}開高後還能守住，表示它有跟上主軸節奏。"
+    if not context.get("is_lead_bucket") and has_signal(raw_signals, "突破20日"):
+        lead = str(context.get("lead_bucket") or "主軸族群")
+        return pick_variant(
+            item,
+            "market_signal_side",
+            [
+                f"雖然今天第一主軸是 {lead}，但{stock_name}自己也突破壓力，屬於支線裡較強的一檔。",
+                f"在 {lead} 吸走最多目光時，{stock_name}還能靠自己的走勢擠進名單。",
+                f"它不是靠大盤全面上漲被抬進來，而是{stock_name}本身有突破動作。",
+            ],
+        )
+    return None
 
 
 def plain_translation(item: dict[str, Any], raw_signals: list[str], bullets: list[str]) -> str:
     group = item.get("audience_group", {})
     theme = str(group.get("theme") or "").strip()
     subject = f"{theme}這檔" if theme and theme != "未分類" else "這檔"
-    if has_signal(raw_signals, "成交量暴增"):
-        return f"{subject}今天有資金轉熱的味道，但熱起來也容易震盪，適合看清楚價位再動。"
+    context = item.get("market_context") if isinstance(item.get("market_context"), dict) else {}
+    role = str(item.get("list_role") or "")
+    prefix = ""
+    if context.get("is_lead_bucket"):
+        prefix = f"它在今天資金主軸 {context.get('bucket')} 裡，"
+    elif context.get("lead_bucket") and role == "backup":
+        prefix = f"它不是今天第一主軸 {context.get('lead_bucket')}，所以先當候補看，"
+    elif context.get("lead_bucket"):
+        prefix = f"它不是今天第一主軸 {context.get('lead_bucket')}，但個股訊號夠強，"
     if number_value(item.get("close")) and number_value(item.get("close")) >= 300:
-        return f"{subject}走勢強，但股價單價高，買錯時壓力也大，適合小量觀察。"
+        return pick_variant(
+            item,
+            "translation_high_price",
+            [
+                f"{prefix}{subject}走勢強，但單價高，買錯時壓力也大，適合小量觀察。",
+                f"{prefix}{subject}有資金推升，但價格不便宜，重點是等它在觀察區間內還能不能守住。",
+                f"{prefix}{subject}屬於高價強勢股，能看，但不要用一般低價股的節奏去追。",
+            ],
+        )
     if has_signal(raw_signals, "MACD"):
-        return f"{subject}不是單純衝高，短線動能也有跟上；重點是後面能不能站穩。"
+        return pick_variant(
+            item,
+            "translation_momentum",
+            [
+                f"{prefix}{subject}不是單純衝高，短線動能也有跟上；重點是後面能不能站穩。",
+                f"{prefix}{subject}比較像整理後重新轉強，先看買盤能不能連續幾天守住。",
+                f"{prefix}{subject}動能剛翻正，現在適合觀察續航，不適合情緒性追高。",
+            ],
+        )
     if has_signal(raw_signals, "紅三兵"):
-        return f"{subject}目前是多方連續推進的狀態，但連漲後更要避免追在太急的位置。"
+        return pick_variant(
+            item,
+            "translation_trend",
+            [
+                f"{prefix}{subject}目前是多方連續推進的狀態，但連漲後更要避免追在太急的位置。",
+                f"{prefix}{subject}短線氣勢還在，不過已經不是剛起漲，觀察重點是拉回有沒有人接。",
+                f"{prefix}{subject}買方節奏還順，但越順的股票越要等合理位置，不要一看到強就衝。",
+            ],
+        )
     if has_signal(raw_signals, "錘子線"):
-        return f"{subject}盤中有賣壓但被接住，代表市場還願意撐，適合先觀察不適合重壓。"
-    return f"{subject}今天被資金往上推，短線偏強；可以觀察，但不要看到上榜就追高。"
+        return pick_variant(
+            item,
+            "translation_support",
+            [
+                f"{prefix}{subject}盤中有賣壓但被接住，代表市場還願意撐，適合先觀察。",
+                f"{prefix}{subject}不是一路強攻，而是跌下去有人撐；這種要看支撐能不能再守一次。",
+                f"{prefix}{subject}低檔承接變明顯，但還不到無腦追價，先看買盤是否延續。",
+            ],
+        )
+    if has_signal(raw_signals, "成交量暴增"):
+        return pick_variant(
+            item,
+            "translation_volume",
+            [
+                f"{prefix}{subject}今天有資金轉熱的味道，但熱起來也容易震盪，適合看清楚價位再動。",
+                f"{prefix}{subject}今天被市場重新注意到，短線偏強；接下來要看量能會不會只是一天熱。",
+                f"{prefix}{subject}不是冷門股自己飄上去，而是成交跟著放大；可以觀察，但不要追太急。",
+                f"{prefix}{subject}買盤有升溫，適合放進名單追蹤，等價格回到合理區間再判斷。",
+            ],
+        )
+    return pick_variant(
+        item,
+        "translation_default",
+        [
+            f"{prefix}{subject}今天被資金往上推，短線偏強；可以觀察，但不要看到上榜就追高。",
+            f"{prefix}{subject}目前有轉強跡象，但還需要下一根確認，不急著一次做滿。",
+            f"{prefix}{subject}短線表現比前幾天積極，先放觀察名單，等價格和量能一起確認。",
+        ],
+    )
 
 
 def stock_tagline(item: dict[str, Any]) -> str:
@@ -715,6 +960,72 @@ def stock_tagline(item: dict[str, Any]) -> str:
     if concepts:
         return f"{theme}｜{compact_tags(concepts, limit=3)}"
     return theme
+
+
+def stock_theme(item: dict[str, Any]) -> str:
+    group = item.get("audience_group", {})
+    theme = str(group.get("theme") or group.get("sector") or "").strip()
+    if theme and theme != "未分類":
+        return f"{theme}這檔"
+    return "這檔"
+
+
+def ai_reason_bullet(item: dict[str, Any], ai_features: list[str]) -> str | None:
+    labels = [AI_REASON_LABELS.get(feature) for feature in ai_features]
+    labels = [label for label in labels if label]
+    labels = dedupe_keep_order(labels)
+    if not labels:
+        return None
+    if len(labels) == 1:
+        return pick_variant(
+            item,
+            "ai_single",
+            [
+                f"模型加分點主要來自{labels[0]}，不是只看單一突破。",
+                f"除了價格表現，模型也看到{labels[0]}這個加分點。",
+                f"數據面加分落在{labels[0]}，所以它不是只有型態好看。",
+            ],
+        )
+    joined = "、".join(labels[:2])
+    return pick_variant(
+        item,
+        "ai_combo",
+        [
+            f"模型加分不只看價格，也看到{joined}。",
+            f"除了型態，數據面還有{joined}在加分。",
+            f"這檔入選不是單靠突破，{joined}也有幫忙加分。",
+            f"從模型角度看，{joined}讓它比一般轉強股更醒目。",
+        ],
+    )
+
+
+def pick_variant(item: dict[str, Any], salt: str, variants: list[str]) -> str:
+    if not variants:
+        return ""
+    rank = integer_value(item.get("rank"))
+    if rank is not None and rank > 0:
+        offset = 0
+        for char in salt:
+            offset = (offset * 17 + ord(char)) % len(variants)
+        return variants[(rank - 1 + offset) % len(variants)]
+    key = f"{item.get('stock_id','')}|{item.get('stock_name','')}|{item.get('rank','')}|{salt}"
+    value = 0
+    for char in key:
+        value = (value * 131 + ord(char)) % 1_000_003
+    index = value % len(variants)
+    return variants[index]
+
+
+def dedupe_keep_order(values: list[str]) -> list[str]:
+    result = []
+    seen = set()
+    for value in values:
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
 
 
 def compact_tags(tags: list[str], limit: int) -> str:
@@ -818,13 +1129,57 @@ def professional_signal_label(signal: str) -> str:
     return signal
 
 
-def action_summary_lines(trade: dict[str, Any]) -> list[str]:
+def action_summary_lines(item: dict[str, Any]) -> list[str]:
+    trade = item.get("trade_plan", {})
     entry_low, entry_high = entry_zone_values(trade)
-    return [
+    lines = [
         f"- 觀察區間：{num(entry_low)} ~ {num(entry_high)} 元",
         f"- 跌破 {num(trade.get('stop_loss'))} 元，代表走勢轉弱，先不要硬接。",
         f"- 上方第一壓力先看 {num(trade.get('target_price'))} 元。",
     ]
+    role = str(item.get("list_role") or "")
+    context = item.get("market_context") if isinstance(item.get("market_context"), dict) else {}
+    if role == "backup":
+        lines.append(
+            "- "
+            + pick_variant(
+                item,
+                "action_backup",
+                [
+                    "因為今天不是主觀察名單，除非回到觀察區間還有買盤承接，否則先等。",
+                    "候補股不要急著追，先看它回到區間時量能有沒有續熱。",
+                    "排名落在候補，代表可以追蹤，但要等價格和買盤一起確認。",
+                    "除非主軸續強、它也守在觀察區間內，否則先放觀察就好。",
+                ],
+            )
+        )
+    elif context.get("is_lead_bucket"):
+        lines.append(
+            "- "
+            + pick_variant(
+                item,
+                "action_lead",
+                [
+                    "它在今日資金主軸裡，強勢時可以看，但追高更要守區間。",
+                    "主軸股容易被追價，最好等價格落在區間內再判斷。",
+                    "族群有資金加持，但若跌破區間，代表熱度沒有延續。",
+                ],
+            )
+        )
+    else:
+        lines.append(
+            "- "
+            + pick_variant(
+                item,
+                "action_side",
+                [
+                    "它不是今日最大主軸，重點看個股強度能不能延續。",
+                    "支線股要更挑價格，站不穩觀察區間就先退一步。",
+                    "如果主軸資金沒有外溢到它身上，就不要硬追。",
+                ],
+            )
+        )
+    return lines
 
 
 def entry_zone_values(trade: dict[str, Any]) -> tuple[float | None, float | None]:
@@ -894,6 +1249,29 @@ NOVICE_FEATURE_LABELS = {
     "close": "收盤價格表現偏強",
     "ma20": "價格站在近期平均成本上方",
     "pattern_stop_loss": "停損距離還算可控",
+}
+
+
+AI_REASON_LABELS = {
+    "obv": "買盤有累積",
+    "bb_width": "波動開始打開",
+    "transactions": "參與的人變多",
+    "avg_volume_10d": "近期量能升溫",
+    "avg_value_20d": "成交金額夠大",
+    "volume": "成交量放大",
+    "turnover_rate": "換手變活躍",
+    "rsi": "短線強弱偏正面",
+    "macd": "短線動能偏正面",
+    "close": "收盤價格強",
+    "ma20": "價格站回近期平均成本上方",
+    "ma_squeeze": "整理後準備選方向",
+    "bias_5": "短線買氣升溫",
+    "value": "成交金額放大",
+    "pct_from_low_60d": "已從低位墊高",
+    "pct_from_low_250d": "中長線位置轉強",
+    "pct_from_high_60d": "離近期高點還有修復空間",
+    "pct_from_high_250d": "離長期高點仍有修復空間",
+    "relative_position_250d": "中長線位置偏強",
 }
 
 
@@ -973,6 +1351,13 @@ def number_value(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return parsed
+
+
+def integer_value(value: Any) -> int | None:
+    parsed = number_value(value)
+    if parsed is None:
+        return None
+    return int(parsed)
 
 
 def num(value: Any) -> str:

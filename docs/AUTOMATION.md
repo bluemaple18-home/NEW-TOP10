@@ -67,9 +67,10 @@ tail -f logs/launchd_retrain.log
 6. 產出 `artifacts/weekly_candidate_snapshot_YYYY-MM-DD.json`，固定本週模型初選池 / 每日快照 contract。
 7. 產出 `artifacts/daily_report_YYYY-MM-DD.json/md`。
 8. 產出 `artifacts/clawd_publish_payload_YYYY-MM-DD.json` 與 `artifacts/clawd_publish_message_YYYY-MM-DD.md`，只作為 Clawd 接手 payload，不實際發送。
-9. 更新 `artifacts/automation_status.json` 與 `artifacts/daily_run_summary_YYYY-MM-DD.json`。
-10. 若 `daily.postcheck_enabled=true`，執行可選 postcheck，輸出 `artifacts/daily_postcheck_YYYY-MM-DD.json`。
-11. 記錄日誌至 `logs/daily_YYYYMMDD.log`。
+9. 若 `notify.llm_rewrite_enabled=true` 或環境變數 `TOP10_LLM_REWRITE_ENABLED=1`，用 `scripts/rewrite_clawd_publish_message_llm.py` 以本機 Gemini key 將訊息改寫成操盤手口吻；失敗會留下 fallback status，不阻斷 daily。
+10. 更新 `artifacts/automation_status.json` 與 `artifacts/daily_run_summary_YYYY-MM-DD.json`。
+11. 若 `daily.postcheck_enabled=true`，執行可選 postcheck，輸出 `artifacts/daily_postcheck_YYYY-MM-DD.json`。
+12. 記錄日誌至 `logs/daily_YYYYMMDD.log`。
 
 ### `scripts/run_daily_publish.sh`
 **功能**: 本機 launchd 收盤後排程入口 (17:30)
@@ -126,6 +127,8 @@ uv run --with-requirements requirements.txt python scripts/build_clawd_publish_p
 ```
 
 `build_clawd_publish_payload.py` 只寫 artifact，不會呼叫 Clawd、不會讀 token、不會送出訊息。未設定 `notify.clawd_channel` / `notify.clawd_to` 時，payload 會標記為 `PENDING_TARGET`；實際發送仍受 `notify.clawd_enabled=false` 保護，後續需另開發送卡才會接上 Clawd。
+
+`rewrite_clawd_publish_message_llm.py` 是最後一層本機文案改寫：輸入仍以 deterministic payload 為事實來源，不改 ranking、模型分數或交易計畫。它預設讀 `notify.llm_rewrite_env_file`，可用 `TOP10_LLM_REWRITE_ENABLED` 覆寫開關；若找不到金鑰、模型失敗或輸出未通過格式檢查，會輸出 `artifacts/clawd_publish_llm_rewrite_YYYY-MM-DD.json` 並保留原 deterministic message。
 
 New Clawd 接入只透過本機 CLI 上報訊息事件，股票專案不維護 Discord token、gateway 或 bot 設定。預設 stock-watchlist target 為 `channel:1507327845003825154`，CLI 入口由 `config/automation.yaml` 與 `NEWCLAWD_*` 環境變數指定。可用 thin adapter 做 dry-run 驗證：
 

@@ -99,6 +99,9 @@ notify:
   clawd_dry_run: true
   clawd_cli_node: "/opt/homebrew/opt/node/bin/node"
   clawd_cli_entry: "/Users/mattkuo/new clawd/dist/index.js"
+  llm_rewrite_enabled: true  # 推播訊息最後交給免費 LLM 金鑰輪換做操盤手口吻改寫；失敗不阻斷 daily
+  llm_rewrite_env_file: "~/.config/ai-core/legacy_review.env"
+  llm_rewrite_timeout_seconds: 90
   
   email_enabled: false        # Email 通知開關 (未來功能)
   email_to: ""
