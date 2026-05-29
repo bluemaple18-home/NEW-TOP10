@@ -63,6 +63,7 @@ UI/API 只讀：
 - 歷史回測表現：讀 production replay，且只納入 `ranking_date < 目標 ranking_date` 的成熟紀錄。
 - Portfolio replay 風險：讀 overlap portfolio replay summary 與風險旗標。
 - Market context：daily automation 會先產同日期 `market_context_YYYY-MM-DD.json`；摘要預設只讀同日期 artifact，若手動指定不同日期 artifact，會標記日期不一致。
+- Reference annotation：只讀本地 `data/reference` mapping，補中性產業 / sector / market 標籤；不觸發外部抓取，也不作為模型或 ranking score 訊號。
 
 此摘要只複製 ranking score 作為背景欄位，不重算、不覆寫、不回饋到 ranking score。
 
