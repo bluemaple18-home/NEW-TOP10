@@ -78,30 +78,36 @@ def build_fixture(root: Path) -> dict[str, Path]:
     return {"artifacts": artifacts, "output": root / "feature_experiment_gate.json"}
 
 
+def run_gate(paths: dict[str, Path], output_name: str = "feature_experiment_gate.json") -> dict[str, Any]:
+    output = paths["output"].with_name(output_name)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "scripts" / "build_feature_experiment_gate.py"),
+            "--artifacts-dir",
+            str(paths["artifacts"]),
+            "--output",
+            str(output),
+        ],
+        cwd=PROJECT_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        print(completed.stdout)
+        print(completed.stderr, file=sys.stderr)
+        raise RuntimeError(f"feature experiment gate failed: {completed.returncode}")
+    return json.loads(output.read_text(encoding="utf-8"))
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="top10-feature-experiment-gate-") as tmp:
         paths = build_fixture(Path(tmp))
-        completed = subprocess.run(
-            [
-                sys.executable,
-                str(PROJECT_ROOT / "scripts" / "build_feature_experiment_gate.py"),
-                "--artifacts-dir",
-                str(paths["artifacts"]),
-                "--output",
-                str(paths["output"]),
-            ],
-            cwd=PROJECT_ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if completed.returncode != 0:
-            print(completed.stdout)
-            print(completed.stderr, file=sys.stderr)
-            return completed.returncode
-        payload = json.loads(paths["output"].read_text(encoding="utf-8"))
+        payload = run_gate(paths)
         by_id = {item["id"]: item for item in payload["candidates"]}
         output_text = paths["output"].read_text(encoding="utf-8")
+        negative_cases = negative_verification_cases(paths)
         checks = {
             "schema_ok": payload["schema_version"] == "feature-experiment-gate.v1",
             "status_ready": payload["status"] == "READY_FOR_SHADOW_TESTS",
@@ -112,11 +118,13 @@ def main() -> int:
             "portfolio_overlay_ready": by_id["portfolio_risk_overlay"]["shadow_status"] == "READY_FOR_SHADOW",
             "fundamentals_blocked": by_id["fundamentals"]["shadow_status"] == "BLOCKED",
             "chip_blocked": by_id["chip_flow"]["shadow_status"] == "BLOCKED",
+            "industry_rotation_blocked_without_replay": by_id["industry_rotation"]["shadow_status"] == "BLOCKED",
             "model_team_can_start": set(payload["handoff_for_model_team"]["can_start_now"])
             == {"candidate_persistence", "market_context", "portfolio_risk_overlay"},
             "must_not_change_ranking": any(
                 "RankingPolicy" in item or "risk_adjusted_score" in item for item in payload["handoff_for_model_team"]["must_not_do"]
             ),
+            **negative_cases,
             "no_nan_json_literal": "NaN" not in output_text,
         }
         status = "OK" if all(checks.values()) else "FAILED"
@@ -140,6 +148,41 @@ def main() -> int:
             return 0
         print(f"FEATURE_EXPERIMENT_GATE_FAILED output={ARTIFACT_PATH}", file=sys.stderr)
         return 1
+
+
+def negative_verification_cases(paths: dict[str, Path]) -> dict[str, bool]:
+    artifacts = paths["artifacts"]
+    cases: dict[str, bool] = {}
+    mutations = [
+        (
+            "candidate_persistence_blocks_when_verification_failed",
+            artifacts / "candidate_persistence_backtest_verification_latest.json",
+            {"schema_version": "candidate-persistence-backtest-verification.v1", "status": "FAILED", "checks": {"no_future": False}},
+            "candidate_persistence",
+        ),
+        (
+            "market_context_blocks_when_verification_failed",
+            artifacts / "market_context_fetcher_verification_latest.json",
+            {"status": "FAILED", "checks": {"schema": False}},
+            "market_context",
+        ),
+        (
+            "portfolio_overlay_blocks_when_verification_failed",
+            artifacts / "portfolio_replay_verification_latest.json",
+            {"status": "FAILED", "checks": {"contract": False}},
+            "portfolio_risk_overlay",
+        ),
+    ]
+    for index, (case_name, path, failed_payload, candidate_id) in enumerate(mutations, start=1):
+        original = json.loads(path.read_text(encoding="utf-8"))
+        write_json(path, failed_payload)
+        try:
+            payload = run_gate(paths, output_name=f"feature_experiment_gate_negative_{index}.json")
+            by_id = {item["id"]: item for item in payload["candidates"]}
+            cases[case_name] = by_id[candidate_id]["shadow_status"] == "BLOCKED"
+        finally:
+            write_json(path, original)
+    return cases
 
 
 if __name__ == "__main__":
