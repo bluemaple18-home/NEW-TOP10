@@ -60,6 +60,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--market-regime-history", default="artifacts/market_regime_history_2026-05-29.json")
     parser.add_argument("--industry-map", default="data/reference/stock_industry_map.csv")
+    parser.add_argument(
+        "--risk-profile",
+        choices=["baseline", "shadow_regime_guard_balanced", "shadow_regime_guard"],
+        default="baseline",
+        help="baseline 只改排序；shadow_regime_guard* 依詳細盤勢壓低總曝險",
+    )
     parser.add_argument("--limit", type=int, default=None)
     return parser.parse_args()
 
@@ -149,6 +155,71 @@ def apply_regime_shadow_score(frame: pd.DataFrame, regime_label: str) -> pd.Data
     return df.sort_values("shadow_score", ascending=False)
 
 
+def shadow_regime_gross_exposure(regime_label: str, current_gross: float, risk_profile: str) -> float:
+    """用詳細盤勢對研究版 ranking 做總曝險上限，避免 RISK_OFF 被舊中性盤放太大。"""
+    caps_by_profile = {
+        "shadow_regime_guard_balanced": {
+            "PANIC_SELLING": 0.35,
+            "RISK_OFF": 0.50,
+            "MIXED_NEUTRAL": 0.50,
+            "EARLY_REVERSAL": 0.60,
+            "NARROW_LEADER": 0.65,
+            "UNKNOWN": 0.35,
+        },
+        "shadow_regime_guard": {
+            "PANIC_SELLING": 0.30,
+            "RISK_OFF": 0.35,
+            "MIXED_NEUTRAL": 0.45,
+            "EARLY_REVERSAL": 0.55,
+            "NARROW_LEADER": 0.65,
+            "UNKNOWN": 0.30,
+        },
+    }
+    caps = caps_by_profile.get(risk_profile, caps_by_profile["shadow_regime_guard"])
+    return min(float(current_gross), caps.get(regime_label, 0.45))
+
+
+def apply_shadow_regime_risk_profile(frame: pd.DataFrame, regime_label: str, risk_profile: str) -> pd.DataFrame:
+    if risk_profile == "baseline" or frame.empty:
+        return frame
+
+    df = frame.copy()
+    current_gross = pd.to_numeric(df.get("gross_exposure", 0.0), errors="coerce").dropna()
+    source_gross = float(current_gross.iloc[0]) if not current_gross.empty else 0.65
+    target_gross = shadow_regime_gross_exposure(regime_label, source_gross, risk_profile)
+
+    suggested = pd.to_numeric(df.get("suggested_weight", 0.0), errors="coerce").fillna(0.0).clip(lower=0.0)
+    if suggested.sum() <= 0:
+        suggested = pd.Series(1 / len(df), index=df.index, dtype=float)
+    weights = suggested / suggested.sum() * target_gross
+
+    position_cap = min(0.12, max(0.03, target_gross / max(len(df), 1) * 1.8))
+    risk_penalty = pd.to_numeric(df.get("risk_penalty", 0.0), errors="coerce").fillna(0.0).clip(0, 1.5)
+    risk_cap_factor = (1 - risk_penalty * 0.35).clip(0.45, 1.0)
+    caps = (position_cap * risk_cap_factor).clip(upper=target_gross)
+    weights = weights.clip(upper=caps)
+
+    remaining = target_gross - float(weights.sum())
+    for _ in range(5):
+        if remaining <= 1e-9:
+            break
+        room = (caps - weights).clip(lower=0)
+        if room.sum() <= 1e-9:
+            break
+        add = room / room.sum() * remaining
+        weights = (weights + add).clip(upper=caps)
+        remaining = target_gross - float(weights.sum())
+
+    allocated = float(weights.sum())
+    df["gross_exposure"] = round(target_gross, 4)
+    df["max_position_weight"] = caps.round(4)
+    df["suggested_weight"] = weights.round(4)
+    df["allocated_exposure"] = round(allocated, 4)
+    df["cash_weight"] = round(max(0.0, 1.0 - allocated), 4)
+    df["exposure_note"] = f"shadow 盤勢 {regime_label}；研究版總曝險上限 {target_gross:.0%}"
+    return df
+
+
 def ensure_names(frame: pd.DataFrame) -> pd.DataFrame:
     df = frame.copy()
     if "stock_name" not in df.columns:
@@ -194,6 +265,7 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
         shadow_regime = regime_map.get(date_text, "UNKNOWN")
         shadow = apply_regime_shadow_score(scored, shadow_regime).head(10).copy()
         shadow = ranker.portfolio_policy.apply(shadow, regime)
+        shadow = apply_shadow_regime_risk_profile(shadow, shadow_regime, args.risk_profile)
         shadow = ensure_names(shadow)
         out_path = output_dir / f"ranking_{date_text}.csv"
         write_ranking(out_path, shadow)
@@ -209,6 +281,7 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
             "trains_model": False,
             "modifies_production_config": False,
             "uses_market_regime_history": True,
+            "risk_profile": args.risk_profile,
             "anti_overfit_note": "這是 shadow ranking replay，不可直接轉成 production 權重。",
         },
         "inputs": {
