@@ -1,0 +1,44 @@
+schema_version: research-shadow-runs.v1
+description: "Shadow-only research runs; never writes production ranking artifacts."
+
+window_id: "2026-04-08_2026-05-13"
+dates_from_dir: "artifacts/backtest/historical_rankings_current_model"
+features: "data/clean/features.parquet"
+market_regime_history: "artifacts/market_regime_history_2026-05-29.json"
+industry_map: "data/reference/stock_industry_map.csv"
+sealed_start: "2026-04-08"
+sealed_end: "2026-05-13"
+top_n: 10
+windows: 2
+
+variants:
+  - id: "overlay"
+    enabled: true
+    risk_profile: "baseline"
+    output_dir: "artifacts/backtest/shadow_rankings_regime_overlay_recent"
+    replay_output: "artifacts/backtest/replay_shadow_regime_overlay_2026-04-08_2026-05-13.json"
+    diagnostics_output: "artifacts/backtest/replay_diagnostics_shadow_regime_overlay_2026-04-08_2026-05-13.json"
+
+  - id: "guard_balanced"
+    enabled: true
+    risk_profile: "shadow_regime_guard_balanced"
+    output_dir: "artifacts/backtest/shadow_rankings_regime_guard_balanced_recent"
+    replay_output: "artifacts/backtest/replay_shadow_regime_guard_balanced_2026-04-08_2026-05-13.json"
+    diagnostics_output: "artifacts/backtest/replay_diagnostics_shadow_regime_guard_balanced_2026-04-08_2026-05-13.json"
+
+  - id: "guard_strict"
+    enabled: true
+    risk_profile: "shadow_regime_guard"
+    output_dir: "artifacts/backtest/shadow_rankings_regime_guard_recent"
+    replay_output: "artifacts/backtest/replay_shadow_regime_guard_2026-04-08_2026-05-13.json"
+    diagnostics_output: "artifacts/backtest/replay_diagnostics_shadow_regime_guard_2026-04-08_2026-05-13.json"
+
+baseline:
+  id: "current"
+  replay_output: "artifacts/backtest/replay_current_model_2026-04-08_2026-05-13.json"
+
+outputs:
+  replay_comparison: "artifacts/backtest/replay_variant_comparison_2026-04-08_2026-05-13.json"
+  window_stability: "artifacts/backtest/replay_window_stability_2026-04-08_2026-05-13.json"
+  decision_report: "artifacts/backtest/weekend_research_decision_report_2026-04-08_2026-05-13.json"
+  manifest: "artifacts/backtest/research_shadow_run_manifest_2026-04-08_2026-05-13.json"

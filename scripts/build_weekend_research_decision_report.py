@@ -80,6 +80,23 @@ def replay_row(rows: list[dict[str, Any]], variant: str, horizon: int) -> dict[s
     return None
 
 
+def report_variants(strategy: dict[str, Any], replay: dict[str, Any]) -> list[str]:
+    strategy_order = [
+        str(item.get("label"))
+        for item in strategy.get("variants", [])
+        if item.get("label")
+    ]
+    replay_order = [
+        str(item.get("label"))
+        for item in replay.get("variants", [])
+        if item.get("label")
+    ]
+    replay_labels = set(replay_order)
+    ordered = [variant for variant in strategy_order if variant in replay_labels]
+    ordered.extend(variant for variant in replay_order if variant not in ordered)
+    return ordered
+
+
 def classify_variant(
     *,
     variant: str,
@@ -217,7 +234,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
 
     strategy_rows = strategy.get("best_by_horizon", [])
     replay_rows = replay.get("rows", [])
-    variants = [item.get("label") for item in strategy.get("variants", []) if item.get("label")]
+    variants = report_variants(strategy, replay)
     decisions = [
         classify_variant(
             variant=str(variant),
