@@ -260,6 +260,55 @@ def build_industry_candidate(artifacts_dir: Path) -> dict[str, Any]:
     }
 
 
+def build_regime_feature_group_candidate(artifacts_dir: Path) -> dict[str, Any]:
+    ablation_path = latest_dated_artifact(artifacts_dir, "feature_group_ablation_by_regime")
+    verify_path = artifacts_dir / "feature_group_ablation_by_regime_verification_latest.json"
+    payload = load_json(ablation_path)
+    verification = load_json(verify_path)
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else {}
+    candidate_rows = int(summary.get("candidate_metric_rows") or 0)
+    ready = (
+        payload.get("schema_version") == "feature-group-ablation-by-regime.v1"
+        and contract.get("research_only") is True
+        and contract.get("trains_model") is False
+        and contract.get("changes_ranking") is False
+        and candidate_rows > 0
+        and ok_verification(verification)
+    )
+    blockers = []
+    if payload.get("schema_version") != "feature-group-ablation-by-regime.v1":
+        blockers.append("missing feature_group_ablation_by_regime artifact")
+    if not ok_verification(verification):
+        blockers.append("feature group ablation verification is not OK")
+    if candidate_rows <= 0:
+        blockers.append("candidate_metric_rows is empty")
+    return {
+        "id": "regime_feature_group_ablation",
+        "label": "依市場盤勢切分的 feature group 消融",
+        "shadow_status": candidate_status(ready),
+        "production_promotion_status": promotion_status(),
+        "allowed_shadow_uses": [
+            "prioritize feature groups by market regime before model training",
+            "select shadow-only candidate columns for replay experiments",
+            "identify noisy feature groups that need exclusion or regime-specific handling",
+        ],
+        "blocked_production_uses": [
+            "do not directly convert IC results into RankingPolicy weights",
+            "do not promote any feature group without replay and sealed OOS confirmation",
+        ],
+        "evidence": {
+            "ablation": evidence_item(ablation_path, payload),
+            "verification": evidence_item(verify_path, verification),
+            "candidate_metric_rows": candidate_rows,
+            "groups": summary.get("groups"),
+            "regimes": summary.get("regimes"),
+        },
+        "blockers": blockers,
+        "promotion_requirements": promotion_requirements("regime_feature_group_ablation"),
+    }
+
+
 def promotion_requirements(candidate_id: str) -> list[str]:
     return [
         f"{candidate_id} shadow experiment artifact with explicit as-of policy",
@@ -286,6 +335,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         blocked_data_candidate("fundamentals", "基本面 coverage / as-of feature candidates", "artifacts/fundamental_contract_YYYY-MM-DD.json"),
         blocked_data_candidate("chip_flow", "籌碼 / 三大法人 / 融資融券 feature candidates", "artifacts/chip_data_contract_YYYY-MM-DD.json"),
         build_industry_candidate(artifacts_dir),
+        build_regime_feature_group_candidate(artifacts_dir),
     ]
     ready = [item for item in candidates if item["shadow_status"] == "READY_FOR_SHADOW"]
     blocked = [item for item in candidates if item["shadow_status"] != "READY_FOR_SHADOW"]
