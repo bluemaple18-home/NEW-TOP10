@@ -121,6 +121,8 @@ class AutomationRunner:
         self._run_candidate_persistence(daily_config, ranking_path)
         self._run_weekly_snapshot(daily_config, ranking_path)
         report_path = self._run_daily_report(daily_config, ranking_path)
+        self._run_market_context(daily_config)
+        self._run_decision_quality(daily_config, ranking_path)
         self._run_clawd_payload(daily_config, report_path)
         self._record_step("api.cache.clear", "SKIPPED", message="如 API 常駐，請由服務自行呼叫 POST /api/cache/clear")
         self._run_daily_postcheck(daily_config)
@@ -305,6 +307,40 @@ class AutomationRunner:
             self.status.metadata["daily_report_artifact"] = str(report_path)
             self._record_step("daily.report.artifact", "OK", message=str(report_path))
         return report_path
+
+    def _run_market_context(self, daily_config: dict[str, Any]) -> Path | None:
+        output_path = PROJECT_ROOT / "artifacts" / f"market_context_{self._latest_feature_date()}.json"
+        self.status.metadata["expected_market_context_artifact"] = str(output_path)
+        if not daily_config.get("market_context_enabled", True):
+            self._record_step("market.context", "SKIPPED", message="config daily.market_context_enabled=false")
+            return None
+
+        command = ["python", "-m", "app.market_context_fetcher", "--date", self._latest_feature_date()]
+        self._run_command("market.context", command)
+        if not self.dry_run:
+            if not output_path.exists():
+                self._record_step("market.context.artifact", "FAILED", message=f"missing expected market context: {output_path}")
+                raise RuntimeError(f"market context completed but expected artifact is missing: {output_path}")
+            self.status.metadata["market_context_artifact"] = str(output_path)
+            self._record_step("market.context.artifact", "OK", message=str(output_path))
+        return output_path
+
+    def _run_decision_quality(self, daily_config: dict[str, Any], ranking_path: Path) -> Path | None:
+        output_path = PROJECT_ROOT / "artifacts" / f"decision_quality_{self._latest_feature_date()}.json"
+        self.status.metadata["expected_decision_quality_artifact"] = str(output_path)
+        if not daily_config.get("decision_quality_enabled", True):
+            self._record_step("decision.quality", "SKIPPED", message="config daily.decision_quality_enabled=false")
+            return None
+
+        command = ["python", "scripts/build_decision_quality.py", "--ranking", str(ranking_path)]
+        self._run_command("decision.quality", command)
+        if not self.dry_run:
+            if not output_path.exists():
+                self._record_step("decision.quality.artifact", "FAILED", message=f"missing expected decision quality: {output_path}")
+                raise RuntimeError(f"decision quality completed but expected artifact is missing: {output_path}")
+            self.status.metadata["decision_quality_artifact"] = str(output_path)
+            self._record_step("decision.quality.artifact", "OK", message=str(output_path))
+        return output_path
 
     def _run_clawd_payload(self, daily_config: dict[str, Any], report_path: Path | None) -> None:
         payload_path = PROJECT_ROOT / "artifacts" / f"clawd_publish_payload_{self._latest_feature_date()}.json"

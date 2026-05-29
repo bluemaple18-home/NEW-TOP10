@@ -271,6 +271,8 @@ daily:
   run_time: "17:30"
   weekend_enabled: false
   max_data_lag_days: 7
+  market_context_enabled: true
+  decision_quality_enabled: true
   
 retrain:
   schedule: "manual"

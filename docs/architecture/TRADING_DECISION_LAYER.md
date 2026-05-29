@@ -55,6 +55,17 @@ UI/API 只讀：
 
 不在頁面載入時同步觸發回測。
 
+## 決策品質摘要
+
+`scripts/build_decision_quality.py` 產出 `artifacts/decision_quality_YYYY-MM-DD.json`，把每日 Top10 的決策輔助證據收斂成單一 read-only artifact：
+
+- 入榜天數：讀 `candidate_persistence_YYYY-MM-DD.json`。
+- 歷史回測表現：讀 production replay，且只納入 `ranking_date < 目標 ranking_date` 的成熟紀錄。
+- Portfolio replay 風險：讀 overlap portfolio replay summary 與風險旗標。
+- Market context：daily automation 會先產同日期 `market_context_YYYY-MM-DD.json`；摘要預設只讀同日期 artifact，若手動指定不同日期 artifact，會標記日期不一致。
+
+此摘要只複製 ranking score 作為背景欄位，不重算、不覆寫、不回饋到 ranking score。
+
 ## 下一步
 
 - 把 `TradePlanService` 的 stop/target 加入更多真實交易欄位，例如 ATR、前低、壓力區。

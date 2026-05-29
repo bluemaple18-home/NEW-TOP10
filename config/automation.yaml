@@ -23,6 +23,8 @@ daily:
   weekly_snapshot_enabled: true # MOM-01：ranking 後產生本週模型初選池 / 每日快照 artifact
   candidate_persistence_enabled: true # PERSIST-01：ranking 後產生入榜天數 / 排名變化 artifact
   daily_report_enabled: true    # DAILY-02：ranking 後產出 PM/使用者可讀的每日決策日報
+  market_context_enabled: true  # MARKET-CONTEXT-02：daily decision quality 前產生同日台灣市場背景 artifact
+  decision_quality_enabled: true # DECISION-QUALITY-01：彙整入榜天數、replay、portfolio risk、market context；不改 ranking score
   clawd_payload_enabled: true   # CLAWD-01：daily report 後產出 Clawd-ready payload；不實際發送
   postcheck_enabled: false     # DAILY-03：每日後驗收預設手動執行，避免 launchd 被前端/Chrome 環境卡住
   postcheck_api_enabled: true

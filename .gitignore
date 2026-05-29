@@ -31,6 +31,7 @@ ENV/
 .agents/
 .gemini/
 CLAUDE.md
+.codegraph/
 
 # Data: runtime/generated datasets stay outside git.
 data/*
