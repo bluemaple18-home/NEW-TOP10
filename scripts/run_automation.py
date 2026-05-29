@@ -368,9 +368,39 @@ class AutomationRunner:
             if missing:
                 self._record_step("clawd.payload.artifact", "FAILED", message=f"missing expected Clawd artifacts: {missing}")
                 raise RuntimeError(f"clawd payload completed but expected artifacts are missing: {missing}")
+            self._run_clawd_llm_rewrite(notify_config, payload_path, message_path)
             self.status.metadata["clawd_publish_payload"] = str(payload_path)
             self.status.metadata["clawd_publish_message"] = str(message_path)
             self._record_step("clawd.payload.artifact", "OK", message=str(payload_path))
+
+    def _run_clawd_llm_rewrite(self, notify_config: dict[str, Any], payload_path: Path, message_path: Path) -> None:
+        env_enabled = os.environ.get("TOP10_LLM_REWRITE_ENABLED")
+        if env_enabled is not None:
+            enabled = env_enabled.strip().lower() in {"1", "true", "yes", "on"}
+        else:
+            enabled = bool(notify_config.get("llm_rewrite_enabled", False))
+        if not enabled:
+            self._record_step("clawd.payload.llm_rewrite", "SKIPPED", message="notify.llm_rewrite_enabled=false")
+            return
+
+        command = [
+            "python",
+            "scripts/rewrite_clawd_publish_message_llm.py",
+            "--payload",
+            str(payload_path),
+            "--message",
+            str(message_path),
+        ]
+        env_file = notify_config.get("llm_rewrite_env_file")
+        if env_file:
+            command.extend(["--env-file", str(env_file)])
+        models = notify_config.get("llm_rewrite_models")
+        if isinstance(models, list) and models:
+            command.extend(["--models", ",".join(str(model) for model in models)])
+        timeout_seconds = notify_config.get("llm_rewrite_timeout_seconds")
+        if timeout_seconds:
+            command.extend(["--timeout-seconds", str(timeout_seconds)])
+        self._run_command("clawd.payload.llm_rewrite", command)
 
     def _preflight(self) -> None:
         self._record_step("preflight.project_root", "OK", message=str(PROJECT_ROOT))
