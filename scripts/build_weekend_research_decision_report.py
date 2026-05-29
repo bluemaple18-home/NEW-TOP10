@@ -189,6 +189,41 @@ def factor_summary(factor_monitor: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def weekend_matrix_contract_status(weekend: dict[str, Any]) -> dict[str, Any]:
+    contract = weekend.get("contract") if isinstance(weekend.get("contract"), dict) else {}
+    required = {
+        "research_only": True,
+        "does_not_fetch_data": True,
+        "does_not_train_model": True,
+        "does_not_change_production_ranking": True,
+    }
+    checks = {key: contract.get(key) is expected for key, expected in required.items()}
+    step_failures = [
+        {"name": step.get("name"), "status": step.get("status")}
+        for step in weekend.get("steps", [])
+        if step.get("status") != "OK"
+    ]
+    blockers: list[str] = []
+    if weekend.get("_missing"):
+        blockers.append("weekend matrix artifact missing")
+    if weekend and not weekend.get("_missing") and weekend.get("status") != "OK":
+        blockers.append("weekend matrix status is not OK")
+    for key, ok in checks.items():
+        if not ok:
+            blockers.append(f"weekend matrix contract {key} is not satisfied")
+    if step_failures:
+        blockers.append("weekend matrix has failed steps")
+    status = "OK" if not blockers else ("WARN" if weekend.get("_missing") else "FAILED")
+    return {
+        "status": status,
+        "source_status": weekend.get("status"),
+        "contract": contract,
+        "contract_checks": checks,
+        "failed_steps": step_failures,
+        "blockers": blockers,
+    }
+
+
 def industry_decision(industry: dict[str, Any], coverage: dict[str, Any]) -> dict[str, Any]:
     latest_expected = coverage.get("inputs", {}).get("latest_date")
     latest_actual = industry.get("summary", {}).get("latest_trade_date")
@@ -214,6 +249,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     factor_monitor = load_json(args.factor_monitor)
     weekend = load_json(args.weekend_matrix)
     stability = load_json(args.window_stability)
+    weekend_evidence = weekend_matrix_contract_status(weekend)
 
     strategy_rows = strategy.get("best_by_horizon", [])
     replay_rows = replay.get("rows", [])
@@ -228,15 +264,26 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         for variant in variants
     ]
 
+    missing_inputs = any(item.get("_missing") for item in [coverage, strategy, replay, industry, factor_monitor, weekend])
+    report_status = "OK"
+    if weekend_evidence["status"] == "FAILED":
+        report_status = "FAILED"
+    elif missing_inputs or weekend_evidence["status"] == "WARN":
+        report_status = "WARN"
+    safe_decisions = decisions if weekend_evidence["status"] == "OK" else [
+        {**item, "decision": "MONITOR_ONLY", "primary_horizon": None, "reasons": [*item.get("reasons", []), "blocked because weekend matrix evidence is not OK"]}
+        for item in decisions
+    ]
+
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "status": "OK" if not any(item.get("_missing") for item in [coverage, strategy, replay, industry, factor_monitor, weekend]) else "WARN",
+        "status": report_status,
         "contract": {
-            "research_only": True,
-            "does_not_fetch_data": True,
-            "does_not_train_model": True,
-            "does_not_change_production_ranking": True,
+            "research_only": weekend_evidence["contract_checks"].get("research_only") is True,
+            "does_not_fetch_data": weekend_evidence["contract_checks"].get("does_not_fetch_data") is True,
+            "does_not_train_model": weekend_evidence["contract_checks"].get("does_not_train_model") is True,
+            "does_not_change_production_ranking": weekend_evidence["contract_checks"].get("does_not_change_production_ranking") is True,
             "decision_labels": ["BASELINE", "PROMOTE_TO_SHADOW", "MONITOR_ONLY", "REJECT", "BLOCKED_DATA"],
         },
         "inputs": {
@@ -249,17 +296,19 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "window_stability": repo_path(resolve_path(args.window_stability)),
         },
         "summary": {
-            "promote_to_shadow": [item["variant"] for item in decisions if item["decision"] == "PROMOTE_TO_SHADOW"],
-            "monitor_only": [item["variant"] for item in decisions if item["decision"] == "MONITOR_ONLY"],
-            "reject": [item["variant"] for item in decisions if item["decision"] == "REJECT"],
+            "promote_to_shadow": [item["variant"] for item in safe_decisions if item["decision"] == "PROMOTE_TO_SHADOW"],
+            "monitor_only": [item["variant"] for item in safe_decisions if item["decision"] == "MONITOR_ONLY"],
+            "reject": [item["variant"] for item in safe_decisions if item["decision"] == "REJECT"],
             "blocked_data": coverage.get("summary", {}).get("blocked_dimensions", []),
+            "report_blockers": weekend_evidence["blockers"],
             "recommended_next_test": "Run longer/rolling validation for 5d guard_balanced and overlay separately; keep 10d as separate risk track.",
         },
-        "variant_decisions": decisions,
+        "variant_decisions": safe_decisions,
         "industry_momentum": industry_decision(industry, coverage),
         "factor_monitor": factor_summary(factor_monitor),
         "window_stability": stability.get("summary", []),
         "data_backlog": build_data_backlog(coverage),
+        "weekend_matrix_evidence": weekend_evidence,
         "weekend_matrix_steps": [
             {"name": step.get("name"), "status": step.get("status")}
             for step in weekend.get("steps", [])

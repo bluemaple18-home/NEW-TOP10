@@ -318,7 +318,9 @@ def build_weekend_research_matrix_candidate(artifacts_dir: Path) -> dict[str, An
     blocked_data = list(summary.get("blocked_data") or [])
     ready = (
         payload.get("schema_version") == "weekend-research-decision-report.v1"
+        and payload.get("status") == "OK"
         and contract.get("research_only") is True
+        and contract.get("does_not_fetch_data") is True
         and contract.get("does_not_train_model") is True
         and contract.get("does_not_change_production_ranking") is True
         and bool(promote)
@@ -326,8 +328,12 @@ def build_weekend_research_matrix_candidate(artifacts_dir: Path) -> dict[str, An
     blockers = []
     if payload.get("schema_version") != "weekend-research-decision-report.v1":
         blockers.append("missing weekend research decision report")
+    if payload.get("status") != "OK":
+        blockers.append("weekend research decision report is not OK")
     if not promote:
         blockers.append("no promote_to_shadow variants")
+    if contract.get("does_not_fetch_data") is not True:
+        blockers.append("does_not_fetch_data contract missing")
     if contract.get("does_not_change_production_ranking") is not True:
         blockers.append("production ranking immutability contract missing")
     return {

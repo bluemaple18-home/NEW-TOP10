@@ -103,8 +103,10 @@ def build_fixture(root: Path) -> dict[str, Path]:
         backtest / "weekend_research_decision_report_2026-01-05.json",
         {
             "schema_version": "weekend-research-decision-report.v1",
+            "status": "OK",
             "contract": {
                 "research_only": True,
+                "does_not_fetch_data": True,
                 "does_not_train_model": True,
                 "does_not_change_production_ranking": True,
             },
@@ -115,7 +117,73 @@ def build_fixture(root: Path) -> dict[str, Path]:
             },
         },
     )
+    write_weekend_decision_inputs(artifacts)
+    write_json(
+        backtest / "weekend_research_matrix_2026-01-05.json",
+        {
+            "schema_version": "weekend-research-matrix-run.v1",
+            "status": "OK",
+            "contract": {
+                "research_only": True,
+                "does_not_fetch_data": True,
+                "does_not_train_model": True,
+                "does_not_change_production_ranking": True,
+            },
+            "steps": [{"name": "dataset_coverage", "status": "OK"}],
+        },
+    )
     return {"artifacts": artifacts, "output": root / "feature_experiment_gate.json"}
+
+
+def write_weekend_decision_inputs(artifacts: Path) -> None:
+    backtest = artifacts / "backtest"
+    write_json(
+        artifacts / "research_dataset_coverage_2026-01-05.json",
+        {
+            "summary": {"blocked_dimensions": ["monthly_revenue"]},
+            "inputs": {"latest_date": "2026-01-05"},
+            "dimensions": [
+                {
+                    "dimension_id": "monthly_revenue",
+                    "label": "月營收",
+                    "status": "BLOCKED_DATA",
+                    "latest_coverage": 0.2,
+                    "notes": ["synthetic"],
+                }
+            ],
+        },
+    )
+    write_json(
+        backtest / "weekend_strategy_matrix_comparison_recent_2026-01-05.json",
+        {
+            "variants": [{"label": "current"}, {"label": "overlay"}],
+            "best_by_horizon": [
+                {"variant": "overlay", "horizon": 5, "score": 1.0},
+                {"variant": "current", "horizon": 5, "score": 0.0},
+            ],
+        },
+    )
+    write_json(
+        backtest / "replay_variant_comparison_2026-01-05.json",
+        {
+            "rows": [
+                {"variant": "current", "horizon": 5, "delta_portfolio_avg_return": 0.0, "delta_portfolio_max_drawdown": 0.0},
+                {"variant": "overlay", "horizon": 5, "delta_portfolio_avg_return": 0.01, "delta_portfolio_max_drawdown": 0.06},
+            ]
+        },
+    )
+    write_json(
+        artifacts / "industry_momentum_walkforward_shadow.json",
+        {"summary": {"latest_trade_date": "2026-01-05"}, "recommendation": {"decision": "monitor_only"}, "walkforward": {}},
+    )
+    write_json(
+        artifacts / "factor_monitor_report.json",
+        {"status": "OK", "summary": {"factor_count": 1, "ok_count": 1, "warn_count": 0, "top_abs_ic": []}},
+    )
+    write_json(
+        backtest / "replay_window_stability_2026-01-05.json",
+        {"summary": [{"variant": "overlay", "horizon": 5, "decision": "STABLE_SHADOW_CANDIDATE"}]},
+    )
 
 
 def run_gate(paths: dict[str, Path], output_name: str = "feature_experiment_gate.json") -> dict[str, Any]:
@@ -141,9 +209,53 @@ def run_gate(paths: dict[str, Path], output_name: str = "feature_experiment_gate
     return json.loads(output.read_text(encoding="utf-8"))
 
 
+def run_weekend_decision_report(paths: dict[str, Path], weekend_matrix: Path, expect_success: bool) -> dict[str, Any]:
+    artifacts = paths["artifacts"]
+    backtest = artifacts / "backtest"
+    output = backtest / "weekend_research_decision_report_2026-01-05.json"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "scripts" / "build_weekend_research_decision_report.py"),
+            "--coverage",
+            str(artifacts / "research_dataset_coverage_2026-01-05.json"),
+            "--strategy-comparison",
+            str(backtest / "weekend_strategy_matrix_comparison_recent_2026-01-05.json"),
+            "--replay-comparison",
+            str(backtest / "replay_variant_comparison_2026-01-05.json"),
+            "--industry-walkforward",
+            str(artifacts / "industry_momentum_walkforward_shadow.json"),
+            "--factor-monitor",
+            str(artifacts / "factor_monitor_report.json"),
+            "--weekend-matrix",
+            str(weekend_matrix),
+            "--window-stability",
+            str(backtest / "replay_window_stability_2026-01-05.json"),
+            "--output",
+            str(output),
+        ],
+        cwd=PROJECT_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if expect_success and completed.returncode != 0:
+        print(completed.stdout)
+        print(completed.stderr, file=sys.stderr)
+        raise RuntimeError("valid weekend matrix decision report unexpectedly failed")
+    if not expect_success and completed.returncode == 0:
+        raise RuntimeError("bad weekend matrix decision report unexpectedly returned success")
+    return json.loads(output.read_text(encoding="utf-8"))
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="top10-feature-experiment-gate-") as tmp:
         paths = build_fixture(Path(tmp))
+        valid_report = run_weekend_decision_report(
+            paths,
+            paths["artifacts"] / "backtest" / "weekend_research_matrix_2026-01-05.json",
+            expect_success=True,
+        )
         payload = run_gate(paths)
         by_id = {item["id"]: item for item in payload["candidates"]}
         output_text = paths["output"].read_text(encoding="utf-8")
@@ -158,6 +270,8 @@ def main() -> int:
             "portfolio_overlay_ready": by_id["portfolio_risk_overlay"]["shadow_status"] == "READY_FOR_SHADOW",
             "regime_feature_group_ablation_ready": by_id["regime_feature_group_ablation"]["shadow_status"] == "READY_FOR_SHADOW",
             "weekend_research_matrix_ready": by_id["weekend_research_matrix"]["shadow_status"] == "READY_FOR_SHADOW",
+            "weekend_decision_report_builder_ok": valid_report["status"] == "OK",
+            "weekend_decision_report_builder_contract_ok": valid_report["contract"]["does_not_fetch_data"] is True,
             "fundamentals_blocked": by_id["fundamentals"]["shadow_status"] == "BLOCKED",
             "chip_blocked": by_id["chip_flow"]["shadow_status"] == "BLOCKED",
             "industry_rotation_blocked_even_with_thin_replay": by_id["industry_rotation"]["shadow_status"] == "BLOCKED",
@@ -226,16 +340,78 @@ def negative_verification_cases(paths: dict[str, Path]) -> dict[str, bool]:
             {"status": "FAILED", "checks": {"strict_gate": False}},
             "regime_feature_group_ablation",
         ),
+        (
+            "weekend_research_matrix_blocks_when_report_warn",
+            artifacts / "backtest" / "weekend_research_decision_report_2026-01-05.json",
+            {
+                "schema_version": "weekend-research-decision-report.v1",
+                "status": "WARN",
+                "contract": {
+                    "research_only": True,
+                    "does_not_fetch_data": True,
+                    "does_not_train_model": True,
+                    "does_not_change_production_ranking": True,
+                },
+                "summary": {
+                    "promote_to_shadow": ["overlay"],
+                    "monitor_only": [],
+                    "blocked_data": [],
+                },
+            },
+            "weekend_research_matrix",
+        ),
+        (
+            "weekend_research_matrix_blocks_when_fetch_contract_missing",
+            artifacts / "backtest" / "weekend_research_decision_report_2026-01-05.json",
+            {
+                "schema_version": "weekend-research-decision-report.v1",
+                "status": "OK",
+                "contract": {
+                    "research_only": True,
+                    "does_not_fetch_data": False,
+                    "does_not_train_model": True,
+                    "does_not_change_production_ranking": True,
+                },
+                "summary": {
+                    "promote_to_shadow": ["overlay"],
+                    "monitor_only": [],
+                    "blocked_data": [],
+                },
+            },
+            "weekend_research_matrix",
+        ),
+        (
+            "weekend_research_matrix_blocks_when_underlying_matrix_failed",
+            artifacts / "backtest" / "weekend_research_matrix_2026-01-05.json",
+            {
+                "schema_version": "weekend-research-matrix-run.v1",
+                "status": "FAILED",
+                "contract": {
+                    "research_only": True,
+                    "does_not_fetch_data": False,
+                    "does_not_train_model": True,
+                    "does_not_change_production_ranking": True,
+                },
+                "steps": [{"name": "dataset_coverage", "status": "FAILED"}],
+            },
+            "weekend_research_matrix",
+        ),
     ]
     for index, (case_name, path, failed_payload, candidate_id) in enumerate(mutations, start=1):
-        original = json.loads(path.read_text(encoding="utf-8"))
+        original = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
         write_json(path, failed_payload)
         try:
+            if case_name == "weekend_research_matrix_blocks_when_underlying_matrix_failed":
+                report = run_weekend_decision_report(paths, path, expect_success=False)
+                cases[case_name + "_report_failed"] = report["status"] == "FAILED"
+                cases[case_name + "_report_contract_bad"] = report["contract"]["does_not_fetch_data"] is False
+                cases[case_name + "_report_promote_cleared"] = report["summary"]["promote_to_shadow"] == []
             payload = run_gate(paths, output_name=f"feature_experiment_gate_negative_{index}.json")
             by_id = {item["id"]: item for item in payload["candidates"]}
             cases[case_name] = by_id[candidate_id]["shadow_status"] == "BLOCKED"
         finally:
-            write_json(path, original)
+            if original is not None:
+                write_json(path, original)
     return cases
 
 
