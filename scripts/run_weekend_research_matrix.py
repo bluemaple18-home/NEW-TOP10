@@ -138,6 +138,20 @@ def matrix_commands(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
     )
     commands.append(
         (
+            "build_replay_window_stability",
+            [
+                python,
+                "scripts/build_replay_window_stability.py",
+                *replay_variant_args()[:-2],
+                "--windows",
+                "2",
+                "--output",
+                f"artifacts/backtest/replay_window_stability_{RECENT_WINDOW}.json",
+            ],
+        )
+    )
+    commands.append(
+        (
             "compare_strategy_matrices",
             [
                 python,
@@ -148,6 +162,12 @@ def matrix_commands(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
             ],
         )
     )
+    commands.append(
+        (
+            "build_decision_report",
+            [python, "scripts/build_weekend_research_decision_report.py"],
+        )
+    )
     return commands
 
 
@@ -156,11 +176,15 @@ def summarize_outputs() -> dict[str, Any]:
     replay_path = PROJECT_ROOT / f"artifacts/backtest/replay_variant_comparison_{RECENT_WINDOW}.json"
     coverage_path = PROJECT_ROOT / "artifacts" / "research_dataset_coverage_2026-05-29.json"
     industry_path = PROJECT_ROOT / "artifacts" / "industry_momentum_walkforward_shadow.json"
+    decision_path = PROJECT_ROOT / f"artifacts/backtest/weekend_research_decision_report_{RECENT_WINDOW}.json"
+    stability_path = PROJECT_ROOT / f"artifacts/backtest/replay_window_stability_{RECENT_WINDOW}.json"
     summary: dict[str, Any] = {
         "strategy_matrix_comparison": repo_path(comparison_path),
         "replay_variant_comparison": repo_path(replay_path),
         "dataset_coverage": repo_path(coverage_path),
         "industry_momentum_walkforward": repo_path(industry_path),
+        "decision_report": repo_path(decision_path),
+        "replay_window_stability": repo_path(stability_path),
     }
     if comparison_path.exists():
         data = json.loads(comparison_path.read_text(encoding="utf-8"))
@@ -177,6 +201,12 @@ def summarize_outputs() -> dict[str, Any]:
         data = json.loads(industry_path.read_text(encoding="utf-8"))
         summary["industry_recommendation"] = data.get("recommendation")
         summary["industry_walkforward"] = data.get("walkforward")
+    if decision_path.exists():
+        data = json.loads(decision_path.read_text(encoding="utf-8"))
+        summary["decision_summary"] = data.get("summary")
+    if stability_path.exists():
+        data = json.loads(stability_path.read_text(encoding="utf-8"))
+        summary["window_stability_summary"] = data.get("summary")
     return summary
 
 
