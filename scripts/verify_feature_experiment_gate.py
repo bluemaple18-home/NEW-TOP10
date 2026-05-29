@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""驗證 shadow feature promotion gate 不會開放 production score 修改。"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ARTIFACT_PATH = PROJECT_ROOT / "artifacts" / "feature_experiment_gate_verification_latest.json"
+
+
+def write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
+
+
+def build_fixture(root: Path) -> dict[str, Path]:
+    artifacts = root / "artifacts"
+    backtest = artifacts / "backtest"
+    backtest.mkdir(parents=True)
+    write_json(
+        backtest / "persistence_study_2026-01-05.json",
+        {
+            "schema_version": "candidate-persistence-backtest.v1",
+            "contract": {"model_feature": False, "uses_future_rankings": False},
+            "summary": {"trade_count": 30, "by_horizon_and_streak": {"5D::2-3": {"avg_net_return": 0.03}}},
+        },
+    )
+    write_json(
+        artifacts / "candidate_persistence_backtest_verification_latest.json",
+        {"schema_version": "candidate-persistence-backtest-verification.v1", "status": "OK", "checks": {"no_future": True}},
+    )
+    write_json(
+        artifacts / "market_context_2026-01-05.json",
+        {
+            "schema_version": "market-context.tw.v1",
+            "trade_date": "2026-01-05",
+            "source_status": {"twse": {"status": "ok"}, "tpex": {"status": "warn"}},
+        },
+    )
+    write_json(
+        artifacts / "market_context_fetcher_verification_latest.json",
+        {"status": "OK", "checks": {"schema": True, "partial_failure": True}},
+    )
+    write_json(
+        backtest / "strategy_matrix_2026-01-05.json",
+        {
+            "schema_version": "backtest-strategy-matrix.v1",
+            "summary": {"positive_return_count": 2, "scenario_count": 4},
+        },
+    )
+    write_json(
+        artifacts / "portfolio_replay_verification_latest.json",
+        {"status": "OK", "checks": {"contract": True}},
+    )
+    write_json(
+        artifacts / "decision_quality_2026-01-05.json",
+        {"schema_version": "decision-quality.v1", "summary": {"portfolio_replay_risk_available": True}},
+    )
+    write_json(
+        artifacts / "decision_quality_verification_latest.json",
+        {"status": "OK", "checks": {"read_only_contract": True}},
+    )
+    write_json(
+        artifacts / "sealed_oos_report_latest.json",
+        {"schema_version": "sealed-oos-report.v1", "status": "OK", "failures": []},
+    )
+    write_json(
+        artifacts / "model_group_acceptance_2026-01-05.json",
+        {"schema_version": "model-group-acceptance.v1", "status": "OK"},
+    )
+    return {"artifacts": artifacts, "output": root / "feature_experiment_gate.json"}
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory(prefix="top10-feature-experiment-gate-") as tmp:
+        paths = build_fixture(Path(tmp))
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(PROJECT_ROOT / "scripts" / "build_feature_experiment_gate.py"),
+                "--artifacts-dir",
+                str(paths["artifacts"]),
+                "--output",
+                str(paths["output"]),
+            ],
+            cwd=PROJECT_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            print(completed.stdout)
+            print(completed.stderr, file=sys.stderr)
+            return completed.returncode
+        payload = json.loads(paths["output"].read_text(encoding="utf-8"))
+        by_id = {item["id"]: item for item in payload["candidates"]}
+        output_text = paths["output"].read_text(encoding="utf-8")
+        checks = {
+            "schema_ok": payload["schema_version"] == "feature-experiment-gate.v1",
+            "status_ready": payload["status"] == "READY_FOR_SHADOW_TESTS",
+            "production_score_blocked": payload["contract"]["production_score_change_allowed"] is False,
+            "promotion_blocked": payload["contract"]["production_promotion_allowed"] is False,
+            "candidate_persistence_ready": by_id["candidate_persistence"]["shadow_status"] == "READY_FOR_SHADOW",
+            "market_context_ready": by_id["market_context"]["shadow_status"] == "READY_FOR_SHADOW",
+            "portfolio_overlay_ready": by_id["portfolio_risk_overlay"]["shadow_status"] == "READY_FOR_SHADOW",
+            "fundamentals_blocked": by_id["fundamentals"]["shadow_status"] == "BLOCKED",
+            "chip_blocked": by_id["chip_flow"]["shadow_status"] == "BLOCKED",
+            "model_team_can_start": set(payload["handoff_for_model_team"]["can_start_now"])
+            == {"candidate_persistence", "market_context", "portfolio_risk_overlay"},
+            "must_not_change_ranking": any(
+                "RankingPolicy" in item or "risk_adjusted_score" in item for item in payload["handoff_for_model_team"]["must_not_do"]
+            ),
+            "no_nan_json_literal": "NaN" not in output_text,
+        }
+        status = "OK" if all(checks.values()) else "FAILED"
+        ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ARTIFACT_PATH.write_text(
+            json.dumps(
+                {
+                    "schema_version": "feature-experiment-gate-verification.v1",
+                    "status": status,
+                    "checks": checks,
+                    "note": "uses TemporaryDirectory synthetic evidence artifacts; no model training or ranking execution",
+                },
+                ensure_ascii=False,
+                indent=2,
+                allow_nan=False,
+            ),
+            encoding="utf-8",
+        )
+        if status == "OK":
+            print(f"FEATURE_EXPERIMENT_GATE_OK output={ARTIFACT_PATH}")
+            return 0
+        print(f"FEATURE_EXPERIMENT_GATE_FAILED output={ARTIFACT_PATH}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
