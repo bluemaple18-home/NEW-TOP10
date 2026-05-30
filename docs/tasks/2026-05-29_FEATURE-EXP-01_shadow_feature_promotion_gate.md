@@ -17,7 +17,8 @@
 
 ## 模型側可開始測試的邊界
 
-- 可以開始：`candidate_persistence`、`market_context`、`portfolio_risk_overlay` 的 shadow experiment。
+- 可以開始：以最新 `feature_experiment_gate_YYYY-MM-DD.json` 為準；2026-05-30 狀態為 `candidate_persistence`、`portfolio_risk_overlay`、`regime_feature_group_ablation`。
+- 不可以開始：`market_context` 在 fetcher verification / source status 補齊前維持 blocked。
 - 不可以：直接改 `risk_adjusted_score`、直接把欄位塞進 production LightGBM、直接 promote。
 - promote 前必須補 shadow experiment artifact、production replay、sealed OOS、walk-forward / time split、portfolio risk、code review evidence。
 
