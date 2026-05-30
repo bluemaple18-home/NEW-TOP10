@@ -430,6 +430,7 @@ class AutomationRunner:
         self.status.metadata.setdefault("retrain", {})["previous_model"] = self._model_snapshot(model_path)
         self._record_data_freshness("data.freshness.retrain_preflight")
         self._run_command("data.validate", ["python", "-m", "app.pipeline_cli", "validate"])
+        self._record_retrain_sealed_oos_capacity()
 
     def _should_skip_non_trading_day(self, daily_config: dict[str, Any]) -> bool:
         weekend_enabled = bool(daily_config.get("weekend_enabled", False))
@@ -652,6 +653,88 @@ class AutomationRunner:
         if not isinstance(sealed_config, dict):
             return True
         return self._truthy_value(sealed_config.get("enabled", True)) is not False
+
+    def _record_retrain_sealed_oos_capacity(self) -> None:
+        step_name = "sealed_oos.capacity.retrain_preflight"
+        retrain_config = self.config.get("retrain", {})
+        sealed_mapping = retrain_config.get("sealed_oos") if isinstance(retrain_config.get("sealed_oos"), dict) else {}
+        if not self._sealed_oos_enabled():
+            self._record_step(step_name, "SKIPPED", message="config retrain.sealed_oos.enabled=false")
+            return
+
+        try:
+            import pandas as pd
+            from app.modeling.sealed_oos import SealedOOSConfig
+        except ImportError as exc:
+            self._record_step(step_name, "FAILED", message=f"缺少 sealed OOS preflight 相依套件：{exc}")
+            raise RuntimeError(f"缺少 sealed OOS preflight 相依套件：{exc}") from exc
+
+        horizon = int(retrain_config.get("horizon", 10))
+        config = SealedOOSConfig.from_mapping(sealed_mapping, horizon=horizon)
+        features_path = PROJECT_ROOT / "data" / "clean" / "features.parquet"
+        if not features_path.exists():
+            self._record_step(step_name, "FAILED", message=f"找不到訓練特徵檔：{features_path}")
+            raise RuntimeError(f"找不到訓練特徵檔：{features_path}")
+
+        try:
+            frame = pd.read_parquet(features_path, columns=["date"])
+            date_col = "date"
+        except Exception:
+            frame = pd.read_parquet(features_path, columns=["trade_date"])
+            date_col = "trade_date"
+
+        dates = pd.to_datetime(frame[date_col], errors="coerce").dropna().dt.normalize().drop_duplicates().sort_values()
+        total_trade_days = int(len(dates))
+        mature_trade_days = max(0, total_trade_days - max(horizon, 0))
+        embargo_days = int(config.embargo_trade_days if config.embargo_trade_days is not None else horizon)
+        min_required_days = int(config.min_train_trade_days + embargo_days + config.min_sealed_trade_days)
+        configured_required_days = int(config.min_train_trade_days + embargo_days + max(config.sealed_trade_days, config.min_sealed_trade_days))
+        latest_date = dates.max().date().isoformat() if total_trade_days else None
+
+        capacity = {
+            "features_path": str(features_path),
+            "date_column": date_col,
+            "latest_date": latest_date,
+            "total_trade_days": total_trade_days,
+            "horizon": horizon,
+            "mature_trade_days": mature_trade_days,
+            "min_required_trade_days": min_required_days,
+            "configured_required_trade_days": configured_required_days,
+            "min_train_trade_days": int(config.min_train_trade_days),
+            "embargo_trade_days": embargo_days,
+            "min_sealed_trade_days": int(config.min_sealed_trade_days),
+            "sealed_trade_days": int(config.sealed_trade_days),
+        }
+        self.status.metadata.setdefault("retrain", {})["sealed_oos_capacity"] = capacity
+
+        if mature_trade_days < min_required_days:
+            message = (
+                "sealed OOS 交易日不足："
+                f"available={mature_trade_days} required={min_required_days} "
+                f"(train={config.min_train_trade_days}, embargo={embargo_days}, sealed={config.min_sealed_trade_days}) "
+                f"features_total={total_trade_days} horizon={horizon}"
+            )
+            self._record_step(step_name, "FAILED", message=message)
+            raise RuntimeError(message)
+
+        if mature_trade_days < configured_required_days:
+            message = (
+                "sealed OOS 指定視窗過長："
+                f"available={mature_trade_days} train_min={config.min_train_trade_days} "
+                f"embargo={embargo_days} sealed={max(config.sealed_trade_days, config.min_sealed_trade_days)} "
+                f"features_total={total_trade_days} horizon={horizon}"
+            )
+            self._record_step(step_name, "FAILED", message=message)
+            raise RuntimeError(message)
+
+        self._record_step(
+            step_name,
+            "OK",
+            message=(
+                f"available={mature_trade_days} required={configured_required_days} "
+                f"features_total={total_trade_days} latest={latest_date}"
+            ),
+        )
 
     def _record_sealed_oos_report(self, step_name: str, fresh_after: datetime | None = None) -> None:
         report_path = PROJECT_ROOT / "artifacts" / "sealed_oos_report_latest.json"
