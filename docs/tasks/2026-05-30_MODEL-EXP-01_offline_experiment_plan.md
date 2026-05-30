@@ -17,6 +17,17 @@
 
 `model_exp_combined_conservative` 必須等個別實驗通過後才可跑，不可一開始就混合特徵。
 
+## 執行前 manifest
+
+`model_exp_plan` 只代表研究設計可成立；真正執行前還要跑：
+
+```bash
+uv run --with-requirements requirements.txt python scripts/build_model_experiment_run_manifest.py --date YYYY-MM-DD
+uv run --with-requirements requirements.txt python scripts/verify_model_experiment_run_manifest.py --artifact artifacts/model_experiments/model_exp_run_manifest_YYYY-MM-DD.json
+```
+
+目前 `candidate_persistence` 應維持 `BLOCKED_MISSING_MATERIALIZER`，直到安全的 as-of training-frame materializer 補上。
+
 ## 不可做
 
 - 不跑正式 retrain。
@@ -32,6 +43,8 @@ uv run --with-requirements requirements.txt python scripts/build_shadow_feature_
 uv run --with-requirements requirements.txt python scripts/verify_shadow_feature_experiment.py --artifact artifacts/shadow_feature_experiment_YYYY-MM-DD.json
 uv run --with-requirements requirements.txt python scripts/build_model_experiment_plan.py --date YYYY-MM-DD
 uv run --with-requirements requirements.txt python scripts/verify_model_experiment_plan.py --artifact artifacts/model_experiments/model_exp_plan_YYYY-MM-DD.json
+uv run --with-requirements requirements.txt python scripts/build_model_experiment_run_manifest.py --date YYYY-MM-DD
+uv run --with-requirements requirements.txt python scripts/verify_model_experiment_run_manifest.py --artifact artifacts/model_experiments/model_exp_run_manifest_YYYY-MM-DD.json
 ```
 
 整條安全研究鏈可用：

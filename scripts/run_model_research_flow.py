@@ -86,6 +86,7 @@ def skipped_step(name: str, command: list[str], reason: str) -> dict[str, Any]:
 def flow_steps(run_date: str) -> list[tuple[str, list[str]]]:
     shadow_index = f"artifacts/shadow_feature_experiment_{run_date}.json"
     model_plan = f"artifacts/model_experiments/model_exp_plan_{run_date}.json"
+    run_manifest = f"artifacts/model_experiments/model_exp_run_manifest_{run_date}.json"
     return [
         ("feature_gate.build", [sys.executable, "scripts/build_feature_experiment_gate.py"]),
         ("feature_gate.verify", [sys.executable, "scripts/verify_feature_experiment_gate.py"]),
@@ -107,6 +108,16 @@ def flow_steps(run_date: str) -> list[tuple[str, list[str]]]:
                 "scripts/verify_model_experiment_plan.py",
                 "--artifact",
                 model_plan,
+            ],
+        ),
+        ("model_exp_run_manifest.build", [sys.executable, "scripts/build_model_experiment_run_manifest.py", "--date", run_date]),
+        (
+            "model_exp_run_manifest.verify",
+            [
+                sys.executable,
+                "scripts/verify_model_experiment_run_manifest.py",
+                "--artifact",
+                run_manifest,
             ],
         ),
     ]
@@ -148,6 +159,8 @@ def build_manifest(run_date: str, steps: list[dict[str, Any]]) -> dict[str, Any]
             "shadow_feature_verification": "artifacts/shadow_feature_experiment_verification_latest.json",
             "model_experiment_plan": f"artifacts/model_experiments/model_exp_plan_{run_date}.json",
             "model_experiment_plan_verification": "artifacts/model_experiments/model_exp_plan_verification_latest.json",
+            "model_experiment_run_manifest": f"artifacts/model_experiments/model_exp_run_manifest_{run_date}.json",
+            "model_experiment_run_manifest_verification": "artifacts/model_experiments/model_exp_run_manifest_verification_latest.json",
         },
         "steps": steps,
     }

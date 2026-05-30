@@ -52,7 +52,17 @@ def verify_fail_fast() -> dict[str, bool]:
         "shadow_verify_failed": by_name["shadow_feature.verify"]["status"] == "FAILED",
         "plan_build_skipped": by_name["model_exp_plan.build"]["status"] == "SKIPPED",
         "plan_verify_skipped": by_name["model_exp_plan.verify"]["status"] == "SKIPPED",
-        "downstream_not_executed": "model_exp_plan.build" not in executed and "model_exp_plan.verify" not in executed,
+        "run_manifest_build_skipped": by_name["model_exp_run_manifest.build"]["status"] == "SKIPPED",
+        "run_manifest_verify_skipped": by_name["model_exp_run_manifest.verify"]["status"] == "SKIPPED",
+        "downstream_not_executed": all(
+            name not in executed
+            for name in [
+                "model_exp_plan.build",
+                "model_exp_plan.verify",
+                "model_exp_run_manifest.build",
+                "model_exp_run_manifest.verify",
+            ]
+        ),
         "manifest_failed": manifest["status"] == "FAILED",
         "skip_reason_points_to_failure": by_name["model_exp_plan.build"].get("skip_reason") == "previous step failed: shadow_feature.verify",
     }
