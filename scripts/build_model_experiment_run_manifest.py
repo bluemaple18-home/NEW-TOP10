@@ -82,8 +82,50 @@ def artifact_exists(path_text: str | None) -> bool:
     return bool(path and path.exists())
 
 
-def candidate_persistence_run(experiment: dict[str, Any]) -> dict[str, Any]:
+def candidate_materializer_paths(run_date: str) -> tuple[Path, Path]:
+    artifact = MODEL_EXPERIMENTS_DIR / f"candidate_persistence_features_{run_date}.parquet"
+    verification = MODEL_EXPERIMENTS_DIR / "candidate_persistence_features_verification_latest.json"
+    return artifact, verification
+
+
+def candidate_materializer_ready(run_date: str) -> tuple[bool, dict[str, Any]]:
+    artifact, verification = candidate_materializer_paths(run_date)
+    details: dict[str, Any] = {
+        "artifact": repo_path(artifact),
+        "verification": repo_path(verification),
+        "artifact_exists": artifact.exists(),
+        "verification_exists": verification.exists(),
+    }
+    if not artifact.exists() or not verification.exists():
+        return False, details
+    payload = load_json(verification)
+    details["verification_status"] = payload.get("status")
+    details["verification_input"] = payload.get("input")
+    ready = payload.get("status") == "OK" and payload.get("input") == repo_path(artifact)
+    return ready, details
+
+
+def candidate_persistence_run(experiment: dict[str, Any], run_date: str) -> dict[str, Any]:
     columns = experiment.get("feature_policy", {}).get("additive_columns", [])
+    ready, details = candidate_materializer_ready(run_date)
+    if ready:
+        return {
+            "experiment_id": experiment.get("experiment_id"),
+            "candidate_ids": experiment.get("candidate_ids", []),
+            "execution_status": "READY_FOR_FEATURE_ABLATION",
+            "reason": "candidate_persistence materializer 已通過 as-of 驗證；可進離線 feature ablation，但仍不可正式 retrain。",
+            "required_before_execute": [
+                "只讀 materialized artifact，不覆蓋 data/clean/features.parquet",
+                "離線 ablation 必須保留 baseline 對照與 replay breakdown",
+                "不得把結果直接轉成 production ranking bonus",
+            ],
+            "planned_columns": columns,
+            "materialized_features": details,
+            "safe_commands": [
+                "uv run --with-requirements requirements.txt python scripts/build_candidate_persistence_materialized_features.py --date YYYY-MM-DD",
+                "uv run --with-requirements requirements.txt python scripts/verify_candidate_persistence_materialized_features.py --artifact artifacts/model_experiments/candidate_persistence_features_YYYY-MM-DD.parquet",
+            ],
+        }
     return {
         "experiment_id": experiment.get("experiment_id"),
         "candidate_ids": experiment.get("candidate_ids", []),
@@ -95,6 +137,7 @@ def candidate_persistence_run(experiment: dict[str, Any]) -> dict[str, Any]:
             "輸出 materialized feature frame 到 artifacts/model_experiments/，不得覆蓋 data/clean/features.parquet",
         ],
         "planned_columns": columns,
+        "materialized_features": details,
         "safe_commands": [],
     }
 
@@ -153,7 +196,7 @@ def combined_run(experiment: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_run_item(experiment: dict[str, Any], available_features: set[str]) -> dict[str, Any]:
+def build_run_item(experiment: dict[str, Any], available_features: set[str], run_date: str) -> dict[str, Any]:
     exp_id = str(experiment.get("experiment_id"))
     if experiment.get("status") == "WAIT_FOR_INDIVIDUAL_PASS":
         return combined_run(experiment)
@@ -167,7 +210,7 @@ def build_run_item(experiment: dict[str, Any], available_features: set[str]) -> 
             "safe_commands": [],
         }
     if exp_id == "model_exp_candidate_persistence_only":
-        return candidate_persistence_run(experiment)
+        return candidate_persistence_run(experiment, run_date=run_date)
     if exp_id == "model_exp_portfolio_risk_overlay_only":
         return portfolio_risk_run(experiment)
     if exp_id == "model_exp_regime_feature_group_ablation":
@@ -189,7 +232,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     plan = load_json(plan_path)
     features_path = resolve_path(args.features)
     available_features = feature_columns(features_path)
-    runs = [build_run_item(experiment, available_features) for experiment in plan.get("experiments", [])]
+    runs = [build_run_item(experiment, available_features, args.date) for experiment in plan.get("experiments", [])]
     ready = [
         run["experiment_id"]
         for run in runs

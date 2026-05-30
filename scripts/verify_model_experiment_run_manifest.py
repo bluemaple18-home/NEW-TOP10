@@ -74,6 +74,9 @@ def build_report(path: Path) -> dict[str, Any]:
         for run in runs
         if run.get("execution_status") == "READY_FOR_FEATURE_ABLATION"
     ]
+    candidate_run = next((run for run in runs if run.get("experiment_id") == "model_exp_candidate_persistence_only"), {})
+    candidate_status = candidate_run.get("execution_status")
+    candidate_materialized = candidate_run.get("materialized_features", {})
 
     checks.extend(
         [
@@ -86,25 +89,28 @@ def build_report(path: Path) -> dict[str, Any]:
                 "value": contract.get("production_promotion_allowed"),
             },
             {
-                "name": "candidate_persistence_not_executable_without_materializer",
-                "ok": any(
-                    run.get("experiment_id") == "model_exp_candidate_persistence_only"
-                    and run.get("execution_status") == "BLOCKED_MISSING_MATERIALIZER"
-                    for run in runs
+                "name": "candidate_persistence_requires_materializer_or_ready_artifact",
+                "ok": candidate_status == "BLOCKED_MISSING_MATERIALIZER"
+                or (
+                    candidate_status == "READY_FOR_FEATURE_ABLATION"
+                    and candidate_materialized.get("artifact_exists") is True
+                    and candidate_materialized.get("verification_status") == "OK"
                 ),
-                "value": [
-                    {
-                        "experiment_id": run.get("experiment_id"),
-                        "execution_status": run.get("execution_status"),
-                    }
-                    for run in runs
-                    if run.get("experiment_id") == "model_exp_candidate_persistence_only"
-                ],
+                "value": {
+                    "execution_status": candidate_status,
+                    "materialized_features": candidate_materialized,
+                },
             },
             {
-                "name": "at_most_one_first_pass_feature_ablation_ready",
-                "ok": len(ready_lightgbm) <= 1,
+                "name": "first_pass_feature_ablation_ready_set_is_explicit",
+                "ok": {run.get("experiment_id") for run in ready_lightgbm}
+                <= {"model_exp_candidate_persistence_only", "model_exp_regime_feature_group_ablation"},
                 "value": [run.get("experiment_id") for run in ready_lightgbm],
+            },
+            {
+                "name": "combined_experiment_not_ready_before_individual_results",
+                "ok": decisions_status(runs, "model_exp_combined_conservative") == "WAIT_FOR_INDIVIDUAL_PASS",
+                "value": decisions_status(runs, "model_exp_combined_conservative"),
             },
         ]
     )
@@ -137,6 +143,13 @@ def build_report(path: Path) -> dict[str, Any]:
         },
         "checks": checks,
     }
+
+
+def decisions_status(runs: list[dict[str, Any]], experiment_id: str) -> str | None:
+    for run in runs:
+        if run.get("experiment_id") == experiment_id:
+            return run.get("execution_status")
+    return None
 
 
 def main() -> int:

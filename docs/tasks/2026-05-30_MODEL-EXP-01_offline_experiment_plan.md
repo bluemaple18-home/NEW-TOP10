@@ -26,7 +26,18 @@ uv run --with-requirements requirements.txt python scripts/build_model_experimen
 uv run --with-requirements requirements.txt python scripts/verify_model_experiment_run_manifest.py --artifact artifacts/model_experiments/model_exp_run_manifest_YYYY-MM-DD.json
 ```
 
-目前 `candidate_persistence` 應維持 `BLOCKED_MISSING_MATERIALIZER`，直到安全的 as-of training-frame materializer 補上。
+`candidate_persistence` 必須先通過 prior-only materializer，才能進離線 ablation；不可直接把日報用 `candidate_persistence_YYYY-MM-DD.json` 混進訓練。
+
+已補上的安全 materializer：
+
+```bash
+uv run --with-requirements requirements.txt python scripts/build_candidate_persistence_materialized_features.py --date YYYY-MM-DD
+uv run --with-requirements requirements.txt python scripts/verify_candidate_persistence_materialized_features.py --artifact artifacts/model_experiments/candidate_persistence_features_YYYY-MM-DD.parquet
+uv run --with-requirements requirements.txt python scripts/research_candidate_persistence_materialized_ablation.py --date YYYY-MM-DD
+uv run --with-requirements requirements.txt python scripts/verify_candidate_persistence_materialized_ablation.py --artifact artifacts/model_experiments/candidate_persistence_materialized_ablation_YYYY-MM-DD.json
+```
+
+2026-05-30 測試結論：近期 window 的 `prior streak=1` 有正向跡象，但 extended window 不穩，暫列 `MONITOR_ONLY_NOT_STABLE`；它可以保留在訊息/UI 脈絡，不應直接進正式模型候選。
 
 ## 不可做
 
