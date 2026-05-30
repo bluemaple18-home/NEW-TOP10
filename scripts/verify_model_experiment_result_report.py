@@ -80,6 +80,18 @@ def build_report(path: Path) -> dict[str, Any]:
                 "value": sorted(decisions),
             },
             {
+                "name": "portfolio_status_safe",
+                "ok": decisions.get("model_exp_portfolio_risk_overlay_only", {}).get("status")
+                in {"PASS_TO_LONGER_REPLAY", "PASS_TO_PROMOTION_REVIEW_QUEUE", "MONITOR_ONLY"},
+                "value": decisions.get("model_exp_portfolio_risk_overlay_only", {}).get("status"),
+            },
+            {
+                "name": "regime_status_safe",
+                "ok": decisions.get("model_exp_regime_feature_group_ablation", {}).get("status")
+                in {"PASS_TO_OFFLINE_ABLATION_WITH_CAUTION", "PASS_TO_MODEL_EXP_02", "MONITOR_ONLY_WEAK_MODEL_UPLIFT", "MONITOR_ONLY"},
+                "value": decisions.get("model_exp_regime_feature_group_ablation", {}).get("status"),
+            },
+            {
                 "name": "candidate_persistence_has_safe_status",
                 "ok": decisions.get("model_exp_candidate_persistence_only", {}).get("status")
                 in {"BLOCKED_MISSING_MATERIALIZER", "READY_TO_OFFLINE_ABLATION", "MONITOR_ONLY_NOT_STABLE", "PASS_TO_OFFLINE_ABLATION_WITH_CAUTION"},

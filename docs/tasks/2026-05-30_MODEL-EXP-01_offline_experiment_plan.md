@@ -39,6 +39,13 @@ uv run --with-requirements requirements.txt python scripts/verify_candidate_pers
 
 2026-05-30 測試結論：近期 window 的 `prior streak=1` 有正向跡象，但 extended window 不穩，暫列 `MONITOR_ONLY_NOT_STABLE`；它可以保留在訊息/UI 脈絡，不應直接進正式模型候選。
 
+2026-05-30 後續測試結論：
+
+- `portfolio_risk_overlay`：recent 與 extended tail strategy matrix 都通過，已產 `portfolio_overlay_promotion_review_2026-05-30.json`，狀態 `READY_FOR_HUMAN_REVIEW`。它仍是 post-ranking overlay，不是 LightGBM feature；正式接入 production 前必須另開 review diff 與 rollback/default-off gate。
+- `regime_feature_group_ablation`：IC / shadow evidence 有訊號，但 offline model ablation 顯示 AUC 只增加 `+0.000513`，Top10 proxy return 反而下降 `-0.004747`，暫列 `MONITOR_ONLY_WEAK_MODEL_UPLIFT`。
+- `candidate_persistence`：暫列 `MONITOR_ONLY_NOT_STABLE`。
+- `model_exp_combined_conservative`：維持 `WAIT_FOR_INDIVIDUAL_PASS`，不可混合兩個已降級觀察的特徵候選。
+
 ## 不可做
 
 - 不跑正式 retrain。

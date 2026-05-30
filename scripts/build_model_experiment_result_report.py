@@ -24,7 +24,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--date", default=date.today().isoformat())
     parser.add_argument("--run-manifest", default=None)
     parser.add_argument("--portfolio-comparison", default=None)
+    parser.add_argument("--portfolio-comparison-extended", default=None)
     parser.add_argument("--regime-ablation", default=None)
+    parser.add_argument("--regime-offline-ablation", default=None)
     parser.add_argument("--candidate-persistence-ablation", default=None)
     parser.add_argument("--candidate-persistence-ablation-extended", default=None)
     parser.add_argument("--output", default=None)
@@ -66,14 +68,16 @@ def default_path(args: argparse.Namespace, name: str) -> Path:
     mapping = {
         "run_manifest": MODEL_EXPERIMENTS_DIR / f"model_exp_run_manifest_{args.date}.json",
         "portfolio_comparison": MODEL_EXPERIMENTS_DIR / f"model_exp_strategy_matrix_comparison_portfolio_risk_overlay_{args.date}.json",
+        "portfolio_comparison_extended": MODEL_EXPERIMENTS_DIR / f"model_exp_strategy_matrix_comparison_portfolio_risk_overlay_extended_tail_{args.date}.json",
         "regime_ablation": MODEL_EXPERIMENTS_DIR / f"model_exp_regime_feature_group_ablation_{args.date}.json",
+        "regime_offline_ablation": MODEL_EXPERIMENTS_DIR / f"regime_feature_offline_ablation_{args.date}.json",
         "candidate_persistence_ablation": MODEL_EXPERIMENTS_DIR / f"candidate_persistence_materialized_ablation_{args.date}.json",
         "candidate_persistence_ablation_extended": MODEL_EXPERIMENTS_DIR / f"candidate_persistence_materialized_ablation_extended_{args.date}.json",
     }
     return mapping[name]
 
 
-def portfolio_decision(payload: dict[str, Any]) -> dict[str, Any]:
+def portfolio_decision(payload: dict[str, Any], extended: dict[str, Any] | None = None) -> dict[str, Any]:
     rows = {row.get("variant"): row for row in payload.get("summary", [])}
     current = rows.get("current", {})
     overlay = rows.get("portfolio_risk_overlay", {})
@@ -86,7 +90,7 @@ def portfolio_decision(payload: dict[str, Any]) -> dict[str, Any]:
     return_delta = None if current_return is None or overlay_return is None else round(overlay_return - current_return, 6)
     dd_delta = None if current_dd is None or overlay_dd is None else round(overlay_dd - current_dd, 6)
     score_delta = None if current_score is None or overlay_score is None else round(overlay_score - current_score, 6)
-    passed = (
+    recent_passed = (
         return_delta is not None
         and return_delta > 0
         and dd_delta is not None
@@ -94,20 +98,50 @@ def portfolio_decision(payload: dict[str, Any]) -> dict[str, Any]:
         and score_delta is not None
         and score_delta > 0
     )
+    extended_metrics = portfolio_delta_metrics(extended or {})
+    extended_passed = bool(extended_metrics.get("passed"))
+    passed = recent_passed and (extended_passed if extended and not extended.get("_missing") else True)
     return {
         "experiment_id": "model_exp_portfolio_risk_overlay_only",
-        "status": "PASS_TO_LONGER_REPLAY" if passed else "MONITOR_ONLY",
+        "status": "PASS_TO_PROMOTION_REVIEW_QUEUE" if passed and extended_passed else ("PASS_TO_LONGER_REPLAY" if passed else "MONITOR_ONLY"),
         "metrics": {
             "current_best": current,
             "overlay_best": overlay,
             "delta_total_return": return_delta,
             "delta_max_drawdown": dd_delta,
             "delta_score": score_delta,
+            "extended": extended_metrics,
         },
         "notes": [
             "這是 post-ranking overlay/replay track，不是 LightGBM feature。",
-            "下一步應擴大 rolling window，確認不是近期盤勢特化。",
+            "extended tail 若同時通過，下一步也只能進人工 promotion review，不可直接改 production ranking。",
         ],
+    }
+
+
+def portfolio_delta_metrics(payload: dict[str, Any]) -> dict[str, Any]:
+    if not payload or payload.get("_missing"):
+        return {"available": False, "passed": False}
+    rows = {row.get("variant"): row for row in payload.get("summary", [])}
+    current = rows.get("current_tail") or rows.get("current") or {}
+    overlay = rows.get("portfolio_risk_overlay_tail") or rows.get("portfolio_risk_overlay") or {}
+    current_return = safe_float(current.get("best_total_return"))
+    overlay_return = safe_float(overlay.get("best_total_return"))
+    current_dd = safe_float(current.get("best_max_drawdown"))
+    overlay_dd = safe_float(overlay.get("best_max_drawdown"))
+    current_score = safe_float(current.get("best_score"))
+    overlay_score = safe_float(overlay.get("best_score"))
+    return_delta = None if current_return is None or overlay_return is None else round(overlay_return - current_return, 6)
+    dd_delta = None if current_dd is None or overlay_dd is None else round(overlay_dd - current_dd, 6)
+    score_delta = None if current_score is None or overlay_score is None else round(overlay_score - current_score, 6)
+    return {
+        "available": True,
+        "passed": return_delta is not None and return_delta > 0 and dd_delta is not None and dd_delta > 0 and score_delta is not None and score_delta > 0,
+        "current_best": current,
+        "overlay_best": overlay,
+        "delta_total_return": return_delta,
+        "delta_max_drawdown": dd_delta,
+        "delta_score": score_delta,
     }
 
 
@@ -133,12 +167,26 @@ def top_shadow_features(payload: dict[str, Any], limit: int = 20) -> list[dict[s
     return sorted(rows, key=lambda item: item.get("abs_ic_mean") or 0, reverse=True)[:limit]
 
 
-def regime_decision(payload: dict[str, Any]) -> dict[str, Any]:
+def regime_decision(payload: dict[str, Any], offline: dict[str, Any] | None = None) -> dict[str, Any]:
     summary = payload.get("summary", {})
     top = top_shadow_features(payload)
     thin_regime_rows = [row for row in top if int(row.get("days") or 0) < 20]
     stable_rows = [row for row in top if int(row.get("days") or 0) >= 20]
-    status = "PASS_TO_OFFLINE_ABLATION_WITH_CAUTION" if top else "MONITOR_ONLY"
+    offline_summary = (offline or {}).get("summary", {})
+    auc_delta = safe_float(offline_summary.get("baseline_minus_drop_auc"))
+    topn_delta = safe_float(offline_summary.get("baseline_minus_drop_topn_return"))
+    offline_available = bool(offline) and not (offline or {}).get("_missing")
+    offline_passed = (
+        offline_available
+        and auc_delta is not None
+        and auc_delta >= 0.002
+        and topn_delta is not None
+        and topn_delta >= 0
+    )
+    if offline_available:
+        status = "PASS_TO_MODEL_EXP_02" if offline_passed else "MONITOR_ONLY_WEAK_MODEL_UPLIFT"
+    else:
+        status = "PASS_TO_OFFLINE_ABLATION_WITH_CAUTION" if top else "MONITOR_ONLY"
     return {
         "experiment_id": "model_exp_regime_feature_group_ablation",
         "status": status,
@@ -149,10 +197,11 @@ def regime_decision(payload: dict[str, Any]) -> dict[str, Any]:
             "top_shadow_features": top,
             "thin_regime_top_count": len(thin_regime_rows),
             "stable_window_top_count": len(stable_rows),
+            "offline_ablation": offline_summary,
         },
         "notes": [
             "PANIC_SELLING top signals 樣本天數偏少，不能直接視為穩定訊號。",
-            "優先用 stable-window rows 做第一輪 feature ablation；薄樣本 regime 只當觀察。",
+            "offline ablation 若模型層 uplift 太弱或 Top10 proxy 變差，應降級觀察。",
         ],
     }
 
@@ -231,25 +280,29 @@ def blocked_decisions(run_manifest: dict[str, Any]) -> list[dict[str, Any]]:
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     run_path = resolve_path(args.run_manifest) or default_path(args, "run_manifest")
     portfolio_path = resolve_path(args.portfolio_comparison) or default_path(args, "portfolio_comparison")
+    portfolio_extended_path = resolve_path(args.portfolio_comparison_extended) or default_path(args, "portfolio_comparison_extended")
     regime_path = resolve_path(args.regime_ablation) or default_path(args, "regime_ablation")
+    regime_offline_path = resolve_path(args.regime_offline_ablation) or default_path(args, "regime_offline_ablation")
     candidate_path = resolve_path(args.candidate_persistence_ablation) or default_path(args, "candidate_persistence_ablation")
     candidate_extended_path = resolve_path(args.candidate_persistence_ablation_extended) or default_path(args, "candidate_persistence_ablation_extended")
     run_manifest = load_json(run_path)
     portfolio = load_json(portfolio_path)
+    portfolio_extended = load_json(portfolio_extended_path)
     regime = load_json(regime_path)
+    regime_offline = load_json(regime_offline_path)
     candidate = load_json(candidate_path)
     candidate_extended = load_json(candidate_extended_path)
     candidate_decision = candidate_persistence_decision(candidate, candidate_extended)
     decisions = [
-        portfolio_decision(portfolio),
-        regime_decision(regime),
+        portfolio_decision(portfolio, portfolio_extended),
+        regime_decision(regime, regime_offline),
         *([candidate_decision] if candidate_decision else ready_manifest_decisions(run_manifest)),
         *blocked_decisions(run_manifest),
     ]
     promote = [
         item["experiment_id"]
         for item in decisions
-        if item.get("status") in {"PASS_TO_LONGER_REPLAY", "PASS_TO_OFFLINE_ABLATION_WITH_CAUTION", "READY_TO_OFFLINE_ABLATION"}
+        if item.get("status") in {"PASS_TO_LONGER_REPLAY", "PASS_TO_PROMOTION_REVIEW_QUEUE", "PASS_TO_OFFLINE_ABLATION_WITH_CAUTION", "PASS_TO_MODEL_EXP_02", "READY_TO_OFFLINE_ABLATION"}
     ]
     blocked = [item["experiment_id"] for item in decisions if str(item.get("status", "")).startswith("BLOCKED")]
     waiting = [item["experiment_id"] for item in decisions if item.get("status") == "WAIT_FOR_INDIVIDUAL_PASS"]
@@ -270,7 +323,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "inputs": {
             "run_manifest": repo_path(run_path),
             "portfolio_comparison": repo_path(portfolio_path),
+            "portfolio_comparison_extended": repo_path(portfolio_extended_path),
             "regime_ablation": repo_path(regime_path),
+            "regime_offline_ablation": repo_path(regime_offline_path),
             "candidate_persistence_ablation": repo_path(candidate_path),
             "candidate_persistence_ablation_extended": repo_path(candidate_extended_path),
         },
