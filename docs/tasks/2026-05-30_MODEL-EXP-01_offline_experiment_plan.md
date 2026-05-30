@@ -46,6 +46,13 @@ uv run --with-requirements requirements.txt python scripts/verify_candidate_pers
 - `candidate_persistence`：暫列 `MONITOR_ONLY_NOT_STABLE`。
 - `model_exp_combined_conservative`：維持 `WAIT_FOR_INDIVIDUAL_PASS`，不可混合兩個已降級觀察的特徵候選。
 
+2026-05-30 default-off production scaffold：
+
+- 新增 `app/trading/portfolio_risk_overlay.py`，同時提供 score overlay 與 sizing overlay，但 `config/signals.yaml` 預設 `enabled=false`。
+- `RankingPolicy` / `PortfolioPolicy` 已接入 overlay 物件；default-off 時不新增欄位、不改排序、不改權重。
+- 驗證：`scripts/verify_portfolio_risk_overlay_default_off.py` 確認 default-off exact match，且 enabled synthetic case 才會新增 overlay score / regime 並套用 panic selling gross cap。
+- 仍未啟用 production promotion；正式開關前需要另跑 daily dry-run diff、production path replay 與 rollback/config flag review。
+
 ## 不可做
 
 - 不跑正式 retrain。

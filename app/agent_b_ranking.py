@@ -16,9 +16,23 @@ except ImportError:
     from app.report_generator import StockReportGenerator
 
 try:
-    from app.trading import MarketRegimeService, PortfolioPolicy, RankingPolicy, TradePlanService
+    from app.trading import (
+        MarketRegimeService,
+        PortfolioPolicy,
+        PortfolioRiskOverlay,
+        PortfolioRiskOverlayConfig,
+        RankingPolicy,
+        TradePlanService,
+    )
 except ImportError:
-    from trading import MarketRegimeService, PortfolioPolicy, RankingPolicy, TradePlanService
+    from trading import (
+        MarketRegimeService,
+        PortfolioPolicy,
+        PortfolioRiskOverlay,
+        PortfolioRiskOverlayConfig,
+        RankingPolicy,
+        TradePlanService,
+    )
 
 try:
     from app.modeling.feature_contract import load_m4_feature_frame
@@ -85,11 +99,14 @@ class StockRanker:
         self.calibrator = None
         self.market_regime_service = MarketRegimeService()
         self.trade_plan_service = TradePlanService()
-        self.ranking_policy = RankingPolicy(self.trade_plan_service)
-        self.portfolio_policy = PortfolioPolicy()
         
         # 載入設定
         self.config = self._load_config()
+        self.portfolio_overlay = PortfolioRiskOverlay(
+            PortfolioRiskOverlayConfig.from_mapping(self.config.get("portfolio_risk_overlay"))
+        )
+        self.ranking_policy = RankingPolicy(self.trade_plan_service, portfolio_overlay=self.portfolio_overlay)
+        self.portfolio_policy = PortfolioPolicy(portfolio_overlay=self.portfolio_overlay)
         self.weights = self.config['scoring']['weights']
         # Alpha: 模型分數權重 (預設 0.5)
         self.alpha = self.config['scoring'].get('alpha', 0.5)

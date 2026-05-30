@@ -9,12 +9,18 @@ from __future__ import annotations
 import pandas as pd
 
 from .market_regime import MarketRegime
+from .portfolio_risk_overlay import PortfolioRiskOverlay
 from .trade_plan import TradePlanService
 
 
 class RankingPolicy:
-    def __init__(self, trade_plan_service: TradePlanService | None = None):
+    def __init__(
+        self,
+        trade_plan_service: TradePlanService | None = None,
+        portfolio_overlay: PortfolioRiskOverlay | None = None,
+    ):
         self.trade_plan_service = trade_plan_service or TradePlanService()
+        self.portfolio_overlay = portfolio_overlay or PortfolioRiskOverlay()
 
     def apply(self, ranked_df: pd.DataFrame, regime: MarketRegime | None = None) -> pd.DataFrame:
         df = ranked_df.copy()
@@ -47,6 +53,7 @@ class RankingPolicy:
             df["prediction_score"] + df["setup_score"] + df["quality_score"] - df["risk_penalty"]
         ).clip(lower=0)
         df["market_regime"] = regime.label if regime else "UNKNOWN"
+        df = self.portfolio_overlay.apply_score_overlay(df, regime)
         return df.sort_values("risk_adjusted_score", ascending=False)
 
     def _prediction_score(self, df: pd.DataFrame) -> pd.Series:

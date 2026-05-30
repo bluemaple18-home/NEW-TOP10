@@ -8,13 +8,15 @@ from __future__ import annotations
 import pandas as pd
 
 from .market_regime import MarketRegime
+from .portfolio_risk_overlay import PortfolioRiskOverlay
 
 
 class PortfolioPolicy:
     """依 M7 分數與市場狀態產生 TopN 建議權重。"""
 
-    def __init__(self, base_max_position_weight: float = 0.12):
+    def __init__(self, base_max_position_weight: float = 0.12, portfolio_overlay: PortfolioRiskOverlay | None = None):
         self.base_max_position_weight = float(base_max_position_weight)
+        self.portfolio_overlay = portfolio_overlay or PortfolioRiskOverlay()
 
     def apply(self, ranked_df: pd.DataFrame, regime: MarketRegime | None = None) -> pd.DataFrame:
         df = ranked_df.copy()
@@ -29,7 +31,7 @@ class PortfolioPolicy:
         df["allocated_exposure"] = round(allocated, 4)
         df["cash_weight"] = round(max(0.0, 1.0 - allocated), 4)
         df["exposure_note"] = self._exposure_note(regime, gross_exposure, allocated)
-        return df
+        return self.portfolio_overlay.apply_sizing_overlay(df, regime)
 
     def _gross_exposure(self, regime: MarketRegime | None) -> float:
         if regime is None:

@@ -40,6 +40,14 @@ scoring:
     pattern_w_bottom: 1.5
     pattern_m_top: -1.5
 
+# Portfolio overlay 正式接入前預設關閉。
+# 開啟前必須先通過 promotion review 與 rollback/default-off gate。
+portfolio_risk_overlay:
+  enabled: false
+  score_overlay_enabled: false
+  sizing_overlay_enabled: false
+  risk_profile: "baseline"
+
 events:
   # 趨勢事件
   - name: break_20d_high

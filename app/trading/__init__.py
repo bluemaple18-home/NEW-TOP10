@@ -6,6 +6,7 @@
 
 from .market_regime import MarketRegime, MarketRegimeService
 from .portfolio_policy import PortfolioPolicy
+from .portfolio_risk_overlay import PortfolioRiskOverlay, PortfolioRiskOverlayConfig
 from .ranking_policy import RankingPolicy
 from .trade_plan import TradePlan, TradePlanService
 
@@ -13,6 +14,8 @@ __all__ = [
     "MarketRegime",
     "MarketRegimeService",
     "PortfolioPolicy",
+    "PortfolioRiskOverlay",
+    "PortfolioRiskOverlayConfig",
     "RankingPolicy",
     "TradePlan",
     "TradePlanService",
