@@ -33,3 +33,9 @@ uv run --with-requirements requirements.txt python scripts/verify_shadow_feature
 uv run --with-requirements requirements.txt python scripts/build_model_experiment_plan.py --date YYYY-MM-DD
 uv run --with-requirements requirements.txt python scripts/verify_model_experiment_plan.py --artifact artifacts/model_experiments/model_exp_plan_YYYY-MM-DD.json
 ```
+
+整條安全研究鏈可用：
+
+```bash
+uv run --with-requirements requirements.txt python scripts/run_model_research_flow.py --date YYYY-MM-DD
+```
