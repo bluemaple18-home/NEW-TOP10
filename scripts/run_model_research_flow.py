@@ -68,6 +68,21 @@ def run_step(name: str, command: list[str]) -> dict[str, Any]:
     }
 
 
+def skipped_step(name: str, command: list[str], reason: str) -> dict[str, Any]:
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "name": name,
+        "status": "SKIPPED",
+        "returncode": None,
+        "started_at": now,
+        "ended_at": now,
+        "command": command,
+        "stdout_tail": "",
+        "stderr_tail": "",
+        "skip_reason": reason,
+    }
+
+
 def flow_steps(run_date: str) -> list[tuple[str, list[str]]]:
     shadow_index = f"artifacts/shadow_feature_experiment_{run_date}.json"
     model_plan = f"artifacts/model_experiments/model_exp_plan_{run_date}.json"
@@ -95,6 +110,20 @@ def flow_steps(run_date: str) -> list[tuple[str, list[str]]]:
             ],
         ),
     ]
+
+
+def run_flow(steps_to_run: list[tuple[str, list[str]]]) -> list[dict[str, Any]]:
+    steps: list[dict[str, Any]] = []
+    failed_step: str | None = None
+    for name, command in steps_to_run:
+        if failed_step is not None:
+            steps.append(skipped_step(name, command, f"previous step failed: {failed_step}"))
+            continue
+        step = run_step(name, command)
+        steps.append(step)
+        if step["status"] != "OK":
+            failed_step = name
+    return steps
 
 
 def build_manifest(run_date: str, steps: list[dict[str, Any]]) -> dict[str, Any]:
@@ -126,7 +155,7 @@ def build_manifest(run_date: str, steps: list[dict[str, Any]]) -> dict[str, Any]
 
 def main() -> int:
     args = parse_args()
-    steps = [run_step(name, command) for name, command in flow_steps(args.date)]
+    steps = run_flow(flow_steps(args.date))
     manifest = build_manifest(args.date, steps)
     output = resolve_path(args.output) or MODEL_EXPERIMENTS_DIR / f"model_research_flow_{args.date}.json"
     output.parent.mkdir(parents=True, exist_ok=True)

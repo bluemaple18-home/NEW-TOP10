@@ -85,6 +85,10 @@ def promotion_status() -> str:
     return "BLOCKED_PROMOTION_PENDING"
 
 
+def allowed_if_ready(ready: bool, uses: list[str]) -> list[str]:
+    return uses if ready else []
+
+
 def evidence_item(path: Path | None, payload: dict[str, Any], status: str | None = None) -> dict[str, Any]:
     return {
         "path": repo_path(path) if path and path.exists() else None,
@@ -121,10 +125,13 @@ def build_candidate_persistence_candidate(artifacts_dir: Path, min_trades: int) 
         "label": "入榜天數 / 連續入榜 / rank_delta",
         "shadow_status": candidate_status(ready),
         "production_promotion_status": promotion_status(),
-        "allowed_shadow_uses": [
-            "shadow feature columns: consecutive_ranked_days, streak_bucket, rank_delta_direction",
-            "decision overlay analysis by horizon and streak bucket",
-        ],
+        "allowed_shadow_uses": allowed_if_ready(
+            ready,
+            [
+                "shadow feature columns: consecutive_ranked_days, streak_bucket, rank_delta_direction",
+                "decision overlay analysis by horizon and streak bucket",
+            ],
+        ),
         "blocked_production_uses": [
             "do not add direct ranking score bonus",
             "do not train production model with streak columns until promotion criteria pass",
@@ -162,11 +169,14 @@ def build_market_context_candidate(artifacts_dir: Path) -> dict[str, Any]:
         "label": "台灣市場背景 / breadth / 三大法人 / 期權 context",
         "shadow_status": candidate_status(ready),
         "production_promotion_status": promotion_status(),
-        "allowed_shadow_uses": [
-            "regime filter shadow test",
-            "risk overlay comparison against daily Top10 outcomes",
-            "feature ablation as model candidate only after as-of checks",
-        ],
+        "allowed_shadow_uses": allowed_if_ready(
+            ready,
+            [
+                "regime filter shadow test",
+                "risk overlay comparison against daily Top10 outcomes",
+                "feature ablation as model candidate only after as-of checks",
+            ],
+        ),
         "blocked_production_uses": [
             "do not change RankingPolicy risk_adjusted_score",
             "do not treat failed external source as bullish or bearish signal",
@@ -207,10 +217,13 @@ def build_portfolio_risk_candidate(artifacts_dir: Path, min_positive_scenarios: 
         "label": "portfolio replay 風險 / exposure / event exit overlay",
         "shadow_status": candidate_status(ready),
         "production_promotion_status": promotion_status(),
-        "allowed_shadow_uses": [
-            "risk gate simulation outside production ranking",
-            "portfolio overlay comparison across horizon / stop / take-profit scenarios",
-        ],
+        "allowed_shadow_uses": allowed_if_ready(
+            ready,
+            [
+                "risk gate simulation outside production ranking",
+                "portfolio overlay comparison across horizon / stop / take-profit scenarios",
+            ],
+        ),
         "blocked_production_uses": [
             "do not suppress production ranking rows directly",
             "do not convert replay risk flags into model labels without a sealed experiment",
@@ -288,11 +301,14 @@ def build_regime_feature_group_candidate(artifacts_dir: Path) -> dict[str, Any]:
         "label": "依市場盤勢切分的 feature group 消融",
         "shadow_status": candidate_status(ready),
         "production_promotion_status": promotion_status(),
-        "allowed_shadow_uses": [
-            "prioritize feature groups by market regime before model training",
-            "select shadow-only candidate columns for replay experiments",
-            "identify noisy feature groups that need exclusion or regime-specific handling",
-        ],
+        "allowed_shadow_uses": allowed_if_ready(
+            ready,
+            [
+                "prioritize feature groups by market regime before model training",
+                "select shadow-only candidate columns for replay experiments",
+                "identify noisy feature groups that need exclusion or regime-specific handling",
+            ],
+        ),
         "blocked_production_uses": [
             "do not directly convert IC results into RankingPolicy weights",
             "do not promote any feature group without replay and sealed OOS confirmation",
@@ -341,11 +357,14 @@ def build_weekend_research_matrix_candidate(artifacts_dir: Path) -> dict[str, An
         "label": "週末大量測試矩陣 / replay stability decision",
         "shadow_status": candidate_status(ready),
         "production_promotion_status": promotion_status(),
-        "allowed_shadow_uses": [
-            "shadow-run promoted variants only: " + ",".join(promote),
-            "separate 5d candidate track from 10d risk track",
-            "use blocked_data list as data backlog, not as model features",
-        ],
+        "allowed_shadow_uses": allowed_if_ready(
+            ready,
+            [
+                "shadow-run promoted variants only: " + ",".join(promote),
+                "separate 5d candidate track from 10d risk track",
+                "use blocked_data list as data backlog, not as model features",
+            ],
+        ),
         "blocked_production_uses": [
             "do not promote matrix result directly to production ranking",
             "do not use blocked data dimensions before coverage/as-of gates pass",

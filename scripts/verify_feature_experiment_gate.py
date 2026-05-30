@@ -210,6 +210,14 @@ def run_gate(paths: dict[str, Path], output_name: str = "feature_experiment_gate
     return json.loads(output.read_text(encoding="utf-8"))
 
 
+def blocked_candidates_have_no_allowed_shadow_uses(payload: dict[str, Any]) -> bool:
+    return all(
+        not item.get("allowed_shadow_uses")
+        for item in payload.get("candidates", [])
+        if item.get("shadow_status") != "READY_FOR_SHADOW"
+    )
+
+
 def run_weekend_decision_report(paths: dict[str, Path], weekend_matrix: Path, expect_success: bool) -> dict[str, Any]:
     artifacts = paths["artifacts"]
     backtest = artifacts / "backtest"
@@ -277,6 +285,7 @@ def main() -> int:
             "fundamentals_blocked": by_id["fundamentals"]["shadow_status"] == "BLOCKED",
             "chip_blocked": by_id["chip_flow"]["shadow_status"] == "BLOCKED",
             "industry_rotation_blocked_even_with_thin_replay": by_id["industry_rotation"]["shadow_status"] == "BLOCKED",
+            "blocked_candidates_have_no_allowed_shadow_uses": blocked_candidates_have_no_allowed_shadow_uses(payload),
             "model_team_can_start": set(payload["handoff_for_model_team"]["can_start_now"])
             == {
                 "candidate_persistence",
@@ -411,6 +420,7 @@ def negative_verification_cases(paths: dict[str, Path]) -> dict[str, bool]:
             payload = run_gate(paths, output_name=f"feature_experiment_gate_negative_{index}.json")
             by_id = {item["id"]: item for item in payload["candidates"]}
             cases[case_name] = by_id[candidate_id]["shadow_status"] == "BLOCKED"
+            cases[case_name + "_allowed_uses_cleared"] = not by_id[candidate_id].get("allowed_shadow_uses")
         finally:
             if original is not None:
                 write_json(path, original)
