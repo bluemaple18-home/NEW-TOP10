@@ -30,7 +30,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="run backtest strategy matrix")
     parser.add_argument("--rankings-dir", default="artifacts")
     parser.add_argument("--features", default="data/clean/features.parquet")
-    parser.add_argument("--max-ranking-files", type=int, default=8)
+    parser.add_argument(
+        "--max-ranking-files",
+        type=int,
+        default=None,
+        help="限制處理最近 N 份 ranking；預設跑完整期間，避免正式研究誤用抽樣結果",
+    )
     parser.add_argument("--top-n", type=int, default=10)
     parser.add_argument("--horizons", default="3,5,10")
     parser.add_argument("--stop-loss-pcts", default="none,0.08")

@@ -86,8 +86,14 @@ class StockRanker:
         'pattern_m_top': 'M頭跌破',
     }
     
-    def __init__(self, data_dir: str = "data/clean", model_dir: str = "models",
-                 artifact_dir: str = "artifacts", config_path: str = "config/signals.yaml"):
+    def __init__(
+        self,
+        data_dir: str = "data/clean",
+        model_dir: str = "models",
+        artifact_dir: str = "artifacts",
+        config_path: str = "config/signals.yaml",
+        generate_report: bool = True,
+    ):
         """
         初始化排名器
         """
@@ -95,6 +101,7 @@ class StockRanker:
         self.model_dir = Path(model_dir)
         self.artifact_dir = Path(artifact_dir)
         self.config_path = Path(config_path)
+        self.generate_report = generate_report
         self.model = None
         self.calibrator = None
         self.market_regime_service = MarketRegimeService()
@@ -493,12 +500,13 @@ class StockRanker:
             print(f"\n檔案已儲存: {path}")
             
             # 新增：生成結構化分析報告
-            try:
-                print("\n📝 生成結構化分析報告...")
-                report_gen = StockReportGenerator(artifacts_dir=str(self.artifact_dir))
-                report_gen.generate_report(ranked_df=rank_df, features_df=history_df)
-            except Exception as report_err:
-                logger.warning(f"報告生成失敗（不影響主流程）: {report_err}")
+            if self.generate_report:
+                try:
+                    print("\n📝 生成結構化分析報告...")
+                    report_gen = StockReportGenerator(artifacts_dir=str(self.artifact_dir))
+                    report_gen.generate_report(ranked_df=rank_df, features_df=history_df)
+                except Exception as report_err:
+                    logger.warning(f"報告生成失敗（不影響主流程）: {report_err}")
             return path
             
         except Exception as e:
