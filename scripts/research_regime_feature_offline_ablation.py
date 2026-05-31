@@ -30,6 +30,16 @@ from app.modeling.feature_contract import candidate_feature_columns, load_m4_fea
 
 OUTPUT_DIR = PROJECT_ROOT / "artifacts" / "model_experiments"
 SCHEMA_VERSION = "regime-feature-offline-ablation.v1"
+PRE_REGISTERED_GATE_VARIANT = "current_baseline"
+DIAGNOSTIC_ONLY_VARIANTS = ("drop_planned_features", "planned_features_only")
+RESEARCH_QUESTION = "近半年 walk-forward 下，模型 Top10 是否穩定打贏同日市場平均？"
+RESEARCH_LAYER = "model"
+DECISION_PROMOTE = "PROMOTE_CANDIDATE"
+DECISION_MONITOR = "MONITOR_ONLY"
+DECISION_REJECTED = "REJECTED"
+MIN_BASELINE_AUC = 0.60
+MIN_TOPN_UPLIFT = 0.0
+MIN_POSITIVE_FOLDS = 4
 
 
 def parse_args() -> argparse.Namespace:
@@ -189,20 +199,32 @@ def topn_proxy(frame: pd.DataFrame, top_n: int) -> dict[str, Any]:
     rows = []
     for date_text, group in frame.groupby("trade_date_text", sort=True):
         top = group.sort_values("pred_prob", ascending=False).head(top_n)
+        top_return = pd.to_numeric(top["future_return"], errors="coerce")
+        universe_return = pd.to_numeric(group["future_return"], errors="coerce")
         rows.append(
             {
                 "trade_date": date_text,
-                "avg_future_return": float(pd.to_numeric(top["future_return"], errors="coerce").mean()),
-                "hit_rate": float((pd.to_numeric(top["future_return"], errors="coerce") > 0).mean()),
+                "avg_future_return": float(top_return.mean()),
+                "universe_avg_future_return": float(universe_return.mean()),
+                "hit_rate": float((top_return > 0).mean()),
+                "universe_hit_rate": float((universe_return > 0).mean()),
                 "count": int(len(top)),
             }
         )
     result = pd.DataFrame(rows)
+    topn_return = float(result["avg_future_return"].mean())
+    universe_return = float(result["universe_avg_future_return"].mean())
+    topn_hit = float(result["hit_rate"].mean())
+    universe_hit = float(result["universe_hit_rate"].mean())
     return {
         "date_count": int(len(result)),
         "trade_count": int(result["count"].sum()),
-        "avg_topn_future_return": round(float(result["avg_future_return"].mean()), 6),
-        "avg_topn_hit_rate": round(float(result["hit_rate"].mean()), 6),
+        "avg_topn_future_return": round(topn_return, 6),
+        "avg_universe_future_return": round(universe_return, 6),
+        "topn_minus_universe_return": round(topn_return - universe_return, 6),
+        "avg_topn_hit_rate": round(topn_hit, 6),
+        "avg_universe_hit_rate": round(universe_hit, 6),
+        "topn_minus_universe_hit_rate": round(topn_hit - universe_hit, 6),
     }
 
 
@@ -255,6 +277,8 @@ def run_variant(
                 "status": "OK",
                 "train_rows": int(len(train)),
                 "validation_rows": int(len(valid)),
+                "train_start": str(pd.to_datetime(min(train_dates)).date()),
+                "train_end": str(pd.to_datetime(max(train_dates)).date()),
                 "validation_start": str(pd.to_datetime(min(validation_dates)).date()),
                 "validation_end": str(pd.to_datetime(max(validation_dates)).date()),
                 "auc": safe_auc(y_valid, valid["pred_prob"]),
@@ -285,6 +309,54 @@ def delta(left: float | None, right: float | None) -> float | None:
     return round(left - right, 6)
 
 
+def decision_for_baseline(baseline: dict[str, Any]) -> dict[str, Any]:
+    topn = baseline.get("topn_proxy", {}) if isinstance(baseline.get("topn_proxy"), dict) else {}
+    folds = baseline.get("folds", []) if isinstance(baseline.get("folds"), list) else []
+    baseline_auc = baseline.get("avg_auc")
+    uplift = topn.get("topn_minus_universe_return")
+    positive_folds = [
+        row
+        for row in folds
+        if float((row.get("topn_proxy") or {}).get("topn_minus_universe_return") or 0) > MIN_TOPN_UPLIFT
+    ]
+    negative_folds = [
+        f"{row.get('validation_start')}~{row.get('validation_end')}"
+        for row in folds
+        if float((row.get("topn_proxy") or {}).get("topn_minus_universe_return") or 0) <= MIN_TOPN_UPLIFT
+    ]
+    failed = []
+    if baseline_auc is None or float(baseline_auc) < MIN_BASELINE_AUC:
+        failed.append(f"baseline_auc<{MIN_BASELINE_AUC}")
+    if uplift is None or float(uplift) <= MIN_TOPN_UPLIFT:
+        failed.append("topn_uplift<=0")
+    if len(positive_folds) < MIN_POSITIVE_FOLDS:
+        failed.append(f"positive_folds<{MIN_POSITIVE_FOLDS}")
+
+    if failed:
+        decision = DECISION_REJECTED
+        rationale = "主要 gate 未通過：" + ", ".join(failed)
+    elif negative_folds:
+        decision = DECISION_MONITOR
+        rationale = "整體有訊號，但仍有負 uplift folds；先監控，不進 promotion。"
+    else:
+        decision = DECISION_PROMOTE
+        rationale = "預註冊 gate 通過且未出現負 uplift folds；可進人工 promotion review。"
+    return {
+        "decision": decision,
+        "decision_rationale": rationale,
+        "policy": {
+            "promote_requires_baseline_auc_at_least": MIN_BASELINE_AUC,
+            "promote_requires_topn_uplift_above": MIN_TOPN_UPLIFT,
+            "promote_requires_positive_folds_at_least": MIN_POSITIVE_FOLDS,
+            "negative_folds_force_monitor_only": True,
+        },
+        "diagnostics": {
+            "positive_fold_count": len(positive_folds),
+            "negative_or_flat_folds": negative_folds,
+        },
+    }
+
+
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     frame, all_features, planned, manifest_path = labeled_frame(args)
     windows = fold_windows(frame["trade_date"].drop_duplicates().tolist(), folds=args.folds)
@@ -301,11 +373,25 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     baseline = variants.get("current_baseline", {})
     dropped = variants.get("drop_planned_features", {})
     planned_only = variants.get("planned_features_only", {})
+    decision = decision_for_baseline(baseline)
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "date": args.date,
         "status": "OK",
+        "research_question": RESEARCH_QUESTION,
+        "layer": RESEARCH_LAYER,
+        "pre_registered": True,
+        "decision": decision["decision"],
+        "decision_rationale": decision["decision_rationale"],
+        "decision_policy": decision["policy"],
+        "diagnostics_not_for_promotion": [
+            "drop_planned_features",
+            "planned_features_only",
+            "regime_breakdown",
+            "negative_or_flat_folds",
+        ],
+        "decision_diagnostics": decision["diagnostics"],
         "contract": {
             "research_only": True,
             "in_memory_models_only": True,
@@ -314,6 +400,16 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "does_not_change_production_ranking": True,
             "production_promotion_allowed": False,
             "split_policy": "chronological validation tail with embargo",
+            "no_hindsight_policy": {
+                "validation_windows_are_chronological": True,
+                "train_dates_end_before_validation_start": True,
+                "embargo_trade_days": args.embargo_trade_days,
+                "promotion_gate_variant": PRE_REGISTERED_GATE_VARIANT,
+                "diagnostic_only_variants": list(DIAGNOSTIC_ONLY_VARIANTS),
+                "diagnostic_failures_cannot_define_same_run_filters": True,
+                "new_filters_require_next_walkforward_run": True,
+                "regime_breakdown_is_post_hoc_diagnostic": True,
+            },
         },
         "inputs": {
             "data_dir": repo_path(resolve_path(args.data_dir)),
@@ -338,7 +434,11 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "planned_only_auc": planned_only.get("avg_auc"),
             "baseline_minus_drop_auc": delta(baseline.get("avg_auc"), dropped.get("avg_auc")),
             "baseline_topn_return": baseline.get("topn_proxy", {}).get("avg_topn_future_return"),
+            "baseline_universe_return": baseline.get("topn_proxy", {}).get("avg_universe_future_return"),
+            "baseline_topn_minus_universe_return": baseline.get("topn_proxy", {}).get("topn_minus_universe_return"),
             "drop_planned_topn_return": dropped.get("topn_proxy", {}).get("avg_topn_future_return"),
+            "drop_planned_universe_return": dropped.get("topn_proxy", {}).get("avg_universe_future_return"),
+            "drop_planned_topn_minus_universe_return": dropped.get("topn_proxy", {}).get("topn_minus_universe_return"),
             "baseline_minus_drop_topn_return": delta(
                 baseline.get("topn_proxy", {}).get("avg_topn_future_return"),
                 dropped.get("topn_proxy", {}).get("avg_topn_future_return"),
@@ -350,34 +450,98 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
 
 def render_markdown(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
+    baseline = payload["variants"].get("current_baseline", {})
     lines = [
-        "# Regime Feature Offline Ablation",
+        "# Regime Feature Offline Ablation / Walk-forward Validation",
         "",
         f"- status：`{payload['status']}`",
+        f"- research_question：`{payload.get('research_question')}`",
+        f"- layer：`{payload.get('layer')}`",
+        f"- pre_registered：`{payload.get('pre_registered')}`",
+        f"- decision：`{payload.get('decision')}`",
+        f"- decision_rationale：{payload.get('decision_rationale')}",
         f"- rows：`{summary['rows']}`",
+        f"- promotion_gate_variant：`{payload['contract']['no_hindsight_policy']['promotion_gate_variant']}`",
+        f"- diagnostic_only_variants：`{payload['contract']['no_hindsight_policy']['diagnostic_only_variants']}`",
+        f"- diagnostic_failures_cannot_define_same_run_filters：`{payload['contract']['no_hindsight_policy']['diagnostic_failures_cannot_define_same_run_filters']}`",
         f"- planned_features：`{summary['planned_features']}`",
         f"- baseline_auc：`{summary['baseline_auc']}`",
         f"- drop_planned_auc：`{summary['drop_planned_auc']}`",
         f"- baseline_minus_drop_auc：`{summary['baseline_minus_drop_auc']}`",
         f"- baseline_minus_drop_topn_return：`{summary['baseline_minus_drop_topn_return']}`",
+        f"- baseline_topn_minus_universe_return：`{summary['baseline_topn_minus_universe_return']}`",
         "",
-        "| Variant | Features | Folds | AUC | Logloss | TopN Return | TopN Hit |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| Variant | Features | Folds | AUC | Logloss | TopN Return | Universe Return | Uplift | TopN Hit | Universe Hit |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for name, item in payload["variants"].items():
         topn = item.get("topn_proxy", {})
         lines.append(
-            "| {name} | {features} | {folds} | {auc} | {logloss} | {ret} | {hit} |".format(
+            "| {name} | {features} | {folds} | {auc} | {logloss} | {ret} | {universe} | {uplift} | {hit} | {universe_hit} |".format(
                 name=name,
                 features=item.get("feature_count"),
                 folds=item.get("fold_count"),
                 auc=item.get("avg_auc"),
                 logloss=item.get("avg_logloss"),
                 ret=topn.get("avg_topn_future_return"),
+                universe=topn.get("avg_universe_future_return"),
+                uplift=topn.get("topn_minus_universe_return"),
                 hit=topn.get("avg_topn_hit_rate"),
+                universe_hit=topn.get("avg_universe_hit_rate"),
             )
         )
     lines.append("")
+    if baseline.get("folds"):
+        lines.extend(
+            [
+                "## Baseline Fold Breakdown",
+                "",
+                "| Fold | Validation Window | AUC | TopN Return | Universe Return | Uplift | TopN Hit | Universe Hit |",
+                "|---:|---|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for row in baseline["folds"]:
+            topn = row.get("topn_proxy", {})
+            lines.append(
+                "| {fold} | {start} ~ {end} | {auc} | {ret} | {universe} | {uplift} | {hit} | {universe_hit} |".format(
+                    fold=row.get("fold"),
+                    start=row.get("validation_start"),
+                    end=row.get("validation_end"),
+                    auc=row.get("auc"),
+                    ret=topn.get("avg_topn_future_return"),
+                    universe=topn.get("avg_universe_future_return"),
+                    uplift=topn.get("topn_minus_universe_return"),
+                    hit=topn.get("avg_topn_hit_rate"),
+                    universe_hit=topn.get("avg_universe_hit_rate"),
+                )
+            )
+        lines.append("")
+    regimes = baseline.get("regime_breakdown", {})
+    if regimes:
+        lines.extend(
+            [
+                "## Baseline Regime Breakdown",
+                "",
+                "| Regime | Dates | Trades | AUC | TopN Return | Universe Return | Uplift | TopN Hit | Universe Hit |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for regime, row in sorted(regimes.items()):
+            topn = row.get("topn_proxy", {})
+            lines.append(
+                "| {regime} | {dates} | {trades} | {auc} | {ret} | {universe} | {uplift} | {hit} | {universe_hit} |".format(
+                    regime=regime,
+                    dates=topn.get("date_count"),
+                    trades=topn.get("trade_count"),
+                    auc=row.get("auc"),
+                    ret=topn.get("avg_topn_future_return"),
+                    universe=topn.get("avg_universe_future_return"),
+                    uplift=topn.get("topn_minus_universe_return"),
+                    hit=topn.get("avg_topn_hit_rate"),
+                    universe_hit=topn.get("avg_universe_hit_rate"),
+                )
+            )
+        lines.append("")
     return "\n".join(lines)
 
 

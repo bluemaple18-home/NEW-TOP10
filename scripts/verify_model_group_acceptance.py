@@ -22,6 +22,8 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 SCHEMA_VERSION = "model-group-acceptance.v1"
+READY_AUTO_RETRAIN_STATES = {"READY", "READY_WITH_MONITORING_WARNINGS"}
+REVENUE_FEATURES = {"revenue_yoy", "revenue_mom"}
 
 
 CHECKS: tuple[tuple[str, list[str]], ...] = (
@@ -46,7 +48,7 @@ def main() -> int:
     commands_ok = all(step["exit_code"] == 0 for step in steps)
     health_status = str(health.get("status", "MISSING")).upper()
     auto_retrain_enabled = bool((config.get("monitor") or {}).get("auto_retrain", False))
-    auto_retrain_readiness = "READY" if health_status == "OK" else "BLOCKED"
+    auto_retrain_readiness, readiness_reason, readiness_warnings = assess_auto_retrain_readiness(health)
     status = acceptance_status(commands_ok, auto_retrain_enabled, auto_retrain_readiness)
 
     payload = {
@@ -58,6 +60,8 @@ def main() -> int:
         "model_health_status": health_status,
         "auto_retrain_enabled": auto_retrain_enabled,
         "auto_retrain_readiness": auto_retrain_readiness,
+        "auto_retrain_readiness_reason": readiness_reason,
+        "auto_retrain_readiness_warnings": readiness_warnings,
         "steps": steps,
         "health_report": {
             "path": str(ARTIFACTS_DIR / "model_health_report_latest.json"),
@@ -66,7 +70,8 @@ def main() -> int:
         },
         "notes": [
             "status=OK 代表模型組驗證入口可營運；不代表 auto retrain 可開啟。",
-            "auto_retrain_readiness=BLOCKED 時，必須先處理 model health CRITICAL/WARN 來源。",
+            "auto_retrain_readiness=READY_WITH_MONITORING_WARNINGS 代表可進訓練啟動 review；promotion 仍需後續 gate。",
+            "auto_retrain_readiness=BLOCKED 時，必須先處理 model health CRITICAL/未分類 WARN 來源。",
         ],
     }
     write_json(output_path, payload)
@@ -84,9 +89,70 @@ def main() -> int:
 def acceptance_status(commands_ok: bool, auto_retrain_enabled: bool, auto_retrain_readiness: str) -> str:
     if not commands_ok:
         return "FAILED"
-    if auto_retrain_enabled and auto_retrain_readiness != "READY":
+    if auto_retrain_enabled and auto_retrain_readiness not in READY_AUTO_RETRAIN_STATES:
         return "FAILED"
     return "OK"
+
+
+def assess_auto_retrain_readiness(health: dict[str, Any]) -> tuple[str, str, list[dict[str, Any]]]:
+    """把可接受的監控降級和真 blocker 拆開。
+
+    這裡只判斷「是否可進入訓練啟動 review」。即使回傳
+    READY_WITH_MONITORING_WARNINGS，正式 promotion 仍需 sealed OOS、replay、
+    no-hindsight 與 retrain promotion gate。
+    """
+
+    health_status = str(health.get("status", "MISSING")).upper()
+    checks = [row for row in health.get("checks", []) if isinstance(row, dict)]
+    non_ok = [row for row in checks if str(row.get("status", "")).upper() != "OK"]
+    if health_status == "OK" and not non_ok:
+        return "READY", "model health OK", []
+    if health_status not in {"WARN", "OK"}:
+        return "BLOCKED", f"model health is {health_status}", non_ok
+
+    baseline = health.get("baseline") if isinstance(health.get("baseline"), dict) else {}
+    skipped = {str(item) for item in baseline.get("skipped_empty_model_features") or []}
+    missing = {str(item) for item in baseline.get("missing_model_features") or []}
+
+    accepted: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
+    for row in non_ok:
+        name = str(row.get("name"))
+        status = str(row.get("status", "")).upper()
+        if status in {"CRITICAL", "FAILED"}:
+            rejected.append(row)
+        elif name == "monitor.psi_baseline" and not missing and skipped and skipped.issubset(REVENUE_FEATURES):
+            accepted.append(
+                {
+                    **row,
+                    "readiness_category": "data_unavailable_with_explicit_degradation",
+                    "reason": "月營收特徵目前全空；允許 technical-only training launch review，但不可據此 promotion。",
+                }
+            )
+        elif name == "monitor.factor":
+            accepted.append(
+                {
+                    **row,
+                    "readiness_category": "acceptable_monitoring_warning",
+                    "reason": "factor monitor warning 由 retrain promotion gate 擋正式升版；不阻塞訓練啟動。",
+                }
+            )
+        elif name == "ranking.realized_outcome":
+            accepted.append(
+                {
+                    **row,
+                    "readiness_category": "acceptable_monitoring_warning",
+                    "reason": "10d outcome 尚未成熟；不當作模型失敗。",
+                }
+            )
+        else:
+            rejected.append(row)
+
+    if rejected:
+        return "BLOCKED", "unclassified or critical model health checks", rejected
+    if accepted:
+        return "READY_WITH_MONITORING_WARNINGS", "only accepted monitoring warnings remain", accepted
+    return "BLOCKED", f"model health is {health_status}", non_ok
 
 
 def run_check(name: str, args: list[str]) -> dict[str, Any]:

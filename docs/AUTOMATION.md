@@ -261,7 +261,15 @@ uv run --with-requirements requirements.txt python scripts/generate_model_health
 uv run --with-requirements requirements.txt python scripts/verify_model_group_acceptance.py
 ```
 
-它會重跑模型底座、review regression、data contracts、model health、rollback gate 等只讀驗證，並輸出 `artifacts/model_group_acceptance_YYYY-MM-DD.json`。`status=OK` 代表模型組驗收入口可營運；`auto_retrain_readiness=BLOCKED` 代表仍不可開啟自動重訓。
+它會重跑模型底座、review regression、data contracts、model health、rollback gate 等只讀驗證，並輸出 `artifacts/model_group_acceptance_YYYY-MM-DD.json`。`status=OK` 代表模型組驗收入口可營運；`auto_retrain_readiness=READY` 代表健康檢查全綠，`READY_WITH_MONITORING_WARNINGS` 代表只剩已分類的監控 warning，可進訓練啟動 review，但 production promotion 仍需後續 gate；`BLOCKED` 代表仍不可啟動自動訓練。
+
+訓練啟動前總閘門可用：
+
+```bash
+uv run --with-requirements requirements.txt python scripts/verify_training_automation_readiness.py
+```
+
+`status=READY_FOR_AUTOMATED_TRAINING_REVIEW` 且 `training_launch_ready=true` 代表事前準備已足以啟動預註冊自動訓練候選；這不等於可升正式模型。正式升版仍要看 `promotion_ready=true`，並通過 sealed OOS、replay、no-hindsight verifier 與人工 review。
 
 ---
 

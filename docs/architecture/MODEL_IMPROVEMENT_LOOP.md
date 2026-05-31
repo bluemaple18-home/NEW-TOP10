@@ -37,6 +37,57 @@ MODEL-EXP-02：sealed OOS + replay + regime breakdown
 MODEL-PROMOTE-01：人工 review + rollback-ready 正式替換
 ```
 
+## 自動訓練與正式升版分層
+
+`training_automation_readiness` 必須分清楚兩件事：
+
+- `training_launch_ready=true`：可以啟動預註冊自動訓練候選，產生新模型候選與驗證 artifact。
+- `promotion_ready=true`：才可以進正式模型升版 review。
+
+`MONITOR_ONLY`、月營收資料降級、factor monitor warning、ranking outcome 尚未成熟，可以允許訓練候選啟動，但不能允許 production promotion。這些狀態必須出現在 `warnings` 或 `promotion_blockers`，不得靜默通過。
+
+目前標準：
+
+- `READY_FOR_AUTOMATED_TRAINING_REVIEW`：事前準備已可啟動自動訓練 review。
+- `training_launch_mode=pre_registered_candidate_with_promotion_gate`：只能走預註冊候選；不得用同輪診斷結果補 filter。
+- `promotion_ready=false`：候選訓練可以開始，但 `models/latest_lgbm.pkl` 不得因 readiness artifact 被覆蓋。
+
+## 研究治理契約
+
+模型研究必須先回答「這一輪要驗什麼」，再產 artifact。任何研究 artifact 若要被 readiness 或 promotion 讀取，必須符合下列契約：
+
+- `research_question`：明確描述本輪只回答的一個問題。
+- `layer`：只能是 `model`、`ranking`、`trading`、`operations` 之一；測試不能混層。
+- `pre_registered=true`：跑前已固定 baseline、window、metric、門檻與診斷欄位。
+- `decision`：只能是 `PROMOTE_CANDIDATE`、`MONITOR_ONLY`、`REJECTED`。
+- `decision_policy`：記錄本輪 pass / monitor / reject 的預註冊門檻。
+- `diagnostics_not_for_promotion`：明列哪些欄位只能輔助理解，不能當 promotion 證據。
+- `research_only=true`：研究階段不改 production ranking、不覆蓋 `models/latest_lgbm.pkl`。
+- `production_promotion_allowed=false`：研究 artifact 不能直接授權上線。
+- `promotion_gate_variant=current_baseline`：正式 gate 只能看預先定義的 baseline，不得用事後挑出的診斷變體。
+- `diagnostic_only_variants`：消融、盤勢 breakdown、替代特徵組只能當診斷，不能在同一輪變成正式規則。
+- `diagnostic_failures_cannot_define_same_run_filters=true`：看到某段輸了，只能產生下一輪假設，不能回頭修改同一輪結論。
+- `new_filters_require_next_walkforward_run=true`：任何新防守條件、濾網或 overlay 都必須在下一輪 walk-forward 驗證。
+- 每個 fold 必須記錄 `train_end` 與 `validation_start`，且 `train_end < validation_start`。
+
+這些不是文件建議，而是機器檢查：
+
+```bash
+uv run --with-requirements requirements.txt python scripts/verify_half_year_walkforward_no_hindsight.py \
+  --artifact artifacts/model_experiments/half_year_walkforward_validation_YYYY-MM-DD.json
+
+uv run --with-requirements requirements.txt python scripts/verify_half_year_walkforward_no_hindsight.py --self-test
+```
+
+`--self-test` 必須證明 verifier 會擋住下列反例：
+
+- 把 diagnostic variant 當 promotion gate。
+- 允許同輪診斷結果倒推出正式濾網。
+- fold 訓練資料壓到 validation window。
+- 研究 artifact 宣稱可直接 production promotion。
+
+readiness gate 只能讀通過 verifier 的 artifact；readiness 不負責發明策略、不負責調參、不負責把 post-hoc 診斷變成 production 規則。
+
 目前可重跑產物：
 
 - `scripts/build_feature_experiment_gate.py`

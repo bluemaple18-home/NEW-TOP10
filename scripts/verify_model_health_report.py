@@ -21,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import scripts.generate_model_health_report as health
 from scripts.verify_model_group_acceptance import acceptance_status
+from scripts.verify_model_group_acceptance import assess_auto_retrain_readiness
 
 
 def main() -> int:
@@ -70,7 +71,41 @@ def main() -> int:
             assert acceptance_status(commands_ok=True, auto_retrain_enabled=False, auto_retrain_readiness="BLOCKED") == "OK"
             assert acceptance_status(commands_ok=True, auto_retrain_enabled=True, auto_retrain_readiness="BLOCKED") == "FAILED"
             assert acceptance_status(commands_ok=True, auto_retrain_enabled=True, auto_retrain_readiness="READY") == "OK"
+            assert acceptance_status(commands_ok=True, auto_retrain_enabled=True, auto_retrain_readiness="READY_WITH_MONITORING_WARNINGS") == "OK"
             assert acceptance_status(commands_ok=False, auto_retrain_enabled=False, auto_retrain_readiness="READY") == "FAILED"
+
+            ready_with_warnings, reason, warning_rows = assess_auto_retrain_readiness(
+                {
+                    "status": "WARN",
+                    "baseline": {
+                        "skipped_empty_model_features": ["revenue_yoy", "revenue_mom"],
+                        "missing_model_features": [],
+                    },
+                    "checks": [
+                        {"name": "monitor.psi_baseline", "status": "WARN", "message": "revenue unavailable"},
+                        {"name": "monitor.factor", "status": "WARN", "message": "WARN"},
+                        {"name": "ranking.realized_outcome", "status": "WARN", "message": "matured samples=0"},
+                    ],
+                }
+            )
+            assert ready_with_warnings == "READY_WITH_MONITORING_WARNINGS"
+            assert reason == "only accepted monitoring warnings remain"
+            assert len(warning_rows) == 3
+
+            blocked_readiness, _, rejected_rows = assess_auto_retrain_readiness(
+                {
+                    "status": "WARN",
+                    "baseline": {
+                        "skipped_empty_model_features": ["unknown_feature"],
+                        "missing_model_features": [],
+                    },
+                    "checks": [
+                        {"name": "monitor.psi_baseline", "status": "WARN", "message": "unknown empty feature"},
+                    ],
+                }
+            )
+            assert blocked_readiness == "BLOCKED"
+            assert len(rejected_rows) == 1
         finally:
             health.PROJECT_ROOT = original_root
             health.ARTIFACTS_DIR = original_artifacts
