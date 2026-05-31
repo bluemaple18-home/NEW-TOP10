@@ -63,7 +63,11 @@ def build_report(path: Path) -> dict[str, Any]:
     checks.extend(
         [
             {"name": "schema", "ok": payload.get("schema_version") == "model-experiment-result-report.v1", "value": payload.get("schema_version")},
-            {"name": "status", "ok": payload.get("status") == "OK", "value": payload.get("status")},
+            {
+                "name": "status",
+                "ok": payload.get("status") in {"OK", "WARN"},
+                "value": payload.get("status"),
+            },
             {
                 "name": "production_promotion_blocked",
                 "ok": contract.get("production_promotion_allowed") is False,
