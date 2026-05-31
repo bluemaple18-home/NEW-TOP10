@@ -108,7 +108,7 @@ def build_report(path: Path) -> dict[str, Any]:
             },
             {
                 "name": "summary_has_next_step",
-                "ok": bool(summary.get("pass_to_next") or summary.get("blocked")),
+                "ok": bool(summary.get("pass_to_next") or summary.get("blocked") or summary.get("waiting")),
                 "value": summary,
             },
         ]

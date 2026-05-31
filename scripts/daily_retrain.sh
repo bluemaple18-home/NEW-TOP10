@@ -66,8 +66,12 @@ case "$MODE" in
         JOB_NAME="自動化狀態檢查"
         FINISH_NAME="狀態檢查完成"
         ;;
+    readiness)
+        JOB_NAME="訓練自動化前置檢查"
+        FINISH_NAME="訓練自動化前置檢查完成"
+        ;;
     *)
-        echo "❌ 不支援的模式: $MODE (可用: monitor, retrain, status)" | tee -a "$LOG_FILE"
+        echo "❌ 不支援的模式: $MODE (可用: monitor, retrain, status, readiness)" | tee -a "$LOG_FILE"
         exit 1
         ;;
 esac
@@ -84,8 +88,12 @@ echo "🧯 resource profile: $TOP10_RESOURCE_PROFILE" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e
-COMMAND=(uv run --with-requirements requirements.txt python -m scripts.run_automation "$MODE" --trigger "$TRIGGER")
-if [ "$DRY_RUN" = true ]; then
+if [ "$MODE" = "readiness" ]; then
+    COMMAND=(uv run --with-requirements requirements.txt python scripts/verify_training_automation_readiness.py)
+else
+    COMMAND=(uv run --with-requirements requirements.txt python -m scripts.run_automation "$MODE" --trigger "$TRIGGER")
+fi
+if [ "$DRY_RUN" = true ] && [ "$MODE" != "readiness" ]; then
     COMMAND+=(--dry-run)
 fi
 "${COMMAND[@]}" >> "$LOG_FILE" 2>&1
@@ -100,6 +108,12 @@ if [ "$RUN_EXIT_CODE" -eq 0 ]; then
     echo "✨ $FINISH_NAME - $(date)" | tee -a "$LOG_FILE"
 else
     echo "❌ $JOB_NAME 失敗 - $(date) exit_code=$RUN_EXIT_CODE" | tee -a "$LOG_FILE"
+fi
+
+if [ "$MODE" = "readiness" ]; then
+    echo "📄 readiness artifact: $PROJECT_DIR/artifacts/training_automation_readiness_$(date +%Y-%m-%d).json" | tee -a "$LOG_FILE"
+    echo "========================================" | tee -a "$LOG_FILE"
+    exit "$RUN_EXIT_CODE"
 fi
 
 STATUS_ARGS=(scripts/print_daily_status.py --status "$STATUS_PATH" --min-started-at-epoch "$WRAPPER_STARTED_AT_EPOCH" --label "$JOB_NAME")

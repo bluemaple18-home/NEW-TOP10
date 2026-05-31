@@ -75,7 +75,9 @@ def _run_case(case_name: str) -> dict[str, object]:
         automation.PROJECT_ROOT = temp_root
         automation.STATUS_PATH = temp_root / "artifacts" / "automation_status.json"
         try:
-            runner = automation.AutomationRunner(mode="retrain", dry_run=False)
+            # 這裡使用 TemporaryDirectory 與 injected command，不會碰正式資料或模型。
+            # 固定 host_full 是為了測 rollback 控制流，避免外層 local_safe env 擋住測試本身。
+            runner = automation.AutomationRunner(mode="retrain", dry_run=False, resource_profile="host_full")
             runner.config.setdefault("retrain", {})
             if case_name in {"monitor", "promotion_gate", "manual_promotion_skip"}:
                 runner.config["retrain"]["ranking_smoke_enabled"] = False
