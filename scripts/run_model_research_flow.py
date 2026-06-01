@@ -17,6 +17,11 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts import model_experiment_ledger as ledger_lib  # noqa: E402
+
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 MODEL_EXPERIMENTS_DIR = ARTIFACTS_DIR / "model_experiments"
 SCHEMA_VERSION = "model-research-flow.v1"
@@ -26,6 +31,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="run safe model research flow")
     parser.add_argument("--date", default=date.today().isoformat())
     parser.add_argument("--output", default=None)
+    parser.add_argument("--ledger", default=str(ledger_lib.DEFAULT_LEDGER))
+    parser.add_argument("--no-ledger", action="store_true")
     return parser.parse_args()
 
 
@@ -137,12 +144,88 @@ def run_flow(steps_to_run: list[tuple[str, list[str]]]) -> list[dict[str, Any]]:
     return steps
 
 
-def build_manifest(run_date: str, steps: list[dict[str, Any]]) -> dict[str, Any]:
+def ledger_entry_from_plan(experiment: dict[str, Any], run_date: str, plan_path: str, run_manifest_path: str) -> dict[str, Any] | None:
+    ledger = experiment.get("ledger", {})
+    if not ledger:
+        return None
+    return ledger_lib.make_entry(
+        exp_type=str(ledger.get("type")),
+        candidate=str(ledger.get("candidate")),
+        slug=str(ledger.get("slug")),
+        hypothesis=str(ledger.get("hypothesis")),
+        falsification=[str(item) for item in ledger.get("falsification", [])],
+        baseline=str(ledger.get("baseline") or run_manifest_path),
+        target_metrics=list(ledger.get("target_metrics", [])),
+        risk_metrics=list(ledger.get("risk_metrics", [])),
+        trigger_date=str(ledger.get("trigger", {}).get("date") or run_date),
+        grace_days=int(ledger.get("trigger", {}).get("grace_days") or 14),
+        source_artifacts=[plan_path, run_manifest_path],
+        source_labels=["model_research_flow"],
+    )
+
+
+def update_ledger_from_flow(run_date: str, ledger_path: Path) -> dict[str, Any]:
+    plan_path = MODEL_EXPERIMENTS_DIR / f"model_exp_plan_{run_date}.json"
+    run_manifest_path = MODEL_EXPERIMENTS_DIR / f"model_exp_run_manifest_{run_date}.json"
+    if not plan_path.exists():
+        return {
+            "status": "SKIPPED",
+            "ledger_updates": [],
+            "ledger_pending_count": 0,
+            "ledger_collisions": ["missing plan artifact"],
+            "ledger_verification_status": "FAILED",
+        }
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    ledger = ledger_lib.load_ledger(ledger_path)
+    updates: list[dict[str, Any]] = []
+    collisions: list[str] = []
+    for experiment in plan.get("experiments", []):
+        entry = ledger_entry_from_plan(
+            experiment,
+            run_date=run_date,
+            plan_path=repo_path(plan_path) or "",
+            run_manifest_path=repo_path(run_manifest_path) or "",
+        )
+        if entry is None:
+            continue
+        result, current = ledger_lib.add_or_update_entry(ledger, entry)
+        updates.append({"id": entry["id"], "status": result})
+        if result in {"collision", "resolved_exists"}:
+            collisions.append(str(entry["id"]))
+    verification_checks = ledger_lib.validate_ledger_payload(ledger)
+    failed_checks = [item for item in verification_checks if not item["ok"]]
+    verification_status = "OK" if not failed_checks and not collisions else "FAILED"
+    if verification_status == "OK":
+        ledger_lib.atomic_write_json(ledger_path, ledger)
+    pending_count = sum(1 for item in ledger.get("experiments", []) if item.get("status") == "pending")
+    return {
+        "status": "OK" if verification_status == "OK" else "FAILED",
+        "ledger": repo_path(ledger_path),
+        "ledger_updates": updates,
+        "ledger_pending_count": pending_count,
+        "ledger_collisions": collisions,
+        "ledger_verification_status": verification_status,
+        "ledger_failed_checks": [item["name"] for item in failed_checks[:10]],
+    }
+
+
+def build_manifest(run_date: str, steps: list[dict[str, Any]], ledger_summary: dict[str, Any] | None = None) -> dict[str, Any]:
+    ledger_summary = ledger_summary or {
+        "status": "SKIPPED",
+        "ledger_updates": [],
+        "ledger_pending_count": 0,
+        "ledger_collisions": [],
+        "ledger_verification_status": "SKIPPED",
+    }
+    flow_ok = all(step["status"] == "OK" for step in steps)
+    ledger_ok = ledger_summary.get("status") == "SKIPPED" or (
+        ledger_summary.get("status") == "OK" and ledger_summary.get("ledger_verification_status") == "OK"
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "date": run_date,
-        "status": "OK" if all(step["status"] == "OK" for step in steps) else "FAILED",
+        "status": "OK" if flow_ok and ledger_ok else "FAILED",
         "contract": {
             "research_only": True,
             "safe_flow_only": True,
@@ -161,6 +244,13 @@ def build_manifest(run_date: str, steps: list[dict[str, Any]]) -> dict[str, Any]
             "model_experiment_plan_verification": "artifacts/model_experiments/model_exp_plan_verification_latest.json",
             "model_experiment_run_manifest": f"artifacts/model_experiments/model_exp_run_manifest_{run_date}.json",
             "model_experiment_run_manifest_verification": "artifacts/model_experiments/model_exp_run_manifest_verification_latest.json",
+            "model_experiment_ledger": ledger_summary.get("ledger"),
+        },
+        "summary": {
+            "ledger_updates": ledger_summary.get("ledger_updates", []),
+            "ledger_pending_count": ledger_summary.get("ledger_pending_count", 0),
+            "ledger_collisions": ledger_summary.get("ledger_collisions", []),
+            "ledger_verification_status": ledger_summary.get("ledger_verification_status"),
         },
         "steps": steps,
     }
@@ -169,7 +259,13 @@ def build_manifest(run_date: str, steps: list[dict[str, Any]]) -> dict[str, Any]
 def main() -> int:
     args = parse_args()
     steps = run_flow(flow_steps(args.date))
-    manifest = build_manifest(args.date, steps)
+    ledger_path = resolve_path(args.ledger)
+    if ledger_path is None:
+        raise RuntimeError("ledger path resolution failed")
+    ledger_summary = {"status": "SKIPPED", "ledger_updates": [], "ledger_pending_count": 0, "ledger_collisions": [], "ledger_verification_status": "SKIPPED"}
+    if not args.no_ledger and all(step["status"] == "OK" for step in steps):
+        ledger_summary = update_ledger_from_flow(args.date, ledger_path)
+    manifest = build_manifest(args.date, steps, ledger_summary)
     output = resolve_path(args.output) or MODEL_EXPERIMENTS_DIR / f"model_research_flow_{args.date}.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
@@ -180,6 +276,7 @@ def main() -> int:
                 "output": repo_path(output),
                 "steps": len(steps),
                 "failed_steps": [step["name"] for step in steps if step["status"] != "OK"],
+                **manifest["summary"],
             },
             ensure_ascii=False,
         )

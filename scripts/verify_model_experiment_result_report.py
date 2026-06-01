@@ -115,6 +115,24 @@ def build_report(path: Path) -> dict[str, Any]:
     )
     for flag in CONTRACT_TRUE_FLAGS:
         checks.append({"name": f"contract.{flag}", "ok": contract.get(flag) is True, "value": contract.get(flag)})
+
+    for exp_id, item in decisions.items():
+        checks.extend(
+            [
+                {"name": f"{exp_id}.has_ledger_id", "ok": bool(item.get("ledger_id")), "value": item.get("ledger_id")},
+                {"name": f"{exp_id}.has_hypothesis", "ok": bool(item.get("hypothesis")), "value": item.get("hypothesis")},
+                {"name": f"{exp_id}.has_baseline", "ok": bool(item.get("baseline")), "value": item.get("baseline")},
+                {"name": f"{exp_id}.has_decision_policy", "ok": bool(item.get("decision_policy")), "value": item.get("decision_policy")},
+                {"name": f"{exp_id}.has_actual_metrics", "ok": isinstance(item.get("actual_metrics"), dict), "value": item.get("actual_metrics")},
+                {
+                    "name": f"{exp_id}.verdict_known",
+                    "ok": item.get("verdict") in {"passed", "failed", "partial", "pending", "expired", "stale"},
+                    "value": item.get("verdict"),
+                },
+                {"name": f"{exp_id}.has_next_action", "ok": bool(item.get("next_action")), "value": item.get("next_action")},
+                {"name": f"{exp_id}.promotion_allowed_false", "ok": item.get("promotion_allowed") is False, "value": item.get("promotion_allowed")},
+            ]
+        )
     failed = [item for item in checks if not item["ok"]]
     return {
         "schema_version": "model-experiment-result-report-verification.v1",

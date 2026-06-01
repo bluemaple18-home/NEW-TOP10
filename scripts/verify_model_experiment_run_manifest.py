@@ -122,6 +122,12 @@ def build_report(path: Path) -> dict[str, Any]:
         checks.extend(
             [
                 {"name": f"{exp_id}.has_reason", "ok": bool(run.get("reason")), "value": run.get("reason")},
+                {"name": f"{exp_id}.has_ledger_id", "ok": bool(run.get("ledger_id")), "value": run.get("ledger_id")},
+                {
+                    "name": f"{exp_id}.ledger_contract_safe",
+                    "ok": run.get("ledger", {}).get("production_promotion_allowed") is False,
+                    "value": run.get("ledger", {}),
+                },
                 {
                     "name": f"{exp_id}.commands_do_not_target_models_latest",
                     "ok": "models/latest_lgbm.pkl" not in "\n".join(run.get("safe_commands", [])),

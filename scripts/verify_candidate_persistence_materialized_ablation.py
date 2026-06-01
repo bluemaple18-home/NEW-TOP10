@@ -54,10 +54,19 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def is_repo_relative(value: Any) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    path = Path(value)
+    return not path.is_absolute() and "~" not in value and "://" not in value and ".." not in path.parts
+
+
 def build_report(path: Path) -> dict[str, Any]:
     payload = load_json(path)
     contract = payload.get("contract", {})
     summary = payload.get("summary", {})
+    inputs = payload.get("inputs", {})
+    ranking_files = inputs.get("ranking_files", [])
     checks: list[dict[str, Any]] = [
         {"name": "schema", "ok": payload.get("schema_version") == "candidate-persistence-materialized-ablation.v1", "value": payload.get("schema_version")},
         {"name": "status", "ok": payload.get("status") == "OK", "value": payload.get("status")},
@@ -71,6 +80,24 @@ def build_report(path: Path) -> dict[str, Any]:
             "name": "promotion_blocked",
             "ok": contract.get("production_promotion_allowed") is False,
             "value": contract.get("production_promotion_allowed"),
+        },
+        {
+            "name": "input_paths_repo_relative",
+            "ok": all(
+                is_repo_relative(item)
+                for item in [
+                    inputs.get("rankings_dir"),
+                    inputs.get("features"),
+                    inputs.get("materialized"),
+                    *ranking_files,
+                ]
+            ),
+            "value": {
+                "rankings_dir": inputs.get("rankings_dir"),
+                "features": inputs.get("features"),
+                "materialized": inputs.get("materialized"),
+                "ranking_files_sample": ranking_files[:3],
+            },
         },
     ]
     for flag in CONTRACT_TRUE_FLAGS:

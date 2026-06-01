@@ -14,6 +14,42 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+BACKTEST_DIR = PROJECT_ROOT / "artifacts" / "backtest"
+
+
+def path_is_portable(value: object) -> bool:
+    if value is None or not isinstance(value, str):
+        return True
+    if not value.strip() or "~" in value or "://" in value:
+        return False
+    path = Path(value)
+    if ".." in path.parts:
+        return False
+    if not path.is_absolute():
+        return True
+    try:
+        path.resolve().relative_to(PROJECT_ROOT.resolve())
+    except ValueError:
+        return True
+    return False
+
+
+def replay_inputs_portable(payload: dict[str, object]) -> bool:
+    inputs = payload.get("inputs", {})
+    if not isinstance(inputs, dict):
+        return False
+    ranking_files = inputs.get("ranking_files", [])
+    return (
+        path_is_portable(inputs.get("rankings_dir"))
+        and path_is_portable(inputs.get("features"))
+        and isinstance(ranking_files, list)
+        and all(path_is_portable(item) for item in ranking_files)
+    )
+
+
+def latest_big_bull_replay() -> Path | None:
+    matches = sorted(BACKTEST_DIR.glob("replay_big_bull_ranking_*.json"))
+    return matches[-1] if matches else None
 
 
 def main() -> int:
@@ -127,6 +163,8 @@ def main() -> int:
             return completed.returncode
         output_text = output.read_text(encoding="utf-8")
         payload = json.loads(output_text)
+        latest_replay_path = latest_big_bull_replay()
+        latest_replay_payload = json.loads(latest_replay_path.read_text(encoding="utf-8")) if latest_replay_path else None
         first_trade = payload["trades"][0]
         portfolio_summary = payload["summary"]["portfolio_by_horizon"]
         skipped_by_stock = {item["stock_id"]: item for item in payload["skipped"] if item.get("reason") == "missing_entry_bar"}
@@ -167,6 +205,8 @@ def main() -> int:
             "contract_declares_bucket_equity_curve": payload["contract"].get("portfolio_equity_curve") == "bucket_only",
             "contract_declares_bucket_policy": payload["contract"].get("portfolio_policy")
             == "per-ranking-date bucket; no overlapping-position rebalance in v1",
+            "synthetic_inputs_portable": replay_inputs_portable(payload),
+            "latest_big_bull_replay_inputs_portable": latest_replay_payload is None or replay_inputs_portable(latest_replay_payload),
             "weights_are_capped": all(trade["portfolio_weight"] <= 0.2 for trade in payload["trades"]),
             "portfolio_return_is_weighted": portfolio_summary["1"]["observation_count"] == 1
             and -0.05 < portfolio_summary["1"]["avg_portfolio_return"] < 0.05,

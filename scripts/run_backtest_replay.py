@@ -46,6 +46,17 @@ def resolve_path(value: str) -> Path:
     return path if path.is_absolute() else PROJECT_ROOT / path
 
 
+def repo_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def repo_paths(paths: list[Path]) -> list[str]:
+    return [repo_path(path) for path in paths]
+
+
 def ranking_date(path: Path) -> str:
     match = re.match(r"ranking_(\d{4}-\d{2}-\d{2})\.csv$", path.name)
     if not match:
@@ -303,9 +314,9 @@ def run_replay(args: argparse.Namespace) -> dict[str, Any]:
             "portfolio_policy": "per-ranking-date bucket; no overlapping-position rebalance in v1",
         },
         "inputs": {
-            "rankings_dir": str(rankings_dir),
-            "features": str(features_path),
-            "ranking_files": [str(path) for path in files],
+            "rankings_dir": repo_path(rankings_dir),
+            "features": repo_path(features_path),
+            "ranking_files": repo_paths(files),
             "top_n": args.top_n,
             "horizons": horizons,
             "costs": {

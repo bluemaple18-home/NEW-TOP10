@@ -41,12 +41,14 @@ def main() -> int:
     frame = pd.read_csv(ranking_path)
     frame = ReferenceRepository(PROJECT_ROOT).annotate_ranking(frame)
     persistence = load_persistence(artifacts_dir / f"candidate_persistence_{ranking_date}.json")
+    ledger_stats = load_latest_ledger_stats(artifacts_dir, ranking_date)
     report = build_report(
         frame=frame,
         ranking_path=ranking_path,
         ranking_date=ranking_date,
         status=status,
         persistence=persistence,
+        ledger_stats=ledger_stats,
     )
 
     json_path = artifacts_dir / f"daily_report_{ranking_date}.json"
@@ -72,6 +74,15 @@ def load_persistence(path: Path) -> dict[str, Any]:
         for item in payload.get("items", [])
         if item.get("stock_id")
     }
+
+
+def load_latest_ledger_stats(artifacts_dir: Path, ranking_date: str) -> dict[str, Any]:
+    model_dir = artifacts_dir / "model_experiments"
+    preferred = model_dir / f"model_experiment_ledger_stats_{ranking_date}.json"
+    if preferred.exists():
+        return load_json(preferred)
+    matches = sorted(model_dir.glob("model_experiment_ledger_stats_????-??-??.json"))
+    return load_json(matches[-1]) if matches else {}
 
 
 def resolve_ranking_path(artifacts_dir: Path, status: dict[str, Any], date: str | None, ranking: str | None) -> Path:
@@ -110,6 +121,7 @@ def build_report(
     ranking_date: str,
     status: dict[str, Any],
     persistence: dict[str, Any] | None = None,
+    ledger_stats: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     top = frame.head(10).copy()
     persistence = persistence or {}
@@ -118,6 +130,7 @@ def build_report(
     missing_columns = [column for column in score_columns if column not in frame.columns]
     coverage = coverage_summary(frame)
     risk = risk_summary(frame, status)
+    ledger_summary = (ledger_stats or {}).get("summary", {})
 
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -145,6 +158,13 @@ def build_report(
             "source": f"candidate_persistence_{ranking_date}.json" if persistence else None,
             "scope": "decision_annotation_only",
             "model_feature": False,
+        },
+        "model_governance": {
+            "available": bool(ledger_summary),
+            "source": (ledger_stats or {}).get("ledger"),
+            "pending_due_soon": ledger_summary.get("pending_due_soon", [])[:5],
+            "failed_partial_since_last_run": ledger_summary.get("failed_partial_since_last_run", [])[:5],
+            "blocked_promotion_reasons": ledger_summary.get("blocked_promotion_reasons", []),
         },
         "top10": items,
     }
@@ -325,6 +345,16 @@ def render_markdown(report: dict[str, Any]) -> str:
     freshness = report["risk"].get("data_freshness", {}).get("datasets", {})
     for name, info in freshness.items():
         lines.append(f"- `{name}` latest={info.get('latest_date')} lag_days={info.get('lag_days')} rows={info.get('rows')}")
+    governance = report.get("model_governance", {})
+    lines.extend(["", "## Model Governance", ""])
+    if not governance.get("available"):
+        lines.append("- ledger stats unavailable")
+    else:
+        lines.append(f"- blocked promotion reasons：`{governance.get('blocked_promotion_reasons', [])}`")
+        for item in governance.get("pending_due_soon", []):
+            lines.append(f"- due soon：`{item.get('id')}` trigger={item.get('trigger_date')} action={item.get('next_action')}")
+        for item in governance.get("failed_partial_since_last_run", []):
+            lines.append(f"- {item.get('status')}：`{item.get('id')}` reason={item.get('reason')}")
     lines.append("")
     return "\n".join(lines)
 

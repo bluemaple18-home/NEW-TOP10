@@ -29,6 +29,56 @@ FORBIDDEN_CANDIDATES = {
     "industry_rotation",
     "weekend_research_matrix",
 }
+LEDGER_CONTRACTS = {
+    "model_exp_candidate_persistence_only": {
+        "ledger_type": "feature",
+        "candidate": "candidate_persistence",
+        "slug": "persistence-only",
+        "hypothesis": "candidate_persistence 會讓 sealed Top10 return uplift >= 0.002，且 replay MDD 不惡化超過 0.01",
+        "falsification": [
+            "sealed Top10 return uplift <= 0",
+            "production replay MDD 惡化 > 0.01",
+        ],
+        "target_metrics": [{"name": "sealed_top10_return_uplift", "threshold": 0.002}],
+        "risk_metrics": [{"name": "replay_mdd_delta_max", "threshold": 0.01}],
+    },
+    "model_exp_portfolio_risk_overlay_only": {
+        "ledger_type": "overlay",
+        "candidate": "portfolio_risk_overlay",
+        "slug": "risk-overlay-only",
+        "hypothesis": "portfolio_risk_overlay 會讓 replay total return uplift >= 0.002，且 concentration risk 不增加",
+        "falsification": [
+            "replay total return uplift <= 0",
+            "group concentration 或 max drawdown 惡化",
+        ],
+        "target_metrics": [{"name": "replay_total_return_uplift", "threshold": 0.002}],
+        "risk_metrics": [{"name": "concentration_delta_max", "threshold": 0.0}],
+    },
+    "model_exp_regime_feature_group_ablation": {
+        "ledger_type": "feature",
+        "candidate": "regime_feature_group_ablation",
+        "slug": "regime-feature-group-ablation",
+        "hypothesis": "regime_feature_group_ablation 會讓 sealed AUC uplift >= 0.002，且 Top10 return 不低於 baseline",
+        "falsification": [
+            "sealed AUC uplift < 0.002",
+            "Top10 return 低於 baseline",
+        ],
+        "target_metrics": [{"name": "sealed_auc_uplift", "threshold": 0.002}],
+        "risk_metrics": [{"name": "top10_return_delta_min", "threshold": 0.0}],
+    },
+    "model_exp_combined_conservative": {
+        "ledger_type": "training_policy",
+        "candidate": "combined_conservative",
+        "slug": "candidate-persistence-regime-combined",
+        "hypothesis": "combined_conservative 會讓 replay risk adjusted score uplift >= 0.002，且不弱於各單獨候選",
+        "falsification": [
+            "combined replay score uplift <= 0",
+            "combined 結果弱於任一已通過單獨候選",
+        ],
+        "target_metrics": [{"name": "replay_risk_adjusted_score_uplift", "threshold": 0.002}],
+        "risk_metrics": [{"name": "underperform_individual_candidate_count", "threshold": 0}],
+    },
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -249,6 +299,52 @@ def common_required_gates() -> list[str]:
     ]
 
 
+def ledger_id(ledger_type: str, candidate: str, slug: str) -> str:
+    return f"{ledger_type}:{candidate}:{slug}"
+
+
+def default_decision_policy(target_metrics: list[dict[str, Any]], risk_metrics: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "pass": "主要 target metrics 達標，且 risk metrics 未破壞預註冊門檻",
+        "fail": "主要 target metric 未達標，或任一 risk metric 明確破壞門檻",
+        "partial": "主要 metric 有改善但 evidence 不完整，或不同驗證 window 結論衝突",
+        "target_metrics": target_metrics,
+        "risk_metrics": risk_metrics,
+    }
+
+
+def attach_ledger_contracts(experiments: list[dict[str, Any]], run_date: str) -> list[dict[str, Any]]:
+    baseline = f"artifacts/model_experiments/model_exp_run_manifest_{run_date}.json"
+    for item in experiments:
+        contract = LEDGER_CONTRACTS.get(str(item.get("experiment_id")))
+        if not contract:
+            continue
+        target_metrics = contract["target_metrics"]
+        risk_metrics = contract["risk_metrics"]
+        item["ledger_id"] = ledger_id(contract["ledger_type"], contract["candidate"], contract["slug"])
+        item["ledger"] = {
+            "id": item["ledger_id"],
+            "type": contract["ledger_type"],
+            "candidate": contract["candidate"],
+            "slug": contract["slug"],
+            "hypothesis": contract["hypothesis"],
+            "falsification": contract["falsification"],
+            "baseline": baseline,
+            "target_metrics": target_metrics,
+            "risk_metrics": risk_metrics,
+            "decision_policy": default_decision_policy(target_metrics, risk_metrics),
+            "evidence_requirements": {
+                "sealed_oos": True,
+                "production_replay": True,
+                "walk_forward": True,
+                "portfolio_replay": True,
+            },
+            "trigger": {"date": run_date, "grace_days": 14},
+            "production_promotion_allowed": False,
+        }
+    return experiments
+
+
 def build_experiments(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     enabled = {
         str(row["candidate_id"])
@@ -274,7 +370,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     candidate_ids = {str(row.get("candidate_id")) for row in rows}
     forbidden_present = sorted(candidate_ids & FORBIDDEN_CANDIDATES)
     unsupported_present = sorted(candidate_ids - SUPPORTED_CANDIDATES)
-    experiments = build_experiments(rows)
+    experiments = attach_ledger_contracts(build_experiments(rows), args.date)
     ready = [item["experiment_id"] for item in experiments if item.get("status") == "READY_FOR_OFFLINE_EXPERIMENT"]
     blocked = [
         item["experiment_id"]

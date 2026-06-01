@@ -52,6 +52,75 @@ MODEL-PROMOTE-01：人工 review + rollback-ready 正式替換
 - `training_launch_mode=pre_registered_candidate_with_promotion_gate`：只能走預註冊候選；不得用同輪診斷結果補 filter。
 - `promotion_ready=false`：候選訓練可以開始，但 `models/latest_lgbm.pkl` 不得因 readiness artifact 被覆蓋。
 
+## 市場盤勢 Taxonomy
+
+市場分類固定分層，避免因單次研究一直新增盤勢 preset：
+
+- base regime：每日只能屬於一種，清單固定為 `BROAD_RISK_ON`、`NARROW_LEADER`、`CHOPPY_RANGE`、`RISK_OFF`、`PANIC_SELLING`、`EARLY_REVERSAL`、`MIXED_NEUTRAL`、`UNKNOWN`。
+- regime family tag：研究層標籤，可重疊，不是新的市場 preset，目前固定為 `HIGH_CHOPPY`、`BIG_BULL`。
+- `HIGH_CHOPPY`：高檔震盪 tag。資金集中、廣度不全面、長上影或震盪干擾高。
+- `BIG_BULL`：大牛市 tag。優先辨識近半年這種權值股 / 主流族群帶動的指數牛市；不要求全市場廣度同步轉強。
+
+`BIG_BULL` 與 `HIGH_CHOPPY` 可以重疊，語意是「大牛市裡的高檔震盪段」。重疊不是 bug，但 artifact 必須明確寫出 `family_tags_are_not_mutually_exclusive=true`，避免後續訓練把它們誤當互斥分類。
+
+## Regime Family 訓練候選
+
+目前只研究固定的兩個 family tag，不新增、不刪減：
+
+- `HIGH_CHOPPY`
+- `BIG_BULL`
+
+這兩個族群必須先走 research-only 訓練候選，不得直接 promotion：
+
+```bash
+uv run --with-requirements requirements.txt python scripts/build_market_regime_history.py \
+  --output artifacts/market_regime_history_YYYY-MM-DD.json
+
+uv run --with-requirements requirements.txt python scripts/research_regime_family_training_candidates.py \
+  --date YYYY-MM-DD \
+  --market-regime-history artifacts/market_regime_history_YYYY-MM-DD.json
+
+uv run --with-requirements requirements.txt python scripts/verify_regime_family_training_candidates.py \
+  --artifact artifacts/model_experiments/regime_family_training_candidates_YYYY-MM-DD.json
+
+uv run --with-requirements requirements.txt python scripts/research_regime_family_sealed_replay.py \
+  --date YYYY-MM-DD \
+  --market-regime-history artifacts/market_regime_history_YYYY-MM-DD.json \
+  --candidate-artifact artifacts/model_experiments/regime_family_training_candidates_YYYY-MM-DD.json
+
+uv run --with-requirements requirements.txt python scripts/verify_regime_family_sealed_replay.py \
+  --artifact artifacts/model_experiments/regime_family_sealed_replay_YYYY-MM-DD.json
+
+uv run --with-requirements requirements.txt python scripts/build_regime_family_sealed_stability_report.py \
+  --date YYYY-MM-DD \
+  --family BIG_BULL \
+  --artifact 40d=artifacts/model_experiments/regime_family_sealed_replay_big_bull_40d_YYYY-MM-DD.json \
+  --artifact 60d=artifacts/model_experiments/regime_family_sealed_replay_YYYY-MM-DD.json \
+  --artifact 80d=artifacts/model_experiments/regime_family_sealed_replay_big_bull_80d_YYYY-MM-DD.json \
+  --artifact 100d=artifacts/model_experiments/regime_family_sealed_replay_big_bull_100d_YYYY-MM-DD.json
+```
+
+候選比較固定為：
+
+- `global_baseline`：全市場歷史訓練，僅在該 family 日期驗證。
+- `family_only_training`：只用同 family 歷史訓練。
+- `family_weighted_training`：全市場歷史訓練，但同 family 樣本加權。
+
+升級到下一階段前至少要滿足：
+
+- family validation 日期數 >= 18。
+- OK folds >= 3。
+- candidate AUC >= 0.58。
+- candidate Top10 uplift > 0。
+- candidate AUC 相對 global baseline 提升 >= 0.001。
+- candidate Top10 return 相對 global baseline 提升 >= 0.002。
+
+若 family 日期不足，最多只能列 `MONITOR_ONLY`。即使某個 variant 看起來有正報酬，也不能拿樣本不足的結果進 production promotion。
+
+`regime_family_sealed_replay` 是下一關確認，不是正式升版。它固定 sealed 視窗，只在記憶體中重訓候選與 global baseline，確認候選在未參與訓練的近期盤勢仍有增益；通過後只能進模型實驗 review，仍不得直接覆蓋正式模型。
+
+`regime_family_sealed_stability` 用多個 sealed 視窗收斂結論。若 AUC 穩定性不足，模型替換必須 blocked；若 Top10 uplift 多視窗穩定，最多只能開下一輪 ranking/replay-oriented 假設，不能回頭改本輪模型 gate。
+
 ## 研究治理契約
 
 模型研究必須先回答「這一輪要驗什麼」，再產 artifact。任何研究 artifact 若要被 readiness 或 promotion 讀取，必須符合下列契約：

@@ -58,6 +58,15 @@ def repo_path(path: Path | None) -> str | None:
         return str(path)
 
 
+def repo_paths(values: list[Any]) -> list[str]:
+    rows: list[str] = []
+    for value in values:
+        if not isinstance(value, str) or not value.strip():
+            continue
+        rows.append(repo_path(resolve_path(value)) or value)
+    return rows
+
+
 def default_materialized(run_date: str) -> Path:
     return OUTPUT_DIR / f"candidate_persistence_features_{run_date}.parquet"
 
@@ -192,7 +201,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "rankings_dir": repo_path(resolve_path(args.rankings_dir)),
             "features": repo_path(resolve_path(args.features)),
             "materialized": repo_path(materialized_path),
-            "ranking_files": replay.get("inputs", {}).get("ranking_files", []),
+            "ranking_files": repo_paths(replay.get("inputs", {}).get("ranking_files", [])),
             "horizons": replay.get("inputs", {}).get("horizons", []),
             "top_n": args.top_n,
             "min_trades": args.min_trades,

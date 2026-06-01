@@ -14,6 +14,36 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+BACKTEST_DIR = PROJECT_ROOT / "artifacts" / "backtest"
+
+
+def path_is_portable(value: object) -> bool:
+    if value is None or not isinstance(value, str):
+        return True
+    if not value.strip() or "~" in value or "://" in value:
+        return False
+    path = Path(value)
+    if ".." in path.parts:
+        return False
+    if not path.is_absolute():
+        return True
+    try:
+        path.resolve().relative_to(PROJECT_ROOT.resolve())
+    except ValueError:
+        return True
+    return False
+
+
+def portfolio_inputs_portable(payload: dict[str, object]) -> bool:
+    inputs = payload.get("inputs", {})
+    if not isinstance(inputs, dict):
+        return False
+    return all(path_is_portable(inputs.get(key)) for key in ["rankings_dir", "features", "group_map"])
+
+
+def latest_big_bull_portfolio_replay() -> Path | None:
+    matches = sorted(BACKTEST_DIR.glob("portfolio_replay_big_bull_ranking_*.json"))
+    return matches[-1] if matches else None
 
 
 def write_ranking(path: Path, rows: list[tuple[str, str, str]]) -> None:
@@ -344,6 +374,8 @@ def main() -> int:
 
         output_text = output.read_text(encoding="utf-8")
         payload = json.loads(output_text)
+        latest_portfolio_path = latest_big_bull_portfolio_replay()
+        latest_portfolio_payload = json.loads(latest_portfolio_path.read_text(encoding="utf-8")) if latest_portfolio_path else None
         drift_payload = json.loads(drift_output.read_text(encoding="utf-8"))
         group_output_text = group_output.read_text(encoding="utf-8")
         group_payload = json.loads(group_output_text)
@@ -364,6 +396,8 @@ def main() -> int:
             "schema_ok": payload["schema_version"] == "overlap-portfolio-replay.v1",
             "contract_declares_overlap": payload["contract"]["overlapping_positions"] is True,
             "model_feature_false": payload["contract"]["model_feature"] is False,
+            "synthetic_inputs_portable": portfolio_inputs_portable(payload),
+            "latest_big_bull_portfolio_inputs_portable": latest_portfolio_payload is None or portfolio_inputs_portable(latest_portfolio_payload),
             "trade_count": payload["summary"]["trade_count"] == 4,
             "entry_is_next_trade_day_first_bucket": entry_dates.get("1111") == "2026-01-05",
             "entry_is_next_trade_day_second_bucket": entry_dates.get("3333") == "2026-01-06",

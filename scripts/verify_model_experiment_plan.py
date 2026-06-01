@@ -113,6 +113,12 @@ def build_report(plan_path: Path) -> dict[str, Any]:
             [
                 {"name": f"{exp_id}.has_required_gates", "ok": bool(gates), "value": len(gates)},
                 {"name": f"{exp_id}.has_kill_conditions", "ok": bool(kill_conditions), "value": len(kill_conditions)},
+                {"name": f"{exp_id}.has_ledger_id", "ok": bool(item.get("ledger_id")), "value": item.get("ledger_id")},
+                {
+                    "name": f"{exp_id}.ledger_contract_safe",
+                    "ok": item.get("ledger", {}).get("production_promotion_allowed") is False,
+                    "value": item.get("ledger", {}),
+                },
                 {
                     "name": f"{exp_id}.no_direct_production_score",
                     "ok": "risk_adjusted_score" not in json.dumps(item.get("feature_policy", {}), ensure_ascii=False),

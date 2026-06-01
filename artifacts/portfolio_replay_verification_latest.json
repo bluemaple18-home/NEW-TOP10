@@ -5,6 +5,8 @@
     "schema_ok": true,
     "contract_declares_overlap": true,
     "model_feature_false": true,
+    "synthetic_inputs_portable": true,
+    "latest_big_bull_portfolio_inputs_portable": true,
     "trade_count": true,
     "entry_is_next_trade_day_first_bucket": true,
     "entry_is_next_trade_day_second_bucket": true,

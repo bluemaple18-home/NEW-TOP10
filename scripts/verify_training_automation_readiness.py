@@ -270,11 +270,40 @@ def check_not_ok(row: dict[str, Any] | None) -> bool:
     return bool(row) and str(row.get("status", "")).upper() != "OK"
 
 
-def data_degradations(health: dict[str, Any]) -> list[dict[str, Any]]:
+def technical_only_lane_path(run_date: str) -> Path:
+    return MODEL_EXPERIMENTS_DIR / f"technical_only_training_lane_{run_date}.json"
+
+
+def technical_only_lane_ready(run_date: str) -> tuple[bool, dict[str, Any]]:
+    path = technical_only_lane_path(run_date)
+    payload = load_json(path)
+    contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else {}
+    ready = (
+        payload.get("schema_version") == "technical-only-training-lane.v1"
+        and payload.get("status") == "RESEARCH_ONLY_ALLOWED"
+        and payload.get("chosen_path") == "technical_only_lane"
+        and contract.get("research_only_allowed") is True
+        and contract.get("production_promotion_allowed") is False
+        and contract.get("does_not_drop_model_features_silently") is True
+        and contract.get("sealed_replay_acceptance_still_required") is True
+    )
+    return ready, {
+        "artifact": repo_path(path),
+        "exists": path.exists(),
+        "status": payload.get("status"),
+        "chosen_path": payload.get("chosen_path"),
+        "production_promotion_allowed": contract.get("production_promotion_allowed"),
+    }
+
+
+def data_degradations(health: dict[str, Any], run_date: str) -> list[dict[str, Any]]:
     baseline = health.get("baseline") if isinstance(health.get("baseline"), dict) else {}
     skipped = [str(item) for item in baseline.get("skipped_empty_model_features") or []]
     revenue_skipped = [feature for feature in skipped if feature in REVENUE_FEATURES]
     if not revenue_skipped:
+        return []
+    lane_ready, lane_details = technical_only_lane_ready(run_date)
+    if not lane_ready:
         return []
     return [
         {
@@ -282,12 +311,13 @@ def data_degradations(health: dict[str, Any]) -> list[dict[str, Any]]:
             "category": "data_unavailable_with_explicit_degradation",
             "features": revenue_skipped,
             "reason": "月營收欄位在 baseline_stats 中為空，PSI baseline 只能覆蓋 technical/event/pattern/fundamental 以外的可用欄位。",
-            "degradation": "允許 research/readiness 使用 technical-only 可監控 baseline；禁止據此 promotion 或開啟正式自動訓練。",
-            "required_before_training": "補齊 revenue_yoy/revenue_mom 來源，或產出明確的 technical-only research artifact 並通過下一輪 walk-forward/sealed/replay gate。",
+            "degradation": "允許 research/readiness 使用 technical-only 可監控 baseline；禁止據此 production promotion 或啟用正式 auto retrain。",
+            "required_before_training": "已產出 technical-only research artifact；正式 promotion 前仍需補齊 revenue_yoy/revenue_mom 來源，或在下一輪 sealed/replay/acceptance 明確接受此降級。",
             "evidence": {
                 "model_feature_count": baseline.get("model_feature_count"),
                 "monitored_model_feature_count": baseline.get("monitored_model_feature_count"),
                 "coverage_ratio": baseline.get("coverage_ratio"),
+                "technical_only_lane": lane_details,
             },
         }
     ]
@@ -335,6 +365,7 @@ def readiness_assessment(
     result_report: dict[str, Any],
     model_group: dict[str, Any],
     half_year_walkforward: dict[str, Any],
+    run_date: str,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     warnings: list[str] = []
@@ -342,7 +373,7 @@ def readiness_assessment(
     warning_details: list[dict[str, Any]] = []
     promotion_blockers: list[str] = []
     promotion_blocker_details: list[dict[str, Any]] = []
-    degradations = data_degradations(health)
+    degradations = data_degradations(health, run_date=run_date)
 
     def add_blocker(detail: dict[str, Any]) -> None:
         blockers.append(str(detail["message"]))
@@ -735,7 +766,7 @@ def build_payload(args: argparse.Namespace, steps: list[dict[str, Any]]) -> dict
     model_group = load_json(model_group_path)
     result_report = load_json(result_report_path)
     half_year_walkforward = load_json(half_year_path)
-    assessment = readiness_assessment(steps, config, health, result_report, model_group, half_year_walkforward)
+    assessment = readiness_assessment(steps, config, health, result_report, model_group, half_year_walkforward, args.date)
     status = assessment["status"]
     half_year_baseline = half_year_walkforward.get("variants", {}).get("current_baseline", {})
     half_year_topn = half_year_baseline.get("topn_proxy") if isinstance(half_year_baseline.get("topn_proxy"), dict) else {}
@@ -805,6 +836,7 @@ def build_payload(args: argparse.Namespace, steps: list[dict[str, Any]]) -> dict
             "model_group_acceptance": repo_path(model_group_path),
             "model_experiment_result_report": repo_path(result_report_path),
             "half_year_walkforward_validation": repo_path(half_year_path),
+            "technical_only_training_lane": repo_path(technical_only_lane_path(args.date)),
             "feature_experiment_gate": repo_path(ARTIFACTS_DIR / f"feature_experiment_gate_{args.date}.json"),
             "model_research_flow": repo_path(MODEL_EXPERIMENTS_DIR / f"model_research_flow_{args.date}.json"),
         },

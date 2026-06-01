@@ -19,6 +19,7 @@ SCHEMA_VERSION = "weekend-research-decision-report.v1"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="build weekend research decision report")
+    parser.add_argument("--date", default=None, help="治理摘要日期；既有週末矩陣輸入仍由各 artifact 參數指定")
     parser.add_argument("--coverage", default="artifacts/research_dataset_coverage_2026-05-29.json")
     parser.add_argument("--strategy-comparison", default="artifacts/backtest/strategy_matrix_comparison_recent_2026-04-08_2026-05-13.json")
     parser.add_argument("--replay-comparison", default="artifacts/backtest/replay_variant_comparison_2026-04-08_2026-05-13.json")
@@ -26,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--factor-monitor", default="artifacts/factor_monitor_report.json")
     parser.add_argument("--weekend-matrix", default="artifacts/backtest/weekend_research_matrix_2026-04-08_2026-05-13.json")
     parser.add_argument("--window-stability", default="artifacts/backtest/replay_window_stability_2026-04-08_2026-05-13.json")
+    parser.add_argument("--ledger-stats", default=None)
     parser.add_argument("--output", default="artifacts/backtest/weekend_research_decision_report_2026-04-08_2026-05-13.json")
     return parser.parse_args()
 
@@ -47,6 +49,16 @@ def load_json(path_text: str | Path) -> dict[str, Any]:
     if not path.exists():
         return {"_missing": True, "_path": repo_path(path)}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def latest_ledger_stats(run_date: str | None = None) -> dict[str, Any]:
+    model_dir = PROJECT_ROOT / "artifacts" / "model_experiments"
+    if run_date:
+        preferred = model_dir / f"model_experiment_ledger_stats_{run_date}.json"
+        if preferred.exists():
+            return load_json(preferred)
+    matches = sorted(model_dir.glob("model_experiment_ledger_stats_????-??-??.json"))
+    return load_json(matches[-1]) if matches else {}
 
 
 def f(value: Any, default: float = 0.0) -> float:
@@ -266,6 +278,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     factor_monitor = load_json(args.factor_monitor)
     weekend = load_json(args.weekend_matrix)
     stability = load_json(args.window_stability)
+    ledger_stats = load_json(args.ledger_stats) if args.ledger_stats else latest_ledger_stats(args.date)
     weekend_evidence = weekend_matrix_contract_status(weekend)
 
     strategy_rows = strategy.get("best_by_horizon", [])
@@ -319,6 +332,15 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "blocked_data": coverage.get("summary", {}).get("blocked_dimensions", []),
             "report_blockers": weekend_evidence["blockers"],
             "recommended_next_test": "Run longer/rolling validation for 5d guard_balanced and overlay separately; keep 10d as separate risk track.",
+        },
+        "model_governance": {
+            "available": bool(ledger_stats.get("summary")),
+            "source": ledger_stats.get("ledger"),
+            "candidate_hit_rate": ledger_stats.get("summary", {}).get("candidate_hit_rate"),
+            "expired_count": ledger_stats.get("summary", {}).get("expired_count"),
+            "repeated_failed_hypothesis_family": ledger_stats.get("summary", {}).get("repeated_failed_hypothesis_family", []),
+            "next_research_priorities": ledger_stats.get("summary", {}).get("next_research_priorities", []),
+            "blocked_promotion_reasons": ledger_stats.get("summary", {}).get("blocked_promotion_reasons", []),
         },
         "variant_decisions": safe_decisions,
         "industry_momentum": industry_decision(industry, coverage),
@@ -380,6 +402,15 @@ def render_markdown(payload: dict[str, Any]) -> str:
     lines.extend(["", "## Data Backlog", "", "| Dimension | Coverage | Next Step |", "|---|---:|---|"])
     for row in payload["data_backlog"]:
         lines.append(f"| {row['label']} | {pct(row.get('latest_coverage'))} | {row['required_next_step']} |")
+    governance = payload.get("model_governance", {})
+    lines.extend(["", "## Model Governance", ""])
+    if not governance.get("available"):
+        lines.append("- ledger stats unavailable")
+    else:
+        lines.append(f"- candidate_hit_rate：`{governance.get('candidate_hit_rate')}`")
+        lines.append(f"- expired_count：`{governance.get('expired_count')}`")
+        for item in governance.get("next_research_priorities", []):
+            lines.append(f"- next：{item}")
     lines.append("")
     return "\n".join(lines)
 

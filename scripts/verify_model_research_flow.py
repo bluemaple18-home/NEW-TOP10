@@ -85,8 +85,25 @@ def verify_manifest_write() -> dict[str, bool]:
     }
 
 
+def verify_ledger_validation_failure_blocks_flow() -> dict[str, bool]:
+    steps = [fake_step_result("feature_gate.build", ["ok"])]
+    ledger_summary = {
+        "status": "FAILED",
+        "ledger_updates": [{"id": "feature:candidate:slug", "status": "added"}],
+        "ledger_pending_count": 1,
+        "ledger_collisions": [],
+        "ledger_verification_status": "FAILED",
+        "ledger_failed_checks": ["schema_version"],
+    }
+    manifest = flow.build_manifest("2026-01-05", steps, ledger_summary)
+    return {
+        "validation_failed_without_collision_blocks_flow": manifest["status"] == "FAILED",
+        "failed_ledger_status_serialized": manifest["summary"]["ledger_verification_status"] == "FAILED",
+    }
+
+
 def main() -> int:
-    checks = {**verify_fail_fast(), **verify_manifest_write()}
+    checks = {**verify_fail_fast(), **verify_manifest_write(), **verify_ledger_validation_failure_blocks_flow()}
     status = "OK" if all(checks.values()) else "FAILED"
     ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
     ARTIFACT_PATH.write_text(

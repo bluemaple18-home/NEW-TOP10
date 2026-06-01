@@ -9,12 +9,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+import tempfile
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts import model_experiment_ledger as ledger_lib  # noqa: E402
+
 MODEL_EXPERIMENTS_DIR = PROJECT_ROOT / "artifacts" / "model_experiments"
 SCHEMA_VERSION = "model-experiment-result-report.v1"
 
@@ -30,6 +37,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--candidate-persistence-ablation", default=None)
     parser.add_argument("--candidate-persistence-ablation-extended", default=None)
     parser.add_argument("--output", default=None)
+    parser.add_argument("--ledger", default=str(ledger_lib.DEFAULT_LEDGER))
+    parser.add_argument("--no-ledger-update", action="store_true")
+    parser.add_argument("--self-test", action="store_true")
     return parser.parse_args()
 
 
@@ -168,6 +178,7 @@ def top_shadow_features(payload: dict[str, Any], limit: int = 20) -> list[dict[s
 
 
 def regime_decision(payload: dict[str, Any], offline: dict[str, Any] | None = None) -> dict[str, Any]:
+    payload_missing = payload.get("_missing") is True
     summary = payload.get("summary", {})
     top = top_shadow_features(payload)
     thin_regime_rows = [row for row in top if int(row.get("days") or 0) < 20]
@@ -176,21 +187,34 @@ def regime_decision(payload: dict[str, Any], offline: dict[str, Any] | None = No
     auc_delta = safe_float(offline_summary.get("baseline_minus_drop_auc"))
     topn_delta = safe_float(offline_summary.get("baseline_minus_drop_topn_return"))
     offline_available = bool(offline) and not (offline or {}).get("_missing")
+    offline_evidence_available = offline_available and (auc_delta is not None or topn_delta is not None or bool(offline_summary))
+    regime_evidence_available = (not payload_missing) and (
+        bool(top)
+        or summary.get("feature_count") is not None
+        or summary.get("metric_rows") is not None
+        or summary.get("candidate_metric_rows") is not None
+    )
+    evidence_available = regime_evidence_available or offline_evidence_available
     offline_passed = (
-        offline_available
+        offline_evidence_available
         and auc_delta is not None
         and auc_delta >= 0.002
         and topn_delta is not None
         and topn_delta >= 0
     )
-    if offline_available:
+    if offline_evidence_available:
         status = "PASS_TO_MODEL_EXP_02" if offline_passed else "MONITOR_ONLY_WEAK_MODEL_UPLIFT"
-    else:
+    elif regime_evidence_available:
         status = "PASS_TO_OFFLINE_ABLATION_WITH_CAUTION" if top else "MONITOR_ONLY"
+    else:
+        status = "MONITOR_ONLY"
     return {
         "experiment_id": "model_exp_regime_feature_group_ablation",
         "status": status,
+        "evidence_available": evidence_available,
         "metrics": {
+            "evidence_available": evidence_available,
+            "missing_evidence_reason": None if evidence_available else "regime and offline ablation artifacts are missing required primary evidence",
             "feature_count": summary.get("feature_count"),
             "metric_rows": summary.get("metric_rows"),
             "candidate_metric_rows": summary.get("candidate_metric_rows"),
@@ -211,6 +235,13 @@ def candidate_persistence_decision(current: dict[str, Any], extended: dict[str, 
         return None
     current_buckets = current.get("summary", {}).get("candidate_buckets", [])
     extended_buckets = extended.get("summary", {}).get("candidate_buckets", [])
+    current_evidence_available = not current.get("_missing") and (
+        current.get("summary", {}).get("trade_count") is not None or current.get("summary", {}).get("candidate_buckets") is not None
+    )
+    extended_evidence_available = not extended.get("_missing") and (
+        extended.get("summary", {}).get("trade_count") is not None or extended.get("summary", {}).get("candidate_buckets") is not None
+    )
+    evidence_available = current_evidence_available and extended_evidence_available
     meaningful_extended = [
         row
         for row in extended_buckets
@@ -223,7 +254,12 @@ def candidate_persistence_decision(current: dict[str, Any], extended: dict[str, 
     return {
         "experiment_id": "model_exp_candidate_persistence_only",
         "status": status,
+        "evidence_available": evidence_available,
         "metrics": {
+            "evidence_available": evidence_available,
+            "current_evidence_available": current_evidence_available,
+            "extended_evidence_available": extended_evidence_available,
+            "missing_evidence_reason": None if evidence_available else "candidate persistence current and extended ablation evidence are both required before resolving verdict",
             "current_trade_count": current.get("summary", {}).get("trade_count"),
             "current_candidate_buckets": current_buckets[:8],
             "extended_trade_count": extended.get("summary", {}).get("trade_count"),
@@ -277,6 +313,123 @@ def blocked_decisions(run_manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+def verdict_from_status(status: str) -> str:
+    if status == "PASS_TO_PROMOTION_REVIEW_QUEUE":
+        return "passed"
+    if status in {"MONITOR_ONLY_WEAK_MODEL_UPLIFT", "MONITOR_ONLY_NOT_STABLE", "MONITOR_ONLY"}:
+        return "failed"
+    if status in {"PASS_TO_LONGER_REPLAY", "PASS_TO_OFFLINE_ABLATION_WITH_CAUTION", "PASS_TO_MODEL_EXP_02"}:
+        return "partial"
+    return "pending"
+
+
+def next_action_from_status(status: str) -> str:
+    mapping = {
+        "PASS_TO_PROMOTION_REVIEW_QUEUE": "human_promotion_review_with_existing_gates",
+        "PASS_TO_LONGER_REPLAY": "collect_longer_replay_evidence",
+        "PASS_TO_OFFLINE_ABLATION_WITH_CAUTION": "run_offline_ablation_and_replay",
+        "PASS_TO_MODEL_EXP_02": "run_sealed_oos_and_replay",
+        "READY_TO_OFFLINE_ABLATION": "run_offline_ablation_before_verdict",
+        "WAIT_FOR_INDIVIDUAL_PASS": "wait_for_individual_experiments",
+    }
+    if status.startswith("BLOCKED"):
+        return "resolve_blocker_before_verdict"
+    if status.startswith("MONITOR_ONLY"):
+        return "record_failed_or_monitor_only_result"
+    return mapping.get(status, "manual_review")
+
+
+def has_actual_evidence(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list):
+        return any(has_actual_evidence(item) for item in value)
+    if isinstance(value, dict):
+        return any(has_actual_evidence(child) for child in value.values())
+    return False
+
+
+def enrich_ledger_fields(decisions: list[dict[str, Any]], run_manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    runs = {item.get("experiment_id"): item for item in run_manifest.get("runs", [])}
+    enriched = []
+    for decision in decisions:
+        run = runs.get(decision.get("experiment_id"), {})
+        ledger = run.get("ledger", {})
+        status = str(decision.get("status") or "")
+        actual_metrics = decision.get("metrics") or {"status": status, "reason": decision.get("reason")}
+        verdict = verdict_from_status(status)
+        next_action = next_action_from_status(status)
+        explicit_evidence = decision.get("evidence_available")
+        if explicit_evidence is None and isinstance(actual_metrics, dict):
+            explicit_evidence = actual_metrics.get("evidence_available")
+        evidence_available = bool(explicit_evidence) if explicit_evidence is not None else has_actual_evidence(actual_metrics)
+        if verdict in {"passed", "failed", "partial"} and not evidence_available:
+            verdict = "pending"
+            next_action = "collect_required_evidence_before_verdict"
+        enriched.append(
+            {
+                **decision,
+                "ledger_id": run.get("ledger_id") or ledger.get("id"),
+                "hypothesis": ledger.get("hypothesis"),
+                "baseline": ledger.get("baseline"),
+                "decision_policy": ledger.get("decision_policy"),
+                "actual_metrics": actual_metrics,
+                "evidence_available": evidence_available,
+                "verdict": verdict,
+                "next_action": next_action,
+                "promotion_allowed": False,
+            }
+        )
+    return enriched
+
+
+def sync_ledger_from_report(payload: dict[str, Any], ledger_path: Path, report_path: Path) -> dict[str, Any]:
+    ledger = ledger_lib.load_ledger(ledger_path)
+    updates: list[dict[str, Any]] = []
+    for decision in payload.get("decisions", []):
+        ledger_id = decision.get("ledger_id")
+        if not ledger_id:
+            updates.append({"experiment_id": decision.get("experiment_id"), "status": "missing_ledger_id"})
+            continue
+        verdict = decision.get("verdict")
+        if verdict == "pending":
+            trigger_date = payload.get("date")
+            ok, status = ledger_lib.reschedule_entry(
+                ledger,
+                str(ledger_id),
+                trigger_date=str(trigger_date),
+                reason=str(decision.get("next_action")),
+            )
+        else:
+            ok, status = ledger_lib.resolve_entry(
+                ledger,
+                str(ledger_id),
+                str(verdict),
+                result_report=repo_path(report_path),
+                actual_metrics=decision.get("actual_metrics") or {"status": decision.get("status")},
+                reason=str(decision.get("next_action")),
+            )
+        updates.append({"ledger_id": ledger_id, "status": status, "ok": ok, "verdict": verdict})
+    checks = ledger_lib.validate_ledger_payload(ledger)
+    failed = [item for item in checks if not item["ok"]]
+    failed_updates = [item for item in updates if item.get("ok") is False or item.get("status") in {"missing_ledger_id", "missing_id"}]
+    if not failed and not failed_updates:
+        ledger_lib.atomic_write_json(ledger_path, ledger)
+    return {
+        "status": "OK" if not failed and not failed_updates else "FAILED",
+        "ledger": repo_path(ledger_path),
+        "updates": updates,
+        "failed_updates": failed_updates,
+        "failed_checks": [item["name"] for item in failed[:10]],
+    }
+
+
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     run_path = resolve_path(args.run_manifest) or default_path(args, "run_manifest")
     portfolio_path = resolve_path(args.portfolio_comparison) or default_path(args, "portfolio_comparison")
@@ -299,6 +452,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         *([candidate_decision] if candidate_decision else ready_manifest_decisions(run_manifest)),
         *blocked_decisions(run_manifest),
     ]
+    decisions = enrich_ledger_fields(decisions, run_manifest)
     promote = [
         item["experiment_id"]
         for item in decisions
@@ -334,6 +488,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "blocked": blocked,
             "waiting": waiting,
             "next_missing_piece": "candidate_persistence materializer" if "model_exp_candidate_persistence_only" in blocked else None,
+            "ledger_resolver_status": "PENDING_WRITE",
         },
         "decisions": decisions,
     }
@@ -365,11 +520,63 @@ def render_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def self_test_cases() -> dict[str, bool]:
+    with tempfile.TemporaryDirectory(prefix="top10-result-resolver-") as tmp:
+        ledger_path = Path(tmp) / "ledger.json"
+        report_path = Path(tmp) / "model_exp_result_report_2026-01-05.json"
+        payload = {
+            "date": "2026-01-05",
+            "decisions": [
+                {
+                    "experiment_id": "model_exp_missing_ledger",
+                    "ledger_id": None,
+                    "status": "PASS_TO_LONGER_REPLAY",
+                    "verdict": "passed",
+                    "next_action": "sync evidence",
+                    "actual_metrics": {"sealed_top10_return_uplift": 0.003},
+                }
+            ],
+        }
+        result = sync_ledger_from_report(payload, ledger_path, report_path)
+    missing_regime_decision = regime_decision({"_missing": True}, {"_missing": True})
+    enriched_missing_regime = enrich_ledger_fields([missing_regime_decision], {"runs": []})[0]
+    missing_extended_candidate = candidate_persistence_decision(
+        {"summary": {"trade_count": 10, "candidate_buckets": [{"group": "5D::1", "return_delta": 0.01, "trade_count": 20}]}},
+        {"_missing": True},
+    )
+    enriched_missing_extended = enrich_ledger_fields([missing_extended_candidate], {"runs": []})[0] if missing_extended_candidate else {}
+    return {
+        "missing_ledger_id_marks_resolver_failed": result["status"] == "FAILED",
+        "missing_ledger_id_recorded_as_failed_update": any(item.get("status") == "missing_ledger_id" for item in result["failed_updates"]),
+        "missing_regime_evidence_stays_pending": enriched_missing_regime["verdict"] == "pending"
+        and enriched_missing_regime["next_action"] == "collect_required_evidence_before_verdict",
+        "missing_candidate_extended_evidence_stays_pending": enriched_missing_extended.get("verdict") == "pending"
+        and enriched_missing_extended.get("next_action") == "collect_required_evidence_before_verdict",
+    }
+
+
+def run_self_test() -> int:
+    checks = self_test_cases()
+    status = "OK" if all(checks.values()) else "FAILED"
+    print(json.dumps({"schema_version": f"{SCHEMA_VERSION}-self-test", "status": status, "checks": checks}, ensure_ascii=False, sort_keys=True))
+    return 0 if status == "OK" else 1
+
+
 def main() -> int:
     args = parse_args()
+    if args.self_test:
+        return run_self_test()
     payload = build_report(args)
     output = resolve_path(args.output) or MODEL_EXPERIMENTS_DIR / f"model_exp_result_report_{args.date}.json"
     output.parent.mkdir(parents=True, exist_ok=True)
+    ledger_sync = {"status": "SKIPPED", "updates": [], "failed_checks": []}
+    ledger_path = resolve_path(args.ledger)
+    if ledger_path is None:
+        raise RuntimeError("ledger path resolution failed")
+    if not args.no_ledger_update:
+        ledger_sync = sync_ledger_from_report(payload, ledger_path, output)
+    payload["summary"]["ledger_resolver_status"] = ledger_sync["status"]
+    payload["ledger_resolver"] = ledger_sync
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
     output.with_suffix(".md").write_text(render_markdown(payload), encoding="utf-8")
     print(json.dumps({"status": payload["status"], "output": repo_path(output), **payload["summary"]}, ensure_ascii=False))

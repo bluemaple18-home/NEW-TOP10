@@ -19,6 +19,16 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "market-regime-history.v1"
+BASE_REGIME_LABELS = [
+    "BROAD_RISK_ON",
+    "NARROW_LEADER",
+    "CHOPPY_RANGE",
+    "RISK_OFF",
+    "PANIC_SELLING",
+    "EARLY_REVERSAL",
+    "MIXED_NEUTRAL",
+    "UNKNOWN",
+]
 
 
 @dataclass(frozen=True)
@@ -338,16 +348,14 @@ def main() -> int:
             "research_only": True,
             "trains_model": False,
             "changes_ranking": False,
-            "regime_labels": [
-                "BROAD_RISK_ON",
-                "NARROW_LEADER",
-                "CHOPPY_RANGE",
-                "RISK_OFF",
-                "PANIC_SELLING",
-                "EARLY_REVERSAL",
-                "MIXED_NEUTRAL",
-                "UNKNOWN",
-            ],
+            "taxonomy": {
+                "base_regime_labels": BASE_REGIME_LABELS,
+                "base_regime_mutually_exclusive": True,
+                "unknown_is_data_gap_label": True,
+                "regime_family_tags_are_separate_layer": True,
+                "do_not_add_base_regime_without_contract_change": True,
+            },
+            "regime_labels": BASE_REGIME_LABELS,
         },
         "inputs": {
             "features": str(features_path),

@@ -55,6 +55,13 @@ def resolve_path(value: str) -> Path:
     return path if path.is_absolute() else PROJECT_ROOT / path
 
 
+def repo_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def price_lookup(price_frame: pd.DataFrame) -> dict[tuple[str, Any], dict[str, float]]:
     lookup: dict[tuple[str, Any], dict[str, float]] = {}
     for row in price_frame.itertuples(index=False):
@@ -570,14 +577,14 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
             "model_feature": False,
         },
         "inputs": {
-            "rankings_dir": str(resolve_path(args.rankings_dir)),
-            "features": str(resolve_path(args.features)),
+            "rankings_dir": repo_path(resolve_path(args.rankings_dir)),
+            "features": repo_path(resolve_path(args.features)),
             "top_n": args.top_n,
             "horizon": args.horizon,
             "max_ranking_files": args.max_ranking_files,
             "max_gross_exposure": args.max_gross_exposure,
             "max_position_weight": args.max_position_weight,
-            "group_map": str(resolve_path(args.group_map)) if args.max_group_exposure is not None else None,
+            "group_map": repo_path(resolve_path(args.group_map)) if args.max_group_exposure is not None else None,
             "group_column": args.group_column if args.max_group_exposure is not None else None,
             "max_group_exposure": args.max_group_exposure,
             "stop_loss_pct": args.stop_loss_pct,

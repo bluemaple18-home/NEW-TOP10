@@ -227,12 +227,23 @@ def build_run_item(experiment: dict[str, Any], available_features: set[str], run
     }
 
 
+def attach_ledger_fields(run: dict[str, Any], experiment: dict[str, Any]) -> dict[str, Any]:
+    ledger = experiment.get("ledger", {})
+    if ledger:
+        run["ledger_id"] = experiment.get("ledger_id") or ledger.get("id")
+        run["ledger"] = ledger
+    return run
+
+
 def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     plan_path = resolve_path(args.plan) or latest_plan()
     plan = load_json(plan_path)
     features_path = resolve_path(args.features)
     available_features = feature_columns(features_path)
-    runs = [build_run_item(experiment, available_features, args.date) for experiment in plan.get("experiments", [])]
+    runs = [
+        attach_ledger_fields(build_run_item(experiment, available_features, args.date), experiment)
+        for experiment in plan.get("experiments", [])
+    ]
     ready = [
         run["experiment_id"]
         for run in runs
