@@ -161,3 +161,72 @@
 - `quality_liquid_not_vertical` 不升正式 ranking guard。
 - `tier_secondary_75pct` 可列為 risk-management shadow candidate，但不能出現在短訊息版。
 - 主線下一步回到「能不能找出更好的 entry alpha」，而不是靠降權降低風險。
+
+## 2026-06-08 Industry / Theme Context Diagnostics
+
+新增 artifacts：
+
+- `artifacts/model_experiments/daily_recommendation_industry_context_diagnostics_2026-06-08.json`
+- `artifacts/model_experiments/daily_recommendation_industry_context_portfolio_replay_2026-06-08.json`
+
+資料邊界：
+
+- 使用 `data/reference/stock_industry_map.csv`、`data/reference/stock_concept_membership.csv`、`config/notification_theme_buckets.csv` 做 static grouping。
+- 產業 / 概念只當分群脈絡，不假裝是當時即時新聞。
+- 不改模型、不改 ranking score。
+
+### Factor Diagnostics
+
+初輪 survivor：
+
+- `industry_name_value_rank_top_quartile`
+- `industry_name_top10_cluster_ge2`
+- `industry_name_top10_cluster_ge3`
+- `notification_bucket_value_rank_top_quartile`
+- `notification_bucket_ret20_rank_top_quartile`
+- `notification_bucket_top10_cluster_ge2`
+- `notification_bucket_top10_cluster_ge3`
+
+最有訊號的條件：
+
+| Condition | Count | 5D avg delta | 5D loss>5 delta | 10D avg delta |
+| --- | ---: | ---: | ---: | ---: |
+| `notification_bucket_value_rank_top_quartile` | 937 | +2.23% | -3.26% | +3.18% |
+| `notification_bucket_top10_cluster_ge2` | 983 | +1.49% | -0.95% | +1.69% |
+| `notification_bucket_ret20_rank_top_quartile` | 622 | +1.18% | -0.97% | +3.44% |
+| `industry_name_top10_cluster_ge3` | 186 | +1.14% | -5.63% | +2.30% |
+
+反面發現：
+
+- `sector_name_breadth_rank_top_quartile` 表現反而較差。
+- 單純「整個 sector 很多人站上月線」不一定是好事，可能已經太擁擠。
+
+### Portfolio Replay
+
+母體仍只用 production Top10，不從 Top10 外補股。
+
+| Policy | Avg selected | Zero days | 5D avg delta | 5D DD delta | 10D avg delta | 10D DD delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `bucket_cluster_ge2` | 8.47 | 0 | +0.20% | +0.88% | +0.23% | +3.57% |
+| `bucket_value_top_q` | 8.08 | 0 | +0.30% | +1.14% | +0.50% | +0.69% |
+| `bucket_ret20_top_q` | 5.36 | 1 | +0.44% | -7.94% | +1.60% | -14.77% |
+| `bucket_value_and_ret20_top_q` | 4.72 | 1 | +0.33% | -6.70% | +1.23% | -12.59% |
+
+判讀：
+
+- `bucket_cluster_ge2` 與 `bucket_value_top_q` 是目前最乾淨的 shadow survivor。
+- `bucket_ret20_top_q` 報酬更高，但回撤變差，暫不適合小白版。
+- 單純追族群 20D 動能太激進，容易變成追高。
+
+產品含義：
+
+- 每日推薦可以保留 10 檔，但內部標記「主流族群支撐」。
+- 小白短訊息可以用白話說：「這檔不是自己一檔在漲，同族群也有資金一起進來。」
+- UI / 個股頁可以放更專業的族群資料。
+- 不應把這條直接升成 production ranking，下一步要做 shadow monitor / rerank dry-run。
+
+主線下一步：
+
+- 優先追 `bucket_cluster_ge2` 與 `bucket_value_top_q`。
+- 測「只改排序 / 標籤，不改 Top10 母體」的 daily shadow monitor。
+- 同時保留 baseline Top10 作對照組。
