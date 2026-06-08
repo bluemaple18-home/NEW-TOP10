@@ -78,6 +78,27 @@ SLICE_GROUPS: dict[str, dict[str, Any]] = {
         "kind": "ops_hardening",
         "note": "Clawd timeout wrapper 可獨立收。",
     },
+    "chip_flow_research_only": {
+        "files": [
+            "app/finmind_integrator.py",
+            "scripts/build_chip_data_contract.py",
+            "scripts/build_chip_flow_materialized_features.py",
+            "scripts/build_chip_flow_runtime_coverage.py",
+            "scripts/build_chip_warning_shadow_report.py",
+            "scripts/build_chip_warning_replay_aggregate.py",
+            "scripts/build_chip_composite_warning_report.py",
+            "scripts/build_chip_flow_readiness_report.py",
+            "scripts/verify_chip_data_contract.py",
+            "scripts/verify_chip_flow_materialized_features.py",
+            "scripts/verify_chip_flow_runtime_coverage.py",
+            "scripts/verify_chip_warning_shadow_report.py",
+            "scripts/verify_chip_warning_replay_aggregate.py",
+            "scripts/verify_chip_composite_warning_report.py",
+            "scripts/verify_chip_flow_readiness_report.py",
+        ],
+        "kind": "research_only_tooling",
+        "note": "chip-flow 只能作 research-only tooling，不可改 production ranking / score。",
+    },
 }
 
 
