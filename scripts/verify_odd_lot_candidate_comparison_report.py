@@ -63,10 +63,15 @@ def build_payload(path: Path) -> dict[str, Any]:
         {"name": "capital_levels_minimum", "ok": len(capital_levels) >= 3, "value": sorted(capital_levels)},
         {
             "name": "required_variants_present",
-            "ok": {"production_top7", "candidate_top7", "candidate_top7_sl12_min5"} <= variants,
+            "ok": {"production_top7", "production_top7_sl12_min5", "candidate_top7", "candidate_top7_sl12_min5"} <= variants,
             "value": sorted(str(value) for value in variants),
         },
-        {"name": "rows_complete", "ok": len(rows) >= len(capital_levels) * 3, "value": len(rows)},
+        {"name": "rows_complete", "ok": len(rows) >= len(capital_levels) * 4, "value": len(rows)},
+        {
+            "name": "peer_delta_present",
+            "ok": all(row.get("return_delta_vs_peer") is not None and row.get("peer_variant") for row in rows),
+            "value": rows[:3],
+        },
         {"name": "missing_empty", "ok": not payload.get("missing"), "value": payload.get("missing")},
         {
             "name": "decision_safe",
