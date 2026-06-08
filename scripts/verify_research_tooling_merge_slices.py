@@ -114,12 +114,21 @@ def touched_files(staged: bool) -> set[str]:
     return modified | untracked
 
 
+def dirty_files() -> set[str]:
+    """回傳目前工作樹中真正有變動的檔案，排除 tracked unchanged 檔。"""
+    modified = git_names(["diff", "--name-only"])
+    staged = git_names(["diff", "--cached", "--name-only"])
+    untracked = git_names(["ls-files", "--others", "--exclude-standard"])
+    return modified | staged | untracked
+
+
 def build_report(
     staged: bool,
     allow_multiple_slices: bool = False,
     touched_override: set[str] | None = None,
 ) -> dict[str, Any]:
     touched = touched_files(staged) if touched_override is None else touched_override
+    dirty = dirty_files() if touched_override is None else touched_override
     checks: list[dict[str, Any]] = []
     touched_slice_names: list[str] = []
     for name, spec in SLICE_GROUPS.items():
@@ -142,8 +151,8 @@ def build_report(
         present_files = existing(files)
         if staged:
             staged_files = sorted(set(files) & touched)
-            required_if_staged = [path for path in files if (PROJECT_ROOT / path).exists()]
-            missing_from_stage = sorted(set(required_if_staged) - touched)
+            required_if_staged = set(files) & dirty
+            missing_from_stage = sorted(required_if_staged - touched)
             ok = not missing_from_stage
             message = "complete staged slice" if ok else "partial staged slice"
             checks.append(
