@@ -16,6 +16,7 @@ import yaml
 from app.data.fundamental_repository import FundamentalRepository
 from app.fundamentals import compute_financial_metrics
 from app.fundamentals.metrics import FinancialYearMetrics
+from app.modeling.factor_registry import trainable_factor_columns
 
 
 KEY_COLUMNS = ("trade_date", "stock_id")
@@ -155,10 +156,11 @@ def candidate_feature_columns(frame: pd.DataFrame, metadata: FeatureFrameMetadat
             continue
         if group in metadata.feature_groups:
             grouped_columns.extend(metadata.feature_groups[group].columns)
+    trainable_columns = set(trainable_factor_columns(frame, metadata))
     return [
         col
         for col in grouped_columns
-        if col in frame.columns and col not in NON_FEATURE_COLUMNS and pd.api.types.is_numeric_dtype(frame[col])
+        if col in trainable_columns and col not in NON_FEATURE_COLUMNS
     ]
 
 

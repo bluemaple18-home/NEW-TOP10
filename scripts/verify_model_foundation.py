@@ -15,7 +15,13 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.fundamentals import compute_financial_metrics, normalize_goodinfo_statements, sanity_check, score_fundamentals
 from app.fundamentals.goodinfo_client import parse_financial_table, parse_number
-from app.modeling import FUNDAMENTAL_FEATURE_COLUMNS, build_m4_feature_frame, candidate_feature_columns
+from app.modeling import (
+    FUNDAMENTAL_FEATURE_COLUMNS,
+    build_factor_run_manifest,
+    build_m4_feature_frame,
+    candidate_feature_columns,
+    validate_factor_registry,
+)
 from app.modeling import MODEL_SPECS, validate_model_registry
 from app.pipeline.fundamental_stage import FundamentalStage
 from app.services.fundamental_service import FundamentalService
@@ -165,6 +171,7 @@ def verify_m4_feature_contract() -> None:
                 "ma20": 10,
                 "rsi": 50,
                 "volume_spike": 1,
+                "future_alpha": 99,
             },
             {
                 "date": pd.Timestamp("2025-04-02 10:00"),
@@ -178,6 +185,7 @@ def verify_m4_feature_contract() -> None:
                 "ma20": 11,
                 "rsi": 55,
                 "volume_spike": 0,
+                "future_alpha": 88,
             },
         ]
     )
@@ -225,6 +233,13 @@ def verify_m4_feature_contract() -> None:
     assert "event_break_20d_high" in candidates
     assert "event_volume_spike" in candidates
     assert set(FUNDAMENTAL_FEATURE_COLUMNS).issubset(candidates)
+    assert "future_alpha" not in candidates
+    factor_issues = validate_factor_registry(frame, metadata)
+    assert any(issue.factor_id == "future_alpha" and issue.severity == "ERROR" for issue in factor_issues)
+    manifest = build_factor_run_manifest(frame, metadata)
+    assert manifest["status"] == "FAILED"
+    assert manifest["contract"]["does_not_train_model"] is True
+    assert manifest["contract"]["does_not_change_production_ranking"] is True
 
 
 if __name__ == "__main__":
