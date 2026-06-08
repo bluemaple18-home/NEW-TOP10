@@ -8,6 +8,7 @@ NEWCLAWD_NODE="${NEWCLAWD_NODE:-/opt/homebrew/opt/node/bin/node}"
 NEWCLAWD_CLI="${NEWCLAWD_CLI:-/Users/mattkuo/new clawd/dist/index.js}"
 NEWCLAWD_CHANNEL="${NEWCLAWD_CHANNEL:-discord}"
 NEWCLAWD_TARGET="${NEWCLAWD_TARGET:-channel:1507327845003825154}"
+NEWCLAWD_TIMEOUT_SECONDS="${NEWCLAWD_TIMEOUT_SECONDS:-60}"
 
 DRY_RUN=0
 MESSAGE=""
@@ -77,6 +78,13 @@ if [ -z "$MESSAGE" ]; then
   exit 2
 fi
 
+case "$NEWCLAWD_TIMEOUT_SECONDS" in
+  ''|*[!0-9]*)
+    echo "NEWCLAWD_TIMEOUT_SECONDS must be a non-negative integer" >&2
+    exit 2
+    ;;
+esac
+
 json_escape() {
   local value="$1"
   value="${value//\\/\\\\}"
@@ -129,8 +137,34 @@ STDOUT_FILE="$(mktemp "${TMPDIR:-/tmp}/stock_notify_stdout.XXXXXX")"
 STDERR_FILE="$(mktemp "${TMPDIR:-/tmp}/stock_notify_stderr.XXXXXX")"
 trap 'rm -f "$STDOUT_FILE" "$STDERR_FILE"' EXIT
 
-"${CMD[@]}" > "$STDOUT_FILE" 2> "$STDERR_FILE"
-EXIT_CODE=$?
+if [ "$NEWCLAWD_TIMEOUT_SECONDS" -eq 0 ]; then
+  "${CMD[@]}" > "$STDOUT_FILE" 2> "$STDERR_FILE"
+  EXIT_CODE=$?
+else
+  "${CMD[@]}" > "$STDOUT_FILE" 2> "$STDERR_FILE" &
+  CMD_PID=$!
+  ELAPSED=0
+  EXIT_CODE=""
+
+  while kill -0 "$CMD_PID" 2>/dev/null; do
+    if [ "$ELAPSED" -ge "$NEWCLAWD_TIMEOUT_SECONDS" ]; then
+      kill "$CMD_PID" 2>/dev/null
+      sleep 1
+      kill -9 "$CMD_PID" 2>/dev/null
+      wait "$CMD_PID" 2>/dev/null
+      EXIT_CODE=124
+      printf 'New Clawd send timed out after %s seconds\n' "$NEWCLAWD_TIMEOUT_SECONDS" >> "$STDERR_FILE"
+      break
+    fi
+    sleep 1
+    ELAPSED=$((ELAPSED + 1))
+  done
+
+  if [ -z "$EXIT_CODE" ]; then
+    wait "$CMD_PID"
+    EXIT_CODE=$?
+  fi
+fi
 
 if [ "$EXIT_CODE" -eq 0 ]; then
   cat "$STDOUT_FILE"
