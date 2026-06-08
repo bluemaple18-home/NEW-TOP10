@@ -33,9 +33,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--features", default="data/clean/features.parquet")
     parser.add_argument("--horizon", type=int, default=5)
     parser.add_argument("--top-n", type=int, default=10)
+    parser.add_argument("--entry-delay-trade-days", type=int, default=1, help="ranking D 日後第 N 個交易日開盤進場；預設 1 代表 D+1")
     parser.add_argument("--max-ranking-files", type=int, default=None)
     parser.add_argument("--initial-cash", type=float, default=1.0)
     parser.add_argument("--max-gross-exposure", type=float, default=0.65)
+    parser.add_argument("--market-regime-history", default=None)
+    parser.add_argument("--big-bull-gross-exposure", type=float, default=None)
+    parser.add_argument("--high-choppy-gross-exposure", type=float, default=None)
+    parser.add_argument("--other-family-gross-exposure", type=float, default=None)
     parser.add_argument("--max-position-weight", type=float, default=0.2)
     parser.add_argument("--fee-rate", type=float, default=0.001425)
     parser.add_argument("--tax-rate", type=float, default=0.003)
@@ -45,6 +50,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-group-exposure", type=float, default=None)
     parser.add_argument("--stop-loss-pct", type=float, default=None)
     parser.add_argument("--take-profit-pct", type=float, default=None)
+    parser.add_argument("--trailing-stop-pct", type=float, default=None)
+    parser.add_argument("--min-event-holding-days", type=int, default=1)
     parser.add_argument("--same-day-hit-priority", choices=["stop_loss", "take_profit"], default="stop_loss")
     parser.add_argument("--output", default=None)
     return parser.parse_args()
@@ -99,12 +106,19 @@ def build_entry_plans(
     price_index = run_backtest_replay.build_price_index(price_frame)
     plans: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
+    entry_delay_trade_days = getattr(args, "entry_delay_trade_days", 1)
 
     for ranking_path in files:
         ranking_date = run_backtest_replay.ranking_date(ranking_path)
-        entry_date = run_backtest_replay.next_market_trade_date(trade_dates, ranking_date)
+        entry_date = run_backtest_replay.next_market_trade_date(trade_dates, ranking_date, entry_delay_trade_days)
         if entry_date is None:
-            skipped.append({"ranking_date": ranking_date, "reason": "missing_next_market_trade_day"})
+            skipped.append(
+                {
+                    "ranking_date": ranking_date,
+                    "reason": "missing_next_market_trade_day",
+                    "entry_delay_trade_days": entry_delay_trade_days,
+                }
+            )
             continue
         holding_dates = run_backtest_replay.market_holding_dates(trade_dates, entry_date, args.horizon)
         if holding_dates is None:
@@ -163,6 +177,40 @@ def build_entry_plans(
     return plans, skipped
 
 
+def build_regime_gross_map(args: argparse.Namespace) -> dict[str, float]:
+    if args.market_regime_history is None:
+        return {}
+    if (
+        args.big_bull_gross_exposure is None
+        and args.high_choppy_gross_exposure is None
+        and args.other_family_gross_exposure is None
+    ):
+        return {}
+    try:
+        from scripts.build_high_choppy_context_overlay import load_regime_frame, rolling_high_choppy
+        from scripts.research_regime_family_training_candidates import is_big_bull
+    except ImportError as exc:
+        raise RuntimeError(
+            "regime gross exposure replay requires build_high_choppy_context_overlay.py "
+            "and research_regime_family_training_candidates.py to be included in the same slice"
+        ) from exc
+    frame = load_regime_frame(resolve_path(args.market_regime_history))
+    frame["BIG_BULL"] = frame.apply(is_big_bull, axis=1)
+    frame["HIGH_CHOPPY_CONTEXT"] = frame.apply(rolling_high_choppy, axis=1)
+    result: dict[str, float] = {}
+    for row in frame.itertuples(index=False):
+        date_text = str(row.trade_date_text)
+        value = float(args.max_gross_exposure)
+        if bool(row.HIGH_CHOPPY_CONTEXT) and args.high_choppy_gross_exposure is not None:
+            value = float(args.high_choppy_gross_exposure)
+        elif bool(row.BIG_BULL) and args.big_bull_gross_exposure is not None:
+            value = float(args.big_bull_gross_exposure)
+        elif args.other_family_gross_exposure is not None:
+            value = float(args.other_family_gross_exposure)
+        result[date_text] = value
+    return result
+
+
 def market_value(positions: list[dict[str, Any]], prices: dict[tuple[str, Any], dict[str, float]], trade_date: Any, field: str) -> float:
     value = 0.0
     for position in positions:
@@ -194,6 +242,8 @@ def event_exit(
     trade_date: Any,
     stop_loss_pct: float | None,
     take_profit_pct: float | None,
+    trailing_stop_pct: float | None,
+    min_event_holding_days: int,
     same_day_hit_priority: str,
 ) -> dict[str, Any] | None:
     bar = prices.get((position["stock_id"], trade_date))
@@ -203,17 +253,28 @@ def event_exit(
     high = bar.get("high")
     if low is None or high is None or pd.isna(low) or pd.isna(high):
         return None
+    position["high_water"] = max(float(position.get("high_water") or position["entry_price"]), float(high))
+    if int(position.get("holding_bar_count") or 0) < int(min_event_holding_days):
+        return None
     entry_price = float(position["entry_price"])
     stop_price = entry_price * (1 - stop_loss_pct) if stop_loss_pct is not None else None
     take_price = entry_price * (1 + take_profit_pct) if take_profit_pct is not None else None
+    trailing_price = (
+        float(position["high_water"]) * (1 - trailing_stop_pct)
+        if trailing_stop_pct is not None
+        else None
+    )
     stop_hit = stop_price is not None and float(low) <= stop_price
     take_hit = take_price is not None and float(high) >= take_price
+    trailing_hit = trailing_price is not None and float(low) <= trailing_price
     if stop_hit and take_hit:
         if same_day_hit_priority == "take_profit":
             return {"exit_reason": "take_profit", "exit_price": float(take_price), "ambiguous_intraday_order": True}
         return {"exit_reason": "stop_loss", "exit_price": float(stop_price), "ambiguous_intraday_order": True}
     if stop_hit:
         return {"exit_reason": "stop_loss", "exit_price": float(stop_price), "ambiguous_intraday_order": False}
+    if trailing_hit:
+        return {"exit_reason": "trailing_stop", "exit_price": float(trailing_price), "ambiguous_intraday_order": False}
     if take_hit:
         return {"exit_reason": "take_profit", "exit_price": float(take_price), "ambiguous_intraday_order": False}
     return None
@@ -394,6 +455,7 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
     prices = price_lookup(price_frame)
     group_map = load_group_map(resolve_path(args.group_map), args.group_column) if args.max_group_exposure is not None else {}
     plans, skipped = build_entry_plans(args, price_frame, trade_dates, group_map)
+    regime_gross_map = build_regime_gross_map(args)
     plans_by_entry: dict[Any, list[dict[str, Any]]] = {}
     for plan in plans:
         plans_by_entry.setdefault(plan["entry_date"], []).append(plan)
@@ -409,9 +471,10 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
     previous_equity = equity
 
     for trade_date in sim_dates:
+        current_max_gross_exposure = regime_gross_map.get(trade_date.isoformat(), float(args.max_gross_exposure))
         open_exposure = market_value(positions, prices, trade_date, "open")
         open_group_exposures = group_market_values(positions, prices, trade_date, "open")
-        gross_headroom = max(0.0, equity * args.max_gross_exposure - open_exposure)
+        gross_headroom = max(0.0, equity * current_max_gross_exposure - open_exposure)
         cash_headroom = max(0.0, cash)
         entry_plans = plans_by_entry.get(trade_date, [])
         desired_entries = []
@@ -447,6 +510,8 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
                 **plan,
                 "shares": shares,
                 "entry_price": open_price,
+                "high_water": open_price,
+                "holding_bar_count": 0,
                 "entry_notional": notional,
                 "entry_cash_cost": cash_cost,
             }
@@ -458,15 +523,19 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
         exit_count = 0
         stop_loss_count = 0
         take_profit_count = 0
+        trailing_stop_count = 0
         scheduled_exit_count = 0
         remaining: list[dict[str, Any]] = []
         for position in positions:
+            position["holding_bar_count"] = int(position.get("holding_bar_count") or 0) + 1
             event = event_exit(
                 position=position,
                 prices=prices,
                 trade_date=trade_date,
                 stop_loss_pct=args.stop_loss_pct,
                 take_profit_pct=args.take_profit_pct,
+                trailing_stop_pct=args.trailing_stop_pct,
+                min_event_holding_days=args.min_event_holding_days,
                 same_day_hit_priority=args.same_day_hit_priority,
             )
             if event is not None:
@@ -487,6 +556,8 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
                     stop_loss_count += 1
                 if trade["exit_reason"] == "take_profit":
                     take_profit_count += 1
+                if trade["exit_reason"] == "trailing_stop":
+                    trailing_stop_count += 1
                 continue
             if position["exit_date"] != trade_date:
                 remaining.append(position)
@@ -517,7 +588,7 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
             prices=prices,
             trade_date=trade_date,
             cash=cash,
-            max_gross_exposure=float(args.max_gross_exposure),
+            max_gross_exposure=float(current_max_gross_exposure),
             fee_rate=float(args.fee_rate),
             tax_rate=float(args.tax_rate),
             slippage_rate=float(args.slippage_rate),
@@ -544,6 +615,7 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
                 "daily_return": round(daily_return, 6),
                 "cash": round(cash, 6),
                 "gross_exposure": round(close_exposure / equity, 6) if equity else 0.0,
+                "max_gross_exposure_limit": round(float(current_max_gross_exposure), 6),
                 "group_exposures": {
                     group: round(value / equity, 6) for group, value in sorted(close_group_exposures.items())
                 }
@@ -555,6 +627,7 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
                 "scheduled_exits": scheduled_exit_count,
                 "stop_loss_exits": stop_loss_count,
                 "take_profit_exits": take_profit_count,
+                "trailing_stop_exits": trailing_stop_count,
                 "close_exposure_before_exit": round(close_exposure_before_exit, 6),
                 "close_exposure_before_deleverage": round(close_exposure_before_deleverage, 6),
                 **deleverage,
@@ -567,12 +640,12 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "contract": {
             "signal_timing": "D close ranking artifact",
-            "entry_timing": "D+1 open",
+            "entry_timing": f"D+{getattr(args, 'entry_delay_trade_days', 1)} open",
             "exit_timing": f"fixed {args.horizon} market bars, exit at close",
             "overlapping_positions": True,
             "exposure_policy": "close exposure is deleveraged after scheduled exits to stay within max_gross_exposure",
             "group_exposure_policy": "optional max_group_exposure caps same-group exposure at entry and after close",
-            "event_exit_policy": "optional stop_loss/take_profit exits are evaluated on each market bar before scheduled horizon close",
+            "event_exit_policy": "optional stop_loss/take_profit/trailing_stop exits are evaluated on each market bar before scheduled horizon close",
             "same_day_hit_policy": f"{args.same_day_hit_priority} priority when stop and target are both inside the same bar",
             "model_feature": False,
         },
@@ -581,14 +654,21 @@ def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.Dat
             "features": repo_path(resolve_path(args.features)),
             "top_n": args.top_n,
             "horizon": args.horizon,
+            "entry_delay_trade_days": getattr(args, "entry_delay_trade_days", 1),
             "max_ranking_files": args.max_ranking_files,
             "max_gross_exposure": args.max_gross_exposure,
+            "market_regime_history": repo_path(resolve_path(args.market_regime_history)) if args.market_regime_history else None,
+            "big_bull_gross_exposure": args.big_bull_gross_exposure,
+            "high_choppy_gross_exposure": args.high_choppy_gross_exposure,
+            "other_family_gross_exposure": args.other_family_gross_exposure,
             "max_position_weight": args.max_position_weight,
             "group_map": repo_path(resolve_path(args.group_map)) if args.max_group_exposure is not None else None,
             "group_column": args.group_column if args.max_group_exposure is not None else None,
             "max_group_exposure": args.max_group_exposure,
             "stop_loss_pct": args.stop_loss_pct,
             "take_profit_pct": args.take_profit_pct,
+            "trailing_stop_pct": args.trailing_stop_pct,
+            "min_event_holding_days": args.min_event_holding_days,
             "same_day_hit_priority": args.same_day_hit_priority,
             "costs": {
                 "fee_rate": args.fee_rate,

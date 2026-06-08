@@ -126,6 +126,16 @@ def event_price_rows() -> list[dict[str, object]]:
     ]
 
 
+def trailing_price_rows() -> list[dict[str, object]]:
+    return [
+        {"stock_id": "9998", "trade_date": "2026-05-04", "open": 100, "high": 100, "low": 100, "close": 100},
+        {"stock_id": "9998", "trade_date": "2026-05-05", "open": 100, "high": 105, "low": 99, "close": 104},
+        {"stock_id": "9998", "trade_date": "2026-05-06", "open": 104, "high": 130, "low": 103, "close": 128},
+        {"stock_id": "9998", "trade_date": "2026-05-07", "open": 128, "high": 129, "low": 116, "close": 118},
+        {"stock_id": "9998", "trade_date": "2026-05-08", "open": 118, "high": 119, "low": 117, "close": 118},
+    ]
+
+
 def multi_group_price_rows() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for index in range(10):
@@ -381,6 +391,44 @@ def main() -> int:
         group_payload = json.loads(group_output_text)
         event_output_text = event_output.read_text(encoding="utf-8")
         event_payload = json.loads(event_output_text)
+        trailing_rankings_dir = root / "trailing_artifacts"
+        trailing_rankings_dir.mkdir()
+        write_ranking(trailing_rankings_dir / "ranking_2026-05-04.csv", [("9998", "回吐", "0.2")])
+        trailing_features = pd.DataFrame(trailing_price_rows())
+        trailing_features["trade_date"] = pd.to_datetime(trailing_features["trade_date"])
+        trailing_features_path = root / "trailing_features.parquet"
+        trailing_features.to_parquet(trailing_features_path)
+        trailing_output = root / "portfolio_replay_trailing.json"
+        trailing_completed = subprocess.run(
+            [
+                sys.executable,
+                str(PROJECT_ROOT / "scripts" / "run_portfolio_replay.py"),
+                "--rankings-dir",
+                str(trailing_rankings_dir),
+                "--features",
+                str(trailing_features_path),
+                "--horizon",
+                "4",
+                "--top-n",
+                "1",
+                "--trailing-stop-pct",
+                "0.1",
+                "--min-event-holding-days",
+                "3",
+                "--output",
+                str(trailing_output),
+            ],
+            cwd=PROJECT_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if trailing_completed.returncode != 0:
+            print(trailing_completed.stdout)
+            print(trailing_completed.stderr, file=sys.stderr)
+            return trailing_completed.returncode
+        trailing_output_text = trailing_output.read_text(encoding="utf-8")
+        trailing_payload = json.loads(trailing_output_text)
         multi_group_output_text = multi_group_output.read_text(encoding="utf-8")
         multi_group_payload = json.loads(multi_group_output_text)
         daily = payload["daily"]
@@ -392,6 +440,8 @@ def main() -> int:
         skipped_reasons = {(item.get("stock_id"), item.get("reason")) for item in skipped}
         event_reasons = {trade["stock_id"]: trade["exit_reason"] for trade in event_payload["trades"]}
         event_exit_dates = {trade["stock_id"]: trade["exit_date"] for trade in event_payload["trades"]}
+        trailing_reasons = {trade["stock_id"]: trade["exit_reason"] for trade in trailing_payload["trades"]}
+        trailing_exit_dates = {trade["stock_id"]: trade["exit_date"] for trade in trailing_payload["trades"]}
         checks = {
             "schema_ok": payload["schema_version"] == "overlap-portfolio-replay.v1",
             "contract_declares_overlap": payload["contract"]["overlapping_positions"] is True,
@@ -417,7 +467,7 @@ def main() -> int:
             "group_exposure_artifact_exists": any(item.get("group_exposures") for item in group_payload["daily"]),
             "group_no_nan_json_literal": "NaN" not in group_output_text,
             "event_exit_contract": event_payload["contract"]["event_exit_policy"]
-            == "optional stop_loss/take_profit exits are evaluated on each market bar before scheduled horizon close",
+            == "optional stop_loss/take_profit/trailing_stop exits are evaluated on each market bar before scheduled horizon close",
             "stop_loss_exit": event_reasons.get("7777") == "stop_loss",
             "take_profit_exit": event_reasons.get("8888") == "take_profit",
             "event_exits_before_horizon_close": event_exit_dates.get("7777") == "2026-03-03"
@@ -426,6 +476,10 @@ def main() -> int:
                 item.get("stop_loss_exits") == 1 and item.get("take_profit_exits") == 1 for item in event_payload["daily"]
             ),
             "event_no_nan_json_literal": "NaN" not in event_output_text,
+            "trailing_stop_exit": trailing_reasons.get("9998") == "trailing_stop",
+            "trailing_exit_before_horizon_close": trailing_exit_dates.get("9998") == "2026-05-07",
+            "trailing_daily_count": any(item.get("trailing_stop_exits") == 1 for item in trailing_payload["daily"]),
+            "trailing_no_nan_json_literal": "NaN" not in trailing_output_text,
             "multi_group_drift_capped": multi_group_payload["summary"]["max_group_exposure"] <= 0.050001,
             "multi_group_all_groups_checked": len(
                 {

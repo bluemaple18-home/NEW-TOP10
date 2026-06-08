@@ -31,6 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--features", default="data/clean/features.parquet", help="features parquet，需含 OHLC")
     parser.add_argument("--horizons", default="1,3,5,10", help="持有期交易日數，例如 1,3,5,10")
     parser.add_argument("--top-n", type=int, default=10, help="每份 ranking 取前 N 檔")
+    parser.add_argument("--entry-delay-trade-days", type=int, default=1, help="ranking D 日後第 N 個交易日開盤進場；預設 1 代表 D+1")
     parser.add_argument("--max-ranking-files", type=int, default=None, help="限制處理最近 N 份 ranking，用於本機輕量驗證")
     parser.add_argument("--fee-rate", type=float, default=0.001425, help="單邊手續費率")
     parser.add_argument("--tax-rate", type=float, default=0.003, help="賣出證交稅率")
@@ -91,6 +92,11 @@ def read_ranking(path: Path, top_n: int) -> list[dict[str, Any]]:
                 "gross_exposure": parse_float(row.get("gross_exposure")),
                 "industry_name": row.get("industry_name"),
                 "sector_name": row.get("sector_name"),
+                "entry_low": parse_float(row.get("entry_low")),
+                "entry_high": parse_float(row.get("entry_high")),
+                "stop_loss": parse_float(row.get("stop_loss")),
+                "target_price": parse_float(row.get("target_price")),
+                "risk_reward": parse_float(row.get("risk_reward")),
             }
         )
     return result
@@ -128,11 +134,18 @@ def market_trade_dates(frame: pd.DataFrame) -> list[Any]:
     return sorted(frame["trade_date"].dropna().unique())
 
 
-def next_market_trade_date(trade_dates: list[Any], ranking_date_text: str) -> Any | None:
+def next_market_trade_date(trade_dates: list[Any], ranking_date_text: str, delay_trade_days: int = 1) -> Any | None:
+    """取得 ranking 日後第 N 個交易日，用於測試 D+1/D+2 進場敏感度。"""
+
+    if delay_trade_days < 1:
+        raise ValueError("entry delay must be >= 1")
     ranking_date_value = datetime.fromisoformat(ranking_date_text).date()
+    seen = 0
     for trade_date in trade_dates:
         if trade_date > ranking_date_value:
-            return trade_date
+            seen += 1
+            if seen == delay_trade_days:
+                return trade_date
     return None
 
 
@@ -190,6 +203,7 @@ def simulate_trade(
 
 def run_replay(args: argparse.Namespace) -> dict[str, Any]:
     horizons = [int(value.strip()) for value in args.horizons.split(",") if value.strip()]
+    entry_delay_trade_days = getattr(args, "entry_delay_trade_days", 1)
     rankings_dir = resolve_path(args.rankings_dir)
     features_path = resolve_path(args.features)
     price_frame = load_price_frame(features_path)
@@ -203,10 +217,17 @@ def run_replay(args: argparse.Namespace) -> dict[str, Any]:
     for ranking_path in files:
         date_text = ranking_date(ranking_path)
         ranking_items = read_ranking(ranking_path, args.top_n)
-        entry_date = next_market_trade_date(trade_dates, date_text)
+        entry_date = next_market_trade_date(trade_dates, date_text, entry_delay_trade_days)
         if entry_date is None:
             for item in ranking_items:
-                skipped.append({"ranking_date": date_text, "stock_id": item["stock_id"], "reason": "missing_next_market_trade_day"})
+                skipped.append(
+                    {
+                        "ranking_date": date_text,
+                        "stock_id": item["stock_id"],
+                        "reason": "missing_next_market_trade_day",
+                        "entry_delay_trade_days": entry_delay_trade_days,
+                    }
+                )
             continue
         weights = portfolio_weights(
             ranking_items,
@@ -307,8 +328,8 @@ def run_replay(args: argparse.Namespace) -> dict[str, Any]:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "contract": {
             "signal_timing": "D close ranking artifact",
-            "entry_timing": "D+1 open",
-            "entry_bar_policy": "use next market trading day; skip stocks without OHLC/open on that date",
+            "entry_timing": f"D+{entry_delay_trade_days} open",
+            "entry_bar_policy": "use configured future market trading day; skip stocks without OHLC/open on that date",
             "lookahead_guard": "ranking date only selects future OHLC for simulated execution",
             "portfolio_equity_curve": "bucket_only",
             "portfolio_policy": "per-ranking-date bucket; no overlapping-position rebalance in v1",
@@ -319,6 +340,7 @@ def run_replay(args: argparse.Namespace) -> dict[str, Any]:
             "ranking_files": repo_paths(files),
             "top_n": args.top_n,
             "horizons": horizons,
+            "entry_delay_trade_days": entry_delay_trade_days,
             "costs": {
                 "fee_rate": args.fee_rate,
                 "tax_rate": args.tax_rate,
