@@ -103,3 +103,61 @@
 - 不作正式模型升版證據。
 - 不可用這份結果直接改 production ranking。
 - 下一關仍必須用 shadow replay / portfolio replay 驗證。
+
+## 2026-06-08 Shadow Guard / Tiered Exposure Replay
+
+新增 artifacts：
+
+- `artifacts/model_experiments/daily_recommendation_quality_guard_portfolio_replay_2026-06-08.json`
+- `artifacts/model_experiments/daily_recommendation_quality_tiered_exposure_replay_2026-06-08.json`
+
+### Guard-only Replay
+
+規則：
+
+- 母體只用既有 production Top10。
+- 不從 Top10 以外補股票。
+- `quality_liquid_not_vertical`：20D 均額 >= 1 億，且 20D 漲幅 <= 40%。
+
+結果：
+
+| Policy | Avg selected | 5D avg delta | 5D DD delta | 10D avg delta | 10D DD delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `quality_liquid_not_vertical` | 6.63 | +0.33% | -2.32% | +0.45% | +1.45% |
+| `quality_liquid_not_extended` | 4.14 | -0.03% | -12.10% | -0.40% | -8.93% |
+| `liquid_300m_only` | 5.80 | +0.31% | -9.92% | +0.99% | -15.17% |
+
+判讀：
+
+- 直接剔除不是好解法。
+- `quality_liquid_not_vertical` 報酬略好，但 5D drawdown 變差，不能當正式 guard。
+- 更嚴格的流動性門檻反而造成集中與回撤惡化。
+
+### Tiered Exposure Replay
+
+規則：
+
+- 符合 `quality_liquid_not_vertical` 的股票視為 primary。
+- 不符合者仍保留在 Top10，但降權。
+- 降權後多出來的部分視為現金。
+
+結果：
+
+| Policy | Gross | 5D avg delta | 5D DD delta | 10D avg delta | 10D DD delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `tier_secondary_75pct` | 91.57% | -0.19% | +2.38% | -0.49% | +2.67% |
+| `tier_secondary_50pct` | 83.15% | -0.37% | +4.83% | -0.99% | +5.20% |
+| `tier_secondary_25pct` | 74.72% | -0.56% | +7.35% | -1.48% | +7.76% |
+| `guard_only_cash_rest` | 66.29% | -0.75% | +9.94% | -1.97% | +10.37% |
+
+判讀：
+
+- 降權能降低回撤，但代價是少賺。
+- 這比較像資金管理 / 小白風險提示，不是選股模型變強。
+- 若要接產品，應該放在 UI 的「保守觀察」或個股頁說明，不應改每日 Top10 排名。
+
+下一步調整：
+
+- `quality_liquid_not_vertical` 不升正式 ranking guard。
+- `tier_secondary_75pct` 可列為 risk-management shadow candidate，但不能出現在短訊息版。
+- 主線下一步回到「能不能找出更好的 entry alpha」，而不是靠降權降低風險。
