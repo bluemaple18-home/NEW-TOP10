@@ -254,6 +254,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "entry_timing": f"D+{args.entry_delay_trade_days} open",
             "odd_lot": True,
             "fractional_shares": False,
+            "exposure_policy": "max_gross_exposure only constrains new entries; exposure can drift with price moves until exits",
             "production_changes": False,
             "model_changes": False,
             "promotion_ready": False,
