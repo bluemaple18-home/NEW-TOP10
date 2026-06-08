@@ -71,3 +71,31 @@
 - `artifacts/model_experiments/chip_warning_replay_aggregate_2026-06-08.json`
 - `artifacts/model_experiments/chip_composite_warning_report_top10_20d_2026-06-08.json`
 - `artifacts/model_experiments/chip_flow_readiness_report_2026-06-08.json`
+
+## 2026-06-08 初輪研究結果
+
+新增 research artifacts：
+
+- `artifacts/model_experiments/exit_signal_reversal_research_2026-06-08.json`
+- `artifacts/model_experiments/exit_signal_volume_warning_portfolio_replay_2026-06-08.json`
+
+結論：
+
+- `price_break_after_overheat`、`momentum_rollover_after_overheat`、`overheat_reversal_composite` 目前不適合當 warning。
+- 這些訊號在 Top10 強勢股樣本裡，反而呈現較高平均報酬、較低大跌率，較像洗盤或強勢延續。
+- `rank_momentum_break` 單獨效果也不乾淨，不可當出場警訊。
+- `volume_climax_reversal` 與 `volume_climax_after_overheat` 是目前唯一可進下一關的 warning-only shadow monitor candidate。
+
+關鍵數字：
+
+| Signal | 5D 樣本 | 5D 標的平均差 | 10D 回撤改善 | 判定 |
+| --- | ---: | ---: | ---: | --- |
+| `volume_climax_reversal` | 39 | -1.50% | +0.67% | warning monitor candidate |
+| `volume_climax_after_overheat` | 32 | -0.86% | +0.67% | warning monitor candidate |
+| `volume_climax_plus_rank_break` | 21 | -1.75% | +0.08% | 樣本不足 |
+
+下一步：
+
+- 只把 `volume_climax_reversal` 做 daily warning-only shadow monitor。
+- 仍不得作個人持倉賣出通知。
+- 仍不得進 production ranking、`risk_adjusted_score` 或正式推播。
