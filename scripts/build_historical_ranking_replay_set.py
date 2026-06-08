@@ -10,7 +10,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from contextlib import redirect_stdout
 from datetime import date, datetime, timezone
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.agent_b_ranking import StockRanker
+from app.modeling.feature_contract import load_m4_feature_frame
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--stride", type=int, default=1, help="每 N 個交易日取一天")
     parser.add_argument("--max-dates", type=int, default=None)
+    parser.add_argument("--legacy-per-date-load", action="store_true", help="使用舊版逐日重載 feature frame；只保留作回歸對照")
     parser.add_argument("--manifest", default=None)
     return parser.parse_args()
 
@@ -71,6 +75,105 @@ def load_trade_dates(data_dir: Path, start_date: str, end_date: str, stride: int
     return selected
 
 
+def load_universe(data_dir: Path, features: pd.DataFrame) -> pd.DataFrame:
+    universe_path = data_dir / "universe.parquet"
+    if universe_path.exists():
+        universe = pd.read_parquet(universe_path)
+        if not universe.empty:
+            universe["stock_id"] = universe["stock_id"].astype(str).str.strip()
+            if "date" in universe.columns:
+                universe["date"] = pd.to_datetime(universe["date"], errors="coerce")
+                universe["trade_date"] = universe["date"].dt.normalize()
+            return universe
+    return pd.DataFrame({"stock_id": features["stock_id"].astype(str).str.strip().unique()})
+
+
+def prepare_batch_frames(ranker: StockRanker) -> tuple[pd.DataFrame, pd.DataFrame]:
+    features, feature_metadata = load_m4_feature_frame(
+        data_dir=ranker.data_dir,
+        project_root=ranker._project_root(),
+        config_path=ranker.config_path,
+    )
+    features.attrs["m4_feature_metadata"] = feature_metadata
+    ranker._ensure_unique_trade_keys(features, "m4_feature_frame")
+    features = features.sort_values(["stock_id", "trade_date"]).copy()
+    # 歷史研究一次算完整壓力線，避免逐日重建 rolling feature frame。
+    features["ref_high_20d"] = features.groupby("stock_id")["high"].transform(lambda x: x.shift(1).rolling(20).max())
+    features["ref_high_60d"] = features.groupby("stock_id")["high"].transform(lambda x: x.shift(1).rolling(60).max())
+    universe = load_universe(ranker.data_dir, features)
+    ranker._ensure_unique_trade_keys(universe, "universe.parquet")
+    return features, universe
+
+
+def daily_universe(universe: pd.DataFrame, target_trade_date: pd.Timestamp) -> pd.DataFrame:
+    if "trade_date" in universe.columns:
+        return universe[universe["trade_date"] == target_trade_date].copy()
+    return universe
+
+
+def stock_names(stock_ids: pd.Series) -> list[str]:
+    try:
+        from app.stock_names import get_stock_name
+    except ImportError:
+        from stock_names import get_stock_name
+    return [get_stock_name(str(stock_id)) for stock_id in stock_ids]
+
+
+def run_batch_ranking_for_date(
+    ranker: StockRanker,
+    features: pd.DataFrame,
+    universe: pd.DataFrame,
+    date_text: str,
+) -> Path:
+    target_trade_date = pd.to_datetime(date_text).normalize()
+    if not (features["trade_date"] == target_trade_date).any():
+        raise ValueError(f"找不到指定交易日資料: {date_text}")
+    history_df = features[features["trade_date"] >= target_trade_date - pd.Timedelta(days=90)].copy()
+    daily_features = features[features["trade_date"] == target_trade_date].copy()
+    valid_stocks = daily_universe(universe, target_trade_date)["stock_id"].astype(str).str.strip().unique()
+    df = daily_features[daily_features["stock_id"].isin(valid_stocks)].copy()
+    if df.empty:
+        raise ValueError(f"指定交易日無 universe 可排名: {date_text}")
+    float_cols = df.select_dtypes(include=["float64"]).columns
+    if len(float_cols) > 0:
+        df[float_cols] = df[float_cols].astype("float32")
+
+    rank_df = ranker.calculate_scores(df)
+    target_for_regime = df["date"].max() if "date" in df else target_trade_date
+    market_regime = ranker.market_regime_service.evaluate(history_df, target_date=target_for_regime)
+    rank_df = ranker.ranking_policy.apply(rank_df, market_regime)
+    top10 = rank_df.head(10).copy()
+    top10 = ranker.portfolio_policy.apply(top10, market_regime)
+    if "stock_name" not in top10.columns or top10["stock_name"].isnull().any():
+        top10["stock_name"] = stock_names(top10["stock_id"])
+    today_str = pd.Timestamp(top10["trade_date"].max()).strftime("%Y-%m-%d") if "trade_date" in top10.columns else date_text
+    path = ranker.artifact_dir / f"ranking_{today_str}.csv"
+    out_cols = [
+        "stock_id",
+        "stock_name",
+        "close",
+        "risk_adjusted_score",
+        "final_score",
+        "model_prob",
+        "rule_score",
+        "prediction_score",
+        "setup_score",
+        "quality_score",
+        "risk_penalty",
+        "suggested_weight",
+        "max_position_weight",
+        "gross_exposure",
+        "allocated_exposure",
+        "cash_weight",
+        "exposure_note",
+        "risk_reward",
+        "market_regime",
+        "reasons",
+    ]
+    top10[[col for col in out_cols if col in top10.columns]].to_csv(path, index=False, encoding="utf-8-sig")
+    return path
+
+
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     data_dir = resolve_path(args.data_dir)
     model_dir = resolve_path(args.model_dir)
@@ -96,15 +199,23 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         artifact_dir=str(output_dir),
         config_path=str(config_path),
         generate_report=False,
+        explain_top_n=0,
     )
     ranker.load_model()
+    batch_frames = None if args.legacy_per_date_load else prepare_batch_frames(ranker)
 
     outputs: list[dict[str, Any]] = []
     failures: list[dict[str, str]] = []
     for date_text in dates:
         try:
-            path = ranker.run_ranking(date_text)
-            outputs.append({"date": date_text, "path": repo_path(Path(path))})
+            captured_stdout = StringIO()
+            with redirect_stdout(captured_stdout):
+                if batch_frames is None:
+                    path = ranker.run_ranking(date_text)
+                else:
+                    features, universe = batch_frames
+                    path = run_batch_ranking_for_date(ranker, features, universe, date_text)
+            outputs.append({"date": date_text, "path": repo_path(Path(path)), "stdout_tail": captured_stdout.getvalue()[-1000:]})
         except Exception as exc:
             failures.append({"date": date_text, "error": str(exc)})
 
@@ -127,6 +238,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "end_date": args.end_date,
             "stride": args.stride,
             "max_dates": args.max_dates,
+            "batch_mode": not args.legacy_per_date_load,
         },
         "outputs": {
             "output_dir": repo_path(output_dir),

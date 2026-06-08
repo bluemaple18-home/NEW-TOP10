@@ -66,6 +66,9 @@ def parse_args() -> argparse.Namespace:
         default="baseline",
         help="baseline 只改排序；shadow_regime_guard* 依詳細盤勢壓低總曝險",
     )
+    parser.add_argument("--top-n", type=int, default=10, help="輸出 shadow ranking 檔的檔數")
+    parser.add_argument("--max-sector-count", type=int, default=None, help="研究用 group cap；每個 group 最多保留 N 檔")
+    parser.add_argument("--sector-cap-column", default="industry_name", help="研究用 group cap 欄位；預設對齊 portfolio replay 的 industry_name")
     parser.add_argument("--limit", type=int, default=None)
     return parser.parse_args()
 
@@ -220,6 +223,55 @@ def apply_shadow_regime_risk_profile(frame: pd.DataFrame, regime_label: str, ris
     return df
 
 
+def apply_sector_count_cap(
+    frame: pd.DataFrame,
+    industry_path: Path,
+    top_n: int,
+    max_sector_count: int | None,
+    group_column: str = "industry_name",
+) -> pd.DataFrame:
+    """研究用 group cap rerank；不改分數，只限制輸出 TopN 的同族群集中度。"""
+
+    if max_sector_count is None or max_sector_count <= 0 or frame.empty:
+        return frame.head(top_n).copy()
+    df = frame.copy()
+    cap_column = group_column if group_column in df.columns else ""
+    if not cap_column:
+        industry = pd.read_csv(industry_path, dtype={"stock_id": str}) if industry_path.exists() else pd.DataFrame()
+        if not industry.empty and {"stock_id", group_column}.issubset(industry.columns):
+            industry["stock_id"] = industry["stock_id"].astype(str).str.zfill(4)
+            df["stock_id"] = df["stock_id"].astype(str).str.zfill(4)
+            df = df.merge(industry[["stock_id", group_column]].drop_duplicates("stock_id"), on="stock_id", how="left")
+            cap_column = group_column
+    if not cap_column and "sector_name" in df.columns:
+        cap_column = "sector_name"
+    if not cap_column:
+        return frame.head(top_n).copy()
+    df[cap_column] = df.get(cap_column, "未分類").fillna("未分類")
+
+    selected = []
+    group_counts: dict[str, int] = {}
+    for _, row in df.iterrows():
+        group = str(row.get(cap_column) or "未分類")
+        if group_counts.get(group, 0) >= max_sector_count:
+            continue
+        selected.append(row)
+        group_counts[group] = group_counts.get(group, 0) + 1
+        if len(selected) >= top_n:
+            break
+    if len(selected) < top_n:
+        selected_ids = {str(row["stock_id"]).zfill(4) for row in selected}
+        for _, row in df.iterrows():
+            stock_id = str(row.get("stock_id")).zfill(4)
+            if stock_id in selected_ids:
+                continue
+            selected.append(row)
+            selected_ids.add(stock_id)
+            if len(selected) >= top_n:
+                break
+    return pd.DataFrame(selected).reset_index(drop=True)
+
+
 def ensure_names(frame: pd.DataFrame) -> pd.DataFrame:
     df = frame.copy()
     if "stock_name" not in df.columns:
@@ -263,7 +315,14 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
         regime = ranker.market_regime_service.evaluate(history, target_date=base["date"].max() if "date" in base else None)
         scored = ranker.ranking_policy.apply(base, regime)
         shadow_regime = regime_map.get(date_text, "UNKNOWN")
-        shadow = apply_regime_shadow_score(scored, shadow_regime).head(10).copy()
+        shadow = apply_regime_shadow_score(scored, shadow_regime).copy()
+        shadow = apply_sector_count_cap(
+            shadow,
+            industry_path,
+            top_n=args.top_n,
+            max_sector_count=args.max_sector_count,
+            group_column=args.sector_cap_column,
+        )
         shadow = ranker.portfolio_policy.apply(shadow, regime)
         shadow = apply_shadow_regime_risk_profile(shadow, shadow_regime, args.risk_profile)
         shadow = ensure_names(shadow)
@@ -282,6 +341,9 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
             "modifies_production_config": False,
             "uses_market_regime_history": True,
             "risk_profile": args.risk_profile,
+            "top_n": args.top_n,
+            "max_sector_count": args.max_sector_count,
+            "sector_cap_column": args.sector_cap_column,
             "anti_overfit_note": "這是 shadow ranking replay，不可直接轉成 production 權重。",
         },
         "inputs": {
