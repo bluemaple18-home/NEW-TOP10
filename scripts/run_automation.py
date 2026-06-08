@@ -123,6 +123,10 @@ class AutomationRunner:
         report_path = self._run_daily_report(daily_config, ranking_path)
         self._run_market_context(daily_config)
         self._run_decision_quality(daily_config, ranking_path)
+        self._run_gross55_shadow_monitor(daily_config, ranking_path)
+        self._run_capital_entry_quality_shadow_monitor(daily_config, ranking_path)
+        self._run_shadow_historical_evidence_report(daily_config)
+        self._run_daily_shadow_status_report(daily_config)
         self._run_clawd_payload(daily_config, report_path)
         self._record_step("api.cache.clear", "SKIPPED", message="如 API 常駐，請由服務自行呼叫 POST /api/cache/clear")
         self._run_daily_postcheck(daily_config)
@@ -196,12 +200,20 @@ class AutomationRunner:
 
     def _pipeline_run_command(self) -> list[str]:
         command = ["python", "-m", "app.pipeline_cli", "run"]
-        window = self._pipeline_window_override()
+        window = self._pipeline_window()
         if "start_date" in window:
             command.extend(["--start-date", window["start_date"]])
         if "end_date" in window:
             command.extend(["--end-date", window["end_date"]])
         return command
+
+    def _pipeline_window(self) -> dict[str, str]:
+        window = self._pipeline_window_override()
+        if self.mode == "daily":
+            window = self._apply_daily_default_pipeline_window(window)
+        if window:
+            self.status.metadata["pipeline_window"] = window
+        return window
 
     def _pipeline_window_override(self) -> dict[str, str]:
         window: dict[str, str] = {}
@@ -211,12 +223,32 @@ class AutomationRunner:
             window["start_date"] = start_date
         if end_date:
             window["end_date"] = end_date
-        if window:
-            self.status.metadata["pipeline_window"] = window
         return window
+
+    def _apply_daily_default_pipeline_window(self, window: dict[str, str]) -> dict[str, str]:
+        daily_config = self.config.get("daily", {})
+        lookback_days = int(daily_config.get("pipeline_lookback_days", 0) or 0)
+        if lookback_days <= 0:
+            return window
+
+        result = dict(window)
+        end_text = result.get("end_date") or self._today_local().date().isoformat()
+        if "end_date" not in result:
+            result["end_date"] = end_text
+        if "start_date" not in result:
+            end_date = datetime.strptime(end_text, "%Y-%m-%d").date()
+            result["start_date"] = (end_date - timedelta(days=lookback_days)).isoformat()
+        self.status.metadata["pipeline_window_policy"] = {
+            "source": "daily.pipeline_lookback_days",
+            "lookback_days": lookback_days,
+        }
+        return result
 
     def _has_pipeline_window_override(self) -> bool:
         return bool(self._pipeline_window_override())
+
+    def _has_pipeline_window(self) -> bool:
+        return bool(self._pipeline_window())
 
     def _resolve_resource_profile(self, explicit: str | None) -> str:
         profile = (
@@ -342,6 +374,156 @@ class AutomationRunner:
             self._record_step("decision.quality.artifact", "OK", message=str(output_path))
         return output_path
 
+    def _run_gross55_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
+        date_text = self._latest_feature_date()
+        monitor_path = PROJECT_ROOT / "artifacts" / "model_experiments" / f"gross55_daily_shadow_monitor_{date_text}.json"
+        batch_path = PROJECT_ROOT / "artifacts" / "model_experiments" / f"gross55_daily_shadow_monitor_batch_{date_text}.json"
+        self.status.metadata["expected_gross55_shadow_monitor"] = str(monitor_path)
+        self.status.metadata["expected_gross55_shadow_monitor_batch"] = str(batch_path)
+
+        if not daily_config.get("gross55_shadow_monitor_enabled", False):
+            self._record_step(
+                "gross55.shadow_monitor",
+                "SKIPPED",
+                message="config daily.gross55_shadow_monitor_enabled=false",
+            )
+            return
+
+        command = [
+            "python",
+            "scripts/build_gross55_daily_shadow_monitor.py",
+            "--date",
+            date_text,
+            "--ranking",
+            str(ranking_path),
+        ]
+        self._run_command("gross55.shadow_monitor", command, allow_failure=True)
+        if not self.dry_run and monitor_path.exists():
+            self.status.metadata["gross55_shadow_monitor"] = str(monitor_path)
+            self._record_step("gross55.shadow_monitor.artifact", "OK", message=str(monitor_path))
+
+        if not daily_config.get("gross55_shadow_monitor_batch_enabled", False):
+            self._record_step(
+                "gross55.shadow_monitor_batch",
+                "SKIPPED",
+                message="config daily.gross55_shadow_monitor_batch_enabled=false",
+            )
+            return
+
+        batch_command = [
+            "python",
+            "scripts/build_gross55_daily_shadow_monitor_batch.py",
+            "--date",
+            date_text,
+        ]
+        self._run_command("gross55.shadow_monitor_batch", batch_command, allow_failure=True)
+        if not self.dry_run and batch_path.exists():
+            self.status.metadata["gross55_shadow_monitor_batch"] = str(batch_path)
+            self._record_step("gross55.shadow_monitor_batch.artifact", "OK", message=str(batch_path))
+
+    def _run_capital_entry_quality_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
+        date_text = self._latest_feature_date()
+        monitor_path = (
+            PROJECT_ROOT
+            / "artifacts"
+            / "model_experiments"
+            / f"capital_entry_quality_daily_shadow_monitor_{date_text}.json"
+        )
+        batch_path = (
+            PROJECT_ROOT
+            / "artifacts"
+            / "model_experiments"
+            / f"capital_entry_quality_daily_shadow_monitor_batch_{date_text}.json"
+        )
+        self.status.metadata["expected_capital_entry_quality_shadow_monitor"] = str(monitor_path)
+        self.status.metadata["expected_capital_entry_quality_shadow_monitor_batch"] = str(batch_path)
+
+        if not daily_config.get("capital_entry_quality_shadow_monitor_enabled", False):
+            self._record_step(
+                "capital_entry_quality.shadow_monitor",
+                "SKIPPED",
+                message="config daily.capital_entry_quality_shadow_monitor_enabled=false",
+            )
+            return
+
+        command = [
+            "python",
+            "scripts/build_capital_entry_quality_daily_shadow_monitor.py",
+            "--date",
+            date_text,
+            "--ranking",
+            str(ranking_path),
+        ]
+        self._run_command("capital_entry_quality.shadow_monitor", command, allow_failure=True)
+        if not self.dry_run and monitor_path.exists():
+            self.status.metadata["capital_entry_quality_shadow_monitor"] = str(monitor_path)
+            self._record_step("capital_entry_quality.shadow_monitor.artifact", "OK", message=str(monitor_path))
+
+        if not daily_config.get("capital_entry_quality_shadow_monitor_batch_enabled", False):
+            self._record_step(
+                "capital_entry_quality.shadow_monitor_batch",
+                "SKIPPED",
+                message="config daily.capital_entry_quality_shadow_monitor_batch_enabled=false",
+            )
+            return
+
+        batch_command = [
+            "python",
+            "scripts/build_capital_entry_quality_daily_shadow_monitor_batch.py",
+            "--date",
+            date_text,
+        ]
+        self._run_command("capital_entry_quality.shadow_monitor_batch", batch_command, allow_failure=True)
+        if not self.dry_run and batch_path.exists():
+            self.status.metadata["capital_entry_quality_shadow_monitor_batch"] = str(batch_path)
+            self._record_step("capital_entry_quality.shadow_monitor_batch.artifact", "OK", message=str(batch_path))
+
+    def _run_daily_shadow_status_report(self, daily_config: dict[str, Any]) -> None:
+        date_text = self._latest_feature_date()
+        output_path = PROJECT_ROOT / "artifacts" / "model_experiments" / f"daily_shadow_status_{date_text}.json"
+        self.status.metadata["expected_daily_shadow_status_report"] = str(output_path)
+        if not daily_config.get("daily_shadow_status_report_enabled", False):
+            self._record_step(
+                "daily_shadow.status_report",
+                "SKIPPED",
+                message="config daily.daily_shadow_status_report_enabled=false",
+            )
+            return
+
+        command = [
+            "python",
+            "scripts/build_daily_shadow_status_report.py",
+            "--date",
+            date_text,
+        ]
+        self._run_command("daily_shadow.status_report", command, allow_failure=True)
+        if not self.dry_run and output_path.exists():
+            self.status.metadata["daily_shadow_status_report"] = str(output_path)
+            self._record_step("daily_shadow.status_report.artifact", "OK", message=str(output_path))
+
+    def _run_shadow_historical_evidence_report(self, daily_config: dict[str, Any]) -> None:
+        date_text = self._latest_feature_date()
+        output_path = PROJECT_ROOT / "artifacts" / "model_experiments" / f"shadow_historical_evidence_{date_text}.json"
+        self.status.metadata["expected_shadow_historical_evidence_report"] = str(output_path)
+        if not daily_config.get("shadow_historical_evidence_report_enabled", False):
+            self._record_step(
+                "shadow_historical.evidence_report",
+                "SKIPPED",
+                message="config daily.shadow_historical_evidence_report_enabled=false",
+            )
+            return
+
+        command = [
+            "python",
+            "scripts/build_shadow_historical_evidence_report.py",
+            "--date",
+            date_text,
+        ]
+        self._run_command("shadow_historical.evidence_report", command, allow_failure=True)
+        if not self.dry_run and output_path.exists():
+            self.status.metadata["shadow_historical_evidence_report"] = str(output_path)
+            self._record_step("shadow_historical.evidence_report.artifact", "OK", message=str(output_path))
+
     def _run_clawd_payload(self, daily_config: dict[str, Any], report_path: Path | None) -> None:
         payload_path = PROJECT_ROOT / "artifacts" / f"clawd_publish_payload_{self._latest_feature_date()}.json"
         message_path = PROJECT_ROOT / "artifacts" / f"clawd_publish_message_{self._latest_feature_date()}.md"
@@ -419,7 +601,7 @@ class AutomationRunner:
         self._record_model_existence()
         self._record_data_freshness(
             "data.freshness.preflight",
-            fail_on_error=not self._has_pipeline_window_override(),
+            fail_on_error=not self._has_pipeline_window(),
         )
 
     def _retrain_preflight(self) -> None:
@@ -1010,17 +1192,22 @@ class AutomationRunner:
 
     def _write_status(self) -> None:
         self.status.finished_at = self._now()
-        STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        status_path = STATUS_PATH
+        if self.dry_run:
+            status_path = STATUS_PATH.with_name(f"{STATUS_PATH.stem}_dry_run{STATUS_PATH.suffix}")
+        status_path.parent.mkdir(parents=True, exist_ok=True)
         payload = asdict(self.status)
-        STATUS_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        status_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         if self.mode == "daily":
-            summary_path = PROJECT_ROOT / "artifacts" / f"daily_run_summary_{self.run_date}.json"
+            summary_suffix = "_dry_run" if self.dry_run else ""
+            summary_path = PROJECT_ROOT / "artifacts" / f"daily_run_summary_{self.run_date}{summary_suffix}.json"
             summary_path.write_text(
                 json.dumps(self._daily_summary_payload(payload), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
         if self.mode == "retrain":
-            summary_path = PROJECT_ROOT / "artifacts" / f"retrain_run_summary_{self.run_date}.json"
+            summary_suffix = "_dry_run" if self.dry_run else ""
+            summary_path = PROJECT_ROOT / "artifacts" / f"retrain_run_summary_{self.run_date}{summary_suffix}.json"
             summary_path.write_text(
                 json.dumps(self._automation_summary_payload(payload), ensure_ascii=False, indent=2),
                 encoding="utf-8",

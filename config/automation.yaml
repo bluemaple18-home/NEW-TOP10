@@ -15,6 +15,7 @@ execution:
 daily:
   enabled: true
   run_time: "17:30"          # 每日收盤後執行時間；週末由 daily gate 跳過
+  pipeline_lookback_days: 420 # daily ETL 預設 rolling window；保留 250 日指標所需歷史，避免每天三年全量回補
   weekend_enabled: false      # 週末是否執行 (false = 僅工作日)
   max_data_lag_days: 7         # features/events/universe 最新交易日允許落後幾個日曆日
   market_coverage_enabled: true # 最新交易日必須同時覆蓋上市 / 上櫃，避免只抓到單一市場仍誤判新鮮
@@ -25,6 +26,12 @@ daily:
   daily_report_enabled: true    # DAILY-02：ranking 後產出 PM/使用者可讀的每日決策日報
   market_context_enabled: true  # MARKET-CONTEXT-02：daily decision quality 前產生同日台灣市場背景 artifact
   decision_quality_enabled: true # DECISION-QUALITY-01：彙整入榜天數、replay、portfolio risk、market context；不改 ranking score
+  gross55_shadow_monitor_enabled: false # 只產營運 shadow monitor，不改 Top10 / score / Clawd message；預設手動開啟
+  gross55_shadow_monitor_batch_enabled: false # 批次彙整近期正式 ranking 的 gross55 降曝險影子樣本；預設手動開啟
+  capital_entry_quality_shadow_monitor_enabled: false # CAPITAL-05：入場品質 shadow monitor，不改 Top10 / score / Clawd message；預設手動開啟
+  capital_entry_quality_shadow_monitor_batch_enabled: false # 批次彙整近期正式 ranking 的入場品質影子樣本；預設手動開啟
+  shadow_historical_evidence_report_enabled: false # 用既有長區間 replay 回答是否只能等待 forward monitor；預設手動開啟
+  daily_shadow_status_report_enabled: false # 彙整目前所有 shadow 觀測分支與 review readiness；預設手動開啟
   clawd_payload_enabled: true   # CLAWD-01：daily report 後產出 Clawd-ready payload；不實際發送
   postcheck_enabled: false     # DAILY-03：每日後驗收預設手動執行，避免 launchd 被前端/Chrome 環境卡住
   postcheck_api_enabled: true
