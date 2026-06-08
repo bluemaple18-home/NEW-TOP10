@@ -353,15 +353,31 @@ def _leakage_checks(
     model_metadata: dict[str, Any],
     split_metadata: dict[str, Any],
     config: SealedOOSConfig,
-) -> list[dict[str, str]]:
-    checks: list[dict[str, str]] = []
+) -> list[dict[str, Any]]:
+    checks: list[dict[str, Any]] = []
     sealed_meta = model_metadata.get("sealed_oos") if isinstance(model_metadata, dict) else None
     if not sealed_meta:
         status = "FAILED" if config.require_model_split_metadata else "WARN"
-        checks.append({"name": "model.sealed_oos_metadata", "status": status, "message": "model metadata 缺少 sealed_oos"})
+        checks.append(
+            {
+                "name": "model.sealed_oos_metadata",
+                "status": status,
+                "message": "model metadata 缺少 sealed_oos",
+                "actual": None,
+                "expected": "sealed_oos",
+            }
+        )
         return checks
 
-    checks.append({"name": "model.sealed_oos_metadata", "status": "OK", "message": "present"})
+    checks.append(
+        {
+            "name": "model.sealed_oos_metadata",
+            "status": "OK",
+            "message": "present",
+            "actual": sealed_meta.get("schema_version"),
+            "expected": split_metadata.get("schema_version"),
+        }
+    )
     expected_pairs = {
         "train_end_date": split_metadata.get("train_end_date"),
         "sealed_start_date": split_metadata.get("sealed_start_date"),
@@ -377,6 +393,13 @@ def _leakage_checks(
                 "name": f"model.sealed_oos.{key}",
                 "status": status,
                 "message": f"actual={actual} expected={expected}",
+                "actual": actual,
+                "expected": expected,
+                "contract": {
+                    "model_metadata_path": f"metadata.sealed_oos.{key}",
+                    "fixed_split_path": f"split.{key}",
+                    "split_schema_version": split_metadata.get("schema_version"),
+                },
             }
         )
 
@@ -390,6 +413,13 @@ def _leakage_checks(
             "name": "model.sealed_oos.no_train_overlap",
             "status": status,
             "message": f"train_end={train_text} sealed_start={sealed_text}",
+            "actual": train_text,
+            "expected": f"< {sealed_text}" if sealed_text else None,
+            "contract": {
+                "model_metadata_path": "metadata.sealed_oos.train_end_date",
+                "fixed_split_path": "split.sealed_start_date",
+                "split_schema_version": split_metadata.get("schema_version"),
+            },
         }
     )
     return checks

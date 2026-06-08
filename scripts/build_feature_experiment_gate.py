@@ -254,6 +254,64 @@ def blocked_data_candidate(candidate_id: str, label: str, required_artifact: str
     }
 
 
+def build_chip_flow_candidate(artifacts_dir: Path) -> dict[str, Any]:
+    handoff_path = PROJECT_ROOT / "docs" / "tasks" / "2026-06-08_CHIP-FLOW_warning_research_handoff.md"
+    contract_path = latest_dated_artifact(artifacts_dir, "chip_data_contract")
+    contract = load_json(contract_path)
+    coverage_path = latest_dated_artifact(artifacts_dir, "chip_flow_runtime_coverage")
+    coverage = load_json(coverage_path)
+    warning_path = latest_dated_artifact(artifacts_dir / "model_experiments", "chip_warning_shadow_report")
+    warning = load_json(warning_path)
+    aggregate_path = latest_dated_artifact(artifacts_dir / "model_experiments", "chip_warning_replay_aggregate")
+    aggregate = load_json(aggregate_path)
+    composite_path = latest_dated_artifact(artifacts_dir / "model_experiments", "chip_composite_warning_report")
+    composite = load_json(composite_path)
+    blockers: list[str] = []
+    if contract.get("schema_version") != "chip-data-contract.v1" or contract.get("status") != "OK":
+        blockers.append("missing required data contract artifact: artifacts/chip_data_contract_YYYY-MM-DD.json")
+    if coverage_path is None:
+        blockers.append("missing chip-flow runtime coverage audit")
+    elif coverage.get("status") != "OK":
+        blockers.append(f"chip-flow runtime coverage audit status={coverage.get('status') or 'missing'}")
+    if warning_path is None:
+        blockers.append("missing chip warning-only shadow replay")
+    elif warning.get("status") != "OK":
+        blockers.append(f"chip warning-only shadow replay status={warning.get('status') or 'missing'}")
+    elif warning.get("decision", {}).get("status") == "NOT_STABLE_ENOUGH_FOR_WARNING_CHANNEL":
+        blockers.append("chip warning-only replay is not stable enough for warning channel")
+    if aggregate_path is not None and aggregate.get("decision", {}).get("status") == "NOT_STABLE_ENOUGH_FOR_WARNING_CHANNEL":
+        blockers.append("chip aggregate replay is not stable enough for warning channel")
+    if composite_path is not None and composite.get("decision", {}).get("status") == "NOT_STABLE_ENOUGH_FOR_WARNING_CHANNEL":
+        blockers.append("chip composite warning replay is not stable enough for warning channel")
+    if handoff_path.exists():
+        blockers.append("chip-flow handoff decision blocks production warning/ranking promotion")
+    return {
+        "id": "chip_flow",
+        "label": "籌碼 / 三大法人 / 融資融券 feature candidates",
+        "shadow_status": "BLOCKED",
+        "production_promotion_status": promotion_status(),
+        "allowed_shadow_uses": [],
+        "blocked_production_uses": [
+            "do not add to production model before data contract, coverage audit, replay, and as-of validation",
+            "do not promote as production warning channel from current chip-flow evidence",
+            "do not use foreign/trust/margin flow as standalone market or exit signal",
+        ],
+        "evidence": {
+            "handoff": {
+                "path": repo_path(handoff_path),
+                "status": "OK" if handoff_path.exists() else "MISSING",
+            },
+            "data_contract": evidence_item(contract_path, contract),
+            "runtime_coverage": evidence_item(coverage_path, coverage),
+            "warning_shadow_replay": evidence_item(warning_path, warning),
+            "warning_replay_aggregate": evidence_item(aggregate_path, aggregate),
+            "composite_warning_replay": evidence_item(composite_path, composite),
+        },
+        "blockers": blockers,
+        "promotion_requirements": promotion_requirements("chip_flow"),
+    }
+
+
 def build_industry_candidate(artifacts_dir: Path) -> dict[str, Any]:
     industry_path = latest_existing(artifacts_dir, "industry_rotation_replay_*.json")
     payload = load_json(industry_path)
@@ -403,7 +461,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         build_market_context_candidate(artifacts_dir),
         build_portfolio_risk_candidate(artifacts_dir, args.min_positive_scenarios),
         blocked_data_candidate("fundamentals", "基本面 coverage / as-of feature candidates", "artifacts/fundamental_contract_YYYY-MM-DD.json"),
-        blocked_data_candidate("chip_flow", "籌碼 / 三大法人 / 融資融券 feature candidates", "artifacts/chip_data_contract_YYYY-MM-DD.json"),
+        build_chip_flow_candidate(artifacts_dir),
         build_industry_candidate(artifacts_dir),
         build_regime_feature_group_candidate(artifacts_dir),
         build_weekend_research_matrix_candidate(artifacts_dir),

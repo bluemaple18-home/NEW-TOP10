@@ -65,6 +65,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="只讀既有 half-year walk-forward artifact；預設會重跑近半年驗證",
     )
+    parser.add_argument(
+        "--skip-fixed-share-research-flow",
+        action="store_true",
+        help="只讀既有 fixed-share research artifacts；預設會重跑固定股數研究工廠",
+    )
     return parser.parse_args()
 
 
@@ -150,6 +155,32 @@ def research_flow_step(args: argparse.Namespace) -> list[dict[str, Any]]:
         run_step(
             "model.research_flow.run",
             ["scripts/run_model_research_flow.py", "--date", args.date],
+            args.timeout_seconds,
+        )
+    ]
+
+
+def fixed_share_research_flow_step(args: argparse.Namespace) -> list[dict[str, Any]]:
+    if args.skip_fixed_share_research_flow:
+        return [
+            {
+                "name": "trade_plan.fixed_share_research_flow",
+                "status": "SKIPPED",
+                "exit_code": 0,
+                "message": "skip-fixed-share-research-flow",
+            }
+        ]
+    output_path = MODEL_EXPERIMENTS_DIR / f"fixed_share_research_flow_{args.date}.json"
+    return [
+        run_step(
+            "trade_plan.fixed_share_research_flow",
+            [
+                "scripts/run_fixed_share_research_flow.py",
+                "--date",
+                args.date,
+                "--output",
+                repo_path(output_path) or str(output_path),
+            ],
             args.timeout_seconds,
         )
     ]
@@ -272,6 +303,62 @@ def check_not_ok(row: dict[str, Any] | None) -> bool:
 
 def technical_only_lane_path(run_date: str) -> Path:
     return MODEL_EXPERIMENTS_DIR / f"technical_only_training_lane_{run_date}.json"
+
+
+def high_choppy_context_overlay_path(run_date: str) -> Path:
+    return MODEL_EXPERIMENTS_DIR / f"high_choppy_context_overlay_{run_date}.json"
+
+
+def fixed_share_research_flow_path(run_date: str) -> Path:
+    return MODEL_EXPERIMENTS_DIR / f"fixed_share_research_flow_{run_date}.json"
+
+
+def fixed_share_research_factory_verification_path() -> Path:
+    return MODEL_EXPERIMENTS_DIR / "fixed_share_research_factory_verification_latest.json"
+
+
+def fixed_share_research_status(run_date: str) -> dict[str, Any]:
+    flow_path = fixed_share_research_flow_path(run_date)
+    verification_path = fixed_share_research_factory_verification_path()
+    report_path = MODEL_EXPERIMENTS_DIR / f"fixed_share_research_factory_report_{run_date}.json"
+    flow = load_json(flow_path)
+    verification = load_json(verification_path)
+    return {
+        "flow_artifact": repo_path(flow_path),
+        "verification_artifact": repo_path(verification_path),
+        "report_artifact": repo_path(report_path),
+        "flow_exists": flow_path.exists(),
+        "verification_exists": verification_path.exists(),
+        "report_exists": report_path.exists(),
+        "flow_status": flow.get("status", "NOT_RUN"),
+        "verification_status": verification.get("status", "NOT_RUN"),
+        "verification_errors": len(verification.get("errors") or []),
+        "contract": verification.get("contract", {}),
+    }
+
+
+def high_choppy_context_status(run_date: str) -> dict[str, Any]:
+    """讀取 HIGH_CHOPPY 研究狀態；缺檔也不得阻塞主訓練 readiness。"""
+
+    path = high_choppy_context_overlay_path(run_date)
+    payload = load_json(path)
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    allowed = summary.get("usage_allowed") if isinstance(summary.get("usage_allowed"), dict) else {}
+    contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else {}
+    return {
+        "artifact": repo_path(path),
+        "exists": path.exists(),
+        "status": payload.get("status", "NOT_RUN"),
+        "decision": payload.get("decision", "NOT_RUN"),
+        "strict_dates": summary.get("strict_dates"),
+        "rolling_context_dates": summary.get("rolling_context_dates"),
+        "new_dates_quality": summary.get("new_dates_quality"),
+        "soft_feature_allowed": (allowed.get("soft_feature") or {}).get("status", "BLOCKED"),
+        "stratified_evaluation_allowed": (allowed.get("stratified_evaluation") or {}).get("status", "BLOCKED"),
+        "ranking_overlay_allowed": (allowed.get("ranking_overlay") or {}).get("status", "BLOCKED"),
+        "promotion_evidence_allowed": (allowed.get("promotion_evidence") or {}).get("status", "BLOCKED"),
+        "blocks_main_training": bool(contract.get("blocks_main_training", False)),
+    }
 
 
 def technical_only_lane_ready(run_date: str) -> tuple[bool, dict[str, Any]]:
@@ -768,6 +855,8 @@ def build_payload(args: argparse.Namespace, steps: list[dict[str, Any]]) -> dict
     half_year_walkforward = load_json(half_year_path)
     assessment = readiness_assessment(steps, config, health, result_report, model_group, half_year_walkforward, args.date)
     status = assessment["status"]
+    high_choppy_status = high_choppy_context_status(args.date)
+    fixed_share_status = fixed_share_research_status(args.date)
     half_year_baseline = half_year_walkforward.get("variants", {}).get("current_baseline", {})
     half_year_topn = half_year_baseline.get("topn_proxy") if isinstance(half_year_baseline.get("topn_proxy"), dict) else {}
     no_hindsight_policy = (
@@ -829,6 +918,8 @@ def build_payload(args: argparse.Namespace, steps: list[dict[str, Any]]) -> dict
             "promotion_blocker_summary_by_category": assessment["promotion_blocker_summary_by_category"],
             "data_degradations": assessment["data_degradations"],
             "policy_decisions": assessment["policy_decisions"],
+            "high_choppy_context_status": high_choppy_status,
+            "fixed_share_research_status": fixed_share_status,
             "next_stage_experiment_entry_conditions": assessment["next_stage_experiment_entry_conditions"],
         },
         "artifacts": {
@@ -837,6 +928,9 @@ def build_payload(args: argparse.Namespace, steps: list[dict[str, Any]]) -> dict
             "model_experiment_result_report": repo_path(result_report_path),
             "half_year_walkforward_validation": repo_path(half_year_path),
             "technical_only_training_lane": repo_path(technical_only_lane_path(args.date)),
+            "high_choppy_context_overlay": repo_path(high_choppy_context_overlay_path(args.date)),
+            "fixed_share_research_flow": repo_path(fixed_share_research_flow_path(args.date)),
+            "fixed_share_research_factory_verification": repo_path(fixed_share_research_factory_verification_path()),
             "feature_experiment_gate": repo_path(ARTIFACTS_DIR / f"feature_experiment_gate_{args.date}.json"),
             "model_research_flow": repo_path(MODEL_EXPERIMENTS_DIR / f"model_research_flow_{args.date}.json"),
         },
@@ -851,6 +945,8 @@ def md_cell(value: Any) -> str:
 
 def render_markdown(payload: dict[str, Any]) -> str:
     readiness = payload["readiness"]
+    high_choppy = readiness.get("high_choppy_context_status") or {}
+    fixed_share = readiness.get("fixed_share_research_status") or {}
     lines = [
         "# Training Automation Readiness",
         "",
@@ -871,6 +967,10 @@ def render_markdown(payload: dict[str, Any]) -> str:
         f"- half_year_topn_minus_universe_return：`{readiness['half_year_topn_minus_universe_return']}`",
         f"- half_year_promotion_gate_variant：`{readiness['half_year_no_hindsight_policy'].get('promotion_gate_variant')}`",
         f"- same_run_diagnostic_filters_allowed：`{not readiness['half_year_no_hindsight_policy'].get('diagnostic_failures_cannot_define_same_run_filters', False)}`",
+        f"- high_choppy_context：`{high_choppy.get('status')}` / `{high_choppy.get('decision')}`",
+        f"- high_choppy_blocks_main_training：`{high_choppy.get('blocks_main_training')}`",
+        f"- fixed_share_research_flow：`{fixed_share.get('flow_status')}`",
+        f"- fixed_share_research_verification：`{fixed_share.get('verification_status')}` errors=`{fixed_share.get('verification_errors')}`",
         "",
         "## Blockers",
         "",
@@ -965,6 +1065,7 @@ def main() -> int:
     args = parse_args()
     steps: list[dict[str, Any]] = []
     steps.extend(research_flow_step(args))
+    steps.extend(fixed_share_research_flow_step(args))
     steps.extend(half_year_walkforward_step(args))
     steps.extend(half_year_no_hindsight_verify_step(args))
     steps.extend(run_step(name, command, args.timeout_seconds) for name, command in CORE_CHECKS)

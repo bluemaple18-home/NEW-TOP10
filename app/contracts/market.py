@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from .reference import RankingReferenceSummary
 
@@ -46,6 +46,31 @@ class RankingItem(BaseModel):
     concept_tags: str | None = None
     major_etfs: str | None = None
     reasons: str | None = None
+
+    @field_validator(
+        "close",
+        "final_score",
+        "model_prob",
+        "rule_score",
+        "prediction_score",
+        "setup_score",
+        "quality_score",
+        "risk_penalty",
+        "risk_adjusted_score",
+        "suggested_weight",
+        "max_position_weight",
+        "gross_exposure",
+        "allocated_exposure",
+        "cash_weight",
+        "risk_reward",
+        mode="before",
+    )
+    @classmethod
+    def blank_numeric_to_none(cls, value: object) -> object:
+        """ranking artifact 的空白數值代表缺值，不應讓 API contract 爆掉。"""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
 
 class LatestRankingResponse(BaseModel):
