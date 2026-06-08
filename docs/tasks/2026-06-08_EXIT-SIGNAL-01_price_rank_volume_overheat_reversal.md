@@ -177,3 +177,25 @@
 - 訊息語意只能是「短線追價要保守」，不能寫成「賣出 / 停損 / 減碼」。
 - 不併入每日 Top10 推薦，不改模型，不改 `risk_adjusted_score`。
 - 如果產品化，應該走獨立 warning channel 或個股頁 observation layer。
+
+## 2026-06-08 Current Top10 Policy Check
+
+新增 artifact：
+
+- `artifacts/model_experiments/exit_signal_volume_climax_current_top10_policy_check_2026-06-08.json`
+
+結論：
+
+- decision：`DO_NOT_CHANGE_TOP10_MESSAGE`
+- current Top10 observations：`1160`
+- current Top10 flagged：`8`
+- current Top10 flagged dates：`7`
+- recent 7 ranking days watchlist observations：`6450`
+- recent 7 ranking days watchlist flagged：`747`
+
+判讀：
+
+- 目前樣本不足以改每日 Top10 推薦文案。
+- 若警訊放進 Top10 主訊息，會把推薦和提醒混在一起，且證據太薄。
+- 正確落點仍是 recent 7 ranking days watchlist 的 warning-only monitor。
+- Phase 1 可先不做個人持倉提醒；之後若有個股頁或自選追蹤，再把這個訊號放到 observation layer。
