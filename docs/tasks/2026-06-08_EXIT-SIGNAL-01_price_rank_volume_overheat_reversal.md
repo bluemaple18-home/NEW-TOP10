@@ -136,3 +136,44 @@
 
 最新 Top10 沒觸發，代表不應把這個訊號塞進每日推薦訊息。
 近 7 日觀察池有 6 檔觸發，代表它比較適合獨立 warning channel / observation layer。
+
+## 2026-06-08 歷史 Shadow Monitor 與盤勢分層
+
+新增 artifacts：
+
+- `artifacts/model_experiments/exit_signal_volume_climax_historical_shadow_monitor_2026-06-08.json`
+- `artifacts/model_experiments/exit_signal_volume_climax_regime_conditioning_2026-06-08.json`
+
+半年度 shadow 結果：
+
+- 研究區間：`2025-12-01` ~ `2026-06-05`
+- ranking days：`116`
+- observation count：`6450`
+- canonical signal：`volume_climax_reversal`
+- flagged observations：`747`
+- flagged dates：`114`
+- 5D 平均報酬相對未觸發：`-0.34%`
+- 5D 跌超過 5% 機率相對未觸發：`+4.67%`
+- 10D 平均報酬相對未觸發：`+0.55%`
+- monthly 5D warning stability：`42.86%`
+
+判讀：
+
+- 這個訊號可用來提醒「短線追價風險變高」。
+- 但它不是穩定賣出訊號，因為 10D 不穩、月份穩定度不足。
+- 在 Top10 強勢股裡，爆量長上影有時候是換手，不一定是轉弱。
+
+盤勢分層結果：
+
+| Policy | Observations | Flagged | 5D avg delta | 5D loss>5 delta | 10D avg delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `NEUTRAL/RISK_OFF only` | 5052 | 580 | -0.25% | +4.12% | +1.04% |
+| `RISK_ON only` | 1398 | 167 | -0.60% | +6.57% | -1.29% |
+| `All regimes` | 6450 | 747 | -0.34% | +4.67% | +0.55% |
+
+產品結論：
+
+- 下一步允許進 `REGIME_CONDITIONED_WARNING_MONITOR_CANDIDATE`。
+- 訊息語意只能是「短線追價要保守」，不能寫成「賣出 / 停損 / 減碼」。
+- 不併入每日 Top10 推薦，不改模型，不改 `risk_adjusted_score`。
+- 如果產品化，應該走獨立 warning channel 或個股頁 observation layer。
