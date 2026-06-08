@@ -99,3 +99,40 @@
 - 只把 `volume_climax_reversal` 做 daily warning-only shadow monitor。
 - 仍不得作個人持倉賣出通知。
 - 仍不得進 production ranking、`risk_adjusted_score` 或正式推播。
+
+## 2026-06-08 Daily Shadow Monitor 雛形
+
+新增 artifact：
+
+- `artifacts/model_experiments/exit_signal_volume_climax_daily_shadow_monitor_2026-06-08.json`
+
+結果：
+
+- target ranking date：`2026-06-05`
+- latest Top10 warning count：`0`
+- recent 7 ranking days watchlist warning count：`6`
+- monitor status：`MONITOR_ACTIVE`
+- production ready：`false`
+
+觸發清單：
+
+| Stock | 狀態 |
+| --- | --- |
+| `1409 新纖` | 近 7 日曾入榜；volume climax weakening |
+| `1513 中興電` | 近 7 日曾入榜；volume climax weakening |
+| `2641 正德` | 近 7 日曾入榜；volume climax weakening |
+| `3630 新鉅科` | 近 7 日曾入榜；volume climax weakening |
+| `4720 德淵` | 近 7 日曾入榜；volume climax weakening |
+| `5225 東科-KY` | 近 7 日曾入榜；volume climax weakening |
+
+產品邊界：
+
+- 這是 warning-only shadow，不是每日推薦。
+- 這不是個人持倉賣出通知。
+- 不發送正式推播。
+- 不改 production ranking / model / `risk_adjusted_score`。
+
+判讀：
+
+最新 Top10 沒觸發，代表不應把這個訊號塞進每日推薦訊息。
+近 7 日觀察池有 6 檔觸發，代表它比較適合獨立 warning channel / observation layer。
