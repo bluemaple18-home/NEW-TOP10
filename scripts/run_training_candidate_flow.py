@@ -18,6 +18,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
@@ -35,6 +36,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--horizon", type=int, default=10)
     parser.add_argument("--threshold", type=float, default=0.05)
     parser.add_argument("--optuna-trials", type=int, default=None)
+    parser.add_argument("--sealed-trade-days", type=int, default=None)
+    parser.add_argument("--min-train-trade-days", type=int, default=None)
+    parser.add_argument("--min-sealed-trade-days", type=int, default=None)
     parser.add_argument("--output", default=None)
     return parser.parse_args()
 
@@ -59,6 +63,30 @@ def read_json(path: Path | None) -> dict[str, Any]:
     if path is None or not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_candidate_config(args: argparse.Namespace, root: Path) -> Path:
+    """建立候選訓練專用 config，不修改 production config/automation.yaml。"""
+
+    source = PROJECT_ROOT / "config" / "automation.yaml"
+    config = yaml.safe_load(source.read_text(encoding="utf-8")) if source.exists() else {}
+    if not isinstance(config, dict):
+        config = {}
+    retrain = config.get("retrain") if isinstance(config.get("retrain"), dict) else {}
+    sealed = retrain.get("sealed_oos") if isinstance(retrain.get("sealed_oos"), dict) else {}
+    sealed = dict(sealed)
+    if args.sealed_trade_days is not None:
+        sealed["sealed_trade_days"] = args.sealed_trade_days
+    if args.min_train_trade_days is not None:
+        sealed["min_train_trade_days"] = args.min_train_trade_days
+    if args.min_sealed_trade_days is not None:
+        sealed["min_sealed_trade_days"] = args.min_sealed_trade_days
+    retrain = {**retrain, "sealed_oos": sealed}
+    config["retrain"] = retrain
+    output = root / "candidate_automation.yaml"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    return output
 
 
 def sha256(path: Path) -> str | None:
@@ -127,6 +155,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     candidate_model_dir = root / "models"
     candidate_artifact_dir = root / "artifacts"
     candidate_model = candidate_model_dir / "latest_lgbm.pkl"
+    candidate_config = write_candidate_config(args, root)
     readiness_path = resolve_path(args.readiness) or ARTIFACTS_DIR / f"training_automation_readiness_{run_date}.json"
     output_path = resolve_path(args.output) or root / "training_candidate_flow.json"
     before_hash = sha256(LATEST_MODEL)
@@ -147,6 +176,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             repo_path(candidate_model_dir) or str(candidate_model_dir),
             "--artifact-dir",
             repo_path(candidate_artifact_dir) or str(candidate_artifact_dir),
+            "--config",
+            repo_path(candidate_config) or str(candidate_config),
             "--horizon",
             str(args.horizon),
             "--threshold",
@@ -174,6 +205,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                     repo_path(candidate_model) or str(candidate_model),
                     "--artifact-dir",
                     repo_path(candidate_artifact_dir) or str(candidate_artifact_dir),
+                    "--config",
+                    repo_path(candidate_config) or str(candidate_config),
                     "--output",
                     repo_path(sealed_output) or str(sealed_output),
                 ],
@@ -204,6 +237,12 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "does_not_run_production_ranking": True,
             "does_not_enable_auto_retrain": True,
             "production_promotion_allowed": False,
+        },
+        "candidate_config": {
+            "path": repo_path(candidate_config),
+            "sealed_trade_days": args.sealed_trade_days,
+            "min_train_trade_days": args.min_train_trade_days,
+            "min_sealed_trade_days": args.min_sealed_trade_days,
         },
         "readiness": readiness_summary,
         "candidate": {

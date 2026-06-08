@@ -462,6 +462,12 @@ def readiness_assessment(
     promotion_blocker_details: list[dict[str, Any]] = []
     degradations = data_degradations(health, run_date=run_date)
 
+    def accepted_model_group_warning(name: str) -> dict[str, Any]:
+        for row in model_group.get("auto_retrain_readiness_warnings") or []:
+            if str(row.get("name")) == name:
+                return row
+        return {}
+
     def add_blocker(detail: dict[str, Any]) -> None:
         blockers.append(str(detail["message"]))
         blocker_details.append(detail)
@@ -551,9 +557,13 @@ def readiness_assessment(
         checks = health_checks_by_name(health)
         if check_not_ok(checks.get("monitor.psi_baseline")):
             baseline_check = checks["monitor.psi_baseline"]
+            accepted_baseline = accepted_model_group_warning("monitor.psi_baseline")
+            baseline_degradation = (
+                accepted_baseline.get("readiness_category") == "data_unavailable_with_explicit_degradation"
+            )
             baseline_category = (
                 "data_unavailable_with_explicit_degradation"
-                if degradations
+                if degradations or baseline_degradation
                 else "must_fix_before_training"
             )
             baseline_detail = classify_item(
@@ -562,9 +572,12 @@ def readiness_assessment(
                 message=f"monitor.psi_baseline is {baseline_check.get('status')}: {baseline_check.get('message')}",
                 source="artifacts/model_health_report_latest.json",
                 action="補齊缺失監控特徵，或保留 research-only 降級並禁止 promotion。",
-                evidence={"degradations": degradations},
+                evidence={
+                    "degradations": degradations,
+                    "accepted_model_group_warning": accepted_baseline,
+                },
             )
-            if degradations:
+            if degradations or baseline_degradation:
                 add_warning(baseline_detail)
                 add_promotion_blocker(baseline_detail)
             else:

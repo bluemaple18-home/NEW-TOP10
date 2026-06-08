@@ -144,6 +144,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     steps: list[dict[str, Any]] = []
     replay_output = candidate_root / "candidate_replay.json"
     portfolio_output = candidate_root / "candidate_portfolio_replay_40d.json"
+    fixed_share_top10_output = candidate_root / f"fixed_share_top10_candidate_{args.date}.json"
+    fixed_share_matrix_output = candidate_root / f"fixed_share_hypothesis_matrix_candidate_{args.date}.json"
     if not failed_rankings:
         steps.append(
             run_step(
@@ -159,6 +161,38 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                     args.horizons,
                     "--output",
                     repo_path(replay_output) or str(replay_output),
+                ],
+            )
+        )
+        steps.append(
+            run_step(
+                "candidate.fixed_share_top10",
+                [
+                    sys.executable,
+                    "scripts/run_fixed_share_top10_backtest.py",
+                    "--variant",
+                    f"candidate={repo_path(rankings_dir) or str(rankings_dir)}",
+                    "--features",
+                    args.features,
+                    "--output",
+                    repo_path(fixed_share_top10_output) or str(fixed_share_top10_output),
+                ],
+            )
+        )
+        steps.append(
+            run_step(
+                "candidate.fixed_share_matrix",
+                [
+                    sys.executable,
+                    "scripts/run_fixed_share_hypothesis_matrix.py",
+                    "--rankings-dir",
+                    repo_path(rankings_dir) or str(rankings_dir),
+                    "--features",
+                    args.features,
+                    "--variant-label",
+                    "candidate",
+                    "--output",
+                    repo_path(fixed_share_matrix_output) or str(fixed_share_matrix_output),
                 ],
             )
         )
@@ -205,9 +239,13 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "outputs": {
             "replay": repo_path(replay_output),
             "portfolio_replay_40d": repo_path(portfolio_output),
+            "fixed_share_top10": repo_path(fixed_share_top10_output),
+            "fixed_share_hypothesis_matrix": repo_path(fixed_share_matrix_output),
         },
         "replay": read_json(replay_output),
         "portfolio_replay_40d": read_json(portfolio_output),
+        "fixed_share_top10": read_json(fixed_share_top10_output),
+        "fixed_share_hypothesis_matrix": read_json(fixed_share_matrix_output),
         "steps": steps,
         "errors": errors,
     }
