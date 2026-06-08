@@ -48,6 +48,16 @@ portfolio_risk_overlay:
   sizing_overlay_enabled: false
   risk_profile: "baseline"
 
+# 正式每日推薦 overlay。預設必須關閉。
+# K9 = 保留 production Top9，用 feature-group shadow score 補第 10 名。
+# 這會改正式 ranking_YYYY-MM-DD.csv；開啟前必須先有 promotion review。
+production_ranking_overlay:
+  enabled: false
+  promotion_review_approved: false
+  variant: "feature_group_constrained_k9"
+  keep_production_count: 9
+  comparison_keep_counts: [8]
+
 events:
   # 趨勢事件
   - name: break_20d_high
