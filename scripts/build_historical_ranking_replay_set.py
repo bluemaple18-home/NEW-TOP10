@@ -24,6 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.agent_b_ranking import StockRanker
 from app.modeling.feature_contract import load_m4_feature_frame
+from app.signals.price_patterns import PRICE_PATTERN_COLUMNS, add_price_patterns
 
 
 def parse_args() -> argparse.Namespace:
@@ -97,6 +98,13 @@ def prepare_batch_frames(ranker: StockRanker) -> tuple[pd.DataFrame, pd.DataFram
     features.attrs["m4_feature_metadata"] = feature_metadata
     ranker._ensure_unique_trade_keys(features, "m4_feature_frame")
     features = features.sort_values(["stock_id", "trade_date"]).copy()
+    missing_price_patterns = [column for column in PRICE_PATTERN_COLUMNS if column not in features.columns]
+    if missing_price_patterns:
+        # 舊歷史 features 可能缺新型態欄位；研究 ranking 需補齊訓練契約，但不回寫 production data。
+        pattern_source = features[["date", "stock_id", "high", "low", "close"]].copy()
+        pattern_frame = add_price_patterns(pattern_source)
+        for column in PRICE_PATTERN_COLUMNS:
+            features[column] = pattern_frame[column].to_numpy()
     # 歷史研究一次算完整壓力線，避免逐日重建 rolling feature frame。
     features["ref_high_20d"] = features.groupby("stock_id")["high"].transform(lambda x: x.shift(1).rolling(20).max())
     features["ref_high_60d"] = features.groupby("stock_id")["high"].transform(lambda x: x.shift(1).rolling(60).max())
