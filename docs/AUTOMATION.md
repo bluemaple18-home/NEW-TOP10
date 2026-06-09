@@ -4,11 +4,11 @@
 
 本系統提供完整的自動化功能，讓選股系統能夠無人值守運作：
 
-- 📊 **每日自動執行** (22:00): ETL 資料更新 + Agent B 選股
+- 📊 **每日自動執行** (17:30): ETL 資料更新 + Agent B 選股 + Clawd-ready payload
 - 🔧 **每日漂移監控** (02:00): PSI 檢查；模型重訓改為手動或週期任務
 - 🔎 **每月 reference 維護** (每月 1 日 03:30): 概念股 / 產業 / 供應鏈來源 probe + import
 - 📈 **PSI 漂移監控**: 自動偵測特徵分佈變化
-- 🔔 **通知推播** (可選): Line Notify 整合
+- 🔔 **通知推播** (可選): New Clawd thin adapter；正式送出需走 publish gate
 
 ---
 
@@ -73,12 +73,15 @@ tail -f logs/launchd_retrain.log
 12. 記錄日誌至 `logs/daily_YYYYMMDD.log`。
 
 ### `scripts/run_daily_publish.sh`
-**功能**: 本機 launchd 收盤後排程入口 (17:30)
+**功能**: 可選的本機收盤後正式推播入口，不是 repo 內預設 daily plist 入口
 **流程**:
 1. 呼叫 `scripts/run_daily.sh` 跑完整 daily 主流程。
 2. 若 daily 失敗，停止推播並保留 daily exit code。
-3. 若 daily 成功，讀取本次 `clawd_publish_message_YYYY-MM-DD.md`。
-4. 呼叫 `scripts/report_stock_status.sh` 交給 New Clawd 正式推播；推播失敗只寫 `logs/stock_notify.jsonl`，不回頭處理 Discord 細節。
+3. 只接受本次 `artifacts/automation_status.json` 為 `OK`、`run_date` 等於今天，且 `metadata.clawd_publish_message` 指向本次訊息；不會 fallback 到 latest message。
+4. 只有 `notify.clawd_enabled=true` 且 `notify.clawd_dry_run=false` 時，才呼叫 `scripts/report_stock_status.sh` 交給 New Clawd 正式推播。
+5. 推播失敗只寫 `logs/stock_notify.jsonl`，不回頭處理 Discord 細節，也不讓股票主流程重試 Discord。
+
+repo 內 `scripts/com.new-top10.daily.plist` 目前指向 `scripts/run_daily.sh`，只產生日報與 Clawd-ready payload，不會自動 live send。
 
 ### `scripts/daily_retrain.sh`
 **功能**: 每日 PSI 監控 (02:00)，可手動傳入 `retrain` 執行模型重訓

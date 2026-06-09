@@ -10,6 +10,7 @@ import pandas as pd
 
 from .market_regime import MarketRegime
 from .portfolio_risk_overlay import PortfolioRiskOverlay
+from .tape_guard import add_tape_guard_columns
 from .trade_plan import TradePlanService
 
 
@@ -22,7 +23,13 @@ class RankingPolicy:
         self.trade_plan_service = trade_plan_service or TradePlanService()
         self.portfolio_overlay = portfolio_overlay or PortfolioRiskOverlay()
 
-    def apply(self, ranked_df: pd.DataFrame, regime: MarketRegime | None = None) -> pd.DataFrame:
+    def apply(
+        self,
+        ranked_df: pd.DataFrame,
+        regime: MarketRegime | None = None,
+        *,
+        apply_selection_guards: bool = False,
+    ) -> pd.DataFrame:
         df = ranked_df.copy()
         if df.empty:
             return df
@@ -30,6 +37,7 @@ class RankingPolicy:
         if "final_score" not in df.columns:
             df["final_score"] = df.get("model_prob", 0.5)
 
+        df = add_tape_guard_columns(df)
         risk_multiplier = regime.risk_multiplier if regime else 1.0
         df["liquidity_factor"] = self._liquidity_factor(df)
         df["setup_quality"] = self._setup_quality(df)
@@ -49,11 +57,14 @@ class RankingPolicy:
         df["trade_plan"] = trade_plans
         df["risk_reward"] = risk_rewards
         df["risk_reward_factor"] = pd.Series(risk_rewards, index=df.index).fillna(1.0).clip(0.5, 3.0) / 2.0
+        df = self._add_execution_rr_guard(df)
         df["risk_adjusted_score"] = (
             df["prediction_score"] + df["setup_score"] + df["quality_score"] - df["risk_penalty"]
         ).clip(lower=0)
         df["market_regime"] = regime.label if regime else "UNKNOWN"
         df = self.portfolio_overlay.apply_score_overlay(df, regime)
+        if apply_selection_guards:
+            df = self._apply_tape_veto(df)
         return df.sort_values("risk_adjusted_score", ascending=False)
 
     def _prediction_score(self, df: pd.DataFrame) -> pd.Series:
@@ -141,3 +152,94 @@ class RankingPolicy:
             ma20 = pd.to_numeric(df["ma20"], errors="coerce")
             quality = quality.where(~(close < ma20), quality * 0.75)
         return quality.clip(0.45, 1.15)
+
+    def _apply_tape_veto(self, df: pd.DataFrame) -> pd.DataFrame:
+        """當日 tape 失控時直接排出主排名，不讓延遲訊號蓋過跌停事實。"""
+        if "tape_guard_action" not in df.columns:
+            return df
+        result = df.copy()
+        action = result["tape_guard_action"].fillna("").astype(str)
+        exclude = action == "EXCLUDE"
+        downgrade = action == "DOWNGRADE"
+        copy_guard = action == "COPY_GUARD"
+        if "risk_penalty" in result.columns:
+            penalty = pd.to_numeric(result["risk_penalty"], errors="coerce").fillna(0.0)
+            result["risk_penalty"] = (penalty + exclude.astype(float) * 1.5 + downgrade.astype(float) * 0.75 + copy_guard.astype(float) * 0.25).clip(0, 3)
+        if "risk_adjusted_score" in result.columns:
+            score = pd.to_numeric(result["risk_adjusted_score"], errors="coerce").fillna(0.0)
+            score = score.mask(exclude, -999.0)
+            score = score.mask(downgrade, score * 0.35)
+            score = score.mask(copy_guard, score * 0.75)
+            if "rr_guard_action" in result.columns:
+                rr_action = result["rr_guard_action"].fillna("").astype(str)
+                score = score.mask(rr_action == "WAIT_PULLBACK", score * 0.55)
+                score = score.mask(rr_action == "WAIT_CONFIRM", score * 0.9)
+            result["risk_adjusted_score"] = score
+        return result
+
+    def _add_execution_rr_guard(self, df: pd.DataFrame) -> pd.DataFrame:
+        """估短線執行 RR，和趨勢失效價分開。
+
+        trend stop 可以比較遠，但短線進場要看上方壓力與近期防守價是否划算。
+        """
+        result = df.copy()
+        close = self._numeric_column(result, "close")
+        service_target = result.get("trade_plan", pd.Series(index=result.index, dtype=object)).apply(
+            lambda plan: plan.get("target_price") if isinstance(plan, dict) else None
+        )
+        service_stop = result.get("trade_plan", pd.Series(index=result.index, dtype=object)).apply(
+            lambda plan: plan.get("stop_loss") if isinstance(plan, dict) else None
+        )
+        pressure = self._numeric_column(result, "reason_target_price").fillna(
+            pd.to_numeric(service_target, errors="coerce")
+        ).fillna(self._pressure_price(result, close))
+        trend_stop = self._numeric_column(result, "reason_stop_loss").fillna(
+            pd.to_numeric(service_stop, errors="coerce")
+        )
+        execution_stop = self._execution_stop(result, close)
+        downside = (close - execution_stop).where((close - execution_stop) > 0)
+        upside = (pressure - close).where((pressure - close) > 0)
+        rr = upside / downside
+        trend_downside = (close - trend_stop).where((close - trend_stop) > 0)
+        structural_rr = upside / trend_downside
+        result["pressure_price"] = pressure.round(2)
+        result["execution_stop_loss"] = execution_stop.round(2)
+        result["trend_invalidation_price"] = trend_stop.round(2)
+        result["execution_risk_reward"] = rr.round(2)
+        result["risk_reward_score"] = structural_rr.round(2)
+        action = pd.Series("ALLOW", index=result.index, dtype="object")
+        action = action.mask(structural_rr < 0.8, "WAIT_PULLBACK")
+        action = action.mask((structural_rr >= 0.8) & (structural_rr < 1.0), "WAIT_CONFIRM")
+        result["rr_guard_action"] = action
+        result["rr_guard_reason"] = action.map(
+            {
+                "WAIT_PULLBACK": "上方空間小於下方風險，只能等拉回或重新確認",
+                "WAIT_CONFIRM": "上方空間沒有明顯大過下方風險，暫不列主攻",
+                "ALLOW": "",
+            }
+        ).fillna("")
+        return result
+
+    def _pressure_price(self, df: pd.DataFrame, close: pd.Series) -> pd.Series:
+        pressure = pd.Series(pd.NA, index=df.index, dtype="Float64")
+        for column in ("ref_high_20d", "ref_high_60d", "pattern_resistance"):
+            if column not in df.columns:
+                continue
+            candidate = pd.to_numeric(df[column], errors="coerce")
+            pressure = pressure.where(pressure.notna() & (pressure > close), candidate.where(candidate > close))
+        return pressure.fillna(close * 1.06)
+
+    def _execution_stop(self, df: pd.DataFrame, close: pd.Series) -> pd.Series:
+        candidates = []
+        for column, multiplier in (("ma5", 0.985), ("ma10", 0.98), ("ref_low_5d", 0.99), ("ref_low_10d", 0.99)):
+            if column in df.columns:
+                candidates.append(pd.to_numeric(df[column], errors="coerce") * multiplier)
+        candidates.append(close * 0.97)
+        stop_frame = pd.concat(candidates, axis=1)
+        stop_frame = stop_frame.where(stop_frame.lt(close, axis=0))
+        return stop_frame.max(axis=1).fillna(close * 0.97)
+
+    def _numeric_column(self, df: pd.DataFrame, column: str) -> pd.Series:
+        if column not in df.columns:
+            return pd.Series(pd.NA, index=df.index, dtype="Float64")
+        return pd.to_numeric(df[column], errors="coerce")

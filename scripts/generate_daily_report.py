@@ -27,9 +27,14 @@ REPORT_SCHEMA_VERSION = "daily-decision-report.v1"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="generate daily Top10 decision report")
+    parser = argparse.ArgumentParser(description="產生每日 Top10 決策日報")
     parser.add_argument("--date", default=None, help="ranking 日期，格式 YYYY-MM-DD；未指定時使用 automation_status 或最新 ranking")
     parser.add_argument("--ranking", default=None, help="指定 ranking CSV 路徑")
+    parser.add_argument(
+        "--allow-research-ranking",
+        action="store_true",
+        help="允許使用非 artifacts/ranking_YYYY-MM-DD.csv 的研究 ranking，日報會明確標示來源不適合直接推播。",
+    )
     parser.add_argument("--status", default="artifacts/automation_status.json", help="automation status JSON")
     parser.add_argument("--artifacts-dir", default="artifacts")
     args = parser.parse_args()
@@ -37,6 +42,9 @@ def main() -> int:
     artifacts_dir = PROJECT_ROOT / args.artifacts_dir
     status = load_json(PROJECT_ROOT / args.status)
     ranking_path = resolve_ranking_path(artifacts_dir=artifacts_dir, status=status, date=args.date, ranking=args.ranking)
+    ranking_source = ranking_source_policy(ranking_path, artifacts_dir=artifacts_dir, allow_research=args.allow_research_ranking)
+    if not ranking_source["allowed"]:
+        raise ValueError(str(ranking_source["message"]))
     ranking_date = date_from_ranking_path(ranking_path)
     frame = pd.read_csv(ranking_path)
     frame = ReferenceRepository(PROJECT_ROOT).annotate_ranking(frame)
@@ -46,6 +54,7 @@ def main() -> int:
         frame=frame,
         ranking_path=ranking_path,
         ranking_date=ranking_date,
+        ranking_source=ranking_source,
         status=status,
         persistence=persistence,
         ledger_stats=ledger_stats,
@@ -115,10 +124,43 @@ def date_from_ranking_path(path: Path) -> str:
     return match.group(1)
 
 
+def ranking_source_policy(path: Path, artifacts_dir: Path, allow_research: bool = False) -> dict[str, Any]:
+    resolved = path.resolve()
+    production_dir = artifacts_dir.resolve()
+    is_production_artifact = resolved.parent == production_dir and bool(re.fullmatch(r"ranking_\d{4}-\d{2}-\d{2}\.csv", resolved.name))
+    if is_production_artifact:
+        return {
+            "allowed": True,
+            "source_type": "production",
+            "delivery_safe": True,
+            "allow_research_ranking": False,
+            "message": "正式 ranking artifact，可用於日報與推播 payload。",
+        }
+    if allow_research:
+        return {
+            "allowed": True,
+            "source_type": "research",
+            "delivery_safe": False,
+            "allow_research_ranking": True,
+            "message": "研究 ranking artifact，只可用於標示清楚的人工檢視，不可自動視為正式推播來源。",
+        }
+    return {
+        "allowed": False,
+        "source_type": "research",
+        "delivery_safe": False,
+        "allow_research_ranking": False,
+        "message": (
+            "ranking 來源不是正式 artifacts/ranking_YYYY-MM-DD.csv；"
+            "若確定要產生研究日報，請加 --allow-research-ranking，且後續 Clawd 不得自動標成正式可發送。"
+        ),
+    }
+
+
 def build_report(
     frame: pd.DataFrame,
     ranking_path: Path,
     ranking_date: str,
+    ranking_source: dict[str, Any],
     status: dict[str, Any],
     persistence: dict[str, Any] | None = None,
     ledger_stats: dict[str, Any] | None = None,
@@ -137,6 +179,12 @@ def build_report(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "ranking_date": ranking_date,
         "ranking_artifact": str(ranking_path),
+        "ranking_source": {
+            "source_type": ranking_source.get("source_type"),
+            "delivery_safe": bool(ranking_source.get("delivery_safe")),
+            "allow_research_ranking": bool(ranking_source.get("allow_research_ranking")),
+            "message": ranking_source.get("message"),
+        },
         "automation_status": {
             "status": status.get("status"),
             "run_date": status.get("run_date"),
@@ -197,11 +245,28 @@ def item_from_row(rank: int, row: pd.Series, persistence: dict[str, Any] | None 
             "cash_weight": number_value(row.get("cash_weight")),
             "exposure_note": string_value(row.get("exposure_note")),
         },
+        "tape": tape_from_row(row),
         "reference": reference_from_row(row),
         "trade_plan": trade_plan,
         "persistence": persistence_item(stock_id, persistence or {}),
         "market_regime": string_value(row.get("market_regime")),
         "reasons": reasons,
+    }
+
+
+def tape_from_row(row: pd.Series) -> dict[str, Any]:
+    return {
+        "open": number_value(row.get("open")),
+        "high": number_value(row.get("high")),
+        "low": number_value(row.get("low")),
+        "close": number_value(row.get("close")),
+        "prev_close": number_value(row.get("prev_close")),
+        "return_pct": number_value(row.get("return_pct")),
+        "intraday_position": number_value(row.get("intraday_position")),
+        "one_price_locked": bool(row.get("one_price_locked")) if row.get("one_price_locked") == row.get("one_price_locked") else None,
+        "limit_state": string_value(row.get("limit_state")),
+        "tape_guard_action": string_value(row.get("tape_guard_action")),
+        "tape_guard_reason": string_value(row.get("tape_guard_reason")),
     }
 
 
@@ -241,6 +306,13 @@ def trade_plan_from_row(row: pd.Series) -> dict[str, Any]:
         "stop_loss": stop,
         "target_price": target,
         "risk_reward": number_value(row.get("risk_reward")),
+        "execution_stop_loss": number_value(row.get("execution_stop_loss")),
+        "trend_invalidation_price": number_value(row.get("trend_invalidation_price")),
+        "pressure_price": number_value(row.get("pressure_price")),
+        "execution_risk_reward": number_value(row.get("execution_risk_reward")),
+        "risk_reward_score": number_value(row.get("risk_reward_score")),
+        "rr_guard_action": string_value(row.get("rr_guard_action")),
+        "rr_guard_reason": string_value(row.get("rr_guard_reason")),
         "source": "ranking_reasons" if any(value is not None for value in [entry, stop, target]) else "unavailable",
     }
 
@@ -305,6 +377,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         f"- 狀態：{report['automation_status'].get('status') or 'UNKNOWN'}",
         f"- Ranking artifact：`{report['ranking_artifact']}`",
+        f"- Ranking 來源：{report.get('ranking_source', {}).get('message') or '未標示'}",
         f"- 市場狀態：{summary.get('market_regime') or 'UNKNOWN'}",
         f"- 目標曝險：{pct(summary.get('gross_exposure'))}；已配置：{pct(summary.get('allocated_exposure'))}；現金：{pct(summary.get('cash_weight'))}",
         "",

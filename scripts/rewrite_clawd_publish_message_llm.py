@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,11 @@ from urllib import error, parse, request
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.verify_publish_risk_grouping import ROLE_LABEL_BY_PAYLOAD_ROLE, parse_message_item_blocks  # noqa: E402
+
 STATUS_SCHEMA_VERSION = "clawd-llm-rewrite-status.v1"
 DEFAULT_ENV_FILE = Path.home() / ".config" / "ai-core" / "legacy_review.env"
 DEFAULT_MODEL = "gemini-2.5-flash"
@@ -128,6 +134,17 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001 - fallback 是設計的一部分。
         status["status"] = "FALLBACK"
         status["errors"].append(str(exc))
+        if not args.no_in_place and deterministic_path.exists():
+            deterministic_message = deterministic_path.read_text(encoding="utf-8")
+            message_path.write_text(deterministic_message, encoding="utf-8")
+            payload["message_markdown"] = deterministic_message
+            payload["message_stats"] = {
+                **dict(payload.get("message_stats") or {}),
+                "characters": len(deterministic_message),
+                "llm_rewritten": False,
+                "llm_fallback": True,
+            }
+            payload_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     output_path.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
     print(
@@ -324,6 +341,8 @@ def build_prompt(payload: dict[str, Any], source_message: str) -> str:
             "硬性規則：",
             "- 必須使用繁體中文。",
             "- 必須保留日期、10 檔順序、股票代號、股票名稱。",
+            "- 必須保留每檔原始排名格式，例如 facts 裡 rank=3、stock_id=2302，就必須寫成「3. 2302 麗正」。",
+            "- 逐檔內容必須照 1 到 10 的排名順序輸出，不可因主攻觀察、等確認、只等拉回而重新排序。",
             "- 必須保留大盤情況、資金分布百分比、資金重心、熱門概念。",
             "- 每檔都要有：跟今天盤勢的關係、為什麼入選、怎麼看、白話翻譯。",
             "- 每檔第一句先給結論，讓小白三秒內知道強不強。",
@@ -337,6 +356,7 @@ def build_prompt(payload: dict[str, Any], source_message: str) -> str:
             "- 輸出只要推播訊息正文，不要包 code block。",
             "- 不要使用 Markdown 標題語法，不要出現 #、##、###、####。",
             "- 段落標籤請用純文字，例如：今日大盤與資金、為什麼入選：、怎麼看：、白話翻譯：。",
+            "- 分組只當每檔標籤使用，不可把股票分組重排。",
             "",
             "語氣方向：",
             "- 像真人操盤手盤後快速講重點。",
@@ -346,9 +366,9 @@ def build_prompt(payload: dict[str, Any], source_message: str) -> str:
             "請使用這個固定骨架：",
             "Top10 每日選股｜YYYY-MM-DD",
             "今日大盤與資金",
-            "主觀察",
-            "候補觀察",
-            "每檔使用：跟今天盤勢的關係： / 為什麼入選： / 怎麼看： / 白話翻譯：",
+            "今日 10 檔總覽（照 1 到 10 列出）",
+            "逐檔重點（照 1 到 10 寫，每檔可標主攻觀察/等確認/只等拉回/候補觀察/風險警示）",
+            "每檔使用：分組標籤 / 跟今天盤勢的關係： / 為什麼入選： / 怎麼看： / 白話翻譯：",
             "",
             "事實資料 JSON：",
             json.dumps(facts, ensure_ascii=False, separators=(",", ":")),
@@ -455,13 +475,20 @@ def validate_rewrite(message: str, payload: dict[str, Any]) -> None:
     ranking_date = str(payload.get("ranking_date") or "")
     if ranking_date and ranking_date not in message:
         raise ValueError("LLM 訊息缺少排名日期")
+    rank_positions: list[tuple[int, int]] = []
     for item in payload.get("top10", [])[:10]:
+        rank = item.get("rank")
         stock_id = str(item.get("stock_id") or "").strip()
         stock_name = str(item.get("stock_name") or "").strip()
         if stock_id and stock_id not in message:
             raise ValueError(f"LLM 訊息缺少股票代號 {stock_id}")
         if stock_name and stock_name not in message:
             raise ValueError(f"LLM 訊息缺少股票名稱 {stock_name}")
+        if rank and stock_id:
+            match = re.search(rf"(?m)^{int(rank)}\.\s+{re.escape(stock_id)}(?:\D|$)", message)
+            if not match:
+                raise ValueError(f"LLM 訊息未保留正確排名格式：{rank}. {stock_id}")
+            rank_positions.append((int(rank), match.start()))
         trade = item.get("trade_plan") if isinstance(item.get("trade_plan"), dict) else {}
         entry_low, entry_high = observation_range_values(trade)
         expected_range = format_range(entry_low, entry_high)
@@ -472,10 +499,43 @@ def validate_rewrite(message: str, payload: dict[str, Any]) -> None:
             wrong_range = f"{entry_low:.2f} ~ {target:.2f} 元"
             if wrong_range in message:
                 raise ValueError(f"LLM 訊息把 {stock_id} 目標價誤寫成觀察區間")
+    expected_ranks = [int(item.get("rank")) for item in payload.get("top10", [])[:10] if item.get("rank")]
+    ordered_ranks = [rank for rank, _ in sorted(rank_positions, key=lambda item: item[1])]
+    if ordered_ranks != expected_ranks:
+        raise ValueError(f"LLM 訊息排名順序錯誤：got={ordered_ranks}, expected={expected_ranks}")
     required_sections = ["大盤", "資金", "為什麼入選", "怎麼看", "白話翻譯"]
     missing = [section for section in required_sections if section not in message]
     if missing:
         raise ValueError(f"LLM 訊息缺少必要段落：{', '.join(missing)}")
+    section_by_role = {
+        "primary": "主攻觀察",
+        "confirm": "等確認",
+        "pullback": "只等拉回",
+        "backup": "候補觀察",
+        "risk": "風險警示",
+    }
+    roles = {str(item.get("list_role") or "") for item in payload.get("top10", [])[:10]}
+    missing_role_sections = [section for role, section in section_by_role.items() if role in roles and section not in message]
+    if missing_role_sections:
+        raise ValueError(f"LLM 訊息缺少分組標題：{', '.join(missing_role_sections)}")
+    message_items = parse_message_item_blocks(message)
+    if len(message_items) != 10:
+        raise ValueError(f"LLM 訊息逐檔區塊數量錯誤：got={len(message_items)}, expected=10")
+    expected_keys = [(int(item.get("rank")), str(item.get("stock_id") or "").zfill(4)) for item in payload.get("top10", [])[:10] if item.get("rank")]
+    actual_keys = [(item["rank"], item["stock_id"]) for item in message_items]
+    if actual_keys != expected_keys:
+        raise ValueError(f"LLM 訊息逐檔順序錯誤：got={actual_keys}, expected={expected_keys}")
+    message_by_key = {(item["rank"], item["stock_id"]): item for item in message_items}
+    for item in payload.get("top10", [])[:10]:
+        if not item.get("rank"):
+            continue
+        stock_id = str(item.get("stock_id") or "").zfill(4)
+        role = str(item.get("list_role") or "")
+        expected_label = ROLE_LABEL_BY_PAYLOAD_ROLE.get(role)
+        message_item = message_by_key.get((int(item.get("rank")), stock_id))
+        actual_label = str((message_item or {}).get("role_label") or "")
+        if expected_label and actual_label != expected_label:
+            raise ValueError(f"LLM 訊息 {stock_id} 分組錯誤：got={actual_label}, expected={expected_label}")
     if message.count("為什麼入選") < 8 or message.count("白話翻譯") < 8:
         raise ValueError("LLM 訊息沒有完整覆蓋足夠多檔股票")
     if re.search(r"(?m)^#{1,6}\s+", message):

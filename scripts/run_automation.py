@@ -88,6 +88,12 @@ class AutomationRunner:
                 self._run_status()
             else:
                 raise ValueError(f"未知模式：{self.mode}")
+
+            if self.status.status == "RUNNING":
+                self.status.status = "OK"
+            if self.mode == "daily" and self.status.status == "OK":
+                self._write_status()
+                self._run_daily_final_artifacts()
         except Exception as exc:
             self.status.status = "FAILED"
             self.status.errors.append(str(exc))
@@ -95,8 +101,6 @@ class AutomationRunner:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
 
-        if self.status.status == "RUNNING":
-            self.status.status = "OK"
         self._write_status()
         return 0
 
@@ -120,16 +124,20 @@ class AutomationRunner:
         ranking_path = self._expected_ranking_path()
         self._run_candidate_persistence(daily_config, ranking_path)
         self._run_weekly_snapshot(daily_config, ranking_path)
-        report_path = self._run_daily_report(daily_config, ranking_path)
         self._run_market_context(daily_config)
         self._run_decision_quality(daily_config, ranking_path)
         self._run_gross55_shadow_monitor(daily_config, ranking_path)
         self._run_capital_entry_quality_shadow_monitor(daily_config, ranking_path)
         self._run_shadow_historical_evidence_report(daily_config)
         self._run_daily_shadow_status_report(daily_config)
-        self._run_clawd_payload(daily_config, report_path)
         self._record_step("api.cache.clear", "SKIPPED", message="如 API 常駐，請由服務自行呼叫 POST /api/cache/clear")
         self._run_daily_postcheck(daily_config)
+
+    def _run_daily_final_artifacts(self) -> None:
+        daily_config = self.config.get("daily", {})
+        ranking_path = self._expected_ranking_path()
+        report_path = self._run_daily_report(daily_config, ranking_path)
+        self._run_clawd_payload(daily_config, report_path)
 
     def _run_monitor(self) -> None:
         if not self.config.get("monitor", {}).get("enabled", True):

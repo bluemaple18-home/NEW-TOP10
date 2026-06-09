@@ -229,6 +229,11 @@ class StockRanker:
         # 預計算：壓力線 (近20日高點，不含今日)
         features['ref_high_20d'] = features.groupby('stock_id')['high'].transform(lambda x: x.shift(1).rolling(20).max())
         features['ref_high_60d'] = features.groupby('stock_id')['high'].transform(lambda x: x.shift(1).rolling(60).max())
+        features['ref_low_5d'] = features.groupby('stock_id')['low'].transform(lambda x: x.shift(1).rolling(5).min())
+        features['ref_low_10d'] = features.groupby('stock_id')['low'].transform(lambda x: x.shift(1).rolling(10).min())
+        features['ref_low_20d'] = features.groupby('stock_id')['low'].transform(lambda x: x.shift(1).rolling(20).min())
+        features['prev_close'] = features.groupby('stock_id')['close'].shift(1)
+        features['return_pct'] = (features['close'] / features['prev_close'] - 1.0) * 100.0
         
         daily_features = features[features['trade_date'] == target_trade_date].copy()
         
@@ -322,6 +327,8 @@ class StockRanker:
         # • {Reason 2}
         
         reasons_formatted = []
+        reason_stop_losses = []
+        reason_target_prices = []
         for idx, row in df.iterrows():
             close = row.get('close', 0)
             ma20 = row.get('ma20', 0)
@@ -335,6 +342,8 @@ class StockRanker:
                 stop_note = "回檔5%"
                 
             target_price = close * 1.1 # 預設 10% 獲利
+            reason_stop_losses.append(stop_loss)
+            reason_target_prices.append(target_price)
             
             positive_sigs = [sig for sig in str(row.get('positive_signals', '')).split('|') if sig]
             risk_sigs = [sig for sig in str(row.get('risk_signals', '')).split('|') if sig]
@@ -378,6 +387,8 @@ class StockRanker:
             reasons_formatted.append(tpl)
             
         df['reasons'] = reasons_formatted
+        df['reason_stop_loss'] = reason_stop_losses
+        df['reason_target_price'] = reason_target_prices
         
         # 3. 規則分數正規化
         max_score = df['rule_score'].max()
@@ -768,7 +779,13 @@ class StockRanker:
                 )
             
             out_cols = [
-                'stock_id', 'stock_name', 'close', 'risk_adjusted_score', 'final_score',
+                'stock_id', 'stock_name', 'open', 'high', 'low', 'close', 'prev_close',
+                'return_pct', 'intraday_position', 'one_price_locked', 'limit_state',
+                'tape_guard_action', 'tape_guard_reason',
+                'reason_stop_loss', 'reason_target_price',
+                'execution_stop_loss', 'trend_invalidation_price', 'pressure_price',
+                'execution_risk_reward', 'risk_reward_score', 'rr_guard_action', 'rr_guard_reason',
+                'risk_adjusted_score', 'final_score',
                 'model_prob', 'rule_score', 'prediction_score', 'setup_score',
                 'quality_score', 'risk_penalty', 'suggested_weight', 'max_position_weight',
                 'gross_exposure', 'allocated_exposure', 'cash_weight', 'exposure_note', 'risk_reward',

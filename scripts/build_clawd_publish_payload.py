@@ -10,17 +10,23 @@ import argparse
 import csv
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.trading.tape_guard import tape_blocks_bullish_language, tape_excludes_primary, tape_guard_from_mapping  # noqa: E402
+
 PAYLOAD_SCHEMA_VERSION = "clawd-publish-payload.v1"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="build Clawd-ready Top10 publish payload")
+    parser = argparse.ArgumentParser(description="產生 Clawd-ready Top10 推播 payload")
     parser.add_argument("--date", default=None, help="日報日期，格式 YYYY-MM-DD；未指定時使用最新 daily_report")
     parser.add_argument("--report", default=None, help="指定 daily_report JSON 路徑")
     parser.add_argument("--artifacts-dir", default="artifacts")
@@ -90,6 +96,7 @@ def build_payload(
     concept_map = load_concept_map()
     industry_bucket_map = load_notification_industry_buckets()
     bucket_rules = load_notification_theme_buckets()
+    ranking_source = ranking_source_policy(report)
     top_items = [
         enrich_item_for_audiences(item, industry_map, concept_map)
         for item in list(report.get("top10", []))[: max(1, max_items)]
@@ -100,18 +107,24 @@ def build_payload(
         raw_signals = raw_signal_texts(item.get("reasons", []))
         ai_features = ai_feature_names(item.get("reasons", []))
         item["notification_summary"] = notification_summary(item, raw_signals, ai_features)
-    delivery_status = "READY_FOR_CLAWD" if channel and to else "PENDING_TARGET"
     missing = []
     if not channel:
         missing.append("channel")
     if not to:
         missing.append("to")
+    if not ranking_source["delivery_safe"]:
+        missing.append("production_ranking_source")
+    if not ranking_source["delivery_safe"]:
+        delivery_status = "RESEARCH_RANKING_REVIEW_REQUIRED"
+    else:
+        delivery_status = "READY_FOR_CLAWD" if channel and to else "PENDING_TARGET"
 
     message = render_message(
         report=report,
         ranking_date=ranking_date,
         top_items=top_items,
         market_overview=market_overview,
+        ranking_source=ranking_source,
     )
     return {
         "schema_version": PAYLOAD_SCHEMA_VERSION,
@@ -120,6 +133,7 @@ def build_payload(
         "source": {
             "daily_report": str(report_path),
             "ranking_artifact": report.get("ranking_artifact"),
+            "ranking_source": ranking_source,
             "automation_status": report.get("automation_status", {}),
         },
         "delivery": {
@@ -129,7 +143,7 @@ def build_payload(
             "to": to,
             "missing": missing,
             "send_attempted": False,
-            "note": "payload 已可交給 Clawd；本腳本不負責實際發送。",
+            "note": delivery_note(ranking_source, channel, to),
         },
         "summary": report.get("summary", {}),
         "market_overview": market_overview,
@@ -154,11 +168,46 @@ def date_from_report_path(path: Path) -> str:
     return match.group(1)
 
 
+def ranking_source_policy(report: dict[str, Any]) -> dict[str, Any]:
+    source = report.get("ranking_source") if isinstance(report.get("ranking_source"), dict) else {}
+    ranking_artifact = str(report.get("ranking_artifact") or "")
+    delivery_safe = source.get("delivery_safe")
+    if delivery_safe is None:
+        path = Path(ranking_artifact)
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+        delivery_safe = (
+            path.resolve().parent == (PROJECT_ROOT / "artifacts").resolve()
+            and bool(re.fullmatch(r"ranking_\d{4}-\d{2}-\d{2}\.csv", path.name))
+        )
+    source_type = source.get("source_type") or ("production" if delivery_safe else "research")
+    message = source.get("message") or (
+        "正式 ranking artifact，可用於推播 payload。"
+        if delivery_safe
+        else "ranking 來源不是正式 artifacts/ranking_YYYY-MM-DD.csv；Clawd payload 不可標示為正式可發送。"
+    )
+    return {
+        "source_type": source_type,
+        "delivery_safe": bool(delivery_safe),
+        "allow_research_ranking": bool(source.get("allow_research_ranking", False)),
+        "message": message,
+    }
+
+
+def delivery_note(ranking_source: dict[str, Any], channel: str | None, to: str | None) -> str:
+    if not ranking_source.get("delivery_safe"):
+        return "ranking 來源為研究 artifact；本 payload 僅供人工檢視，不可直接交給 Clawd 正式發送。"
+    if channel and to:
+        return "payload 已可交給 Clawd；本腳本不負責實際發送。"
+    return "尚未提供 channel / to；本 payload 只作本地 artifact。"
+
+
 def render_message(
     report: dict[str, Any],
     ranking_date: str,
     top_items: list[dict[str, Any]],
     market_overview: dict[str, Any],
+    ranking_source: dict[str, Any],
 ) -> str:
     summary = report.get("summary", {})
     automation = report.get("automation_status", {})
@@ -167,6 +216,7 @@ def render_message(
         f"Top10 每日選股｜{ranking_date}",
         "",
         f"狀態：{automation.get('status') or 'UNKNOWN'}｜大盤：{market_label(summary.get('market_regime'))}",
+        f"來源：{ranking_source.get('message')}",
         "讀法：這是今天的觀察名單，不是叫你一次買滿。盤勢不夠強時，後段名單只當候補。",
         "",
         "今日大盤與資金",
@@ -179,26 +229,17 @@ def render_message(
         f"- {list_reading_text(summary, len(top_items))}",
     ]
 
-    primary_count = primary_watch_count(summary, len(top_items))
-    primary_items = top_items[:primary_count]
-    backup_items = top_items[primary_count:]
+    ranked_items = assign_publish_roles(top_items, primary_watch_count(summary, len(top_items)))
+    lines.extend(["", "今日 10 檔總覽"])
+    for item in ranked_items:
+        lines.append(f"- {item.get('rank')}. {item.get('stock_id')} {item.get('stock_name')}｜{role_label(item.get('list_role'))}")
 
-    lines.extend(["", "主觀察"])
-    for item in primary_items:
-        item["list_role"] = "primary"
-        lines.extend(["", *stock_message_lines(item)])
-
-    if backup_items:
-        lines.extend(
-            [
-                "",
-                "候補觀察",
-                "後面這幾檔有題材或型態，但今天盤勢沒有強到要全部一起追。",
-            ]
-        )
-        for item in backup_items:
-            item["list_role"] = "backup"
-            lines.extend(["", *stock_message_lines(item)])
+    lines.extend(["", "逐檔重點"])
+    for item in ranked_items:
+        raw_signals = raw_signal_texts(item.get("reasons", []))
+        ai_features = ai_feature_names(item.get("reasons", []))
+        item["notification_summary"] = notification_summary(item, raw_signals, ai_features)
+        lines.extend(["", role_label(item.get("list_role")), *stock_message_lines(item)])
 
     notes = list(risk.get("notes", []))
     lines.extend(["", "風險提醒"])
@@ -243,6 +284,63 @@ def list_reading_text(summary: dict[str, Any], total_count: int) -> str:
     return f"大盤狀態不明，先保守看前 {primary_count} 檔，其餘 {backup_count} 檔不要急著動{cash_text}。"
 
 
+def classified_publish_sections(
+    top_items: list[dict[str, Any]],
+    primary_count: int,
+) -> list[tuple[str, str, str, list[dict[str, Any]]]]:
+    main: list[dict[str, Any]] = []
+    confirm: list[dict[str, Any]] = []
+    pullback: list[dict[str, Any]] = []
+    risk: list[dict[str, Any]] = []
+
+    for item in top_items:
+        tape_action = tape_guard_from_mapping(item).get("tape_guard_action")
+        rr_action = rr_guard_from_item(item).get("action")
+        if tape_action == "EXCLUDE":
+            risk.append(item)
+        elif tape_action == "DOWNGRADE" or rr_action == "WAIT_PULLBACK":
+            pullback.append(item)
+        elif tape_action == "COPY_GUARD" or rr_action == "WAIT_CONFIRM":
+            confirm.append(item)
+        else:
+            main.append(item)
+
+    primary = main[:primary_count]
+    backup = main[primary_count:]
+    return [
+        ("主攻觀察", "", "primary", primary),
+        ("等確認", "這幾檔有強度或題材，但買點或風險報酬還沒漂亮，先等下一步確認。", "confirm", confirm),
+        ("只等拉回", "強度可能還在，但現在追價不划算；等價格回到合理區間再看。", "pullback", pullback),
+        ("候補觀察", "後面這幾檔有題材或型態，但今天盤勢沒有強到要全部一起追。", "backup", backup),
+        ("風險警示", "這幾檔不是進場名單，只提醒價格行為已經偏風險。", "risk", risk),
+    ]
+
+
+def assign_publish_roles(top_items: list[dict[str, Any]], primary_count: int) -> list[dict[str, Any]]:
+    sections = classified_publish_sections(top_items, primary_count)
+    role_by_stock: dict[str, str] = {}
+    for _, _, role, items in sections:
+        for item in items:
+            role_by_stock[str(item.get("stock_id") or "")] = role
+
+    ranked: list[dict[str, Any]] = []
+    for item in top_items:
+        item["list_role"] = role_by_stock.get(str(item.get("stock_id") or ""), "backup")
+        ranked.append(item)
+    return ranked
+
+
+def role_label(role: Any) -> str:
+    labels = {
+        "primary": "主攻觀察",
+        "confirm": "等確認",
+        "pullback": "只等拉回",
+        "backup": "候補觀察",
+        "risk": "風險警示",
+    }
+    return labels.get(str(role), "候補觀察")
+
+
 def enrich_item_for_audiences(
     item: dict[str, Any],
     industry_map: dict[str, dict[str, str]],
@@ -253,7 +351,7 @@ def enrich_item_for_audiences(
     ai_features = ai_feature_names(item.get("reasons", []))
     enriched["audience_group"] = audience_group(item, industry_map, concept_map)
     enriched["notification_summary"] = notification_summary(enriched, raw_signals, ai_features)
-    enriched["detail_reasons"] = detail_reasons(raw_signals, ai_features)
+    enriched["detail_reasons"] = detail_reasons(raw_signals, ai_features, enriched)
     enriched["raw_signals"] = raw_signals + [f"AI:{feature}" for feature in ai_features]
     return enriched
 
@@ -624,6 +722,19 @@ def stock_market_context(
 def market_context_text(item: dict[str, Any]) -> str:
     context = item.get("market_context") if isinstance(item.get("market_context"), dict) else {}
     stock_name = str(item.get("stock_name") or "這檔").strip() or "這檔"
+    guard = tape_guard_from_mapping(item)
+    if tape_excludes_primary(item):
+        reason = guard.get("tape_guard_reason") or "當日價格行為偏弱"
+        return f"{stock_name}雖然有族群或題材背景，但{reason}，今天不能視為主線強勢。"
+    rr_guard = rr_guard_from_item(item)
+    if rr_guard.get("action") in {"WAIT_PULLBACK", "WAIT_CONFIRM"}:
+        bucket = str(context.get("bucket") or item.get("audience_group", {}).get("theme") or "這個族群")
+        weight = pct(context.get("bucket_weight")) if context.get("bucket_weight") is not None else None
+        weight_text = f"（約 {weight}）" if weight else ""
+        lead_bucket = str(context.get("lead_bucket") or "")
+        if lead_bucket and bucket:
+            return f"{stock_name}有族群脈絡可追蹤，落在 {bucket}{weight_text}；但目前買點條件還沒到位，先等價格確認。"
+        return f"{stock_name}有族群脈絡可追蹤，但目前買點條件還沒到位，先等價格確認。"
     bucket = str(context.get("bucket") or item.get("audience_group", {}).get("theme") or "這個族群")
     weight = pct(context.get("bucket_weight")) if context.get("bucket_weight") is not None else None
     lead_bucket = str(context.get("lead_bucket") or "")
@@ -696,6 +807,29 @@ def hot_concepts_text(concept_rows: list[dict[str, Any]]) -> str:
 
 
 def notification_summary(item: dict[str, Any], raw_signals: list[str], ai_features: list[str]) -> dict[str, Any]:
+    guard = tape_guard_from_mapping(item)
+    if guard.get("tape_guard_action") == "EXCLUDE":
+        reason = guard.get("tape_guard_reason") or "當日價格行為失控"
+        return {
+            "conclusion": "⚠️ 當日賣壓過重，只能列風險觀察",
+            "why_bullets": [
+                f"{reason}，這種狀態不能當作進場訊號。",
+                "模型看到的是前段量價痕跡，但今天這根 K 棒已經先否決追價。",
+            ],
+            "translation": "白話講，這檔不是今天可以追的強勢股；先等它止跌、打開成交，再重新評估。",
+            "risk": "未進場者先不要追；已持有者要自己檢查是否跌破原本停損或風控線。",
+        }
+    if guard.get("tape_guard_action") == "DOWNGRADE":
+        reason = guard.get("tape_guard_reason") or "當日價格偏弱"
+        return {
+            "conclusion": "⚠️ 賣壓偏重，先等止跌確認",
+            "why_bullets": [
+                f"{reason}，今天不能直接解讀成買盤轉強。",
+                "題材或模型分數只能當背景，買點要等下一次站穩。",
+            ],
+            "translation": "這檔可以放進追蹤清單，但不是主攻；先看後面有沒有止跌和重新承接。",
+            "risk": "未進場者先等，不要用跌下來很便宜當理由；已持有者要檢查自己的風控線。",
+        }
     why_parts = stock_reason_bullets(item, raw_signals, ai_features)
     return {
         "conclusion": stock_conclusion(item, raw_signals),
@@ -733,6 +867,18 @@ def stock_message_lines(item: dict[str, Any]) -> list[str]:
 
 
 def stock_conclusion(item: dict[str, Any], raw_signals: list[str]) -> str:
+    guard = tape_guard_from_mapping(item)
+    if guard.get("tape_guard_action") == "EXCLUDE":
+        return "⚠️ 當日賣壓過重，只能列風險觀察"
+    if guard.get("tape_guard_action") == "DOWNGRADE":
+        return "⚠️ 賣壓偏重，先等止跌確認"
+    if tape_blocks_bullish_language(item):
+        return "💤 價格偏弱，等下一步確認"
+    rr_guard = rr_guard_from_item(item)
+    if rr_guard.get("action") == "WAIT_PULLBACK":
+        return "⚠️ 空間不漂亮，只能等拉回"
+    if rr_guard.get("action") == "WAIT_CONFIRM":
+        return "💤 位置普通，等確認再看"
     close = number_value(item.get("close"))
     if close is not None and close >= 1000:
         return "⚠️ 高價強勢股，能看但不能亂追"
@@ -755,6 +901,24 @@ def stock_reason_bullets(item: dict[str, Any], raw_signals: list[str], ai_featur
     concepts = [str(value) for value in group.get("concepts", []) if str(value).strip()]
     theme = stock_theme(item)
     stock_name = str(item.get("stock_name") or "這檔").strip() or "這檔"
+    if tape_blocks_bullish_language(item):
+        guard = tape_guard_from_mapping(item)
+        reason = guard.get("tape_guard_reason") or "當日價格偏弱"
+        return dedupe_keep_order(
+            [
+                f"{reason}，所以今天不能把量價訊號當作進場理由。",
+                f"{stock_name}需要先看到止跌或重新站回觀察區間，才有下一步討論空間。",
+            ]
+        )
+    rr_guard = rr_guard_from_item(item)
+    if rr_guard.get("action") in {"WAIT_PULLBACK", "WAIT_CONFIRM"}:
+        reason = rr_guard.get("reason") or "風險報酬條件還不夠漂亮"
+        return dedupe_keep_order(
+            [
+                f"{reason}，所以今天只能列為等待名單。",
+                f"{stock_name}需要等價格回到合理區間，或看到承接確認後再評估。",
+            ]
+        )
     if has_signal(raw_signals, "突破20日"):
         bullets.append(
             pick_variant(
@@ -882,6 +1046,15 @@ def plain_translation(item: dict[str, Any], raw_signals: list[str], bullets: lis
     group = item.get("audience_group", {})
     theme = str(group.get("theme") or "").strip()
     subject = f"{theme}這檔" if theme and theme != "未分類" else "這檔"
+    if tape_blocks_bullish_language(item):
+        guard = tape_guard_from_mapping(item)
+        reason = guard.get("tape_guard_reason") or "今天價格偏弱"
+        return f"{subject}{reason}。這不是叫你看到下跌就撿，先等止跌和重新承接。"
+    rr_guard = rr_guard_from_item(item)
+    if rr_guard.get("action") == "WAIT_PULLBACK":
+        return f"{subject}目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。"
+    if rr_guard.get("action") == "WAIT_CONFIRM":
+        return f"{subject}現在條件還沒有完整到位，先等價格確認，不急著動作。"
     context = item.get("market_context") if isinstance(item.get("market_context"), dict) else {}
     role = str(item.get("list_role") or "")
     prefix = ""
@@ -971,6 +1144,8 @@ def stock_theme(item: dict[str, Any]) -> str:
 
 
 def ai_reason_bullet(item: dict[str, Any], ai_features: list[str]) -> str | None:
+    if tape_blocks_bullish_language(item) and ai_features:
+        return "模型看到的是前段量價資料，但今天價格偏弱，不能直接當作進場理由。"
     labels = [AI_REASON_LABELS.get(feature) for feature in ai_features]
     labels = [label for label in labels if label]
     labels = dedupe_keep_order(labels)
@@ -1042,14 +1217,15 @@ def has_signal(raw_signals: list[str], keyword: str) -> bool:
     return any(keyword in signal for signal in raw_signals)
 
 
-def detail_reasons(raw_signals: list[str], ai_features: list[str]) -> list[dict[str, str]]:
+def detail_reasons(raw_signals: list[str], ai_features: list[str], item: dict[str, Any] | None = None) -> list[dict[str, str]]:
     details = []
+    guarded = tape_blocks_bullish_language(item or {})
     for signal in raw_signals:
         details.append(
             {
                 "type": "technical_signal",
                 "label": professional_signal_label(signal),
-                "plain": novice_signal_label(signal),
+                "plain": "當日價格偏弱，這個訊號只能當背景參考" if guarded else novice_signal_label(signal),
                 "raw": signal,
             }
         )
@@ -1058,7 +1234,7 @@ def detail_reasons(raw_signals: list[str], ai_features: list[str]) -> list[dict[
             {
                 "type": "ai_factor",
                 "label": PROFESSIONAL_FEATURE_LABELS.get(feature, feature),
-                "plain": NOVICE_FEATURE_LABELS.get(feature, "模型認為這個數據有加分"),
+                "plain": "模型看到前段資料，但今天只能當背景參考" if guarded else NOVICE_FEATURE_LABELS.get(feature, "模型認為這個數據有加分"),
                 "raw": feature,
             }
         )
@@ -1132,6 +1308,28 @@ def professional_signal_label(signal: str) -> str:
 def action_summary_lines(item: dict[str, Any]) -> list[str]:
     trade = item.get("trade_plan", {})
     entry_low, entry_high = entry_zone_values(trade)
+    guard = tape_guard_from_mapping(item)
+    rr_guard = rr_guard_from_item(item)
+    if guard.get("tape_guard_action") == "EXCLUDE":
+        return [
+            "- 今天不列主攻觀察，先等跌停打開或重新站回觀察區間。",
+            f"- 原本跌破 {num(trade.get('stop_loss'))} 元才算趨勢轉弱，但一字跌停屬於更早的風控警訊。",
+            "- 未進場者先不要追；已持有者要回到自己的停損規則檢查。",
+        ]
+    if guard.get("tape_guard_action") == "DOWNGRADE":
+        return [
+            f"- 先等價格重新站回 {num(entry_low)} ~ {num(entry_high)} 元，再看是否有承接。",
+            f"- 跌破 {num(trade.get('stop_loss'))} 元代表趨勢轉弱，但短線賣壓已經先亮警訊。",
+            "- 今天只適合追蹤風險，不適合當主攻。",
+        ]
+    if rr_guard.get("action") in {"WAIT_PULLBACK", "WAIT_CONFIRM"}:
+        rr_text = f"（RR 約 {rr_guard['score']:.2f}）" if rr_guard.get("score") is not None else ""
+        return [
+            f"- 觀察區間：{num(entry_low)} ~ {num(entry_high)} 元，但現在空間不夠漂亮{rr_text}。",
+            f"- 短線執行停損先看 {num(trade.get('execution_stop_loss') or trade.get('stop_loss'))} 元。",
+            f"- 趨勢失效價另看 {num(trade.get('trend_invalidation_price') or trade.get('stop_loss'))} 元，不要把它當成追高停損。",
+            "- 等拉回後仍有承接，或重新站穩再看。",
+        ]
     lines = [
         f"- 觀察區間：{num(entry_low)} ~ {num(entry_high)} 元",
         f"- 跌破 {num(trade.get('stop_loss'))} 元，代表走勢轉弱，先不要硬接。",
@@ -1202,6 +1400,16 @@ def risk_summary_text(item: dict[str, Any]) -> str:
     trade = item.get("trade_plan", {})
     group = item.get("audience_group", {})
     concepts = [str(value) for value in group.get("concepts", []) if str(value).strip()]
+    guard = tape_guard_from_mapping(item)
+    if guard.get("tape_guard_action") == "EXCLUDE":
+        return "當日賣壓過重，未進場者先避開；已持有者要檢查自己的停損與風控線。"
+    if guard.get("tape_guard_action") == "DOWNGRADE":
+        return "今天賣壓偏重，先等止跌確認，不要把下跌直接當便宜。"
+    rr_guard = rr_guard_from_item(item)
+    if rr_guard.get("action") == "WAIT_PULLBACK":
+        return "上方空間小於下方風險，現在不適合追，等拉回或重新站穩。"
+    if rr_guard.get("action") == "WAIT_CONFIRM":
+        return "風險報酬還不夠漂亮，先等價格確認，不要急著主攻。"
     penalty = number_value(scores.get("risk_penalty"))
     if penalty is not None and penalty > 0:
         return "這檔有風險扣分，買之前要先想好停損，不能越跌越加。"
@@ -1225,6 +1433,24 @@ def risk_summary_text(item: dict[str, Any]) -> str:
     if weight is not None and weight >= 0.065:
         return "這檔在今天名單裡相對醒目，但越醒目的股票越容易震盪，追價要保守。"
     return "這檔先當觀察名單，不要因為上榜就重壓。"
+
+
+def rr_guard_from_item(item: dict[str, Any]) -> dict[str, Any]:
+    trade = item.get("trade_plan") if isinstance(item.get("trade_plan"), dict) else {}
+    action = str(trade.get("rr_guard_action") or "")
+    score = number_value(trade.get("risk_reward_score"))
+    if not action:
+        if score is not None and score < 0.8:
+            action = "WAIT_PULLBACK"
+        elif score is not None and score < 1.0:
+            action = "WAIT_CONFIRM"
+        else:
+            action = "ALLOW"
+    return {
+        "action": action,
+        "score": score,
+        "reason": str(trade.get("rr_guard_reason") or ""),
+    }
 
 
 def market_label(value: Any) -> str:

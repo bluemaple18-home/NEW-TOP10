@@ -8,7 +8,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>__PROJECT_DIR__/scripts/run_daily_publish.sh</string>
+        <string>__PROJECT_DIR__/scripts/run_daily.sh</string>
     </array>
     
     <key>StartCalendarInterval</key>
