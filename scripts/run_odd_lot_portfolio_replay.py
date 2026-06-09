@@ -38,6 +38,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-ranking-files", type=int, default=None)
     parser.add_argument("--initial-cash", type=float, default=300_000)
     parser.add_argument("--max-gross-exposure", type=float, default=0.85)
+    parser.add_argument("--market-regime-history", default=None)
+    parser.add_argument("--big-bull-gross-exposure", type=float, default=None)
+    parser.add_argument("--high-choppy-gross-exposure", type=float, default=None)
+    parser.add_argument("--other-family-gross-exposure", type=float, default=None)
     parser.add_argument("--max-position-weight", type=float, default=0.15)
     parser.add_argument("--min-shares", type=int, default=1)
     parser.add_argument("--lot-size", type=int, default=1)
@@ -46,6 +50,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--slippage-rate", type=float, default=0.001)
     parser.add_argument("--stop-loss-pct", type=float, default=None)
     parser.add_argument("--take-profit-pct", type=float, default=None)
+    parser.add_argument("--partial-take-profit-pct", type=float, default=None)
+    parser.add_argument("--partial-take-profit-fraction", type=float, default=0.5)
     parser.add_argument("--trailing-stop-pct", type=float, default=None)
     parser.add_argument("--min-event-holding-days", type=int, default=5)
     parser.add_argument("--same-day-hit-priority", choices=["stop_loss", "take_profit"], default="stop_loss")
@@ -88,6 +94,100 @@ def position_value(
     return value
 
 
+def plan_signal_gross_limit(
+    plan: dict[str, Any],
+    regime_gross_map: dict[str, float],
+    default_gross_exposure: float,
+) -> float:
+    ranking_date = plan.get("ranking_date")
+    date_text = ranking_date.isoformat() if hasattr(ranking_date, "isoformat") else str(ranking_date)
+    return float(regime_gross_map.get(date_text, default_gross_exposure))
+
+
+def close_partial_take_profit(
+    position: dict[str, Any],
+    trade_date: Any,
+    exit_price: float,
+    shares_to_sell: int,
+    fee_rate: float,
+    tax_rate: float,
+    slippage_rate: float,
+) -> tuple[dict[str, Any], float]:
+    old_shares = int(position["shares"])
+    sell_ratio = float(shares_to_sell) / float(old_shares)
+    entry_cash_cost = float(position["entry_cash_cost"]) * sell_ratio
+    entry_notional = float(position["entry_notional"]) * sell_ratio
+    gross_proceeds = float(shares_to_sell) * float(exit_price)
+    proceeds = gross_proceeds * (1 - fee_rate - tax_rate - slippage_rate)
+    trade_return = proceeds / entry_cash_cost - 1 if entry_cash_cost else 0.0
+    position["shares"] = old_shares - int(shares_to_sell)
+    position["entry_cash_cost"] = float(position["entry_cash_cost"]) - entry_cash_cost
+    position["entry_notional"] = float(position["entry_notional"]) - entry_notional
+    position["partial_take_profit_taken"] = True
+    return (
+        {
+            "ranking_date": position["ranking_date"],
+            "stock_id": position["stock_id"],
+            "stock_name": position.get("stock_name"),
+            "group": position.get("group"),
+            "entry_date": position["entry_date"].isoformat(),
+            "exit_date": trade_date.isoformat(),
+            "exit_reason": "partial_take_profit",
+            "ambiguous_intraday_order": False,
+            "entry_price": round(float(position["entry_price"]), 4),
+            "exit_price": round(float(exit_price), 4),
+            "entry_notional": round(entry_notional, 6),
+            "net_return": round(float(trade_return), 6),
+            "shares": int(shares_to_sell),
+        },
+        proceeds,
+    )
+
+
+def partial_take_profit_event(
+    position: dict[str, Any],
+    prices: dict[tuple[str, Any], dict[str, float]],
+    trade_date: Any,
+    partial_take_profit_pct: float | None,
+    partial_take_profit_fraction: float,
+    min_event_holding_days: int,
+    lot_size: int,
+    min_shares: int,
+    fee_rate: float,
+    tax_rate: float,
+    slippage_rate: float,
+) -> tuple[dict[str, Any], float] | None:
+    if partial_take_profit_pct is None or bool(position.get("partial_take_profit_taken")):
+        return None
+    if int(position.get("holding_bar_count") or 0) < int(min_event_holding_days):
+        return None
+    bar = prices.get((position["stock_id"], trade_date))
+    if not bar:
+        return None
+    high = bar.get("high")
+    if high is None or pd.isna(high):
+        return None
+    exit_price = float(position["entry_price"]) * (1 + float(partial_take_profit_pct))
+    if float(high) < exit_price:
+        return None
+    shares = int(position["shares"])
+    fraction = min(max(float(partial_take_profit_fraction), 0.0), 1.0)
+    shares_to_sell = floor_to_lot(shares * fraction, lot_size)
+    max_sellable = floor_to_lot(max(0, shares - int(min_shares)), lot_size)
+    shares_to_sell = floor_to_lot(min(shares_to_sell, max_sellable), lot_size)
+    if shares_to_sell <= 0 or shares_to_sell < int(min_shares):
+        return None
+    return close_partial_take_profit(
+        position,
+        trade_date,
+        exit_price,
+        shares_to_sell,
+        fee_rate,
+        tax_rate,
+        slippage_rate,
+    )
+
+
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     price_frame = run_backtest_replay.load_price_frame(resolve_path(args.features))
     trade_dates = run_backtest_replay.market_trade_dates(price_frame)
@@ -99,6 +199,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
 
     cash = float(args.initial_cash)
     equity = float(args.initial_cash)
+    regime_gross_map = run_portfolio_replay.build_regime_gross_map(args)
     positions: list[dict[str, Any]] = []
     daily: list[dict[str, Any]] = []
     trades: list[dict[str, Any]] = []
@@ -108,11 +209,15 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     previous_equity = equity
 
     for trade_date in sim_dates:
+        current_max_gross_exposure = float(regime_gross_map.get(trade_date.isoformat(), float(args.max_gross_exposure)))
+        entry_plans = plans_by_entry.get(trade_date, [])
+        signal_limits = [plan_signal_gross_limit(plan, regime_gross_map, float(args.max_gross_exposure)) for plan in entry_plans]
+        entry_max_gross_exposure = min([current_max_gross_exposure, *signal_limits]) if signal_limits else current_max_gross_exposure
         open_exposure = position_value(positions, prices, trade_date, "open")
-        gross_headroom = max(0.0, equity * float(args.max_gross_exposure) - open_exposure)
+        gross_headroom = max(0.0, equity * entry_max_gross_exposure - open_exposure)
         cash_headroom = max(0.0, cash)
         desired_entries = []
-        for plan in plans_by_entry.get(trade_date, []):
+        for plan in entry_plans:
             open_price = prices.get((plan["stock_id"], trade_date), {}).get("open")
             if open_price is None or pd.isna(open_price):
                 skipped.append({"ranking_date": plan["ranking_date"], "stock_id": plan["stock_id"], "reason": "missing_entry_open"})
@@ -168,6 +273,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         exit_count = 0
         stop_loss_count = 0
         take_profit_count = 0
+        partial_take_profit_count = 0
         trailing_stop_count = 0
         scheduled_exit_count = 0
         remaining: list[dict[str, Any]] = []
@@ -201,6 +307,24 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                 take_profit_count += 1 if trade["exit_reason"] == "take_profit" else 0
                 trailing_stop_count += 1 if trade["exit_reason"] == "trailing_stop" else 0
                 continue
+            partial_event = partial_take_profit_event(
+                position=position,
+                prices=prices,
+                trade_date=trade_date,
+                partial_take_profit_pct=args.partial_take_profit_pct,
+                partial_take_profit_fraction=args.partial_take_profit_fraction,
+                min_event_holding_days=args.min_event_holding_days,
+                lot_size=args.lot_size,
+                min_shares=args.min_shares,
+                fee_rate=args.fee_rate,
+                tax_rate=args.tax_rate,
+                slippage_rate=args.slippage_rate,
+            )
+            if partial_event is not None:
+                trade, proceeds = partial_event
+                cash += proceeds
+                trades.append(trade)
+                partial_take_profit_count += 1
             if position["exit_date"] != trade_date:
                 remaining.append(position)
                 continue
@@ -235,12 +359,15 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                 "daily_return": round(daily_return, 6),
                 "cash": round(cash, 2),
                 "gross_exposure": round(close_exposure / equity, 6) if equity else 0.0,
+                "max_gross_exposure_limit": round(current_max_gross_exposure, 6),
+                "entry_gross_exposure_limit": round(entry_max_gross_exposure, 6),
                 "positions": len(positions),
                 "entries": entry_count,
                 "exits": exit_count,
                 "scheduled_exits": scheduled_exit_count,
                 "stop_loss_exits": stop_loss_count,
                 "take_profit_exits": take_profit_count,
+                "partial_take_profit_exits": partial_take_profit_count,
                 "trailing_stop_exits": trailing_stop_count,
             }
         )
@@ -267,11 +394,17 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "entry_delay_trade_days": args.entry_delay_trade_days,
             "initial_cash": args.initial_cash,
             "max_gross_exposure": args.max_gross_exposure,
+            "market_regime_history": repo_path(resolve_path(args.market_regime_history)) if args.market_regime_history else None,
+            "big_bull_gross_exposure": args.big_bull_gross_exposure,
+            "high_choppy_gross_exposure": args.high_choppy_gross_exposure,
+            "other_family_gross_exposure": args.other_family_gross_exposure,
             "max_position_weight": args.max_position_weight,
             "min_shares": args.min_shares,
             "lot_size": args.lot_size,
             "stop_loss_pct": args.stop_loss_pct,
             "take_profit_pct": args.take_profit_pct,
+            "partial_take_profit_pct": args.partial_take_profit_pct,
+            "partial_take_profit_fraction": args.partial_take_profit_fraction,
             "trailing_stop_pct": args.trailing_stop_pct,
             "min_event_holding_days": args.min_event_holding_days,
             "costs": {
