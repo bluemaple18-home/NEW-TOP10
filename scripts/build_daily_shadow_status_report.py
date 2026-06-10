@@ -135,6 +135,40 @@ def capital_entry_branch() -> dict[str, Any]:
     }
 
 
+def candidate_trail10_branch() -> dict[str, Any]:
+    path = latest("candidate_trail10_daily_shadow_monitor_*.json")
+    payload = read_json(path)
+    summary = payload.get("summary") or {}
+    policy = payload.get("policy") or {}
+    return {
+        "branch_id": "candidate_trail10_shadow",
+        "category": "active_daily_monitor",
+        "status": payload.get("monitor_status") or "MISSING",
+        "artifact": repo_path(path),
+        "what_it_tests": "新 candidate ranking + trail10 出場規則若作為每日觀察系統，今天會選誰、跟正式榜差多少。",
+        "current_evidence": {
+            "production_ranking_date": summary.get("production_ranking_date"),
+            "candidate_ranking_date": summary.get("candidate_ranking_date"),
+            "overlap_count": summary.get("overlap_count"),
+            "candidate_only_count": summary.get("candidate_only_count"),
+            "actionable_count": summary.get("actionable_count"),
+            "trailing_stop_pct": policy.get("trailing_stop_pct"),
+            "min_event_holding_days": policy.get("min_event_holding_days"),
+            "max_holding_days": policy.get("max_holding_days"),
+        },
+        "review_gate": {
+            "review_type": "candidate_ranking_trail10_shadow_review",
+            "sample_ready": False,
+            "min_ranking_days": 20,
+            "ranking_days_remaining": 20,
+            "min_matured_1d_days": None,
+            "matured_1d_days_remaining": None,
+        },
+        "next_action": "每天累積 candidate+trail10 shadow artifact；未進 production review 前不可改正式推播。",
+        "production_allowed": False,
+    }
+
+
 def research_only_branches() -> list[dict[str, Any]]:
     alpha_path = latest("alpha_candidate_overlay_replay_constrained_blend030_*.json")
     alpha = read_json(alpha_path)
@@ -214,7 +248,7 @@ def closest_branch(branches: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
-    branches = [gross55_branch(), capital_entry_branch(), *research_only_branches()]
+    branches = [gross55_branch(), capital_entry_branch(), candidate_trail10_branch(), *research_only_branches()]
     active = [row for row in branches if row["category"] == "active_daily_monitor"]
     research = [row for row in branches if row["category"] == "research_monitor_only"]
     closest = closest_branch(branches)

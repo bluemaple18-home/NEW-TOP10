@@ -128,6 +128,7 @@ class AutomationRunner:
         self._run_decision_quality(daily_config, ranking_path)
         self._run_gross55_shadow_monitor(daily_config, ranking_path)
         self._run_capital_entry_quality_shadow_monitor(daily_config, ranking_path)
+        self._run_candidate_trail10_shadow_monitor(daily_config, ranking_path)
         self._run_shadow_historical_evidence_report(daily_config)
         self._run_daily_shadow_status_report(daily_config)
         self._record_step("api.cache.clear", "SKIPPED", message="如 API 常駐，請由服務自行呼叫 POST /api/cache/clear")
@@ -485,6 +486,37 @@ class AutomationRunner:
         if not self.dry_run and batch_path.exists():
             self.status.metadata["capital_entry_quality_shadow_monitor_batch"] = str(batch_path)
             self._record_step("capital_entry_quality.shadow_monitor_batch.artifact", "OK", message=str(batch_path))
+
+    def _run_candidate_trail10_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
+        date_text = self._latest_feature_date()
+        monitor_path = (
+            PROJECT_ROOT
+            / "artifacts"
+            / "model_experiments"
+            / f"candidate_trail10_daily_shadow_monitor_{date_text}.json"
+        )
+        self.status.metadata["expected_candidate_trail10_shadow_monitor"] = str(monitor_path)
+
+        if not daily_config.get("candidate_trail10_shadow_monitor_enabled", False):
+            self._record_step(
+                "candidate_trail10.shadow_monitor",
+                "SKIPPED",
+                message="config daily.candidate_trail10_shadow_monitor_enabled=false",
+            )
+            return
+
+        command = [
+            "python",
+            "scripts/build_candidate_trail10_daily_shadow_monitor.py",
+            "--date",
+            date_text,
+            "--production-ranking",
+            str(ranking_path),
+        ]
+        self._run_command("candidate_trail10.shadow_monitor", command, allow_failure=True)
+        if not self.dry_run and monitor_path.exists():
+            self.status.metadata["candidate_trail10_shadow_monitor"] = str(monitor_path)
+            self._record_step("candidate_trail10.shadow_monitor.artifact", "OK", message=str(monitor_path))
 
     def _run_daily_shadow_status_report(self, daily_config: dict[str, Any]) -> None:
         date_text = self._latest_feature_date()

@@ -30,6 +30,7 @@ daily:
   gross55_shadow_monitor_batch_enabled: false # 批次彙整近期正式 ranking 的 gross55 降曝險影子樣本；預設手動開啟
   capital_entry_quality_shadow_monitor_enabled: false # CAPITAL-05：入場品質 shadow monitor，不改 Top10 / score / Clawd message；預設手動開啟
   capital_entry_quality_shadow_monitor_batch_enabled: false # 批次彙整近期正式 ranking 的入場品質影子樣本；預設手動開啟
+  candidate_trail10_shadow_monitor_enabled: false # LONG-CANDIDATE-VALIDATION-01：candidate ranking + trail10 每日 shadow，不改正式榜/推播；預設手動開啟
   shadow_historical_evidence_report_enabled: false # 用既有長區間 replay 回答是否只能等待 forward monitor；預設手動開啟
   daily_shadow_status_report_enabled: false # 彙整目前所有 shadow 觀測分支與 review readiness；預設手動開啟
   clawd_payload_enabled: true   # CLAWD-01：daily report 後產出 Clawd-ready payload；不實際發送
