@@ -96,4 +96,6 @@ Decision:
 MONITOR_ONLY
 ```
 
-結論：overlap-first 的直覺是合理的，但最近 100 天與近半年績效都輸 production；不能替換正式每日推薦。下一步若要再救這條，不能只是「重複者優先」，需要重新測 bucket 權重或只把 overlap 當信心標籤，而不是改排序。
+結論：overlap-first 的直覺是合理的，但最近 100 天與近半年績效都輸 production；不能替換正式每日推薦。
+
+這不代表 `candidate ranking + trail10` 要被砍掉。失敗的是「把 production 與 candidate 重複者優先」這個混合排序。`candidate+trail10` 另由 `SHADOW-ROLLOUT-03` 保留為條件式切換研究主候選。
