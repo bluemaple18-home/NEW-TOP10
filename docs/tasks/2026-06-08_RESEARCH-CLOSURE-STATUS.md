@@ -19,6 +19,7 @@
 | --- | --- | --- | --- |
 | `gross55_exposure_shadow` | ACTIVE_DAILY_MONITOR | 長區間回測支持保守曝險 profile review，但少賺、低回撤，不是選股變強 | 進 review 決策；forward monitor 作近期確認 |
 | `capital_entry_quality_shadow` | ACTIVE_DAILY_MONITOR | `non_worsening` 長短期較平衡，可作入場品質 shadow | 進 review 決策；不可直接改入場資格 |
+| `candidate_trail10_shadow` | ACTIVE_DAILY_MONITOR | 新 candidate ranking 加上 trail10 出場規則，長區間驗證較強，但仍需每日 shadow 累積近期穩定性 | 每天產 candidate Top10 / Top7 trail10 影子計畫；不可直接改正式推播 |
 | `chip_flow` | BLOCKED / RESEARCH_OVERLAY_ONLY | 外資、投信、融資不適合當正式大盤或出場主訊號 | 封存 blocked evidence；轉測 price/rank/volume/overheat reversal |
 | `BIG_BULL family_only` | RESTRICTED_SHADOW_ONLY | 不走模型升版，只能 ranking-only shadow | 暫不再主線鑽，除非有新證據 |
 | `HIGH_CHOPPY` | MONITOR_ONLY | 可作分層診斷，不作正式模型或 overlay | 保留 stratified evaluation |
@@ -30,7 +31,8 @@
 
 | Artifact | 用途 | 結論 |
 | --- | --- | --- |
-| `artifacts/model_experiments/daily_shadow_status_2026-06-08.json` | 每日 shadow 分支總狀態 | 2 條 active monitor、3 條 research monitor；production ready = 0 |
+| `artifacts/model_experiments/daily_shadow_status_2026-06-09.json` | 每日 shadow 分支總狀態 | 3 條 active monitor、3 條 research monitor；production ready = 0 |
+| `artifacts/model_experiments/candidate_trail10_daily_shadow_monitor_2026-06-09.json` | candidate ranking + trail10 每日影子觀察 | 6/9 smoke OK；candidate / production Top10 overlap = 3；只可 daily shadow |
 | `artifacts/model_experiments/shadow_historical_evidence_2026-06-08.json` | 歷史回測證據 | 不用只等；599 個 ranking day 可支持 gross55 / capital entry 進 review |
 | `artifacts/feature_experiment_gate_2026-06-08.json` | feature gate | 8 候選、3 ready for shadow、5 blocked；production promotion=false |
 | `artifacts/model_experiments/chip_flow_readiness_report_2026-06-08.json` | chip_flow readiness | NOT_READY_FOR_PRODUCTION；research overlay only |
