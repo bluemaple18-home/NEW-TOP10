@@ -137,9 +137,12 @@ def capital_entry_branch() -> dict[str, Any]:
 
 def candidate_trail10_branch() -> dict[str, Any]:
     path = latest("candidate_trail10_daily_shadow_monitor_*.json")
+    overlap_path = latest("overlap_first_daily_recommendation_shadow_*.json")
     payload = read_json(path)
+    overlap_payload = read_json(overlap_path)
     summary = payload.get("summary") or {}
     policy = payload.get("policy") or {}
+    overlap_summary = overlap_payload.get("summary") or {}
     return {
         "branch_id": "candidate_trail10_shadow",
         "category": "active_daily_monitor",
@@ -155,6 +158,10 @@ def candidate_trail10_branch() -> dict[str, Any]:
             "trailing_stop_pct": policy.get("trailing_stop_pct"),
             "min_event_holding_days": policy.get("min_event_holding_days"),
             "max_holding_days": policy.get("max_holding_days"),
+            "overlap_first_artifact": repo_path(overlap_path),
+            "overlap_first_status": overlap_payload.get("shadow_status"),
+            "overlap_first_overlap_count": overlap_summary.get("overlap_count"),
+            "overlap_first_merged_count": overlap_summary.get("merged_count"),
         },
         "review_gate": {
             "review_type": "candidate_ranking_trail10_shadow_review",

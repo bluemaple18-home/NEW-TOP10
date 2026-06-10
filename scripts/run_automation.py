@@ -129,6 +129,7 @@ class AutomationRunner:
         self._run_gross55_shadow_monitor(daily_config, ranking_path)
         self._run_capital_entry_quality_shadow_monitor(daily_config, ranking_path)
         self._run_candidate_trail10_shadow_monitor(daily_config, ranking_path)
+        self._run_overlap_first_recommendation_shadow(daily_config, ranking_path)
         self._run_shadow_historical_evidence_report(daily_config)
         self._run_daily_shadow_status_report(daily_config)
         self._record_step("api.cache.clear", "SKIPPED", message="如 API 常駐，請由服務自行呼叫 POST /api/cache/clear")
@@ -517,6 +518,45 @@ class AutomationRunner:
         if not self.dry_run and monitor_path.exists():
             self.status.metadata["candidate_trail10_shadow_monitor"] = str(monitor_path)
             self._record_step("candidate_trail10.shadow_monitor.artifact", "OK", message=str(monitor_path))
+
+    def _run_overlap_first_recommendation_shadow(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
+        date_text = self._latest_feature_date()
+        output_path = (
+            PROJECT_ROOT
+            / "artifacts"
+            / "model_experiments"
+            / f"overlap_first_daily_recommendation_shadow_{date_text}.json"
+        )
+        candidate_monitor_path = (
+            PROJECT_ROOT
+            / "artifacts"
+            / "model_experiments"
+            / f"candidate_trail10_daily_shadow_monitor_{date_text}.json"
+        )
+        self.status.metadata["expected_overlap_first_recommendation_shadow"] = str(output_path)
+
+        if not daily_config.get("overlap_first_recommendation_shadow_enabled", False):
+            self._record_step(
+                "overlap_first.recommendation_shadow",
+                "SKIPPED",
+                message="config daily.overlap_first_recommendation_shadow_enabled=false",
+            )
+            return
+
+        command = [
+            "python",
+            "scripts/build_overlap_first_daily_recommendation_shadow.py",
+            "--date",
+            date_text,
+            "--production-ranking",
+            str(ranking_path),
+            "--candidate-monitor",
+            str(candidate_monitor_path),
+        ]
+        self._run_command("overlap_first.recommendation_shadow", command, allow_failure=True)
+        if not self.dry_run and output_path.exists():
+            self.status.metadata["overlap_first_recommendation_shadow"] = str(output_path)
+            self._record_step("overlap_first.recommendation_shadow.artifact", "OK", message=str(output_path))
 
     def _run_daily_shadow_status_report(self, daily_config: dict[str, Any]) -> None:
         date_text = self._latest_feature_date()
