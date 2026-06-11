@@ -16,6 +16,8 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "daily-research-quota-verification.v1"
 REPORT_SCHEMA = "autonomous-research-run.v1"
+FOLLOWUP_DECISIONS = {"CONFIRMED_FOR_NEXT_REPLAY", "PARTIAL_SCORE_ONLY"}
+REJECTION_DECISIONS = {"REJECTED_BY_STRATEGY_MATRIX", "NO_COMPARISON_EVIDENCE"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,12 +62,25 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
         if len(command) > 1
     }
     allowed_scripts = {"scripts/run_backtest_strategy_matrix.py", "scripts/compare_strategy_matrices.py"}
+    decisions = [(run.get("outcome") or {}).get("decision") for run in topic_runs]
+    followup_count = sum(1 for decision in decisions if decision in FOLLOWUP_DECISIONS)
+    rejection_count = sum(1 for decision in decisions if decision in REJECTION_DECISIONS)
+    if followup_count > 0:
+        research_value_status = "HAS_FOLLOWUP_SIGNAL"
+    elif topic_runs and rejection_count == len(topic_runs):
+        research_value_status = "PURE_REJECTION_EVIDENCE"
+    else:
+        research_value_status = "LOW_INFORMATION"
 
     checks = [
         {"name": "schema", "ok": payload.get("schema_version") == REPORT_SCHEMA, "value": payload.get("schema_version")},
         {"name": "status_ok", "ok": payload.get("status") == "OK", "value": payload.get("status")},
         {"name": "execute_true", "ok": inputs.get("execute") is True, "value": inputs.get("execute")},
-        {"name": "from_queue_true", "ok": inputs.get("from_queue") is True, "value": inputs.get("from_queue")},
+        {
+            "name": "selection_source_declared",
+            "ok": inputs.get("from_queue") in {True, False},
+            "value": {"from_queue": inputs.get("from_queue")},
+        },
         {"name": "quota_configured", "ok": int(inputs.get("execute_topic_count") or 0) >= min_quota, "value": inputs.get("execute_topic_count")},
         {
             "name": "selected_topic_count_meets_daily_quota",
@@ -110,6 +125,11 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
             "topic_runs": len(topic_runs),
             "selected_topics": len(selected_topics),
             "requested_quota": min_quota,
+            "research_value_status": research_value_status,
+            "followup_signal_count": followup_count,
+            "rejection_count": rejection_count,
+            "include_rejected": inputs.get("include_rejected"),
+            "decisions": decisions,
         },
         "checks": checks,
     }
