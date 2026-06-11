@@ -97,6 +97,36 @@ else
   echo "$STATUS_OUTPUT" | tee -a "$LOG_FILE"
   echo "⚠️ 無法讀取每日狀態；請查看 log 內 run_automation 輸出。" | tee -a "$LOG_FILE"
 fi
+
+if [ "${TOP10_ENABLE_PRODUCTION_TRAIL10_SHADOW:-0}" = "1" ]; then
+  echo "🧪 production trail10 shadow enabled; running shadow builder..." | tee -a "$LOG_FILE"
+  set +e
+  "$UV_BIN" run --with-requirements requirements.txt python scripts/build_production_trail10_shadow.py --date "$(date +%F)" >> "$LOG_FILE" 2>&1
+  SHADOW_EXIT_CODE=$?
+  set -e
+  if [ "$SHADOW_EXIT_CODE" -eq 0 ]; then
+    echo "✅ production trail10 shadow completed" | tee -a "$LOG_FILE"
+  else
+    echo "⚠️ production trail10 shadow failed; daily main exit_code remains $RUN_EXIT_CODE shadow_exit_code=$SHADOW_EXIT_CODE" | tee -a "$LOG_FILE"
+  fi
+else
+  echo "🧪 production trail10 shadow disabled (TOP10_ENABLE_PRODUCTION_TRAIL10_SHADOW=0)" | tee -a "$LOG_FILE"
+fi
+
+if [ "${TOP10_ENABLE_PRODUCTION_TRAIL10_DAILY_REPORT_DRY_RUN:-0}" = "1" ]; then
+  echo "🧪 production trail10 daily report dry-run enabled; building dry-run artifact..." | tee -a "$LOG_FILE"
+  set +e
+  "$UV_BIN" run --with-requirements requirements.txt python scripts/build_production_trail10_daily_report_dry_run.py --date "$(date +%F)" >> "$LOG_FILE" 2>&1
+  DRY_RUN_EXIT_CODE=$?
+  set -e
+  if [ "$DRY_RUN_EXIT_CODE" -eq 0 ]; then
+    echo "✅ production trail10 daily report dry-run completed" | tee -a "$LOG_FILE"
+  else
+    echo "⚠️ production trail10 daily report dry-run failed; daily main exit_code remains $RUN_EXIT_CODE dry_run_exit_code=$DRY_RUN_EXIT_CODE" | tee -a "$LOG_FILE"
+  fi
+else
+  echo "🧪 production trail10 daily report dry-run disabled (TOP10_ENABLE_PRODUCTION_TRAIL10_DAILY_REPORT_DRY_RUN=0)" | tee -a "$LOG_FILE"
+fi
 echo "========================================" | tee -a "$LOG_FILE"
 
 exit "$RUN_EXIT_CODE"
