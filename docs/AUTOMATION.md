@@ -73,15 +73,15 @@ tail -f logs/launchd_retrain.log
 12. 記錄日誌至 `logs/daily_YYYYMMDD.log`。
 
 ### `scripts/run_daily_publish.sh`
-**功能**: 可選的本機收盤後正式推播入口，不是 repo 內預設 daily plist 入口
+**功能**: 本機收盤後正式 daily + Clawd 推播入口；repo 內 daily plist 預設使用此入口
 **流程**:
 1. 呼叫 `scripts/run_daily.sh` 跑完整 daily 主流程。
 2. 若 daily 失敗，停止推播並保留 daily exit code。
 3. 只接受本次 `artifacts/automation_status.json` 為 `OK`、`run_date` 等於今天，且 `metadata.clawd_publish_message` 指向本次訊息；不會 fallback 到 latest message。
-4. 只有 `notify.clawd_enabled=true` 且 `notify.clawd_dry_run=false` 時，才呼叫 `scripts/report_stock_status.sh` 交給 New Clawd 正式推播。
+4. 只有 `notify.clawd_enabled=true` 且 `notify.clawd_dry_run=false` 時，才呼叫 `scripts/send_clawd_publish_message.py --send` 交給 New Clawd 正式推播。
 5. 推播失敗只寫 `logs/stock_notify.jsonl`，不回頭處理 Discord 細節，也不讓股票主流程重試 Discord。
 
-repo 內 `scripts/com.new-top10.daily.plist` 目前指向 `scripts/run_daily.sh`，只產生日報與 Clawd-ready payload，不會自動 live send。
+repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.sh`。若只要產生日報與 Clawd-ready payload、不 live send，請手動跑 `scripts/run_daily.sh`。
 
 ### `scripts/daily_retrain.sh`
 **功能**: 每日 PSI 監控 (02:00)，可手動傳入 `retrain` 執行模型重訓

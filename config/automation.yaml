@@ -102,10 +102,10 @@ notify:
   line_enabled: false         # Line Notify 開關
   line_token: ""              # Line Notify Token (若啟用)
 
-  clawd_enabled: false        # Clawd 實際發送開關；CLAWD-01 不會使用它發送
+  clawd_enabled: true         # Clawd 實際發送開關；收盤後 run_daily_publish.sh 會在 daily OK 後送出
   clawd_channel: "discord"
   clawd_to: "channel:1507327845003825154"
-  clawd_dry_run: true
+  clawd_dry_run: false
   clawd_cli_node: "/opt/homebrew/opt/node/bin/node"
   clawd_cli_entry: "/Users/mattkuo/new clawd/dist/index.js"
   llm_rewrite_enabled: true  # 推播訊息最後交給免費 LLM 金鑰輪換做操盤手口吻改寫；失敗不阻斷 daily
