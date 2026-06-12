@@ -16,6 +16,15 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from research_map_contract import (
+    apply_run_history,
+    build_combo_registry,
+    dimension_schema_payload,
+    expanded_universe_total,
+    progress_summary,
+    read_jsonl,
+)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = PROJECT_ROOT / "artifacts" / "autonomous_research"
@@ -98,52 +107,40 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         max_topics=args.max_topics,
     )
     topics = module.generate_topics(topic_args)
-    registry = {
+    registry_rows = {
         row.get("topic_id"): row
         for row in read_json(OUTPUT_DIR / "topic_registry.json").get("topics", [])
         if row.get("topic_id")
     }
-    history = read_json(OUTPUT_DIR / "run_history.json").get("runs", [])
-
-    rows: list[dict[str, Any]] = []
-    status_counts: Counter[str] = Counter()
-    family_counts: dict[str, Counter[str]] = defaultdict(Counter)
-    followup: list[dict[str, Any]] = []
-    pending: list[dict[str, Any]] = []
-    rejected: list[dict[str, Any]] = []
-
+    topics_json = []
     for topic in topics:
         topic_json = module.topic_to_json(topic)
-        current = registry.get(topic.topic_id, {})
-        status = str(current.get("manager_status") or "candidate")
-        run_count = int(current.get("run_count") or 0)
-        last_decision = current.get("last_decision")
-        family = topic_family(topic.candidate_dir)
-        processed = run_count > 0 or status in {"rejected", "partial_needs_followup", "confirmed_for_next_replay", "blocked_missing_evidence"}
-        row = {
-            **topic_json,
-            "family": family,
-            "manager_status": status,
-            "run_count": run_count,
-            "last_decision": last_decision,
-            "next_action": current.get("next_action"),
-            "processed": processed,
-        }
-        rows.append(row)
-        status_counts[status] += 1
-        family_counts[family][status] += 1
-        if status in {"partial_needs_followup", "confirmed_for_next_replay"}:
-            followup.append(row)
-        elif status == "rejected":
-            rejected.append(row)
-        elif not processed:
-            pending.append(row)
+        current = registry_rows.get(topic.topic_id, {})
+        topics_json.append({**topic_json, **current})
+    combos = build_combo_registry(topics_json)
+    history_jsonl_path = OUTPUT_DIR / "run_history.jsonl"
+    history_records = read_jsonl(history_jsonl_path)
+    scenarios = apply_run_history(combos, history_records)
+    combo_summary = progress_summary(scenarios)
+    dimension_schema = dimension_schema_payload()
+    expanded_total = expanded_universe_total(len(topics_json))
+    expanded_processed = combo_summary["explored_combos"]
+    expanded_progress_pct = round(expanded_processed / expanded_total, 6) if expanded_total else 0.0
 
-    total = len(rows)
-    processed_count = sum(1 for row in rows if row["processed"])
-    pending = sorted(pending, key=lambda item: (-float(item.get("score") or 0), item["topic_id"]))
-    followup = sorted(followup, key=lambda item: (-float(item.get("score") or 0), item["topic_id"]))
-    rejected = sorted(rejected, key=lambda item: (-float(item.get("score") or 0), item["topic_id"]))
+    by_topic = {row.get("topic_id"): row for row in topics_json}
+    family_counts: dict[str, Counter[str]] = defaultdict(Counter)
+    for scenario in scenarios:
+        topic = by_topic.get(scenario.get("topic_id"), {})
+        family_counts[topic_family(str(topic.get("candidate_dir") or ""))][str(scenario.get("status") or "pending")] += 1
+
+    pending = [scenario for scenario in scenarios if scenario.get("status") == "pending"]
+    followup = [scenario for scenario in scenarios if scenario.get("status") == "follow_up_signal"]
+    rejected = [scenario for scenario in scenarios if scenario.get("status") == "rejected"]
+    effective = [scenario for scenario in scenarios if scenario.get("status") in {"effective_insight", "next_stage_candidate", "breakthrough_candidate"}]
+    pending = sorted(pending, key=lambda item: (str(item.get("topic_id")), int(item.get("scenario_index") or 0)))
+    followup = sorted(followup, key=lambda item: str(item.get("finished_at") or ""), reverse=True)
+    rejected = sorted(rejected, key=lambda item: str(item.get("finished_at") or ""), reverse=True)
+    effective = sorted(effective, key=lambda item: str(item.get("finished_at") or ""), reverse=True)
     next_batch = pending[: args.batch_size]
 
     if next_batch:
@@ -178,50 +175,85 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "baseline_dir": args.baseline_dir,
         },
         "summary": {
-            "total_topics": total,
-            "processed_topics": processed_count,
-            "pending_topics": len(pending),
-            "followup_signal_topics": len(followup),
-            "rejected_topics": len(rejected),
-            "progress_pct": round(processed_count / total, 4) if total else 0.0,
-            "progress_bar": progress_bar(processed_count, total),
-            "status_counts": dict(sorted(status_counts.items())),
+            "total_topics": len(topics_json),
+            "processed_topics": sum(1 for topic in topics_json if any(s.get("topic_id") == topic.get("topic_id") and s.get("status") != "pending" for s in scenarios)),
+            "pending_topics": sum(1 for topic in topics_json if not any(s.get("topic_id") == topic.get("topic_id") and s.get("status") != "pending" for s in scenarios)),
+            "followup_signal_topics": len({s.get("topic_id") for s in followup}),
+            "rejected_topics": len({s.get("topic_id") for s in rejected}),
+            "total_combos": combo_summary["total_combos"],
+            "processed_combos": combo_summary["explored_combos"],
+            "pending_combos": combo_summary["pending_combos"],
+            "followup_signal_combos": combo_summary["followup_signal_combos"],
+            "rejected_combos": combo_summary["rejected_combos"],
+            "effective_insight_combos": combo_summary["effective_insight_combos"],
+            "next_stage_combos": combo_summary["next_stage_combos"],
+            "breakthrough_combos": combo_summary["breakthrough_combos"],
+            "progress_pct": combo_summary["progress_pct"],
+            "progress_bar": progress_bar(combo_summary["explored_combos"], combo_summary["total_combos"]),
+            "status_counts": combo_summary["status_counts"],
+            "base_universe_total": combo_summary["total_combos"],
+            "base_processed": combo_summary["explored_combos"],
+            "base_progress_pct": combo_summary["progress_pct"],
+            "expanded_universe_total": expanded_total,
+            "expanded_processed": expanded_processed,
+            "expanded_pending": max(0, expanded_total - expanded_processed),
+            "expanded_progress_pct": expanded_progress_pct,
+            "dimension_schema_version": dimension_schema["version"],
+            "dimension_values": dimension_schema["dimension_values"],
+            "dimension_defaults": dimension_schema["default_coordinates"],
+            "expanded_scenarios_per_topic": dimension_schema["expanded_scenarios_per_topic"],
+            "expansion_multiplier": dimension_schema["expansion_multiplier"],
             "next_action": next_action,
             "next_batch_size": len(next_batch),
-            "history_runs": len(history),
+            "history_runs": len(history_records),
         },
+        "dimension_schema": dimension_schema,
         "insights": {
             "followup_signals": [
                 {
+                    "combo_id": item["combo_id"],
                     "topic_id": item["topic_id"],
-                    "family": item["family"],
-                    "last_decision": item["last_decision"],
-                    "next_action": item["next_action"],
-                    "candidate_dir": item["candidate_dir"],
+                    "dimensions": item["dimensions"],
+                    "decision": item["decision"],
+                    "artifact_path": item["artifact_path"],
                 }
                 for item in followup[:20]
             ],
             "largest_families": family_summary[:20],
             "recent_rejections": [
                 {
+                    "combo_id": item["combo_id"],
                     "topic_id": item["topic_id"],
-                    "family": item["family"],
-                    "last_decision": item["last_decision"],
-                    "candidate_dir": item["candidate_dir"],
+                    "dimensions": item["dimensions"],
+                    "decision": item["decision"],
+                    "artifact_path": item["artifact_path"],
                 }
                 for item in rejected[:20]
+            ],
+            "effective_signals": [
+                {
+                    "combo_id": item["combo_id"],
+                    "topic_id": item["topic_id"],
+                    "dimensions": item["dimensions"],
+                    "insight_level": item["insight_level"],
+                    "artifact_path": item["artifact_path"],
+                }
+                for item in effective[:20]
             ],
         },
         "next_batch": [
             {
+                "combo_id": item["combo_id"],
                 "topic_id": item["topic_id"],
-                "family": item["family"],
-                "score": item["score"],
+                "dimensions": item["dimensions"],
                 "candidate_dir": item["candidate_dir"],
-                "ranking_file_count": item["ranking_file_count"],
             }
             for item in next_batch
         ],
+        "sources": {
+            "topic_registry": "artifacts/autonomous_research/topic_registry.json",
+            "run_history_jsonl": "artifacts/autonomous_research/run_history.jsonl",
+        },
     }
 
 
@@ -231,22 +263,24 @@ def render_markdown(payload: dict[str, Any]) -> str:
         "# Research Campaign Progress",
         "",
         f"- status: `{payload['status']}`",
-        f"- progress: `{summary['progress_bar']}` `{summary['processed_topics']}/{summary['total_topics']}` ({summary['progress_pct']:.1%})",
-        f"- pending: `{summary['pending_topics']}`",
-        f"- followup signals: `{summary['followup_signal_topics']}`",
-        f"- rejected: `{summary['rejected_topics']}`",
+        f"- base scan: `{summary['processed_combos']}/{summary['total_combos']}` combos ({summary['progress_pct']:.1%})",
+        f"- full universe: `{summary['expanded_processed']}/{summary['expanded_universe_total']}` combos ({summary['expanded_progress_pct']:.2%})",
+        f"- topics: `{summary['processed_topics']}/{summary['total_topics']}`",
+        f"- pending combos: `{summary['pending_combos']}`",
+        f"- followup signal combos: `{summary['followup_signal_combos']}`",
+        f"- rejected combos: `{summary['rejected_combos']}`",
         f"- next action: `{summary['next_action']}`",
         f"- next batch size: `{summary['next_batch_size']}`",
         "",
         "## Follow-up Signals",
     ]
     for item in payload["insights"]["followup_signals"][:10]:
-        lines.append(f"- `{item['topic_id']}` / `{item['family']}` / `{item['last_decision']}`")
+        lines.append(f"- `{item['combo_id']}` / `{item['decision']}` / `{item['artifact_path']}`")
     if not payload["insights"]["followup_signals"]:
         lines.append("- none")
     lines.extend(["", "## Next Batch"])
     for item in payload["next_batch"][:20]:
-        lines.append(f"- `{item['topic_id']}` / `{item['family']}` / score `{item['score']}`")
+        lines.append(f"- `{item['combo_id']}` / topic `{item['topic_id']}`")
     if not payload["next_batch"]:
         lines.append("- none")
     lines.extend(["", "## Family Summary"])
@@ -270,8 +304,10 @@ def main() -> int:
                 "status": payload["status"],
                 "output": repo_path(output),
                 "progress": payload["summary"]["progress_bar"],
-                "processed": payload["summary"]["processed_topics"],
-                "total": payload["summary"]["total_topics"],
+                "processed": payload["summary"]["processed_combos"],
+                "total": payload["summary"]["total_combos"],
+                "expanded_processed": payload["summary"]["expanded_processed"],
+                "expanded_total": payload["summary"]["expanded_universe_total"],
                 "next_action": payload["summary"]["next_action"],
                 "next_batch_size": payload["summary"]["next_batch_size"],
             },
