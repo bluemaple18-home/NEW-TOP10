@@ -182,4 +182,3 @@ def build_report(payload: dict[str, Any], payload_path: Path) -> dict[str, Any]:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

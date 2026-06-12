@@ -90,4 +90,3 @@ git diff --check: OK
 - 不要改模型。
 - 不要改 production ranking。
 - 不要把 review 結論寫成 promotion approval。
-

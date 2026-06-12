@@ -187,4 +187,3 @@ Verifier 至少檢查：
 這張卡最多只能把 liquidity quality universe 推進到下一層 strategy component replay，或把它淘汰 / 留監控。
 
 它不能直接改正式模型、正式排名或正式推播。
-

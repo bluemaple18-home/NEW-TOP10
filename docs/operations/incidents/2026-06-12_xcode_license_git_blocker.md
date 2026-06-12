@@ -100,4 +100,3 @@ xcodebuild -license check
   - 不是 commit 要密碼
   - 是 Apple Git 被 Xcode license 擋住
   - 這可能影響同機多個專案
-
