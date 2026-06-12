@@ -50,6 +50,12 @@ launchctl list | grep new-top10
 # 查看日誌
 tail -f logs/launchd_daily.log
 tail -f logs/launchd_retrain.log
+
+# 驗證最近一次 daily publish 工作流是否完整、安全
+.venv/bin/python scripts/verify_daily_publish_workflow.py --require-send --check-launchd
+
+# 不送真訊息，驗證 wrapper 失敗會 fail-loud、catch-up 日期會傳到 sender
+.venv/bin/python scripts/verify_daily_publish_wrapper_guards.py
 ```
 
 ---
@@ -77,11 +83,34 @@ tail -f logs/launchd_retrain.log
 **流程**:
 1. 呼叫 `scripts/run_daily.sh` 跑完整 daily 主流程。
 2. 若 daily 失敗，停止推播並保留 daily exit code。
-3. 只接受本次 `artifacts/automation_status.json` 為 `OK`、`run_date` 等於今天，且 `metadata.clawd_publish_message` 指向本次訊息；不會 fallback 到 latest message。
+3. 只接受本次 `artifacts/automation_status.json` 為 `OK`、`run_date` 等於本次 `TOP10_RUN_DATE` 或今日，且 `metadata.clawd_publish_message` 指向本次訊息；不會 fallback 到 latest message。
 4. 只有 `notify.clawd_enabled=true` 且 `notify.clawd_dry_run=false` 時，才呼叫 `scripts/send_clawd_publish_message.py --send` 交給 New Clawd 正式推播。
-5. 推播失敗只寫 `logs/stock_notify.jsonl`，不回頭處理 Discord 細節，也不讓股票主流程重試 Discord。
+5. 若 `run_date` 不是今日，只有明確設定 `TOP10_RUN_DATE=YYYY-MM-DD` 的 catch-up run 會傳入 `--allow-stale-send`；一般路徑會由 `scripts/send_clawd_publish_message.py` 擋掉舊訊息 live send。
+6. 推播失敗會留下 `clawd_send_status_YYYY-MM-DD.json`，且 publish wrapper 以非 0 結束，讓 launchd / 外層排程 fail-loud。
 
 repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.sh`。若只要產生日報與 Clawd-ready payload、不 live send，請手動跑 `scripts/run_daily.sh`。
+
+每日推播工作流的檢查口徑：
+
+```bash
+# 檢查指定日期是否完整產出 ranking / report / payload / message / live send status
+.venv/bin/python scripts/verify_daily_publish_workflow.py --date YYYY-MM-DD --require-send --check-launchd
+
+# 不觸發 live send，只驗 wrapper guard 行為
+.venv/bin/python scripts/verify_daily_publish_wrapper_guards.py
+```
+
+此 verifier 只檢查契約，不抓資料、不送訊息。它會確認：
+
+- repo daily plist 指向 `scripts/run_daily_publish.sh`
+- `run_daily_publish.sh` 不使用 latest-message fallback
+- `run_daily.sh` 優先使用 repo `.venv/bin/python`，避免 launchd 環境下臨時 `uv` 抓套件失敗
+- `automation_status.json` 是 `OK` 且 `run_date` 與檢查日期一致
+- ranking / daily report / Clawd payload / Clawd message 均為同一日期
+- Clawd payload `delivery.status == READY_FOR_CLAWD`
+- `--require-send` 時，`clawd_send_status_YYYY-MM-DD.json` 必須是 live send `OK`
+- `--check-launchd` 時，確認本機 `com.new-top10.daily` 已載入且指向 `scripts/run_daily_publish.sh`
+- `scripts/send_clawd_publish_message.py` 預設會擋 stale live send；只有人工 catch-up 才允許 `--allow-stale-send`
 
 ### `scripts/daily_retrain.sh`
 **功能**: 每日 PSI 監控 (02:00)，可手動傳入 `retrain` 執行模型重訓

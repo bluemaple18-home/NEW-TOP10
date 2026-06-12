@@ -7,15 +7,25 @@ set -e  # setup 階段遇到錯誤立即停止
 
 # launchd / non-login shell 預設 PATH 很短，需明確納入 uv 常見安裝路徑。
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-UV_BIN="${UV_BIN:-$(command -v uv 2>/dev/null || true)}"
-if [ -z "$UV_BIN" ]; then
-  echo "❌ uv command not found; set UV_BIN or install uv under $HOME/.local/bin, /opt/homebrew/bin, or /usr/local/bin"
-  exit 127
-fi
 
 # 切換到專案目錄
 cd "$(dirname "$0")/.."
 PROJECT_DIR=$(pwd)
+
+PYTHON_BIN="${TOP10_DAILY_PYTHON:-$PROJECT_DIR/.venv/bin/python}"
+RUNNER_CMD=()
+if [ -x "$PYTHON_BIN" ]; then
+  RUNNER_CMD=("$PYTHON_BIN")
+  RUNTIME_LABEL="$PYTHON_BIN"
+else
+  UV_BIN="${UV_BIN:-$(command -v uv 2>/dev/null || true)}"
+  if [ -z "$UV_BIN" ]; then
+    echo "❌ python runtime not found; expected $PYTHON_BIN or set UV_BIN"
+    exit 127
+  fi
+  RUNNER_CMD=("$UV_BIN" run --with-requirements requirements.txt python)
+  RUNTIME_LABEL="$UV_BIN run --with-requirements requirements.txt python"
+fi
 
 # 日誌目錄
 LOG_DIR="$PROJECT_DIR/logs"
@@ -26,6 +36,11 @@ LOCK_PID_FILE="$LOCK_DIR/pid"
 WRAPPER_STARTED_AT_EPOCH="$(date +%s)"
 TOP10_RESOURCE_PROFILE="${TOP10_RESOURCE_PROFILE:-standard}"
 export TOP10_RESOURCE_PROFILE
+RUN_DATE="${TOP10_RUN_DATE:-$(date +%F)}"
+RUN_DATE_ARGS=()
+if [ -n "${TOP10_RUN_DATE:-}" ]; then
+  RUN_DATE_ARGS=(--run-date "$TOP10_RUN_DATE")
+fi
 
 acquire_daily_lock() {
   if mkdir "$LOCK_DIR" 2>/dev/null; then
@@ -67,10 +82,12 @@ acquire_daily_lock
 echo "========================================" | tee -a "$LOG_FILE"
 echo "🚀 開始每日自動執行 - $(date)" | tee -a "$LOG_FILE"
 echo "🧯 resource profile: $TOP10_RESOURCE_PROFILE" | tee -a "$LOG_FILE"
+echo "🐍 runtime: $RUNTIME_LABEL" | tee -a "$LOG_FILE"
+echo "📅 run date: $RUN_DATE" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e
-"$UV_BIN" run --with-requirements requirements.txt python -m scripts.run_automation daily >> "$LOG_FILE" 2>&1
+"${RUNNER_CMD[@]}" -m scripts.run_automation daily "${RUN_DATE_ARGS[@]}" >> "$LOG_FILE" 2>&1
 RUN_EXIT_CODE=$?
 set -e
 
@@ -86,7 +103,7 @@ else
 fi
 
 set +e
-STATUS_OUTPUT="$("$UV_BIN" run --with-requirements requirements.txt python scripts/print_daily_status.py --status "$STATUS_PATH" --min-started-at-epoch "$WRAPPER_STARTED_AT_EPOCH" 2>&1)"
+STATUS_OUTPUT="$("${RUNNER_CMD[@]}" scripts/print_daily_status.py --status "$STATUS_PATH" --min-started-at-epoch "$WRAPPER_STARTED_AT_EPOCH" 2>&1)"
 STATUS_EXIT_CODE=$?
 set -e
 
@@ -101,7 +118,7 @@ fi
 if [ "${TOP10_ENABLE_PRODUCTION_TRAIL10_SHADOW:-0}" = "1" ]; then
   echo "🧪 production trail10 shadow enabled; running shadow builder..." | tee -a "$LOG_FILE"
   set +e
-  "$UV_BIN" run --with-requirements requirements.txt python scripts/build_production_trail10_shadow.py --date "$(date +%F)" >> "$LOG_FILE" 2>&1
+  "${RUNNER_CMD[@]}" scripts/build_production_trail10_shadow.py --date "$RUN_DATE" >> "$LOG_FILE" 2>&1
   SHADOW_EXIT_CODE=$?
   set -e
   if [ "$SHADOW_EXIT_CODE" -eq 0 ]; then
@@ -116,7 +133,7 @@ fi
 if [ "${TOP10_ENABLE_PRODUCTION_TRAIL10_DAILY_REPORT_DRY_RUN:-0}" = "1" ]; then
   echo "🧪 production trail10 daily report dry-run enabled; building dry-run artifact..." | tee -a "$LOG_FILE"
   set +e
-  "$UV_BIN" run --with-requirements requirements.txt python scripts/build_production_trail10_daily_report_dry_run.py --date "$(date +%F)" >> "$LOG_FILE" 2>&1
+  "${RUNNER_CMD[@]}" scripts/build_production_trail10_daily_report_dry_run.py --date "$RUN_DATE" >> "$LOG_FILE" 2>&1
   DRY_RUN_EXIT_CODE=$?
   set -e
   if [ "$DRY_RUN_EXIT_CODE" -eq 0 ]; then

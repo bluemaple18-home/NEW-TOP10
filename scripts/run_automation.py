@@ -55,14 +55,23 @@ class AutomationStatus:
 
 
 class AutomationRunner:
-    def __init__(self, mode: str, dry_run: bool = False, trigger: str = "manual", resource_profile: str | None = None):
+    def __init__(
+        self,
+        mode: str,
+        dry_run: bool = False,
+        trigger: str = "manual",
+        resource_profile: str | None = None,
+        run_date: str | None = None,
+    ):
         self.mode = mode
         self.dry_run = dry_run
         self.trigger = trigger
         self.config = self._load_config()
         self.resource_profile = self._resolve_resource_profile(resource_profile)
         self.tz = ZoneInfo(self.config.get("timezone", "Asia/Taipei"))
-        self.run_date = self._today_local().strftime("%Y-%m-%d")
+        self._run_date_override = self._normalize_run_date(run_date or os.environ.get("TOP10_RUN_DATE"))
+        self.run_date = self._run_date_override or datetime.now(self.tz).strftime("%Y-%m-%d")
+        run_date_source = "argument" if run_date else "env" if os.environ.get("TOP10_RUN_DATE") else "local_today"
         self.status = AutomationStatus(
             schema_version=STATUS_SCHEMA_VERSION,
             mode=mode,
@@ -70,7 +79,12 @@ class AutomationRunner:
             dry_run=dry_run,
             started_at=self._now(),
             run_date=self.run_date,
-            metadata={"project_root": str(PROJECT_ROOT), "trigger": trigger, "resource_profile": self.resource_profile},
+            metadata={
+                "project_root": str(PROJECT_ROOT),
+                "trigger": trigger,
+                "resource_profile": self.resource_profile,
+                "run_date_source": run_date_source,
+            },
         )
 
     def run(self) -> int:
@@ -1246,6 +1260,7 @@ class AutomationRunner:
 
     def _run_command(self, name: str, command: list[str], allow_failure: bool = False) -> None:
         started_at = self._now()
+        command = self._normalize_command(command)
         if self.dry_run:
             self.status.steps.append(
                 StepResult(name=name, status="DRY_RUN", command=command, started_at=started_at, finished_at=self._now())
@@ -1264,6 +1279,11 @@ class AutomationRunner:
         self.status.steps.append(result)
         if completed.returncode != 0 and not allow_failure:
             raise RuntimeError(f"{name} 失敗，exit_code={completed.returncode}")
+
+    def _normalize_command(self, command: list[str]) -> list[str]:
+        if command and command[0] == "python":
+            return [sys.executable, *command[1:]]
+        return command
 
     def _record_step(self, name: str, status: str, message: str | None = None) -> None:
         self.status.steps.append(
@@ -1359,10 +1379,17 @@ class AutomationRunner:
         return datetime.now(timezone.utc).isoformat()
 
     def _today_local(self) -> datetime:
-        override = os.environ.get("TOP10_RUN_DATE")
-        if override:
-            return datetime.fromisoformat(override).replace(tzinfo=self.tz)
+        if self._run_date_override:
+            return datetime.strptime(self._run_date_override, "%Y-%m-%d").replace(tzinfo=self.tz)
         return datetime.now(self.tz)
+
+    def _normalize_run_date(self, value: str | None) -> str | None:
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d")
+        except ValueError as exc:
+            raise ValueError(f"TOP10_RUN_DATE/--run-date 必須是 YYYY-MM-DD：{value}") from exc
 
 
 def main() -> int:
@@ -1381,12 +1408,14 @@ def main() -> int:
         default=None,
         help="資源模式：local_safe 會阻擋本機高成本流程；host_full 用於主機正式流程",
     )
+    parser.add_argument("--run-date", default=None, help="明確指定本次流程日期，格式 YYYY-MM-DD；優先於 TOP10_RUN_DATE")
     args = parser.parse_args()
     return AutomationRunner(
         mode=args.mode,
         dry_run=args.dry_run,
         trigger=args.trigger,
         resource_profile=args.resource_profile,
+        run_date=args.run_date,
     ).run()
 
 

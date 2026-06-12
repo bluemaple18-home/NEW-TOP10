@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,7 @@ def main() -> int:
     parser.add_argument("--payload", default=None, help="指定 clawd_publish_payload JSON 路徑")
     parser.add_argument("--config", default="config/automation.yaml")
     parser.add_argument("--send", action="store_true", help="正式送出；仍需 notify.clawd_enabled=true 且 clawd_dry_run=false")
+    parser.add_argument("--allow-stale-send", action="store_true", help="允許正式補送非今日訊息；只供人工 catch-up 使用")
     parser.add_argument("--output", default=None, help="指定 send status JSON 路徑")
     args = parser.parse_args()
 
@@ -85,6 +87,9 @@ def main() -> int:
             message_date=message_date,
             payload_path=payload_path,
             payload=payload,
+            send_allowed=send_allowed,
+            allow_stale_send=args.allow_stale_send,
+            timezone_name=str(config.get("timezone") or "Asia/Taipei"),
         )
         command = [
             node_bin,
@@ -174,6 +179,9 @@ def validate_preflight(
     message_date: str,
     payload_path: Path,
     payload: dict[str, Any],
+    send_allowed: bool,
+    allow_stale_send: bool,
+    timezone_name: str,
 ) -> None:
     missing = []
     if not Path(node_bin).exists():
@@ -204,6 +212,12 @@ def validate_preflight(
         raise RuntimeError(f"Clawd payload channel mismatch: payload={delivery.get('channel')} config={channel}")
     if delivery.get("to") != target:
         raise RuntimeError(f"Clawd payload target mismatch: payload={delivery.get('to')} config={target}")
+    local_today = datetime.now(ZoneInfo(timezone_name)).date().isoformat()
+    if send_allowed and message_date != local_today and not allow_stale_send:
+        raise RuntimeError(
+            f"stale Clawd message blocked: message_date={message_date} today={local_today}; "
+            "use --allow-stale-send only for explicit manual catch-up"
+        )
 
 
 def date_from_payload_path(path: Path) -> str:

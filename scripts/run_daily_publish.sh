@@ -13,9 +13,12 @@ PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"
 if [ ! -x "$PYTHON_BIN" ]; then
   PYTHON_BIN="python3"
 fi
+RUN_DATE="${TOP10_RUN_DATE:-$(date +%F)}"
+export TOP10_RUN_DATE="$RUN_DATE"
 
 echo "========================================" | tee -a "$LOG_FILE"
 echo "開始收盤後 daily publish - $(date)" | tee -a "$LOG_FILE"
+echo "publish run_date: $RUN_DATE" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e
@@ -30,7 +33,7 @@ fi
 
 set +e
 MESSAGE_FILE="$(
-  "$PYTHON_BIN" - "$PROJECT_DIR" "$(date +%F)" 2>> "$LOG_FILE" <<'PY'
+  "$PYTHON_BIN" - "$PROJECT_DIR" "$RUN_DATE" 2>> "$LOG_FILE" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -74,14 +77,19 @@ fi
 
 echo "sending Clawd message from current OK run: $MESSAGE_FILE" | tee -a "$LOG_FILE"
 set +e
-"$PYTHON_BIN" "$PROJECT_DIR/scripts/send_clawd_publish_message.py" --message "$MESSAGE_FILE" --send >> "$LOG_FILE" 2>&1
+SEND_ARGS=("$PROJECT_DIR/scripts/send_clawd_publish_message.py" --message "$MESSAGE_FILE" --send)
+if [ "$RUN_DATE" != "$(date +%F)" ]; then
+  SEND_ARGS+=(--allow-stale-send)
+fi
+"$PYTHON_BIN" "${SEND_ARGS[@]}" >> "$LOG_FILE" 2>&1
 SEND_EXIT_CODE=$?
 set -e
 
 if [ "$SEND_EXIT_CODE" -eq 0 ]; then
   echo "daily publish finished - $(date)" | tee -a "$LOG_FILE"
 else
-  echo "Clawd send command returned exit_code=$SEND_EXIT_CODE; main daily already completed." | tee -a "$LOG_FILE"
+  echo "Clawd send command failed; fail publish wrapper. exit_code=$SEND_EXIT_CODE" | tee -a "$LOG_FILE"
+  exit "$SEND_EXIT_CODE"
 fi
 
 exit 0
