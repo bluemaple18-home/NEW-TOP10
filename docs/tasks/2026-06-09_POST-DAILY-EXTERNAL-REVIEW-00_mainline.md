@@ -36,6 +36,7 @@
 3. `POST-DAILY-EXTERNAL-REVIEW-03_gemini_collector`
 4. `POST-DAILY-EXTERNAL-REVIEW-04_dual_reviewer_merge`
 5. `POST-DAILY-EXTERNAL-REVIEW-05_periodic_research_loop`
+6. `POST-DAILY-EXTERNAL-REVIEW-06_host_runner_clawd_harness`
 
 ## Shared Contract
 
@@ -73,3 +74,4 @@ artifacts/external_review/research_hypotheses/
 - Do not write to `artifacts/ranking_YYYY-MM-DD.csv`.
 - Do not overwrite `models/latest_lgbm.pkl`.
 - Do not mark any external review output as `PROMOTION_READY`.
+- Codex-managed execution must not bypass its external-disclosure gate. If ChatGPT / Gemini submission is blocked in Codex, use a host-owned Clawd/harness runner with explicit local operator approval, then write raw responses back into this artifact contract.

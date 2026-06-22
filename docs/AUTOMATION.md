@@ -5,6 +5,7 @@
 本系統提供完整的自動化功能，讓選股系統能夠無人值守運作：
 
 - 📊 **每日自動執行** (17:30): ETL 資料更新 + Agent B 選股 + Clawd-ready payload
+- 🧪 **每日外部 review host runner** (17:50): daily OK 後產安全 packet，交由 provider adapter 收 raw，再回 repo 驗證與合併
 - 🔧 **每日漂移監控** (02:00): PSI 檢查；模型重訓改為手動或週期任務
 - 🔎 **每月 reference 維護** (每月 1 日 03:30): 概念股 / 產業 / 供應鏈來源 probe + import
 - 📈 **PSI 漂移監控**: 自動偵測特徵分佈變化
@@ -56,6 +57,10 @@ tail -f logs/launchd_retrain.log
 
 # 不送真訊息，驗證 wrapper 失敗會 fail-loud、catch-up 日期會傳到 sender
 .venv/bin/python scripts/verify_daily_publish_wrapper_guards.py
+
+# 不觸發 browser submit，只驗 external review host runner 的 partial / skip 證據格式
+TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT=1 bash scripts/run_external_review_host_runner.sh
+.venv/bin/python scripts/verify_external_review_host_runner.py --status artifacts/host_runner/YYYY-MM-DD/host_runner_status_YYYY-MM-DD.json --require-success
 ```
 
 ---
@@ -89,6 +94,31 @@ tail -f logs/launchd_retrain.log
 6. 推播失敗會留下 `clawd_send_status_YYYY-MM-DD.json`，且 publish wrapper 以非 0 結束，讓 launchd / 外層排程 fail-loud。
 
 repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.sh`。若只要產生日報與 Clawd-ready payload、不 live send，請手動跑 `scripts/run_daily.sh`。
+
+### `scripts/run_external_review_host_runner.sh`
+**功能**: daily OK 後執行外部 review host harness；Clawd / browser adapter 只負責 provider submission 與 raw response，Top10 repo 負責 packet 安全、normalize、verify、summary 與證據。
+**流程**:
+1. 等待同日 `artifacts/automation_status.json` 為 `OK`，並確認 ranking / daily report / market context 同日存在。
+2. 產生並驗證 `artifacts/external_review/YYYY-MM-DD/review_packet_YYYY-MM-DD.json`。
+3. 明確拒送 `review_packet_manifest_YYYY-MM-DD.json`；manifest 只留本機 lineage。
+4. 呼叫 provider adapter：`scripts/review_chatgpt_chrome.sh` / `scripts/review_gemini_chrome.sh`，只允許送 verified packet/prompt。
+5. 保存 raw response 後由 Top10 repo 執行 `normalize_external_review_response.py` 與 `verify_external_review_contract.py`。
+6. 建立並驗證 `external_review_summary_YYYY-MM-DD.json`；單一 provider 成功時保留 `PARTIAL` 與 `needs_human_review=true`。
+7. 寫出 `artifacts/host_runner/YYYY-MM-DD/host_runner_status_YYYY-MM-DD.json` 與 `host_runner_summary_YYYY-MM-DD.json`。
+
+repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scripts/run_external_review_host_runner.sh`；它會自行等 daily OK，不會在 daily 失敗時送出外部 review。
+
+手動驗證：
+
+```bash
+# 真實 submit：會使用本機 Chrome / provider session
+bash scripts/run_external_review_host_runner.sh
+
+# 不 submit，只用既有 raw 檔測 partial / summary path
+TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT=1 bash scripts/run_external_review_host_runner.sh
+
+.venv/bin/python scripts/verify_external_review_host_runner.py --status artifacts/host_runner/YYYY-MM-DD/host_runner_status_YYYY-MM-DD.json --require-success
+```
 
 每日推播工作流的檢查口徑：
 
