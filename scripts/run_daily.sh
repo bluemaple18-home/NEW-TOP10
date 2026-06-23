@@ -144,6 +144,19 @@ if [ "${TOP10_ENABLE_PRODUCTION_TRAIL10_DAILY_REPORT_DRY_RUN:-0}" = "1" ]; then
 else
   echo "🧪 production trail10 daily report dry-run disabled (TOP10_ENABLE_PRODUCTION_TRAIL10_DAILY_REPORT_DRY_RUN=0)" | tee -a "$LOG_FILE"
 fi
+
+set +e
+"${RUNNER_CMD[@]}" scripts/record_top10_daily_status_events.py --run-date "$RUN_DATE" >> "$LOG_FILE" 2>&1
+STATUS_EVENT_EXIT_CODE=$?
+set -e
+if [ "$STATUS_EVENT_EXIT_CODE" -eq 0 ]; then
+  echo "📡 TOP10 harness daily status events recorded" | tee -a "$LOG_FILE"
+else
+  echo "❌ TOP10 harness daily status event recording failed exit_code=$STATUS_EVENT_EXIT_CODE" | tee -a "$LOG_FILE"
+  if [ "$RUN_EXIT_CODE" -eq 0 ]; then
+    RUN_EXIT_CODE="$STATUS_EVENT_EXIT_CODE"
+  fi
+fi
 echo "========================================" | tee -a "$LOG_FILE"
 
 exit "$RUN_EXIT_CODE"

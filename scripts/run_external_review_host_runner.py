@@ -39,6 +39,7 @@ class CommandResult:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run post-daily external review host harness.")
     parser.add_argument("--date", default=None, help="執行日期 YYYY-MM-DD；預設讀 automation_status.run_date")
+    parser.add_argument("--run-id", default=None, help="harness status run_id；預設 daily-YYYY-MM-DD")
     parser.add_argument("--artifacts-dir", default="artifacts", type=Path)
     parser.add_argument("--wait-daily-ok-seconds", default=0, type=int, help="等待同日 daily OK 的秒數")
     parser.add_argument("--poll-seconds", default=30, type=int, help="等待 daily OK 時的輪詢間隔秒數")
@@ -82,7 +83,7 @@ def main() -> int:
     host_dir.mkdir(parents=True, exist_ok=True)
     status_path = host_dir / f"host_runner_status_{run_date}.json"
     host_summary_path = host_dir / f"host_runner_summary_{run_date}.json"
-    run_id = f"external-review-{run_date}"
+    run_id = args.run_id or f"daily-{run_date}"
     started_at = datetime.now(timezone.utc).isoformat()
 
     status = initial_status(run_date, artifacts_dir, status_path, host_summary_path, providers)

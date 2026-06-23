@@ -4,7 +4,7 @@
 
 ## 核心原則
 
-- 每一次執行都必須有 `run_id`、`run_date`、狀態、artifact 路徑與結論。
+- 每一次完整 daily loop 都使用同一個 `run_id`、`run_date`、狀態、artifact 路徑與結論；daily、publish、external review 都寫回同一個 run。
 - 報牌頻道只收通過 gate 的 Top10，不收 debug、卡關、研究過程。
 - 工作進度頻道收 stop/fail、warning、外部 AI review 差異、next actions、下一輪 blocker。
 - 任何 agent 失敗都不能假裝完成；必須產生 Stop Event 或明確的 degraded 狀態。
@@ -111,9 +111,13 @@ artifacts/harness_status/<run_date>/latest_rollup.json
 
 ```text
 scripts/top10_agent_status.py
+scripts/record_top10_daily_status_events.py
+scripts/record_top10_publish_event.py
 scripts/verify_top10_agent_status_event.py
 scripts/build_top10_agent_status_rollup.py
 ```
+
+`run_id` 預設為 `daily-<run_date>`。`scripts/run_daily.sh` 會把 `artifacts/automation_status.json` 轉成 daily lane 的 agent events；`scripts/run_daily_publish.sh` 只補 `daily_push` 的報牌頻道事件；`scripts/run_external_review_host_runner.py` 預設也寫入同一個 `daily-<run_date>`，讓 GPT/Gemini 驗證支線能接回同一張 rollup。
 
 事件中的 `input_refs` 與 `artifact_paths` 必須是 repo-relative 或 artifacts-root-relative 路徑，不可寫入 `/Users/...`、`/private/...` 等本機絕對路徑。
 

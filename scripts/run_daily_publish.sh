@@ -28,6 +28,13 @@ set -e
 
 if [ "$DAILY_EXIT_CODE" -ne 0 ]; then
   echo "daily failed; skip Clawd send. exit_code=$DAILY_EXIT_CODE" | tee -a "$LOG_FILE"
+  set +e
+  "$PYTHON_BIN" scripts/record_top10_publish_event.py \
+    --run-date "$RUN_DATE" \
+    --status skipped \
+    --decision stop \
+    --reason "daily failed before publish; exit_code=$DAILY_EXIT_CODE" >> "$LOG_FILE" 2>&1
+  set -e
   exit "$DAILY_EXIT_CODE"
 fi
 
@@ -72,6 +79,10 @@ set -e
 
 if [ "$MESSAGE_STATUS" -ne 0 ] || [ -z "$MESSAGE_FILE" ]; then
   echo "Clawd live send not allowed for this run; skip send." | tee -a "$LOG_FILE"
+  "$PYTHON_BIN" scripts/record_top10_publish_event.py \
+    --run-date "$RUN_DATE" \
+    --status skipped \
+    --reason "Clawd live send not allowed for this run" >> "$LOG_FILE" 2>&1
   exit 0
 fi
 
@@ -86,9 +97,23 @@ SEND_EXIT_CODE=$?
 set -e
 
 if [ "$SEND_EXIT_CODE" -eq 0 ]; then
+  "$PYTHON_BIN" scripts/record_top10_publish_event.py \
+    --run-date "$RUN_DATE" \
+    --status ok \
+    --message "$MESSAGE_FILE" \
+    --send-exit-code "$SEND_EXIT_CODE" >> "$LOG_FILE" 2>&1
   echo "daily publish finished - $(date)" | tee -a "$LOG_FILE"
 else
   echo "Clawd send command failed; fail publish wrapper. exit_code=$SEND_EXIT_CODE" | tee -a "$LOG_FILE"
+  set +e
+  "$PYTHON_BIN" scripts/record_top10_publish_event.py \
+    --run-date "$RUN_DATE" \
+    --status failed \
+    --decision stop \
+    --reason "Clawd send command failed" \
+    --message "$MESSAGE_FILE" \
+    --send-exit-code "$SEND_EXIT_CODE" >> "$LOG_FILE" 2>&1
+  set -e
   exit "$SEND_EXIT_CODE"
 fi
 
