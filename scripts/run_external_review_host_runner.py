@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from top10_agent_status import build_event, write_agent_event
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATUS_SCHEMA_VERSION = "external-review-host-runner-status.v1"
@@ -80,9 +82,21 @@ def main() -> int:
     host_dir.mkdir(parents=True, exist_ok=True)
     status_path = host_dir / f"host_runner_status_{run_date}.json"
     host_summary_path = host_dir / f"host_runner_summary_{run_date}.json"
+    run_id = f"external-review-{run_date}"
+    started_at = datetime.now(timezone.utc).isoformat()
 
     status = initial_status(run_date, artifacts_dir, status_path, host_summary_path, providers)
     write_json(status_path, status)
+    write_status_event(
+        artifacts_dir=artifacts_dir,
+        run_id=run_id,
+        run_date=run_date,
+        agent_id="external_review_harness",
+        status="running",
+        started_at=started_at,
+        artifact_paths=[status_path, host_summary_path],
+        metrics={"providers": list(providers)},
+    )
 
     try:
         daily_ok = wait_for_daily_ok(
@@ -100,6 +114,20 @@ def main() -> int:
             status["notes"].append("same-date automation_status.json is not OK; external review skipped")
             write_json(status_path, status)
             write_host_summary(host_summary_path, status, None)
+            write_status_event(
+                artifacts_dir=artifacts_dir,
+                run_id=run_id,
+                run_date=run_date,
+                agent_id="external_review_harness",
+                status="skipped",
+                decision="stop",
+                started_at=started_at,
+                input_refs=[artifacts_dir / "automation_status.json"],
+                artifact_paths=[status_path, host_summary_path],
+                failure_reason="same-date automation_status.json is not OK",
+                next_action="wait for daily OK before external review",
+                metrics={"daily_status_snapshot": status.get("daily_status_snapshot")},
+            )
             return 0
 
         packet_path = artifacts_dir / "external_review" / run_date / f"review_packet_{run_date}.json"
@@ -122,6 +150,18 @@ def main() -> int:
         status["manifest_path"] = repo_relative(manifest_path) if manifest_path.exists() else None
         status["manifest_refused"] = True
         write_json(status_path, status)
+        write_status_event(
+            artifacts_dir=artifacts_dir,
+            run_id=run_id,
+            run_date=run_date,
+            agent_id="external_review_harness",
+            status="ok",
+            decision="pass",
+            started_at=started_at,
+            input_refs=[artifacts_dir / "automation_status.json"],
+            artifact_paths=[status_path, host_summary_path, packet_path, manifest_path],
+            metrics={"packet_verified": True, "manifest_refused": True, "daily_status_source": status.get("daily_status_source")},
+        )
 
         for provider in providers:
             provider_status = run_provider(
@@ -162,12 +202,41 @@ def main() -> int:
         external_summary = read_json_if_exists(external_summary_path)
         write_host_summary(host_summary_path, status, external_summary)
         write_json(status_path, status)
+        write_provider_events(
+            artifacts_dir=artifacts_dir,
+            run_id=run_id,
+            run_date=run_date,
+            status=status,
+            providers=providers,
+            started_at=started_at,
+        )
+        write_disagreement_event(
+            artifacts_dir=artifacts_dir,
+            run_id=run_id,
+            run_date=run_date,
+            external_summary_path=external_summary_path,
+            external_summary=external_summary,
+            started_at=started_at,
+        )
         return 0 if status["status"] in {"OK", "PARTIAL"} else 1
     except Exception as exc:
         status["status"] = "FAILED"
         status["notes"].append(str(exc))
         write_json(status_path, status)
         write_host_summary(host_summary_path, status, None)
+        write_status_event(
+            artifacts_dir=artifacts_dir,
+            run_id=run_id,
+            run_date=run_date,
+            agent_id="external_review_harness",
+            status="failed",
+            decision="stop",
+            started_at=started_at,
+            input_refs=[artifacts_dir / "automation_status.json"],
+            artifact_paths=[status_path, host_summary_path],
+            failure_reason=str(exc),
+            next_action="inspect host runner status and retry after blocker is resolved",
+        )
         print(f"EXTERNAL_REVIEW_HOST_RUNNER_FAILED output={status_path}", file=sys.stderr)
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -384,6 +453,134 @@ def write_host_summary(path: Path, status: dict[str, Any], external_summary: dic
         "notes": status.get("notes", []),
     }
     write_json(path, payload)
+
+
+def write_provider_events(
+    *,
+    artifacts_dir: Path,
+    run_id: str,
+    run_date: str,
+    status: dict[str, Any],
+    providers: tuple[str, ...],
+    started_at: str,
+) -> None:
+    provider_states = {provider: status.get(provider, {}) for provider in providers}
+    provider_statuses = {provider: state.get("status") for provider, state in provider_states.items() if isinstance(state, dict)}
+    failed = [provider for provider, value in provider_statuses.items() if value == "FAILED"]
+    ok = [provider for provider, value in provider_statuses.items() if value == "OK"]
+    skipped = [provider for provider, value in provider_statuses.items() if value == "SKIPPED"]
+    if failed and not ok:
+        event_status = "failed"
+        decision = "stop"
+        next_action = "retry provider collection or inspect provider raw response"
+    elif failed or skipped:
+        event_status = "degraded"
+        decision = "partial"
+        next_action = "review missing provider before trusting disagreement summary"
+    else:
+        event_status = "ok"
+        decision = "pass"
+        next_action = None
+    artifact_paths = []
+    for state in provider_states.values():
+        if isinstance(state, dict):
+            artifact_paths.extend([state.get("raw_path"), state.get("response_path"), state.get("collect_status_path")])
+    write_status_event(
+        artifacts_dir=artifacts_dir,
+        run_id=run_id,
+        run_date=run_date,
+        agent_id="ai_review_adapter",
+        status=event_status,
+        decision=decision,
+        started_at=started_at,
+        artifact_paths=[item for item in artifact_paths if item],
+        failure_reason=", ".join(failed) if failed else None,
+        next_action=next_action,
+        metrics={
+            "provider_statuses": provider_statuses,
+            "valid_provider_count": len(ok),
+            "invalid_providers": failed,
+            "skipped_providers": skipped,
+        },
+    )
+
+
+def write_disagreement_event(
+    *,
+    artifacts_dir: Path,
+    run_id: str,
+    run_date: str,
+    external_summary_path: Path,
+    external_summary: dict[str, Any],
+    started_at: str,
+) -> None:
+    disagreements = external_summary.get("disagreements") if isinstance(external_summary.get("disagreements"), list) else []
+    today_misses = external_summary.get("today_misses") if isinstance(external_summary.get("today_misses"), list) else []
+    hypotheses = external_summary.get("research_hypotheses") if isinstance(external_summary.get("research_hypotheses"), list) else []
+    safety = external_summary.get("safety") if isinstance(external_summary.get("safety"), dict) else {}
+    needs_human_review = safety.get("needs_human_review") is True
+    write_status_event(
+        artifacts_dir=artifacts_dir,
+        run_id=run_id,
+        run_date=run_date,
+        agent_id="disagreement_next_actions",
+        status="warning" if needs_human_review else "ok",
+        decision="needs_more_data" if needs_human_review else "pass",
+        started_at=started_at,
+        input_refs=[external_summary_path],
+        artifact_paths=[external_summary_path],
+        next_action="manual review required before using external review" if needs_human_review else None,
+        metrics={
+            "disagreement_count": len(disagreements),
+            "today_miss_count": len(today_misses),
+            "research_hypothesis_count": len(hypotheses),
+            "needs_human_review": needs_human_review,
+            "invalid_providers": safety.get("invalid_providers") or [],
+        },
+    )
+
+
+def write_status_event(
+    *,
+    artifacts_dir: Path,
+    run_id: str,
+    run_date: str,
+    agent_id: str,
+    status: str,
+    started_at: str,
+    decision: str = "not_applicable",
+    input_refs: list[str | Path] | None = None,
+    artifact_paths: list[str | Path] | None = None,
+    failure_reason: str | None = None,
+    next_action: str | None = None,
+    metrics: dict[str, Any] | None = None,
+) -> None:
+    event = build_event(
+        run_id=run_id,
+        run_date=run_date,
+        agent_id=agent_id,
+        status=status,
+        decision=decision,
+        started_at=started_at,
+        input_refs=[event_path_ref(item, artifacts_dir) for item in input_refs or []],
+        artifact_paths=[event_path_ref(item, artifacts_dir) for item in artifact_paths or []],
+        failure_reason=failure_reason,
+        next_action=next_action,
+        metrics=metrics,
+    )
+    write_agent_event(event, artifacts_dir=artifacts_dir, manifest_path=PROJECT_ROOT / "docs" / "architecture" / "top10_harness_team.dashboard.json")
+
+
+def event_path_ref(path: str | Path, artifacts_dir: Path) -> str:
+    value = Path(path)
+    try:
+        return str(value.resolve().relative_to(PROJECT_ROOT))
+    except ValueError:
+        pass
+    try:
+        return str(value.resolve().relative_to(artifacts_dir.resolve()))
+    except ValueError:
+        return str(value)
 
 
 def python_bin() -> str:

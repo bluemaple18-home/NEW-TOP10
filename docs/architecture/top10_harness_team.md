@@ -96,6 +96,27 @@ Dashboard 至少要顯示下列資訊：
 | `next_action` | 下一步要做什麼 |
 | `discord_channel` | `daily_pick_channel` 或 `ops_progress_channel` |
 
+## Status Event 落點
+
+每隻 agent 的最新狀態事件使用 `top10-agent-status-event.v1`：
+
+```text
+artifacts/harness_status/<run_date>/<run_id>/events/<agent_id>.json
+artifacts/harness_status/<run_date>/<run_id>/events.jsonl
+artifacts/harness_status/<run_date>/<run_id>/rollup.json
+artifacts/harness_status/<run_date>/latest_rollup.json
+```
+
+共用工具：
+
+```text
+scripts/top10_agent_status.py
+scripts/verify_top10_agent_status_event.py
+scripts/build_top10_agent_status_rollup.py
+```
+
+事件中的 `input_refs` 與 `artifact_paths` 必須是 repo-relative 或 artifacts-root-relative 路徑，不可寫入 `/Users/...`、`/private/...` 等本機絕對路徑。
+
 ## Stop Event 條件
 
 下列情況不能繼續報牌：
