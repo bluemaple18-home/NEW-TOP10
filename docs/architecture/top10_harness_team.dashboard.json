@@ -1,0 +1,219 @@
+{
+  "schema_version": "top10-harness-team-dashboard.v1",
+  "project": "TOP10new",
+  "purpose": "穩固版 TOP10 daily harness 與研究回圈監控 contract",
+  "channels": [
+    {
+      "id": "daily_pick_channel",
+      "label": "報牌頻道",
+      "owner_agent_id": "daily_push",
+      "allowed_message_types": ["daily_top10"],
+      "blocked_message_types": ["debug_log", "research_draft", "stop_event", "external_review_raw"]
+    },
+    {
+      "id": "ops_progress_channel",
+      "label": "工作進度頻道",
+      "owner_agent_id": "ops_reporter",
+      "allowed_message_types": ["run_status", "stop_event", "warning", "external_review_disagreement", "next_actions", "blocker"],
+      "blocked_message_types": ["ungated_top10_pick"]
+    }
+  ],
+  "status_enum": ["pending", "running", "ok", "warning", "degraded", "skipped", "failed", "blocked"],
+  "decision_enum": ["pass", "stop", "degrade", "quarantine", "partial", "accept", "reject", "needs_more_data", "not_applicable"],
+  "agents": [
+    {
+      "id": "harness_runner",
+      "index": 1,
+      "label": "Harness Runner",
+      "lane": "orchestration",
+      "responsibility": "啟動 daily loop、建立 run_id、控管 lock/retry/timeout。",
+      "inputs": ["schedule_trigger", "manual_trigger", "previous_blockers"],
+      "outputs": ["run_manifest", "agent_status_event"],
+      "dashboard_metrics": ["status", "run_id", "run_date", "started_at", "finished_at", "duration_seconds", "lock_acquired", "retry_count"],
+      "stop_conditions": ["duplicate_run", "lock_timeout", "missing_required_config"]
+    },
+    {
+      "id": "preflight",
+      "index": 2,
+      "label": "Preflight Bot",
+      "lane": "daily",
+      "responsibility": "檢查交易日、API、設定、前輪 blocker。",
+      "inputs": ["run_manifest", "automation_config", "previous_blockers"],
+      "outputs": ["preflight_result", "stop_event"],
+      "dashboard_metrics": ["status", "decision", "trading_day", "api_ready", "blocker_count"],
+      "stop_conditions": ["not_trading_day_without_backfill", "api_unavailable", "active_blocker"]
+    },
+    {
+      "id": "data_etl",
+      "index": 3,
+      "label": "Data ETL Bot",
+      "lane": "daily",
+      "responsibility": "抓 TWSE/TPEX、籌碼、基本面，產生 daily snapshot。",
+      "inputs": ["preflight_result", "source_config"],
+      "outputs": ["daily_data_snapshot"],
+      "dashboard_metrics": ["status", "source_count", "row_count", "snapshot_date", "artifact_paths"],
+      "stop_conditions": ["fetch_failed", "snapshot_missing", "source_date_mismatch"]
+    },
+    {
+      "id": "data_quality_gate",
+      "index": 4,
+      "label": "Data Quality Gate Bot",
+      "lane": "daily",
+      "responsibility": "檢查日期、筆數、缺值、覆蓋率、股票池完整性。",
+      "inputs": ["daily_data_snapshot"],
+      "outputs": ["quality_gate_result", "stop_event"],
+      "dashboard_metrics": ["status", "decision", "coverage_rate", "missing_rate", "tradable_universe_count"],
+      "stop_conditions": ["coverage_below_threshold", "missing_rate_above_threshold", "tradable_universe_incomplete"]
+    },
+    {
+      "id": "ranking",
+      "index": 5,
+      "label": "Ranking Bot",
+      "lane": "daily",
+      "responsibility": "產生 Top10、分數、推薦理由、feature snapshot。",
+      "inputs": ["quality_gate_result", "daily_data_snapshot"],
+      "outputs": ["ranking_result", "feature_snapshot"],
+      "dashboard_metrics": ["status", "top10_count", "feature_snapshot_path", "reason_count"],
+      "stop_conditions": ["top10_missing", "score_missing", "reason_missing", "feature_snapshot_missing"]
+    },
+    {
+      "id": "anomaly_circuit_breaker",
+      "index": 6,
+      "label": "Anomaly / Circuit Breaker Bot",
+      "lane": "daily",
+      "responsibility": "檢查排名劇烈變動、baseline 偏離、不可解釋異常。",
+      "inputs": ["ranking_result", "baseline_artifacts"],
+      "outputs": ["anomaly_decision", "stop_event", "degraded_decision"],
+      "dashboard_metrics": ["status", "decision", "rank_churn", "baseline_delta", "unexplained_count"],
+      "stop_conditions": ["unexplained_ranking_shift", "baseline_delta_above_threshold", "critical_blocker"]
+    },
+    {
+      "id": "daily_push",
+      "index": 7,
+      "label": "Daily Push Bot",
+      "lane": "publish",
+      "responsibility": "推送通過 gate 的 Top10 到原本報牌頻道。",
+      "inputs": ["anomaly_decision", "ranking_result", "publish_payload"],
+      "outputs": ["daily_pick_message", "send_receipt"],
+      "dashboard_metrics": ["status", "discord_channel", "message_path", "send_receipt_path", "sent_at"],
+      "discord_channel": "daily_pick_channel",
+      "stop_conditions": ["publish_payload_missing", "send_failed", "send_receipt_missing"]
+    },
+    {
+      "id": "outcome_tracker",
+      "index": 8,
+      "label": "Outcome Tracker Bot",
+      "lane": "post_daily",
+      "responsibility": "追蹤命中率、報酬、誤報、人工標記，把後驗結果回流。",
+      "inputs": ["send_receipt", "market_outcome_data", "manual_labels"],
+      "outputs": ["outcome_artifact", "fog_signals"],
+      "dashboard_metrics": ["status", "hit_rate", "return_summary", "false_positive_count", "manual_label_count"],
+      "stop_conditions": ["outcome_data_missing"]
+    },
+    {
+      "id": "external_review_harness",
+      "index": 9,
+      "label": "External Review Harness Bot",
+      "lane": "post_daily",
+      "responsibility": "daily OK 後包 review packet，啟動外部 review。",
+      "inputs": ["automation_status", "ranking_result", "daily_pick_message"],
+      "outputs": ["verified_review_packet", "host_runner_status"],
+      "dashboard_metrics": ["status", "daily_status_ok", "packet_verified", "manifest_refused", "artifact_paths"],
+      "artifact_paths": [
+        "artifacts/host_runner/{run_date}/host_runner_status_{run_date}.json",
+        "artifacts/host_runner/{run_date}/host_runner_summary_{run_date}.json",
+        "artifacts/external_review/{run_date}/review_packet_{run_date}.json"
+      ],
+      "stop_conditions": ["daily_status_not_ok", "packet_verify_failed"]
+    },
+    {
+      "id": "ai_review_adapter",
+      "index": 10,
+      "label": "AI Review Adapter Bot",
+      "lane": "post_daily",
+      "responsibility": "分別送 ChatGPT/Gemini，收回標準格式。",
+      "inputs": ["verified_review_packet"],
+      "outputs": ["chatgpt_response", "gemini_response", "provider_collect_status"],
+      "dashboard_metrics": ["status", "chatgpt_status", "gemini_status", "valid_provider_count", "invalid_providers"],
+      "providers": ["chatgpt", "gemini"],
+      "artifact_paths": [
+        "artifacts/external_review/{run_date}/chatgpt_response_{run_date}.json",
+        "artifacts/external_review/{run_date}/gemini_response_{run_date}.json"
+      ],
+      "stop_conditions": ["all_providers_failed", "provider_response_invalid"]
+    },
+    {
+      "id": "disagreement_next_actions",
+      "index": 11,
+      "label": "Disagreement / Next Actions Bot",
+      "lane": "research_trigger",
+      "responsibility": "找出外部 AI 跟我們完全相反之處，產生追蹤、隔離、人工確認或研究卡。",
+      "inputs": ["external_review_summary", "outcome_artifact"],
+      "outputs": ["disagreement_report", "next_actions", "research_cards"],
+      "dashboard_metrics": ["status", "disagreement_count", "needs_human_review", "research_card_count", "quarantine_count"],
+      "artifact_paths": [
+        "artifacts/external_review/{run_date}/external_review_summary_{run_date}.json"
+      ],
+      "stop_conditions": ["summary_verify_failed"]
+    },
+    {
+      "id": "ops_reporter",
+      "index": 12,
+      "label": "Ops Reporter Bot",
+      "lane": "ops",
+      "responsibility": "回報工作進度頻道，產生下一輪 blocker。",
+      "inputs": ["stop_event", "host_runner_status", "external_review_summary", "next_actions"],
+      "outputs": ["ops_progress_message", "blocker_list"],
+      "dashboard_metrics": ["status", "discord_channel", "message_path", "blocker_count", "next_action_count"],
+      "discord_channel": "ops_progress_channel",
+      "stop_conditions": ["ops_message_render_failed", "ops_send_failed_without_local_artifact"]
+    }
+  ],
+  "flows": [
+    {"from": "harness_runner", "to": "preflight", "kind": "daily", "label": "run request"},
+    {"from": "preflight", "to": "data_etl", "kind": "daily", "label": "pass"},
+    {"from": "data_etl", "to": "data_quality_gate", "kind": "daily", "label": "snapshot"},
+    {"from": "data_quality_gate", "to": "ranking", "kind": "daily", "label": "quality pass"},
+    {"from": "ranking", "to": "anomaly_circuit_breaker", "kind": "daily", "label": "ranking result"},
+    {"from": "anomaly_circuit_breaker", "to": "daily_push", "kind": "daily", "label": "ok"},
+    {"from": "daily_push", "to": "daily_pick_channel", "kind": "discord", "label": "daily Top10 only"},
+    {"from": "daily_push", "to": "outcome_tracker", "kind": "post_daily", "label": "send receipt"},
+    {"from": "outcome_tracker", "to": "external_review_harness", "kind": "post_daily", "label": "daily OK"},
+    {"from": "external_review_harness", "to": "ai_review_adapter", "kind": "post_daily", "label": "verified packet"},
+    {"from": "ai_review_adapter", "to": "disagreement_next_actions", "kind": "research_trigger", "label": "review summary"},
+    {"from": "disagreement_next_actions", "to": "ops_reporter", "kind": "ops", "label": "who disagrees and next actions"},
+    {"from": "ops_reporter", "to": "ops_progress_channel", "kind": "discord", "label": "progress report"},
+    {"from": "ops_progress_channel", "to": "harness_runner", "kind": "feedback", "label": "next-run blockers"},
+    {"from": "preflight", "to": "ops_reporter", "kind": "stop", "label": "stop event"},
+    {"from": "data_quality_gate", "to": "ops_reporter", "kind": "stop", "label": "stop event"},
+    {"from": "anomaly_circuit_breaker", "to": "ops_reporter", "kind": "stop", "label": "stop/degrade event"}
+  ],
+  "research_loop": [
+    "fog_map",
+    "research_card",
+    "experiment",
+    "validation",
+    "decision",
+    "merge_policy",
+    "evidence_ledger",
+    "ranking"
+  ],
+  "event_contract": {
+    "required_fields": [
+      "schema_version",
+      "run_id",
+      "run_date",
+      "agent_id",
+      "status",
+      "decision",
+      "started_at",
+      "finished_at",
+      "duration_seconds",
+      "input_refs",
+      "artifact_paths",
+      "failure_reason",
+      "next_action"
+    ],
+    "schema_version": "top10-agent-status-event.v1"
+  }
+}
