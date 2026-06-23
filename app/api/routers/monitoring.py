@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.contracts import FactorMonitorResponse
+from app.contracts import FactorMonitorResponse, Top10HarnessStatusResponse
 from app.services.monitoring_service import MonitoringService
 
 
@@ -14,6 +14,10 @@ def create_monitoring_router(monitoring_service: MonitoringService) -> APIRouter
     @router.get("/factors")
     def factor_report() -> FactorMonitorResponse:
         return monitoring_service.factor_report()
+
+    @router.get("/top10-harness")
+    def top10_harness_status(run_date: str | None = None, run_id: str | None = None) -> Top10HarnessStatusResponse:
+        return monitoring_service.top10_harness_status(run_date=run_date, run_id=run_id)
 
     @router.post("/cache/clear")
     def clear_cache() -> dict[str, bool]:

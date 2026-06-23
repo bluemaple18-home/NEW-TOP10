@@ -16,7 +16,12 @@ from .market import (
     StockBar,
     StockOhlcvResponse,
 )
-from .monitoring import FactorMetricContract, FactorMonitorResponse
+from .monitoring import (
+    FactorMetricContract,
+    FactorMonitorResponse,
+    Top10HarnessAgentStatusContract,
+    Top10HarnessStatusResponse,
+)
 from .reference import (
     ExposureBreakdownItem,
     RankingReferenceSummary,
@@ -64,6 +69,8 @@ __all__ = [
     "FundamentalWarningItem",
     "FactorMetricContract",
     "FactorMonitorResponse",
+    "Top10HarnessAgentStatusContract",
+    "Top10HarnessStatusResponse",
     "ExposureBreakdownItem",
     "MarketRegimeContract",
     "InvestmentSettingsContract",
