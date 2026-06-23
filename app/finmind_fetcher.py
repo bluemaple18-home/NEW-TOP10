@@ -50,6 +50,8 @@ class FinMindFetcher:
         """
         獲取融資融券資料 (籌碼面的反向指標)
         """
+        if end_date is None:
+            end_date = datetime.now().strftime("%Y-%m-%d")
         try:
             df = self.api.taiwan_stock_margin_purchase_short_sale(
                 stock_id=stock_id,
@@ -57,7 +59,26 @@ class FinMindFetcher:
                 end_date=end_date
             )
             return df
-        except:
+        except Exception:
+            return pd.DataFrame()
+
+    def get_daily_short_sale_balances(self, stock_id: str, start_date: str, end_date: str = None):
+        """
+        獲取信用額度總量管制餘額資料。
+
+        這張表包含「借券賣出」餘額，和融券餘額不同；後續用來衡量
+        空方借券賣出是否接近發行股數上限。
+        """
+        if end_date is None:
+            end_date = datetime.now().strftime("%Y-%m-%d")
+        try:
+            df = self.api.taiwan_daily_short_sale_balances(
+                stock_id=stock_id,
+                start_date=start_date,
+                end_date=end_date
+            )
+            return df
+        except Exception:
             return pd.DataFrame()
 
 if __name__ == "__main__":

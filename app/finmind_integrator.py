@@ -156,3 +156,57 @@ class FinMindIntegrator:
         output["short_sale_balance_change"] = output["short_sale_today_balance"] - output["short_sale_yesterday_balance"]
         output["margin_available"] = True
         return output
+
+    def _load_daily_short_sale_balance_frames(self, stock_ids: list[str], start_date: str, end_date: str) -> pd.DataFrame:
+        frames: list[pd.DataFrame] = []
+        for index, stock_id in enumerate(stock_ids):
+            if index % 100 == 0:
+                logger.info("借券賣出餘額進度: %s/%s", index, len(stock_ids))
+            raw = self.fetcher.get_daily_short_sale_balances(stock_id, start_date, end_date)
+            normalized = self._normalize_daily_short_sale_balances(raw, stock_id)
+            if not normalized.empty:
+                frames.append(normalized)
+        if not frames:
+            return pd.DataFrame()
+        combined = pd.concat(frames, ignore_index=True)
+        return combined.drop_duplicates(subset=["date", "stock_id"], keep="last")
+
+    def _normalize_daily_short_sale_balances(self, raw: pd.DataFrame, stock_id: str) -> pd.DataFrame:
+        """正規化信用額度總量管制餘額表中的借券賣出欄位。"""
+
+        if raw.empty:
+            return pd.DataFrame()
+        if "date" not in raw.columns:
+            logger.warning("借券賣出餘額資料缺少 date stock_id=%s columns=%s", stock_id, list(raw.columns))
+            return pd.DataFrame()
+
+        frame = raw.copy()
+        frame["date"] = pd.to_datetime(frame["date"])
+        output = pd.DataFrame({"date": frame["date"], "stock_id": stock_id})
+        source_map = {
+            "margin_short_previous_day_balance": "MarginShortSalesPreviousDayBalance",
+            "margin_short_short_sales": "MarginShortSalesShortSales",
+            "margin_short_short_covering": "MarginShortSalesShortCovering",
+            "margin_short_stock_redemption": "MarginShortSalesStockRedemption",
+            "margin_short_current_day_balance": "MarginShortSalesCurrentDayBalance",
+            "margin_short_quota": "MarginShortSalesQuota",
+            "sbl_short_previous_day_balance": "SBLShortSalesPreviousDayBalance",
+            "sbl_short_sales": "SBLShortSalesShortSales",
+            "sbl_returns": "SBLShortSalesReturns",
+            "sbl_adjustments": "SBLShortSalesAdjustments",
+            "sbl_current_day_balance": "SBLShortSalesCurrentDayBalance",
+            "sbl_quota": "SBLShortSalesQuota",
+            "sbl_short_covering": "SBLShortSalesShortCovering",
+        }
+        for target, source in source_map.items():
+            if source in frame.columns:
+                output[target] = pd.to_numeric(frame[source], errors="coerce")
+            else:
+                output[target] = pd.NA
+
+        valid_previous = output["sbl_short_previous_day_balance"].where(output["sbl_short_previous_day_balance"] >= 0)
+        output["sbl_balance_change_from_source"] = output["sbl_current_day_balance"] - valid_previous
+        output = output.sort_values(["stock_id", "date"]).copy()
+        output["sbl_balance_change_1d"] = output.groupby("stock_id")["sbl_current_day_balance"].diff()
+        output["borrow_squeeze_available"] = True
+        return output
