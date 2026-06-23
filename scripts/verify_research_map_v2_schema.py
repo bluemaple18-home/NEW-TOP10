@@ -18,8 +18,10 @@ from typing import Any
 from research_map_contract import (
     V2_DEFAULT_COORDINATES,
     V2_DIMENSION_SCHEMA_VERSION,
+    completed_v2_expansion_count,
     dimension_schema_payload,
     expanded_universe_total,
+    read_jsonl,
 )
 
 
@@ -94,6 +96,14 @@ def build_report(payload: dict[str, Any], payload_path: Path) -> dict[str, Any]:
         and all(row["v2_dimensions"].get(key) == value for key, value in V2_DEFAULT_COORDINATES.items())
     ]
     active_queue = payload.get("active_expansion_queue") if isinstance(payload.get("active_expansion_queue"), list) else []
+    active_completed = [
+        row
+        for row in active_queue
+        if row.get("run_status") == "completed" and row.get("artifact_path")
+    ]
+    history_records = read_jsonl(PROJECT_ROOT / "artifacts" / "autonomous_research" / "run_history.jsonl")
+    v2_completed = completed_v2_expansion_count(history_records)
+    expected_expanded_processed = int(summary.get("base_processed") or 0) + v2_completed
     checks = [
         {"name": "payload_exists", "ok": payload_path.exists(), "value": repo_path(payload_path)},
         {
@@ -128,12 +138,15 @@ def build_report(payload: dict[str, Any], payload_path: Path) -> dict[str, Any]:
             },
         },
         {
-            "name": "expanded_progress_is_early_stage",
-            "ok": summary.get("expanded_processed") == 5913
-            and float(summary.get("expanded_progress_pct") or 0) < 0.02
+            "name": "expanded_progress_matches_run_history",
+            "ok": summary.get("expanded_processed") == expected_expanded_processed
+            and int(summary.get("expanded_processed") or 0) < int(summary.get("expanded_universe_total") or 0)
             and float(summary.get("base_progress_pct") or 0) == 1.0,
             "value": {
                 "expanded_processed": summary.get("expanded_processed"),
+                "expected_expanded_processed": expected_expanded_processed,
+                "v2_completed_from_run_history": v2_completed,
+                "active_completed": len(active_completed),
                 "expanded_progress_pct": summary.get("expanded_progress_pct"),
                 "base_progress_pct": summary.get("base_progress_pct"),
             },
@@ -151,6 +164,11 @@ def build_report(payload: dict[str, Any], payload_path: Path) -> dict[str, Any]:
                 for row in active_queue
             ),
             "value": {"active_queue_count": len(active_queue)},
+        },
+        {
+            "name": "completed_active_queue_has_artifacts",
+            "ok": all(row.get("artifact_path") for row in active_completed),
+            "value": {"completed_active_queue_count": len(active_completed)},
         },
         {
             "name": "production_boundary",
@@ -174,6 +192,7 @@ def build_report(payload: dict[str, Any], payload_path: Path) -> dict[str, Any]:
             "expanded_processed": summary.get("expanded_processed"),
             "expanded_progress_pct": summary.get("expanded_progress_pct"),
             "active_queue_count": len(active_queue),
+            "active_queue_completed": len(active_completed),
             "v1_migration_count": len(migrated),
         },
         "checks": checks,

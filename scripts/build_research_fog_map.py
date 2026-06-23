@@ -11,6 +11,7 @@ import hashlib
 import html
 import json
 import math
+import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,10 +20,14 @@ from typing import Any
 from research_map_contract import (
     apply_run_history,
     build_combo_registry,
+    completed_v2_expansion_count,
     dimension_schema_payload,
     expanded_universe_total,
+    infer_insight_level,
+    latest_by_combo,
     progress_summary,
     read_jsonl,
+    status_from_insight,
     v2_combo_id,
 )
 
@@ -30,7 +35,8 @@ from research_map_contract import (
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DIR = PROJECT_ROOT / "artifacts" / "autonomous_research"
 OUTPUT_DIR = PROJECT_ROOT / "artifacts" / "research_map"
-SCHEMA_VERSION = "research-fog-map.v1"
+WEEKEND_DIR = PROJECT_ROOT / "artifacts" / "weekend_training"
+SCHEMA_VERSION = "research-fog-map.v2"
 DEFAULT_SCENARIO_COUNT = 81
 FAMILY_CENTERS = {
     "ranking_source": (16, 36),
@@ -166,6 +172,61 @@ def read_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def latest_weekend_rollup_path(date: str) -> Path | None:
+    dated = WEEKEND_DIR / f"weekend_training_rollup_{date}.json"
+    if dated.exists():
+        return dated
+    pattern = re.compile(r"weekend_training_rollup_\d{4}-\d{2}-\d{2}\.json$")
+    candidates = sorted(path for path in WEEKEND_DIR.glob("weekend_training_rollup_*.json") if pattern.match(path.name))
+    return candidates[-1] if candidates else None
+
+
+def build_burn_down_progress(date: str, expanded_total: int, executed_processed: int) -> dict[str, Any] | None:
+    rollup_path = latest_weekend_rollup_path(date)
+    if rollup_path is None:
+        return None
+    rollup = read_json(rollup_path)
+    summary = rollup.get("summary") if isinstance(rollup.get("summary"), dict) else {}
+    count_keys = [
+        "executed_replay_count",
+        "equivalence_inherited_count",
+        "rule_pruned_count",
+        "unsupported_count",
+        "low_information_count",
+        "next_stage_count",
+        "rejected_count",
+        "representative_replay_pending_count",
+    ]
+    counts = {key: int(summary.get(key) or 0) for key in count_keys}
+    classified_total = int(summary.get("rollup_classified_total") or sum(counts.values()))
+    full_total = int(summary.get("full_universe_total") or expanded_total)
+    return {
+        "schema_version": "research-map-burn-down-progress.v1",
+        "source": repo_path(rollup_path),
+        "source_date": rollup.get("date"),
+        "full_universe_total": full_total,
+        "classified_total": classified_total,
+        "classified_pending": max(0, full_total - classified_total),
+        "classified_progress_pct": round(classified_total / full_total, 6) if full_total else 0.0,
+        "executed_progress_count": executed_processed,
+        "executed_progress_pct": round(executed_processed / max(1, expanded_total), 6),
+        "counts": counts,
+        "active_representative_queue_count": int(summary.get("active_representative_queue_count") or 0),
+        "deferred_low_priority_count": int(summary.get("deferred_low_priority_count") or 0),
+        "unsupported_category_counts": summary.get("unsupported_category_counts") if isinstance(summary.get("unsupported_category_counts"), dict) else {},
+        "unsupported_reason_top_counts": summary.get("unsupported_reason_top_counts") if isinstance(summary.get("unsupported_reason_top_counts"), dict) else {},
+        "artifact_blocker_count": int(summary.get("artifact_blocker_count") or 0),
+        "artifact_blocker_category_counts": summary.get("artifact_blocker_category_counts") if isinstance(summary.get("artifact_blocker_category_counts"), dict) else {},
+        "artifact_blocker_reason_top_counts": summary.get("artifact_blocker_reason_top_counts") if isinstance(summary.get("artifact_blocker_reason_top_counts"), dict) else {},
+        "artifact_blocker_source": summary.get("artifact_blocker_source"),
+        "artifact_blocker_source_status": summary.get("artifact_blocker_source_status"),
+        "controlled_grid_drain": rollup.get("controlled_grid_drain") if isinstance(rollup.get("controlled_grid_drain"), dict) else {},
+        "baseline_blocker_cleared": summary.get("baseline_blocker_cleared"),
+        "controlled_grid_drain_ready": summary.get("controlled_grid_drain_ready"),
+        "controlled_grid_drain_status": summary.get("controlled_grid_drain_status"),
+    }
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -522,7 +583,7 @@ def build_mission_queue(
     return missions
 
 
-def build_active_expansion_queue(topics: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def build_active_expansion_queue(topics: list[dict[str, Any]], records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     parent_path = PROJECT_ROOT / "artifacts" / "research_reviews" / "liquidity_quality_strict_replay_2026-06-12.json"
     parent = read_json(parent_path)
     if parent.get("decision") != "KEEP_SHADOW_MONITOR":
@@ -540,6 +601,7 @@ def build_active_expansion_queue(topics: list[dict[str, Any]]) -> list[dict[str,
     entry_filters = ["LOG_GATE", "PERCENTILE_GATE", "LOG_GATE_NON_WORSENING"]
     group_exposures = ["none", "0.35", "0.55"]
     queue: list[dict[str, Any]] = []
+    latest_records = latest_by_combo(records)
     for group_exposure in group_exposures:
         for regime_gate in regime_gates:
             for risk_guard in risk_guards:
@@ -553,6 +615,10 @@ def build_active_expansion_queue(topics: list[dict[str, Any]]) -> list[dict[str,
                         "risk_guard": risk_guard,
                         "entry_filter": entry_filter,
                     }
+                    combo = v2_combo_id(topic, dimensions)
+                    record = latest_records.get(combo)
+                    insight = infer_insight_level(record)
+                    status = status_from_insight(insight)
                     queue.append(
                         {
                             "schema_version": "research-map-expansion-queue.v2",
@@ -561,10 +627,20 @@ def build_active_expansion_queue(topics: list[dict[str, Any]]) -> list[dict[str,
                             "parent_evidence": repo_path(parent_path),
                             "topic_id": topic.get("topic_id"),
                             "candidate_dir": clean_repoish_path(topic.get("candidate_dir")),
-                            "combo_id": v2_combo_id(topic, dimensions),
+                            "combo_id": combo,
                             "dimensions": dimensions,
-                            "status": "pending",
+                            "status": status["id"] if record else "pending",
                             "reason": "risk-capped liquidity component replay candidate",
+                            "status_color": status["color"] if record else "fog_gray",
+                            "status_label": status["label"] if record else "未探索",
+                            "insight_level": insight if record else "unexplored",
+                            "run_status": (record or {}).get("status"),
+                            "decision": (record or {}).get("decision"),
+                            "return_delta": (record or {}).get("return_delta"),
+                            "drawdown_delta": (record or {}).get("drawdown_delta"),
+                            "score_delta": (record or {}).get("score_delta"),
+                            "artifact_path": (record or {}).get("artifact_path"),
+                            "finished_at": (record or {}).get("finished_at"),
                         }
                     )
     return queue
@@ -588,8 +664,10 @@ def build_payload(date: str) -> dict[str, Any]:
     combo_summary = progress_summary(scenarios)
     dimension_schema = dimension_schema_payload()
     expanded_total = expanded_universe_total(len(topics))
-    expanded_processed = combo_summary["explored_combos"]
+    expansion_processed = completed_v2_expansion_count(history_records)
+    expanded_processed = combo_summary["explored_combos"] + expansion_processed
     expanded_progress_pct = round(expanded_processed / expanded_total, 6) if expanded_total else 0.0
+    burn_down_progress = build_burn_down_progress(date, expanded_total, expanded_processed)
     summary = {
         "total_topics": len(topics),
         "processed_topics": sum(1 for node in nodes if node.get("run_count", 0) > 0),
@@ -618,8 +696,11 @@ def build_payload(date: str) -> dict[str, Any]:
         "base_progress_pct": combo_summary["progress_pct"],
         "expanded_universe_total": expanded_total,
         "expanded_processed": expanded_processed,
+        "v2_expansion_processed": expansion_processed,
         "expanded_pending": max(0, expanded_total - expanded_processed),
         "expanded_progress_pct": expanded_progress_pct,
+        "burn_down_classified_total": (burn_down_progress or {}).get("classified_total"),
+        "burn_down_progress_pct": (burn_down_progress or {}).get("classified_progress_pct"),
         "dimension_schema_version": dimension_schema["version"],
         "dimension_values": dimension_schema["dimension_values"],
         "dimension_defaults": dimension_schema["default_coordinates"],
@@ -628,9 +709,12 @@ def build_payload(date: str) -> dict[str, Any]:
     }
     family_summary = build_family_summary(nodes)
     mission_queue = build_mission_queue(nodes, queue, progress)
-    active_expansion_queue = build_active_expansion_queue(topics)
+    active_expansion_queue = build_active_expansion_queue(topics, history_records)
     summary["active_expansion_queue_count"] = len(active_expansion_queue)
+    summary["active_expansion_processed"] = sum(1 for row in active_expansion_queue if row.get("run_status") == "completed" and row.get("artifact_path"))
     summary["active_expansion_stage"] = "LIQUIDITY-REPLAY-02" if active_expansion_queue else None
+    fog_sample_count = min(120000, max(60000, int(expanded_total / 8)))
+    unexplored_count = max(0, expanded_total - expanded_processed)
     selected = next((node for node in nodes if node["status"] == "follow_up_signal"), nodes[0] if nodes else None)
     return {
         "schema_version": SCHEMA_VERSION,
@@ -659,7 +743,19 @@ def build_payload(date: str) -> dict[str, Any]:
             "next_action_queue": repo_path(SOURCE_DIR / "next_action_queue.json") if (SOURCE_DIR / "next_action_queue.json").exists() else None,
         },
         "summary": summary,
+        "burn_down_progress": burn_down_progress,
         "dimension_schema": dimension_schema,
+        "full_universe_fog": {
+            "schema_version": "research-map-full-universe-fog.v1",
+            "full_universe_count": expanded_total,
+            "base_scenario_count": combo_summary["total_combos"],
+            "processed_count": expanded_processed,
+            "unexplored_count": unexplored_count,
+            "sample_count": fog_sample_count,
+            "clickable": False,
+            "rendering": "deterministic_canvas_density_layer",
+            "seed": f"{date}:{expanded_total}:{len(topics)}",
+        },
         "families": family_summary,
         "family_centers": {key: {"x": value[0], "y": value[1]} for key, value in FAMILY_CENTERS.items()},
         "legend": STATUS_LEGEND,
@@ -700,6 +796,7 @@ def render_html(payload: dict[str, Any]) -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
   <title>研究戰爭迷霧地圖</title>
   <style>
     :root {{
@@ -957,6 +1054,17 @@ def render_html(payload: dict[str, Any]) -> str:
       z-index: 3;
       pointer-events: auto;
     }}
+    .universe-fog-canvas {{
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+      mix-blend-mode: screen;
+      opacity: 1;
+      filter: saturate(1.18) contrast(1.08);
+    }}
     .star-links {{
       position: absolute;
       inset: 0;
@@ -1194,12 +1302,12 @@ def render_html(payload: dict[str, Any]) -> str:
       margin: 0 auto;
       padding: 10px;
       display: grid;
-      grid-template-rows: 104px minmax(590px, 1fr) 232px;
+      grid-template-rows: 112px minmax(590px, 1fr) 232px;
       gap: 10px;
     }}
     .command-top {{
       display: grid;
-      grid-template-columns: 500px 260px 250px 240px minmax(320px, 1fr) 190px;
+      grid-template-columns: 370px 190px 220px 220px 210px minmax(240px, 1fr) 150px 150px;
       gap: 12px;
     }}
     .command-card {{
@@ -1208,7 +1316,7 @@ def render_html(payload: dict[str, Any]) -> str:
       background: linear-gradient(135deg, rgba(7, 20, 34, 0.96), rgba(2, 8, 16, 0.92));
       box-shadow: inset 0 0 0 1px rgba(88, 198, 255, 0.06), 0 0 22px rgba(0, 146, 255, 0.08);
       border-radius: 4px;
-      padding: 14px 18px;
+      padding: 12px 14px;
       overflow: hidden;
     }}
     .command-card::before,
@@ -1253,14 +1361,14 @@ def render_html(payload: dict[str, Any]) -> str:
     }}
     .brand-title {{
       margin: 0;
-      font-size: 23px;
+      font-size: 22px;
       line-height: 1.05;
       text-transform: uppercase;
       color: #bdeaff;
       letter-spacing: 1px;
     }}
     .brand-subtitle {{
-      margin-top: 10px;
+      margin-top: 8px;
       color: #34caff;
       font-size: 15px;
       text-transform: uppercase;
@@ -1282,14 +1390,37 @@ def render_html(payload: dict[str, Any]) -> str:
       margin-top: 8px;
     }}
     .kpi-main strong {{
-      font-size: 31px;
+      font-size: 27px;
       line-height: 1;
       color: #a8e2ff;
     }}
     .kpi-main em {{
       font-style: normal;
-      font-size: 16px;
+      font-size: 14px;
       color: #23c0ff;
+    }}
+    .kpi-note {{
+      margin-top: 6px;
+      color: #9dc9e6;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.25;
+      white-space: normal;
+    }}
+    .burndown-line {{
+      margin-top: 6px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+      font-size: 11px;
+      color: #9dc9e6;
+    }}
+    .burndown-line b {{
+      display: block;
+      color: #a8e2ff;
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
     }}
     .seg-bar {{
       display: grid;
@@ -1568,7 +1699,8 @@ def render_html(payload: dict[str, Any]) -> str:
     }}
     .map-panel.hide-links .star-links {{ display: none; }}
     .map-panel.hide-names .family-bands {{ display: none; }}
-    .map-panel.hide-fog::before {{ display: none; }}
+    .map-panel.hide-fog::before,
+    .map-panel.hide-fog .universe-fog-canvas {{ display: none; }}
     .map-panel.hide-grid::after {{ opacity: 0.18; }}
     .command-shell.focus-map {{
       grid-template-rows: 104px minmax(760px, 1fr);
@@ -1822,6 +1954,23 @@ def render_html(payload: dict[str, Any]) -> str:
         <div class="seg-bar"><i class="is-lit"></i><i class="is-lit"></i><i class="is-lit"></i><i></i><i></i></div>
       </div>
       <div class="command-card kpi-card">
+        <span>已執行進度</span>
+        <div class="kpi-main"><strong id="executed-progress-count">0</strong><em id="executed-progress-pct">0%</em></div>
+        <div class="kpi-note">完整研究宇宙：<b id="executed-progress-total">0</b></div>
+      </div>
+      <div class="command-card kpi-card">
+        <span>分類消化進度</span>
+        <div class="kpi-main"><strong id="burn-down-classified-count">0</strong><em id="burn-down-pct">0%</em></div>
+        <div class="burndown-line">
+          <span>實跑<b id="burn-down-replay-count">0</b></span>
+          <span>繼承<b id="burn-down-inherited-count">0</b></span>
+          <span>不支援<b id="burn-down-unsupported-count">0</b></span>
+          <span>artifact blocker<b id="artifact-blocker-count">0</b></span>
+        </div>
+        <div class="kpi-note">baseline provenance gap：<b id="baseline-provenance-gap-count">0</b></div>
+        <div class="kpi-note">controlled drain：<b id="controlled-grid-drain-status">未同步</b></div>
+      </div>
+      <div class="command-card kpi-card">
         <span>全宇宙完成度</span>
         <div class="kpi-main"><strong><b id="discovered-scenario-count">0</b> / <b id="scenario-universe-count">0</b></strong><em id="discovered-pct">0%</em></div>
         <div class="seg-bar"><i class="is-lit"></i><i class="is-lit"></i><i class="is-lit"></i><i></i><i></i></div>
@@ -1912,12 +2061,12 @@ def render_html(payload: dict[str, Any]) -> str:
         <div class="mission-list" id="mission-list"></div>
       </section>
       <section class="bottom-panel">
-        <h2 class="panel-title">資源</h2>
-        <div class="resource-list">
-          <div class="meter"><span>GPUs</span><span class="meter-bar"><i style="--w:80%"></i></span><b>3 / 4</b></div>
-          <div class="meter"><span>CPU</span><span class="meter-bar"><i style="--w:63%"></i></span><b>63%</b></div>
-          <div class="meter"><span>記憶體</span><span class="meter-bar"><i style="--w:71%"></i></span><b>71%</b></div>
-          <div class="meter"><span>儲存</span><span class="meter-bar"><i style="--w:52%"></i></span><b>2.1TB</b></div>
+        <h2 class="panel-title">研究宇宙</h2>
+        <div class="intel-list">
+          <div class="intel-row"><span>基礎掃描</span><b id="base-scan-readout">0 / 0</b></div>
+          <div class="intel-row"><span>完整宇宙</span><b id="full-universe-readout">0 / 0</b></div>
+          <div class="intel-row"><span>V2 新完成</span><b id="v2-expansion-readout">0</b></div>
+          <div class="intel-row"><span>目前批次</span><b id="active-queue-readout">0 / 0</b></div>
         </div>
       </section>
       <section class="bottom-panel">
@@ -1927,7 +2076,7 @@ def render_html(payload: dict[str, Any]) -> str:
           <div class="intel-row"><span>目前活躍狀態</span><b>研究進行中</b></div>
           <div class="intel-row"><span>最佳訊號來源</span><b style="color:#52ff7d">外部檢核</b></div>
           <div class="intel-row"><span>追蹤訊號數</span><b data-summary="followup_signal_topics">0</b></div>
-          <div class="intel-row"><span>平均績效差</span><b style="color:#52ff7d">+0.47</b></div>
+          <div class="intel-row"><span>下階候選</span><b data-summary="next_stage_combos">0</b></div>
         </div>
       </section>
       <section class="bottom-panel">
@@ -1939,6 +2088,7 @@ def render_html(payload: dict[str, Any]) -> str:
   <script id="fog-map-data" type="application/json">{payload_json}</script>
   <script>
     let payload = JSON.parse(document.getElementById('fog-map-data').textContent);
+    window.payload = payload;
     let nodesById = new Map(payload.nodes.map((node) => [node.topic_id, node]));
     const colors = {{
       fog_gray: '#7c8797',
@@ -1975,6 +2125,7 @@ def render_html(payload: dict[str, Any]) -> str:
       not_run: '尚未執行',
     }};
     const statusNames = Object.fromEntries((payload.legend || []).map((item) => [item.id, item.label]));
+    let universeFogState = '';
     const signed = (value, suffix = '') => {{
       if (value === null || value === undefined || value === '') return '-';
       const number = Number(value);
@@ -1989,6 +2140,7 @@ def render_html(payload: dict[str, Any]) -> str:
         .replace('advance to longer replay candidate', '推進到長窗 replay 候選')
         .replace('run autonomous research execute smoke', '執行研究流程 smoke 檢查')
         .replace('execute smoke', '執行 smoke 檢查')
+        .replace('archive or wait for new evidence', '歸檔或等待新證據')
         .replace('manual review', '人工檢查');
     }}
     function displayText(value) {{
@@ -2000,6 +2152,15 @@ def render_html(payload: dict[str, Any]) -> str:
         .replaceAll('feature group', '特徵群組')
         .replaceAll('context constrained', '脈絡限制')
         .replaceAll('ranking variant', 'ranking 變體')
+        .replaceAll('candidate ranking artifact', '候選 ranking 證據')
+        .replaceAll('candidate ranking', '候選 ranking')
+        .replaceAll('archive or wait for new evidence', '歸檔或等待新證據')
+        .replaceAll('candidate', '候選')
+        .replaceAll('rankings', '排名')
+        .replaceAll('ranking', '排名')
+        .replaceAll('shadow', '影子')
+        .replaceAll('subset', '子集合')
+        .replaceAll('recent 100', '近 100 檔')
         .replaceAll('external review has high-priority hypothesis', '外部檢核標記高優先假說')
         .replaceAll('external review signal matched: theme momentum', '外部檢核命中：主題動能')
         .replaceAll('external review', '外部檢核')
@@ -2015,10 +2176,10 @@ def render_html(payload: dict[str, Any]) -> str:
     function nodeNotes(node, scenarioNumber = null, scenarioCell = null) {{
       const scenario = node.scenario || {{}};
       const artifactLine = scenarioCell && scenarioCell.artifactPath
-        ? `<br>artifact：${{scenarioCell.artifactPath}}`
+        ? `<br>證據檔：${{scenarioCell.artifactPath}}`
         : '';
       const comboLine = scenarioCell && scenarioCell.comboId
-        ? `<br>combo：${{scenarioCell.comboId}}`
+        ? `<br>組合 ID：${{scenarioCell.comboId}}`
         : '';
       const dimensionLine = scenarioCell && scenarioCell.dimensions
         ? `<br>維度：h=${{scenarioCell.dimensions.horizon || '-'}} / stop=${{scenarioCell.dimensions.stop_loss || '-'}} / tp=${{scenarioCell.dimensions.take_profit || '-'}} / group=${{scenarioCell.dimensions.group_exposure || '-'}}`
@@ -2038,15 +2199,40 @@ def render_html(payload: dict[str, Any]) -> str:
       const baseProcessed = payload.summary.base_processed || payload.summary.processed_combos || 0;
       const baseTotal = payload.summary.base_universe_total || payload.summary.total_combos || 0;
       const pendingScenarios = Math.max(0, scenarioUniverse - processedScenarios);
+      const burnDown = payload.burn_down_progress || {{}};
+      const burnCounts = burnDown.counts || {{}};
+      const burnClassified = burnDown.classified_total || 0;
+      const burnTotal = burnDown.full_universe_total || scenarioUniverse;
+      const burnPct = burnDown.classified_progress_pct ?? (burnClassified / Math.max(1, burnTotal));
       const activeQueueCount = payload.summary.active_expansion_queue_count || (payload.active_expansion_queue || []).length || 0;
       const followupScenarios = (payload.summary.followup_signal_topics || 0) * (payload.summary.scenario_count_per_topic || 81);
       document.getElementById('source-mode').textContent = `${{payload.date}}`;
       document.getElementById('campaign-percent').textContent = formatPct(progressPct);
+      document.getElementById('executed-progress-count').textContent = formatNumber(processedScenarios);
+      document.getElementById('executed-progress-total').textContent = formatNumber(scenarioUniverse);
+      document.getElementById('executed-progress-pct').textContent = formatPct(progressPct);
+      document.getElementById('burn-down-classified-count').textContent = formatNumber(burnClassified);
+      document.getElementById('burn-down-pct').textContent = formatPct(burnPct);
+      document.getElementById('burn-down-replay-count').textContent = formatNumber(burnCounts.executed_replay_count || 0);
+      document.getElementById('burn-down-inherited-count').textContent = formatNumber(burnCounts.equivalence_inherited_count || 0);
+      document.getElementById('burn-down-unsupported-count').textContent = formatNumber(burnCounts.unsupported_count || 0);
+      document.getElementById('artifact-blocker-count').textContent = formatNumber(burnDown.artifact_blocker_count || 0);
+      document.getElementById('baseline-provenance-gap-count').textContent =
+        formatNumber((burnDown.artifact_blocker_category_counts || {{}}).ARTIFACT_BLOCKER_PROVENANCE_GAP || 0);
+      const controlled = burnDown.controlled_grid_drain || {{}};
+      const controlledText = controlled.baseline_blocker_cleared
+        ? `已清除 baseline blocker；${{controlled.no_replay_required_after_alias ? '無代表格需跑' : '有代表格待跑'}}`
+        : (controlled.status || '未同步');
+      document.getElementById('controlled-grid-drain-status').textContent = controlledText;
       document.getElementById('discovered-scenario-count').textContent = formatNumber(processedScenarios);
       document.getElementById('scenario-universe-count').textContent = formatNumber(scenarioUniverse);
       document.getElementById('pending-scenario-count').textContent = formatNumber(pendingScenarios);
       document.getElementById('followup-scenario-count').textContent = formatNumber(followupScenarios);
       document.getElementById('next-batch-scenario-count').textContent = formatNumber(activeQueueCount || pendingScenarios);
+      document.getElementById('base-scan-readout').textContent = `${{formatNumber(baseProcessed)}} / ${{formatNumber(baseTotal)}}`;
+      document.getElementById('full-universe-readout').textContent = `${{formatNumber(processedScenarios)}} / ${{formatNumber(scenarioUniverse)}}`;
+      document.getElementById('v2-expansion-readout').textContent = formatNumber(payload.summary.v2_expansion_processed || 0);
+      document.getElementById('active-queue-readout').textContent = `${{formatNumber(payload.summary.active_expansion_processed || 0)}} / ${{formatNumber(activeQueueCount)}}`;
       document.getElementById('discovered-pct').textContent = formatPct(progressPct);
       document.getElementById('pending-pct').textContent = formatPct(pendingScenarios / Math.max(1, scenarioUniverse));
       document.getElementById('high-count').textContent = payload.summary.breakthrough_topics || 0;
@@ -2057,9 +2243,9 @@ def render_html(payload: dict[str, Any]) -> str:
         item.textContent = formatNumber(payload.summary[key]);
       }});
       document.getElementById('progress-label').textContent =
-        `Base scan ${{formatNumber(baseProcessed)}} / ${{formatNumber(baseTotal)}}；Full universe ${{formatPct(progressPct)}}`;
+        `基礎掃描 ${{formatNumber(baseProcessed)}} / ${{formatNumber(baseTotal)}}；executed ${{formatPct(progressPct)}}；burn-down ${{formatPct(burnPct)}}`;
       document.getElementById('scenario-readout').textContent =
-        `Base ${{formatNumber(baseProcessed)}} / ${{formatNumber(baseTotal)}}；Full ${{formatNumber(processedScenarios)}} / ${{formatNumber(scenarioUniverse)}}`;
+        `基礎 ${{formatNumber(baseProcessed)}} / ${{formatNumber(baseTotal)}}；完整 ${{formatNumber(processedScenarios)}} / ${{formatNumber(scenarioUniverse)}}`;
     }}
     function renderFamilies() {{
       const bandRoot = document.getElementById('family-bands');
@@ -2120,6 +2306,101 @@ def render_html(payload: dict[str, Any]) -> str:
         gold: 0.72,
       }}[color] || 0.6;
       return baseOpacity * factor;
+    }}
+    function seededNoise(seed) {{
+      const value = Math.sin(seed * 12.9898) * 43758.5453;
+      return value - Math.floor(value);
+    }}
+    function familyAttractor(index) {{
+      const families = payload.families || [];
+      if (!families.length) return {{ x: 52, y: 50 }};
+      const family = families[index % families.length];
+      const center = payload.family_centers[family.id] || {{ x: 52, y: 50 }};
+      return center;
+    }}
+    function drawUniverseFogCanvas(force = false) {{
+      const canvas = document.getElementById('universe-fog-canvas');
+      if (!canvas) return;
+      const fog = payload.full_universe_fog || {{}};
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.max(1, Math.floor(rect.width * dpr));
+      const height = Math.max(1, Math.floor(rect.height * dpr));
+      const sampleCount = Math.max(0, Number(fog.sample_count || 0));
+      const state = `${{width}}:${{height}}:${{sampleCount}}:${{mapState.fog ? 'fog' : 'nofog'}}`;
+      if (!force && universeFogState === state) return;
+      universeFogState = state;
+      canvas.width = width;
+      canvas.height = height;
+      canvas.dataset.fullUniverse = String(fog.full_universe_count || payload.summary.expanded_universe_total || 0);
+      canvas.dataset.fogSampleCount = String(sampleCount);
+      canvas.dataset.clickable = 'false';
+      canvas.dataset.clickableScenarioCount = String(scenarioPoints.filter((point) => point.artifactPath || point.status !== 'pending').length);
+      window.__fullUniverseFog = {{
+        fullUniverse: Number(canvas.dataset.fullUniverse),
+        fogSampleCount: sampleCount,
+        clickableScenarioCount: Number(canvas.dataset.clickableScenarioCount),
+        visibleLayer: 'full-universe-density',
+      }};
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, width, height);
+      if (!mapState.fog || sampleCount <= 0) return;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(38, 70, 112, 0.095)';
+      ctx.fillRect(0, 0, width, height);
+      const cloudCenters = [
+        {{ x: 18, y: 35, rx: 30, ry: 22, color: [92, 200, 255], alpha: 0.18 }},
+        {{ x: 42, y: 72, rx: 34, ry: 24, color: [255, 209, 102], alpha: 0.12 }},
+        {{ x: 66, y: 39, rx: 38, ry: 26, color: [178, 140, 255], alpha: 0.16 }},
+        {{ x: 76, y: 70, rx: 30, ry: 22, color: [115, 247, 164], alpha: 0.14 }},
+        {{ x: 53, y: 52, rx: 48, ry: 34, color: [92, 200, 255], alpha: 0.11 }},
+      ];
+      for (const cloud of cloudCenters) {{
+        const cx = cloud.x * width / 100;
+        const cy = cloud.y * height / 100;
+        const radius = Math.max(cloud.rx * width / 100, cloud.ry * height / 100);
+        const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        gradient.addColorStop(0, `rgba(${{cloud.color[0]}}, ${{cloud.color[1]}}, ${{cloud.color[2]}}, ${{cloud.alpha}})`);
+        gradient.addColorStop(0.52, `rgba(${{cloud.color[0]}}, ${{cloud.color[1]}}, ${{cloud.color[2]}}, ${{cloud.alpha * 0.42}})`);
+        gradient.addColorStop(1, `rgba(${{cloud.color[0]}}, ${{cloud.color[1]}}, ${{cloud.color[2]}}, 0)`);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }}
+      ctx.globalCompositeOperation = 'screen';
+      const baseAlpha = 0.065;
+      for (let index = 0; index < sampleCount; index += 1) {{
+        const attractor = familyAttractor(index);
+        const r1 = seededNoise(index + 11);
+        const r2 = seededNoise(index + 71);
+        const r3 = seededNoise(index + 131);
+        const angle = r1 * Math.PI * 2;
+        const radius = Math.sqrt(r2) * (24 + r3 * 26);
+        const spiral = index * 2.399963;
+        const deepSpaceMix = seededNoise(index + 829);
+        const xPct = deepSpaceMix < 0.28
+          ? 2 + seededNoise(index + 911) * 96
+          : Math.max(1, Math.min(99, attractor.x + Math.cos(angle + spiral) * radius + (seededNoise(index + 211) - 0.5) * 4.6));
+        const yPct = deepSpaceMix < 0.28
+          ? 5 + seededNoise(index + 977) * 90
+          : Math.max(5, Math.min(95, attractor.y + Math.sin(angle + spiral) * radius * 0.72 + (seededNoise(index + 307) - 0.5) * 3.4));
+        const px = xPct * width / 100;
+        const py = yPct * height / 100;
+        const size = (0.72 + seededNoise(index + 401) * 1.28) * dpr;
+        const alpha = baseAlpha + seededNoise(index + 503) * 0.16;
+        const tint = seededNoise(index + 619);
+        const color = tint > 0.92 ? [255, 209, 102] : tint > 0.74 ? [178, 140, 255] : tint > 0.48 ? [92, 200, 255] : [142, 176, 216];
+        ctx.fillStyle = `rgba(${{color[0]}}, ${{color[1]}}, ${{color[2]}}, ${{alpha}})`;
+        if (seededNoise(index + 701) > 0.78) {{
+          ctx.beginPath();
+          ctx.arc(px, py, size * 0.62, 0, Math.PI * 2);
+          ctx.fill();
+        }} else {{
+          ctx.fillRect(px, py, size, size);
+        }}
+      }}
+      ctx.globalCompositeOperation = 'source-over';
     }}
     function buildScenarioPoints() {{
       const scenarioCount = payload.summary.scenario_count_per_topic || 81;
@@ -2368,7 +2649,8 @@ def render_html(payload: dict[str, Any]) -> str:
       scenarioPoints = buildScenarioPoints();
       window.__scenarioPoints = scenarioPoints;
       scenarioCanvasState = '';
-      root.innerHTML = starLinks() + '<canvas class="scenario-canvas" id="scenario-canvas" aria-hidden="true"></canvas><div class="map-core"><span>研究<br>核心</span></div>' + payload.nodes.map((node, index) => `
+      universeFogState = '';
+      root.innerHTML = '<canvas class="universe-fog-canvas" id="universe-fog-canvas" aria-hidden="true"></canvas>' + starLinks() + '<canvas class="scenario-canvas" id="scenario-canvas" aria-hidden="true"></canvas><div class="map-core"><span>研究<br>核心</span></div>' + payload.nodes.map((node, index) => `
         <button class="topic-hub ${{['follow_up_signal', 'next_stage_candidate', 'breakthrough_candidate'].includes(node.status) || index % 23 === 0 ? 'is-star' : ''}}" data-topic-id="${{node.topic_id}}" data-color="${{node.status_color}}"
           style="left:${{node.position.x}}%; top:${{node.position.y}}%;"
           title="${{node.title}} / ${{node.status_label}}" aria-label="${{node.title}}"></button>
@@ -2421,13 +2703,14 @@ def render_html(payload: dict[str, Any]) -> str:
         ? `第 ${{selectedScenarioNumber}} 格｜${{displayText(node.title)}}`
         : displayText(node.title);
       document.getElementById('inspector-meta').innerHTML = isScenarioSelection
-        ? `Combo ID<br>${{selectedScenarioCell.comboId.split('|').slice(-2).join('|')}}<br>所屬主題<br>${{node.topic_id.split(':').pop().slice(-12)}}`
-        : `Topic ID<br>${{node.topic_id.split(':').pop().slice(-12)}}<br>已跑情境<br>${{node.run_count}}`;
+        ? `組合 ID<br>${{selectedScenarioCell.comboId.split('|').slice(-2).join('|')}}<br>所屬主題<br>${{node.topic_id.split(':').pop().slice(-12)}}`
+        : `主題 ID<br>${{node.topic_id.split(':').pop().slice(-12)}}<br>已跑情境<br>${{node.run_count}}`;
       document.getElementById('score-delta-card').textContent = signed(metrics.score_delta);
       document.getElementById('return-delta-card').textContent = signed(metrics.return_delta);
       document.getElementById('drawdown-delta-card').textContent = signed(metrics.drawdown_delta);
+      document.getElementById('winrate-delta-card').textContent = '-';
       document.getElementById('next-action-card').innerHTML = isScenarioSelection
-        ? `<strong>情境 artifact</strong><br>${{selectedScenarioCell.artifactPath || '無'}}<br><small>判定：${{decisionLabels[selectedScenarioCell.decision] || selectedScenarioCell.decision || '尚未執行'}}</small>`
+        ? `<strong>情境證據檔</strong><br>${{selectedScenarioCell.artifactPath || '無'}}<br><small>判定：${{decisionLabels[selectedScenarioCell.decision] || selectedScenarioCell.decision || '尚未執行'}}</small>`
         : `<strong>下一步</strong><br>${{actionText(node.next_action)}}<br><small>候選目錄：${{node.candidate_dir || '無'}}</small>`;
       document.getElementById('scenario-count-label').textContent = `（${{scenario.scenario_count || 81}} 個情境）`;
       const dots = Array.from({{ length: 81 }}, (_, index) => `<button type="button" data-scenario="${{index + 1}}" title="情境 ${{index + 1}}"></button>`).join('');
@@ -2447,14 +2730,14 @@ def render_html(payload: dict[str, Any]) -> str:
     }}
     function renderMissionQueue() {{
       const root = document.getElementById('mission-list');
-      root.innerHTML = `<table class="queue-table"><thead><tr><th>優先</th><th>節點ID</th><th>星區</th><th>原因</th><th>資源</th><th>狀態</th></tr></thead><tbody>` +
+      root.innerHTML = `<table class="queue-table"><thead><tr><th>優先</th><th>節點 ID</th><th>星區</th><th>原因</th><th>來源</th><th>狀態</th></tr></thead><tbody>` +
         payload.mission_queue.slice(0, 5).map((mission, index) => `
           <tr class="mission" data-topic-id="${{mission.topic_id}}">
             <td>${{index + 1}}</td>
             <td>${{mission.topic_id.split(':').pop().slice(0, 24)}}</td>
             <td>${{mission.family}}</td>
             <td>${{mission.reason}}</td>
-            <td>GPU-0${{(index % 3) + 1}}</td>
+            <td>執行紀錄</td>
             <td><span class="status-pill">已排隊</span></td>
           </tr>
         `).join('') + `</tbody></table>`;
@@ -2512,6 +2795,7 @@ def render_html(payload: dict[str, Any]) -> str:
         item.classList.toggle('is-filtered-out', Boolean(hidden));
       }});
       drawScenarioCanvas();
+      drawUniverseFogCanvas();
       document.querySelectorAll('#legend-grid .legend-item').forEach((item) => {{
         item.classList.toggle('is-active', mapState.filter === item.dataset.status);
       }});
@@ -2533,14 +2817,30 @@ def render_html(payload: dict[str, Any]) -> str:
       document.getElementById('goto-sector').textContent = family.label;
       applyMapState();
     }}
-    function downloadReport() {{
-      const blob = new Blob([JSON.stringify(payload, null, 2)], {{ type: 'application/json' }});
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `research_fog_map_${{payload.date}}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
+    function renderReportSummary() {{
+      const burnDown = payload.burn_down_progress || {{}};
+      const controlledDrain = burnDown.controlled_grid_drain || {{}};
+      document.querySelectorAll('.topic-hub').forEach((button) => button.classList.remove('is-selected'));
+      const dot = document.getElementById('inspector-dot');
+      dot.style.background = colors.clear_green || colors.fog_gray;
+      dot.style.color = colors.clear_green || colors.fog_gray;
+      document.getElementById('inspector-title').textContent = '報告摘要';
+      document.getElementById('inspector-subtitle').textContent = `Research fog map / ${{payload.date}}`;
+      document.getElementById('inspector-meta').innerHTML = `日期<br>${{payload.date}}<br>來源<br>repo artifact`;
+      document.getElementById('score-delta-card').textContent = formatNumber(payload.total_topics || 0);
+      document.getElementById('return-delta-card').textContent = burnDown.controlled_grid_drain_ready ? 'OK' : '待同步';
+      document.getElementById('drawdown-delta-card').textContent = burnDown.baseline_blocker_cleared ? '0' : formatNumber(burnDown.artifact_blocker_count || 0);
+      document.getElementById('winrate-delta-card').textContent = controlledDrain.representative_replay_count === 0 ? '0' : formatNumber(controlledDrain.representative_replay_count);
+      document.getElementById('next-action-card').innerHTML = `<strong>Canonical JSON</strong><br>artifacts/research_map/research_fog_map_${{payload.date}}.json<br><small>latest：artifacts/research_map/research_fog_map_latest.json</small>`;
+      document.getElementById('scenario-count-label').textContent = '（報告狀態）';
+      document.getElementById('scenario-dots').innerHTML = '';
+      document.getElementById('inspector-body').innerHTML = [
+        kv('controlled drain', burnDown.controlled_grid_drain_status || '未同步'),
+        kv('baseline blocker cleared', burnDown.baseline_blocker_cleared ? 'true' : 'false'),
+        kv('artifact blocker count', formatNumber(burnDown.artifact_blocker_count || 0)),
+        kv('micro batch', controlledDrain.micro_batch_status || '-'),
+        kv('resume batch', controlledDrain.unattended_resume_status || '-'),
+      ].join('');
     }}
     function wireControls() {{
       document.querySelectorAll('.nav-item').forEach((item) => {{
@@ -2553,7 +2853,7 @@ def render_html(payload: dict[str, Any]) -> str:
           if (mode === 'tech-tree') {{ mapState.links = true; mapState.names = true; resetViewport(1.08); }}
           if (mode === 'signals') {{ mapState.filter = 'follow_up_signal'; }}
           if (mode === 'backtest-lab') {{ resetViewport(1.15); renderInspector(payload.default_selected_topic_id); }}
-          if (mode === 'reports') downloadReport();
+          if (mode === 'reports') renderReportSummary();
           if (mode === 'settings') {{ mapState.fog = !mapState.fog; }}
           applyMapState();
         }});
@@ -2591,6 +2891,7 @@ def render_html(payload: dict[str, Any]) -> str:
       }} catch (error) {{
         console.warn('使用 embedded fallback payload', error);
       }}
+      window.payload = payload;
       nodesById = new Map(payload.nodes.map((node) => [node.topic_id, node]));
       renderHud();
       renderFamilies();

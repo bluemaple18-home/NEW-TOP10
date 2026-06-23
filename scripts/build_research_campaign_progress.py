@@ -19,6 +19,7 @@ from typing import Any
 from research_map_contract import (
     apply_run_history,
     build_combo_registry,
+    completed_v2_expansion_count,
     dimension_schema_payload,
     expanded_universe_total,
     progress_summary,
@@ -124,7 +125,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     combo_summary = progress_summary(scenarios)
     dimension_schema = dimension_schema_payload()
     expanded_total = expanded_universe_total(len(topics_json))
-    expanded_processed = combo_summary["explored_combos"]
+    expansion_processed = completed_v2_expansion_count(history_records)
+    expanded_processed = combo_summary["explored_combos"] + expansion_processed
     expanded_progress_pct = round(expanded_processed / expanded_total, 6) if expanded_total else 0.0
 
     by_topic = {row.get("topic_id"): row for row in topics_json}
@@ -196,6 +198,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "base_progress_pct": combo_summary["progress_pct"],
             "expanded_universe_total": expanded_total,
             "expanded_processed": expanded_processed,
+            "v2_expansion_processed": expansion_processed,
             "expanded_pending": max(0, expanded_total - expanded_processed),
             "expanded_progress_pct": expanded_progress_pct,
             "dimension_schema_version": dimension_schema["version"],

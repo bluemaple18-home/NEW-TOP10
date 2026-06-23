@@ -200,6 +200,23 @@ def latest_by_combo(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return latest
 
 
+def is_completed_v2_expansion_record(record: dict[str, Any]) -> bool:
+    """判斷一筆 run_history 是否代表已完成的 v2 擴充座標。"""
+    if record.get("map_version") != "v2" and record.get("schema_version") != "research-map-run-history.v2":
+        return False
+    if record.get("status") != "completed" or not record.get("artifact_path") or not record.get("combo_id"):
+        return False
+    dimensions = record.get("dimensions") if isinstance(record.get("dimensions"), dict) else {}
+    if not all(key in dimensions for key in V2_DEFAULT_COORDINATES):
+        return False
+    return any(str(dimensions.get(key)) != default for key, default in V2_DEFAULT_COORDINATES.items())
+
+
+def completed_v2_expansion_count(records: list[dict[str, Any]]) -> int:
+    latest = latest_by_combo(records)
+    return sum(1 for record in latest.values() if is_completed_v2_expansion_record(record))
+
+
 def infer_insight_level(record: dict[str, Any] | None) -> str:
     if not record:
         return "unexplored"

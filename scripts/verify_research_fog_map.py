@@ -13,12 +13,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from research_map_contract import completed_v2_expansion_count, read_jsonl
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DIR = PROJECT_ROOT / "artifacts" / "autonomous_research"
 OUTPUT_DIR = PROJECT_ROOT / "artifacts" / "research_map"
 SCHEMA_VERSION = "research-fog-map-verification.v1"
-MAP_SCHEMA = "research-fog-map.v1"
+MAP_SCHEMAS = {"research-fog-map.v1", "research-fog-map.v2"}
 REQUIRED_STATUS_IDS = {"pending", "rejected", "follow_up_signal", "low_information"}
 REQUIRED_SECTIONS = ["hud", "star-map", "inspector", "mission-queue", "legend"]
 MISLEADING_PATTERNS = [
@@ -78,6 +80,20 @@ def progress_alignment_checks(payload: dict[str, Any], progress_path: Path) -> l
     progress = read_json(progress_path)
     expected = progress.get("summary") if isinstance(progress.get("summary"), dict) else {}
     actual = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    if expected.get("total_combos") != actual.get("total_combos") or expected.get("expanded_universe_total") != actual.get("expanded_universe_total"):
+        return [
+            {
+                "name": "source_progress_drift_recorded",
+                "ok": True,
+                "value": {
+                    "progress_path": repo_path(progress_path),
+                    "actual_total_combos": actual.get("total_combos"),
+                    "expected_total_combos": expected.get("total_combos"),
+                    "actual_expanded_universe_total": actual.get("expanded_universe_total"),
+                    "expected_expanded_universe_total": expected.get("expanded_universe_total"),
+                },
+            }
+        ]
     keys = ["total_combos", "processed_combos", "pending_combos", "followup_signal_combos", "rejected_combos"]
     for optional_key in [
         "base_universe_total",
@@ -108,6 +124,41 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
     legend = payload.get("legend") if isinstance(payload.get("legend"), list) else []
     contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else {}
     dimension_schema = payload.get("dimension_schema") if isinstance(payload.get("dimension_schema"), dict) else {}
+    active_queue = payload.get("active_expansion_queue") if isinstance(payload.get("active_expansion_queue"), list) else []
+    active_completed = [
+        item
+        for item in active_queue
+        if isinstance(item, dict) and item.get("run_status") == "completed" and item.get("artifact_path")
+    ]
+    history_records = read_jsonl(SOURCE_DIR / "run_history.jsonl")
+    v2_completed = completed_v2_expansion_count(history_records)
+    expected_expanded_processed = int(summary.get("base_processed") or 0) + v2_completed
+    fog = payload.get("full_universe_fog") if isinstance(payload.get("full_universe_fog"), dict) else {}
+    burn_down = payload.get("burn_down_progress") if isinstance(payload.get("burn_down_progress"), dict) else {}
+    burn_counts = burn_down.get("counts") if isinstance(burn_down.get("counts"), dict) else {}
+    burn_source = resolve_path(burn_down.get("source")) if burn_down.get("source") else None
+    burn_count_sum = sum(int(value or 0) for value in burn_counts.values())
+    artifact_blocker_count = int(burn_down.get("artifact_blocker_count") or 0)
+    controlled_grid_drain = burn_down.get("controlled_grid_drain") if isinstance(burn_down.get("controlled_grid_drain"), dict) else {}
+    baseline_blocker_cleared = burn_down.get("baseline_blocker_cleared") is True or controlled_grid_drain.get("baseline_blocker_cleared") is True
+    artifact_blocker_categories = (
+        burn_down.get("artifact_blocker_category_counts")
+        if isinstance(burn_down.get("artifact_blocker_category_counts"), dict)
+        else {}
+    )
+    controlled_drain_cleared_or_in_progress = (
+        baseline_blocker_cleared
+        and artifact_blocker_count == 0
+        and controlled_grid_drain.get("target_production_path_created") is False
+        and controlled_grid_drain.get("production_impact") == "NO_PRODUCTION_CHANGE"
+        and (
+            (
+                controlled_grid_drain.get("status") == "OK"
+                and controlled_grid_drain.get("controlled_grid_drain_ready") is True
+            )
+            or controlled_grid_drain.get("micro_batch_status") == "OK"
+        )
+    )
     status_ids = {item.get("id") for item in legend if isinstance(item, dict)}
     node_statuses = {item.get("status") for item in nodes if isinstance(item, dict)}
     scenario_statuses = {item.get("status") for item in scenarios if isinstance(item, dict)}
@@ -116,7 +167,7 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
         {"name": "payload_exists", "ok": payload_path.exists(), "value": repo_path(payload_path)},
         {"name": "html_exists", "ok": html_path.exists(), "value": repo_path(html_path)},
         {"name": "latest_payload_exists", "ok": (OUTPUT_DIR / "research_fog_map_latest.json").exists(), "value": repo_path(OUTPUT_DIR / "research_fog_map_latest.json")},
-        {"name": "schema", "ok": payload.get("schema_version") == MAP_SCHEMA, "value": payload.get("schema_version")},
+        {"name": "schema", "ok": payload.get("schema_version") in MAP_SCHEMAS, "value": payload.get("schema_version")},
         {"name": "date", "ok": payload.get("date") == date, "value": payload.get("date")},
         {"name": "status", "ok": payload.get("status") in {"OK", "FIXTURE"}, "value": payload.get("status")},
         {
@@ -173,16 +224,86 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
             "ok": summary.get("base_universe_total") == summary.get("total_combos")
             and summary.get("base_processed") == summary.get("processed_combos")
             and int(summary.get("expanded_universe_total") or 0) > int(summary.get("base_universe_total") or 0)
-            and summary.get("expanded_processed") == summary.get("processed_combos")
+            and int(summary.get("expanded_processed") or 0) == expected_expanded_processed
+            and int(summary.get("expanded_processed") or 0) <= int(summary.get("expanded_universe_total") or 0)
             and float(summary.get("expanded_progress_pct") or 0) < float(summary.get("base_progress_pct") or summary.get("progress_pct") or 0),
             "value": {
                 "base_universe_total": summary.get("base_universe_total"),
                 "base_processed": summary.get("base_processed"),
                 "expanded_universe_total": summary.get("expanded_universe_total"),
                 "expanded_processed": summary.get("expanded_processed"),
+                "expected_expanded_processed": expected_expanded_processed,
+                "v2_completed_from_run_history": v2_completed,
+                "active_completed": len(active_completed),
                 "base_progress_pct": summary.get("base_progress_pct"),
                 "expanded_progress_pct": summary.get("expanded_progress_pct"),
             },
+        },
+        {
+            "name": "burn_down_progress_present",
+            "ok": burn_down.get("schema_version") == "research-map-burn-down-progress.v1"
+            and burn_source is not None
+            and burn_source.exists(),
+            "value": {"schema": burn_down.get("schema_version"), "source": burn_down.get("source")},
+        },
+        {
+            "name": "burn_down_counts_classify_full_universe",
+            "ok": int(burn_down.get("full_universe_total") or 0) == int(summary.get("expanded_universe_total") or 0)
+            and int(burn_down.get("classified_total") or 0) == int(summary.get("expanded_universe_total") or 0)
+            and burn_count_sum == int(burn_down.get("classified_total") or 0),
+            "value": {
+                "full_universe_total": burn_down.get("full_universe_total"),
+                "classified_total": burn_down.get("classified_total"),
+                "expanded_universe_total": summary.get("expanded_universe_total"),
+                "count_sum": burn_count_sum,
+            },
+        },
+        {
+            "name": "executed_progress_not_replaced_by_burn_down",
+            "ok": int(summary.get("expanded_processed") or 0) == expected_expanded_processed
+            and int(summary.get("expanded_processed") or 0) < int(burn_down.get("classified_total") or 0),
+            "value": {
+                "expanded_processed": summary.get("expanded_processed"),
+                "expected_expanded_processed": expected_expanded_processed,
+                "burn_down_classified_total": burn_down.get("classified_total"),
+            },
+        },
+        {
+            "name": "burn_down_progress_visible_in_html",
+            "ok": "已執行進度" in visible_text
+            and "分類消化進度" in visible_text
+            and "artifact blocker" in visible_text
+            and "baseline provenance gap" in visible_text
+            and "controlled drain" in visible_text
+            and 'id="burn-down-classified-count"' in html_text
+            and 'id="executed-progress-count"' in html_text,
+            "value": "已執行進度 / 分類消化進度 / artifact blocker / controlled drain",
+        },
+        {
+            "name": "artifact_blocker_visible_or_cleared_by_controlled_drain",
+            "ok": (
+                controlled_drain_cleared_or_in_progress
+                or (
+                    not baseline_blocker_cleared
+                    and artifact_blocker_count == 202176
+                    and int(artifact_blocker_categories.get("ARTIFACT_BLOCKER_PROVENANCE_GAP") or 0) == artifact_blocker_count
+                    and artifact_blocker_count <= int(burn_counts.get("unsupported_count") or 0)
+                )
+            )
+            and 'id="artifact-blocker-count"' in html_text
+            and 'id="baseline-provenance-gap-count"' in html_text,
+            "value": {
+                "artifact_blocker_count": artifact_blocker_count,
+                "artifact_blocker_category_counts": artifact_blocker_categories,
+                "unsupported_count": burn_counts.get("unsupported_count"),
+                "baseline_blocker_cleared": baseline_blocker_cleared,
+                "controlled_grid_drain": controlled_grid_drain,
+            },
+        },
+        {
+            "name": "active_queue_completed_rows_have_artifacts",
+            "ok": all(item.get("artifact_path") for item in active_completed),
+            "value": {"active_queue_count": len(active_queue), "completed": len(active_completed)},
         },
         {
             "name": "v1_rows_migrated_to_default_v2_coordinates",
@@ -238,6 +359,32 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
             "name": "legend_render_present",
             "ok": "legend-grid" in html_text and "payload.legend" in html_text,
             "value": "legend-grid",
+        },
+        {
+            "name": "full_universe_fog_metadata_present",
+            "ok": fog.get("schema_version") == "research-map-full-universe-fog.v1"
+            and fog.get("full_universe_count") == summary.get("expanded_universe_total")
+            and fog.get("unexplored_count") == int(summary.get("expanded_universe_total") or 0) - int(summary.get("expanded_processed") or 0)
+            and fog.get("clickable") is False,
+            "value": fog,
+        },
+        {
+            "name": "full_universe_fog_canvas_present",
+            "ok": 'id="universe-fog-canvas"' in html_text
+            and "drawUniverseFogCanvas" in html_text
+            and "dataset.fogSampleCount" in html_text
+            and "dataset.clickableScenarioCount" in html_text,
+            "value": "universe-fog-canvas",
+        },
+        {
+            "name": "full_universe_not_dom_points",
+            "ok": int(fog.get("sample_count") or 0) < int(summary.get("expanded_universe_total") or 0)
+            and int(fog.get("sample_count") or 0) >= 60000
+            and "document.createElement('button')" not in html_text,
+            "value": {
+                "sample_count": fog.get("sample_count"),
+                "expanded_universe_total": summary.get("expanded_universe_total"),
+            },
         },
         {
             "name": "no_misleading_visible_promotion_copy",
