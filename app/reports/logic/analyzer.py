@@ -6,15 +6,19 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from typing import Any
 
 try:
     from app.trading import TradePlanService
 except ImportError:
     from trading import TradePlanService
 
+from .daily_brief import DailyBriefBuilder
+
 class StockAnalyzer:
     def __init__(self):
         self.trade_plan_service = TradePlanService()
+        self.daily_brief_builder = DailyBriefBuilder()
 
     def prepare_report_data(self, ranked_df: pd.DataFrame, features_df: pd.DataFrame) -> dict:
         recommendations = []
@@ -31,16 +35,27 @@ class StockAnalyzer:
             triggers = self._analyze_triggers(stock_data, latest, row)
             risks = self._analyze_risks(stock_data, latest)
             verdict = self._get_verdict(p_win, risks)
+            trade_plan = self._resolve_trade_plan(row, latest, p_win=p_win)
+            daily_brief = self.daily_brief_builder.build(
+                row=row,
+                latest=latest,
+                triggers=triggers,
+                risks=risks,
+                trade_plan=trade_plan,
+                verdict=verdict,
+                p_win=p_win,
+            )
             
             recommendations.append({
                 'stock': f"{stock_id} {row.get('stock_name', '')}",
                 'date': datetime.now().strftime('%Y-%m-%d'),
                 'decision': {
                     'verdict': verdict,
-                    'reason_1': triggers[0]['plain_text'] if triggers else "技術面平穩",
-                    'reason_2': triggers[1]['plain_text'] if len(triggers) > 1 else ""
+                    'reason_1': daily_brief['why_pick'][0] if daily_brief['why_pick'] else "技術面平穩",
+                    'reason_2': daily_brief['why_pick'][1] if len(daily_brief['why_pick']) > 1 else ""
                 },
-                'trade_plan': self._generate_trade_plan(latest, p_win=p_win),
+                'daily_brief': daily_brief,
+                'trade_plan': trade_plan,
                 'metrics': {
                     'p_win_5d': round(p_win * 100, 1),
                     'expected_r5': round((p_win - 0.5) * 10, 2),
@@ -64,6 +79,12 @@ class StockAnalyzer:
 
     def _generate_trade_plan(self, latest, p_win=None):
         return self.trade_plan_service.build(latest, p_win=p_win).to_report_dict()
+
+    def _resolve_trade_plan(self, row: pd.Series, latest: pd.Series, p_win=None) -> dict[str, Any]:
+        plan = row.get('trade_plan')
+        if isinstance(plan, dict):
+            return plan
+        return self._generate_trade_plan(latest, p_win=p_win)
 
     def _analyze_triggers(self, df, latest, row_ranking):
         # 移自原 report_generator.py

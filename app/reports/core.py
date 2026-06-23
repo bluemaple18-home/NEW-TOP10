@@ -3,6 +3,8 @@
 報告生成器調度器 (Orchestrator)
 採用原子化組件生成符合 User Template 的報告
 """
+import html
+import json
 import pandas as pd
 from pathlib import Path
 import yaml
@@ -34,8 +36,14 @@ class StockReportGenerator:
         # 3. 生成 Markdown (Formatter Layer)
         md_path = self.artifacts_dir / "analysis_report.md"
         self.md_formatter.save(report_data, md_path)
+
+        # 4. 生成 JSON / HTML，作為通知與 Web 工作台的穩定 artifact。
+        json_path = self.artifacts_dir / "analysis_report.json"
+        json_path.write_text(json.dumps(report_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        html_path = self.artifacts_dir / "analysis_report.html"
+        html_path.write_text(self._render_html(self.md_formatter.format(report_data)), encoding="utf-8")
         
-        # 4. 生成 CSV
+        # 5. 生成 CSV
         self._save_summary_csv(report_data)
 
     def _save_summary_csv(self, report_data: dict):
@@ -49,3 +57,23 @@ class StockReportGenerator:
                  'risk': stock['trade_plan']['invalidation']
              })
         pd.DataFrame(csv_rows).to_csv(self.artifacts_dir / "ranked_stocks_detailed.csv", index=False, encoding='utf-8-sig')
+
+    def _render_html(self, markdown_text: str) -> str:
+        escaped = html.escape(markdown_text)
+        return (
+            "<!doctype html>\n"
+            "<html lang=\"zh-Hant\">\n"
+            "<head>\n"
+            "  <meta charset=\"utf-8\">\n"
+            "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+            "  <title>TOP10 每日選股分析報告</title>\n"
+            "  <style>\n"
+            "    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 32px; line-height: 1.6; }\n"
+            "    pre { white-space: pre-wrap; word-break: break-word; }\n"
+            "  </style>\n"
+            "</head>\n"
+            "<body><pre>"
+            f"{escaped}"
+            "</pre></body>\n"
+            "</html>\n"
+        )
