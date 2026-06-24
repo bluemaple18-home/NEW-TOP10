@@ -60,10 +60,10 @@ class Top10AgentStatusTest(unittest.TestCase):
 
             rollup = build_rollup(artifacts, "2026-06-23", "external-review-2026-06-23", self.manifest)
             self.assertEqual(rollup["schema_version"], "top10-agent-status-rollup.v1")
-            self.assertEqual(rollup["summary"]["agent_count"], 12)
-            self.assertEqual(rollup["summary"]["formal_task_count"], 12)
+            self.assertEqual(rollup["summary"]["agent_count"], 13)
+            self.assertEqual(rollup["summary"]["formal_task_count"], 13)
             self.assertEqual(rollup["summary"]["event_count"], 1)
-            self.assertEqual(len(rollup["formal_tasks"]), 12)
+            self.assertEqual(len(rollup["formal_tasks"]), 13)
             self.assertTrue(all(task["task_id"].startswith("TOP10-HARNESS-") for task in rollup["formal_tasks"]))
             self.assertTrue(all(edge["connected"] for edge in rollup["flow_edges"]))
             row = next(item for item in rollup["agents"] if item["agent_id"] == "external_review_harness")
@@ -71,9 +71,28 @@ class Top10AgentStatusTest(unittest.TestCase):
             task = next(item for item in rollup["formal_tasks"] if item["agent_id"] == "external_review_harness")
             self.assertEqual(task["status"], "ok")
             self.assertFalse(task["missing"])
+            fog_task = next(item for item in rollup["formal_tasks"] if item["agent_id"] == "fog_map")
+            self.assertEqual(fog_task["index"], 12)
+            self.assertEqual(fog_task["status"], "pending")
 
             payload = json.loads(event_path.read_text(encoding="utf-8"))
             self.assertEqual(payload["agent_id"], "external_review_harness")
+
+    def test_fog_map_is_a_formal_agent(self):
+        event = build_event(
+            run_id="daily-2026-06-23",
+            run_date="2026-06-23",
+            agent_id="fog_map",
+            status="ok",
+            decision="pass",
+            input_refs=["artifacts/external_review/2026-06-23/external_review_summary_2026-06-23.json"],
+            artifact_paths=[
+                "artifacts/research_map/research_fog_map_latest.json",
+                "artifacts/research_map/index.html",
+            ],
+        )
+
+        self.assertEqual(validate_event(event, self.manifest), [])
 
 
 if __name__ == "__main__":

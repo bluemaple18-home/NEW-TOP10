@@ -74,12 +74,17 @@ if [ "${TOP10_EXTERNAL_REVIEW_ALLOW_EXISTING_DAILY_ARTIFACTS:-0}" = "1" ]; then
   ARGS+=(--allow-existing-daily-artifacts)
 fi
 
+if [ "${TOP10_SKIP_FOG_MAP_HANDOFF:-0}" = "1" ]; then
+  ARGS+=(--skip-fog-map-handoff)
+fi
+
 echo "========================================" | tee -a "$LOG_FILE"
 echo "external review host runner start - $(date)" | tee -a "$LOG_FILE"
 echo "run_date: $RUN_DATE" | tee -a "$LOG_FILE"
 echo "runtime: $RUNTIME_LABEL" | tee -a "$LOG_FILE"
 echo "skip_provider_submit: ${TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT:-0}" | tee -a "$LOG_FILE"
 echo "allow_existing_daily_artifacts: ${TOP10_EXTERNAL_REVIEW_ALLOW_EXISTING_DAILY_ARTIFACTS:-0}" | tee -a "$LOG_FILE"
+echo "skip_fog_map_handoff: ${TOP10_SKIP_FOG_MAP_HANDOFF:-0}" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e

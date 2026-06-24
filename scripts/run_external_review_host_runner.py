@@ -59,6 +59,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="不呼叫 browser/Clawd adapter，只使用已存在 raw 檔做 normalize/verify",
     )
+    parser.add_argument("--skip-fog-map-handoff", action="store_true", help="不執行 harness 迷霧地圖交接節點")
     parser.add_argument(
         "--chatgpt-command",
         default="bash scripts/review_chatgpt_chrome.sh --date {date} --packet {packet}",
@@ -130,6 +131,14 @@ def main() -> int:
                 next_action="wait for daily OK before external review",
                 metrics={"daily_status_snapshot": status.get("daily_status_snapshot")},
             )
+            if not args.skip_fog_map_handoff:
+                run_fog_map_handoff(
+                    run_date=run_date,
+                    run_id=run_id,
+                    artifacts_dir=artifacts_dir,
+                    skip_refresh=True,
+                    skip_reason="same-date automation_status.json is not OK",
+                )
             return 0
 
         packet_path = artifacts_dir / "external_review" / run_date / f"review_packet_{run_date}.json"
@@ -220,7 +229,14 @@ def main() -> int:
             external_summary=external_summary,
             started_at=started_at,
         )
-        return 0 if status["status"] in {"OK", "PARTIAL"} else 1
+        exit_code = 0 if status["status"] in {"OK", "PARTIAL"} else 1
+        if not args.skip_fog_map_handoff:
+            fog_exit_code = run_fog_map_handoff(run_date=run_date, run_id=run_id, artifacts_dir=artifacts_dir)
+            if fog_exit_code != 0:
+                status["notes"].append("fog map handoff failed")
+                write_json(status_path, status)
+                exit_code = 1
+        return exit_code
     except Exception as exc:
         status["status"] = "FAILED"
         status["notes"].append(str(exc))
@@ -239,6 +255,14 @@ def main() -> int:
             failure_reason=str(exc),
             next_action="inspect host runner status and retry after blocker is resolved",
         )
+        if not args.skip_fog_map_handoff:
+            run_fog_map_handoff(
+                run_date=run_date,
+                run_id=run_id,
+                artifacts_dir=artifacts_dir,
+                skip_refresh=True,
+                skip_reason=f"external review host runner failed before fog handoff: {exc}",
+            )
         print(f"EXTERNAL_REVIEW_HOST_RUNNER_FAILED output={status_path}", file=sys.stderr)
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -611,6 +635,38 @@ def run_ops_report(*, run_date: str, run_id: str, artifacts_dir: Path) -> None:
         print(f"WARNING: ops report failed exit_code={completed.returncode}", file=sys.stderr)
         if completed.stderr.strip():
             print(completed.stderr.strip(), file=sys.stderr)
+
+
+def run_fog_map_handoff(
+    *,
+    run_date: str,
+    run_id: str,
+    artifacts_dir: Path,
+    skip_refresh: bool = False,
+    skip_reason: str | None = None,
+) -> int:
+    command = [
+        python_bin(),
+        "scripts/run_top10_fog_map_handoff.py",
+        "--run-date",
+        run_date,
+        "--run-id",
+        run_id,
+        "--artifacts-dir",
+        str(artifacts_dir),
+    ]
+    if skip_refresh:
+        command.append("--skip-refresh")
+    if skip_reason:
+        command.extend(["--skip-reason", skip_reason])
+    completed = subprocess.run(command, cwd=PROJECT_ROOT, text=True, capture_output=True)
+    if completed.stdout.strip():
+        print(completed.stdout.strip())
+    if completed.returncode != 0:
+        print(f"WARNING: fog map handoff failed exit_code={completed.returncode}", file=sys.stderr)
+        if completed.stderr.strip():
+            print(completed.stderr.strip(), file=sys.stderr)
+    return completed.returncode
 
 
 def resolve_project_path(path: Path) -> Path:

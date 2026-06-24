@@ -66,7 +66,7 @@ def write_rollup(project: Path) -> None:
         "run_date": "2026-06-23",
         "run_id": "daily-2026-06-23",
         "status": "warning",
-        "summary": {"agent_count": 12, "event_count": 9},
+        "summary": {"agent_count": 13, "event_count": 9},
         "agents": [
             {
                 "agent_id": "harness_runner",

@@ -69,7 +69,7 @@ def sample_rollup() -> dict:
         "run_id": "daily-2026-06-24",
         "status": "failed",
         "summary": {
-            "agent_count": 12,
+            "agent_count": 13,
             "event_count": 8,
             "failed_count": 1,
             "warning_count": 1,
