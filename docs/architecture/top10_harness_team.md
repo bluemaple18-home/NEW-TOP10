@@ -96,6 +96,15 @@ Dashboard 至少要顯示下列資訊：
 | `next_action` | 下一步要做什麼 |
 | `discord_channel` | `daily_pick_channel` 或 `ops_progress_channel` |
 
+儀表板正式任務資料使用同一個 rollup 的兩個欄位：
+
+| 欄位 | 說明 |
+| --- | --- |
+| `formal_tasks` | 12 個固定任務節點，含 `task_id`、`agent_id`、責任、輸入/輸出、status、next_action、artifact_paths |
+| `flow_edges` | 流程圖連線狀態，含 `from`、`to`、`source_kind`、`target_kind`、`connected`、`edge_status` |
+
+監控儀表板應優先讀 `/api/monitoring/top10-harness`，用 `formal_tasks` 畫任務表/卡片，用 `flow_edges` 畫流程線；不要自行從檔名或 agent index 推導。
+
 ## Status Event 落點
 
 每隻 agent 的最新狀態事件使用 `top10-agent-status-event.v1`：

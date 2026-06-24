@@ -5,7 +5,14 @@ API 只讀 artifact，不同步執行監控計算。
 
 from __future__ import annotations
 
-from app.contracts import FactorMetricContract, FactorMonitorResponse, Top10HarnessAgentStatusContract, Top10HarnessStatusResponse
+from app.contracts import (
+    FactorMetricContract,
+    FactorMonitorResponse,
+    Top10HarnessAgentStatusContract,
+    Top10HarnessFlowEdgeContract,
+    Top10HarnessFormalTaskContract,
+    Top10HarnessStatusResponse,
+)
 from app.data.monitoring_repository import MonitoringRepository
 
 
@@ -45,6 +52,8 @@ class MonitoringService:
             run_id=payload.get("run_id"),
             summary=payload.get("summary") or {},
             agents=[Top10HarnessAgentStatusContract(**item) for item in payload.get("agents", [])],
+            formal_tasks=[Top10HarnessFormalTaskContract(**item) for item in payload.get("formal_tasks", [])],
+            flow_edges=[Top10HarnessFlowEdgeContract(**item) for item in payload.get("flow_edges", [])],
             channels=payload.get("channels") or [],
             flows=payload.get("flows") or [],
             validation_errors=payload.get("validation_errors") or {},

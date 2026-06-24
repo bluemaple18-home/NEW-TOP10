@@ -20,6 +20,8 @@ from .monitoring import (
     FactorMetricContract,
     FactorMonitorResponse,
     Top10HarnessAgentStatusContract,
+    Top10HarnessFlowEdgeContract,
+    Top10HarnessFormalTaskContract,
     Top10HarnessStatusResponse,
 )
 from .reference import (
@@ -70,6 +72,8 @@ __all__ = [
     "FactorMetricContract",
     "FactorMonitorResponse",
     "Top10HarnessAgentStatusContract",
+    "Top10HarnessFlowEdgeContract",
+    "Top10HarnessFormalTaskContract",
     "Top10HarnessStatusResponse",
     "ExposureBreakdownItem",
     "MarketRegimeContract",

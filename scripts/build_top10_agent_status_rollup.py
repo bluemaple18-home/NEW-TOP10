@@ -68,7 +68,8 @@ def build_rollup(artifacts_dir: Path, run_date: str, run_id: str, manifest: dict
     missing_count = 0
     validation_errors: dict[str, list[str]] = {}
 
-    for agent in manifest.get("agents", []):
+    manifest_agents = manifest.get("agents", [])
+    for agent in manifest_agents:
         agent_id = agent["id"]
         event = events_by_agent.get(agent_id)
         if event is None:
@@ -81,6 +82,7 @@ def build_rollup(artifacts_dir: Path, run_date: str, run_id: str, manifest: dict
                     "lane": agent.get("lane"),
                     "status": "pending",
                     "decision": "not_applicable",
+                    "discord_channel": agent.get("discord_channel"),
                     "missing": True,
                 }
             )
@@ -105,7 +107,10 @@ def build_rollup(artifacts_dir: Path, run_date: str, run_id: str, manifest: dict
                 "failure_reason": event.get("failure_reason"),
                 "next_action": event.get("next_action"),
                 "artifact_paths": event.get("artifact_paths") or [],
+                "input_refs": event.get("input_refs") or [],
                 "metrics": event.get("metrics") or {},
+                "discord_channel": event.get("discord_channel") or agent.get("discord_channel"),
+                "message_type": event.get("message_type"),
                 "missing": False,
             }
         )
@@ -118,6 +123,9 @@ def build_rollup(artifacts_dir: Path, run_date: str, run_id: str, manifest: dict
     elif warning_count:
         status = "warning"
 
+    agent_rows = sorted(agent_rows, key=lambda row: row.get("index") or 999)
+    formal_tasks = build_formal_tasks(manifest_agents, agent_rows)
+    flow_edges = build_flow_edges(manifest.get("flows", []), agent_rows, manifest.get("channels", []))
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -131,12 +139,96 @@ def build_rollup(artifacts_dir: Path, run_date: str, run_id: str, manifest: dict
             "warning_count": warning_count,
             "missing_count": missing_count,
             "validation_error_count": sum(len(value) for value in validation_errors.values()),
+            "formal_task_count": len(formal_tasks),
+            "formal_task_attention_count": sum(1 for task in formal_tasks if task.get("requires_attention")),
+            "flow_edge_count": len(flow_edges),
+            "flow_edge_blocked_count": sum(1 for edge in flow_edges if edge.get("edge_status") == "blocked"),
         },
-        "agents": sorted(agent_rows, key=lambda row: row.get("index") or 999),
+        "agents": agent_rows,
+        "formal_tasks": formal_tasks,
+        "flow_edges": flow_edges,
         "channels": manifest.get("channels", []),
         "flows": manifest.get("flows", []),
         "validation_errors": validation_errors,
     }
+
+
+def build_formal_tasks(manifest_agents: list[dict[str, Any]], agent_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows_by_agent = {row["agent_id"]: row for row in agent_rows}
+    tasks = []
+    for agent in manifest_agents:
+        agent_id = str(agent["id"])
+        row = rows_by_agent.get(agent_id, {})
+        status = str(row.get("status") or "pending")
+        tasks.append(
+            {
+                "task_id": f"TOP10-HARNESS-{int(agent.get('index') or 0):02d}-{agent_id}",
+                "agent_id": agent_id,
+                "label": agent.get("label"),
+                "lane": agent.get("lane"),
+                "index": agent.get("index"),
+                "responsibility": agent.get("responsibility"),
+                "status": status,
+                "decision": row.get("decision", "not_applicable"),
+                "requires_attention": status in {"pending", "warning", "degraded", "failed", "blocked"},
+                "missing": bool(row.get("missing")),
+                "inputs": agent.get("inputs") or [],
+                "outputs": agent.get("outputs") or [],
+                "dashboard_metrics": agent.get("dashboard_metrics") or [],
+                "stop_conditions": agent.get("stop_conditions") or [],
+                "artifact_paths": row.get("artifact_paths") or agent.get("artifact_paths") or [],
+                "input_refs": row.get("input_refs") or [],
+                "failure_reason": row.get("failure_reason"),
+                "next_action": row.get("next_action"),
+                "discord_channel": row.get("discord_channel") or agent.get("discord_channel"),
+                "message_type": row.get("message_type"),
+            }
+        )
+    return tasks
+
+
+def build_flow_edges(flows: list[dict[str, Any]], agent_rows: list[dict[str, Any]], channels: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    agent_status = {row["agent_id"]: row.get("status") for row in agent_rows}
+    channel_ids = {channel.get("id") for channel in channels}
+    agent_ids = set(agent_status)
+    edges = []
+    for index, flow in enumerate(flows, start=1):
+        source = str(flow.get("from") or "")
+        target = str(flow.get("to") or "")
+        source_status = agent_status.get(source)
+        target_status = agent_status.get(target)
+        source_kind = "channel" if source in channel_ids else "agent" if source in agent_ids else "unknown"
+        target_kind = "channel" if target in channel_ids else "agent" if target in agent_ids else "unknown"
+        edges.append(
+            {
+                "edge_id": f"TOP10-FLOW-{index:02d}-{source}-to-{target}",
+                "from": source,
+                "to": target,
+                "kind": flow.get("kind"),
+                "label": flow.get("label"),
+                "source_kind": source_kind,
+                "target_kind": target_kind,
+                "source_status": source_status,
+                "target_status": target_status,
+                "connected": source_kind != "unknown" and target_kind != "unknown",
+                "edge_status": flow_edge_status(source_status, target_status, target_kind),
+            }
+        )
+    return edges
+
+
+def flow_edge_status(source_status: str | None, target_status: str | None, target_kind: str) -> str:
+    if source_status in {"failed", "blocked"}:
+        return "blocked"
+    if source_status in {None, "pending", "running"}:
+        return "pending"
+    if target_kind == "channel":
+        return "active" if source_status in {"ok", "warning", "degraded", "skipped"} else "pending"
+    if target_status in {"failed", "blocked"}:
+        return "blocked"
+    if target_status in {None, "pending", "running"}:
+        return "pending"
+    return "active"
 
 
 def repo_path(path: Path) -> str:

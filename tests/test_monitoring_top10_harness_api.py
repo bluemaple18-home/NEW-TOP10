@@ -32,6 +32,8 @@ class MonitoringTop10HarnessApiTest(unittest.TestCase):
             self.assertEqual(response.run_id, "daily-2026-06-23")
             self.assertEqual(response.status, "warning")
             self.assertEqual(response.agents[0].agent_id, "harness_runner")
+            self.assertEqual(response.formal_tasks[0].task_id, "TOP10-HARNESS-01-harness_runner")
+            self.assertEqual(response.flow_edges[0].edge_status, "active")
             self.assertEqual(response.artifact_path, "artifacts/harness_status/2026-06-23/latest_rollup.json")
 
     def test_router_returns_harness_status(self):
@@ -52,6 +54,7 @@ class MonitoringTop10HarnessApiTest(unittest.TestCase):
             self.assertTrue(payload["available"])
             self.assertEqual(payload["run_id"], "daily-2026-06-23")
             self.assertEqual(payload["agents"][0]["agent_id"], "harness_runner")
+            self.assertEqual(payload["formal_tasks"][0]["task_id"], "TOP10-HARNESS-01-harness_runner")
 
 
 def write_rollup(project: Path) -> None:
@@ -73,6 +76,33 @@ def write_rollup(project: Path) -> None:
                 "status": "ok",
                 "decision": "pass",
                 "missing": False,
+            }
+        ],
+        "formal_tasks": [
+            {
+                "task_id": "TOP10-HARNESS-01-harness_runner",
+                "agent_id": "harness_runner",
+                "label": "Harness Runner",
+                "index": 1,
+                "lane": "daily",
+                "status": "ok",
+                "decision": "pass",
+                "requires_attention": False,
+                "missing": False,
+            }
+        ],
+        "flow_edges": [
+            {
+                "edge_id": "TOP10-FLOW-01-harness_runner-to-preflight",
+                "from": "harness_runner",
+                "to": "preflight",
+                "kind": "daily",
+                "label": "run request",
+                "target_kind": "agent",
+                "source_status": "ok",
+                "target_status": "ok",
+                "connected": True,
+                "edge_status": "active",
             }
         ],
         "channels": [],
