@@ -90,8 +90,9 @@ TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT=1 bash scripts/run_external_review_ho
 2. 若 daily 失敗，停止推播並保留 daily exit code。
 3. 只接受本次 `artifacts/automation_status.json` 為 `OK`、`run_date` 等於本次 `TOP10_RUN_DATE` 或今日，且 `metadata.clawd_publish_message` 指向本次訊息；不會 fallback 到 latest message。
 4. 只有 `notify.clawd_enabled=true` 且 `notify.clawd_dry_run=false` 時，才呼叫 `scripts/send_clawd_publish_message.py --send` 交給 New Clawd 正式推播。
-5. 若 `run_date` 不是今日，只有明確設定 `TOP10_RUN_DATE=YYYY-MM-DD` 的 catch-up run 會傳入 `--allow-stale-send`；一般路徑會由 `scripts/send_clawd_publish_message.py` 擋掉舊訊息 live send。
-6. 推播失敗會留下 `clawd_send_status_YYYY-MM-DD.json`，且 publish wrapper 以非 0 結束，讓 launchd / 外層排程 fail-loud。
+5. `scripts/run_daily_publish.sh` 會呼叫 `scripts/send_top10_ops_report.py --send`，把 daily 狀態、blocker、publish 結果送到工作進度頻道 `notify.ops_clawd_to`；這條線不會送 Top10 報牌內容。
+6. 若 `run_date` 不是今日，只有明確設定 `TOP10_RUN_DATE=YYYY-MM-DD` 的 catch-up run 會傳入 `--allow-stale-send`；一般路徑會由 `scripts/send_clawd_publish_message.py` / `scripts/send_top10_ops_report.py` 擋掉舊訊息 live send。
+7. 推播失敗會留下 `clawd_send_status_YYYY-MM-DD.json`；工作進度回報失敗會留下 `ops_progress_send_status_YYYY-MM-DD.json`。publish wrapper 以非 0 結束，讓 launchd / 外層排程 fail-loud。
 
 repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.sh`。若只要產生日報與 Clawd-ready payload、不 live send，請手動跑 `scripts/run_daily.sh`。
 

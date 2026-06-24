@@ -69,6 +69,7 @@ def parse_args() -> argparse.Namespace:
         default="bash scripts/review_gemini_chrome.sh --date {date} --packet {packet}",
         help="Gemini adapter command template，可用 {date} / {packet}",
     )
+    parser.add_argument("--skip-ops-report", action="store_true", help="不送工作進度頻道回報")
     return parser.parse_args()
 
 
@@ -242,6 +243,8 @@ def main() -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     finally:
+        if not args.skip_ops_report:
+            run_ops_report(run_date=run_date, run_id=run_id, artifacts_dir=artifacts_dir)
         print(f"EXTERNAL_REVIEW_HOST_RUNNER_{status['status']} output={status_path} summary={host_summary_path}")
 
 
@@ -587,6 +590,27 @@ def event_path_ref(path: str | Path, artifacts_dir: Path) -> str:
 def python_bin() -> str:
     candidate = PROJECT_ROOT / ".venv" / "bin" / "python"
     return str(candidate) if candidate.exists() else sys.executable
+
+
+def run_ops_report(*, run_date: str, run_id: str, artifacts_dir: Path) -> None:
+    command = [
+        python_bin(),
+        "scripts/send_top10_ops_report.py",
+        "--run-date",
+        run_date,
+        "--run-id",
+        run_id,
+        "--artifacts-dir",
+        str(artifacts_dir),
+        "--send",
+    ]
+    completed = subprocess.run(command, cwd=PROJECT_ROOT, text=True, capture_output=True)
+    if completed.stdout.strip():
+        print(completed.stdout.strip())
+    if completed.returncode != 0:
+        print(f"WARNING: ops report failed exit_code={completed.returncode}", file=sys.stderr)
+        if completed.stderr.strip():
+            print(completed.stderr.strip(), file=sys.stderr)
 
 
 def resolve_project_path(path: Path) -> Path:

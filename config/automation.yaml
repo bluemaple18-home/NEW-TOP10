@@ -106,6 +106,10 @@ notify:
   clawd_channel: "discord"
   clawd_to: "channel:1507327845003825154"
   clawd_dry_run: false
+  ops_clawd_enabled: true    # 工作進度頻道；只送狀態、blocker、external review 差異，不送報牌
+  ops_clawd_channel: "discord"
+  ops_clawd_to: "channel:1519179377336651796"
+  ops_clawd_dry_run: false
   clawd_cli_node: "/opt/homebrew/opt/node/bin/node"
   clawd_cli_entry: "/Users/mattkuo/new clawd/dist/index.js"
   llm_rewrite_enabled: true  # 推播訊息最後交給免費 LLM 金鑰輪換做操盤手口吻改寫；失敗不阻斷 daily

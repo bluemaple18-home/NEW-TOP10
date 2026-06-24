@@ -113,11 +113,15 @@ artifacts/harness_status/<run_date>/latest_rollup.json
 scripts/top10_agent_status.py
 scripts/record_top10_daily_status_events.py
 scripts/record_top10_publish_event.py
+scripts/build_top10_ops_progress_message.py
+scripts/send_top10_ops_report.py
 scripts/verify_top10_agent_status_event.py
 scripts/build_top10_agent_status_rollup.py
 ```
 
 `run_id` 預設為 `daily-<run_date>`。`scripts/run_daily.sh` 會把 `artifacts/automation_status.json` 轉成 daily lane 的 agent events；`scripts/run_daily_publish.sh` 只補 `daily_push` 的報牌頻道事件；`scripts/run_external_review_host_runner.py` 預設也寫入同一個 `daily-<run_date>`，讓 GPT/Gemini 驗證支線能接回同一張 rollup。
+
+Ops Reporter 使用 `scripts/build_top10_ops_progress_message.py` 產生 `artifacts/ops_progress_message_<run_date>.md`，再由 `scripts/send_top10_ops_report.py --send` 送到 `notify.ops_clawd_to`。報牌頻道維持 `notify.clawd_to`；工作進度頻道使用 `notify.ops_clawd_to`，兩者不得共用訊息內容。
 
 事件中的 `input_refs` 與 `artifact_paths` 必須是 repo-relative 或 artifacts-root-relative 路徑，不可寫入 `/Users/...`、`/private/...` 等本機絕對路徑。
 

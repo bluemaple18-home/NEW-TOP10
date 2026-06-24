@@ -16,6 +16,23 @@ fi
 RUN_DATE="${TOP10_RUN_DATE:-$(date +%F)}"
 export TOP10_RUN_DATE="$RUN_DATE"
 
+send_ops_report() {
+  set +e
+  OPS_ARGS=(scripts/send_top10_ops_report.py --run-date "$RUN_DATE" --send)
+  if [ "$RUN_DATE" != "$(date +%F)" ]; then
+    OPS_ARGS+=(--allow-stale-send)
+  fi
+  "$PYTHON_BIN" "${OPS_ARGS[@]}" >> "$LOG_FILE" 2>&1
+  OPS_EXIT_CODE=$?
+  set -e
+  if [ "$OPS_EXIT_CODE" -eq 0 ]; then
+    echo "ops progress report sent/recorded" | tee -a "$LOG_FILE"
+  else
+    echo "ops progress report failed exit_code=$OPS_EXIT_CODE" | tee -a "$LOG_FILE"
+  fi
+  return "$OPS_EXIT_CODE"
+}
+
 echo "========================================" | tee -a "$LOG_FILE"
 echo "開始收盤後 daily publish - $(date)" | tee -a "$LOG_FILE"
 echo "publish run_date: $RUN_DATE" | tee -a "$LOG_FILE"
@@ -35,6 +52,7 @@ if [ "$DAILY_EXIT_CODE" -ne 0 ]; then
     --decision stop \
     --reason "daily failed before publish; exit_code=$DAILY_EXIT_CODE" >> "$LOG_FILE" 2>&1
   set -e
+  send_ops_report || true
   exit "$DAILY_EXIT_CODE"
 fi
 
@@ -83,6 +101,9 @@ if [ "$MESSAGE_STATUS" -ne 0 ] || [ -z "$MESSAGE_FILE" ]; then
     --run-date "$RUN_DATE" \
     --status skipped \
     --reason "Clawd live send not allowed for this run" >> "$LOG_FILE" 2>&1
+  if ! send_ops_report; then
+    exit "$OPS_EXIT_CODE"
+  fi
   exit 0
 fi
 
@@ -102,6 +123,9 @@ if [ "$SEND_EXIT_CODE" -eq 0 ]; then
     --status ok \
     --message "$MESSAGE_FILE" \
     --send-exit-code "$SEND_EXIT_CODE" >> "$LOG_FILE" 2>&1
+  if ! send_ops_report; then
+    exit "$OPS_EXIT_CODE"
+  fi
   echo "daily publish finished - $(date)" | tee -a "$LOG_FILE"
 else
   echo "Clawd send command failed; fail publish wrapper. exit_code=$SEND_EXIT_CODE" | tee -a "$LOG_FILE"
@@ -114,6 +138,7 @@ else
     --message "$MESSAGE_FILE" \
     --send-exit-code "$SEND_EXIT_CODE" >> "$LOG_FILE" 2>&1
   set -e
+  send_ops_report || true
   exit "$SEND_EXIT_CODE"
 fi
 
