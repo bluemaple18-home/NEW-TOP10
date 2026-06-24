@@ -1,6 +1,6 @@
 # TOP10 穩固版 Harness Team 架構
 
-本文件定義 TOP10 專案的穩固版 13 隻邏輯機器人。重點不是把每張流程卡都拆成一隻，而是把責任邊界、可驗證輸出、失敗回報與 dashboard 監控欄位固定下來。
+本文件定義 TOP10 專案的穩固版 14 隻邏輯機器人。重點不是把每張流程卡都拆成一隻，而是把責任邊界、可驗證輸出、失敗回報與 dashboard 監控欄位固定下來。
 
 ## 核心原則
 
@@ -8,7 +8,7 @@
 - 報牌頻道只收通過 gate 的 Top10，不收 debug、卡關、研究過程。
 - 工作進度頻道收 stop/fail、warning、外部 AI review 差異、next actions、下一輪 blocker。
 - 任何 agent 失敗都不能假裝完成；必須產生 Stop Event 或明確的 degraded 狀態。
-- 外部 AI review 與迷霧地圖只產生研究、風險提示與下一輪 blocker，不能直接改 ranking/model。
+- 外部 AI review、迷霧地圖與研究 worker 只產生研究證據、風險提示與下一輪 blocker，不能直接改 ranking/model。
 
 ## 兩個 Discord 頻道
 
@@ -17,7 +17,7 @@
 | 報牌頻道 | Daily Push Bot | 每日 Top10、推薦理由、風險摘要、`run_id` | debug log、研究假說、外部 review 草稿 |
 | 工作進度頻道 | Ops Reporter Bot | 成功/失敗狀態、卡關原因、外部 AI 反對點、後續動作、下一輪 blocker | 未通過 gate 的報牌名單 |
 
-## 13 隻機器人
+## 14 隻機器人
 
 | # | Agent | 責任 | 輸入 | 輸出 | 失敗處理 |
 | --- | --- | --- | --- | --- | --- |
@@ -32,8 +32,9 @@
 | 9 | External Review Harness Bot | daily OK 後包 review packet，啟動外部 review | ranking/publish artifacts | verified packet、host runner status | daily 未 OK 就 skipped |
 | 10 | AI Review Adapter Bot | 分別送 ChatGPT/Gemini，收回標準格式 | verified packet | provider responses | 單一 provider 失敗可 partial |
 | 11 | Disagreement / Next Actions Bot | 找出外部 AI 跟我們完全相反之處，產生處置 | external review summary | disagreement report、next actions | 需要人工判斷就標 human_review |
-| 12 | Fog Map Bot | 把 outcome、外部 AI 差異與研究 run history 交接成迷霧地圖 | outcome artifact、external review summary、research cards、run history | research fog map、map html、research queue handoff | 迷霧刷新或驗證失敗就 fail-loud，交給 ops |
-| 13 | Ops Reporter Bot | 回報工作進度頻道，產生下一輪 blocker | stop events、next actions、status、research fog map | ops message、blocker list | 發送失敗要留下本地 artifact |
+| 12 | Fog Map Bot | 維護研究迷霧，挑下一輪研究隊列，吸收研究 worker 結果 | outcome artifact、external review summary、research cards、run history | research queue handoff、research fog map、map html | 迷霧刷新或驗證失敗就 fail-loud，交給 ops |
+| 13 | Autonomous Research Worker Bot | 依 Fog Map queue 跑每日研究 quota | research queue、manager state、external review summary | daily research quota、run history、research evidence | 研究 quota 或驗證失敗就 stop，不改 ranking |
+| 14 | Ops Reporter Bot | 回報工作進度頻道，產生下一輪 blocker | stop events、next actions、status、research fog map、research quota | ops message、blocker list | 發送失敗要留下本地 artifact |
 
 ## 主流程
 
@@ -51,6 +52,8 @@ Harness Runner
  -> AI Review Adapter Bot
  -> Disagreement / Next Actions Bot
  -> Fog Map Bot
+ -> Autonomous Research Worker Bot
+ -> Fog Map Bot
  -> Ops Reporter Bot
  -> 工作進度頻道
  -> 下一輪 Harness Runner
@@ -63,11 +66,14 @@ Harness Runner
 - Outcome Tracker 發現命中率、報酬或誤報有後驗落差，交給 Fog Map Bot 變成地圖訊號。
 - Disagreement / Next Actions Bot 發現 ChatGPT 或 Gemini 明確反對我們的 Top10 結果，交給 Fog Map Bot 變成研究卡與下一輪 blocker。
 - Circuit Breaker 發現 ranking 異常但不能立即解釋，交給 Ops Reporter 與 Fog Map Bot 留下 stop/degrade 線索。
+- Fog Map Bot 每輪把最高價值的未知區丟給 Autonomous Research Worker Bot 跑研究 quota；worker 完成後回填 run history，Fog Map Bot 再刷新地圖。
 
 研究回圈：
 
 ```text
 Fog Map
+ -> Autonomous Research Worker
+ -> Fog Map
  -> Research Card
  -> Experiment
  -> Validation
@@ -87,7 +93,7 @@ Dashboard 至少要顯示下列資訊：
 | --- | --- |
 | `run_id` | 單次執行唯一 ID |
 | `run_date` | 交易日或執行日期 |
-| `agent_id` | 13 隻 agent 的固定 ID |
+| `agent_id` | 14 隻 agent 的固定 ID |
 | `status` | `pending/running/ok/warning/degraded/skipped/failed/blocked` |
 | `started_at` / `finished_at` | 執行時間 |
 | `duration_seconds` | 執行耗時 |
@@ -102,7 +108,7 @@ Dashboard 至少要顯示下列資訊：
 
 | 欄位 | 說明 |
 | --- | --- |
-| `formal_tasks` | 13 個固定任務節點，含 `task_id`、`agent_id`、責任、輸入/輸出、status、next_action、artifact_paths |
+| `formal_tasks` | 14 個固定任務節點，含 `task_id`、`agent_id`、責任、輸入/輸出、status、next_action、artifact_paths |
 | `flow_edges` | 流程圖連線狀態，含 `from`、`to`、`source_kind`、`target_kind`、`connected`、`edge_status` |
 
 監控儀表板應優先讀 `/api/monitoring/top10-harness`，用 `formal_tasks` 畫任務表/卡片，用 `flow_edges` 畫流程線；不要自行從檔名或 agent index 推導。
@@ -130,7 +136,7 @@ scripts/verify_top10_agent_status_event.py
 scripts/build_top10_agent_status_rollup.py
 ```
 
-`run_id` 預設為 `daily-<run_date>`。`scripts/run_daily.sh` 會把 `artifacts/automation_status.json` 轉成 daily lane 的 agent events；`scripts/run_daily_publish.sh` 只補 `daily_push` 的報牌頻道事件；`scripts/run_external_review_host_runner.py` 預設也寫入同一個 `daily-<run_date>`，讓 GPT/Gemini 驗證、Fog Map Bot 與 Ops Reporter 都接回同一張 rollup。
+`run_id` 預設為 `daily-<run_date>`。`scripts/run_daily.sh` 會把 `artifacts/automation_status.json` 轉成 daily lane 的 agent events；`scripts/run_daily_publish.sh` 只補 `daily_push` 的報牌頻道事件；`scripts/run_external_review_host_runner.py` 預設也寫入同一個 `daily-<run_date>`，讓 GPT/Gemini 驗證、Fog Map Bot、Autonomous Research Worker Bot 與 Ops Reporter 都接回同一張 rollup。
 
 Ops Reporter 使用 `scripts/build_top10_ops_progress_message.py` 產生 `artifacts/ops_progress_message_<run_date>.md`，再由 `scripts/send_top10_ops_report.py --send` 送到 `notify.ops_clawd_to`。報牌頻道維持 `notify.clawd_to`；工作進度頻道使用 `notify.ops_clawd_to`，兩者不得共用訊息內容。
 
@@ -158,6 +164,7 @@ Ops Reporter 使用 `scripts/build_top10_ops_progress_message.py` 產生 `artifa
 | ChatGPT/Gemini adapter | `scripts/review_chatgpt_chrome.sh`、`scripts/review_gemini_chrome.sh` |
 | External review summary | `scripts/build_external_review_summary.py`、`scripts/verify_external_review_summary.py` |
 | Fog Map Bot | `scripts/run_top10_fog_map_handoff.py`、`scripts/build_research_campaign_progress.py`、`scripts/build_research_fog_map.py`、`scripts/verify_research_fog_map.py` |
+| Autonomous Research Worker Bot | `scripts/run_daily_research_quota.sh`、`scripts/run_autonomous_research.py`、`scripts/verify_daily_research_quota.py` |
 | Monitoring API | `app/services/monitoring_service.py`、`app/api/routers/monitoring.py` |
 | Visual flow | `web/harness-loop.html` |
 
@@ -167,4 +174,4 @@ Ops Reporter 使用 `scripts/build_top10_ops_progress_message.py` 產生 `artifa
 2. 讓每個 runner 寫出同一格式的 agent status event。
 3. 新增工作進度頻道 webhook 設定，與原本報牌頻道分離。
 4. Ops Reporter 先讀本地 status/summary artifact，再推送到工作進度頻道。
-5. Dashboard 讀取 status event，顯示每日 run 的 13 agent 狀態與卡關點。
+5. Dashboard 讀取 status event，顯示每日 run 的 14 agent 狀態與卡關點。

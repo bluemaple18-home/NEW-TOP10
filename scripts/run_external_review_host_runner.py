@@ -60,6 +60,7 @@ def parse_args() -> argparse.Namespace:
         help="不呼叫 browser/Clawd adapter，只使用已存在 raw 檔做 normalize/verify",
     )
     parser.add_argument("--skip-fog-map-handoff", action="store_true", help="不執行 harness 迷霧地圖交接節點")
+    parser.add_argument("--skip-research-quota", action="store_true", help="Fog Map handoff 只刷新地圖，不跑研究 quota")
     parser.add_argument(
         "--chatgpt-command",
         default="bash scripts/review_chatgpt_chrome.sh --date {date} --packet {packet}",
@@ -138,6 +139,7 @@ def main() -> int:
                     artifacts_dir=artifacts_dir,
                     skip_refresh=True,
                     skip_reason="same-date automation_status.json is not OK",
+                    skip_research_quota=args.skip_research_quota,
                 )
             return 0
 
@@ -231,7 +233,12 @@ def main() -> int:
         )
         exit_code = 0 if status["status"] in {"OK", "PARTIAL"} else 1
         if not args.skip_fog_map_handoff:
-            fog_exit_code = run_fog_map_handoff(run_date=run_date, run_id=run_id, artifacts_dir=artifacts_dir)
+            fog_exit_code = run_fog_map_handoff(
+                run_date=run_date,
+                run_id=run_id,
+                artifacts_dir=artifacts_dir,
+                skip_research_quota=args.skip_research_quota,
+            )
             if fog_exit_code != 0:
                 status["notes"].append("fog map handoff failed")
                 write_json(status_path, status)
@@ -262,6 +269,7 @@ def main() -> int:
                 artifacts_dir=artifacts_dir,
                 skip_refresh=True,
                 skip_reason=f"external review host runner failed before fog handoff: {exc}",
+                skip_research_quota=args.skip_research_quota,
             )
         print(f"EXTERNAL_REVIEW_HOST_RUNNER_FAILED output={status_path}", file=sys.stderr)
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -644,6 +652,7 @@ def run_fog_map_handoff(
     artifacts_dir: Path,
     skip_refresh: bool = False,
     skip_reason: str | None = None,
+    skip_research_quota: bool = False,
 ) -> int:
     command = [
         python_bin(),
@@ -657,6 +666,8 @@ def run_fog_map_handoff(
     ]
     if skip_refresh:
         command.append("--skip-refresh")
+    if skip_research_quota:
+        command.append("--skip-research-quota")
     if skip_reason:
         command.extend(["--skip-reason", skip_reason])
     completed = subprocess.run(command, cwd=PROJECT_ROOT, text=True, capture_output=True)

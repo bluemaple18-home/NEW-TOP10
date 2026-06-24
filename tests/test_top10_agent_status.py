@@ -60,10 +60,10 @@ class Top10AgentStatusTest(unittest.TestCase):
 
             rollup = build_rollup(artifacts, "2026-06-23", "external-review-2026-06-23", self.manifest)
             self.assertEqual(rollup["schema_version"], "top10-agent-status-rollup.v1")
-            self.assertEqual(rollup["summary"]["agent_count"], 13)
-            self.assertEqual(rollup["summary"]["formal_task_count"], 13)
+            self.assertEqual(rollup["summary"]["agent_count"], 14)
+            self.assertEqual(rollup["summary"]["formal_task_count"], 14)
             self.assertEqual(rollup["summary"]["event_count"], 1)
-            self.assertEqual(len(rollup["formal_tasks"]), 13)
+            self.assertEqual(len(rollup["formal_tasks"]), 14)
             self.assertTrue(all(task["task_id"].startswith("TOP10-HARNESS-") for task in rollup["formal_tasks"]))
             self.assertTrue(all(edge["connected"] for edge in rollup["flow_edges"]))
             row = next(item for item in rollup["agents"] if item["agent_id"] == "external_review_harness")
@@ -74,6 +74,9 @@ class Top10AgentStatusTest(unittest.TestCase):
             fog_task = next(item for item in rollup["formal_tasks"] if item["agent_id"] == "fog_map")
             self.assertEqual(fog_task["index"], 12)
             self.assertEqual(fog_task["status"], "pending")
+            research_task = next(item for item in rollup["formal_tasks"] if item["agent_id"] == "research_worker")
+            self.assertEqual(research_task["index"], 13)
+            self.assertEqual(research_task["status"], "pending")
 
             payload = json.loads(event_path.read_text(encoding="utf-8"))
             self.assertEqual(payload["agent_id"], "external_review_harness")
@@ -89,6 +92,22 @@ class Top10AgentStatusTest(unittest.TestCase):
             artifact_paths=[
                 "artifacts/research_map/research_fog_map_latest.json",
                 "artifacts/research_map/index.html",
+            ],
+        )
+
+        self.assertEqual(validate_event(event, self.manifest), [])
+
+    def test_research_worker_is_a_formal_agent(self):
+        event = build_event(
+            run_id="daily-2026-06-23",
+            run_date="2026-06-23",
+            agent_id="research_worker",
+            status="ok",
+            decision="pass",
+            input_refs=["artifacts/research_map/research_fog_map_latest.json"],
+            artifact_paths=[
+                "artifacts/autonomous_research/autonomous_research_daily_quota_2026-06-23.json",
+                "artifacts/autonomous_research/run_history.jsonl",
             ],
         )
 

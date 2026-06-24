@@ -106,10 +106,11 @@ repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.s
 5. 保存 raw response 後由 Top10 repo 執行 `normalize_external_review_response.py` 與 `verify_external_review_contract.py`。
 6. 建立並驗證 `external_review_summary_YYYY-MM-DD.json`；單一 provider 成功時保留 `PARTIAL` 與 `needs_human_review=true`。
 7. 寫出 `artifacts/host_runner/YYYY-MM-DD/host_runner_status_YYYY-MM-DD.json` 與 `host_runner_summary_YYYY-MM-DD.json`。
-8. 交接給 Fog Map Bot，刷新並驗證 `artifacts/research_map/research_fog_map_latest.json` 與 `artifacts/research_map/index.html`，同時寫入 `fog_map` harness event。
-9. 最後由 Ops Reporter 送工作進度頻道，回報外部 AI 差異、迷霧地圖狀態與下一輪 blocker。
+8. 交接給 Fog Map Bot，由 Fog Map Bot 挑下一輪研究隊列並呼叫 Autonomous Research Worker Bot 跑每日研究 quota。
+9. 研究 worker 成功後刷新並驗證 `artifacts/research_map/research_fog_map_latest.json` 與 `artifacts/research_map/index.html`，同時寫入 `research_worker` 與 `fog_map` harness event。
+10. 最後由 Ops Reporter 送工作進度頻道，回報外部 AI 差異、研究 quota、迷霧地圖狀態與下一輪 blocker。
 
-repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scripts/run_external_review_host_runner.sh`；它會自行等 daily OK，不會在 daily 失敗時送出外部 review。迷霧地圖不再另開排程，改由這條 harness handoff 負責；需要暫停時可設 `TOP10_SKIP_FOG_MAP_HANDOFF=1`，但正式排程不應長期跳過。
+repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scripts/run_external_review_host_runner.sh`；它會自行等 daily OK，不會在 daily 失敗時送出外部 review。迷霧地圖與每日研究 quota 不再另開排程，改由這條 harness handoff 負責；需要暫停整段可設 `TOP10_SKIP_FOG_MAP_HANDOFF=1`，只除錯地圖可設 `TOP10_SKIP_RESEARCH_QUOTA=1`，但正式排程不應長期跳過。
 
 手動驗證：
 
@@ -122,6 +123,9 @@ TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT=1 bash scripts/run_external_review_ho
 
 # 只驗 external review，不刷新迷霧地圖；僅供除錯
 TOP10_SKIP_FOG_MAP_HANDOFF=1 bash scripts/run_external_review_host_runner.sh
+
+# 只刷新迷霧地圖，不跑研究 quota；僅供除錯
+TOP10_SKIP_RESEARCH_QUOTA=1 bash scripts/run_external_review_host_runner.sh
 
 .venv/bin/python scripts/verify_external_review_host_runner.py --status artifacts/host_runner/YYYY-MM-DD/host_runner_status_YYYY-MM-DD.json --require-success
 ```

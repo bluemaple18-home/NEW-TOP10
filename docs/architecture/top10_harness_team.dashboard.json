@@ -161,10 +161,10 @@
       "index": 12,
       "label": "Fog Map Bot",
       "lane": "research_handoff",
-      "responsibility": "把 outcome、外部 review 差異與研究 run history 交接成迷霧地圖、研究隊列與下一輪 blocker。",
+      "responsibility": "維護研究迷霧、挑出下一輪研究隊列，並把研究 worker 的結果回寫成地圖與下一輪 blocker。",
       "inputs": ["outcome_artifact", "external_review_summary", "research_cards", "autonomous_research_run_history"],
-      "outputs": ["research_fog_map", "research_map_html", "research_queue_handoff", "fog_signals"],
-      "dashboard_metrics": ["status", "decision", "refresh_attempted", "command_count", "map_verified", "artifact_paths"],
+      "outputs": ["research_queue_handoff", "research_fog_map", "research_map_html", "fog_signals"],
+      "dashboard_metrics": ["status", "decision", "refresh_attempted", "research_quota_attempted", "command_count", "map_verified", "artifact_paths"],
       "artifact_paths": [
         "artifacts/autonomous_research/research_campaign_progress_{run_date}.json",
         "artifacts/research_map/research_fog_map_{run_date}.json",
@@ -175,12 +175,28 @@
       "stop_conditions": ["research_map_refresh_failed", "research_map_verify_failed", "run_history_unreadable"]
     },
     {
-      "id": "ops_reporter",
+      "id": "research_worker",
       "index": 13,
+      "label": "Autonomous Research Worker Bot",
+      "lane": "research_handoff",
+      "responsibility": "依 Fog Map queue 每輪執行安全研究 quota，只跑白名單回測，不訓練模型、不改 ranking。",
+      "inputs": ["research_queue_handoff", "external_review_summary", "autonomous_research_manager_state"],
+      "outputs": ["daily_research_quota_artifact", "research_run_history", "research_evidence"],
+      "dashboard_metrics": ["status", "decision", "quota", "from_queue", "artifact_paths", "exit_code"],
+      "artifact_paths": [
+        "artifacts/autonomous_research/autonomous_research_daily_quota_{run_date}.json",
+        "artifacts/autonomous_research/daily_research_quota_verification_latest.json",
+        "artifacts/autonomous_research/run_history.jsonl"
+      ],
+      "stop_conditions": ["quota_run_failed", "quota_verification_failed", "research_queue_missing"]
+    },
+    {
+      "id": "ops_reporter",
+      "index": 14,
       "label": "Ops Reporter Bot",
       "lane": "ops",
       "responsibility": "回報工作進度頻道，產生下一輪 blocker。",
-      "inputs": ["stop_event", "host_runner_status", "external_review_summary", "next_actions", "research_fog_map"],
+      "inputs": ["stop_event", "host_runner_status", "external_review_summary", "next_actions", "research_fog_map", "daily_research_quota_artifact"],
       "outputs": ["ops_progress_message", "blocker_list"],
       "dashboard_metrics": ["status", "discord_channel", "message_path", "blocker_count", "next_action_count"],
       "discord_channel": "ops_progress_channel",
@@ -202,6 +218,8 @@
     {"from": "outcome_tracker", "to": "fog_map", "kind": "research_handoff", "label": "outcome fog signals"},
     {"from": "anomaly_circuit_breaker", "to": "fog_map", "kind": "research_handoff", "label": "anomaly fog signal"},
     {"from": "disagreement_next_actions", "to": "fog_map", "kind": "research_handoff", "label": "review disagreement to fog map"},
+    {"from": "fog_map", "to": "research_worker", "kind": "research_loop", "label": "research quota queue"},
+    {"from": "research_worker", "to": "fog_map", "kind": "research_loop", "label": "quota evidence updates map"},
     {"from": "fog_map", "to": "ops_reporter", "kind": "ops", "label": "research map status and next blockers"},
     {"from": "ops_reporter", "to": "ops_progress_channel", "kind": "discord", "label": "progress report"},
     {"from": "ops_progress_channel", "to": "harness_runner", "kind": "feedback", "label": "next-run blockers"},
