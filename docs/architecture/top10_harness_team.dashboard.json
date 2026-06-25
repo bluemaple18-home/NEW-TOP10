@@ -2,6 +2,88 @@
   "schema_version": "top10-harness-team-dashboard.v1",
   "project": "TOP10new",
   "purpose": "穩固版 TOP10 daily harness 與研究回圈監控 contract",
+  "external_review_workflow": {
+    "owner_harness": "com.new-top10.external-review",
+    "entrypoint": "scripts/run_external_review_host_runner.sh",
+    "controller": "scripts/run_external_review_host_runner.py",
+    "schedule": "daily 17:50 after daily OK",
+    "run_id": "daily-{run_date}",
+    "provider_mode_default": "browser",
+    "provider_mode_fallback": "api only by explicit switch",
+    "formal_agents": [
+      {
+        "agent_id": "external_review_harness",
+        "harness_role": "主控",
+        "responsibility": "確認 daily OK、產生並驗證 review packet、拒送 manifest、寫 host runner status。",
+        "scripts": ["scripts/build_external_review_packet.py", "scripts/verify_external_review_packet.py"],
+        "success_artifacts": [
+          "artifacts/external_review/{run_date}/review_packet_{run_date}.json",
+          "artifacts/host_runner/{run_date}/host_runner_status_{run_date}.json"
+        ]
+      },
+      {
+        "agent_id": "ai_review_adapter",
+        "harness_role": "provider adapter",
+        "responsibility": "同一個 host runner 依序操作 ChatGPT 與 Gemini 固定 conversation，收 raw response 並做 normalize / contract verify。",
+        "providers": [
+          {
+            "provider": "chatgpt",
+            "adapter": "scripts/review_chatgpt_chrome.sh",
+            "fixed_conversation": "TOP10 External Review - ChatGPT PROD",
+            "url_marker_env": "TOP10_CHATGPT_URL_PART"
+          },
+          {
+            "provider": "gemini",
+            "adapter": "scripts/review_gemini_chrome.sh",
+            "fixed_conversation": "TOP10 External Review - Gemini PROD",
+            "url_marker_env": "TOP10_GEMINI_URL_PART"
+          }
+        ],
+        "success_artifacts": [
+          "artifacts/external_review/{run_date}/chatgpt_raw_{run_date}.txt",
+          "artifacts/external_review/{run_date}/chatgpt_response_{run_date}.json",
+          "artifacts/external_review/{run_date}/gemini_raw_{run_date}.txt",
+          "artifacts/external_review/{run_date}/gemini_response_{run_date}.json"
+        ],
+        "formal_raw_gate": {
+          "min_chars": 500,
+          "reject_smoke_marker": true,
+          "smoke_artifacts_only": ["chatgpt_smoke_{run_date}.json", "gemini_smoke_{run_date}.json"]
+        }
+      },
+      {
+        "agent_id": "disagreement_next_actions",
+        "harness_role": "分歧處置",
+        "responsibility": "合併兩個外部 AI 的檢核結果，產生分歧、人工複核與研究題目；不得直接改 ranking。",
+        "scripts": ["scripts/build_external_review_summary.py", "scripts/verify_external_review_summary.py"],
+        "success_artifacts": ["artifacts/external_review/{run_date}/external_review_summary_{run_date}.json"]
+      },
+      {
+        "agent_id": "fog_map",
+        "harness_role": "研究交接",
+        "responsibility": "消化 external review 分歧成迷霧訊號與研究 queue，不宣告 ranking truth。",
+        "scripts": ["scripts/run_top10_fog_map_handoff.py"]
+      },
+      {
+        "agent_id": "ops_reporter",
+        "harness_role": "中文回報",
+        "responsibility": "送工作進度頻道，只用中文回報狀態、分歧與下一步。",
+        "scripts": ["scripts/build_top10_ops_progress_message.py", "scripts/send_top10_ops_report.py"],
+        "discord_channel": "ops_progress_channel"
+      }
+    ],
+    "status_policy": [
+      {"condition": "chatgpt OK and gemini OK", "ai_review_adapter": "ok", "host_runner": "OK"},
+      {"condition": "only one provider OK", "ai_review_adapter": "degraded", "host_runner": "PARTIAL"},
+      {"condition": "no provider OK", "ai_review_adapter": "failed", "host_runner": "FAILED"},
+      {"condition": "daily is not OK", "external_review_harness": "skipped", "host_runner": "SKIPPED"}
+    ],
+    "boundaries": [
+      "ChatGPT / Gemini 不是獨立 harness；它們是同一條 external review host runner 的 provider adapter。",
+      "外部 AI 只能產生檢核、分歧、人工複核與研究假設，不能直接改 ranking、模型或報牌。",
+      "smoke test 不得覆蓋正式 raw / response artifact。"
+    ]
+  },
   "channels": [
     {
       "id": "daily_pick_channel",

@@ -2,6 +2,8 @@
 
 `external_review` 是每日推薦名單的事後檢討輸入，不是模型升版授權。GPT / Gemini 只能根據外部可分享資料提出操盤手觀察，不能要求或接收演算法、權重、feature engineering、訓練資料結構或模型程式碼。
 
+固定工作流與 harness 分配見 `docs/architecture/external_review_workflow.md`；dashboard / 監控可讀 `docs/architecture/top10_harness_team.dashboard.json` 的 `external_review_workflow`。
+
 ## Fixed Browser Conversations
 
 正式 browser provider 必須固定使用以下兩個聊天框，不要每天新開，也不要拿 smoke / debug 對話替代：

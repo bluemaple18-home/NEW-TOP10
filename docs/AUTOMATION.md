@@ -116,6 +116,21 @@ repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.s
 
 repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scripts/run_external_review_host_runner.sh`；它會自行等 daily OK，不會在 daily 失敗時送出外部 review。迷霧地圖與每日研究 quota 不再另開排程，改由這條 harness handoff 負責；需要暫停整段可設 `TOP10_SKIP_FOG_MAP_HANDOFF=1`，只除錯地圖可設 `TOP10_SKIP_RESEARCH_QUOTA=1`，但正式排程不應長期跳過。
 
+#### ChatGPT / Gemini 工作流分配
+
+完整契約見 `docs/architecture/external_review_workflow.md` 與 `docs/architecture/top10_harness_team.dashboard.json` 的 `external_review_workflow`。
+
+| 階段 | 負責 formal agent | 負責 harness / script | 說明 |
+| --- | --- | --- | --- |
+| 包 packet | `external_review_harness` | `com.new-top10.external-review` → `run_external_review_host_runner.py` | daily OK 後才產生 verified packet；manifest 永遠不外送。 |
+| 送 ChatGPT | `ai_review_adapter` | 同一個 host runner → `review_chatgpt_chrome.sh` | 固定 `TOP10 External Review - ChatGPT PROD`，不是獨立排程。 |
+| 送 Gemini | `ai_review_adapter` | 同一個 host runner → `review_gemini_chrome.sh` | 固定 `TOP10 External Review - Gemini PROD`，不是獨立排程。 |
+| 驗證與合併 | `disagreement_next_actions` | `build_external_review_summary.py` / `verify_external_review_summary.py` | 只產生分歧、人工複核與研究題目，不改 ranking。 |
+| 研究交接 | `fog_map` | `run_top10_fog_map_handoff.py` | 把外部檢核分歧變成迷霧訊號與研究 queue。 |
+| 工作回報 | `ops_reporter` | `build_top10_ops_progress_message.py` / `send_top10_ops_report.py` | 送工作進度頻道，回報文字必須是中文。 |
+
+成功條件：ChatGPT 與 Gemini 正式 raw response 都必須至少 500 字、不得是 smoke marker，且 normalize / contract verify 通過。任何 provider 失敗都不得被補成假成功；單一 provider 成功只能是 `PARTIAL`，兩個都失敗就是 `FAILED`。
+
 ### `scripts/run_fog_research_worker.sh`
 **功能**: 受 harness 管控的 burn-down 研究 worker；launchd 每 15 分鐘觸發一次，但同一時間只允許一個 lock。每次啟動最多連跑 6 批或 2 小時，先消費本地白名單 research quota，刷新 Fog Map；若 research queue 空，會在同一個 lock 裡接著執行 representative replay drain，append run_history，重建 controlled-grid linkage，再刷新 Fog Map。它不送 ChatGPT/Gemini、不改 ranking/model、不取代 17:50 external-review handoff。
 
