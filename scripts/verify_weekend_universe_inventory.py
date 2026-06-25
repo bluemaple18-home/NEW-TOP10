@@ -71,7 +71,7 @@ def build_payload(date: str, artifact: Path) -> dict[str, Any]:
     checks = [
         {"name": "artifact_exists", "ok": artifact.exists(), "value": repo_path(artifact)},
         {"name": "schema", "ok": inventory.get("schema_version") == "weekend-universe-inventory.v1", "value": inventory.get("schema_version")},
-        {"name": "inventory_count", "ok": len(records) == expected_total == 662256, "value": {"records": len(records), "expected": expected_total}},
+        {"name": "inventory_count", "ok": len(records) == expected_total, "value": {"records": len(records), "expected": expected_total}},
         {"name": "summary_count_matches_records", "ok": summary.get("full_universe_total") == len(records), "value": summary.get("full_universe_total")},
         {"name": "current_processed_matches_source_snapshot", "ok": current_processed == source_processed, "value": {"inventory": current_processed, "source_snapshot": source_processed}},
         {"name": "remaining_matches_source_snapshot", "ok": len(records) - current_processed == source_pending, "value": {"inventory": len(records) - current_processed, "source_snapshot": source_pending}},

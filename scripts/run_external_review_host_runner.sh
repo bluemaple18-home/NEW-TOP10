@@ -66,6 +66,18 @@ ARGS=(
   --poll-seconds "${TOP10_EXTERNAL_REVIEW_POLL_SECONDS:-60}"
 )
 
+PROVIDER_MODE="${TOP10_EXTERNAL_REVIEW_PROVIDER_MODE:-browser}"
+ARGS+=(--provider-mode "$PROVIDER_MODE")
+
+if [ "${TOP10_EXTERNAL_REVIEW_DRY_RUN_PROVIDER_API:-0}" = "1" ]; then
+  ARGS+=(--dry-run-provider-api)
+fi
+
+CHATGPT_URL_PART="${TOP10_CHATGPT_URL_PART:-chatgpt.com/g/g-p-6a1ff7db268881918957ff493f2a915b/c/6a38ae69-0660-83ee-91ff-1777ae00688f}"
+GEMINI_URL_PART="${TOP10_GEMINI_URL_PART:-gemini.google.com/app/ea58b54eef550ded}"
+export TOP10_CHATGPT_URL_PART="$CHATGPT_URL_PART"
+export TOP10_GEMINI_URL_PART="$GEMINI_URL_PART"
+
 if [ "${TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT:-0}" = "1" ]; then
   ARGS+=(--skip-provider-submit)
 fi
@@ -86,10 +98,14 @@ echo "========================================" | tee -a "$LOG_FILE"
 echo "external review host runner start - $(date)" | tee -a "$LOG_FILE"
 echo "run_date: $RUN_DATE" | tee -a "$LOG_FILE"
 echo "runtime: $RUNTIME_LABEL" | tee -a "$LOG_FILE"
+echo "provider_mode: $PROVIDER_MODE" | tee -a "$LOG_FILE"
+echo "dry_run_provider_api: ${TOP10_EXTERNAL_REVIEW_DRY_RUN_PROVIDER_API:-0}" | tee -a "$LOG_FILE"
 echo "skip_provider_submit: ${TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT:-0}" | tee -a "$LOG_FILE"
 echo "allow_existing_daily_artifacts: ${TOP10_EXTERNAL_REVIEW_ALLOW_EXISTING_DAILY_ARTIFACTS:-0}" | tee -a "$LOG_FILE"
 echo "skip_fog_map_handoff: ${TOP10_SKIP_FOG_MAP_HANDOFF:-0}" | tee -a "$LOG_FILE"
 echo "skip_research_quota: ${TOP10_SKIP_RESEARCH_QUOTA:-0}" | tee -a "$LOG_FILE"
+echo "chatgpt_url_part: $CHATGPT_URL_PART" | tee -a "$LOG_FILE"
+echo "gemini_url_part: $GEMINI_URL_PART" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e

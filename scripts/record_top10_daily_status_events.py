@@ -261,7 +261,7 @@ def anomaly_event(
         artifacts_dir=artifacts_dir,
         missing_status=upstream_missing_status(str(status.get("status") or "FAILED").upper(), step_map, "decision.quality"),
         missing_reason="anomaly/circuit breaker checks did not complete",
-        next_action="keep publish blocked until decision_quality or postcheck evidence exists",
+        next_action="review decision_quality/postcheck warning before relying on publish or external review",
     )
 
 

@@ -8,6 +8,17 @@ set -e
 # 切換到專案目錄
 cd "$(dirname "$0")/.."
 PROJECT_DIR=$(pwd)
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+PYTHON_BIN="${TOP10_DAILY_PYTHON:-$PROJECT_DIR/.venv/bin/python}"
+RUNNER_CMD=()
+if [ -x "$PYTHON_BIN" ]; then
+    RUNNER_CMD=("$PYTHON_BIN")
+elif command -v uv >/dev/null 2>&1; then
+    RUNNER_CMD=("uv" "run" "--with-requirements" "requirements.txt" "python")
+else
+    echo "❌ python runtime not found; expected $PYTHON_BIN or install uv" >&2
+    exit 127
+fi
 
 # 日誌目錄
 LOG_DIR="$PROJECT_DIR/logs"
@@ -89,9 +100,9 @@ echo "========================================" | tee -a "$LOG_FILE"
 
 set +e
 if [ "$MODE" = "readiness" ]; then
-    COMMAND=(uv run --with-requirements requirements.txt python scripts/verify_training_automation_readiness.py)
+    COMMAND=("${RUNNER_CMD[@]}" scripts/verify_training_automation_readiness.py)
 else
-    COMMAND=(uv run --with-requirements requirements.txt python -m scripts.run_automation "$MODE" --trigger "$TRIGGER")
+    COMMAND=("${RUNNER_CMD[@]}" -m scripts.run_automation "$MODE" --trigger "$TRIGGER")
 fi
 if [ "$DRY_RUN" = true ] && [ "$MODE" != "readiness" ]; then
     COMMAND+=(--dry-run)
@@ -100,7 +111,14 @@ fi
 RUN_EXIT_CODE=$?
 set -e
 
-STATUS_PATH="$PROJECT_DIR/artifacts/automation_status.json"
+case "$MODE" in
+    monitor|retrain|status|reference)
+        STATUS_PATH="$PROJECT_DIR/artifacts/${MODE}_automation_status.json"
+        ;;
+    *)
+        STATUS_PATH="$PROJECT_DIR/artifacts/automation_status.json"
+        ;;
+esac
 
 echo "" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
@@ -124,7 +142,7 @@ else
 fi
 
 set +e
-STATUS_OUTPUT="$(uv run --with-requirements requirements.txt python "${STATUS_ARGS[@]}" 2>&1)"
+STATUS_OUTPUT="$("${RUNNER_CMD[@]}" "${STATUS_ARGS[@]}" 2>&1)"
 STATUS_EXIT_CODE=$?
 set -e
 

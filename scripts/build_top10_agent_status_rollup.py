@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--artifacts-dir", default=ARTIFACTS_DIR, type=Path)
     parser.add_argument("--manifest", default=DEFAULT_MANIFEST_PATH, type=Path)
     parser.add_argument("--output", default=None, type=Path)
+    parser.add_argument("--no-latest", action="store_true", help="只寫指定 run_id rollup，不覆蓋 latest_rollup.json")
     return parser.parse_args()
 
 
@@ -45,8 +46,9 @@ def main() -> int:
     output = resolve(args.output) if args.output else artifacts_dir / "harness_status" / args.run_date / run_id / "rollup.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(rollup, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    latest = artifacts_dir / "harness_status" / args.run_date / "latest_rollup.json"
-    latest.write_text(json.dumps(rollup, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if not args.no_latest:
+        latest = artifacts_dir / "harness_status" / args.run_date / "latest_rollup.json"
+        latest.write_text(json.dumps(rollup, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"status": rollup["status"], "output": repo_path(output), "failed_count": rollup["summary"]["failed_count"]}, ensure_ascii=False))
     return 0 if rollup["status"] not in {"failed", "blocked"} else 1
 

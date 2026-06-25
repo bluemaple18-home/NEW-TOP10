@@ -63,6 +63,29 @@ def host_runner_status_path(date: str) -> Path:
 
 
 def controlled_grid_drain_summary(date: str) -> dict[str, Any]:
+    path = controlled_grid_drain_path(date)
+    payload = read_json(path)
+    if payload.get("runner_mode") == "linkage_only":
+        gates = payload.get("gates") if isinstance(payload.get("gates"), dict) else {}
+        queue = gates.get("queue_contract") if isinstance(gates.get("queue_contract"), dict) else {}
+        inventory_summary = queue.get("inventory_summary") if isinstance(queue.get("inventory_summary"), dict) else {}
+        queue_summary = queue.get("queue_summary") if isinstance(queue.get("queue_summary"), dict) else {}
+        micro = gates.get("micro_batch") if isinstance(gates.get("micro_batch"), dict) else {}
+        resume = gates.get("unattended_resume") if isinstance(gates.get("unattended_resume"), dict) else {}
+        return {
+            "source": repo_path(path),
+            "status": payload.get("status"),
+            "controlled_grid_drain_ready": payload.get("controlled_grid_drain_ready"),
+            "baseline_alias": payload.get("baseline_alias"),
+            "baseline_blocker_cleared": inventory_summary.get("baseline_blocker_cleared"),
+            "no_replay_required_after_alias": inventory_summary.get("no_replay_required_after_alias"),
+            "representative_replay_count": queue_summary.get("representative_replay_count"),
+            "micro_batch_status": micro.get("status"),
+            "unattended_resume_status": resume.get("status"),
+            "target_production_path_created": payload.get("target_production_path_created"),
+            "production_impact": payload.get("production_impact"),
+        }
+
     unattended_path = unattended_run_path(date)
     unattended = read_json(unattended_path)
     if unattended:
@@ -88,8 +111,6 @@ def controlled_grid_drain_summary(date: str) -> dict[str, Any]:
             "production_impact": unattended.get("production_impact") or PRODUCTION_IMPACT,
         }
 
-    path = controlled_grid_drain_path(date)
-    payload = read_json(path)
     gates = payload.get("gates") if isinstance(payload.get("gates"), dict) else {}
     queue = gates.get("queue_contract") if isinstance(gates.get("queue_contract"), dict) else {}
     inventory_summary = queue.get("inventory_summary") if isinstance(queue.get("inventory_summary"), dict) else {}

@@ -1292,9 +1292,7 @@ class AutomationRunner:
 
     def _write_status(self) -> None:
         self.status.finished_at = self._now()
-        status_path = STATUS_PATH
-        if self.dry_run:
-            status_path = STATUS_PATH.with_name(f"{STATUS_PATH.stem}_dry_run{STATUS_PATH.suffix}")
+        status_path = self._status_output_path()
         status_path.parent.mkdir(parents=True, exist_ok=True)
         payload = asdict(self.status)
         status_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1312,6 +1310,16 @@ class AutomationRunner:
                 json.dumps(self._automation_summary_payload(payload), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+
+    def _status_output_path(self) -> Path:
+        """daily 狀態是下游 publish / external-review 的契約；其他模式不能覆蓋。"""
+        if self.mode == "daily":
+            status_path = STATUS_PATH
+        else:
+            status_path = STATUS_PATH.with_name(f"{self.mode}_automation_status{STATUS_PATH.suffix}")
+        if self.dry_run:
+            status_path = STATUS_PATH.with_name(f"{STATUS_PATH.stem}_dry_run{STATUS_PATH.suffix}")
+        return status_path
 
     def _daily_summary_payload(self, status_payload: dict[str, Any]) -> dict[str, Any]:
         return self._automation_summary_payload(status_payload)

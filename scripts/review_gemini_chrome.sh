@@ -9,7 +9,7 @@ mkdir -p "$OUT_DIR"
 MODE="probe"
 PACKET_FILE=""
 DATE_TEXT=""
-URL_PART="${TOP10_GEMINI_URL_PART:-gemini.google.com/app}"
+URL_PART="${TOP10_GEMINI_URL_PART:-gemini.google.com/app/ea58b54eef550ded}"
 EXPECTED_TITLE="${TOP10_GEMINI_EXPECTED_TITLE:-}"
 EXPECTED_ACCOUNT="${TOP10_GEMINI_EXPECTED_ACCOUNT:-}"
 EXPECTED_PLAN="${TOP10_GEMINI_EXPECTED_PLAN:-}"
@@ -29,7 +29,7 @@ Usage:
   bash scripts/review_gemini_chrome.sh collect --date YYYY-MM-DD --packet artifacts/external_review/YYYY-MM-DD/review_packet_YYYY-MM-DD.json
 
 Environment:
-  TOP10_GEMINI_URL_PART        Chrome tab URL marker. Default: gemini.google.com/app
+  TOP10_GEMINI_URL_PART        Chrome tab URL marker. Default: current TOP10 Gemini conversation id.
   TOP10_GEMINI_EXPECTED_TITLE  Optional visible title guard, e.g. 盤後選股檢討報告
   TOP10_GEMINI_EXPECTED_ACCOUNT Optional visible account guard, e.g. 風17 一年
   TOP10_GEMINI_EXPECTED_PLAN   Optional visible plan guard, e.g. Pro
@@ -313,20 +313,50 @@ write_submit_js() {
   const sendSelectors = [
     "button[aria-label*='Send message']",
     "button[aria-label*='Send']",
+    "button[aria-label*='Submit']",
     "button[aria-label*='傳送訊息']",
     "button[aria-label*='傳送']",
     "button[aria-label*='送出']",
+    "button[aria-label*='提交']",
     "button.send-button"
   ];
-  const sendButton = sendSelectors.map((selector) => document.querySelector(selector)).find(visible)
-    || Array.from(document.querySelectorAll("button")).filter(visible).slice(-1)[0];
+  const isStopButton = (button) => /stop|停止/i.test(`${button.getAttribute("aria-label") || ""} ${button.innerText || ""}`);
+  const selectorSendButton = sendSelectors
+    .map((selector) => document.querySelector(selector))
+    .find((button) => visible(button) && !button.disabled && !isStopButton(button));
+  const fallbackSendButton = Array.from(document.querySelectorAll("button"))
+    .find((button) => visible(button)
+      && !button.disabled
+      && !isStopButton(button)
+      && /send|submit|傳送|送出|提交/i.test(`${button.getAttribute("aria-label") || ""} ${button.innerText || ""}`));
+  const sendButton = selectorSendButton || fallbackSendButton;
+  const stopButton = Array.from(document.querySelectorAll("button"))
+    .find((button) => visible(button) && !button.disabled && isStopButton(button));
+  if (!sendButton && stopButton) {
+    return JSON.stringify({
+      ok: true,
+      mode: "submit",
+      submitted: true,
+      reason: "generation_already_started",
+      title: document.title,
+      url: location.href
+    });
+  }
   if (!sendButton) {
     return JSON.stringify({
       ok: false,
       mode: "submit",
       reason: "send_button_not_found",
       title: document.title,
-      url: location.href
+      url: location.href,
+      visible_buttons: Array.from(document.querySelectorAll("button"))
+        .filter(visible)
+        .slice(-12)
+        .map((button) => ({
+          text: (button.innerText || button.textContent || "").trim(),
+          aria: button.getAttribute("aria-label"),
+          disabled: button.disabled
+        }))
     });
   }
   sendButton.click();
@@ -362,6 +392,9 @@ write_collect_js() {
         response = response.slice(0, index).trim();
       }
     }
+    if (response === "Flash" || response.startsWith("你停止了這則回覆") || response.startsWith("You stopped this response")) {
+      return "";
+    }
     return response;
   };
   const transcriptResponses = bodyText.split(userSaidMarker).slice(1).map((segment) => {
@@ -370,10 +403,6 @@ write_collect_js() {
     }
     return cleanResponse(segment.split(geminiSaidMarker).pop());
   }).filter(Boolean);
-  const matchingTranscriptResponse = collectContains
-    ? transcriptResponses.filter((text) => text.includes(collectContains)).pop() || ""
-    : "";
-  const latestTranscriptResponse = matchingTranscriptResponse || transcriptResponses[transcriptResponses.length - 1] || "";
   const responseSelectors = [
     "model-response",
     "[data-test-id='response']",
@@ -393,8 +422,18 @@ write_collect_js() {
     })
     .map((node) => textOf(node))
     .filter((text) => text.length > 40);
+  const cleanVisibleResponses = visibleResponses.map(cleanResponse).filter(Boolean);
+  const matchingTranscriptResponse = collectContains
+    ? transcriptResponses.filter((text) => text.includes(collectContains)).pop() || ""
+    : "";
+  const matchingVisibleResponse = collectContains
+    ? cleanVisibleResponses.filter((text) => text.includes(collectContains)).pop() || ""
+    : "";
+  const latestTranscriptResponse = collectContains
+    ? matchingTranscriptResponse
+    : transcriptResponses[transcriptResponses.length - 1] || "";
   const lastAssistant = visibleResponses[visibleResponses.length - 1] || "";
-  const rawResponse = latestTranscriptResponse || lastAssistant;
+  const rawResponse = latestTranscriptResponse || matchingVisibleResponse || (collectContains ? "" : cleanResponse(lastAssistant));
   return JSON.stringify({
     ok: Boolean(rawResponse),
     mode: "collect",

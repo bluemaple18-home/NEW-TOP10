@@ -16,8 +16,11 @@ echo "LaunchAgents: $LAUNCH_AGENTS_DIR"
 echo ""
 echo "將設定以下排程:"
 echo "  1. 每日 17:30 - 執行 ETL + 選股 + Clawd-ready payload；週末由 daily gate 跳過"
-echo "  2. 每日 02:00 - PSI 漂移監控"
-echo "  3. 每月 1 日 03:30 - Reference sources 更新"
+echo "  2. 每日 17:40 - 外部 AI review provider preflight；只檢查瀏覽器 session，不送 packet"
+echo "  3. 每日 17:50 - 外部 AI review + Fog Map / Research Worker harness handoff"
+echo "  4. 每 15 分鐘 - Fog Map / Research Worker burn-down worker；lock 會避免重疊"
+echo "  5. 每日 02:00 - PSI 漂移監控"
+echo "  6. 每月 1 日 03:30 - Reference sources 更新"
 echo ""
 read -p "確認繼續? (y/n): " confirm
 
@@ -34,6 +37,14 @@ mkdir -p "$PROJECT_DIR/logs"
 echo ""
 echo "📝 設定 plist 檔案..."
 
+# 舊 controlled-grid-drain 入口只重建 linkage artifacts，正式迷霧交接已併入 external-review harness。
+LEGACY_CONTROLLED_GRID_DRAIN_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.controlled-grid-drain.plist"
+if [ -e "$LEGACY_CONTROLLED_GRID_DRAIN_PLIST" ]; then
+    launchctl unload "$LEGACY_CONTROLLED_GRID_DRAIN_PLIST" 2>/dev/null || true
+    rm -f "$LEGACY_CONTROLLED_GRID_DRAIN_PLIST"
+    echo "✅ 已移除 legacy controlled-grid-drain 排程: $LEGACY_CONTROLLED_GRID_DRAIN_PLIST"
+fi
+
 # Daily plist
 DAILY_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.daily.plist"
 sed "s|__PROJECT_DIR__|$PROJECT_DIR|g" "$PROJECT_DIR/scripts/com.new-top10.daily.plist" > "$DAILY_PLIST"
@@ -43,6 +54,20 @@ echo "✅ 已建立: $DAILY_PLIST"
 RETRAIN_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.retrain.plist"
 sed "s|__PROJECT_DIR__|$PROJECT_DIR|g" "$PROJECT_DIR/scripts/com.new-top10.retrain.plist" > "$RETRAIN_PLIST"
 echo "✅ 已建立: $RETRAIN_PLIST"
+
+# External review / fog map handoff plist
+EXTERNAL_REVIEW_PREFLIGHT_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.external-review-preflight.plist"
+sed "s|__PROJECT_DIR__|$PROJECT_DIR|g" "$PROJECT_DIR/scripts/com.new-top10.external-review-preflight.plist" > "$EXTERNAL_REVIEW_PREFLIGHT_PLIST"
+echo "✅ 已建立: $EXTERNAL_REVIEW_PREFLIGHT_PLIST"
+
+EXTERNAL_REVIEW_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.external-review.plist"
+sed "s|__PROJECT_DIR__|$PROJECT_DIR|g" "$PROJECT_DIR/scripts/com.new-top10.external-review.plist" > "$EXTERNAL_REVIEW_PLIST"
+echo "✅ 已建立: $EXTERNAL_REVIEW_PLIST"
+
+# Fog research worker plist
+FOG_RESEARCH_WORKER_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.fog-research-worker.plist"
+sed "s|__PROJECT_DIR__|$PROJECT_DIR|g" "$PROJECT_DIR/scripts/com.new-top10.fog-research-worker.plist" > "$FOG_RESEARCH_WORKER_PLIST"
+echo "✅ 已建立: $FOG_RESEARCH_WORKER_PLIST"
 
 # Reference plist
 REFERENCE_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.reference.plist"
@@ -59,6 +84,18 @@ echo "✅ 每日執行排程已載入"
 launchctl unload "$RETRAIN_PLIST" 2>/dev/null || true
 launchctl load "$RETRAIN_PLIST"
 echo "✅ 每日 PSI 監控排程已載入"
+
+launchctl unload "$EXTERNAL_REVIEW_PREFLIGHT_PLIST" 2>/dev/null || true
+launchctl load "$EXTERNAL_REVIEW_PREFLIGHT_PLIST"
+echo "✅ 外部 review provider preflight 排程已載入"
+
+launchctl unload "$EXTERNAL_REVIEW_PLIST" 2>/dev/null || true
+launchctl load "$EXTERNAL_REVIEW_PLIST"
+echo "✅ 外部 review / Fog Map handoff 排程已載入"
+
+launchctl unload "$FOG_RESEARCH_WORKER_PLIST" 2>/dev/null || true
+launchctl load "$FOG_RESEARCH_WORKER_PLIST"
+echo "✅ Fog Map / Research Worker 受控研究排程已載入"
 
 launchctl unload "$REFERENCE_PLIST" 2>/dev/null || true
 launchctl load "$REFERENCE_PLIST"
@@ -77,6 +114,9 @@ echo "✨ 安裝完成！"
 echo "========================================="
 echo "排程將在以下時間自動執行:"
 echo "  • 每日 17:30 - ETL + 選股 + Clawd-ready payload；週末由 daily gate 跳過"
+echo "  • 每日 17:40 - 外部 AI review provider preflight；只檢查瀏覽器 session，不送 packet"
+echo "  • 每日 17:50 - 外部 AI review + Fog Map / Research Worker harness handoff"
+echo "  • 每 15 分鐘 - Fog Map / Research Worker burn-down worker；lock 會避免重疊"
 echo "  • 每日 02:00 - PSI 漂移監控"
 echo "  • 每月 1 日 03:30 - Reference sources 更新"
 echo ""

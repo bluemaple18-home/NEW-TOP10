@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import shlex
 import subprocess
 import sys
@@ -57,7 +59,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-provider-submit",
         action="store_true",
-        help="不呼叫 browser/Clawd adapter，只使用已存在 raw 檔做 normalize/verify",
+        help="不呼叫 provider adapter，只使用已存在 raw 檔做 normalize/verify",
+    )
+    parser.add_argument(
+        "--provider-mode",
+        choices=["api", "browser"],
+        default=os.environ.get("TOP10_EXTERNAL_REVIEW_PROVIDER_MODE", "browser"),
+        help="provider 主幹模式；正式預設 browser，api 僅作明確切換的備援",
+    )
+    parser.add_argument(
+        "--dry-run-provider-api",
+        action="store_true",
+        help="provider-mode=api 時不外送，產生合法 fixture raw 以驗證整段 harness",
     )
     parser.add_argument("--skip-fog-map-handoff", action="store_true", help="不執行 harness 迷霧地圖交接節點")
     parser.add_argument("--skip-research-quota", action="store_true", help="Fog Map handoff 只刷新地圖，不跑研究 quota")
@@ -183,6 +196,8 @@ def main() -> int:
                 packet_path=packet_path,
                 artifacts_dir=artifacts_dir,
                 skip_submit=args.skip_provider_submit,
+                provider_mode=args.provider_mode,
+                dry_run_provider_api=args.dry_run_provider_api,
                 command_template=args.chatgpt_command if provider == "chatgpt" else args.gemini_command,
             )
             status[provider] = provider_status
@@ -317,6 +332,7 @@ def provider_defaults(provider: str, run_date: str, artifacts_dir: Path, *, enab
         "raw_path": repo_relative(review_dir / f"{provider}_raw_{run_date}.txt"),
         "response_path": repo_relative(review_dir / f"{provider}_response_{run_date}.json"),
         "collect_status_path": repo_relative(review_dir / f"{provider}_collect_status_{run_date}.json"),
+        "provider_mode": None,
         "command": None,
         "exit_code": None,
         "notes": [] if enabled else ["provider not selected"],
@@ -325,9 +341,9 @@ def provider_defaults(provider: str, run_date: str, artifacts_dir: Path, *, enab
 
 def provider_target(provider: str) -> str:
     if provider == "chatgpt":
-        return "TOP10_CHATGPT_URL_PART or configured ChatGPT project marker"
+        return "TOP10_CHATGPT_URL_PART browser provider or OpenAI API fallback"
     if provider == "gemini":
-        return "TOP10_GEMINI_URL_PART exact Gemini conversation marker"
+        return "TOP10_GEMINI_URL_PART browser provider or Gemini API fallback"
     return provider
 
 
@@ -344,11 +360,16 @@ def wait_for_daily_ok(
     deadline = time.monotonic() + max(wait_seconds, 0)
     while True:
         automation_status = read_json_if_exists(artifacts_dir / "automation_status.json")
-        ok = automation_status.get("status") == "OK" and automation_status.get("run_date") == run_date
+        ok = (
+            automation_status.get("status") == "OK"
+            and automation_status.get("run_date") == run_date
+            and automation_status.get("mode") == "daily"
+        )
         status["daily_status_path"] = repo_relative(artifacts_dir / "automation_status.json")
         status["daily_status_snapshot"] = {
             "status": automation_status.get("status"),
             "run_date": automation_status.get("run_date"),
+            "mode": automation_status.get("mode"),
         }
         if ok:
             validate_daily_artifacts(artifacts_dir, run_date)
@@ -387,16 +408,47 @@ def run_provider(
     packet_path: Path,
     artifacts_dir: Path,
     skip_submit: bool,
+    provider_mode: str,
+    dry_run_provider_api: bool,
     command_template: str,
 ) -> dict[str, Any]:
     state = provider_defaults(provider, run_date, artifacts_dir, enabled=True)
     review_dir = artifacts_dir / "external_review" / run_date
     raw_path = review_dir / f"{provider}_raw_{run_date}.txt"
     response_path = review_dir / f"{provider}_response_{run_date}.json"
+    state["provider_mode"] = provider_mode
 
     try:
         if not skip_submit:
-            command = render_command(command_template, run_date, packet_path)
+            if provider_mode == "api":
+                command = [
+                    python_bin(),
+                    "scripts/external_review_api_provider.py",
+                    "--provider",
+                    provider,
+                    "--date",
+                    run_date,
+                    "--packet",
+                    str(packet_path),
+                    "--artifacts-dir",
+                    str(artifacts_dir / "external_review"),
+                ]
+                if dry_run_provider_api:
+                    command.append("--dry-run")
+                state["preflight"] = {
+                    "status": "OK",
+                    "reason": None,
+                    "mode": "api",
+                    "dry_run": dry_run_provider_api,
+                }
+            else:
+                preflight = run_provider_preflight(provider=provider, command_template=command_template)
+                state["preflight"] = preflight
+                if preflight.get("status") != "OK":
+                    state["status"] = "FAILED"
+                    state["notes"].append(f"provider_preflight_failed: {preflight.get('reason')}")
+                    return state
+                command = render_command(command_template, run_date, packet_path)
             if any("manifest" in part for part in command):
                 raise RuntimeError(f"{provider}: refuse to run adapter command containing manifest")
             state["command"] = mask_command(command)
@@ -435,6 +487,75 @@ def run_provider(
         state["status"] = "FAILED"
         state["notes"].append(str(exc))
         return state
+
+
+def run_provider_preflight(*, provider: str, command_template: str) -> dict[str, Any]:
+    probe_command = provider_probe_command(command_template)
+    result = run_command(probe_command)
+    payload = parse_probe_payload(result.stdout)
+    reason = provider_preflight_reason(provider=provider, result=result, payload=payload)
+    return {
+        "status": "OK" if reason is None else "FAILED",
+        "reason": reason,
+        "command": mask_command(probe_command),
+        "exit_code": result.exit_code,
+        "url": payload.get("url"),
+        "title": payload.get("title"),
+        "has_composer": payload.get("hasComposer"),
+        "has_send_button": payload.get("hasSendButton"),
+        "body_sample": str(payload.get("bodySample") or "")[-500:],
+        "stderr_tail": result.stderr[-1000:],
+    }
+
+
+def provider_probe_command(command_template: str) -> list[str]:
+    command = render_command(command_template, "__probe__", Path("__probe_packet__.json"))
+    filtered: list[str] = []
+    skip_next = False
+    for part in command:
+        if skip_next:
+            skip_next = False
+            continue
+        if part in {"--date", "--packet"}:
+            skip_next = True
+            continue
+        filtered.append(part)
+    filtered.append("probe")
+    return filtered
+
+
+def parse_probe_payload(stdout: str) -> dict[str, Any]:
+    for line in stdout.splitlines():
+        text = line.strip()
+        if not text.startswith("{"):
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return {}
+
+
+def provider_preflight_reason(*, provider: str, result: CommandResult, payload: dict[str, Any]) -> str | None:
+    if result.exit_code != 0:
+        return "probe_command_failed"
+    if not payload:
+        return "probe_payload_missing"
+    body_sample = str(payload.get("bodySample") or "")
+    lower_body = body_sample.lower()
+    if "工作階段已過期" in body_sample or "請重新登入" in body_sample or "session has expired" in lower_body:
+        return "session_expired"
+    if payload.get("ok") is not True:
+        return str(payload.get("reason") or "probe_not_ok")
+    if payload.get("hasComposer") is not True:
+        return "composer_missing"
+    if provider == "gemini":
+        url = str(payload.get("url") or "")
+        if not re.search(r"gemini\.google\.com/app/[^/?#]+", url):
+            return "gemini_conversation_id_missing"
+    return None
 
 
 def render_command(template: str, run_date: str, packet_path: Path) -> list[str]:

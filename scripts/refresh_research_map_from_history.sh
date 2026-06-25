@@ -12,4 +12,13 @@ RUN_DATE="${TOP10_RESEARCH_DATE:-$(date +%F)}"
 
 "$PYTHON_BIN" scripts/build_research_campaign_progress.py --date "$RUN_DATE"
 "$PYTHON_BIN" scripts/build_research_fog_map.py --date "$RUN_DATE"
-"$PYTHON_BIN" scripts/verify_research_fog_map.py --date "$RUN_DATE"
+
+# Fog map verification depends on burn-down totals from the controlled-grid
+# linkage rollup. Rebuild that linkage after the preliminary map refresh so
+# inventory/queue/rollup use the latest run_history and topic registry before
+# the final map verification.
+if [ -f scripts/run_controlled_grid_drain_host_runner.py ]; then
+  "$PYTHON_BIN" scripts/run_controlled_grid_drain_host_runner.py --date "$RUN_DATE"
+else
+  "$PYTHON_BIN" scripts/verify_research_fog_map.py --date "$RUN_DATE"
+fi

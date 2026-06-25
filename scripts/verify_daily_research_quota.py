@@ -63,9 +63,13 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
     }
     allowed_scripts = {"scripts/run_backtest_strategy_matrix.py", "scripts/compare_strategy_matrices.py"}
     decisions = [(run.get("outcome") or {}).get("decision") for run in topic_runs]
+    outcome = payload.get("outcome") if isinstance(payload.get("outcome"), dict) else {}
+    queue_empty = inputs.get("from_queue") is True and outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs
     followup_count = sum(1 for decision in decisions if decision in FOLLOWUP_DECISIONS)
     rejection_count = sum(1 for decision in decisions if decision in REJECTION_DECISIONS)
-    if followup_count > 0:
+    if queue_empty:
+        research_value_status = "QUEUE_EMPTY"
+    elif followup_count > 0:
         research_value_status = "HAS_FOLLOWUP_SIGNAL"
     elif topic_runs and rejection_count == len(topic_runs):
         research_value_status = "PURE_REJECTION_EVIDENCE"
@@ -84,8 +88,14 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
         {"name": "quota_configured", "ok": int(inputs.get("execute_topic_count") or 0) >= min_quota, "value": inputs.get("execute_topic_count")},
         {
             "name": "selected_topic_count_meets_daily_quota",
-            "ok": len(selected_topics) >= min_quota and len(topic_runs) >= min_quota,
-            "value": {"topic_runs": len(topic_runs), "selected_topics": len(selected_topics), "min_quota": min_quota},
+            "ok": queue_empty or (len(selected_topics) >= min_quota and len(topic_runs) >= min_quota),
+            "value": {
+                "topic_runs": len(topic_runs),
+                "selected_topics": len(selected_topics),
+                "min_quota": min_quota,
+                "queue_empty": queue_empty,
+                "outcome_decision": outcome.get("decision"),
+            },
         },
         {
             "name": "research_only_contract",

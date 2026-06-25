@@ -38,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-refresh", action="store_true", help="只寫 skipped event，不刷新迷霧地圖")
     parser.add_argument("--skip-reason", default=None)
     parser.add_argument("--skip-research-quota", action="store_true", help="只刷新迷霧地圖，不跑每日研究 quota")
+    parser.add_argument("--use-existing-research-quota", action="store_true", help="驗證並消費既有每日研究 quota artifact，不重跑 quota")
     parser.add_argument("--research-quota", default=os.environ.get("TOP10_RESEARCH_QUOTA", "5"))
     return parser.parse_args()
 
@@ -102,11 +103,28 @@ def main() -> int:
                 next_action="run without --skip-research-quota when continuous research is expected",
                 metrics={"research_quota_attempted": False, "quota": args.research_quota},
             )
-            refresh_commands = [
-                [python_bin(), "scripts/build_research_campaign_progress.py", "--date", run_date],
-                [python_bin(), "scripts/build_research_fog_map.py", "--date", run_date],
-            ]
-            results = [run_checked(command) for command in refresh_commands]
+            results = [refresh_research_map(run_date=run_date)]
+        elif args.use_existing_research_quota:
+            research_result = verify_existing_research_quota(run_date=run_date, quota=args.research_quota)
+            write_research_worker_event(
+                artifacts_dir=artifacts_dir,
+                run_id=run_id,
+                run_date=run_date,
+                status="ok",
+                decision="pass",
+                started_at=started_at,
+                input_refs=input_refs,
+                artifact_paths=research_artifacts(artifacts_dir, run_date),
+                next_action=None,
+                metrics={
+                    "research_quota_attempted": False,
+                    "existing_research_quota_consumed": True,
+                    "quota": args.research_quota,
+                    "exit_code": research_result.exit_code,
+                    "command": mask_command(research_result.command),
+                },
+            )
+            results = [research_result, refresh_research_map(run_date=run_date)]
         else:
             research_result = run_research_quota(run_date=run_date, quota=args.research_quota)
             write_research_worker_event(
@@ -215,6 +233,27 @@ def run_research_quota(*, run_date: str, quota: str) -> CommandResult:
     env["TOP10_RESEARCH_QUOTA"] = quota
     env.setdefault("TOP10_REFRESH_RESEARCH_MAP", "1")
     return run_checked(["bash", "scripts/run_daily_research_quota.sh"], env=env)
+
+
+def verify_existing_research_quota(*, run_date: str, quota: str) -> CommandResult:
+    artifact = PROJECT_ROOT / "artifacts" / "autonomous_research" / f"autonomous_research_daily_quota_{run_date}.json"
+    return run_checked(
+        [
+            python_bin(),
+            "scripts/verify_daily_research_quota.py",
+            "--artifact",
+            str(artifact),
+            "--min-quota",
+            str(quota),
+        ]
+    )
+
+
+def refresh_research_map(*, run_date: str) -> CommandResult:
+    env = dict(os.environ)
+    env["TOP10_RESEARCH_DATE"] = run_date
+    env["TOP10_RESEARCH_PYTHON"] = python_bin()
+    return run_checked(["bash", "scripts/refresh_research_map_from_history.sh"], env=env)
 
 
 def run_checked(command: list[str], *, env: dict[str, str] | None = None) -> CommandResult:

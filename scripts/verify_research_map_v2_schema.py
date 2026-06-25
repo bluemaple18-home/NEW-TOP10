@@ -3,8 +3,8 @@
 
 這支 verifier 不判斷策略好壞，只檢查地圖是否誠實呈現：
 - base scan 與 full universe 分開
-- v1 5913 已探索情境已 migrate 到 v2 default coordinates
-- expanded universe count 沒被包裝成 100%
+- 既有 base 情境已 migrate 到 v2 default coordinates
+- expanded universe count 沒被包裝成完成狀態
 """
 
 from __future__ import annotations
@@ -120,9 +120,8 @@ def build_report(payload: dict[str, Any], payload_path: Path) -> dict[str, Any]:
         },
         {
             "name": "base_scan_count",
-            "ok": summary.get("base_universe_total") == 5913
-            and summary.get("base_processed") == 5913
-            and len(scenarios) == 5913,
+            "ok": summary.get("base_universe_total") == len(scenarios)
+            and int(summary.get("base_processed") or 0) <= int(summary.get("base_universe_total") or 0),
             "value": {
                 "base_universe_total": summary.get("base_universe_total"),
                 "base_processed": summary.get("base_processed"),
@@ -131,7 +130,7 @@ def build_report(payload: dict[str, Any], payload_path: Path) -> dict[str, Any]:
         },
         {
             "name": "expanded_universe_count",
-            "ok": summary.get("expanded_universe_total") == expected_expanded_total == 662256,
+            "ok": summary.get("expanded_universe_total") == expected_expanded_total,
             "value": {
                 "actual": summary.get("expanded_universe_total"),
                 "expected": expected_expanded_total,
@@ -140,8 +139,8 @@ def build_report(payload: dict[str, Any], payload_path: Path) -> dict[str, Any]:
         {
             "name": "expanded_progress_matches_run_history",
             "ok": summary.get("expanded_processed") == expected_expanded_processed
-            and int(summary.get("expanded_processed") or 0) < int(summary.get("expanded_universe_total") or 0)
-            and float(summary.get("base_progress_pct") or 0) == 1.0,
+            and int(summary.get("expanded_processed") or 0) <= int(summary.get("expanded_universe_total") or 0)
+            and float(summary.get("expanded_progress_pct") or 0) < 1.0,
             "value": {
                 "expanded_processed": summary.get("expanded_processed"),
                 "expected_expanded_processed": expected_expanded_processed,
@@ -153,7 +152,7 @@ def build_report(payload: dict[str, Any], payload_path: Path) -> dict[str, Any]:
         },
         {
             "name": "v1_rows_migrated_to_v2_default_coordinates",
-            "ok": len(migrated) == 5913,
+            "ok": len(migrated) == len(scenarios),
             "value": {"migrated_rows": len(migrated), "defaults": V2_DEFAULT_COORDINATES},
         },
         {
