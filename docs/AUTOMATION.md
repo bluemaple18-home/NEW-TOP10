@@ -97,12 +97,15 @@ TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT=1 bash scripts/run_external_review_ho
 repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.sh`。若只要產生日報與 Clawd-ready payload、不 live send，請手動跑 `scripts/run_daily.sh`。
 
 ### `scripts/run_external_review_host_runner.sh`
-**功能**: daily OK 後執行外部 review host harness；Clawd / browser adapter 只負責 provider submission 與 raw response，Top10 repo 負責 packet 安全、normalize、verify、summary 與證據。
+**功能**: daily OK 後執行外部 review host harness；正式主幹使用已登入的 ChatGPT / Gemini browser adapter 收 raw response，官方 API adapter 只保留作明確切換的備援。Top10 repo 負責 packet 安全、normalize、verify、summary 與證據。
 **流程**:
 1. 等待同日 `artifacts/automation_status.json` 為 `OK`，並確認 ranking / daily report / market context 同日存在。
 2. 產生並驗證 `artifacts/external_review/YYYY-MM-DD/review_packet_YYYY-MM-DD.json`。
 3. 明確拒送 `review_packet_manifest_YYYY-MM-DD.json`；manifest 只留本機 lineage。
-4. 呼叫 provider adapter：`scripts/review_chatgpt_chrome.sh` / `scripts/review_gemini_chrome.sh`，只允許送 verified packet/prompt。
+4. 呼叫 provider adapter：
+   - 預設 `TOP10_EXTERNAL_REVIEW_PROVIDER_MODE=browser`，使用 `scripts/review_chatgpt_chrome.sh` / `scripts/review_gemini_chrome.sh` 操作固定 conversation。
+   - browser 模式會先跑 provider preflight，偵測分頁、session expired、exact conversation id、composer 與 send button；任何 provider 失敗都會 fail-loud / partial，不假成功。
+   - `TOP10_EXTERNAL_REVIEW_PROVIDER_MODE=api` 僅作明確切換的備援，由 `scripts/external_review_api_provider.py` 呼叫 OpenAI / Gemini 官方 API；缺 key、API 失敗或回覆無法解析時，一樣寫入 host status / ops progress。
 5. 保存 raw response 後由 Top10 repo 執行 `normalize_external_review_response.py` 與 `verify_external_review_contract.py`。
 6. 建立並驗證 `external_review_summary_YYYY-MM-DD.json`；單一 provider 成功時保留 `PARTIAL` 與 `needs_human_review=true`。
 7. 寫出 `artifacts/host_runner/YYYY-MM-DD/host_runner_status_YYYY-MM-DD.json` 與 `host_runner_summary_YYYY-MM-DD.json`。
@@ -112,11 +115,33 @@ repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.s
 
 repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scripts/run_external_review_host_runner.sh`；它會自行等 daily OK，不會在 daily 失敗時送出外部 review。迷霧地圖與每日研究 quota 不再另開排程，改由這條 harness handoff 負責；需要暫停整段可設 `TOP10_SKIP_FOG_MAP_HANDOFF=1`，只除錯地圖可設 `TOP10_SKIP_RESEARCH_QUOTA=1`，但正式排程不應長期跳過。
 
+### `scripts/run_fog_research_worker.sh`
+**功能**: 受 harness 管控的 burn-down 研究 worker；launchd 每 15 分鐘觸發一次，但同一時間只允許一個 lock。每次啟動最多連跑 6 批或 2 小時，每批跑本地白名單 research quota，刷新 Fog Map，寫入 `research_worker` / `fog_map` events。它不送 ChatGPT/Gemini、不改 ranking/model、不取代 17:50 external-review handoff。
+
+**防空跑與防重疊**:
+1. 使用 `logs/fog_research_worker.lock`，同一時間只允許一個 worker；高頻 launchd 觸發不會造成重疊。
+2. 預設 `TOP10_RESEARCH_FROM_QUEUE=1`、`TOP10_RESEARCH_ALLOW_RERUN=0`，優先消費研究 queue，避免一直重跑同題。
+3. 預設 `TOP10_FOG_RESEARCH_MAX_BATCHES=6`、`TOP10_FOG_RESEARCH_MAX_SECONDS=7200`、`TOP10_FOG_RESEARCH_QUOTA=5`，catch-up 時會盡快消 queue，但保留停損上限。
+4. 每批都會驗證 `autonomous_research_daily_quota_YYYY-MM-DD.json` 與 `research_fog_map_latest.json`；驗證失敗就非 0 exit，不假成功。
+5. 只寫本地 artifacts 與 harness events；是否送 ops Discord 仍由 ops reporter/監控面決定，避免高頻 worker 洗頻。
+
+手動跑：
+
+```bash
+bash scripts/run_fog_research_worker.sh
+```
+
 手動驗證：
 
 ```bash
-# 真實 submit：會使用本機 Chrome / provider session
+# 真實 submit：預設 browser 主幹；需要 ChatGPT / Gemini 固定 conversation 已登入
 bash scripts/run_external_review_host_runner.sh
+
+# 官方 API 備援；需要 OPENAI_API_KEY 與 GEMINI_API_KEY / GOOGLE_API_KEY
+TOP10_EXTERNAL_REVIEW_PROVIDER_MODE=api bash scripts/run_external_review_host_runner.sh
+
+# 不外送，只驗證 API adapter -> raw -> normalize -> summary -> harness event
+TOP10_EXTERNAL_REVIEW_PROVIDER_MODE=api TOP10_EXTERNAL_REVIEW_DRY_RUN_PROVIDER_API=1 bash scripts/run_external_review_host_runner.sh
 
 # 不 submit，只用既有 raw 檔測 partial / summary path
 TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT=1 bash scripts/run_external_review_host_runner.sh

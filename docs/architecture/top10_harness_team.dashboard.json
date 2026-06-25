@@ -131,7 +131,7 @@
       "index": 10,
       "label": "AI Review Adapter Bot",
       "lane": "post_daily",
-      "responsibility": "分別送 ChatGPT/Gemini，收回標準格式。",
+      "responsibility": "以固定 browser conversation 分別送 ChatGPT/Gemini 並收回標準格式；官方 API 僅作明確切換備援。",
       "inputs": ["verified_review_packet"],
       "outputs": ["chatgpt_response", "gemini_response", "provider_collect_status"],
       "dashboard_metrics": ["status", "chatgpt_status", "gemini_status", "valid_provider_count", "invalid_providers"],
@@ -140,7 +140,7 @@
         "artifacts/external_review/{run_date}/chatgpt_response_{run_date}.json",
         "artifacts/external_review/{run_date}/gemini_response_{run_date}.json"
       ],
-      "stop_conditions": ["all_providers_failed", "provider_response_invalid"]
+      "stop_conditions": ["api_key_missing", "all_providers_failed", "provider_response_invalid"]
     },
     {
       "id": "disagreement_next_actions",
@@ -237,6 +237,57 @@
     "evidence_ledger",
     "ranking"
   ],
+  "owner_bot_mapping": [
+    {"owner_bot": "Harness Runner", "formal_agents": ["harness_runner"], "boundary": "run_id, lock, schedule"},
+    {"owner_bot": "Daily Pipeline Bot", "formal_agents": ["preflight", "data_etl", "data_quality_gate"], "boundary": "data readiness"},
+    {"owner_bot": "Ranking Bot", "formal_agents": ["ranking", "anomaly_circuit_breaker"], "boundary": "ranking and publish gate"},
+    {"owner_bot": "Daily Push Bot", "formal_agents": ["daily_push"], "boundary": "daily pick channel"},
+    {"owner_bot": "Outcome Tracker Bot", "formal_agents": ["outcome_tracker"], "boundary": "post-daily evidence"},
+    {"owner_bot": "External Review Bot", "formal_agents": ["external_review_harness", "ai_review_adapter", "disagreement_next_actions"], "boundary": "external AI disagreement"},
+    {"owner_bot": "Fog Map Bot", "formal_agents": ["fog_map"], "boundary": "research map and queue; linkage_ok is not replay progress"},
+    {"owner_bot": "Research Worker Bot", "formal_agents": ["research_worker"], "boundary": "daily quota and representative replay progress"},
+    {"owner_bot": "Ops Reporter Bot", "formal_agents": ["ops_reporter"], "boundary": "ops progress channel and next-run blockers"}
+  ],
+  "event_sources": [
+    {"agent_id": "harness_runner", "writer": "scripts/record_top10_daily_status_events.py", "source_artifacts": ["artifacts/automation_status.json"], "normal_wait": ["non-trading-day skipped", "dry-run skipped"], "missing_is_attention_when": "daily run triggered but automation_status is missing"},
+    {"agent_id": "preflight", "writer": "scripts/record_top10_daily_status_events.py", "source_artifacts": ["artifacts/automation_status.json"], "normal_wait": ["trading-day gate skipped"], "missing_is_attention_when": "daily run exists but preflight steps are missing"},
+    {"agent_id": "data_etl", "writer": "scripts/record_top10_daily_status_events.py", "source_artifacts": ["artifacts/automation_status.json", "dataset artifacts"], "normal_wait": ["preflight skipped or failed"], "missing_is_attention_when": "preflight passed but ETL step or snapshot is missing"},
+    {"agent_id": "data_quality_gate", "writer": "scripts/record_top10_daily_status_events.py", "source_artifacts": ["artifacts/automation_status.json", "dataset artifacts"], "normal_wait": ["ETL skipped or failed"], "missing_is_attention_when": "ETL passed but quality gate event is missing"},
+    {"agent_id": "ranking", "writer": "scripts/record_top10_daily_status_events.py", "source_artifacts": ["ranking_artifact", "expected_ranking_artifact"], "normal_wait": ["data_quality_gate did not pass"], "missing_is_attention_when": "quality gate passed but ranking artifact/event is missing"},
+    {"agent_id": "anomaly_circuit_breaker", "writer": "scripts/record_top10_daily_status_events.py", "source_artifacts": ["decision_quality_artifact"], "normal_wait": ["ranking skipped or failed"], "missing_is_attention_when": "ranking passed but circuit evidence is missing"},
+    {"agent_id": "daily_push", "writer": "scripts/record_top10_publish_event.py", "source_artifacts": ["publish message", "send receipt", "artifacts/automation_status.json"], "normal_wait": ["daily did not pass publish gate"], "missing_is_attention_when": "anomaly gate passed but publish event or send receipt is missing"},
+    {"agent_id": "outcome_tracker", "writer": "scripts/record_top10_daily_status_events.py", "source_artifacts": ["market_context_artifact", "candidate persistence", "weekly snapshot"], "normal_wait": ["realized outcome is not mature yet"], "missing_is_attention_when": "send receipt exists and outcome should be tracked but no artifact appears"},
+    {"agent_id": "external_review_harness", "writer": "scripts/run_external_review_host_runner.py", "source_artifacts": ["artifacts/host_runner/{run_date}/host_runner_status_{run_date}.json", "artifacts/external_review/{run_date}/review_packet_{run_date}.json"], "normal_wait": ["daily status is not OK"], "missing_is_attention_when": "daily OK but host runner status or packet event is missing"},
+    {"agent_id": "ai_review_adapter", "writer": "scripts/run_external_review_host_runner.py", "source_artifacts": ["chatgpt_response", "gemini_response", "provider collect status"], "normal_wait": ["single provider skipped or failed can be degraded/partial"], "missing_is_attention_when": "all providers failed or adapter event is missing after packet verification"},
+    {"agent_id": "disagreement_next_actions", "writer": "scripts/run_external_review_host_runner.py", "source_artifacts": ["artifacts/external_review/{run_date}/external_review_summary_{run_date}.json"], "normal_wait": ["needs_human_review can be warning"], "missing_is_attention_when": "summary verification failed or daily OK has no disagreement event"},
+    {"agent_id": "fog_map", "writer": "scripts/run_top10_fog_map_handoff.py", "source_artifacts": ["research campaign progress", "research fog map", "fog map verification"], "normal_wait": ["external review skipped", "explicit fog handoff skip"], "missing_is_attention_when": "review/outcome signal exists but fog_map event is missing"},
+    {"agent_id": "research_worker", "writer": "scripts/run_top10_fog_map_handoff.py", "source_artifacts": ["daily quota artifact", "daily quota verification", "run_history.jsonl"], "normal_wait": ["TOP10_SKIP_RESEARCH_QUOTA=1", "empty research queue"], "missing_is_attention_when": "research queue exists but quota/replay event is missing"},
+    {"agent_id": "ops_reporter", "writer": "scripts/record_top10_daily_status_events.py and scripts/send_top10_ops_report.py", "source_artifacts": ["rollup", "ops progress message"], "normal_wait": ["local ops message exists but send is pending can be warning"], "missing_is_attention_when": "stop/degraded status exists but no ops event or local message exists"}
+  ],
+  "pending_policy": {
+    "normal_pending": ["upstream has not handed off", "realized outcome is not mature", "external review has not reached schedule time"],
+    "attention_pending": ["upstream status is ok/pass and this agent should run", "event is missing after expected writer completed"],
+    "skipped_requires": ["failure_reason or explicit skip reason", "next_action when skip affects a downstream lane"]
+  },
+  "status_publish_policy": [
+    {"upstream_status": "ok", "daily_publish": "allowed", "external_review": "allowed", "fog_research": "allowed", "ops_progress": "success summary"},
+    {"upstream_status": "warning", "daily_publish": "allowed only when ranking gate remains complete", "external_review": "allowed with partial/human-review marker", "fog_research": "allowed as risk signal", "ops_progress": "required warning"},
+    {"upstream_status": "degraded", "daily_publish": "blocked by default unless degradation is non-core and publish gate is complete", "external_review": "allowed as review, not success proof", "fog_research": "allowed as blocker/signal", "ops_progress": "required degraded next_action"},
+    {"upstream_status": "skipped", "daily_publish": "blocked", "external_review": "skipped when daily is not OK", "fog_research": "wait only", "ops_progress": "required skip reason"},
+    {"upstream_status": "failed_or_blocked", "daily_publish": "blocked", "external_review": "blocked except failure/debug review", "fog_research": "blocker only; no ranking merge", "ops_progress": "required fail-loud"}
+  ],
+  "research_gate_contract": [
+    {"gate": "research_card", "artifact": "docs/tasks/<task_id>.md or artifacts/autonomous_research/research_cards_{run_date}.jsonl", "validator": "must include hypothesis, input_refs, blocked_conditions", "allowed_action": "queue research only"},
+    {"gate": "experiment", "artifact": "artifacts/autonomous_research/experiments/<experiment_id>/run_manifest.json", "validator": "whitelisted runner, fixed config, no production model change", "allowed_action": "produce evidence only"},
+    {"gate": "validation", "artifact": "artifacts/autonomous_research/experiments/<experiment_id>/validation.json", "validator": "complete evidence, no leakage, comparable baseline", "allowed_action": "passed/failed/needs_more_data"},
+    {"gate": "decision", "artifact": "artifacts/autonomous_research/decisions/<decision_id>.json", "validator": "decision enum accept/reject/quarantine/needs_more_data", "allowed_action": "accept can proceed to merge policy"},
+    {"gate": "merge_policy", "artifact": "artifacts/autonomous_research/merge_policy/<decision_id>.json", "validator": "impact scope, threshold, rollback condition", "allowed_action": "open ranking/model implementation card"},
+    {"gate": "evidence_ledger", "artifact": "artifacts/autonomous_research/evidence_ledger/<decision_id>.json", "validator": "complete ledger with repo-relative paths", "allowed_action": "handoff to Ranking Bot for controlled evaluation"}
+  ],
+  "memory_boundary": {
+    "allowed": ["recall prior blockers before run", "store milestone handoff after root question/blocker/fork changes", "produce memory candidates or review notes"],
+    "forbidden": ["declare run truth", "declare ranking truth", "declare replay progress", "directly modify ranking/model", "directly write canonical memory"]
+  },
   "event_contract": {
     "required_fields": [
       "schema_version",

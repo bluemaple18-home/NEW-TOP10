@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TOP10 Harness Loop</title>
+    <title>TOP10 Harness Formal Agents</title>
     <style>
       :root {
         --bg: #f4f6f9;
         --panel: #ffffff;
         --ink: #172033;
-        --muted: #617089;
-        --grid: #d9e2ec;
+        --muted: #627089;
+        --line: #d8e1ea;
         --daily: #2368d9;
-        --research: #7a4cc2;
-        --safety: #24824b;
+        --review: #7a4cc2;
+        --research: #23814b;
         --ops: #a66a16;
         --stop: #c7463f;
       }
@@ -36,12 +36,12 @@
       }
 
       main {
-        min-width: 2460px;
+        min-width: 3140px;
         padding: 22px 0 30px;
       }
 
       header {
-        width: 2400px;
+        width: 3080px;
         margin: 0 auto 14px;
         display: flex;
         align-items: flex-end;
@@ -51,14 +51,14 @@
 
       h1 {
         margin: 0;
-        font-size: 27px;
+        font-size: 28px;
         line-height: 1.15;
         letter-spacing: 0;
       }
 
       .subtitle {
         margin: 8px 0 0;
-        max-width: 1160px;
+        max-width: 1500px;
         color: var(--muted);
         font-size: 14px;
         font-weight: 650;
@@ -70,14 +70,14 @@
         flex-wrap: wrap;
         justify-content: flex-end;
         gap: 8px;
-        max-width: 900px;
+        max-width: 960px;
       }
 
       .legend span {
         display: inline-flex;
         align-items: center;
         gap: 7px;
-        border: 1px solid var(--grid);
+        border: 1px solid var(--line);
         border-radius: 7px;
         background: var(--panel);
         padding: 7px 10px;
@@ -94,12 +94,12 @@
         background: var(--daily);
       }
 
-      .swatch.research {
-        background: var(--research);
+      .swatch.review {
+        background: var(--review);
       }
 
-      .swatch.safety {
-        background: var(--safety);
+      .swatch.research {
+        background: var(--research);
       }
 
       .swatch.ops {
@@ -111,20 +111,20 @@
       }
 
       .frame {
-        width: 2400px;
-        height: 1050px;
+        width: 3080px;
+        height: 1080px;
         margin: 0 auto;
         overflow: hidden;
-        border: 1px solid #ccd7e3;
+        border: 1px solid #cbd7e3;
         border-radius: 8px;
         background: var(--panel);
         box-shadow: 0 18px 46px rgba(23, 32, 51, 0.12);
       }
 
       svg {
-        width: 2400px;
-        height: 1050px;
         display: block;
+        width: 3080px;
+        height: 1080px;
       }
 
       .lane {
@@ -136,7 +136,7 @@
       }
 
       .lane-line {
-        stroke: var(--grid);
+        stroke: var(--line);
         stroke-width: 1;
       }
 
@@ -156,12 +156,12 @@
         stroke: var(--daily);
       }
 
-      .edge.research {
-        stroke: var(--research);
+      .edge.review {
+        stroke: var(--review);
       }
 
-      .edge.safety {
-        stroke: var(--safety);
+      .edge.research {
+        stroke: var(--research);
       }
 
       .edge.ops {
@@ -173,11 +173,11 @@
       }
 
       .edge.main {
-        stroke-width: 5.5;
+        stroke-width: 5.2;
       }
 
       .edge.secondary {
-        stroke-width: 3.6;
+        stroke-width: 3.4;
       }
 
       .edge.dashed {
@@ -217,19 +217,32 @@
         font-weight: 950;
       }
 
+      .owner-tag {
+        fill: #e8edf3;
+        stroke: #d5dde7;
+        stroke-width: 0.8;
+        rx: 5;
+      }
+
+      .owner-tag-text {
+        fill: #536174;
+        font-size: 9.5px;
+        font-weight: 950;
+      }
+
       .card-body {
         fill: var(--muted);
         font-size: 11px;
-        font-weight: 700;
+        font-weight: 720;
       }
 
-      .pill-bg {
+      .rule {
         fill: #eef3f8;
         rx: 5;
       }
 
-      .pill {
-        fill: #4e5b71;
+      .rule-text {
+        fill: #4d5a70;
         font-size: 10px;
         font-weight: 950;
       }
@@ -258,34 +271,34 @@
     <main>
       <header>
         <div>
-          <h1>TOP10 Harness Loop：14 隻機器人正式流程</h1>
+          <h1>TOP10 Harness：14 個 Formal Agent，9 個 Owner Bot</h1>
           <p class="subtitle">
-            左到右是實際 handoff：17:30 daily 產報牌，17:50 external review 接手，Fog Map 挑研究隊列，Research Worker 跑 quota，再回到 Fog Map 與工作進度頻道。報牌頻道與工作進度頻道分開，不再是兩套排程。
+            卡片是 dashboard / event contract 實際追蹤的 14 個 formal agent；灰色標籤是 9 個 owner bot。也就是看得到每一步怎麼跑，但責任邊界仍收斂在 owner，不會變成 14 隻互相換手的機器人。
           </p>
         </div>
         <div class="legend" aria-label="圖例">
-          <span><i class="swatch"></i>每日主線</span>
-          <span><i class="swatch research"></i>研究回圈</span>
-          <span><i class="swatch safety"></i>驗證 / 後驗</span>
-          <span><i class="swatch ops"></i>工作進度</span>
-          <span><i class="swatch stop"></i>停止 / fail-loud</span>
+          <span><i class="swatch"></i>Daily / publish</span>
+          <span><i class="swatch review"></i>External review</span>
+          <span><i class="swatch research"></i>Fog / research</span>
+          <span><i class="swatch ops"></i>Ops / memory</span>
+          <span><i class="swatch stop"></i>Fail-loud</span>
         </div>
       </header>
 
       <section class="frame">
-        <svg id="diagram" viewBox="0 0 2400 1050" role="img" aria-labelledby="title desc">
-          <title id="title">TOP10 harness horizontal workflow</title>
-          <desc id="desc">14 個正式 agent 的左到右流程圖，所有線都連到卡片 port。</desc>
+        <svg id="diagram" viewBox="0 0 3080 1080" role="img" aria-labelledby="title desc">
+          <title id="title">TOP10 harness formal-agent workflow</title>
+          <desc id="desc">14 個 formal agent 的左到右流程圖，每張卡以灰色標籤標明 9 個 owner bot 歸屬。</desc>
 
           <defs>
             <marker id="arrow-daily" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto">
               <path d="M 0 0 L 12 6 L 0 12 z" fill="#2368d9"></path>
             </marker>
-            <marker id="arrow-research" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto">
+            <marker id="arrow-review" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto">
               <path d="M 0 0 L 12 6 L 0 12 z" fill="#7a4cc2"></path>
             </marker>
-            <marker id="arrow-safety" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto">
-              <path d="M 0 0 L 12 6 L 0 12 z" fill="#24824b"></path>
+            <marker id="arrow-research" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto">
+              <path d="M 0 0 L 12 6 L 0 12 z" fill="#23814b"></path>
             </marker>
             <marker id="arrow-ops" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto">
               <path d="M 0 0 L 12 6 L 0 12 z" fill="#a66a16"></path>
@@ -295,32 +308,46 @@
             </marker>
           </defs>
 
-          <rect class="lane" x="0" y="0" width="2400" height="172"></rect>
-          <rect class="lane alt" x="0" y="172" width="2400" height="252"></rect>
-          <rect class="lane" x="0" y="424" width="2400" height="278"></rect>
-          <rect class="lane alt" x="0" y="702" width="2400" height="348"></rect>
-          <line class="lane-line" x1="0" y1="172" x2="2400" y2="172"></line>
-          <line class="lane-line" x1="0" y1="424" x2="2400" y2="424"></line>
-          <line class="lane-line" x1="0" y1="702" x2="2400" y2="702"></line>
+          <rect class="lane" x="0" y="0" width="3080" height="190"></rect>
+          <rect class="lane alt" x="0" y="190" width="3080" height="290"></rect>
+          <rect class="lane" x="0" y="480" width="3080" height="310"></rect>
+          <rect class="lane alt" x="0" y="790" width="3080" height="290"></rect>
+          <line class="lane-line" x1="0" y1="190" x2="3080" y2="190"></line>
+          <line class="lane-line" x1="0" y1="480" x2="3080" y2="480"></line>
+          <line class="lane-line" x1="0" y1="790" x2="3080" y2="790"></line>
 
-          <text class="lane-title" x="28" y="44" fill="#a66a16">OPS STATUS LOOP</text>
-          <text class="lane-title" x="28" y="216" fill="#2368d9">DAILY RANKING LOOP</text>
-          <text class="lane-title" x="28" y="468" fill="#7a4cc2">EXTERNAL REVIEW + RESEARCH LOOP</text>
-          <text class="lane-title" x="28" y="748" fill="#24824b">EVIDENCE / FEEDBACK LOOP</text>
+          <text class="lane-title" x="32" y="48" fill="#a66a16">OPS / CONTROL：排程、失敗、記憶支援</text>
+          <text class="lane-title" x="32" y="236" fill="#2368d9">DAILY FORMAL AGENTS：每日排名與報牌</text>
+          <text class="lane-title" x="32" y="526" fill="#23814b">POST-DAILY / RESEARCH FORMAL AGENTS：後驗、外部 AI、迷霧、研究</text>
+          <text class="lane-title" x="32" y="836" fill="#627089">CONTRACT BOUNDARIES：不是第二套流程</text>
 
           <g id="edges"></g>
           <g id="ports"></g>
           <g id="cards"></g>
 
-          <rect class="callout" x="64" y="884" width="455" height="86"></rect>
-          <text class="callout-title" x="84" y="914">排程口徑</text>
-          <text class="callout-body" x="84" y="938">17:30：daily/publish。17:50：external review → Fog Map → Research Worker → Ops。</text>
-          <text class="callout-body" x="84" y="958">Fog Map / research quota 不另開第二套 launchd。</text>
+          <rect class="callout" x="76" y="870" width="620" height="120"></rect>
+          <text class="callout-title" x="98" y="902">14 張卡的意思</text>
+          <text class="callout-body" x="98" y="928">每張卡都是 `top10-agent-status-event.v1` 可觀測節點。</text>
+          <text class="callout-body" x="98" y="950">灰色 owner 標籤才代表真正換手責任；同 owner 內部不算換手。</text>
+          <text class="callout-body" x="98" y="972">缺 event 會進 rollup pending / degraded，而不是安靜空跑。</text>
 
-          <rect class="callout" x="560" y="884" width="470" height="86"></rect>
-          <text class="callout-title" x="580" y="914">防空跑條件</text>
-          <text class="callout-body" x="580" y="938">每一段都寫 top10-agent-status-event；失敗、跳過、pending 都會進 dashboard。</text>
-          <text class="callout-body" x="580" y="958">研究只能進 evidence / queue，不能直接改 ranking。</text>
+          <rect class="callout" x="742" y="870" width="650" height="120"></rect>
+          <text class="callout-title" x="764" y="902">兩個 Discord 頻道</text>
+          <text class="callout-body" x="764" y="928">`daily_push` 才能推報牌頻道，只推通過 gate 的 Top10。</text>
+          <text class="callout-body" x="764" y="950">`ops_reporter` 推工作進度頻道：stop / warning / review 差異 / blocker。</text>
+          <text class="callout-body" x="764" y="972">兩個頻道共用同一個 run_id，不是兩套排程。</text>
+
+          <rect class="callout" x="1438" y="870" width="650" height="120"></rect>
+          <text class="callout-title" x="1460" y="902">Fog / replay 邊界</text>
+          <text class="callout-body" x="1460" y="928">`fog_map` 可以宣告 linkage / map verified。</text>
+          <text class="callout-body" x="1460" y="950">只有 `research_worker` 能宣告 quota 或 representative replay progress。</text>
+          <text class="callout-body" x="1460" y="972">`linkage_ok` 不等於 replay drain 正在跑。</text>
+
+          <rect class="callout" x="2134" y="870" width="650" height="120"></rect>
+          <text class="callout-title" x="2156" y="902">Memory System</text>
+          <text class="callout-body" x="2156" y="928">記憶系統不是 formal agent，不宣告 run / ranking / replay truth。</text>
+          <text class="callout-body" x="2156" y="950">只做開跑前 recall 與收尾 milestone handoff。</text>
+          <text class="callout-body" x="2156" y="972">模型記憶候選仍要走 canonical gate，不能直接改 ranking/model。</text>
         </svg>
       </section>
     </main>
@@ -328,65 +355,54 @@
     <script>
       const colors = {
         daily: "#2368d9",
-        research: "#7a4cc2",
-        safety: "#24824b",
+        review: "#7a4cc2",
+        research: "#23814b",
         ops: "#a66a16",
         stop: "#c7463f",
       };
 
       const nodes = [
-        { id: "harness", x: 70, y: 250, w: 142, h: 112, kind: "daily", title: "1. Harness", body: ["建立 run_id", "lock / retry / timeout"], tag: "17:30 daily" },
-        { id: "preflight", x: 250, y: 250, w: 142, h: 112, kind: "daily", title: "2. Preflight", body: ["交易日 / API", "前輪 blocker"], tag: "pass / skip" },
-        { id: "etl", x: 430, y: 250, w: 142, h: 112, kind: "daily", title: "3. ETL", body: ["TWSE / TPEX", "籌碼 / 基本面"], tag: "snapshot" },
-        { id: "quality", x: 610, y: 250, w: 142, h: 112, kind: "safety", title: "4. Data Gate", body: ["日期 / 筆數", "缺值 / 覆蓋率"], tag: "quality" },
-        { id: "ranking", x: 790, y: 250, w: 142, h: 112, kind: "daily", title: "5. Ranking", body: ["每日 Top10", "分數 / 理由"], tag: "top10" },
-        { id: "circuit", x: 970, y: 250, w: 142, h: 112, kind: "safety", title: "6. Circuit", body: ["劇烈變動", "baseline 偏離"], tag: "stop/degrade" },
-        { id: "push", x: 1150, y: 250, w: 142, h: 112, kind: "daily", title: "7. Daily Push", body: ["只推 Top10", "附 run_id"], tag: "#top10-daily" },
-        { id: "dailyChannel", x: 1330, y: 250, w: 154, h: 112, kind: "daily", title: "報牌頻道", body: ["原本每天報牌", "不收研究過程"], tag: "Discord" },
-        { id: "outcome", x: 1522, y: 250, w: 142, h: 112, kind: "safety", title: "8. Outcome", body: ["命中 / 報酬", "誤報 / 人工標記"], tag: "後驗" },
+        { id: "harness_runner", x: 70, y: 250, w: 192, h: 142, kind: "ops", title: "1. Harness Runner", owner: "Harness Runner", body: ["run_id / lock / retry", "schedule / manual trigger"], rule: "event: harness_runner" },
+        { id: "preflight", x: 310, y: 250, w: 192, h: 142, kind: "daily", title: "2. Preflight Bot", owner: "Daily Pipeline Bot", body: ["交易日 / API", "前輪 blocker"], rule: "pass / skip / stop" },
+        { id: "data_etl", x: 550, y: 250, w: 192, h: 142, kind: "daily", title: "3. Data ETL Bot", owner: "Daily Pipeline Bot", body: ["TWSE / TPEX", "籌碼 / 基本面"], rule: "snapshot" },
+        { id: "data_quality_gate", x: 790, y: 250, w: 192, h: 142, kind: "daily", title: "4. Data Quality", owner: "Daily Pipeline Bot", body: ["日期 / 筆數 / 缺值", "股票池覆蓋率"], rule: "quality gate" },
+        { id: "ranking", x: 1030, y: 250, w: 192, h: 142, kind: "daily", title: "5. Ranking Bot", owner: "Ranking Bot", body: ["Top10 / score", "reason / feature"], rule: "ranking result" },
+        { id: "anomaly_circuit_breaker", x: 1270, y: 250, w: 192, h: 142, kind: "daily", title: "6. Circuit Breaker", owner: "Ranking Bot", body: ["rank churn", "baseline delta"], rule: "stop / degrade" },
+        { id: "daily_push", x: 1510, y: 250, w: 192, h: 142, kind: "daily", title: "7. Daily Push", owner: "Daily Push Bot", body: ["報牌 payload", "send receipt"], rule: "#top10-daily" },
 
-        { id: "external", x: 1522, y: 520, w: 142, h: 112, kind: "ops", title: "9. Review", body: ["17:50 接手", "verified packet"], tag: "external" },
-        { id: "adapter", x: 1702, y: 520, w: 142, h: 112, kind: "research", title: "10. AI Adapter", body: ["ChatGPT", "Gemini"], tag: "dual AI" },
-        { id: "disagree", x: 1882, y: 520, w: 142, h: 112, kind: "safety", title: "11. Disagree", body: ["誰完全不對", "反證 / 隔離"], tag: "next actions" },
-        { id: "fog", x: 2062, y: 520, w: 142, h: 112, kind: "research", title: "12. Fog Map", body: ["研究中控", "挑未知區"], tag: "queue" },
-        { id: "worker", x: 2062, y: 762, w: 142, h: 112, kind: "research", title: "13. Worker", body: ["研究 quota", "安全回測"], tag: "no ranking" },
-
-        { id: "ops", x: 2062, y: 48, w: 142, h: 112, kind: "ops", title: "14. Ops", body: ["進度 / blocker", "外部 AI 差異"], tag: "#top10-ops" },
-        { id: "opsChannel", x: 2242, y: 48, w: 128, h: 112, kind: "ops", title: "工作進度", body: ["今天卡在哪", "下一步"], tag: "Discord" },
-
-        { id: "stop", x: 610, y: 48, w: 142, h: 112, kind: "stop", title: "Stop Event", body: ["失敗 / 跳過", "不假裝完成"], tag: "fail-loud" },
+        { id: "outcome_tracker", x: 1510, y: 560, w: 192, h: 142, kind: "research", title: "8. Outcome Tracker", owner: "Outcome Tracker Bot", body: ["命中 / 報酬", "誤報 / 人工標記"], rule: "outcome artifact" },
+        { id: "external_review_harness", x: 1750, y: 560, w: 192, h: 142, kind: "review", title: "9. Review Harness", owner: "External Review Bot", body: ["review packet", "host status"], rule: "daily OK only" },
+        { id: "ai_review_adapter", x: 1990, y: 560, w: 192, h: 142, kind: "review", title: "10. AI Adapter", owner: "External Review Bot", body: ["ChatGPT", "Gemini"], rule: "partial allowed" },
+        { id: "disagreement_next_actions", x: 2230, y: 560, w: 192, h: 142, kind: "review", title: "11. Disagreement", owner: "External Review Bot", body: ["誰完全不對", "next actions"], rule: "no direct ranking" },
+        { id: "fog_map", x: 2470, y: 560, w: 192, h: 142, kind: "research", title: "12. Fog Map", owner: "Fog Map Bot", body: ["map refresh / verify", "queue / blockers"], rule: "linkage only" },
+        { id: "research_worker", x: 2710, y: 560, w: 192, h: 142, kind: "research", title: "13. Research Worker", owner: "Research Worker Bot", body: ["research quota", "replay receipts"], rule: "replay owner" },
+        { id: "ops_reporter", x: 2830, y: 62, w: 192, h: 142, kind: "ops", title: "14. Ops Reporter", owner: "Ops Reporter Bot", body: ["progress channel", "blocker / next action"], rule: "#top10-ops" },
       ];
 
       const edges = [
-        { from: "harness", to: "preflight", kind: "daily", label: "run request", route: "straight" },
-        { from: "preflight", to: "etl", kind: "daily", label: "pass", route: "straight" },
-        { from: "etl", to: "quality", kind: "daily", route: "straight" },
-        { from: "quality", to: "ranking", kind: "daily", route: "straight" },
-        { from: "ranking", to: "circuit", kind: "daily", route: "straight" },
-        { from: "circuit", to: "push", kind: "daily", label: "ok", route: "straight" },
-        { from: "push", to: "dailyChannel", kind: "daily", label: "只到報牌頻道", route: "straight" },
-        { from: "dailyChannel", to: "outcome", kind: "safety", label: "後驗", route: "straight" },
-
-        { from: "outcome", to: "external", kind: "ops", label: "daily OK 後 17:50", route: "verticalDown" },
-        { from: "external", to: "adapter", kind: "research", route: "straight" },
-        { from: "adapter", to: "disagree", kind: "research", route: "straight" },
-        { from: "disagree", to: "fog", kind: "research", route: "straight" },
-        { from: "outcome", to: "fog", kind: "safety", label: "後驗訊號", route: "busToFog", laneY: 448 },
-        { from: "circuit", to: "fog", kind: "safety", label: "異常訊號", route: "busToFog", laneY: 408, dashed: true },
-
-        { from: "fog", to: "worker", kind: "research", label: "挑 quota", route: "verticalDown" },
-        { from: "worker", to: "fog", kind: "research", label: "run history 回填", route: "loopBack", dashed: true },
-
-        { from: "fog", to: "ops", kind: "ops", label: "迷霧 / 研究進度", route: "upToOps" },
-        { from: "external", to: "ops", kind: "ops", label: "host status", route: "upToOps", dashed: true },
-        { from: "worker", to: "ops", kind: "ops", label: "quota fail / done", route: "upToOps", dashed: true },
-        { from: "ops", to: "opsChannel", kind: "ops", label: "回報工作進度", route: "straight" },
-        { from: "opsChannel", to: "harness", kind: "ops", label: "下一輪 blocker", route: "outerLoop", dashed: true },
-
-        { from: "preflight", to: "stop", kind: "stop", label: "skip/fail", route: "stopUp", dashed: true },
-        { from: "quality", to: "stop", kind: "stop", label: "資料不可信", route: "stopUp", dashed: true },
-        { from: "circuit", to: "stop", kind: "stop", label: "不可解釋", route: "stopUp", dashed: true },
-        { from: "stop", to: "ops", kind: "stop", label: "停止摘要", route: "topBus" },
+        { from: "harness_runner", to: "preflight", kind: "daily", label: "run request", route: "straight" },
+        { from: "preflight", to: "data_etl", kind: "daily", label: "pass", route: "straight" },
+        { from: "data_etl", to: "data_quality_gate", kind: "daily", label: "snapshot", route: "straight" },
+        { from: "data_quality_gate", to: "ranking", kind: "daily", label: "quality pass", route: "straight" },
+        { from: "ranking", to: "anomaly_circuit_breaker", kind: "daily", label: "ranking", route: "straight" },
+        { from: "anomaly_circuit_breaker", to: "daily_push", kind: "daily", label: "ok", route: "straight" },
+        { from: "daily_push", to: "outcome_tracker", kind: "research", label: "send receipt", route: "verticalDown" },
+        { from: "outcome_tracker", to: "external_review_harness", kind: "review", label: "daily OK", route: "straight" },
+        { from: "external_review_harness", to: "ai_review_adapter", kind: "review", label: "verified packet", route: "straight" },
+        { from: "ai_review_adapter", to: "disagreement_next_actions", kind: "review", label: "review summary", route: "straight" },
+        { from: "disagreement_next_actions", to: "fog_map", kind: "research", label: "disagreement", route: "straight" },
+        { from: "outcome_tracker", to: "fog_map", kind: "research", label: "outcome fog signal", route: "outcomeToFog", dashed: true },
+        { from: "anomaly_circuit_breaker", to: "fog_map", kind: "research", label: "anomaly fog signal", route: "anomalyToFog", dashed: true },
+        { from: "fog_map", to: "research_worker", kind: "research", label: "queue", route: "straight" },
+        { from: "research_worker", to: "fog_map", kind: "research", label: "receipts", route: "researchBack", dashed: true },
+        { from: "fog_map", to: "ops_reporter", kind: "ops", label: "map/linkage state", route: "upToOps" },
+        { from: "research_worker", to: "ops_reporter", kind: "ops", label: "replay progress", route: "upToOps", dashed: true },
+        { from: "disagreement_next_actions", to: "ops_reporter", kind: "ops", label: "AI disagreement", route: "upToOps", dashed: true },
+        { from: "daily_push", to: "ops_reporter", kind: "ops", label: "ops receipt", route: "dailyToOps", dashed: true },
+        { from: "preflight", to: "ops_reporter", kind: "stop", label: "stop event", route: "stopToOps", dashed: true },
+        { from: "data_quality_gate", to: "ops_reporter", kind: "stop", label: "stop event", route: "stopToOps", dashed: true },
+        { from: "anomaly_circuit_breaker", to: "ops_reporter", kind: "stop", label: "stop/degrade", route: "stopToOps", dashed: true },
+        { from: "ops_reporter", to: "harness_runner", kind: "ops", label: "memory recall + next blockers", route: "outerLoop", dashed: true },
       ];
 
       const svg = document.getElementById("diagram");
@@ -409,38 +425,46 @@
         const b = nodeById[edge.to];
         if (edge.route === "straight") return [point(a, "right"), point(b, "left")];
         if (edge.route === "verticalDown") return [point(a, "bottom"), point(b, "top")];
-        if (edge.route === "loopBack") {
-          const start = point(a, "left");
+        if (edge.route === "researchBack") {
+          const start = point(a, "bottom");
           const end = point(b, "bottom");
-          return [start, { x: start.x - 70, y: start.y }, { x: start.x - 70, y: end.y + 28 }, { x: end.x, y: end.y + 28 }, end];
+          return [start, { x: start.x, y: 742 }, { x: end.x, y: 742 }, end];
         }
-        if (edge.route === "busToFog") {
+        if (edge.route === "outcomeToFog") {
           const start = point(a, "bottom");
           const end = point(b, "left");
-          const y = edge.laneY;
-          return [start, { x: start.x, y }, { x: end.x - 36, y }, { x: end.x - 36, y: end.y }, end];
+          const x = end.x - 20;
+          return [start, { x: start.x, y: 760 }, { x, y: 760 }, { x, y: end.y }, end];
+        }
+        if (edge.route === "anomalyToFog") {
+          const start = point(a, "bottom");
+          const end = point(b, "left");
+          const x = end.x - 20;
+          return [start, { x: start.x, y: 452 }, { x, y: 452 }, { x, y: end.y }, end];
         }
         if (edge.route === "upToOps") {
           const start = point(a, "top");
           const end = point(b, "bottom");
-          const x = start.x + (a.id === "worker" ? 64 : -38);
-          return [start, { x: start.x, y: 430 }, { x, y: 430 }, { x, y: end.y + 34 }, { x: end.x, y: end.y + 34 }, end];
+          const busY = 505;
+          const entryY = end.y + 34;
+          const x = a.id === "research_worker" ? start.x + 72 : start.x + 28;
+          return [start, { x: start.x, y: busY }, { x, y: busY }, { x, y: entryY }, { x: end.x, y: entryY }, end];
         }
-        if (edge.route === "stopUp") {
+        if (edge.route === "dailyToOps") {
           const start = point(a, "top");
-          const end = point(b, "bottom");
-          const y = 190;
-          return [start, { x: start.x, y }, { x: end.x, y }, end];
-        }
-        if (edge.route === "topBus") {
-          const start = point(a, "right");
           const end = point(b, "left");
-          return [start, { x: 1030, y: start.y }, { x: 1030, y: end.y }, end];
+          return [start, { x: start.x, y: 218 }, { x: end.x - 34, y: 218 }, { x: end.x - 34, y: end.y }, end];
+        }
+        if (edge.route === "stopToOps") {
+          const start = point(a, "top");
+          const end = point(b, "left");
+          const busY = 214;
+          return [start, { x: start.x, y: busY }, { x: end.x - 52, y: busY }, { x: end.x - 52, y: end.y + 18 }, end];
         }
         if (edge.route === "outerLoop") {
           const start = point(a, "left");
           const end = point(b, "top");
-          return [start, { x: start.x - 42, y: 30 }, { x: 92, y: 30 }, { x: 92, y: end.y - 28 }, end];
+          return [start, { x: 2780, y: 28 }, { x: 166, y: 28 }, end];
         }
         return [point(a, "right"), point(b, "left")];
       }
@@ -465,7 +489,7 @@
 
       edges.forEach((edge) => {
         const points = route(edge);
-        const cls = ["edge", edge.kind, edge.dashed ? "dashed" : "", edge.kind === "daily" || edge.kind === "research" ? "main" : "secondary"].join(" ");
+        const cls = ["edge", edge.kind, edge.dashed ? "dashed" : "", edge.kind === "daily" || edge.kind === "review" || edge.kind === "research" ? "main" : "secondary"].join(" ");
         addSvg("path", {
           class: cls,
           d: pathData(points),
@@ -490,14 +514,19 @@
         addSvg("rect", { class: "bar", width: 6, height: node.h, fill: colors[node.kind] }, g);
         const title = addSvg("text", { class: "card-title", x: 17, y: 27 }, g);
         title.textContent = node.title;
+        const ownerW = Math.max(78, Math.min(node.w - 34, node.owner.length * 5.5 + 18));
+        addSvg("rect", { class: "owner-tag", x: 17, y: 42, width: ownerW, height: 17 }, g);
+        const owner = addSvg("text", { class: "owner-tag-text", x: 25, y: 54 }, g);
+        owner.textContent = node.owner;
         node.body.forEach((line, index) => {
-          const text = addSvg("text", { class: "card-body", x: 17, y: 53 + index * 17 }, g);
+          const text = addSvg("text", { class: "card-body", x: 17, y: 78 + index * 17 }, g);
           text.textContent = line;
         });
-        const pillW = Math.max(60, Math.min(node.w - 28, node.tag.length * 6.2 + 18));
-        addSvg("rect", { class: "pill-bg", x: 17, y: node.h - 26, width: pillW, height: 20 }, g);
-        const pill = addSvg("text", { class: "pill", x: 25, y: node.h - 11 }, g);
-        pill.textContent = node.tag;
+        const ruleY = node.h - 26;
+        const ruleW = Math.max(78, Math.min(node.w - 28, node.rule.length * 5.7 + 18));
+        addSvg("rect", { class: "rule", x: 17, y: ruleY, width: ruleW, height: 20 }, g);
+        const rule = addSvg("text", { class: "rule-text", x: 25, y: ruleY + 14 }, g);
+        rule.textContent = node.rule;
       });
     </script>
   </body>

@@ -30,7 +30,7 @@
 | 7 | Daily Push Bot | 推送通過 gate 的 Top10 到報牌頻道 | anomaly OK ranking | publish message、send receipt | 發送失敗不能算 daily 完成 |
 | 8 | Outcome Tracker Bot | 追蹤命中率、報酬、誤報、人工標記 | publish result、後驗資料 | outcome artifact、fog signals | outcome 缺資料標為 pending |
 | 9 | External Review Harness Bot | daily OK 後包 review packet，啟動外部 review | ranking/publish artifacts | verified packet、host runner status | daily 未 OK 就 skipped |
-| 10 | AI Review Adapter Bot | 分別送 ChatGPT/Gemini，收回標準格式 | verified packet | provider responses | 單一 provider 失敗可 partial |
+| 10 | AI Review Adapter Bot | 以固定 browser conversation 分別送 ChatGPT/Gemini 並收回標準格式；官方 API 只作明確切換備援 | verified packet | provider responses | 單一 provider 失敗可 partial；全 provider 失敗就 fail-loud |
 | 11 | Disagreement / Next Actions Bot | 找出外部 AI 跟我們完全相反之處，產生處置 | external review summary | disagreement report、next actions | 需要人工判斷就標 human_review |
 | 12 | Fog Map Bot | 維護研究迷霧，挑下一輪研究隊列，吸收研究 worker 結果 | outcome artifact、external review summary、research cards、run history | research queue handoff、research fog map、map html | 迷霧刷新或驗證失敗就 fail-loud，交給 ops |
 | 13 | Autonomous Research Worker Bot | 依 Fog Map queue 跑每日研究 quota | research queue、manager state、external review summary | daily research quota、run history、research evidence | 研究 quota 或驗證失敗就 stop，不改 ranking |
@@ -59,6 +59,22 @@ Harness Runner
  -> 下一輪 Harness Runner
 ```
 
+## 9 個 Owner Bot 與 14 個 Formal Agent 的翻譯層
+
+`web/harness-loop.html` 畫的是 9 個 owner bot，`docs/architecture/top10_harness_team.dashboard.json` 監控的是 14 個 formal agent。兩者不是兩套流程；owner bot 是換手、lock、失敗邊界，formal agent 是 dashboard/event contract 的可觀測節點。
+
+| Owner Bot | 包含的 formal agent | 換手邊界 |
+| --- | --- | --- |
+| Harness Runner | `harness_runner` | 建立 `run_id`、鎖定同一輪 daily loop |
+| Daily Pipeline Bot | `preflight`、`data_etl`、`data_quality_gate` | 資料可信才交給 Ranking Bot |
+| Ranking Bot | `ranking`、`anomaly_circuit_breaker` | 排名與異常 gate 一起決定可否 publish |
+| Daily Push Bot | `daily_push` | 只把通過 gate 的 Top10 寫到報牌頻道 |
+| Outcome Tracker Bot | `outcome_tracker` | 後驗資料成熟時回流 fog signals |
+| External Review Bot | `external_review_harness`、`ai_review_adapter`、`disagreement_next_actions` | daily OK 後才包 packet，外部 AI 結果只能變成 disagreement / next actions |
+| Fog Map Bot | `fog_map` | 維護研究地圖、queue、linkage 狀態；`linkage_ok` 不等於 replay drain running |
+| Research Worker Bot | `research_worker` | 唯一可宣告 research quota / representative replay drain progress 的 owner |
+| Ops Reporter Bot | `ops_reporter` | 工作進度頻道、blocker、下一輪 handoff |
+
 ## 研究回圈
 
 研究線不是每日固定自嗨跑報表，也不是另一套排程；它是 harness 的交接支線，由事件觸發：
@@ -84,6 +100,79 @@ Fog Map
 ```
 
 只有 `Decision=accept` 且 Evidence Ledger 完整時，研究結果才可以回到 Ranking Bot。`reject/quarantine/needs_more_data` 都不能直接改 ranking。
+
+## 事件來源表
+
+每個 formal agent 都必須能追到「誰寫 event、吃哪個 artifact、缺 event 時算正常等待還是異常」。目前 daily automation status 只會由 `scripts/record_top10_daily_status_events.py` 轉出 daily lane 的 8 個 event；publish、external review、fog map、research worker 與 ops send 由其他 script 補齊。
+
+| Formal agent | Event writer | 主要來源 artifact | 正常 pending / skipped | 異常 pending / missing |
+| --- | --- | --- | --- | --- |
+| `harness_runner` | `scripts/record_top10_daily_status_events.py` | `artifacts/automation_status.json` | 非交易日或 dry-run 被明確標 `skipped` | daily run 已觸發但沒有 automation status |
+| `preflight` | `scripts/record_top10_daily_status_events.py` | `artifacts/automation_status.json` steps | trading-day gate 明確 skipped | daily 已跑但 preflight steps 缺失 |
+| `data_etl` | `scripts/record_top10_daily_status_events.py` | automation status、dataset artifacts | 上游 preflight skipped | preflight OK 但 ETL step / snapshot 缺失 |
+| `data_quality_gate` | `scripts/record_top10_daily_status_events.py` | automation status、dataset artifacts | 上游 ETL skipped/failed | ETL OK 但 quality gate 缺失 |
+| `ranking` | `scripts/record_top10_daily_status_events.py` | `ranking_artifact` / `expected_ranking_artifact` | 上游 quality gate 未通過 | quality OK 但 ranking artifact 缺失 |
+| `anomaly_circuit_breaker` | `scripts/record_top10_daily_status_events.py` | `decision_quality_artifact` | ranking 被 stop/skipped | ranking OK 但 anomaly/circuit evidence 缺失 |
+| `daily_push` | `scripts/record_top10_publish_event.py` via `scripts/run_daily_publish.sh` | publish message、send receipt、automation status | daily 未通過 gate 時 `skipped` | anomaly OK 但沒有 publish event 或 send receipt |
+| `outcome_tracker` | `scripts/record_top10_daily_status_events.py` | market context、candidate persistence、weekly snapshot | 後驗尚未成熟時 `skipped/not_applicable` | 已有 send receipt 且應追蹤，但 outcome artifact 長期缺失 |
+| `external_review_harness` | `scripts/run_external_review_host_runner.py` | host runner status、review packet | daily 未 OK 時 `skipped` | daily OK 但 packet/host status 缺失 |
+| `ai_review_adapter` | `scripts/run_external_review_host_runner.py` | ChatGPT/Gemini raw/normalized responses | 單一 provider skipped/failed 時 `degraded/partial` | 全 provider 失敗或缺 adapter event |
+| `disagreement_next_actions` | `scripts/run_external_review_host_runner.py` | `external_review_summary_{run_date}.json` | `needs_human_review` 可為 `warning` | summary verify failed 或 daily OK 後沒有 disagreement event |
+| `fog_map` | `scripts/run_top10_fog_map_handoff.py` | research campaign progress、fog map、verification | external review 被 skip 時可 `skipped` | review/outcome signal 已到但 fog map event 缺失 |
+| `research_worker` | `scripts/run_top10_fog_map_handoff.py` | daily quota artifact、verification、run history | `TOP10_SKIP_RESEARCH_QUOTA=1` 或 queue 空時 `skipped` | queue 存在但 quota/replay event 缺失 |
+| `ops_reporter` | `scripts/record_top10_daily_status_events.py`、`scripts/send_top10_ops_report.py` | rollup、ops progress message | 只建本地 artifact 尚未送出可 `warning` | stop/degraded 但沒有 ops event 或本地 message |
+
+## Pending、Skipped 與 Missing 語意
+
+`pending` 不是永遠等於錯，但必須有上游語意。Dashboard 可以先把缺 event 的 formal agent 顯示為 pending；判斷是否 degraded 要看該 agent 在本輪是否應該被觸發。
+
+| 狀態 | 正常情況 | 需要注意 / 異常 |
+| --- | --- | --- |
+| `pending` | 上游尚未交接、後驗尚未成熟、外部 review 尚未到排程時間 | 上游已 `ok/pass` 且該 agent 應跑，卻沒有 event |
+| `skipped` | 非交易日、daily 未 OK、明確 flag 跳過研究 quota、queue 空 | 用 skipped 掩蓋應跑未跑，且沒有 `failure_reason` / `next_action` |
+| `warning` | partial provider、needs human review、ops send pending 但本地 artifact 存在 | warning 仍嘗試改 ranking/model |
+| `degraded` | 單一非核心支線失敗，但 daily artifact 仍可追溯 | degraded 卻沒有 blocker 或下一步 |
+| `failed` / `blocked` | 核心資料、ranking、publish receipt、packet verify、fog verify 或 quota verify 失敗 | 任何 failed/blocked 都不得假裝完整成功 |
+
+## Status 對 Publish / Review / Research 的影響
+
+| 上游狀態 | 報牌頻道 publish | External review | Fog map / research | Ops progress |
+| --- | --- | --- | --- | --- |
+| `ok/pass` | 可以 publish | 可以接手 | 可以接收 signals | 可回報成功摘要 |
+| `warning` | 只有 warning 不影響 ranking gate 時才可 publish，且 message 要保留風險摘要 | 可以，但 summary 要標 partial/human review | 只能產生研究卡或 blocker | 必須回報 warning |
+| `degraded` | 預設不可 publish；除非 degraded 只在非核心支線且 ranking/publish gate 仍完整 | 可以做 review，但不得當成成功驗證 | 可以進 fog map 作為風險訊號 | 必須回報 degraded + next action |
+| `skipped` | daily skipped 不可 publish | daily 未 OK 時 external review skipped | 可記錄為等待，不跑 quota | 回報 skipped reason |
+| `failed` / `blocked` | 一律不可 publish | 不啟動外部 review，除非是針對 failure 的 ops/debug review | 不進 ranking merge；只能留 blocker | 必須 fail-loud |
+
+## 研究結果回 Ranking 的 Gate
+
+研究回 ranking 不能只靠抽象的 `research_card / experiment / validation / decision / merge_policy / evidence_ledger` 名字，必須有 artifact 與 validator。最小契約如下：
+
+| Gate node | 最小 artifact | Validator / gate | 允許動作 |
+| --- | --- | --- | --- |
+| `research_card` | `docs/tasks/<task_id>.md` 或 `artifacts/autonomous_research/research_cards_<run_date>.jsonl` | card 必須含 hypothesis、input_refs、blocked_conditions | 只排入研究 queue |
+| `experiment` | `artifacts/autonomous_research/experiments/<experiment_id>/run_manifest.json` | 白名單 runner、固定 seed/config、不可改 production model | 只產 evidence |
+| `validation` | `artifacts/autonomous_research/experiments/<experiment_id>/validation.json` | 驗證資料完整、無 leakage、baseline 可比較 | 產生 `passed/failed/needs_more_data` |
+| `decision` | `artifacts/autonomous_research/decisions/<decision_id>.json` | decision enum 只能 `accept/reject/quarantine/needs_more_data` | 只有 `accept` 可往 merge policy |
+| `merge_policy` | `artifacts/autonomous_research/merge_policy/<decision_id>.json` | 確認影響範圍、回測門檻、rollback 條件 | 只能開下一張 ranking/model 改動卡 |
+| `evidence_ledger` | `artifacts/autonomous_research/evidence_ledger/<decision_id>.json` | Evidence Ledger 完整且 repo-relative paths | 才能交給 Ranking Bot 評估 |
+
+`Decision=accept` 也不是自動改 ranking/model；它只允許開正式 implementation card 或交給 Ranking Bot 在下一輪受控改動中評估。
+
+## Memory System 邊界
+
+Top10 可以接既有記憶系統，但記憶系統在這條 harness 只做三件事：
+
+- 開跑前 recall：回帶前輪 blocker、root question、handoff 摘要。
+- 收尾時 milestone handoff：只在 root question、blocker、fork 或正式決策改變時寫入。
+- 候選整理：`semantic_classifier`、`manual_chat_reviewer`、`full_rewash_runner` 只能產生候選或 review notes。
+
+記憶系統不能做四件事：
+
+- 不能宣告 `run truth`。
+- 不能宣告 `ranking truth`。
+- 不能宣告 `replay progress`。
+- 不能直接改 ranking/model 或 canonical memory；canonical promotion 必須走記憶系統自己的 gate。
 
 ## Dashboard 狀態模型
 
@@ -161,7 +250,8 @@ Ops Reporter 使用 `scripts/build_top10_ops_progress_message.py` 產生 `artifa
 | Daily status | `artifacts/automation_status.json` |
 | External Review Harness | `scripts/run_external_review_host_runner.py` |
 | Review packet | `scripts/build_external_review_packet.py`、`scripts/verify_external_review_packet.py` |
-| ChatGPT/Gemini adapter | `scripts/review_chatgpt_chrome.sh`、`scripts/review_gemini_chrome.sh` |
+| ChatGPT/Gemini browser adapter | `scripts/review_chatgpt_chrome.sh`、`scripts/review_gemini_chrome.sh` |
+| ChatGPT/Gemini API fallback | `scripts/external_review_api_provider.py` |
 | External review summary | `scripts/build_external_review_summary.py`、`scripts/verify_external_review_summary.py` |
 | Fog Map Bot | `scripts/run_top10_fog_map_handoff.py`、`scripts/build_research_campaign_progress.py`、`scripts/build_research_fog_map.py`、`scripts/verify_research_fog_map.py` |
 | Autonomous Research Worker Bot | `scripts/run_daily_research_quota.sh`、`scripts/run_autonomous_research.py`、`scripts/verify_daily_research_quota.py` |
