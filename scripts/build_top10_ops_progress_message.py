@@ -13,6 +13,41 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 SCHEMA_VERSION = "top10-ops-progress-message.v1"
+STATUS_LABELS = {
+    "ok": "正常",
+    "pass": "通過",
+    "warning": "警告",
+    "degraded": "降級",
+    "failed": "失敗",
+    "blocked": "阻塞",
+    "skipped": "略過",
+    "pending": "等待中",
+    "unknown": "未知",
+}
+AGENT_LABELS = {
+    "harness_runner": "主控排程",
+    "preflight": "事前檢查",
+    "data_etl": "資料擷取與整理",
+    "data_quality_gate": "資料品質閘門",
+    "ranking": "每日排名",
+    "anomaly_circuit_breaker": "異常與熔斷檢查",
+    "daily_push": "報牌推播",
+    "outcome_tracker": "市場後驗追蹤",
+    "external_review_harness": "外部檢核主控",
+    "ai_review_adapter": "雙 AI 檢核接頭",
+    "disagreement_next_actions": "分歧與後續處置",
+    "fog_map": "迷霧地圖",
+    "research_worker": "自主研究 worker",
+    "ops_reporter": "工作進度回報",
+}
+ACTION_LABELS = {
+    "continue to daily publish gate and external review branch": "可以交給報牌閘門與外部檢核支線。",
+    "daily pick message sent to report channel": "今日報牌訊息已送到報牌頻道。",
+    "review decision_quality/postcheck warning before relying on publish or external review": "先檢查決策品質或收盤後檢查警告，再依賴報牌或外部檢核。",
+    "review missing provider before trusting disagreement summary": "先確認缺少的外部 AI 回覆，再採信分歧摘要。",
+    "manual review required before using external review": "使用外部檢核前需要人工複核。",
+    "wait for daily OK before external review": "等待每日流程正常後，再啟動外部檢核。",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -106,18 +141,18 @@ def render_ops_message(rollup: dict[str, Any], external_summary: dict[str, Any] 
     warning_agents = [agent for agent in problem_agents if str(agent.get("status")) not in {"failed", "blocked"}]
 
     lines = [
-        f"TOP10 工作進度 {run_date}",
+        f"TOP10 工作進度｜{run_date}",
         "",
-        f"- run_id: `{run_id}`",
-        f"- harness_status: `{status}`",
-        f"- events: `{summary.get('event_count', 0)}/{summary.get('agent_count', 0)}`",
-        f"- failed: `{summary.get('failed_count', 0)}` warning: `{summary.get('warning_count', 0)}` missing: `{summary.get('missing_count', 0)}`",
-        f"- rollup: `{safe_ref(rollup_path, artifacts_dir)}`",
+        f"- 執行代號：`{run_id}`",
+        f"- 總狀態：{status_label(status)}",
+        f"- 已回報節點：`{summary.get('event_count', 0)}/{summary.get('agent_count', 0)}`",
+        f"- 失敗：`{summary.get('failed_count', 0)}`；警告：`{summary.get('warning_count', 0)}`；缺漏：`{summary.get('missing_count', 0)}`",
+        f"- 證據檔：`{safe_ref(rollup_path, artifacts_dir)}`",
         "",
     ]
 
     if failed_agents:
-        lines.append("Blocker")
+        lines.append("阻塞項目")
         lines.extend(render_agent_rows(failed_agents[:6]))
         lines.append("")
     elif warning_agents:
@@ -135,36 +170,39 @@ def render_ops_message(rollup: dict[str, Any], external_summary: dict[str, Any] 
 def render_agent_rows(agents: list[dict[str, Any]]) -> list[str]:
     rows = []
     for agent in agents:
-        label = agent.get("label") or agent.get("agent_id")
-        status = agent.get("status")
-        reason = agent.get("failure_reason") or agent.get("next_action") or "no detail"
-        rows.append(f"- `{status}` {label}: {reason}")
+        agent_id = str(agent.get("agent_id") or "")
+        label = agent_label(agent)
+        status = status_label(agent.get("status"))
+        reason = translate_text(agent.get("failure_reason") or agent.get("next_action") or "沒有細節")
+        if agent_id == "ai_review_adapter" and str(agent.get("failure_reason") or "").strip().lower() in {"chatgpt", "gemini"}:
+            reason = f"{provider_label(agent.get('failure_reason'))} 尚未完成或需要複核。"
+        rows.append(f"- {status}｜{label}：{reason}")
     return rows
 
 
 def render_external_review_section(external_summary: dict[str, Any] | None) -> list[str]:
     if not external_summary:
-        return ["外部 AI review", "- 尚未有 ChatGPT/Gemini review summary。", ""]
+        return ["外部 AI 檢核", "- 尚未有 ChatGPT / Gemini 的檢核摘要。", ""]
     valid_count = external_summary.get("valid_provider_count", 0)
     disagreements = list_value(external_summary.get("disagreements"))
     today_misses = list_value(external_summary.get("today_misses"))
     safety = external_summary.get("safety") if isinstance(external_summary.get("safety"), dict) else {}
     rows = [
-        "外部 AI review",
-        f"- valid_providers: `{valid_count}` needs_human_review: `{bool(safety.get('needs_human_review'))}`",
+        "外部 AI 檢核",
+        f"- 有效回覆：`{valid_count}`；需要人工複核：{yes_no(bool(safety.get('needs_human_review')))}",
     ]
     if disagreements:
         rows.append("- 跟我們結果明顯不一致：")
         for item in disagreements[:5]:
             if isinstance(item, dict):
-                rows.append(f"  - {item.get('title') or item.get('type')}: {item.get('detail') or item.get('providers')}")
+                rows.append(f"  - {translate_text(item.get('title') or item.get('type'))}：{translate_text(item.get('detail') or item.get('providers'))}")
     if today_misses:
         rows.append("- AI 認為今天可能漏看的點：")
         for item in today_misses[:5]:
             if isinstance(item, dict):
-                symbol = item.get("stock_id") or item.get("symbol") or item.get("name") or "unknown"
+                symbol = item.get("stock_id") or item.get("symbol") or item.get("name") or "未知標的"
                 reason = item.get("reason") or item.get("detail") or item.get("note") or item.get("provider")
-                rows.append(f"  - {symbol}: {reason}")
+                rows.append(f"  - {symbol}：{translate_text(reason)}")
     if not disagreements and not today_misses:
         rows.append("- 目前沒有明確反對點或今日漏看清單。")
     rows.append("")
@@ -184,8 +222,83 @@ def render_next_actions(problem_agents: list[dict[str, Any]], external_summary: 
     if not actions:
         actions.append("等待下一輪 daily 或 external review。")
     rows = ["下一步"]
-    rows.extend(f"- {action}" for action in unique(actions)[:6])
+    rows.extend(f"- {translate_text(action)}" for action in unique(actions)[:6])
     return rows
+
+
+def agent_label(agent: dict[str, Any]) -> str:
+    agent_id = str(agent.get("agent_id") or "")
+    if agent_id in AGENT_LABELS:
+        return AGENT_LABELS[agent_id]
+    return translate_text(agent.get("label") or agent_id or "未知節點")
+
+
+def status_label(value: Any) -> str:
+    text = str(value or "unknown")
+    return STATUS_LABELS.get(text, text)
+
+
+def provider_label(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if text == "chatgpt":
+        return "ChatGPT"
+    if text == "gemini":
+        return "Gemini"
+    return str(value or "外部 AI")
+
+
+def yes_no(value: bool) -> str:
+    return "是" if value else "否"
+
+
+def translate_text(value: Any) -> str:
+    if isinstance(value, list):
+        return "、".join(translate_text(item) for item in value)
+    text = str(value or "").strip()
+    if not text:
+        return "沒有細節"
+    if text in ACTION_LABELS:
+        return ACTION_LABELS[text]
+    replacements = {
+        "review decision_quality/postcheck warning before relying on publish or external review": "先檢查決策品質或收盤後檢查警告，再依賴報牌或外部檢核",
+        "review missing provider before trusting disagreement summary": "先確認缺少的外部 AI 回覆，再採信分歧摘要",
+        "manual review required before using external review": "使用外部檢核前需要人工複核",
+        "do not publish ranking until data is repaired": "資料修好前不要報牌。",
+        "coverage below threshold": "資料覆蓋率低於門檻",
+        "risk view opposite": "風險判讀相反",
+        "AI thinks setup is stronger than our list": "外部 AI 認為這個型態比我們名單更強",
+        "missing provider": "外部 AI 回覆缺漏",
+        "provider": "外部 AI",
+        "reviewer": "外部檢核",
+        "review": "檢核",
+        "summary": "摘要",
+        "manual": "人工",
+        "required": "需要",
+        "before": "先",
+        "trusting": "採信",
+        "decision_quality": "決策品質",
+        "postcheck": "收盤後檢查",
+        "publish": "報牌",
+        "external": "外部",
+        "chatgpt": "ChatGPT",
+        "gemini": "Gemini",
+        "only flagged by": "只有這個外部 AI 標記",
+        "research card": "研究卡",
+        "ranking": "排名",
+        "keep single reviewer flag instead of averaging it away": "保留單一外部檢核標記，不在摘要中平均掉",
+        "保留單一 reviewer 標記，不在 summary 中平均掉": "保留單一外部檢核標記，不在摘要中平均掉",
+        "單一 外部檢核": "單一外部檢核",
+        "外部檢核 標記": "外部檢核標記",
+        "不在 摘要": "不在摘要",
+        "不在摘要 中": "不在摘要中",
+        "轉成 研究卡": "轉成研究卡",
+        "改 排名": "改排名",
+        "unknown": "未知",
+        "no detail": "沒有細節",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return text
 
 
 def list_value(value: Any) -> list[Any]:

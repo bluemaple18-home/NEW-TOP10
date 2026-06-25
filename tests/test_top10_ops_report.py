@@ -25,12 +25,12 @@ class Top10OpsReportTest(unittest.TestCase):
 
             message = render_ops_message(rollup, external, rollup_path=rollup_path, artifacts_dir=artifacts)
 
-            self.assertIn("TOP10 工作進度 2026-06-24", message)
-            self.assertIn("Blocker", message)
-            self.assertIn("data_quality_gate", message)
-            self.assertIn("2330 only flagged by gemini", message)
+            self.assertIn("TOP10 工作進度｜2026-06-24", message)
+            self.assertIn("阻塞項目", message)
+            self.assertIn("資料品質閘門", message)
+            self.assertIn("2330 只有這個外部 AI 標記 Gemini", message)
             self.assertIn("2317", message)
-            self.assertIn("不能直接改 ranking", message)
+            self.assertIn("不能直接改排名", message)
 
     def test_write_ops_event_updates_rollup(self):
         with tempfile.TemporaryDirectory() as tmp:
