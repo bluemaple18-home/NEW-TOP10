@@ -321,15 +321,26 @@ write_submit_js() {
     "button.send-button"
   ];
   const isStopButton = (button) => /stop|停止/i.test(`${button.getAttribute("aria-label") || ""} ${button.innerText || ""}`);
+  const visibleButtons = Array.from(document.querySelectorAll("button")).filter(visible);
   const selectorSendButton = sendSelectors
     .map((selector) => document.querySelector(selector))
     .find((button) => visible(button) && !button.disabled && !isStopButton(button));
-  const fallbackSendButton = Array.from(document.querySelectorAll("button"))
+  const fallbackSendButton = [...visibleButtons]
+    .reverse()
     .find((button) => visible(button)
       && !button.disabled
       && !isStopButton(button)
       && /send|submit|傳送|送出|提交/i.test(`${button.getAttribute("aria-label") || ""} ${button.innerText || ""}`));
-  const sendButton = selectorSendButton || fallbackSendButton;
+  const ariaSendButton = [...visibleButtons]
+    .reverse()
+    .find((button) => visible(button)
+      && !button.disabled
+      && !isStopButton(button)
+      && String(button.getAttribute("aria-label") || "").includes("傳送訊息"));
+  const trailingToolbarButton = [...visibleButtons]
+    .reverse()
+    .find((button) => !button.disabled && !isStopButton(button) && String(button.getAttribute("aria-label") || "").trim());
+  const sendButton = selectorSendButton || fallbackSendButton || ariaSendButton || trailingToolbarButton;
   const stopButton = Array.from(document.querySelectorAll("button"))
     .find((button) => visible(button) && !button.disabled && isStopButton(button));
   if (!sendButton && stopButton) {
@@ -349,8 +360,7 @@ write_submit_js() {
       reason: "send_button_not_found",
       title: document.title,
       url: location.href,
-      visible_buttons: Array.from(document.querySelectorAll("button"))
-        .filter(visible)
+      visible_buttons: visibleButtons
         .slice(-12)
         .map((button) => ({
           text: (button.innerText || button.textContent || "").trim(),
@@ -359,11 +369,18 @@ write_submit_js() {
         }))
     });
   }
+  try {
+    sendButton.dispatchEvent(new PointerEvent("pointerdown", {bubbles: true, cancelable: true, pointerType: "mouse"}));
+    sendButton.dispatchEvent(new MouseEvent("mousedown", {bubbles: true, cancelable: true}));
+    sendButton.dispatchEvent(new MouseEvent("mouseup", {bubbles: true, cancelable: true}));
+  } catch (_err) {}
   sendButton.click();
   return JSON.stringify({
     ok: true,
     mode: "submit",
     submitted: true,
+    aria: sendButton.getAttribute("aria-label"),
+    text: (sendButton.innerText || sendButton.textContent || "").trim(),
     title: document.title,
     url: location.href
   });

@@ -11,6 +11,7 @@ PACKET_FILE=""
 DATE_TEXT=""
 URL_PART="${TOP10_CHATGPT_URL_PART:-chatgpt.com/g/g-p-6a1ff7db268881918957ff493f2a915b/c/6a38ae69-0660-83ee-91ff-1777ae00688f}"
 WAIT_SECONDS="${TOP10_REVIEW_WAIT_SECONDS:-45}"
+TEST_PROMPT="${TOP10_CHATGPT_TEST_PROMPT:-}"
 
 JS_FILE=""
 trap '[[ -n "$JS_FILE" ]] && rm -f "$JS_FILE"' EXIT
@@ -24,6 +25,7 @@ Usage:
 Environment:
   TOP10_CHATGPT_URL_PART       Chrome tab URL marker. Default: current TOP10 ChatGPT project conversation.
   TOP10_REVIEW_WAIT_SECONDS    Wait time after submit. Default: 45
+  TOP10_CHATGPT_TEST_PROMPT    Optional non-project prompt for smoke tests.
 EOF
 }
 
@@ -37,6 +39,9 @@ python_bin() {
 }
 
 verify_sendable_packet() {
+  if [[ -n "$TEST_PROMPT" ]]; then
+    return
+  fi
   if [[ -z "$PACKET_FILE" ]]; then
     echo "send mode requires --packet so the exact payload can pass scripts/verify_external_review_packet.py" >&2
     exit 2
@@ -91,6 +96,10 @@ infer_date() {
 }
 
 read_prompt() {
+  if [[ -n "$TEST_PROMPT" ]]; then
+    printf '%s\n' "$TEST_PROMPT"
+    return
+  fi
   if [[ -z "$PACKET_FILE" ]]; then
     echo "send mode requires --packet; TOP10_REVIEW_PROMPT/TOP10_REVIEW_PROMPT_FILE direct send is disabled" >&2
     exit 2
@@ -348,6 +357,22 @@ status = {
 status_path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 print(json.dumps(status, ensure_ascii=False))
 PY
+
+  if [[ -n "$TEST_PROMPT" ]]; then
+    "$(python_bin)" - "$status_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+status = json.loads(path.read_text(encoding="utf-8"))
+status["ok"] = bool(status.get("raw_chars"))
+status["reason"] = "test_prompt_raw_saved"
+path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+PY
+    printf 'raw=%s\nresponse=%s\nstatus=%s\n' "$raw_path" "$response_path" "$status_path"
+    return 0
+  fi
 
   if "$(python_bin)" "$PROJECT_DIR/scripts/normalize_external_review_response.py" \
     --provider chatgpt \
