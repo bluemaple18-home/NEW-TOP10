@@ -104,6 +104,7 @@ repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.s
 3. 明確拒送 `review_packet_manifest_YYYY-MM-DD.json`；manifest 只留本機 lineage。
 4. 呼叫 provider adapter：
    - 預設 `TOP10_EXTERNAL_REVIEW_PROVIDER_MODE=browser`，使用 `scripts/review_chatgpt_chrome.sh` / `scripts/review_gemini_chrome.sh` 操作固定 conversation。
+   - 固定正式聊天框名稱：ChatGPT 為 `TOP10 External Review - ChatGPT PROD`；Gemini 為 `TOP10 External Review - Gemini PROD`。名稱只供人類核對，runner 仍以 exact URL marker / conversation id 防止開錯串。
    - browser 模式會先跑 provider preflight，偵測分頁、session expired、exact conversation id、composer 與 send button；任何 provider 失敗都會 fail-loud / partial，不假成功。
    - `TOP10_EXTERNAL_REVIEW_PROVIDER_MODE=api` 僅作明確切換的備援，由 `scripts/external_review_api_provider.py` 呼叫 OpenAI / Gemini 官方 API；缺 key、API 失敗或回覆無法解析時，一樣寫入 host status / ops progress。
 5. 保存 raw response 後由 Top10 repo 執行 `normalize_external_review_response.py` 與 `verify_external_review_contract.py`。

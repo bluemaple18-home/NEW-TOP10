@@ -2,6 +2,17 @@
 
 `external_review` 是每日推薦名單的事後檢討輸入，不是模型升版授權。GPT / Gemini 只能根據外部可分享資料提出操盤手觀察，不能要求或接收演算法、權重、feature engineering、訓練資料結構或模型程式碼。
 
+## Fixed Browser Conversations
+
+正式 browser provider 必須固定使用以下兩個聊天框，不要每天新開，也不要拿 smoke / debug 對話替代：
+
+| Provider | 固定聊天框名稱 | Runner marker |
+| --- | --- | --- |
+| ChatGPT | `TOP10 External Review - ChatGPT PROD` | `TOP10_CHATGPT_URL_PART`，預設鎖定目前正式 ChatGPT conversation URL |
+| Gemini | `TOP10 External Review - Gemini PROD` | `TOP10_GEMINI_URL_PART`，預設鎖定目前正式 Gemini conversation URL |
+
+名稱只是人類辨識用；runner 真正用 URL marker / conversation id 防止開錯串。若聊天被搬移、重建或 URL 變更，必須同步更新 `scripts/review_chatgpt_chrome.sh`、`scripts/review_gemini_chrome.sh`、`scripts/run_external_review_provider_preflight.sh` 與 `scripts/run_external_review_host_runner.sh` 的預設 marker，並重新跑 provider preflight 與 browser smoke test。
+
 ## Reviewer Prompt
 
 把每日 `review_packet` 貼給外部 reviewer 前，必須附上以下系統邊界：
