@@ -145,14 +145,51 @@ PY
   fi
 done
 
+if [ "$LAST_ROLLUP_EXIT_CODE" -ne 0 ]; then
+  echo "fog research worker last rollup warning exit_code=$LAST_ROLLUP_EXIT_CODE" | tee -a "$LOG_FILE"
+fi
+
+if [ "$EXIT_CODE" -eq 0 ] && [ "${TOP10_REPLAY_DRAIN_ENABLED:-1}" = "1" ]; then
+  REPLAY_RUN_ID="${RUN_ID_BASE}-replay-drain"
+  REPLAY_BATCH_SIZE="${TOP10_REPLAY_DRAIN_BATCH_SIZE:-24}"
+  REPLAY_MAX_BATCHES="${TOP10_REPLAY_DRAIN_MAX_BATCHES:-6}"
+  REPLAY_MAX_SECONDS="${TOP10_REPLAY_DRAIN_MAX_SECONDS:-7200}"
+  echo "representative replay drain start run_id=$REPLAY_RUN_ID batch_size=$REPLAY_BATCH_SIZE max_batches=$REPLAY_MAX_BATCHES" | tee -a "$LOG_FILE"
+  set +e
+  "$PYTHON_BIN" scripts/run_representative_replay_drain_worker.py \
+    --date "$RUN_DATE" \
+    --run-id "$REPLAY_RUN_ID" \
+    --batch-size "$REPLAY_BATCH_SIZE" \
+    --max-batches "$REPLAY_MAX_BATCHES" \
+    --max-seconds "$REPLAY_MAX_SECONDS" >> "$LOG_FILE" 2>&1
+  REPLAY_EXIT_CODE=$?
+  set -e
+
+  set +e
+  "$PYTHON_BIN" scripts/build_top10_agent_status_rollup.py \
+    --run-date "$RUN_DATE" \
+    --run-id "$REPLAY_RUN_ID" \
+    --no-latest >> "$LOG_FILE" 2>&1
+  REPLAY_ROLLUP_EXIT_CODE=$?
+  set -e
+
+  if [ "$REPLAY_EXIT_CODE" -ne 0 ]; then
+    echo "representative replay drain failed exit_code=$REPLAY_EXIT_CODE" | tee -a "$LOG_FILE"
+    EXIT_CODE="$REPLAY_EXIT_CODE"
+  else
+    echo "representative replay drain finished" | tee -a "$LOG_FILE"
+  fi
+  if [ "$REPLAY_ROLLUP_EXIT_CODE" -ne 0 ]; then
+    echo "representative replay drain rollup warning exit_code=$REPLAY_ROLLUP_EXIT_CODE" | tee -a "$LOG_FILE"
+  fi
+else
+  echo "representative replay drain skipped; exit_code=$EXIT_CODE enabled=${TOP10_REPLAY_DRAIN_ENABLED:-1}" | tee -a "$LOG_FILE"
+fi
+
 if [ "$EXIT_CODE" -eq 0 ]; then
   echo "fog research worker finished - $(date)" | tee -a "$LOG_FILE"
 else
   echo "fog research worker failed - $(date) exit_code=$EXIT_CODE" | tee -a "$LOG_FILE"
-fi
-
-if [ "$LAST_ROLLUP_EXIT_CODE" -ne 0 ]; then
-  echo "fog research worker last rollup warning exit_code=$LAST_ROLLUP_EXIT_CODE" | tee -a "$LOG_FILE"
 fi
 
 exit "$EXIT_CODE"

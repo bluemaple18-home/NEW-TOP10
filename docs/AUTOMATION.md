@@ -116,14 +116,15 @@ repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.s
 repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scripts/run_external_review_host_runner.sh`；它會自行等 daily OK，不會在 daily 失敗時送出外部 review。迷霧地圖與每日研究 quota 不再另開排程，改由這條 harness handoff 負責；需要暫停整段可設 `TOP10_SKIP_FOG_MAP_HANDOFF=1`，只除錯地圖可設 `TOP10_SKIP_RESEARCH_QUOTA=1`，但正式排程不應長期跳過。
 
 ### `scripts/run_fog_research_worker.sh`
-**功能**: 受 harness 管控的 burn-down 研究 worker；launchd 每 15 分鐘觸發一次，但同一時間只允許一個 lock。每次啟動最多連跑 6 批或 2 小時，每批跑本地白名單 research quota，刷新 Fog Map，寫入 `research_worker` / `fog_map` events。它不送 ChatGPT/Gemini、不改 ranking/model、不取代 17:50 external-review handoff。
+**功能**: 受 harness 管控的 burn-down 研究 worker；launchd 每 15 分鐘觸發一次，但同一時間只允許一個 lock。每次啟動最多連跑 6 批或 2 小時，先消費本地白名單 research quota，刷新 Fog Map；若 research queue 空，會在同一個 lock 裡接著執行 representative replay drain，append run_history，重建 controlled-grid linkage，再刷新 Fog Map。它不送 ChatGPT/Gemini、不改 ranking/model、不取代 17:50 external-review handoff。
 
 **防空跑與防重疊**:
 1. 使用 `logs/fog_research_worker.lock`，同一時間只允許一個 worker；高頻 launchd 觸發不會造成重疊。
 2. 預設 `TOP10_RESEARCH_FROM_QUEUE=1`、`TOP10_RESEARCH_ALLOW_RERUN=0`，優先消費研究 queue，避免一直重跑同題。
 3. 預設 `TOP10_FOG_RESEARCH_MAX_BATCHES=6`、`TOP10_FOG_RESEARCH_MAX_SECONDS=7200`、`TOP10_FOG_RESEARCH_QUOTA=5`，catch-up 時會盡快消 queue，但保留停損上限。
 4. 每批都會驗證 `autonomous_research_daily_quota_YYYY-MM-DD.json` 與 `research_fog_map_latest.json`；驗證失敗就非 0 exit，不假成功。
-5. 只寫本地 artifacts 與 harness events；是否送 ops Discord 仍由 ops reporter/監控面決定，避免高頻 worker 洗頻。
+5. representative replay drain 會寫 `artifacts/weekend_training/representative_replay_drain_YYYY-MM-DD.json`，每批都跑 representative replay verifier、controlled-grid linkage 與 fog map verifier；queue 未清空但達到批次上限時，會寫 `max_batches_reached`，不會假裝 queue empty。
+6. 只寫本地 artifacts 與 harness events；是否送 ops Discord 仍由 ops reporter/監控面決定，避免高頻 worker 洗頻。
 
 手動跑：
 
