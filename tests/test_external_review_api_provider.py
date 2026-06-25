@@ -34,6 +34,39 @@ class ExternalReviewApiProviderTest(unittest.TestCase):
 
         self.assertEqual(validate(normalized), [])
 
+    def test_generic_reviewer_json_score_normalizes(self) -> None:
+        packet = sample_packet()
+        raw_payload = {
+            "overall": {
+                "score": 6.6,
+                "confidence": "中等",
+                "summary": "強勢動能選股，但需要防追高與停損過寬。",
+            },
+            "quality": {
+                "mainstream_alignment": {"rating": "中上"},
+                "relative_strength": {"rating": "高"},
+                "risk_control": {"rating": "偏弱"},
+                "timing_quality": {"rating": "中等"},
+                "theme_fit": {"rating": "中上"},
+            },
+            "observations": [{"point": "動能強", "evidence": "2330 放量突破。"}],
+            "misses": [{"issue": "追高風險", "detail": "2317 開高走低。"}],
+            "research_hypotheses": [{"hypothesis": "測試強勢收盤隔日續航", "why": "避免追高。"}],
+            "safety": {"manual_review_required": ["停損過寬需覆核"]},
+        }
+        normalized = normalize_payload(
+            provider="chatgpt",
+            review_date="2026-06-24",
+            raw_payload=raw_payload,
+            raw_text=json.dumps(raw_payload, ensure_ascii=False),
+            packet=packet,
+        )
+
+        self.assertEqual(validate(normalized), [])
+        self.assertEqual(normalized["overall"]["score"], 66)
+        self.assertEqual(normalized["overall"]["verdict"], "good")
+        self.assertTrue(normalized["safety"]["needs_human_review"])
+
     def test_host_runner_api_dry_run_provider_writes_response(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             artifacts = Path(tmp) / "artifacts"

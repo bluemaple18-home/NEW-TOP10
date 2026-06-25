@@ -323,6 +323,25 @@ store_chatgpt_response() {
   local payload="$2"
   local review_dir="$OUT_DIR/$date_text"
   mkdir -p "$review_dir"
+  if [[ -n "$TEST_PROMPT" ]]; then
+    local smoke_path="$review_dir/chatgpt_smoke_${date_text}.json"
+    "$(python_bin)" - "$payload" "$smoke_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload_raw, smoke_path_raw = sys.argv[1:]
+try:
+    payload = json.loads(payload_raw)
+except Exception as exc:
+    payload = {"ok": False, "reason": "invalid_collect_payload", "error": str(exc), "raw": payload_raw}
+
+path = Path(smoke_path_raw)
+path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+print(f"smoke={path}")
+PY
+    return
+  fi
   local raw_path="$review_dir/chatgpt_raw_${date_text}.txt"
   local response_path="$review_dir/chatgpt_response_${date_text}.json"
   local status_path="$review_dir/chatgpt_collect_status_${date_text}.json"
@@ -358,20 +377,28 @@ status_path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", 
 print(json.dumps(status, ensure_ascii=False))
 PY
 
-  if [[ -n "$TEST_PROMPT" ]]; then
-    "$(python_bin)" - "$status_path" <<'PY'
+  if ! "$(python_bin)" - "$status_path" "$raw_path" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-path = Path(sys.argv[1])
-status = json.loads(path.read_text(encoding="utf-8"))
-status["ok"] = bool(status.get("raw_chars"))
-status["reason"] = "test_prompt_raw_saved"
-path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+status_path = Path(sys.argv[1])
+raw_path = Path(sys.argv[2])
+status = json.loads(status_path.read_text(encoding="utf-8"))
+raw = raw_path.read_text(encoding="utf-8").strip()
+is_smoke = "top10-browser" in raw or "top10-chatgpt-script-click" in raw
+if len(raw) >= 500 and not is_smoke:
+    raise SystemExit(0)
+status["ok"] = False
+status["reason"] = "formal_raw_too_short_or_smoke"
+status["min_raw_chars"] = 500
+status["smoke_marker_detected"] = is_smoke
+status_path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+raise SystemExit(1)
 PY
+  then
     printf 'raw=%s\nresponse=%s\nstatus=%s\n' "$raw_path" "$response_path" "$status_path"
-    return 0
+    return 1
   fi
 
   if "$(python_bin)" "$PROJECT_DIR/scripts/normalize_external_review_response.py" \

@@ -102,6 +102,8 @@ def normalize_payload(
         return normalize_gemini_payload(provider, review_date, payload)
     if isinstance(payload.get("trading_review"), dict):
         return normalize_gemini_trading_review_payload(provider, review_date, payload)
+    if isinstance(payload.get("overall"), dict):
+        return normalize_generic_reviewer_payload(provider, review_date, payload, packet)
     if raw_payload is None:
         return normalize_plaintext_payload(provider, review_date, raw_text, packet)
 
@@ -162,6 +164,56 @@ def normalize_payload(
             "algorithm_requested": False,
             "contains_algorithm_claim": False,
             "needs_human_review": raw_payload is None,
+        },
+    }
+
+
+def normalize_generic_reviewer_payload(
+    provider: str,
+    review_date: str,
+    payload: dict[str, Any],
+    packet: dict[str, Any],
+) -> dict[str, Any]:
+    """正規化一般 reviewer JSON，如 ChatGPT 回傳的 overall/quality 物件。"""
+    overall = object_value(payload.get("overall"))
+    quality = object_value(payload.get("quality"))
+    score = score_0_to_100(overall.get("score"))
+    confidence = confidence_value(overall.get("confidence"))
+    summary = first_non_empty(overall.get("summary"), payload.get("summary"), "外部 reviewer 回覆未提供摘要。")
+
+    observations = generic_observations(payload)
+    misses = generic_misses(payload)
+    hypotheses = generic_hypotheses(payload, packet)
+    themes = generic_themes(payload)
+    tomorrow_watch = generic_tomorrow_watch(payload)
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "provider": provider,
+        "review_date": review_date,
+        "market": "TW",
+        "overall": {
+            "score": score,
+            "verdict": verdict_from_score(score),
+            "confidence": confidence,
+            "summary": string_value(summary)[:500],
+        },
+        "quality": {
+            "mainstream_alignment": quality_metric(quality.get("mainstream_alignment"), score),
+            "relative_strength": quality_metric(quality.get("relative_strength"), score),
+            "risk_control": quality_metric(quality.get("risk_control"), score),
+            "timing_quality": quality_metric(quality.get("timing_quality"), score),
+            "theme_fit": quality_metric(quality.get("theme_fit"), score),
+        },
+        "observations": observations,
+        "misses": misses,
+        "themes": themes,
+        "tomorrow_watch": tomorrow_watch,
+        "research_hypotheses": hypotheses,
+        "safety": {
+            "algorithm_requested": False,
+            "contains_algorithm_claim": False,
+            "needs_human_review": bool(list_value(object_value(payload.get("safety")).get("manual_review_required"))),
         },
     }
 
@@ -702,6 +754,123 @@ def build_hypotheses(payload: dict[str, Any], packet: dict[str, Any]) -> list[di
     return hypotheses[:8]
 
 
+def generic_observations(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    observations: list[dict[str, Any]] = []
+    for item in list_value(payload.get("observations"))[:12]:
+        if isinstance(item, dict):
+            title = first_non_empty(item.get("title"), item.get("point"), item.get("issue"), "reviewer observation")
+            evidence = first_non_empty(item.get("evidence"), item.get("detail"), item.get("comment"), title)
+        else:
+            title = string_value(item)[:80] or "reviewer observation"
+            evidence = string_value(item)
+        text = f"{title} {evidence}"
+        observations.append(
+            {
+                "type": observation_type_from_text(text),
+                "title": string_value(title)[:80] or "reviewer observation",
+                "evidence": string_value(evidence)[:500],
+                "affected_symbols": unique_stock_ids(stock_ids_from_text(text))[:6],
+                "severity": severity_from_text(text),
+            }
+        )
+    if not observations:
+        observations.append(
+            {
+                "type": "risk",
+                "title": "generic reviewer payload",
+                "evidence": string_value(first_non_empty(object_value(payload.get("overall")).get("summary"), "外部 reviewer 回覆未列 observations。"))[:500],
+                "affected_symbols": [],
+                "severity": "medium",
+            }
+        )
+    return observations[:12]
+
+
+def generic_misses(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    misses: list[dict[str, Any]] = []
+    for item in list_value(payload.get("misses"))[:8]:
+        if isinstance(item, dict):
+            issue = first_non_empty(item.get("issue"), item.get("title"), item.get("point"), "possible miss")
+            evidence = first_non_empty(item.get("evidence"), item.get("detail"), item.get("reason"), issue)
+            text = f"{issue} {evidence}"
+            symbols = unique_stock_ids(stock_ids_from_text(text))
+            misses.append(
+                {
+                    "symbol": symbols[0] if symbols else string_value(item.get("symbol")),
+                    "name": string_value(item.get("name")),
+                    "issue": string_value(issue)[:160],
+                    "likely_cause": cause_from_text(text),
+                    "evidence": string_value(evidence)[:500],
+                }
+            )
+        else:
+            text = string_value(item)
+            symbols = unique_stock_ids(stock_ids_from_text(text))
+            misses.append(
+                {
+                    "symbol": symbols[0] if symbols else "",
+                    "name": "",
+                    "issue": text[:160] or "possible miss",
+                    "likely_cause": cause_from_text(text),
+                    "evidence": text[:500],
+                }
+            )
+    return misses[:8]
+
+
+def generic_hypotheses(payload: dict[str, Any], packet: dict[str, Any]) -> list[dict[str, Any]]:
+    hypotheses: list[dict[str, Any]] = []
+    for item in list_value(payload.get("research_hypotheses"))[:8]:
+        if isinstance(item, dict):
+            hypothesis = first_non_empty(item.get("hypothesis"), item.get("hypothesis_name"), item.get("title"), item.get("description"))
+            why = first_non_empty(item.get("why_it_matters"), item.get("why"), item.get("description"), hypothesis)
+        else:
+            hypothesis = string_value(item)
+            why = hypothesis
+        text = f"{hypothesis} {why}"
+        if not string_value(hypothesis):
+            continue
+        hypotheses.append(
+            {
+                "hypothesis": string_value(hypothesis)[:240],
+                "why_it_matters": string_value(why)[:500],
+                "candidate_signal_family": signal_family_from_text(text),
+                "validation_hint": string_value(first_non_empty(object_value(item).get("validation_hint") if isinstance(item, dict) else "", "用歷史 replay 驗證該條件對命中率、回撤與隔日走勢的影響。"))[:500],
+                "priority": priority_from_text(text),
+            }
+        )
+    if not hypotheses:
+        return build_hypotheses({}, packet)
+    return hypotheses[:8]
+
+
+def generic_themes(payload: dict[str, Any]) -> dict[str, list[str]]:
+    themes = object_value(payload.get("themes"))
+    strong = string_list(first_non_empty(themes.get("strong"), themes.get("strong_themes"), themes.get("leading_sectors"), []))
+    weak = string_list(first_non_empty(themes.get("weak"), themes.get("weak_or_uncertain_themes"), []))
+    watch = string_list(first_non_empty(themes.get("watch"), themes.get("theme_candidates"), strong + weak))
+    return {
+        "strong": unique_strings(strong)[:10],
+        "weak": unique_strings(weak)[:10],
+        "watch": unique_strings(watch)[:10],
+    }
+
+
+def generic_tomorrow_watch(payload: dict[str, Any]) -> dict[str, list[str]]:
+    watch = object_value(payload.get("tomorrow_watch"))
+    text = json.dumps(watch, ensure_ascii=False)
+    avoid = unique_stock_ids(stock_ids_from_text(" ".join(string_list(first_non_empty(watch.get("avoid_chasing"), []))) + " " + text))
+    reversal = unique_stock_ids(stock_ids_from_text(" ".join(string_list(first_non_empty(watch.get("watch_for_reversal"), []))) + " " + text))
+    continue_ids = unique_stock_ids(stock_ids_from_text(" ".join(string_list(first_non_empty(watch.get("continue"), [])))))
+    themes = string_list(first_non_empty(watch.get("theme_candidates"), watch.get("market_conditions"), []))
+    return {
+        "continue": continue_ids[:10],
+        "avoid_chasing": avoid[:10],
+        "watch_for_reversal": reversal[:10],
+        "theme_candidates": unique_strings(themes)[:10],
+    }
+
+
 def stocks_from_high_risk(payload: dict[str, Any]) -> list[str]:
     result = []
     for item in list_value(payload.get("stock_level_review")):
@@ -750,6 +919,35 @@ def score_0_to_5(value: Any) -> int:
     return int(round(clamp(parsed, 0, 5)))
 
 
+def quality_metric(value: Any, fallback_score: int) -> int:
+    if isinstance(value, dict):
+        value = first_non_empty(value.get("score"), value.get("rating"), value.get("value"), value.get("comment"))
+    text = string_value(value)
+    if text:
+        if any(token in text for token in ["高", "優", "good", "strong", "中上"]):
+            return 4
+        if any(token in text for token in ["弱", "差", "poor", "偏弱"]):
+            return 2
+        if "中" in text or "medium" in text:
+            return 3
+    parsed = float_value(value, -1)
+    if parsed >= 0:
+        return score_0_to_5(parsed)
+    return score_0_to_5(fallback_score)
+
+
+def confidence_value(value: Any) -> float:
+    text = string_value(value)
+    if text:
+        if any(token in text for token in ["高", "HIGH", "high"]):
+            return 0.8
+        if any(token in text for token in ["低", "LOW", "low"]):
+            return 0.35
+        if any(token in text for token in ["中", "MEDIUM", "medium"]):
+            return 0.65
+    return clamp(float_value(value, 0.65), 0.0, 1.0)
+
+
 def verdict_from_score(value: Any) -> str:
     score = score_0_to_100(value)
     if score >= 85:
@@ -769,6 +967,32 @@ def cause_from_text(text: str) -> str:
     if "流動性" in text or "成交" in text:
         return "liquidity_weakness"
     return "unknown"
+
+
+def observation_type_from_text(text: str) -> str:
+    if any(token in text for token in ["風險", "risk", "追高", "停損", "弱"]):
+        return "risk"
+    if any(token in text for token in ["誤判", "miss", "錯"]):
+        return "weakness"
+    if any(token in text for token in ["機會", "opportunity"]):
+        return "missed_opportunity"
+    return "strength" if any(token in text for token in ["強", "優", "突破", "動能"]) else "risk"
+
+
+def severity_from_text(text: str) -> str:
+    if any(token in text for token in ["極", "嚴重", "high", "HIGH", "異常", "427"]):
+        return "high"
+    if any(token in text for token in ["中", "medium", "MEDIUM", "需要"]):
+        return "medium"
+    return "low"
+
+
+def priority_from_text(text: str) -> str:
+    if severity_from_text(text) == "high":
+        return "high"
+    if any(token in text for token in ["驗證", "檢驗", "test", "回測"]):
+        return "medium"
+    return "low"
 
 
 def signal_family_from_text(text: str) -> str:

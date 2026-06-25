@@ -601,6 +601,30 @@ status_path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", 
 print(json.dumps(status, ensure_ascii=False))
 PY
 
+  if ! "$(python_bin)" - "$status_path" "$raw_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+status_path = Path(sys.argv[1])
+raw_path = Path(sys.argv[2])
+status = json.loads(status_path.read_text(encoding="utf-8"))
+raw = raw_path.read_text(encoding="utf-8").strip()
+is_smoke = "top10-browser" in raw or '"marker"' in raw
+if len(raw) >= 500 and not is_smoke:
+    raise SystemExit(0)
+status["ok"] = False
+status["reason"] = "formal_raw_too_short_or_smoke"
+status["min_raw_chars"] = 500
+status["smoke_marker_detected"] = is_smoke
+status_path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+raise SystemExit(1)
+PY
+  then
+    printf 'raw=%s\nresponse=%s\nstatus=%s\n' "$raw_path" "$response_path" "$status_path"
+    return 1
+  fi
+
   if "$(python_bin)" "$PROJECT_DIR/scripts/normalize_external_review_response.py" \
     --provider gemini \
     --date "$date_text" \
