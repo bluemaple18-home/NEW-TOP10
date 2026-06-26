@@ -584,9 +584,11 @@ def run_command(command: list[str]) -> CommandResult:
 
 
 def write_host_summary(path: Path, status: dict[str, Any], external_summary: dict[str, Any] | None) -> None:
+    external_provider_rows = external_summary_provider_rows(external_summary)
     provider_rows = []
     for provider in PROVIDERS:
         provider_state = status.get(provider) if isinstance(status.get(provider), dict) else {}
+        external_provider = external_provider_rows.get(provider, {})
         provider_rows.append(
             {
                 "provider": provider,
@@ -594,8 +596,16 @@ def write_host_summary(path: Path, status: dict[str, Any], external_summary: dic
                 "raw_path": provider_state.get("raw_path"),
                 "response_path": provider_state.get("response_path"),
                 "notes": provider_state.get("notes", []),
+                "valid": external_provider.get("valid"),
+                "valid_reason": external_provider.get("reason"),
             }
         )
+    valid_provider_count = sum(1 for row in external_provider_rows.values() if row.get("valid") is True)
+    invalid_providers = [provider for provider, row in external_provider_rows.items() if row.get("valid") is not True]
+    safety = dict((external_summary or {}).get("safety") or {})
+    if external_summary is not None:
+        safety["invalid_providers"] = invalid_providers
+        safety["needs_human_review"] = bool(safety.get("needs_human_review") or invalid_providers)
     payload = {
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -604,12 +614,28 @@ def write_host_summary(path: Path, status: dict[str, Any], external_summary: dic
         "host_runner_status_path": status.get("host_runner_status_path"),
         "external_review_summary_path": status.get("summary_path"),
         "providers": provider_rows,
-        "valid_provider_count": (external_summary or {}).get("valid_provider_count"),
-        "safety": (external_summary or {}).get("safety"),
+        "valid_provider_count": valid_provider_count if external_summary is not None else None,
+        "safety": safety if external_summary is not None else None,
         "promotion_boundary": (external_summary or {}).get("promotion_boundary"),
         "notes": status.get("notes", []),
     }
     write_json(path, payload)
+
+
+def external_summary_provider_rows(external_summary: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    if not isinstance(external_summary, dict):
+        return {}
+    providers = external_summary.get("providers")
+    if not isinstance(providers, list):
+        return {}
+    rows: dict[str, dict[str, Any]] = {}
+    for item in providers:
+        if not isinstance(item, dict):
+            continue
+        provider = item.get("provider")
+        if isinstance(provider, str) and provider:
+            rows[provider] = item
+    return rows
 
 
 def write_provider_events(

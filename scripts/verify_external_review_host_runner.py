@@ -117,7 +117,59 @@ def validate_summary(payload: Any, status: dict[str, Any]) -> list[str]:
         errors.append(f"summary.status: mismatch {payload.get('status')} != {status.get('status')}")
     check_list(payload.get("providers"), "summary.providers", errors)
     check_list(payload.get("notes"), "summary.notes", errors)
+    validate_external_summary_alignment(payload, errors)
     return errors
+
+
+def validate_external_summary_alignment(payload: dict[str, Any], errors: list[str]) -> None:
+    external_path = resolve_optional_path(payload.get("external_review_summary_path"))
+    if not external_path:
+        return
+    if not external_path.exists():
+        errors.append(f"summary.external_review_summary_path: missing on disk: {payload.get('external_review_summary_path')}")
+        return
+    external = read_json(external_path)
+    if payload.get("valid_provider_count") != external.get("valid_provider_count"):
+        errors.append(
+            "summary.valid_provider_count: mismatch with external review summary "
+            f"{payload.get('valid_provider_count')} != {external.get('valid_provider_count')}"
+        )
+
+    summary_safety = object_value(payload.get("safety"))
+    external_safety = object_value(external.get("safety"))
+    if summary_safety.get("invalid_providers") != external_safety.get("invalid_providers"):
+        errors.append(
+            "summary.safety.invalid_providers: mismatch with external review summary "
+            f"{summary_safety.get('invalid_providers')} != {external_safety.get('invalid_providers')}"
+        )
+    if payload.get("promotion_boundary") != external.get("promotion_boundary"):
+        errors.append("summary.promotion_boundary: mismatch with external review summary")
+
+    summary_validity = provider_validity(payload.get("providers"))
+    external_validity = provider_validity(external.get("providers"))
+    for provider, valid in external_validity.items():
+        if summary_validity.get(provider) != valid:
+            errors.append(
+                f"summary.providers[{provider}].valid: mismatch with external review summary "
+                f"{summary_validity.get(provider)} != {valid}"
+            )
+
+
+def provider_validity(value: Any) -> dict[str, bool]:
+    if not isinstance(value, list):
+        return {}
+    result: dict[str, bool] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        provider = item.get("provider")
+        if isinstance(provider, str) and provider:
+            result[provider] = item.get("valid") is True
+    return result
+
+
+def object_value(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
 
 
 def check_string(value: Any, path: str, errors: list[str]) -> None:
