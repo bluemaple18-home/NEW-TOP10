@@ -278,9 +278,13 @@
       "label": "Ops Reporter Bot",
       "lane": "ops",
       "responsibility": "回報工作進度頻道，產生下一輪 blocker。",
-      "inputs": ["stop_event", "host_runner_status", "external_review_summary", "next_actions", "research_fog_map", "daily_research_quota_artifact"],
-      "outputs": ["ops_progress_message", "blocker_list"],
-      "dashboard_metrics": ["status", "discord_channel", "message_path", "blocker_count", "next_action_count"],
+      "inputs": ["stop_event", "host_runner_status", "external_review_summary", "next_actions", "research_fog_map", "daily_research_quota_artifact", "research_decision_brief"],
+      "outputs": ["ops_progress_message", "blocker_list", "pm_decision_requests"],
+      "dashboard_metrics": ["status", "discord_channel", "message_path", "blocker_count", "next_action_count", "decision_request_count"],
+      "artifact_paths": [
+        "artifacts/research_decisions/research_decision_brief_{run_date}.json",
+        "artifacts/research_decisions/research_decision_brief_{run_date}.md"
+      ],
       "discord_channel": "ops_progress_channel",
       "stop_conditions": ["ops_message_render_failed", "ops_send_failed_without_local_artifact"]
     }
@@ -344,7 +348,7 @@
     {"agent_id": "disagreement_next_actions", "writer": "scripts/run_external_review_host_runner.py", "source_artifacts": ["artifacts/external_review/{run_date}/external_review_summary_{run_date}.json"], "normal_wait": ["needs_human_review can be warning"], "missing_is_attention_when": "summary verification failed or daily OK has no disagreement event"},
     {"agent_id": "fog_map", "writer": "scripts/run_top10_fog_map_handoff.py", "source_artifacts": ["research campaign progress", "research fog map", "fog map verification"], "normal_wait": ["external review skipped", "explicit fog handoff skip"], "missing_is_attention_when": "review/outcome signal exists but fog_map event is missing"},
     {"agent_id": "research_worker", "writer": "scripts/run_top10_fog_map_handoff.py", "source_artifacts": ["daily quota artifact", "daily quota verification", "run_history.jsonl"], "normal_wait": ["TOP10_SKIP_RESEARCH_QUOTA=1", "empty research queue"], "missing_is_attention_when": "research queue exists but quota/replay event is missing"},
-    {"agent_id": "ops_reporter", "writer": "scripts/record_top10_daily_status_events.py and scripts/send_top10_ops_report.py", "source_artifacts": ["rollup", "ops progress message"], "normal_wait": ["local ops message exists but send is pending can be warning"], "missing_is_attention_when": "stop/degraded status exists but no ops event or local message exists"}
+    {"agent_id": "ops_reporter", "writer": "scripts/record_top10_daily_status_events.py and scripts/send_top10_ops_report.py", "source_artifacts": ["rollup", "ops progress message", "research decision brief"], "normal_wait": ["local ops message exists but send is pending can be warning"], "missing_is_attention_when": "stop/degraded status exists but no ops event or local message exists"}
   ],
   "pending_policy": {
     "normal_pending": ["upstream has not handed off", "realized outcome is not mature", "external review has not reached schedule time"],

@@ -68,7 +68,14 @@ def main() -> int:
     rollup = read_json(rollup_path)
     run_date = str(rollup.get("run_date") or args.run_date or datetime.now().date().isoformat())
     external_summary = load_external_summary(artifacts_dir, run_date)
-    message = render_ops_message(rollup, external_summary, rollup_path=rollup_path, artifacts_dir=artifacts_dir)
+    research_decision_brief = load_research_decision_brief(artifacts_dir, run_date)
+    message = render_ops_message(
+        rollup,
+        external_summary,
+        rollup_path=rollup_path,
+        artifacts_dir=artifacts_dir,
+        research_decision_brief=research_decision_brief,
+    )
     output = resolve_path(args.output) if args.output else artifacts_dir / f"ops_progress_message_{run_date}.md"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(message, encoding="utf-8")
@@ -84,6 +91,9 @@ def main() -> int:
                 "rollup_path": safe_ref(rollup_path, artifacts_dir),
                 "external_review_summary_path": safe_ref(external_summary["_path"], artifacts_dir)
                 if external_summary and external_summary.get("_path")
+                else None,
+                "research_decision_brief_path": safe_ref(research_decision_brief["_path"], artifacts_dir)
+                if research_decision_brief and research_decision_brief.get("_path")
                 else None,
             },
             ensure_ascii=False,
@@ -120,13 +130,32 @@ def read_json(path: Path) -> dict[str, Any]:
 def load_external_summary(artifacts_dir: Path, run_date: str) -> dict[str, Any] | None:
     path = artifacts_dir / "external_review" / run_date / f"external_review_summary_{run_date}.json"
     if not path.exists():
+        candidates = sorted((artifacts_dir / "external_review").glob("*/external_review_summary_*.json"), reverse=True)
+        if not candidates:
+            return None
+        path = candidates[0]
+    payload = read_json(path)
+    payload["_path"] = path
+    return payload
+
+
+def load_research_decision_brief(artifacts_dir: Path, run_date: str) -> dict[str, Any] | None:
+    path = artifacts_dir / "research_decisions" / f"research_decision_brief_{run_date}.json"
+    if not path.exists():
         return None
     payload = read_json(path)
     payload["_path"] = path
     return payload
 
 
-def render_ops_message(rollup: dict[str, Any], external_summary: dict[str, Any] | None, *, rollup_path: Path, artifacts_dir: Path) -> str:
+def render_ops_message(
+    rollup: dict[str, Any],
+    external_summary: dict[str, Any] | None,
+    *,
+    rollup_path: Path,
+    artifacts_dir: Path,
+    research_decision_brief: dict[str, Any] | None = None,
+) -> str:
     run_date = str(rollup.get("run_date") or "unknown")
     run_id = str(rollup.get("run_id") or "unknown")
     status = str(rollup.get("status") or "unknown")
@@ -163,6 +192,7 @@ def render_ops_message(rollup: dict[str, Any], external_summary: dict[str, Any] 
         lines.extend(["狀態", "- daily harness 目前沒有 blocker。", ""])
 
     lines.extend(render_external_review_section(external_summary))
+    lines.extend(render_research_decision_section(research_decision_brief))
     lines.extend(render_next_actions(problem_agents, external_summary))
     return "\n".join(lines).rstrip() + "\n"
 
@@ -191,6 +221,9 @@ def render_external_review_section(external_summary: dict[str, Any] | None) -> l
         "外部 AI 檢核",
         f"- 有效回覆：`{valid_count}`；需要人工複核：{yes_no(bool(safety.get('needs_human_review')))}",
     ]
+    review_date = external_summary.get("review_date")
+    if review_date:
+        rows.append(f"- 檢核日期：`{review_date}`")
     if disagreements:
         rows.append("- 跟我們結果明顯不一致：")
         for item in disagreements[:5]:
@@ -205,6 +238,31 @@ def render_external_review_section(external_summary: dict[str, Any] | None) -> l
                 rows.append(f"  - {symbol}：{translate_text(reason)}")
     if not disagreements and not today_misses:
         rows.append("- 目前沒有明確反對點或今日漏看清單。")
+    rows.append("")
+    return rows
+
+
+def render_research_decision_section(brief: dict[str, Any] | None) -> list[str]:
+    if not brief:
+        return ["需要你決策", "- 尚未產生研究決策 brief。", ""]
+    requests = [item for item in list_value(brief.get("decision_requests")) if isinstance(item, dict)]
+    rows = [
+        "需要你決策",
+        f"- 待拍板事項：`{len(requests)}`；決策檔：`{safe_ref(brief.get('_path'), ARTIFACTS_DIR)}`",
+    ]
+    if not requests:
+        rows.append("- 目前沒有新的人工決策事項。")
+        rows.append("")
+        return rows
+    for item in requests[:5]:
+        title = translate_text(item.get("title") or "未命名決策")
+        recommended = translate_text(item.get("recommended_option") or "沒有建議")
+        priority = priority_label(item.get("priority"))
+        options = " / ".join(translate_text(option) for option in list_value(item.get("options")))
+        rows.append(f"- {priority}｜{title}")
+        rows.append(f"  建議：{recommended}")
+        if options:
+            rows.append(f"  選項：{options}")
     rows.append("")
     return rows
 
@@ -251,6 +309,10 @@ def yes_no(value: bool) -> str:
     return "是" if value else "否"
 
 
+def priority_label(value: Any) -> str:
+    return {"high": "高", "medium": "中", "low": "低"}.get(str(value), "未分級")
+
+
 def translate_text(value: Any) -> str:
     if isinstance(value, list):
         return "、".join(translate_text(item) for item in value)
@@ -285,6 +347,7 @@ def translate_text(value: Any) -> str:
         "only flagged by": "只有這個外部 AI 標記",
         "research card": "研究卡",
         "ranking": "排名",
+        "排名 或模型": "排名或模型",
         "keep single reviewer flag instead of averaging it away": "保留單一外部檢核標記，不在摘要中平均掉",
         "保留單一 reviewer 標記，不在 summary 中平均掉": "保留單一外部檢核標記，不在摘要中平均掉",
         "單一 外部檢核": "單一外部檢核",
@@ -295,6 +358,9 @@ def translate_text(value: Any) -> str:
         "改 排名": "改排名",
         "unknown": "未知",
         "no detail": "沒有細節",
+        "External Review Bot": "外部檢核機器人",
+        "Research Worker Bot": "研究 worker",
+        "Fog Map Bot": "迷霧地圖機器人",
     }
     for source, target in replacements.items():
         text = text.replace(source, target)

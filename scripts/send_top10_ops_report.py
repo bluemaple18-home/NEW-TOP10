@@ -56,7 +56,8 @@ def main() -> int:
     run_date = str(rollup.get("run_date") or args.run_date or datetime.now().date().isoformat())
     run_id = str(rollup.get("run_id") or args.run_id or f"daily-{run_date}")
     message_path = resolve_message(args.message, artifacts_dir, run_date)
-    if not message_path.exists():
+    build_research_decision_brief(run_date=run_date, artifacts_dir=artifacts_dir)
+    if args.message is None or not message_path.exists():
         run_checked(
             [
                 python_bin(),
@@ -269,6 +270,19 @@ def run_checked(command: list[str]) -> None:
     completed = subprocess.run(command, cwd=PROJECT_ROOT)
     if completed.returncode != 0:
         raise RuntimeError(f"command failed exit_code={completed.returncode}: {' '.join(command)}")
+
+
+def build_research_decision_brief(*, run_date: str, artifacts_dir: Path) -> None:
+    run_checked(
+        [
+            python_bin(),
+            "scripts/build_research_decision_brief.py",
+            "--run-date",
+            run_date,
+            "--artifacts-dir",
+            str(artifacts_dir),
+        ]
+    )
 
 
 def python_bin() -> str:

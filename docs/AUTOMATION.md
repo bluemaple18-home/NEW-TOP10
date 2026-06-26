@@ -127,9 +127,17 @@ repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scri
 | 送 Gemini | `ai_review_adapter` | 同一個 host runner → `review_gemini_chrome.sh` | 固定 `TOP10 External Review - Gemini PROD`，不是獨立排程。 |
 | 驗證與合併 | `disagreement_next_actions` | `build_external_review_summary.py` / `verify_external_review_summary.py` | 只產生分歧、人工複核與研究題目，不改 ranking。 |
 | 研究交接 | `fog_map` | `run_top10_fog_map_handoff.py` | 把外部檢核分歧變成迷霧訊號與研究 queue。 |
-| 工作回報 | `ops_reporter` | `build_top10_ops_progress_message.py` / `send_top10_ops_report.py` | 送工作進度頻道，回報文字必須是中文。 |
+| 決策 brief | `ops_reporter` | `build_research_decision_brief.py` | 彙整外部 AI 分歧、研究 queue、模型候選中需要 PM 拍板的事項。 |
+| 工作回報 | `ops_reporter` | `build_top10_ops_progress_message.py` / `send_top10_ops_report.py` | 送工作進度頻道，回報文字與決策事項必須是中文。 |
 
 成功條件：ChatGPT 與 Gemini 正式 raw response 都必須至少 500 字、不得是 smoke marker，且 normalize / contract verify 通過。任何 provider 失敗都不得被補成假成功；單一 provider 成功只能是 `PARTIAL`，兩個都失敗就是 `FAILED`。
+
+`scripts/build_research_decision_brief.py` 會輸出：
+
+- `artifacts/research_decisions/research_decision_brief_YYYY-MM-DD.json`
+- `artifacts/research_decisions/research_decision_brief_YYYY-MM-DD.md`
+
+這個 brief 只做「要不要進下一階段研究 / shadow monitor / 人工複核」的決策提示，不允許直接改 ranking、訓練模型或 promotion。`scripts/send_top10_ops_report.py` 在送工作進度頻道前會自動重建 brief，並把「需要你決策」區塊放進中文回報。
 
 ### `scripts/run_fog_research_worker.sh`
 **功能**: 受 harness 管控的 burn-down 研究 worker；launchd 每 15 分鐘觸發一次，但同一時間只允許一個 lock。每次啟動最多連跑 6 批或 2 小時，先消費本地白名單 research quota，刷新 Fog Map；若 research queue 空，會在同一個 lock 裡接著執行 representative replay drain，append run_history，重建 controlled-grid linkage，再刷新 Fog Map。它不送 ChatGPT/Gemini、不改 ranking/model、不取代 17:50 external-review handoff。
