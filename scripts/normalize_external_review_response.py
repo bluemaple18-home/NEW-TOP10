@@ -9,6 +9,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from external_review_provider_contract import MIN_RAW_CHARS, has_smoke_marker
+
 
 SCHEMA_VERSION = "external-review.v1"
 
@@ -26,6 +28,13 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     raw_text = args.raw.read_text(encoding="utf-8")
+    raw_stripped = raw_text.strip()
+    if len(raw_stripped) < MIN_RAW_CHARS:
+        print(f"EXTERNAL_REVIEW_NORMALIZE_FAILED raw_too_short chars={len(raw_stripped)} min={MIN_RAW_CHARS}")
+        return 1
+    if has_smoke_marker(raw_stripped):
+        print("EXTERNAL_REVIEW_NORMALIZE_FAILED raw_smoke_marker_detected")
+        return 1
     packet = json.loads(args.packet.read_text(encoding="utf-8"))
     raw_payload = parse_raw_payload(raw_text)
     normalized = normalize_payload(

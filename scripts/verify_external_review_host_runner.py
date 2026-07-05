@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from external_review_provider_contract import provider_artifact_errors
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATUS_SCHEMA_VERSION = "external-review-host-runner-status.v1"
@@ -103,6 +105,35 @@ def validate_provider(provider: str, payload: dict[str, Any], errors: list[str])
     if payload.get("status") == "OK":
         check_existing_path(payload.get("raw_path"), f"{provider}.raw_path", errors)
         check_existing_path(payload.get("response_path"), f"{provider}.response_path", errors)
+        artifact_errors = provider_status_artifact_errors(provider, payload)
+        if artifact_errors:
+            errors.append(f"{provider}.status: OK but artifacts invalid: {'; '.join(artifact_errors)}")
+
+
+def provider_status_artifact_errors(provider: str, payload: dict[str, Any]) -> list[str]:
+    raw_path = resolve_optional_path(payload.get("raw_path"))
+    status_path = resolve_optional_path(payload.get("collect_status_path"))
+    response_path = resolve_optional_path(payload.get("response_path"))
+    if raw_path is None or status_path is None:
+        return ["raw_or_collect_status_path_missing"]
+    response_payload = read_json(response_path) if response_path and response_path.exists() else None
+    review_date = response_payload.get("review_date") if isinstance(response_payload, dict) else None
+    if not isinstance(review_date, str) or not review_date:
+        review_date = infer_review_date(raw_path)
+    if not review_date:
+        return ["review_date_missing"]
+    return provider_artifact_errors(
+        provider=provider,
+        review_date=review_date,
+        raw_path=raw_path,
+        collect_status_path=status_path,
+        response_payload=response_payload,
+    )
+
+
+def infer_review_date(path: Path) -> str:
+    parent = path.parent.name
+    return parent if parent.count("-") == 2 else ""
 
 
 def validate_summary(payload: Any, status: dict[str, Any]) -> list[str]:

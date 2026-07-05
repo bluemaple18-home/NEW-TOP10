@@ -8,8 +8,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from scripts.run_external_review_host_runner import write_host_summary
-from scripts.verify_external_review_host_runner import validate_summary
+from scripts.run_external_review_host_runner import run_provider, write_host_summary
+from scripts.verify_external_review_host_runner import validate_status, validate_summary
 
 
 class ExternalReviewHostRunnerSummaryTest(unittest.TestCase):
@@ -52,6 +52,76 @@ class ExternalReviewHostRunnerSummaryTest(unittest.TestCase):
             self.assertTrue(any("summary.safety.invalid_providers" in error for error in errors))
             self.assertTrue(any("summary.providers[chatgpt].valid" in error for error in errors))
 
+    def test_run_provider_rejects_failed_collect_status_even_when_raw_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp) / "artifacts"
+            review_dir = artifacts / "external_review" / "2026-06-30"
+            review_dir.mkdir(parents=True, exist_ok=True)
+            packet_path = review_dir / "review_packet_2026-06-30.json"
+            packet_path.write_text(json.dumps(sample_packet(), ensure_ascii=False), encoding="utf-8")
+            (review_dir / "chatgpt_raw_2026-06-30.txt").write_text("我\n", encoding="utf-8")
+            (review_dir / "chatgpt_collect_status_2026-06-30.json").write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "reason": "formal_raw_too_short_or_smoke",
+                        "raw_chars": 1,
+                        "smoke_marker_detected": False,
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            state = run_provider(
+                provider="chatgpt",
+                run_date="2026-06-30",
+                packet_path=packet_path,
+                artifacts_dir=artifacts,
+                skip_submit=True,
+                provider_mode="browser",
+                dry_run_provider_api=False,
+                command_template="unused",
+            )
+
+            self.assertEqual(state["status"], "FAILED")
+            self.assertTrue(any("raw_too_short" in note for note in state["notes"]))
+            self.assertTrue(any("collect_status_not_ok" in note for note in state["notes"]))
+
+    def test_validate_status_rejects_ok_provider_with_failed_collect_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            review_dir = root / "external_review" / "2026-06-30"
+            review_dir.mkdir(parents=True, exist_ok=True)
+            raw_path = review_dir / "chatgpt_raw_2026-06-30.txt"
+            response_path = review_dir / "chatgpt_response_2026-06-30.json"
+            status_path = review_dir / "chatgpt_collect_status_2026-06-30.json"
+            raw_path.write_text("我\n", encoding="utf-8")
+            response_path.write_text(json.dumps(sample_response("chatgpt", "2026-06-30"), ensure_ascii=False), encoding="utf-8")
+            status_path.write_text(
+                json.dumps({"ok": False, "reason": "formal_raw_too_short_or_smoke", "raw_chars": 1}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            host_status_path = root / "host_runner_status_2026-06-30.json"
+            payload = sample_status("2026-06-30")
+            payload["host_runner_status_path"] = str(host_status_path)
+            payload["daily_status_ok"] = True
+            payload["packet_verified"] = True
+            payload["manifest_refused"] = True
+            payload["summary_verified"] = True
+            payload["chatgpt"].update(
+                {
+                    "raw_path": str(raw_path),
+                    "response_path": str(response_path),
+                    "collect_status_path": str(status_path),
+                    "status": "OK",
+                }
+            )
+
+            errors = validate_status(payload, host_status_path, require_success=False)
+
+            self.assertTrue(any("chatgpt.status: OK but artifacts invalid" in error for error in errors))
+
 
 def sample_status(run_date: str) -> dict:
     return {
@@ -62,6 +132,41 @@ def sample_status(run_date: str) -> dict:
         "chatgpt": {"status": "OK", "raw_path": "chatgpt_raw.txt", "response_path": "chatgpt_response.json", "notes": []},
         "gemini": {"status": "OK", "raw_path": "gemini_raw.txt", "response_path": "gemini_response.json", "notes": []},
         "notes": [],
+    }
+
+
+def sample_packet() -> dict:
+    return {
+        "schema_version": "external-review-packet.v1",
+        "sendable": True,
+        "packet_date": "2026-06-30",
+        "market": "TW",
+        "market_overview": {"top_count": 10},
+        "outcome_status": {},
+        "recommendations": [{"rank": 1, "stock_id": "2330", "stock_name": "台積電"}],
+    }
+
+
+def sample_response(provider: str, review_date: str) -> dict:
+    return {
+        "schema_version": "external-review.v1",
+        "provider": provider,
+        "review_date": review_date,
+        "market": "TW",
+        "overall": {"score": 70, "verdict": "good", "confidence": 0.7, "summary": "測試用 reviewer 摘要。"},
+        "quality": {
+            "mainstream_alignment": 3,
+            "relative_strength": 3,
+            "risk_control": 3,
+            "timing_quality": 3,
+            "theme_fit": 3,
+        },
+        "observations": [],
+        "misses": [],
+        "themes": {"strong": [], "weak": [], "watch": []},
+        "tomorrow_watch": {"continue": [], "avoid_chasing": [], "watch_for_reversal": [], "theme_candidates": []},
+        "research_hypotheses": [],
+        "safety": {"algorithm_requested": False, "contains_algorithm_claim": False, "needs_human_review": False},
     }
 
 

@@ -8,7 +8,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from external_review_provider_contract import provider_artifact_errors
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "external-review-summary.v1"
 
 
@@ -21,7 +24,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     payload = json.loads(args.summary.read_text(encoding="utf-8"))
-    errors = validate(payload)
+    errors = validate(payload, args.summary.parent)
     if errors:
         print("EXTERNAL_REVIEW_SUMMARY_FAILED")
         for error in errors:
@@ -31,7 +34,7 @@ def main() -> int:
     return 0
 
 
-def validate(payload: Any) -> list[str]:
+def validate(payload: Any, review_dir: Path | None = None) -> list[str]:
     errors: list[str] = []
     if not isinstance(payload, dict):
         return ["root: must be object"]
@@ -51,6 +54,9 @@ def validate(payload: Any) -> list[str]:
         check_string(provider.get("provider"), f"providers[{index}].provider", errors)
         check_bool(provider.get("valid"), f"providers[{index}].valid", errors)
         check_string(provider.get("reason"), f"providers[{index}].reason", errors, allow_empty=True)
+        artifact_errors = provider_row_artifact_errors(provider, payload.get("review_date"), review_dir)
+        if provider.get("valid") is True and artifact_errors:
+            errors.append(f"providers[{index}].valid: true but artifacts invalid: {'; '.join(artifact_errors)}")
 
     for key in ["consensus", "disagreements", "today_misses", "research_hypotheses"]:
         check_list(payload.get(key), key, errors)
@@ -74,6 +80,59 @@ def validate(payload: Any) -> list[str]:
     if boundary.get("external_review_is_research_only") is not True:
         errors.append("promotion_boundary.external_review_is_research_only: must be true")
     return errors
+
+
+def provider_row_artifact_errors(provider: dict[str, Any], review_date: Any, review_dir: Path | None) -> list[str]:
+    provider_name = provider.get("provider")
+    if not isinstance(provider_name, str) or not provider_name.strip() or not isinstance(review_date, str):
+        return []
+    raw_path = resolve_path(
+        provider.get("raw_path"),
+        review_dir / f"{provider_name}_raw_{review_date}.txt" if review_dir else None,
+    )
+    status_path = resolve_path(
+        provider.get("collect_status_path"),
+        review_dir / f"{provider_name}_collect_status_{review_date}.json" if review_dir else None,
+    )
+    response_path = resolve_path(
+        provider.get("path"),
+        review_dir / f"{provider_name}_response_{review_date}.json" if review_dir else None,
+    )
+    if raw_path is None or status_path is None or response_path is None:
+        return ["raw_or_collect_status_or_response_path_missing"]
+    response_payload: dict[str, Any] | None = None
+    if not response_path.exists():
+        return [f"response_missing:{response_path}"]
+    try:
+        payload = json.loads(response_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return [f"response_invalid_json:{exc}"]
+    if not isinstance(payload, dict):
+        return ["response_root_not_object"]
+    response_payload = payload
+    return provider_artifact_errors(
+        provider=provider_name,
+        review_date=review_date,
+        raw_path=raw_path,
+        collect_status_path=status_path,
+        response_payload=response_payload,
+    )
+
+
+def resolve_path(value: Any, default: Path | None) -> Path | None:
+    path_value = value if isinstance(value, str) and value.strip() else None
+    if path_value is None:
+        return default
+    path = Path(path_value)
+    if path.is_absolute():
+        return path
+    project_path = PROJECT_ROOT / path
+    if project_path.exists() or default is None:
+        return project_path
+    sibling_path = default.parent / path
+    if sibling_path.exists():
+        return sibling_path
+    return project_path
 
 
 def check_object(value: Any, path: str, errors: list[str]) -> dict[str, Any]:

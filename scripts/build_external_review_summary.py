@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from external_review_provider_contract import provider_artifact_errors
+
 
 SCHEMA_VERSION = "external-review-summary.v1"
 REVIEW_SCHEMA_VERSION = "external-review.v1"
@@ -40,11 +42,13 @@ def load_reviews(review_dir: Path, review_date: str) -> list[dict[str, Any]]:
     for provider in PROVIDERS:
         path = review_dir / f"{provider}_response_{review_date}.json"
         status = review_dir / f"{provider}_collect_status_{review_date}.json"
+        raw = review_dir / f"{provider}_raw_{review_date}.txt"
         if not path.exists():
             reviews.append(
                 {
                     "provider": provider,
                     "path": str(path),
+                    "raw_path": str(raw),
                     "status_path": str(status),
                     "valid": False,
                     "reason": "response_missing",
@@ -58,6 +62,7 @@ def load_reviews(review_dir: Path, review_date: str) -> list[dict[str, Any]]:
                 {
                     "provider": provider,
                     "path": str(path),
+                    "raw_path": str(raw),
                     "status_path": str(status),
                     "valid": False,
                     "reason": f"invalid_json:{exc}",
@@ -65,10 +70,20 @@ def load_reviews(review_dir: Path, review_date: str) -> list[dict[str, Any]]:
             )
             continue
         errors = review_errors(payload, provider, review_date)
+        errors.extend(
+            provider_artifact_errors(
+                provider=provider,
+                review_date=review_date,
+                raw_path=raw,
+                collect_status_path=status,
+                response_payload=payload,
+            )
+        )
         reviews.append(
             {
                 "provider": provider,
                 "path": str(path),
+                "raw_path": str(raw),
                 "status_path": str(status),
                 "valid": not errors,
                 "reason": "ok" if not errors else "; ".join(errors),
@@ -136,6 +151,8 @@ def provider_row(review: dict[str, Any]) -> dict[str, Any]:
         "valid": bool(review.get("valid")),
         "reason": review.get("reason", ""),
         "path": review.get("path", ""),
+        "raw_path": review.get("raw_path", ""),
+        "collect_status_path": review.get("status_path", ""),
         "score": overall.get("score"),
         "verdict": overall.get("verdict"),
         "needs_human_review": bool(safety.get("needs_human_review", not review.get("valid"))),

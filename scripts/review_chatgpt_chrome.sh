@@ -21,6 +21,7 @@ usage() {
 Usage:
   bash scripts/review_chatgpt_chrome.sh probe
   bash scripts/review_chatgpt_chrome.sh --date YYYY-MM-DD --packet artifacts/external_review/YYYY-MM-DD/review_packet_YYYY-MM-DD.json
+  bash scripts/review_chatgpt_chrome.sh collect --date YYYY-MM-DD --packet artifacts/external_review/YYYY-MM-DD/review_packet_YYYY-MM-DD.json
 
 Environment:
   TOP10_CHATGPT_URL_PART       Chrome tab URL marker. Default: current TOP10 ChatGPT project conversation.
@@ -57,7 +58,7 @@ init_js_file() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    probe|send)
+    probe|send|collect)
       MODE="$1"
       shift
       ;;
@@ -67,7 +68,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --packet)
       PACKET_FILE="${2:-}"
-      MODE="send"
+      if [[ "$MODE" == "probe" ]]; then
+        MODE="send"
+      fi
       shift 2
       ;;
     -h|--help)
@@ -257,16 +260,35 @@ write_collect_js() {
 (() => {
   const textOf = (el) => (el.innerText || el.textContent || "").trim();
   const assistantNodes = Array.from(document.querySelectorAll("[data-message-author-role='assistant']"));
-  const lastAssistantNode = assistantNodes[assistantNodes.length - 1] || null;
-  const lastAssistant = lastAssistantNode ? textOf(lastAssistantNode) : "";
+  const candidates = assistantNodes
+    .map((node, index) => ({ index, text: textOf(node) }))
+    .filter((item) => item.text)
+    .map((item) => ({
+      index: item.index,
+      chars: item.text.length,
+      preview: item.text.slice(0, 180),
+      text: item.text
+    }));
+  const formalCandidates = candidates.filter((item) => (
+    item.chars >= 500 &&
+    !item.text.includes("top10-browser") &&
+    !item.text.includes("top10-chatgpt-script-click")
+  ));
+  const selected = (formalCandidates.length ? formalCandidates : candidates).slice().sort((a, b) => {
+    if (b.index !== a.index) return b.index - a.index;
+    return b.chars - a.chars;
+  })[0] || null;
   const bodyTail = (document.body.innerText || "").slice(-12000);
   return JSON.stringify({
-    ok: Boolean(lastAssistant),
+    ok: Boolean(selected),
     mode: "collect",
     title: document.title,
     url: location.href,
     assistant_count: assistantNodes.length,
-    raw_response: lastAssistant,
+    selected_assistant_index: selected ? selected.index : null,
+    selected_assistant_chars: selected ? selected.chars : 0,
+    assistant_candidates: candidates.map(({ index, chars, preview }) => ({ index, chars, preview })),
+    raw_response: selected ? selected.text : "",
     body_tail: bodyTail
   });
 })()
@@ -488,6 +510,17 @@ case "$MODE" in
     printf '%s\n' "$submit_result"
     printf 'submit_evidence=%s\n' "$submit_path"
     sleep "$WAIT_SECONDS"
+    write_collect_js
+    collect_result="$(run_chrome_js)"
+    collect_path="$(write_evidence collect "$collect_result")"
+    printf '%s\n' "$collect_result"
+    printf 'collect_evidence=%s\n' "$collect_path"
+    store_chatgpt_response "$date_text" "$collect_result"
+    ;;
+  collect)
+    date_text="$(infer_date)"
+    verify_sendable_packet
+    init_js_file
     write_collect_js
     collect_result="$(run_chrome_js)"
     collect_path="$(write_evidence collect "$collect_result")"

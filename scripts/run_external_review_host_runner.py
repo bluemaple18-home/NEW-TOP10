@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from external_review_provider_contract import provider_artifact_errors
 from top10_agent_status import build_event, write_agent_event
 
 
@@ -458,10 +459,27 @@ def run_provider(
                 state["notes"].append(f"adapter_failed exit_code={result.exit_code}")
                 state["adapter_stdout"] = result.stdout[-2000:]
                 state["adapter_stderr"] = result.stderr[-2000:]
+                collect_status_path = review_dir / f"{provider}_collect_status_{run_date}.json"
+                if read_json_if_exists(collect_status_path).get("ok") is not True:
+                    state["status"] = "FAILED"
+                    state["notes"].append("collect_status_not_ok_after_adapter_failed")
+                    return state
 
         if not raw_path.exists():
             state["status"] = "SKIPPED" if skip_submit else "FAILED"
             state["notes"].append(f"raw response missing: {repo_relative(raw_path)}")
+            return state
+
+        collect_status_path = review_dir / f"{provider}_collect_status_{run_date}.json"
+        artifact_errors = provider_artifact_errors(
+            provider=provider,
+            review_date=run_date,
+            raw_path=raw_path,
+            collect_status_path=collect_status_path,
+        )
+        if artifact_errors:
+            state["status"] = "FAILED"
+            state["notes"].extend(artifact_errors)
             return state
 
         normalize = [

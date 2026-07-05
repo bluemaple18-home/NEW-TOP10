@@ -74,9 +74,12 @@ def main() -> int:
         write_json(full_response_path, full_response)
         status.update(
             {
+                "ok": True,
                 "status": "OK",
                 "completed_at": datetime.now(timezone.utc).isoformat(),
+                "raw_chars": len(output_text.strip()),
                 "output_chars": len(output_text),
+                "reason": "raw_saved_pending_normalize",
             }
         )
         write_json(status_path, status)
