@@ -53,7 +53,7 @@ def read_json(path: Path) -> dict[str, Any]:
 
 def route_for_card(card: dict[str, Any]) -> str:
     harness = str(card.get("next_harness") or card.get("owner") or "")
-    if harness == "research_worker":
+    if harness in {"research_worker", "pm_research_harness"}:
         return "research_worker"
     if "daily-performance" in harness or "performance-review" in harness:
         return "daily_performance_review"

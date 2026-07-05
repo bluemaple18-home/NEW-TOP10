@@ -39,6 +39,16 @@ class PMApprovedWorkQueueTests(unittest.TestCase):
                                 "decided_at": "2026-06-27T00:01:00Z",
                                 "run_dir": "artifacts/pm_review_cards/run",
                             },
+                            "PMR4": {
+                                "card_id": "PMR4",
+                                "project_domain": "TOP10_STOCK",
+                                "title": "PM harness continuation",
+                                "owner": "pm_research_harness",
+                                "next_harness": "pm_research_harness",
+                                "decision": "approve",
+                                "decided_at": "2026-06-27T00:01:30Z",
+                                "run_dir": "artifacts/pm_review_cards/run",
+                            },
                             "PMR3": {
                                 "card_id": "PMR3",
                                 "project_domain": "TOP10_STOCK",
@@ -62,12 +72,13 @@ class PMApprovedWorkQueueTests(unittest.TestCase):
             write_json(output, payload)
             research_cards = write_research_cards(research_output, payload, "2026-06-27")
 
-            self.assertEqual(payload["summary"]["approved_count"], 2)
+            self.assertEqual(payload["summary"]["approved_count"], 3)
             self.assertEqual(payload["project_domain"], "TOP10_STOCK")
-            self.assertEqual(payload["summary"]["route_counts"]["research_worker"], 1)
+            self.assertEqual(payload["summary"]["route_counts"]["research_worker"], 2)
             self.assertEqual(payload["summary"]["route_counts"]["pm_card_state"], 1)
-            self.assertEqual(len(research_cards), 1)
+            self.assertEqual(len(research_cards), 2)
             self.assertEqual(research_cards[0]["source_pm_card_id"], "PMR1")
+            self.assertEqual(research_cards[1]["source_pm_card_id"], "PMR4")
             self.assertEqual(research_cards[0]["project_domain"], "TOP10_STOCK")
             self.assertTrue(research_cards[0]["contract"]["research_only"])
             self.assertIn("blocked_conditions", research_cards[0])
