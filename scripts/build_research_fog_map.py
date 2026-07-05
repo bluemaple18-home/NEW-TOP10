@@ -14,6 +14,7 @@ import math
 import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
+from itertools import product
 from pathlib import Path
 from typing import Any
 
@@ -646,6 +647,79 @@ def build_active_expansion_queue(topics: list[dict[str, Any]], records: list[dic
     return queue
 
 
+def build_unlit_representative_queue(
+    topics: list[dict[str, Any]],
+    combos: list[dict[str, Any]],
+    records: list[dict[str, Any]],
+    *,
+    per_topic: int = 24,
+) -> list[dict[str, Any]]:
+    """挑出完整宇宙中尚未執行的 deterministic 代表格，供前端點擊定位。"""
+    latest_records = latest_by_combo(records)
+    schema = dimension_schema_payload()
+    expansion_values = [
+        {
+            "regime_gate": regime_gate,
+            "risk_guard": risk_guard,
+            "entry_filter": entry_filter,
+        }
+        for regime_gate, risk_guard, entry_filter in product(
+            schema["dimension_values"]["regime_gate"],
+            schema["dimension_values"]["risk_guard"],
+            schema["dimension_values"]["entry_filter"],
+        )
+        if {
+            "regime_gate": regime_gate,
+            "risk_guard": risk_guard,
+            "entry_filter": entry_filter,
+        }
+        != schema["default_coordinates"]
+    ]
+    combos_by_topic: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for combo in combos:
+        combos_by_topic[safe_text(combo.get("topic_id"))].append(combo)
+
+    representatives: list[dict[str, Any]] = []
+    for topic in topics:
+        topic_id = safe_text(topic.get("topic_id"))
+        base_rows = combos_by_topic.get(topic_id) or []
+        if not base_rows:
+            continue
+        topic_seed = int(hashlib.sha1(topic_id.encode("utf-8")).hexdigest()[:8], 16)
+        picked = 0
+        attempts = 0
+        candidate_total = len(base_rows) * len(expansion_values)
+        while picked < per_topic and attempts < candidate_total:
+            base = base_rows[(topic_seed + attempts * 7) % len(base_rows)]
+            extra = expansion_values[(topic_seed + attempts * 11) % len(expansion_values)]
+            dimensions = {**(base.get("dimensions") or {}), **extra}
+            combo = v2_combo_id(topic, dimensions)
+            if combo not in latest_records:
+                representatives.append(
+                    {
+                        "schema_version": "research-map-unlit-representative.v1",
+                        "map_version": "v2",
+                        "stage": "FULL-UNIVERSE-UNLIT-REPRESENTATIVE",
+                        "topic_id": topic_id,
+                        "candidate_dir": clean_repoish_path(topic.get("candidate_dir")),
+                        "combo_id": combo,
+                        "dimensions": dimensions,
+                        "status": "pending",
+                        "reason": "完整宇宙未點亮代表格；等待 runner 產生 run_history 與 artifact",
+                        "status_color": "fog_gray",
+                        "status_label": "未點亮",
+                        "insight_level": "unexplored",
+                        "run_status": "not_run",
+                        "decision": "not_run",
+                        "artifact_path": None,
+                        "representative_index": picked + 1,
+                    }
+                )
+                picked += 1
+            attempts += 1
+    return representatives
+
+
 def build_payload(date: str) -> dict[str, Any]:
     progress = read_json(SOURCE_DIR / f"research_campaign_progress_{date}.json")
     registry = read_json(SOURCE_DIR / "topic_registry.json")
@@ -710,10 +784,15 @@ def build_payload(date: str) -> dict[str, Any]:
     family_summary = build_family_summary(nodes)
     mission_queue = build_mission_queue(nodes, queue, progress)
     active_expansion_queue = build_active_expansion_queue(topics, history_records)
+    active_unexecuted_count = sum(1 for row in active_expansion_queue if not (row.get("run_status") == "completed" and row.get("artifact_path")))
+    unlit_representative_queue = build_unlit_representative_queue(topics, combos, history_records)
     summary["active_expansion_queue_count"] = len(active_expansion_queue)
     summary["active_expansion_processed"] = sum(1 for row in active_expansion_queue if row.get("run_status") == "completed" and row.get("artifact_path"))
+    summary["active_expansion_unexecuted"] = active_unexecuted_count
+    summary["unlit_representative_count"] = len(unlit_representative_queue)
     summary["active_expansion_stage"] = "LIQUIDITY-REPLAY-02" if active_expansion_queue else None
-    fog_sample_count = min(120000, max(60000, int(expanded_total / 8)))
+    fog_sample_count = 60000
+    executed_fog_sample_count = min(18000, max(1200, int(expanded_processed / 3))) if expanded_processed else 0
     unexplored_count = max(0, expanded_total - expanded_processed)
     selected = next((node for node in nodes if node["status"] == "follow_up_signal"), nodes[0] if nodes else None)
     return {
@@ -751,9 +830,18 @@ def build_payload(date: str) -> dict[str, Any]:
             "base_scenario_count": combo_summary["total_combos"],
             "processed_count": expanded_processed,
             "unexplored_count": unexplored_count,
+            "clickable_unexecuted_queue_count": active_unexecuted_count,
+            "clickable_unlit_representative_count": len(unlit_representative_queue),
+            "clickable_representative_total": active_unexecuted_count + len(unlit_representative_queue),
             "sample_count": fog_sample_count,
+            "executed_sample_count": executed_fog_sample_count,
             "clickable": False,
-            "rendering": "deterministic_canvas_density_layer",
+            "rendering": "classified_dim_fog_executed_lit_density_layer",
+            "visual_semantics": {
+                "dim_background": "burn-down classified universe; not clickable and not executed progress",
+                "lit_density": "executed progress sampled from run_history.jsonl",
+                "queue_points": "clickable unexecuted combo proxies from active_expansion_queue; no artifact until runner finishes",
+            },
             "seed": f"{date}:{expanded_total}:{len(topics)}",
         },
         "families": family_summary,
@@ -763,6 +851,7 @@ def build_payload(date: str) -> dict[str, Any]:
         "scenarios": scenarios,
         "mission_queue": mission_queue,
         "active_expansion_queue": active_expansion_queue,
+        "unlit_representative_queue": unlit_representative_queue,
         "history": {
             "run_count": len(history.get("runs", [])) if isinstance(history.get("runs"), list) else 0,
             "latest_run": (history.get("runs") or [])[-1] if isinstance(history.get("runs"), list) and history.get("runs") else None,
@@ -827,6 +916,17 @@ def render_html(payload: dict[str, Any]) -> str:
         linear-gradient(135deg, #050b15 0%, #091525 45%, #141827 100%);
       color: var(--text);
       letter-spacing: 0;
+    }}
+    .sr-only {{
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }}
     body::before {{
       content: "";
@@ -1017,6 +1117,17 @@ def render_html(payload: dict[str, Any]) -> str:
       transform: translateZ(0);
       transition: none;
       will-change: transform;
+    }}
+    .family-darkmatter {{
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: var(--halo-w, 180px);
+      height: var(--halo-h, 120px);
+      border-radius: 50%;
+      border: 1px dashed rgba(124, 135, 151, 0.34);
+      background: radial-gradient(circle, rgba(124,135,151,0.12), rgba(92,200,255,0.035) 54%, transparent 72%);
+      box-shadow: inset 0 0 54px rgba(124,135,151,0.08), 0 0 46px rgba(31,149,226,0.06);
+      opacity: 0.82;
     }}
     .map-panel.is-dragging .family-bands,
     .map-panel.is-dragging .starmap {{
@@ -1307,7 +1418,8 @@ def render_html(payload: dict[str, Any]) -> str:
     }}
     .command-top {{
       display: grid;
-      grid-template-columns: 370px 190px 220px 220px 210px minmax(240px, 1fr) 150px 150px;
+      grid-template-columns: 330px repeat(5, minmax(170px, 1fr)) 150px;
+      grid-auto-rows: minmax(92px, auto);
       gap: 12px;
     }}
     .command-card {{
@@ -1318,6 +1430,9 @@ def render_html(payload: dict[str, Any]) -> str:
       border-radius: 4px;
       padding: 12px 14px;
       overflow: hidden;
+      min-width: 0;
+      isolation: isolate;
+      transition: border-color 160ms ease, box-shadow 220ms ease, transform 180ms ease, background 220ms ease;
     }}
     .command-card::before,
     .command-card::after {{
@@ -1339,6 +1454,11 @@ def render_html(payload: dict[str, Any]) -> str:
       bottom: -1px;
       border-right: 2px solid;
       border-bottom: 2px solid;
+    }}
+    .command-card:hover {{
+      border-color: rgba(104, 216, 255, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(126, 220, 255, 0.12), 0 0 28px rgba(0, 146, 255, 0.16);
+      transform: translateY(-1px);
     }}
     .brand-card {{
       display: grid;
@@ -1365,14 +1485,15 @@ def render_html(payload: dict[str, Any]) -> str:
       line-height: 1.05;
       text-transform: uppercase;
       color: #bdeaff;
-      letter-spacing: 1px;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
     }}
     .brand-subtitle {{
       margin-top: 8px;
       color: #34caff;
       font-size: 15px;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
+      letter-spacing: 0;
     }}
     .kpi-card span,
     .system-card span {{
@@ -1380,7 +1501,10 @@ def render_html(payload: dict[str, Any]) -> str:
       color: #9dc9e6;
       font-size: 13px;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
+      letter-spacing: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }}
     .kpi-main {{
       display: flex;
@@ -1388,11 +1512,15 @@ def render_html(payload: dict[str, Any]) -> str:
       justify-content: space-between;
       gap: 12px;
       margin-top: 8px;
+      min-width: 0;
     }}
     .kpi-main strong {{
-      font-size: 27px;
+      min-width: 0;
+      font-size: clamp(22px, 1.55vw, 27px);
       line-height: 1;
       color: #a8e2ff;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
     }}
     .kpi-main em {{
       font-style: normal;
@@ -1406,11 +1534,13 @@ def render_html(payload: dict[str, Any]) -> str:
       font-variant-numeric: tabular-nums;
       line-height: 1.25;
       white-space: normal;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }}
     .burndown-line {{
       margin-top: 6px;
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 4px;
       font-size: 11px;
       color: #9dc9e6;
@@ -1440,7 +1570,8 @@ def render_html(payload: dict[str, Any]) -> str:
     .followup-line {{
       margin-top: 10px;
       display: flex;
-      gap: 28px;
+      gap: 14px;
+      flex-wrap: wrap;
       color: #9dc9e6;
       font-size: 14px;
     }}
@@ -1451,6 +1582,54 @@ def render_html(payload: dict[str, Any]) -> str:
       color: #55f69a;
       font-size: 15px;
       text-transform: uppercase;
+    }}
+    .status-strip {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 9px;
+      color: #8fb7d1;
+      font-size: 11px;
+    }}
+    .status-strip b {{
+      display: block;
+      color: #c7edff;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }}
+    @keyframes softReveal {{
+      from {{ opacity: 0; transform: translateY(5px); filter: blur(2px); }}
+      to {{ opacity: 1; transform: translateY(0); filter: blur(0); }}
+    }}
+    @keyframes railSweep {{
+      0% {{ transform: translateX(-120%); opacity: 0; }}
+      35% {{ opacity: 0.55; }}
+      100% {{ transform: translateX(120%); opacity: 0; }}
+    }}
+    @keyframes starPulse {{
+      0%, 100% {{ filter: drop-shadow(0 0 2px rgba(122, 224, 255, 0.35)); }}
+      50% {{ filter: drop-shadow(0 0 10px rgba(122, 224, 255, 0.72)); }}
+    }}
+    .command-card {{
+      animation: softReveal 420ms ease both;
+    }}
+    .command-card:nth-child(2) {{ animation-delay: 40ms; }}
+    .command-card:nth-child(3) {{ animation-delay: 80ms; }}
+    .command-card:nth-child(4) {{ animation-delay: 120ms; }}
+    .command-card:nth-child(5) {{ animation-delay: 160ms; }}
+    .command-card:nth-child(6) {{ animation-delay: 200ms; }}
+    .seg-bar {{
+      position: relative;
+      overflow: hidden;
+    }}
+    .seg-bar::after {{
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(153, 229, 255, 0.34), transparent);
+      transform: translateX(-120%);
+      animation: railSweep 3.8s ease-in-out infinite;
+      pointer-events: none;
     }}
     .command-main {{
       display: grid;
@@ -1595,7 +1774,8 @@ def render_html(payload: dict[str, Any]) -> str:
       border-style: dashed;
       background: rgba(3, 12, 24, 0.72);
       color: #9bdcff;
-      font-size: 18px;
+      min-width: 190px;
+      font-size: 16px;
       text-align: center;
       text-shadow: 0 0 14px rgba(75, 184, 255, 0.7);
     }}
@@ -1603,7 +1783,15 @@ def render_html(payload: dict[str, Any]) -> str:
       display: block;
       margin-top: 4px;
       color: #c8edff;
-      font-size: 14px;
+      font-size: 13px;
+    }}
+    .family-band em {{
+      display: block;
+      margin-top: 3px;
+      color: #8fb0c7;
+      font-size: 10px;
+      font-style: normal;
+      text-transform: none;
     }}
     .node {{
       width: var(--s, 1.8px);
@@ -1697,22 +1885,173 @@ def render_html(payload: dict[str, Any]) -> str:
       color: #62778c;
       background: rgba(255,255,255,0.035);
     }}
+    .map-layer-key {{
+      position: absolute;
+      left: 14px;
+      top: 14px;
+      z-index: 9;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-width: min(760px, calc(100% - 28px));
+      color: #9dc9e6;
+      font-size: 12px;
+      pointer-events: none;
+    }}
+    .map-layer-key span {{
+      border: 1px solid rgba(31, 149, 226, 0.32);
+      background: rgba(3, 13, 25, 0.74);
+      border-radius: 4px;
+      padding: 6px 8px;
+      box-shadow: 0 0 18px rgba(0, 146, 255, 0.06);
+    }}
+    .map-layer-key b {{
+      color: #a8e2ff;
+      margin-right: 5px;
+    }}
+    .map-layer-key i {{
+      color: #d5f0ff;
+      font-style: normal;
+      font-variant-numeric: tabular-nums;
+      margin-right: 5px;
+    }}
     .map-panel.hide-links .star-links {{ display: none; }}
     .map-panel.hide-names .family-bands {{ display: none; }}
     .map-panel.hide-fog::before,
     .map-panel.hide-fog .universe-fog-canvas {{ display: none; }}
     .map-panel.hide-grid::after {{ opacity: 0.18; }}
     .command-shell.focus-map {{
-      grid-template-rows: 104px minmax(760px, 1fr);
+      width: min(2040px, calc(100vw - 10px));
+      grid-template-rows: 138px minmax(610px, calc(100vh - 368px)) 210px;
     }}
     .command-shell.focus-map .command-bottom {{
-      display: none;
+      display: grid;
+      grid-template-columns: minmax(520px, 1.35fr) repeat(3, minmax(230px, 1fr));
+      min-height: 0;
     }}
     .command-shell.focus-map .command-main {{
-      grid-template-columns: 205px minmax(900px, 1fr) 420px;
+      grid-template-columns: 156px minmax(0, 1fr) 300px;
+    }}
+    .command-shell.focus-map .command-top {{
+      grid-template-columns: 260px repeat(4, minmax(150px, 1fr)) 134px;
+      grid-template-rows: 72px 54px;
+      gap: 8px;
+    }}
+    .command-shell.focus-map .command-card {{
+      padding: 9px 11px;
+    }}
+    .command-shell.focus-map .brand-card {{
+      grid-column: 1;
+      grid-row: 1 / 3;
+      grid-template-columns: 48px minmax(0, 1fr);
+      gap: 12px;
+    }}
+    .command-shell.focus-map .command-card:nth-child(2) {{ grid-column: 2; grid-row: 1; }}
+    .command-shell.focus-map .command-card:nth-child(3) {{ grid-column: 3; grid-row: 1; }}
+    .command-shell.focus-map .command-card:nth-child(4) {{ grid-column: 4 / 6; grid-row: 1; }}
+    .command-shell.focus-map .command-card:nth-child(5) {{ grid-column: 2; grid-row: 2; }}
+    .command-shell.focus-map .command-card:nth-child(6) {{ grid-column: 3; grid-row: 2; }}
+    .command-shell.focus-map .command-card:nth-child(7) {{ grid-column: 4 / 6; grid-row: 2; }}
+    .command-shell.focus-map .command-card:nth-child(8) {{ grid-column: 6; grid-row: 1 / 3; }}
+    .command-shell.focus-map .brand-mark {{
+      width: 44px;
+      height: 44px;
+      font-size: 17px;
+    }}
+    .command-shell.focus-map .brand-title {{
+      font-size: 18px;
+      line-height: 1.15;
+    }}
+    .command-shell.focus-map .brand-subtitle {{
+      font-size: 12px;
+      margin-top: 5px;
+    }}
+    .command-shell.focus-map .kpi-main strong {{
+      font-size: clamp(18px, 1.18vw, 23px);
+    }}
+    .command-shell.focus-map .kpi-card span,
+    .command-shell.focus-map .system-card span {{
+      font-size: 11px;
+    }}
+    .command-shell.focus-map .kpi-note {{
+      font-size: 11px;
+      white-space: nowrap;
+    }}
+    .command-shell.focus-map .kpi-main {{
+      margin-top: 5px;
+      gap: 8px;
+    }}
+    .command-shell.focus-map .seg-bar {{
+      margin-top: 7px;
+    }}
+    .command-shell.focus-map .seg-bar i {{
+      height: 6px;
+    }}
+    .command-shell.focus-map .progress-label {{
+      margin-top: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
+    .command-shell.focus-map .command-card:nth-child(2) .progress-label {{
+      display: none;
+    }}
+    .command-shell.focus-map .command-card:nth-child(2) .seg-bar {{
+      margin-top: 11px;
+    }}
+    .command-shell.focus-map .burndown-line {{
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 5px;
+    }}
+    .command-shell.focus-map .burndown-line b {{
+      font-size: 11px;
+    }}
+    .command-shell.focus-map .command-card:nth-child(4) .kpi-note:last-child {{
+      display: none;
+    }}
+    .command-shell.focus-map .followup-line {{
+      margin-top: 6px;
+      gap: 18px;
+      font-size: 12px;
+    }}
+    .command-shell.focus-map .command-sidebar .nav-panel {{
+      display: none;
+    }}
+    .command-shell.focus-map .command-sidebar {{
+      grid-template-rows: auto;
+    }}
+    .command-shell.focus-map .scenario-map {{
+      display: none;
+    }}
+    .command-shell.focus-map .delta-grid {{
+      grid-template-columns: 1fr 1fr;
+    }}
+    .command-shell.focus-map .node-notes {{
+      max-height: 190px;
+      overflow: auto;
     }}
     .map-footer {{ bottom: 12px; left: auto; right: 14px; z-index: 9; }}
     .family-summary {{ display: none; }}
+    .topic-hub.is-star {{
+      animation: starPulse 2.8s ease-in-out infinite;
+    }}
+    .scenario-canvas,
+    .universe-fog-canvas {{
+      animation: softReveal 560ms ease both;
+    }}
+    @media (prefers-reduced-motion: reduce) {{
+      .command-card,
+      .topic-hub.is-star,
+      .scenario-canvas,
+      .universe-fog-canvas,
+      .seg-bar::after {{
+        animation: none !important;
+        transition: none !important;
+      }}
+      .command-card:hover {{
+        transform: none;
+      }}
+    }}
     .command-inspector {{
       padding: 0;
       display: grid;
@@ -1904,6 +2243,25 @@ def render_html(payload: dict[str, Any]) -> str:
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 10px;
+      align-items: start;
+      min-width: 0;
+    }}
+    .intel-row span,
+    .break-row span {{
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }}
+    .intel-row small {{
+      display: block;
+      margin-top: 3px;
+      color: #83a7bd;
+      font-size: 11px;
+      line-height: 1.25;
+    }}
+    .intel-row b,
+    .break-row b {{
+      text-align: right;
+      white-space: nowrap;
     }}
     .break-row strong {{ color: #ffd166; }}
     .break-row strong {{ overflow-wrap: anywhere; }}
@@ -1914,18 +2272,54 @@ def render_html(payload: dict[str, Any]) -> str:
       .command-main {{ grid-template-columns: 1fr; }}
       .command-sidebar {{ grid-template-rows: auto auto auto; }}
       .command-bottom {{ grid-template-columns: 1fr; }}
+      .command-shell.focus-map {{
+        width: min(100vw - 10px, 1200px);
+        grid-template-rows: auto minmax(720px, calc(100vh - 112px));
+      }}
+      .command-shell.focus-map .command-top {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+      .command-shell.focus-map .command-top > .command-card {{
+        grid-column: auto !important;
+        grid-row: auto !important;
+      }}
+      .command-shell.focus-map .command-main {{ grid-template-columns: 1fr; }}
+      .command-shell.focus-map .command-sidebar,
+      .command-shell.focus-map .command-inspector {{ display: none; }}
+      .command-shell.focus-map .command-bottom {{ grid-template-columns: 1fr; }}
+      .command-shell.focus-map .map-panel {{ min-height: min(860px, calc(100vh - 124px)); }}
     }}
     @media (max-width: 760px) {{
       .command-shell {{ width: min(100vw - 14px, 760px); padding: 8px 0; gap: 8px; }}
       .command-top {{ grid-template-columns: 1fr; }}
+      .command-shell.focus-map .command-top {{ grid-template-columns: 1fr; }}
+      .command-shell.focus-map .command-top > .command-card {{
+        grid-column: 1 !important;
+        grid-row: auto !important;
+      }}
       .brand-card {{ grid-template-columns: 56px minmax(0, 1fr); }}
       .brand-mark {{ width: 48px; height: 48px; font-size: 18px; }}
       .brand-title {{ font-size: 19px; }}
       .command-card {{ padding: 12px; }}
+      .command-shell.focus-map .burndown-line {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
       .command-main {{ gap: 8px; }}
       .nav-panel {{ display: none; }}
       .map-panel {{ min-height: 560px; }}
       .family-band {{ font-size: 9px; padding: 5px 6px; max-width: 100px; white-space: normal; }}
+      .map-layer-key {{
+        left: 10px;
+        right: 10px;
+        max-width: none;
+        font-size: 11px;
+      }}
+      .map-layer-key span {{
+        max-width: 100%;
+        white-space: normal;
+        line-height: 1.25;
+      }}
+      .map-layer-key span:nth-child(3) {{
+        display: none;
+      }}
       .map-toolstrip {{ display: none; }}
       .delta-grid {{ grid-template-columns: 1fr; }}
       .scenario-dots {{ grid-template-columns: repeat(9, 1fr); }}
@@ -1937,7 +2331,7 @@ def render_html(payload: dict[str, Any]) -> str:
   </style>
 </head>
 <body>
-  <main class="command-shell">
+  <main class="command-shell focus-map">
     {fixture_banner}
     <section class="command-top" aria-label="研究指揮狀態">
       <div class="command-card brand-card">
@@ -1960,15 +2354,16 @@ def render_html(payload: dict[str, Any]) -> str:
       </div>
       <div class="command-card kpi-card">
         <span>分類消化進度</span>
+        <span class="sr-only">artifact blocker / baseline provenance gap / controlled drain</span>
         <div class="kpi-main"><strong id="burn-down-classified-count">0</strong><em id="burn-down-pct">0%</em></div>
         <div class="burndown-line">
           <span>實跑<b id="burn-down-replay-count">0</b></span>
           <span>繼承<b id="burn-down-inherited-count">0</b></span>
           <span>不支援<b id="burn-down-unsupported-count">0</b></span>
-          <span>artifact blocker<b id="artifact-blocker-count">0</b></span>
+          <span>證據阻塞<b id="artifact-blocker-count">0</b></span>
         </div>
-        <div class="kpi-note">baseline provenance gap：<b id="baseline-provenance-gap-count">0</b></div>
-        <div class="kpi-note">controlled drain：<b id="controlled-grid-drain-status">未同步</b></div>
+        <div class="kpi-note">基準來源缺口：<b id="baseline-provenance-gap-count">0</b></div>
+        <div class="kpi-note">控制網格：<b id="controlled-grid-drain-status">未同步</b></div>
       </div>
       <div class="command-card kpi-card">
         <span>全宇宙完成度</span>
@@ -1981,9 +2376,9 @@ def render_html(payload: dict[str, Any]) -> str:
         <div class="seg-bar is-purple"><i class="is-lit"></i><i class="is-lit"></i><i></i><i></i><i></i></div>
       </div>
       <div class="command-card kpi-card">
-        <span>追蹤訊號</span>
+        <span>星星點亮</span>
         <div class="kpi-main"><strong id="followup-scenario-count">0</strong></div>
-        <div class="followup-line"><span>高：<strong id="high-count">0</strong></span><span>中：<strong id="med-count">0</strong></span><span>低：<strong id="low-count">0</strong></span></div>
+        <div class="followup-line"><span>突破：<strong id="high-count">0</strong></span><span>追蹤：<strong id="med-count">0</strong></span><span>低訊：<strong id="low-count">0</strong></span></div>
       </div>
       <div class="command-card system-card">
         <span>生成日期</span>
@@ -2026,61 +2421,61 @@ def render_html(payload: dict[str, Any]) -> str:
         <div class="family-bands" id="family-bands"></div>
         <div class="starmap" id="star-map"></div>
         <div class="map-toolstrip"><span data-tool="fov">視野 100%</span><span data-tool="grid">格線 開</span><span data-tool="names">名稱 開</span><span data-tool="links">連線 開</span><span data-tool="fog">迷霧 開</span></div>
+        <div class="map-layer-key"><span><b>亮點</b><i id="lit-layer-count">0</i>已執行</span><span><b>未點亮</b><i id="unlit-layer-count">0</i>淡霧區</span><span><b>大星</b>主題節點與候選訊號</span></div>
         <div class="map-footer">
           <div class="family-summary" id="family-summary"></div>
           <div id="scenario-readout">0 個情境</div>
         </div>
       </section>
-      <aside class="command-inspector" id="inspector" aria-label="節點檢視">
-        <h2 class="panel-title">節點檢視</h2>
+      <aside class="command-inspector" id="inspector" aria-label="策略作戰室">
+        <h2 class="panel-title">策略作戰室</h2>
         <div class="inspector-hero">
           <span class="hero-star" id="inspector-dot"></span>
           <div>
             <h2 id="inspector-title">已選節點</h2>
-            <p id="inspector-subtitle">點星圖節點、任務列或情境點可切換這裡的資料</p>
+            <p id="inspector-subtitle">點星圖節點或候選策略可切換這裡的證據</p>
           </div>
           <div class="hero-meta" id="inspector-meta">節點ID<br>-<br>執行次數<br>-</div>
         </div>
         <div class="delta-grid">
-          <div class="delta-card"><span>分數差異</span><strong id="score-delta-card">-</strong><div class="spark"></div></div>
-          <div class="delta-card"><span>報酬差異</span><strong id="return-delta-card">-</strong><div class="spark"></div></div>
-          <div class="delta-card"><span>回撤差異</span><strong id="drawdown-delta-card">-</strong><div class="spark"></div></div>
-          <div class="delta-card"><span>勝率差異</span><strong id="winrate-delta-card">+3.18%</strong><div class="spark"></div></div>
+          <div class="delta-card"><span>Score Δ</span><strong id="score-delta-card">-</strong><div class="spark"></div></div>
+          <div class="delta-card"><span>Return Δ</span><strong id="return-delta-card">-</strong><div class="spark"></div></div>
+          <div class="delta-card"><span>Drawdown Δ</span><strong id="drawdown-delta-card">-</strong><div class="spark"></div></div>
+          <div class="delta-card"><span>證據格</span><strong id="winrate-delta-card">-</strong><div class="spark"></div></div>
         </div>
         <div class="next-action-card" id="next-action-card">下一步載入中</div>
         <div class="scenario-map">
-          <div class="panel-title" style="padding:0">情境地圖 <span id="scenario-count-label"></span></div>
+          <div class="panel-title" style="padding:0">星格點亮 <span id="scenario-count-label"></span></div>
           <div class="scenario-dots" id="scenario-dots"></div>
         </div>
         <div class="node-notes" id="inspector-body"></div>
       </aside>
     </section>
     <section class="command-bottom">
-      <section class="bottom-panel" id="mission-queue" aria-label="任務佇列">
-        <h2 class="panel-title">任務佇列 <span style="color:#b28cff; margin-left:40px">下一批：<b id="next-batch-scenario-count">0</b> 個情境節點</span></h2>
+      <section class="bottom-panel" id="mission-queue" aria-label="候選策略隊列">
+        <h2 class="panel-title">候選策略隊列 <span style="color:#b28cff; margin-left:40px">下一批：<b id="next-batch-scenario-count">0</b> 個情境節點</span></h2>
         <div class="mission-list" id="mission-list"></div>
       </section>
       <section class="bottom-panel">
-        <h2 class="panel-title">研究宇宙</h2>
-        <div class="intel-list">
-          <div class="intel-row"><span>基礎掃描</span><b id="base-scan-readout">0 / 0</b></div>
-          <div class="intel-row"><span>完整宇宙</span><b id="full-universe-readout">0 / 0</b></div>
-          <div class="intel-row"><span>V2 新完成</span><b id="v2-expansion-readout">0</b></div>
-          <div class="intel-row"><span>目前批次</span><b id="active-queue-readout">0 / 0</b></div>
+        <h2 class="panel-title">研究團隊 Console</h2>
+        <div class="intel-list" id="research-team-console">
+          <div class="intel-row"><span>Fog Map Bot</span><b>載入中</b></div>
+          <div class="intel-row"><span>Research Worker</span><b>載入中</b></div>
+          <div class="intel-row"><span>Strategy Ops</span><b>載入中</b></div>
+          <div class="intel-row"><span>Ops Reporter</span><b>載入中</b></div>
         </div>
       </section>
       <section class="bottom-panel">
-        <h2 class="panel-title">研究情報</h2>
-        <div class="intel-list">
-          <div class="intel-row"><span>表現最佳星區</span><b id="top-sector">產業主題</b></div>
-          <div class="intel-row"><span>目前活躍狀態</span><b>研究進行中</b></div>
-          <div class="intel-row"><span>最佳訊號來源</span><b style="color:#52ff7d">外部檢核</b></div>
-          <div class="intel-row"><span>追蹤訊號數</span><b data-summary="followup_signal_topics">0</b></div>
-          <div class="intel-row"><span>下階候選</span><b data-summary="next_stage_combos">0</b></div>
+        <h2 class="panel-title">證據閘門</h2>
+        <div class="intel-list" id="evidence-gates">
+          <div class="intel-row"><span>Research-only contract</span><b>載入中</b></div>
+          <div class="intel-row"><span>Production write guard</span><b>載入中</b></div>
+          <div class="intel-row"><span>Burn-down classification</span><b>載入中</b></div>
+          <div class="intel-row"><span>Next-stage candidates</span><b>載入中</b></div>
         </div>
       </section>
       <section class="bottom-panel">
-        <h2 class="panel-title">近期突破</h2>
+        <h2 class="panel-title">需要決策</h2>
         <div class="break-list" id="breakthrough-list"></div>
       </section>
     </section>
@@ -2104,7 +2499,7 @@ def render_html(payload: dict[str, Any]) -> str:
     const valueOrDash = (value) => value === null || value === undefined || value === '' ? '-' : value;
     const mapState = {{
       filter: null,
-      zoom: 1,
+      zoom: 1.22,
       panX: 0,
       panY: 0,
       sectorIndex: -1,
@@ -2112,6 +2507,7 @@ def render_html(payload: dict[str, Any]) -> str:
       names: true,
       fog: true,
       grid: true,
+      focus: true,
       hoverComboId: null,
     }};
     const dragState = {{ active: false, pointerId: null, startX: 0, startY: 0, baseX: 0, baseY: 0, moved: false }};
@@ -2184,8 +2580,14 @@ def render_html(payload: dict[str, Any]) -> str:
       const dimensionLine = scenarioCell && scenarioCell.dimensions
         ? `<br>維度：h=${{scenarioCell.dimensions.horizon || '-'}} / stop=${{scenarioCell.dimensions.stop_loss || '-'}} / tp=${{scenarioCell.dimensions.take_profit || '-'}} / group=${{scenarioCell.dimensions.group_exposure || '-'}}`
         : '';
+      const pendingLine = scenarioCell && !scenarioCell.artifactPath
+        ? '<br>狀態：未執行；這格可定位 combo，但 runner 還沒有產生 artifact。'
+        : '';
+      const scenarioLabel = scenarioCell && scenarioCell.scenarioLabel
+        ? scenarioCell.scenarioLabel
+        : `第 ${{scenarioNumber}} 格`;
       const scenarioLine = scenarioNumber
-        ? `<br><br><strong>已選情境</strong><br>第 ${{scenarioNumber}} 格；顏色由 run_history.jsonl 的 insight_level 決定。${{comboLine}}${{dimensionLine}}${{artifactLine}}`
+        ? `<br><br><strong>已選情境</strong><br>${{scenarioLabel}}；顏色由 run_history.jsonl 的 insight_level 決定。${{comboLine}}${{dimensionLine}}${{artifactLine}}${{pendingLine}}`
         : '';
       return `<strong>研究備註</strong><br>${{node.reasons.map(displayText).join('<br>')}}${{scenarioLine}}<br><br>` +
         `最後判定：${{decisionLabels[node.last_decision] || node.last_decision}}<br>` +
@@ -2205,6 +2607,7 @@ def render_html(payload: dict[str, Any]) -> str:
       const burnTotal = burnDown.full_universe_total || scenarioUniverse;
       const burnPct = burnDown.classified_progress_pct ?? (burnClassified / Math.max(1, burnTotal));
       const activeQueueCount = payload.summary.active_expansion_queue_count || (payload.active_expansion_queue || []).length || 0;
+      const unlitRepresentativeCount = payload.summary.unlit_representative_count || (payload.unlit_representative_queue || []).length || 0;
       const followupScenarios = (payload.summary.followup_signal_topics || 0) * (payload.summary.scenario_count_per_topic || 81);
       document.getElementById('source-mode').textContent = `${{payload.date}}`;
       document.getElementById('campaign-percent').textContent = formatPct(progressPct);
@@ -2227,12 +2630,10 @@ def render_html(payload: dict[str, Any]) -> str:
       document.getElementById('discovered-scenario-count').textContent = formatNumber(processedScenarios);
       document.getElementById('scenario-universe-count').textContent = formatNumber(scenarioUniverse);
       document.getElementById('pending-scenario-count').textContent = formatNumber(pendingScenarios);
+      document.getElementById('lit-layer-count').textContent = formatNumber(processedScenarios);
+      document.getElementById('unlit-layer-count').textContent = formatNumber(pendingScenarios);
       document.getElementById('followup-scenario-count').textContent = formatNumber(followupScenarios);
-      document.getElementById('next-batch-scenario-count').textContent = formatNumber(activeQueueCount || pendingScenarios);
-      document.getElementById('base-scan-readout').textContent = `${{formatNumber(baseProcessed)}} / ${{formatNumber(baseTotal)}}`;
-      document.getElementById('full-universe-readout').textContent = `${{formatNumber(processedScenarios)}} / ${{formatNumber(scenarioUniverse)}}`;
-      document.getElementById('v2-expansion-readout').textContent = formatNumber(payload.summary.v2_expansion_processed || 0);
-      document.getElementById('active-queue-readout').textContent = `${{formatNumber(payload.summary.active_expansion_processed || 0)}} / ${{formatNumber(activeQueueCount)}}`;
+      document.getElementById('next-batch-scenario-count').textContent = formatNumber(activeQueueCount || unlitRepresentativeCount || pendingScenarios);
       document.getElementById('discovered-pct').textContent = formatPct(progressPct);
       document.getElementById('pending-pct').textContent = formatPct(pendingScenarios / Math.max(1, scenarioUniverse));
       document.getElementById('high-count').textContent = payload.summary.breakthrough_topics || 0;
@@ -2245,17 +2646,24 @@ def render_html(payload: dict[str, Any]) -> str:
       document.getElementById('progress-label').textContent =
         `基礎掃描 ${{formatNumber(baseProcessed)}} / ${{formatNumber(baseTotal)}}；executed ${{formatPct(progressPct)}}；burn-down ${{formatPct(burnPct)}}`;
       document.getElementById('scenario-readout').textContent =
-        `基礎 ${{formatNumber(baseProcessed)}} / ${{formatNumber(baseTotal)}}；完整 ${{formatNumber(processedScenarios)}} / ${{formatNumber(scenarioUniverse)}}`;
+        `亮點 ${{formatNumber(processedScenarios)}}；未點亮 ${{formatNumber(pendingScenarios)}}；完整 ${{formatNumber(scenarioUniverse)}}`;
     }}
     function renderFamilies() {{
       const bandRoot = document.getElementById('family-bands');
       bandRoot.innerHTML = payload.families.filter((family) => family.total > 0).map((family) => {{
         const center = payload.family_centers[family.id] || {{ x: 50, y: 50 }};
-        const y = Math.max(8, center.y - 15);
+        const y = Math.max(12, Math.min(86, center.y - 10));
         const scenarioPerTopic = payload.summary.scenario_count_per_topic || 81;
         const explored = (family.total - (family.statuses.pending || 0)) * scenarioPerTopic;
         const universe = family.total * scenarioPerTopic;
-        return `<div class="family-band" style="left:${{center.x}}%; top:${{y}}%">${{family.label}}<small>${{explored}} / ${{universe}}</small></div>`;
+        const multiplier = payload.summary.expansion_multiplier || 1;
+        const fullUniverse = universe * multiplier;
+        const executedRatio = Math.min(1, Math.max(0, (payload.summary.expanded_processed || 0) / Math.max(1, payload.summary.expanded_universe_total || 1)));
+        const executedFull = Math.round(fullUniverse * executedRatio);
+        const unlitFull = Math.max(0, fullUniverse - executedFull);
+        const haloW = Math.max(160, Math.min(360, Math.sqrt(fullUniverse) * 0.9));
+        const haloH = Math.max(112, Math.min(260, haloW * 0.68));
+        return `<div class="family-darkmatter" style="left:${{center.x}}%; top:${{center.y}}%; --halo-w:${{haloW}}px; --halo-h:${{haloH}}px"></div><div class="family-band" style="left:${{center.x}}%; top:${{y}}%">${{family.label}}<small>完整已執行 ${{formatNumber(executedFull)}} / ${{formatNumber(fullUniverse)}}</small><em>未點亮 ${{formatNumber(unlitFull)}}；基礎 ${{formatNumber(explored)}} / ${{formatNumber(universe)}}</em></div>`;
       }}
       ).join('');
       const summaryRoot = document.getElementById('family-summary');
@@ -2297,15 +2705,28 @@ def render_html(payload: dict[str, Any]) -> str:
     }}
     function scenarioOpacity(color, baseOpacity) {{
       const factor = {{
-        fog_gray: 0.46,
-        blue: 0.66,
-        red: 0.58,
-        yellow: 0.68,
-        green: 0.66,
-        purple: 0.66,
-        gold: 0.72,
+        fog_gray: 0.08,
+        blue: 0.22,
+        red: 0.18,
+        yellow: 0.42,
+        green: 0.52,
+        purple: 0.58,
+        gold: 0.68,
       }}[color] || 0.6;
       return baseOpacity * factor;
+    }}
+    function scenarioVisual(point) {{
+      const status = point.status || 'pending';
+      if (point.isUnlitRepresentative) return {{ alpha: 0.58, radius: 0.78, ring: true }};
+      if (point.isExpansionQueue && status === 'pending') return {{ alpha: 0.48, radius: 0.9, ring: true }};
+      if (status === 'pending') return {{ alpha: 0.04, radius: 0.42 }};
+      if (status === 'rejected') return {{ alpha: 0.30, radius: 0.58 }};
+      if (status === 'low_information') return {{ alpha: 0.28, radius: 0.55 }};
+      if (status === 'follow_up_signal') return {{ alpha: 0.72, radius: 0.88 }};
+      if (status === 'effective_insight') return {{ alpha: 0.82, radius: 0.96 }};
+      if (status === 'next_stage_candidate') return {{ alpha: 0.92, radius: 1.08 }};
+      if (status === 'breakthrough_candidate') return {{ alpha: 1, radius: 1.18 }};
+      return {{ alpha: 0.42, radius: 0.68 }};
     }}
     function seededNoise(seed) {{
       const value = Math.sin(seed * 12.9898) * 43758.5453;
@@ -2327,7 +2748,8 @@ def render_html(payload: dict[str, Any]) -> str:
       const width = Math.max(1, Math.floor(rect.width * dpr));
       const height = Math.max(1, Math.floor(rect.height * dpr));
       const sampleCount = Math.max(0, Number(fog.sample_count || 0));
-      const state = `${{width}}:${{height}}:${{sampleCount}}:${{mapState.fog ? 'fog' : 'nofog'}}`;
+      const executedSampleCount = Math.max(0, Number(fog.executed_sample_count || 0));
+      const state = `${{width}}:${{height}}:${{sampleCount}}:${{executedSampleCount}}:${{mapState.fog ? 'fog' : 'nofog'}}`;
       if (!force && universeFogState === state) return;
       universeFogState = state;
       canvas.width = width;
@@ -2335,25 +2757,28 @@ def render_html(payload: dict[str, Any]) -> str:
       canvas.dataset.fullUniverse = String(fog.full_universe_count || payload.summary.expanded_universe_total || 0);
       canvas.dataset.fogSampleCount = String(sampleCount);
       canvas.dataset.clickable = 'false';
-      canvas.dataset.clickableScenarioCount = String(scenarioPoints.filter((point) => point.artifactPath || point.status !== 'pending').length);
+      canvas.dataset.clickableScenarioCount = String(scenarioPoints.filter((point) => point.comboId || point.artifactPath || point.status !== 'pending').length);
       window.__fullUniverseFog = {{
         fullUniverse: Number(canvas.dataset.fullUniverse),
         fogSampleCount: sampleCount,
+        executedSampleCount,
         clickableScenarioCount: Number(canvas.dataset.clickableScenarioCount),
-        visibleLayer: 'full-universe-density',
+        clickableUnexecutedQueueCount: Number(fog.clickable_unexecuted_queue_count || 0),
+        clickableUnlitRepresentativeCount: Number(fog.clickable_unlit_representative_count || 0),
+        visibleLayer: 'classified-dim-fog/executed-lit-density',
       }};
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, width, height);
       if (!mapState.fog || sampleCount <= 0) return;
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(38, 70, 112, 0.095)';
+      ctx.fillStyle = 'rgba(24, 43, 68, 0.075)';
       ctx.fillRect(0, 0, width, height);
       const cloudCenters = [
-        {{ x: 18, y: 35, rx: 30, ry: 22, color: [92, 200, 255], alpha: 0.18 }},
-        {{ x: 42, y: 72, rx: 34, ry: 24, color: [255, 209, 102], alpha: 0.12 }},
-        {{ x: 66, y: 39, rx: 38, ry: 26, color: [178, 140, 255], alpha: 0.16 }},
-        {{ x: 76, y: 70, rx: 30, ry: 22, color: [115, 247, 164], alpha: 0.14 }},
-        {{ x: 53, y: 52, rx: 48, ry: 34, color: [92, 200, 255], alpha: 0.11 }},
+        {{ x: 18, y: 35, rx: 30, ry: 22, color: [92, 170, 210], alpha: 0.07 }},
+        {{ x: 42, y: 72, rx: 34, ry: 24, color: [174, 160, 120], alpha: 0.045 }},
+        {{ x: 66, y: 39, rx: 38, ry: 26, color: [120, 120, 178], alpha: 0.06 }},
+        {{ x: 76, y: 70, rx: 30, ry: 22, color: [92, 170, 140], alpha: 0.055 }},
+        {{ x: 53, y: 52, rx: 48, ry: 34, color: [92, 170, 210], alpha: 0.045 }},
       ];
       for (const cloud of cloudCenters) {{
         const cx = cloud.x * width / 100;
@@ -2369,7 +2794,7 @@ def render_html(payload: dict[str, Any]) -> str:
         ctx.fill();
       }}
       ctx.globalCompositeOperation = 'screen';
-      const baseAlpha = 0.065;
+      const baseAlpha = 0.012;
       for (let index = 0; index < sampleCount; index += 1) {{
         const attractor = familyAttractor(index);
         const r1 = seededNoise(index + 11);
@@ -2387,10 +2812,10 @@ def render_html(payload: dict[str, Any]) -> str:
           : Math.max(5, Math.min(95, attractor.y + Math.sin(angle + spiral) * radius * 0.72 + (seededNoise(index + 307) - 0.5) * 3.4));
         const px = xPct * width / 100;
         const py = yPct * height / 100;
-        const size = (0.72 + seededNoise(index + 401) * 1.28) * dpr;
-        const alpha = baseAlpha + seededNoise(index + 503) * 0.16;
+        const size = (0.45 + seededNoise(index + 401) * 0.82) * dpr;
+        const alpha = baseAlpha + seededNoise(index + 503) * 0.038;
         const tint = seededNoise(index + 619);
-        const color = tint > 0.92 ? [255, 209, 102] : tint > 0.74 ? [178, 140, 255] : tint > 0.48 ? [92, 200, 255] : [142, 176, 216];
+        const color = tint > 0.90 ? [166, 152, 112] : tint > 0.72 ? [112, 124, 168] : tint > 0.48 ? [86, 140, 174] : [112, 132, 154];
         ctx.fillStyle = `rgba(${{color[0]}}, ${{color[1]}}, ${{color[2]}}, ${{alpha}})`;
         if (seededNoise(index + 701) > 0.78) {{
           ctx.beginPath();
@@ -2399,6 +2824,28 @@ def render_html(payload: dict[str, Any]) -> str:
         }} else {{
           ctx.fillRect(px, py, size, size);
         }}
+      }}
+      ctx.globalCompositeOperation = 'lighter';
+      for (let index = 0; index < executedSampleCount; index += 1) {{
+        const attractor = familyAttractor(index * 3 + 17);
+        const r1 = seededNoise(index + 1201);
+        const r2 = seededNoise(index + 1271);
+        const r3 = seededNoise(index + 1331);
+        const angle = r1 * Math.PI * 2;
+        const radius = Math.sqrt(r2) * (16 + r3 * 22);
+        const spiral = index * 2.399963;
+        const xPct = Math.max(1, Math.min(99, attractor.x + Math.cos(angle + spiral) * radius + (seededNoise(index + 1411) - 0.5) * 3.8));
+        const yPct = Math.max(5, Math.min(95, attractor.y + Math.sin(angle + spiral) * radius * 0.72 + (seededNoise(index + 1507) - 0.5) * 2.8));
+        const px = xPct * width / 100;
+        const py = yPct * height / 100;
+        const size = (0.82 + seededNoise(index + 1601) * 1.15) * dpr;
+        const alpha = 0.055 + seededNoise(index + 1703) * 0.11;
+        const tint = seededNoise(index + 1811);
+        const color = tint > 0.88 ? [255, 209, 92] : tint > 0.58 ? [118, 245, 160] : [103, 212, 255];
+        ctx.fillStyle = `rgba(${{color[0]}}, ${{color[1]}}, ${{color[2]}}, ${{alpha}})`;
+        ctx.beginPath();
+        ctx.arc(px, py, size * 0.72, 0, Math.PI * 2);
+        ctx.fill();
       }}
       ctx.globalCompositeOperation = 'source-over';
     }}
@@ -2450,6 +2897,87 @@ def render_html(payload: dict[str, Any]) -> str:
       }});
       return parts;
     }}
+    function buildExpansionPoints() {{
+      const queue = payload.active_expansion_queue || [];
+      const perTopic = new Map();
+      return queue.map((item, index) => {{
+        const node = nodesById.get(item.topic_id);
+        if (!node) return null;
+        const topicCount = perTopic.get(item.topic_id) || 0;
+        perTopic.set(item.topic_id, topicCount + 1);
+        const seed = (index + 1) * 87119 + (topicCount + 1) * 45131;
+        const rand = (salt) => {{
+          const value = Math.sin(seed + salt * 97.31) * 10000;
+          return value - Math.floor(value);
+        }};
+        const ring = 8.4 + (topicCount % 18) * 0.42 + rand(1) * 1.8;
+        const angle = topicCount * 2.399963 + rand(2) * 0.9;
+        const x = Math.max(1, Math.min(99, node.position.x + Math.cos(angle) * ring + (rand(3) - 0.5) * 1.1));
+        const y = Math.max(6, Math.min(94, node.position.y + Math.sin(angle) * ring * 0.72 + (rand(4) - 0.5) * 0.8));
+        const status = item.status || (item.run_status === 'completed' ? 'low_information' : 'pending');
+        return {{
+          topicId: item.topic_id,
+          comboId: item.combo_id,
+          scenarioIndex: `queue-${{index + 1}}`,
+          scenarioLabel: `擴展 queue 第 ${{index + 1}} 格`,
+          dimensions: item.dimensions || {{}},
+          status,
+          insightLevel: item.insight_level || 'unexplored',
+          artifactPath: item.artifact_path || null,
+          decision: item.decision || null,
+          scoreDelta: item.score_delta ?? null,
+          returnDelta: item.return_delta ?? null,
+          drawdownDelta: item.drawdown_delta ?? null,
+          x,
+          y,
+          color: item.status_color || (status === 'pending' ? 'fog_gray' : 'blue'),
+          size: 2.05 + rand(5) * 0.85,
+          opacity: status === 'pending' ? 0.82 : 0.64,
+          isExpansionQueue: true,
+          queueStage: item.stage || 'active_expansion_queue',
+        }};
+      }}).filter(Boolean);
+    }}
+    function buildUnlitRepresentativePoints() {{
+      const queue = payload.unlit_representative_queue || [];
+      const perTopic = new Map();
+      return queue.map((item, index) => {{
+        const node = nodesById.get(item.topic_id);
+        if (!node) return null;
+        const topicCount = perTopic.get(item.topic_id) || 0;
+        perTopic.set(item.topic_id, topicCount + 1);
+        const seed = (index + 1) * 75169 + (topicCount + 1) * 61291;
+        const rand = (salt) => {{
+          const value = Math.sin(seed + salt * 83.17) * 10000;
+          return value - Math.floor(value);
+        }};
+        const ring = 12.5 + (topicCount % 12) * 0.72 + rand(1) * 2.4;
+        const angle = topicCount * 2.399963 + rand(2) * 1.2;
+        const x = Math.max(1, Math.min(99, node.position.x + Math.cos(angle) * ring + (rand(3) - 0.5) * 1.6));
+        const y = Math.max(6, Math.min(94, node.position.y + Math.sin(angle) * ring * 0.7 + (rand(4) - 0.5) * 1.1));
+        return {{
+          topicId: item.topic_id,
+          comboId: item.combo_id,
+          scenarioIndex: `unlit-${{index + 1}}`,
+          scenarioLabel: `完整宇宙未點亮代表格 ${{item.representative_index || index + 1}}`,
+          dimensions: item.dimensions || {{}},
+          status: 'pending',
+          insightLevel: item.insight_level || 'unexplored',
+          artifactPath: null,
+          decision: item.decision || 'not_run',
+          scoreDelta: null,
+          returnDelta: null,
+          drawdownDelta: null,
+          x,
+          y,
+          color: 'fog_gray',
+          size: 2.15 + rand(5) * 0.75,
+          opacity: 0.92,
+          isUnlitRepresentative: true,
+          queueStage: item.stage || 'FULL-UNIVERSE-UNLIT-REPRESENTATIVE',
+        }};
+      }}).filter(Boolean);
+    }}
     function drawScenarioCanvas(force = false) {{
       const canvas = document.getElementById('scenario-canvas');
       if (!canvas) return;
@@ -2469,20 +2997,32 @@ def render_html(payload: dict[str, Any]) -> str:
       ctx.globalCompositeOperation = 'source-over';
       for (const point of scenarioPoints) {{
         const filtered = mapState.filter && point.status !== mapState.filter;
-        const alpha = filtered ? 0.026 : scenarioOpacity(point.color, point.opacity) * 0.62;
+        const visual = scenarioVisual(point);
+        const alpha = filtered ? 0.012 : scenarioOpacity(point.color, point.opacity) * visual.alpha;
         if (alpha <= 0.01) continue;
         const [r, g, b] = scenarioColor(point.color);
         const px = point.x * width / 100;
         const py = point.y * height / 100;
-        const radius = Math.max(0.7, point.size * dpr * (filtered ? 0.55 : 1));
+        const radius = Math.max(0.42, point.size * dpr * visual.radius * (filtered ? 0.42 : 1));
         const glow = ctx.createRadialGradient(px, py, 0, px, py, radius * 1.55);
-        glow.addColorStop(0, `rgba(${{r}}, ${{g}}, ${{b}}, ${{Math.min(0.72, alpha * 1.55)}})`);
+        glow.addColorStop(0, `rgba(${{r}}, ${{g}}, ${{b}}, ${{Math.min(0.58, alpha * 1.45)}})`);
         glow.addColorStop(0.38, `rgba(${{r}}, ${{g}}, ${{b}}, ${{alpha}})`);
         glow.addColorStop(1, `rgba(${{r}}, ${{g}}, ${{b}}, 0)`);
         ctx.fillStyle = glow;
         ctx.beginPath();
         ctx.arc(px, py, radius * 1.55, 0, Math.PI * 2);
         ctx.fill();
+        if (visual.ring && !filtered) {{
+          ctx.save();
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = `rgba(${{r}}, ${{g}}, ${{b}}, ${{Math.min(0.7, alpha * 2.8)}})`;
+          ctx.lineWidth = Math.max(0.8, 1.1 * dpr);
+          ctx.setLineDash([2.2 * dpr, 2.4 * dpr]);
+          ctx.beginPath();
+          ctx.arc(px, py, Math.max(5 * dpr, radius * 2.25), 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }}
       }}
       if (mapState.hoverComboId) {{
         const hoverPoint = scenarioPoints.find((point) => point.comboId === mapState.hoverComboId);
@@ -2513,11 +3053,10 @@ def render_html(payload: dict[str, Any]) -> str:
       let best = null;
       let bestDistance = Infinity;
       for (const point of scenarioPoints) {{
-        if (!point.artifactPath && point.status === 'pending') continue;
         const pointX = (point.x / 100) * rect.width;
         const pointY = (point.y / 100) * rect.height;
         const distance = Math.hypot(pointX - clickX, pointY - clickY);
-        const hitRadius = Math.max(16, point.size * mapState.zoom * 7.5);
+        const hitRadius = Math.max(point.isUnlitRepresentative ? 24 : point.isExpansionQueue ? 22 : 16, point.size * mapState.zoom * (point.isUnlitRepresentative ? 11 : point.isExpansionQueue ? 10 : 7.5));
         if (distance <= hitRadius && distance < bestDistance) {{
           best = point;
           bestDistance = distance;
@@ -2561,7 +3100,7 @@ def render_html(payload: dict[str, Any]) -> str:
     function setZoom(nextZoom, anchorEvent = null) {{
       const panel = document.querySelector('.map-panel');
       const oldZoom = mapState.zoom;
-      const zoom = Math.max(0.55, Math.min(4, Math.round(nextZoom * 100) / 100));
+      const zoom = Math.max(0.55, Math.min(7, Math.round(nextZoom * 100) / 100));
       if (!panel || Math.abs(zoom - oldZoom) < 0.001) {{
         mapState.zoom = zoom;
         return;
@@ -2646,7 +3185,7 @@ def render_html(payload: dict[str, Any]) -> str:
     }}
     function renderMap() {{
       const root = document.getElementById('star-map');
-      scenarioPoints = buildScenarioPoints();
+      scenarioPoints = buildScenarioPoints().concat(buildExpansionPoints(), buildUnlitRepresentativePoints());
       window.__scenarioPoints = scenarioPoints;
       scenarioCanvasState = '';
       universeFogState = '';
@@ -2681,7 +3220,8 @@ def render_html(payload: dict[str, Any]) -> str:
         button.classList.toggle('is-selected', button.dataset.topicId === node.topic_id);
       }});
       const dot = document.getElementById('inspector-dot');
-      const isScenarioSelection = Boolean(selectedScenarioCell && selectedScenarioCell.comboId);
+      const isScenarioSelection = Boolean(selectedScenarioCell && (selectedScenarioCell.comboId || selectedScenarioCell.isExpansionQueue));
+      const isUnexecutedSelection = Boolean(isScenarioSelection && !selectedScenarioCell.artifactPath && selectedScenarioCell.status === 'pending');
       const statusLabel = isScenarioSelection
         ? (statusNames[selectedScenarioCell.status] || selectedScenarioCell.status || node.status_label)
         : node.status_label;
@@ -2697,22 +3237,26 @@ def render_html(payload: dict[str, Any]) -> str:
         : (node.metrics || {{}});
       const scenario = node.scenario || {{}};
       document.getElementById('inspector-title').textContent = isScenarioSelection
-        ? `情境節點 / ${{statusLabel}}`
+        ? `${{isUnexecutedSelection ? '未點亮情境' : '情境節點'}} / ${{statusLabel}}`
         : `主題節點 / ${{node.family_label}} / ${{statusLabel}}`;
       document.getElementById('inspector-subtitle').textContent = isScenarioSelection
-        ? `第 ${{selectedScenarioNumber}} 格｜${{displayText(node.title)}}`
+        ? `${{selectedScenarioCell.scenarioLabel || `第 ${{selectedScenarioNumber}} 格`}}｜${{displayText(node.title)}}`
         : displayText(node.title);
       document.getElementById('inspector-meta').innerHTML = isScenarioSelection
-        ? `組合 ID<br>${{selectedScenarioCell.comboId.split('|').slice(-2).join('|')}}<br>所屬主題<br>${{node.topic_id.split(':').pop().slice(-12)}}`
+        ? `組合 ID<br>${{String(selectedScenarioCell.comboId || 'pending').split('|').slice(-2).join('|')}}<br>所屬主題<br>${{node.topic_id.split(':').pop().slice(-12)}}`
         : `主題 ID<br>${{node.topic_id.split(':').pop().slice(-12)}}<br>已跑情境<br>${{node.run_count}}`;
       document.getElementById('score-delta-card').textContent = signed(metrics.score_delta);
       document.getElementById('return-delta-card').textContent = signed(metrics.return_delta);
       document.getElementById('drawdown-delta-card').textContent = signed(metrics.drawdown_delta);
-      document.getElementById('winrate-delta-card').textContent = '-';
+      document.getElementById('winrate-delta-card').textContent = formatNumber(scenario.artifact_count || node.run_count || 0);
       document.getElementById('next-action-card').innerHTML = isScenarioSelection
-        ? `<strong>情境證據檔</strong><br>${{selectedScenarioCell.artifactPath || '無'}}<br><small>判定：${{decisionLabels[selectedScenarioCell.decision] || selectedScenarioCell.decision || '尚未執行'}}</small>`
+        ? (selectedScenarioCell.artifactPath
+          ? `<strong>情境證據檔</strong><br>${{selectedScenarioCell.artifactPath}}<br><small>判定：${{decisionLabels[selectedScenarioCell.decision] || selectedScenarioCell.decision || '尚未執行'}}</small>`
+          : `<strong>尚未產生 artifact</strong><br>runner 尚未完成這個 combo；可定位但不可回看證據。<br><small>${{selectedScenarioCell.queueStage || '等待 run_history.jsonl'}}</small>`)
         : `<strong>下一步</strong><br>${{actionText(node.next_action)}}<br><small>候選目錄：${{node.candidate_dir || '無'}}</small>`;
-      document.getElementById('scenario-count-label').textContent = `（${{scenario.scenario_count || 81}} 個情境）`;
+      const queueCount = scenarioPoints.filter((point) => point.topicId === node.topic_id && point.isExpansionQueue).length;
+      const unlitCount = scenarioPoints.filter((point) => point.topicId === node.topic_id && point.isUnlitRepresentative).length;
+      document.getElementById('scenario-count-label').textContent = `（基礎 ${{scenario.scenario_count || 81}} 格；擴展 queue ${{queueCount}} 格；未點亮代表 ${{unlitCount}} 格）`;
       const dots = Array.from({{ length: 81 }}, (_, index) => `<button type="button" data-scenario="${{index + 1}}" title="情境 ${{index + 1}}"></button>`).join('');
       const scenarioDots = document.getElementById('scenario-dots');
       scenarioDots.innerHTML = dots;
@@ -2730,15 +3274,15 @@ def render_html(payload: dict[str, Any]) -> str:
     }}
     function renderMissionQueue() {{
       const root = document.getElementById('mission-list');
-      root.innerHTML = `<table class="queue-table"><thead><tr><th>優先</th><th>節點 ID</th><th>星區</th><th>原因</th><th>來源</th><th>狀態</th></tr></thead><tbody>` +
+      root.innerHTML = `<table class="queue-table"><thead><tr><th>優先</th><th>候選策略</th><th>星區</th><th>下一步</th><th>證據</th><th>狀態</th></tr></thead><tbody>` +
         payload.mission_queue.slice(0, 5).map((mission, index) => `
           <tr class="mission" data-topic-id="${{mission.topic_id}}">
             <td>${{index + 1}}</td>
             <td>${{mission.topic_id.split(':').pop().slice(0, 24)}}</td>
             <td>${{mission.family}}</td>
+            <td>${{actionText(mission.next_action)}}</td>
             <td>${{mission.reason}}</td>
-            <td>執行紀錄</td>
-            <td><span class="status-pill">已排隊</span></td>
+            <td><span class="status-pill">待作戰</span></td>
           </tr>
         `).join('') + `</tbody></table>`;
       root.querySelectorAll('.mission').forEach((button) => {{
@@ -2770,11 +3314,43 @@ def render_html(payload: dict[str, Any]) -> str:
         }});
       }});
     }}
+    function renderResearchTeamConsole() {{
+      const root = document.getElementById('research-team-console');
+      const latest = (payload.history || {{}}).latest_run || {{}};
+      const queueCount = (payload.mission_queue || []).length;
+      const activeQueueCount = payload.summary.active_expansion_queue_count || (payload.active_expansion_queue || []).length || 0;
+      const rows = [
+        ['Fog Map Bot', payload.status === 'OK' ? 'OK' : payload.status || 'UNKNOWN', payload.sources && payload.sources.run_history_jsonl ? 'run history linked' : 'source missing'],
+        ['Research Worker', latest.status || 'NO_RUN', latest.decision || 'waiting'],
+        ['Strategy Ops', queueCount ? `${{queueCount}} candidates` : 'empty', activeQueueCount ? `${{activeQueueCount}} active grid` : 'no active grid'],
+        ['Ops Reporter', 'READY', 'uses decision brief / progress message'],
+      ];
+      root.innerHTML = rows.map(([name, status, note]) =>
+        `<div class="intel-row"><span>${{name}}<small>${{note}}</small></span><b>${{status}}</b></div>`
+      ).join('');
+    }}
+    function renderEvidenceGates() {{
+      const root = document.getElementById('evidence-gates');
+      const contract = payload.contract || {{}};
+      const burnDown = payload.burn_down_progress || {{}};
+      const rows = [
+        ['Research-only contract', contract.research_only ? 'LOCKED' : 'CHECK', 'fog map 不執行回測、不訓練、不改正式 ranking'],
+        ['Production write guard', contract.does_not_change_production_ranking ? 'LOCKED' : 'CHECK', '策略作戰室只讀證據，不給 production promotion'],
+        ['Burn-down classification', formatPct(burnDown.classified_progress_pct || payload.summary.burn_down_progress_pct || 0), `${{formatNumber(burnDown.classified_total || payload.summary.burn_down_classified_total || 0)}} classified`],
+        ['Next-stage candidates', formatNumber(payload.summary.next_stage_topics || payload.summary.next_stage_combos || 0), '只允許 replay / shadow / review'],
+      ];
+      root.innerHTML = rows.map(([name, status, note]) =>
+        `<div class="intel-row"><span>${{name}}<small>${{note}}</small></span><b>${{status}}</b></div>`
+      ).join('');
+    }}
     function renderBreakthroughs() {{
       const hot = payload.nodes.filter((node) => ['follow_up_signal', 'next_stage_candidate', 'breakthrough_candidate'].includes(node.status)).slice(0, 4);
       document.getElementById('breakthrough-list').innerHTML = (hot.length ? hot : payload.nodes.slice(0, 3)).map((node) =>
-        `<div class="break-row"><strong>${{displayText(node.title).slice(0, 24)}}</strong><span>${{payload.date}}</span></div>`
+        `<div class="break-row" data-topic-id="${{node.topic_id}}"><strong>${{displayText(node.title).slice(0, 24)}}</strong><span>${{actionText(node.next_action)}}</span></div>`
       ).join('');
+      document.querySelectorAll('#breakthrough-list .break-row').forEach((row) => {{
+        row.addEventListener('click', () => renderInspector(row.dataset.topicId));
+      }});
     }}
     function applyMapState() {{
       const root = document.getElementById('star-map');
@@ -2848,7 +3424,7 @@ def render_html(payload: dict[str, Any]) -> str:
           document.querySelectorAll('.nav-item').forEach((nav) => nav.classList.remove('is-active'));
           item.classList.add('is-active');
           const mode = item.dataset.nav;
-          if (mode === 'star-map') {{ mapState.filter = null; resetViewport(1); mapState.focus = false; }}
+          if (mode === 'star-map') {{ mapState.filter = null; resetViewport(1.22); mapState.focus = true; }}
           if (mode === 'dashboard') {{ mapState.filter = null; resetViewport(0.92); }}
           if (mode === 'tech-tree') {{ mapState.links = true; mapState.names = true; resetViewport(1.08); }}
           if (mode === 'signals') {{ mapState.filter = 'follow_up_signal'; }}
@@ -2861,7 +3437,7 @@ def render_html(payload: dict[str, Any]) -> str:
       document.querySelectorAll('.control-btn').forEach((button) => {{
         button.addEventListener('click', () => {{
           const action = button.dataset.control;
-          if (action === 'reset') {{ resetViewport(1); mapState.filter = null; mapState.focus = false; }}
+          if (action === 'reset') {{ resetViewport(1.22); mapState.filter = null; mapState.focus = true; }}
           if (action === 'zoom-in') setZoom(mapState.zoom * 1.28);
           if (action === 'zoom-out') setZoom(mapState.zoom / 1.28);
           if (action === 'focus') mapState.focus = !mapState.focus;
@@ -2876,7 +3452,7 @@ def render_html(payload: dict[str, Any]) -> str:
         item.addEventListener('click', () => {{
           const tool = item.dataset.tool;
           if (tool === 'fov') {{
-            if (mapState.zoom >= 3.5) resetViewport(1);
+            if (mapState.zoom >= 3.5) resetViewport(1.22);
             else setZoom(mapState.zoom * 1.55);
           }}
           if (tool !== 'fov') mapState[tool] = !mapState[tool];
@@ -2898,6 +3474,8 @@ def render_html(payload: dict[str, Any]) -> str:
       renderMap();
       renderMissionQueue();
       renderLegend();
+      renderResearchTeamConsole();
+      renderEvidenceGates();
       renderBreakthroughs();
       renderInspector(payload.default_selected_topic_id || (payload.nodes[0] && payload.nodes[0].topic_id));
       wireControls();

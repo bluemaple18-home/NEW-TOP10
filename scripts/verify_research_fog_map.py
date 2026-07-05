@@ -22,7 +22,22 @@ OUTPUT_DIR = PROJECT_ROOT / "artifacts" / "research_map"
 SCHEMA_VERSION = "research-fog-map-verification.v1"
 MAP_SCHEMAS = {"research-fog-map.v1", "research-fog-map.v2"}
 REQUIRED_STATUS_IDS = {"pending", "rejected", "follow_up_signal", "low_information"}
-REQUIRED_SECTIONS = ["hud", "star-map", "inspector", "mission-queue", "legend"]
+REQUIRED_SECTIONS = [
+    "hud",
+    "star-map",
+    "inspector",
+    "mission-queue",
+    "legend",
+    "research-team-console",
+    "evidence-gates",
+    "breakthrough-list",
+]
+REQUIRED_VISIBLE_LABELS = [
+    "候選策略隊列",
+    "研究團隊 Console",
+    "證據閘門",
+    "需要決策",
+]
 MISLEADING_PATTERNS = [
     "promote to production",
     "promotion allowed",
@@ -349,6 +364,35 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
             "name": "dashboard_sections_present",
             "ok": all(f'id="{section}"' in html_text for section in REQUIRED_SECTIONS),
             "value": REQUIRED_SECTIONS,
+        },
+        {
+            "name": "strategy_ops_bottom_labels_visible",
+            "ok": all(label.lower() in visible_text for label in [item.lower() for item in REQUIRED_VISIBLE_LABELS]),
+            "value": REQUIRED_VISIBLE_LABELS,
+        },
+        {
+            "name": "strategy_ops_renderers_present",
+            "ok": "function renderResearchTeamConsole" in html_text
+            and "function renderEvidenceGates" in html_text
+            and "renderResearchTeamConsole();" in html_text
+            and "renderEvidenceGates();" in html_text,
+            "value": ["renderResearchTeamConsole", "renderEvidenceGates"],
+        },
+        {
+            "name": "focus_map_keeps_bottom_panels_visible",
+            "ok": re.search(
+                r"\.command-shell\.focus-map\s+\.command-bottom\s*\{[^}]*display:\s*grid;",
+                html_text,
+                flags=re.DOTALL,
+            )
+            is not None
+            and re.search(
+                r"\.command-shell\.focus-map\s+\.command-bottom\s*\{[^}]*display:\s*none;",
+                html_text,
+                flags=re.DOTALL,
+            )
+            is None,
+            "value": "focus-map command-bottom display grid",
         },
         {
             "name": "inspector_interaction_present",
