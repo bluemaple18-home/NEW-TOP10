@@ -27,6 +27,8 @@ def wrapper_safety_defaults_ok() -> bool:
         'SEND_CARDS="${TOP10_PM_RESEARCH_SEND_CARDS:-0}"',
         'DRY_RUN_SEND="${TOP10_PM_RESEARCH_DRY_RUN_SEND:-1}"',
         'MAX_CONTINUATION_RUNS="${TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS:-8}"',
+        'MIN_QUEUE_DEPTH="${TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH:-12}"',
+        'DISCOVERY_MAX_TOPICS="${TOP10_PM_RESEARCH_DISCOVERY_MAX_TOPICS:-30}"',
         "reason=disabled TOP10_PM_RESEARCH_ENABLED=",
         "fog research worker active",
     ]
@@ -45,6 +47,8 @@ def plist_ok() -> bool:
         and env.get("TOP10_PM_RESEARCH_SEND_CARDS") == "0"
         and env.get("TOP10_PM_RESEARCH_DRY_RUN_SEND") == "1"
         and env.get("TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS") == "8"
+        and env.get("TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH") == "12"
+        and env.get("TOP10_PM_RESEARCH_DISCOVERY_MAX_TOPICS") == "30"
         and payload.get("StartInterval") == 900
         and payload.get("RunAtLoad") is True
     )
@@ -106,6 +110,15 @@ def loop_contract_ok() -> bool:
         '"launchd_explicitly_enables_research": True',
         '"dry_run_send_does_not_skip_state_update": True',
         '"max_no_approval_continuation_runs": args.max_continuation_runs',
+        '"auto_discovers_topics_when_queue_low": True',
+        '"revisits_rejected_topics_when_queue_low": True',
+        "discover_research_topics",
+        "top_up_research_queue_from_registry",
+        "--include-rejected",
+        "queue_depth_before",
+        "queue_depth_after_discovery",
+        "queue_depth_after_run",
+        "queue_top_up_after_run_count",
         "consecutive_no_approval_runs",
         "if pending_approvals or topic_runs > 0:",
     ]

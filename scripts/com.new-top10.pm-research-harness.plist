@@ -21,6 +21,10 @@
         <string>1</string>
         <key>TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS</key>
         <string>8</string>
+        <key>TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH</key>
+        <string>12</string>
+        <key>TOP10_PM_RESEARCH_DISCOVERY_MAX_TOPICS</key>
+        <string>30</string>
     </dict>
 
     <key>StartInterval</key>

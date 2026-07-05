@@ -16,6 +16,8 @@ ENABLED="${TOP10_PM_RESEARCH_ENABLED:-0}"
 QUOTA="${TOP10_PM_RESEARCH_QUOTA:-2}"
 MAX_RANKING_FILES="${TOP10_PM_RESEARCH_MAX_RANKING_FILES:-8}"
 MAX_CONTINUATION_RUNS="${TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS:-8}"
+MIN_QUEUE_DEPTH="${TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH:-12}"
+DISCOVERY_MAX_TOPICS="${TOP10_PM_RESEARCH_DISCOVERY_MAX_TOPICS:-30}"
 SEND_CARDS="${TOP10_PM_RESEARCH_SEND_CARDS:-0}"
 DRY_RUN_SEND="${TOP10_PM_RESEARCH_DRY_RUN_SEND:-1}"
 LOG_FILE="$LOG_DIR/pm_research_harness_loop_${RUN_DATE//-/}.log"
@@ -70,6 +72,8 @@ ARGS=(
   --quota "$QUOTA"
   --max-ranking-files "$MAX_RANKING_FILES"
   --max-continuation-runs "$MAX_CONTINUATION_RUNS"
+  --min-queue-depth "$MIN_QUEUE_DEPTH"
+  --discovery-max-topics "$DISCOVERY_MAX_TOPICS"
 )
 
 if [ "$SEND_CARDS" = "1" ] || [ "$SEND_CARDS" = "true" ] || [ "$SEND_CARDS" = "TRUE" ]; then
@@ -82,7 +86,7 @@ fi
 {
   echo "========================================"
   echo "pm research harness loop start - $(date)"
-  echo "run_date=$RUN_DATE enabled=$ENABLED quota=$QUOTA max_ranking_files=$MAX_RANKING_FILES max_continuation_runs=$MAX_CONTINUATION_RUNS send_cards=$SEND_CARDS dry_run_send=$DRY_RUN_SEND"
+  echo "run_date=$RUN_DATE enabled=$ENABLED quota=$QUOTA max_ranking_files=$MAX_RANKING_FILES max_continuation_runs=$MAX_CONTINUATION_RUNS min_queue_depth=$MIN_QUEUE_DEPTH discovery_max_topics=$DISCOVERY_MAX_TOPICS send_cards=$SEND_CARDS dry_run_send=$DRY_RUN_SEND"
   "$PYTHON_BIN" "${ARGS[@]}"
   echo "pm research harness loop finished - $(date)"
 } >> "$LOG_FILE" 2>&1

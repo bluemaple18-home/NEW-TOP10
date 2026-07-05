@@ -49,6 +49,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-ranking-files", type=int, default=8)
     parser.add_argument("--max-review-cards", type=int, default=8)
     parser.add_argument("--max-continuation-runs", type=int, default=8)
+    parser.add_argument("--min-queue-depth", type=int, default=12)
+    parser.add_argument("--discovery-max-topics", type=int, default=30)
     parser.add_argument("--config", default="config/automation.yaml")
     parser.add_argument("--state", default=str(STATE_PATH))
     parser.add_argument("--send-cards", action="store_true")
@@ -185,6 +187,82 @@ def run_checked(command: list[str]) -> subprocess.CompletedProcess[str]:
     return completed
 
 
+def current_queue_depth() -> int:
+    queue = read_json(ARTIFACTS_DIR / "autonomous_research" / "next_action_queue.json", {})
+    actions = queue.get("actions") if isinstance(queue.get("actions"), list) else []
+    return len([item for item in actions if isinstance(item, dict)])
+
+
+def top_up_research_queue_from_registry(min_depth: int, max_items: int) -> int:
+    """queue 不足時，把高分 rejected 題轉成 revisit 研究候選，避免 loop 輪空。"""
+    research_dir = ARTIFACTS_DIR / "autonomous_research"
+    queue_path = research_dir / "next_action_queue.json"
+    registry_path = research_dir / "topic_registry.json"
+    queue_payload = read_json(queue_path, {})
+    registry_payload = read_json(registry_path, {})
+    actions = queue_payload.get("actions") if isinstance(queue_payload.get("actions"), list) else []
+    actions = [item for item in actions if isinstance(item, dict)]
+    if len(actions) >= min_depth:
+        return 0
+
+    topics = registry_payload.get("topics") if isinstance(registry_payload.get("topics"), list) else []
+    existing_ids = {str(item.get("topic_id") or "") for item in actions}
+    needed = max(0, min(max_items, min_depth - len(actions)))
+    candidates = sorted(
+        [
+            item
+            for item in topics
+            if isinstance(item, dict)
+            and item.get("topic_id")
+            and str(item.get("topic_id")) not in existing_ids
+            and item.get("manager_status") == "rejected"
+        ],
+        key=lambda item: (-float(item.get("score") or 0), str(item.get("topic_id"))),
+    )
+    additions = []
+    for topic in candidates[:needed]:
+        additions.append(
+            {
+                "topic_id": topic.get("topic_id"),
+                "manager_status": "rejected",
+                "next_action": "rerun_rejected_with_larger_window_or_risk_check",
+                "score": topic.get("score"),
+                "last_decision": topic.get("last_decision"),
+                "candidate_dir": topic.get("candidate_dir"),
+                "queue_reason": "pm_harness_low_water_revisit",
+            }
+        )
+    if not additions:
+        return 0
+    output = {
+        "schema_version": "autonomous-research-next-action-queue.v1",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "actions": [*actions, *additions],
+    }
+    write_state(queue_path, output)
+    return len(additions)
+
+
+def discover_research_topics(date_text: str, max_topics: int, max_ranking_files: int) -> Path:
+    stamp = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y%m%d_%H%M%S")
+    output = ARTIFACTS_DIR / "autonomous_research" / f"pm_research_topic_discovery_{date_text}_{stamp}.json"
+    run_checked(
+        [
+            python_bin(),
+            "scripts/run_autonomous_research.py",
+            "--date",
+            date_text,
+            "--max-topics",
+            str(max_topics),
+            "--max-ranking-files",
+            str(max_ranking_files),
+            "--output",
+            repo_path(output) or str(output),
+        ]
+    )
+    return output
+
+
 def run_research(date_text: str, quota: int, max_ranking_files: int) -> Path:
     stamp = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y%m%d_%H%M%S")
     output = ARTIFACTS_DIR / "autonomous_research" / f"pm_research_harness_{date_text}_{stamp}.json"
@@ -197,6 +275,7 @@ def run_research(date_text: str, quota: int, max_ranking_files: int) -> Path:
             "--execute",
             "--from-queue",
             "--rerun",
+            "--include-rejected",
             "--execute-topic-count",
             str(quota),
             "--max-topics",
@@ -441,6 +520,18 @@ def main() -> int:
     send_result: dict[str, Any] | None = None
     sent_keys: list[str] = []
     topic_runs = 0
+    queue_depth_before = current_queue_depth()
+    discovery_artifact = None
+    queue_top_up_count = 0
+    queue_top_up_after_run_count = 0
+    queue_depth_after_discovery = queue_depth_before
+    queue_depth_after_run = queue_depth_after_discovery
+
+    if state["loop_enabled"] and queue_depth_before < args.min_queue_depth:
+        discovery_artifact = discover_research_topics(date_text, args.discovery_max_topics, args.max_ranking_files)
+        queue_top_up_count = top_up_research_queue_from_registry(args.min_queue_depth, args.discovery_max_topics)
+        queue_depth_after_discovery = current_queue_depth()
+        queue_depth_after_run = queue_depth_after_discovery
 
     if state["loop_enabled"]:
         research_artifact = run_research(date_text, args.quota, args.max_ranking_files)
@@ -458,6 +549,10 @@ def main() -> int:
             state["loop_enabled"] = False
         if not pending_approvals and state["consecutive_no_approval_runs"] >= max(args.max_continuation_runs, 0):
             state["loop_enabled"] = False
+        queue_depth_after_run = current_queue_depth()
+        if state["loop_enabled"] and queue_depth_after_run < args.min_queue_depth:
+            queue_top_up_after_run_count = top_up_research_queue_from_registry(args.min_queue_depth, args.discovery_max_topics)
+            queue_depth_after_run = current_queue_depth()
 
     if pending_approvals or topic_runs > 0:
         brief_path = build_research_brief(date_text)
@@ -485,6 +580,9 @@ def main() -> int:
         "loop_enabled_after": state["loop_enabled"],
         "topic_runs": topic_runs,
         "research_artifact": repo_path(research_artifact) if research_artifact else None,
+        "topic_discovery_artifact": repo_path(discovery_artifact) if discovery_artifact else None,
+        "queue_top_up_count": queue_top_up_count,
+        "queue_top_up_after_run_count": queue_top_up_after_run_count,
         "brief": repo_path(brief_path) if brief_path else None,
         "pm_review_run_dir": repo_path(card_run_dir) if card_run_dir else None,
         "send_status": "DRY_RUN" if args.dry_run_send and send_result else send_result.get("status") if send_result else "NOT_SENT",
@@ -502,6 +600,7 @@ def main() -> int:
         "pending_approval_count": len(pending_approvals),
         "topic_runs": topic_runs,
         "research_artifact": repo_path(research_artifact) if research_artifact else None,
+        "topic_discovery_artifact": repo_path(discovery_artifact) if discovery_artifact else None,
         "research_decision_brief": repo_path(brief_path) if brief_path else None,
         "pm_review_run_dir": repo_path(card_run_dir) if card_run_dir else None,
         "pm_review_cards_sent": effective_send,
@@ -511,12 +610,21 @@ def main() -> int:
         "consecutive_empty_runs": state["consecutive_empty_runs"],
         "consecutive_no_approval_runs": state["consecutive_no_approval_runs"],
         "max_continuation_runs": args.max_continuation_runs,
+        "queue_depth_before": queue_depth_before,
+        "queue_depth_after_discovery": queue_depth_after_discovery,
+        "queue_depth_after_run": queue_depth_after_run,
+        "queue_top_up_count": queue_top_up_count,
+        "queue_top_up_after_run_count": queue_top_up_after_run_count,
+        "min_queue_depth": args.min_queue_depth,
+        "discovery_max_topics": args.discovery_max_topics,
         "contract": {
             "research_only": True,
             "requires_explicit_pm_approval": True,
             "launchd_explicitly_enables_research": True,
             "dry_run_send_does_not_skip_state_update": True,
             "max_no_approval_continuation_runs": args.max_continuation_runs,
+            "auto_discovers_topics_when_queue_low": True,
+            "revisits_rejected_topics_when_queue_low": True,
             "changes_ranking": False,
             "changes_model": False,
             "changes_publish": False,

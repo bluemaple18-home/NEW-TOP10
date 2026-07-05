@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts import run_pm_research_harness_loop as harness_loop
 from scripts.run_pm_research_harness_loop import export_pm_review_cards, load_state
 
 
@@ -105,6 +106,66 @@ class PMResearchHarnessLoopTests(unittest.TestCase):
             self.assertIn("股票策略研究", card_text)
             self.assertNotIn("AI Vibe Radar", card_text)
             self.assertEqual(len(sent_keys), 1)
+
+    def test_current_queue_depth_reads_next_action_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original_artifacts_dir = harness_loop.ARTIFACTS_DIR
+            try:
+                harness_loop.ARTIFACTS_DIR = Path(tmp) / "artifacts"
+                queue_path = harness_loop.ARTIFACTS_DIR / "autonomous_research" / "next_action_queue.json"
+                queue_path.parent.mkdir(parents=True)
+                queue_path.write_text(
+                    json.dumps(
+                        {
+                            "actions": [
+                                {"id": "candidate-1"},
+                                {"id": "candidate-2"},
+                                "invalid-row",
+                            ]
+                        },
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+
+                self.assertEqual(harness_loop.current_queue_depth(), 2)
+            finally:
+                harness_loop.ARTIFACTS_DIR = original_artifacts_dir
+
+    def test_top_up_research_queue_from_registry_adds_revisit_topics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original_artifacts_dir = harness_loop.ARTIFACTS_DIR
+            try:
+                harness_loop.ARTIFACTS_DIR = Path(tmp) / "artifacts"
+                research_dir = harness_loop.ARTIFACTS_DIR / "autonomous_research"
+                research_dir.mkdir(parents=True)
+                (research_dir / "next_action_queue.json").write_text(
+                    json.dumps({"actions": [{"topic_id": "existing", "manager_status": "confirmed_for_next_replay"}]}),
+                    encoding="utf-8",
+                )
+                (research_dir / "topic_registry.json").write_text(
+                    json.dumps(
+                        {
+                            "topics": [
+                                {"topic_id": "low", "manager_status": "rejected", "score": 1},
+                                {"topic_id": "high", "manager_status": "rejected", "score": 9},
+                                {"topic_id": "candidate", "manager_status": "candidate", "score": 20},
+                            ]
+                        },
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+
+                added = harness_loop.top_up_research_queue_from_registry(min_depth=3, max_items=10)
+                queue = json.loads((research_dir / "next_action_queue.json").read_text(encoding="utf-8"))
+
+                self.assertEqual(added, 2)
+                self.assertEqual([item["topic_id"] for item in queue["actions"]], ["existing", "high", "low"])
+                self.assertEqual(queue["actions"][1]["next_action"], "rerun_rejected_with_larger_window_or_risk_check")
+                self.assertEqual(queue["actions"][1]["queue_reason"], "pm_harness_low_water_revisit")
+            finally:
+                harness_loop.ARTIFACTS_DIR = original_artifacts_dir
 
 
 if __name__ == "__main__":
