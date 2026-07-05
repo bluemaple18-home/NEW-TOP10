@@ -122,9 +122,70 @@ class Top10OpsReportTest(unittest.TestCase):
             self.assertEqual(brief["status"], "NEEDS_DECISION")
             self.assertEqual(brief["summary"]["decision_count"], 2)
             titles = [item["title"] for item in brief["decision_requests"]]
-            self.assertIn("外部 AI 檢核有分歧，需要決定後續處置", titles)
+            self.assertIn("TOP10 報牌外部檢核有分歧，需要決定後續處置", titles)
             self.assertIn("候選策略已確認可進下一階段 replay", titles)
             self.assertTrue(brief["boundaries"]["does_not_change_ranking"])
+            first_card = brief["decision_requests"][0]["pm_card"]
+            self.assertIn("card_id", first_card)
+            self.assertIn("topic_name", first_card)
+            self.assertIn("system_area", first_card)
+            self.assertIn("potential_improvement", first_card)
+            self.assertIn("decision_point", first_card)
+            self.assertIn("next_harness", first_card)
+            self.assertIn("decision_boundary", first_card)
+            self.assertTrue(first_card["button_labels"]["approve"].startswith("核准 "))
+
+    def test_performance_review_cards_become_pm_review_cards(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            (artifacts / "daily_performance_review_2026-06-24.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "daily-performance-review.v1",
+                        "date": "2026-06-24",
+                        "status": "NEEDS_REVIEW",
+                        "summary": {"finding_count": 2, "high_count": 1, "research_card_count": 1},
+                        "findings": [
+                            {"title": "D+1 平均報酬為負"},
+                            {"title": "D+3 bucket 回撤偏大"},
+                        ],
+                        "research_cards": [
+                            {
+                                "task_id": "PERF-REVIEW-2026-06-24-ENTRY-TIMING",
+                                "purpose": "拆 D+1/D+3 偏弱來源。",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            brief = build_brief("2026-06-24", artifacts)
+            performance_decisions = [
+                item for item in brief["decision_requests"] if item["id"].startswith("performance-review-")
+            ]
+
+            self.assertEqual(len(performance_decisions), 1)
+            card = performance_decisions[0]["pm_card"]
+            self.assertTrue(card["card_id"].startswith("PERF260624-"))
+            self.assertEqual(card["status"], "待決策")
+            self.assertIn("報牌", card["topic_name"])
+            self.assertIn("TOP10", card["system_area"])
+            self.assertIn("核准 " + card["card_id"], card["button_labels"]["approve"])
+            self.assertIn("不代表改報牌", card["decision_boundary"])
+
+            message = render_ops_message(
+                sample_rollup(),
+                None,
+                rollup_path=artifacts / "harness_status" / "2026-06-24" / "daily-2026-06-24" / "rollup.json",
+                artifacts_dir=artifacts,
+                research_decision_brief=brief,
+            )
+            self.assertIn(card["card_id"], message)
+            self.assertIn("處理哪裡", message)
+            self.assertIn("可能提升", message)
+            self.assertIn("按鈕", message)
 
     def test_write_ops_event_updates_rollup(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -156,6 +217,43 @@ class Top10OpsReportTest(unittest.TestCase):
             latest = artifacts / "harness_status" / "2026-06-24" / "latest_rollup.json"
             self.assertTrue(latest.exists())
 
+    def test_ops_message_includes_pm_research_harness_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            status_dir = artifacts / "pm_research_harness"
+            status_dir.mkdir(parents=True)
+            status_path = status_dir / "pm_research_harness_loop_2026-06-24.json"
+            status_path.write_text(
+                json.dumps(
+                    {
+                        "status": "OK",
+                        "topic_runs": 2,
+                        "pending_approval_count": 0,
+                        "loop_enabled_after": True,
+                        "consecutive_no_approval_runs": 3,
+                        "max_continuation_runs": 8,
+                        "pm_review_cards_sent": False,
+                        "pm_review_cards_dry_run": False,
+                        "research_artifact": "artifacts/autonomous_research/pm_research_harness_2026-06-24.json",
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            from scripts.build_top10_ops_progress_message import load_pm_research_status
+
+            pm_status = load_pm_research_status(artifacts, "2026-06-24")
+            message = render_ops_message(
+                sample_rollup(),
+                None,
+                rollup_path=artifacts / "harness_status" / "2026-06-24" / "daily-2026-06-24" / "rollup.json",
+                artifacts_dir=artifacts,
+                pm_research_status=pm_status,
+            )
+            self.assertIn("PM 研究核准 loop", message)
+            self.assertIn("topic runs：`2`", message)
+            self.assertIn("連續無新核准延續：`3/8`", message)
+
 
 def sample_rollup() -> dict:
     return {
@@ -163,7 +261,7 @@ def sample_rollup() -> dict:
         "run_id": "daily-2026-06-24",
         "status": "failed",
         "summary": {
-            "agent_count": 14,
+            "agent_count": 15,
             "event_count": 8,
             "failed_count": 1,
             "warning_count": 1,

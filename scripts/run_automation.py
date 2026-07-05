@@ -139,7 +139,9 @@ class AutomationRunner:
         self._run_candidate_persistence(daily_config, ranking_path)
         self._run_weekly_snapshot(daily_config, ranking_path)
         self._run_market_context(daily_config)
+        self._run_daily_recommendation_performance(daily_config)
         self._run_decision_quality(daily_config, ranking_path)
+        self._run_daily_performance_review(daily_config)
         self._run_gross55_shadow_monitor(daily_config, ranking_path)
         self._run_capital_entry_quality_shadow_monitor(daily_config, ranking_path)
         self._run_candidate_trail10_shadow_monitor(daily_config, ranking_path)
@@ -381,6 +383,54 @@ class AutomationRunner:
             self._record_step("market.context.artifact", "OK", message=str(output_path))
         return output_path
 
+    def _run_daily_recommendation_performance(self, daily_config: dict[str, Any]) -> Path | None:
+        date_text = self._latest_feature_date()
+        output_path = PROJECT_ROOT / "artifacts" / f"daily_recommendation_performance_{date_text}.json"
+        self.status.metadata["expected_daily_recommendation_performance_artifact"] = str(output_path)
+        if not daily_config.get("daily_recommendation_performance_enabled", True):
+            self._record_step(
+                "daily_recommendation.performance",
+                "SKIPPED",
+                message="config daily.daily_recommendation_performance_enabled=false",
+            )
+            return None
+
+        command = [
+            "python",
+            "scripts/build_daily_recommendation_performance.py",
+            "--date",
+            date_text,
+        ]
+        self._run_command("daily_recommendation.performance", command)
+        if not self.dry_run:
+            if not output_path.exists():
+                self._record_step(
+                    "daily_recommendation.performance.artifact",
+                    "FAILED",
+                    message=f"missing expected daily recommendation performance: {output_path}",
+                )
+                raise RuntimeError(f"daily recommendation performance completed but expected artifact is missing: {output_path}")
+            self.status.metadata["daily_recommendation_performance_artifact"] = str(output_path)
+            self._record_step("daily_recommendation.performance.artifact", "OK", message=str(output_path))
+
+        if daily_config.get("daily_recommendation_performance_verify_enabled", True):
+            self._run_command(
+                "daily_recommendation.performance.verify",
+                [
+                    "python",
+                    "scripts/verify_daily_recommendation_performance.py",
+                    "--date",
+                    date_text,
+                ],
+            )
+        else:
+            self._record_step(
+                "daily_recommendation.performance.verify",
+                "SKIPPED",
+                message="config daily.daily_recommendation_performance_verify_enabled=false",
+            )
+        return output_path
+
     def _run_decision_quality(self, daily_config: dict[str, Any], ranking_path: Path) -> Path | None:
         output_path = PROJECT_ROOT / "artifacts" / f"decision_quality_{self._latest_feature_date()}.json"
         self.status.metadata["expected_decision_quality_artifact"] = str(output_path)
@@ -388,7 +438,10 @@ class AutomationRunner:
             self._record_step("decision.quality", "SKIPPED", message="config daily.decision_quality_enabled=false")
             return None
 
+        performance_path = PROJECT_ROOT / "artifacts" / f"daily_recommendation_performance_{self._latest_feature_date()}.json"
         command = ["python", "scripts/build_decision_quality.py", "--ranking", str(ranking_path)]
+        if performance_path.exists():
+            command.extend(["--performance", str(performance_path)])
         self._run_command("decision.quality", command)
         if not self.dry_run:
             if not output_path.exists():
@@ -396,6 +449,54 @@ class AutomationRunner:
                 raise RuntimeError(f"decision quality completed but expected artifact is missing: {output_path}")
             self.status.metadata["decision_quality_artifact"] = str(output_path)
             self._record_step("decision.quality.artifact", "OK", message=str(output_path))
+        return output_path
+
+    def _run_daily_performance_review(self, daily_config: dict[str, Any]) -> Path | None:
+        date_text = self._latest_feature_date()
+        output_path = PROJECT_ROOT / "artifacts" / f"daily_performance_review_{date_text}.json"
+        self.status.metadata["expected_daily_performance_review_artifact"] = str(output_path)
+        if not daily_config.get("daily_performance_review_enabled", True):
+            self._record_step(
+                "daily_performance.review",
+                "SKIPPED",
+                message="config daily.daily_performance_review_enabled=false",
+            )
+            return None
+
+        command = [
+            "python",
+            "scripts/build_daily_performance_review.py",
+            "--date",
+            date_text,
+        ]
+        self._run_command("daily_performance.review", command)
+        if not self.dry_run:
+            if not output_path.exists():
+                self._record_step(
+                    "daily_performance.review.artifact",
+                    "FAILED",
+                    message=f"missing expected daily performance review: {output_path}",
+                )
+                raise RuntimeError(f"daily performance review completed but expected artifact is missing: {output_path}")
+            self.status.metadata["daily_performance_review_artifact"] = str(output_path)
+            self._record_step("daily_performance.review.artifact", "OK", message=str(output_path))
+
+        if daily_config.get("daily_performance_review_verify_enabled", True):
+            self._run_command(
+                "daily_performance.review.verify",
+                [
+                    "python",
+                    "scripts/verify_daily_performance_review.py",
+                    "--date",
+                    date_text,
+                ],
+            )
+        else:
+            self._record_step(
+                "daily_performance.review.verify",
+                "SKIPPED",
+                message="config daily.daily_performance_review_verify_enabled=false",
+            )
         return output_path
 
     def _run_gross55_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:

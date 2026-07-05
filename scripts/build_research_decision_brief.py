@@ -44,18 +44,27 @@ def build_brief(run_date: str, artifacts_dir: Path) -> dict[str, Any]:
     campaign_progress, campaign_path = load_json_with_path(
         artifacts_dir / "autonomous_research" / f"research_campaign_progress_{run_date}.json"
     )
+    performance_review, performance_review_path = load_json_with_path(artifacts_dir / f"daily_performance_review_{run_date}.json")
     fog_verification, fog_verification_path = load_json_with_path(artifacts_dir / "research_map" / "research_fog_map_verification_latest.json")
+    strategy_map, strategy_map_path = load_json_with_path(
+        artifacts_dir / "research_council" / f"strategy_archetype_evidence_map_{run_date}.json"
+    )
 
     decisions: list[dict[str, Any]] = []
     if external_summary:
         decisions.extend(external_review_decisions(external_summary, external_path))
+    if strategy_map:
+        decisions.extend(strategy_archetype_decisions(strategy_map, strategy_map_path))
+    if performance_review:
+        decisions.extend(performance_review_decisions(performance_review, performance_review_path))
     if next_queue:
         decisions.extend(next_action_queue_decisions(next_queue, next_queue_path))
     decisions.extend(model_candidate_decisions(artifacts_dir))
 
-    decisions = unique_decisions(decisions)
+    decisions = [item for item in unique_decisions(decisions) if is_top10_stock_decision(item)]
     decisions.sort(key=decision_sort_key)
     open_decisions = [item for item in decisions if item.get("status") == "open"]
+    attach_pm_cards(open_decisions, run_date)
 
     research_status = build_research_status(
         run_date=run_date,
@@ -74,7 +83,21 @@ def build_brief(run_date: str, artifacts_dir: Path) -> dict[str, Any]:
         "status": "NEEDS_DECISION" if open_decisions else "NO_DECISION",
         "summary": {
             "decision_count": len(open_decisions),
-            "source_count": len([item for item in [external_path, next_queue_path, manager_path, campaign_path, fog_verification_path] if item]),
+            "source_count": len(
+                [
+                    item
+                    for item in [
+                        external_path,
+                        performance_review_path,
+                        next_queue_path,
+                        strategy_map_path,
+                        manager_path,
+                        campaign_path,
+                        fog_verification_path,
+                    ]
+                    if item
+                ]
+            ),
             "send_to_ops_channel": bool(open_decisions),
             "language": "zh-TW",
         },
@@ -113,7 +136,7 @@ def external_review_decisions(summary: dict[str, Any], path: Path | None) -> lis
             "priority": "high" if safety.get("needs_human_review") else "medium",
             "owner_bot": "External Review Bot",
             "formal_agent": "disagreement_next_actions",
-            "title": "外部 AI 檢核有分歧，需要決定後續處置",
+            "title": "TOP10 報牌外部檢核有分歧，需要決定後續處置",
             "why_decision_needed": "ChatGPT / Gemini 的反對點不能直接改排名，必須由你決定要轉研究卡、先人工複核，或暫時擱置。",
             "recommended_option": "同意轉成研究卡，交給迷霧與研究 worker 排隊驗證。",
             "options": [
@@ -132,6 +155,95 @@ def external_review_decisions(summary: dict[str, Any], path: Path | None) -> lis
             "artifact_paths": [repo_ref(path)] if path else [],
         }
     ]
+
+
+def strategy_archetype_decisions(strategy_map: dict[str, Any], path: Path | None) -> list[dict[str, Any]]:
+    archetypes = [item for item in list_value(strategy_map.get("archetypes")) if isinstance(item, dict)]
+    decisions = []
+    for item in archetypes:
+        archetype_id = str(item.get("archetype_id") or "")
+        if archetype_id not in {"high_entry_chase_protection", "selloff_protection"}:
+            continue
+        evidence = item.get("current_evidence") if isinstance(item.get("current_evidence"), dict) else {}
+        label = str(item.get("label") or archetype_id)
+        if archetype_id == "high_entry_chase_protection":
+            title = "高位防追高策略區需要核准進補位模擬"
+            recommended = "核准建立 Top11-20 / Top21-30 補位模擬研究卡，不改 production ranking。"
+            options = ["核准補位模擬研究", "先延後", "拒絕此策略區"]
+            boundary = "核准只代表把防追高 archetype 轉成可執行研究卡；不代表少報股票、改排名或上線。"
+        else:
+            title = "急殺保護策略區需要核准進 risk overlay 驗證"
+            recommended = "核准建立 risk overlay 觸發與曝險拆解研究卡，不改 production ranking。"
+            options = ["核准急殺保護驗證", "先延後", "拒絕此策略區"]
+            boundary = "核准只代表把急殺保護 archetype 轉成可執行研究卡；不代表啟用留現金或交易規則。"
+        decisions.append(
+            {
+                "id": "strategy-archetype-" + stable_slug(archetype_id),
+                "status": "open",
+                "priority": "high",
+                "owner_bot": "Research Worker Bot",
+                "formal_agent": "research_worker",
+                "title": title,
+                "why_decision_needed": "目前排程可自動跑，但 worker queue 為空；這個決策會把 strategy archetype evidence map 轉成可執行研究卡。",
+                "recommended_option": recommended,
+                "options": options,
+                "details": [
+                    f"策略區：{label}",
+                    f"角色：{item.get('role') or '未知'}",
+                    f"next_action：{evidence.get('next_action_count', 0)}",
+                    f"followup：{evidence.get('followup_signal_count', 0)}",
+                    f"證據狀態：{evidence.get('evidence_status') or '未知'}",
+                ],
+                "metrics": {
+                    "archetype_id": archetype_id,
+                    "next_action_count": evidence.get("next_action_count"),
+                    "followup_signal_count": evidence.get("followup_signal_count"),
+                    "evidence_status": evidence.get("evidence_status"),
+                },
+                "artifact_paths": [repo_ref(path)] if path else [],
+                "decision_boundary_override": boundary,
+            }
+        )
+    return decisions
+
+
+def performance_review_decisions(review: dict[str, Any], path: Path | None) -> list[dict[str, Any]]:
+    if review.get("status") not in {"NEEDS_REVIEW", "WATCH"}:
+        return []
+    cards = [item for item in list_value(review.get("research_cards")) if isinstance(item, dict)]
+    if not cards:
+        return []
+    findings = [item for item in list_value(review.get("findings")) if isinstance(item, dict)]
+    high_count = int((review.get("summary") or {}).get("high_count") or 0)
+    decisions = []
+    for card in cards[:5]:
+        task_id = str(card.get("task_id") or "PERF-REVIEW")
+        decisions.append(
+            {
+                "id": "performance-review-" + stable_slug(task_id),
+                "status": "open",
+                "priority": "high" if high_count else "medium",
+                "owner_bot": "Research Worker Bot",
+                "formal_agent": "research_worker",
+                "title": "每日報牌復盤觸發研究候選",
+                "why_decision_needed": "績效復盤只會提出診斷卡；是否消耗研究 quota 仍需要你決定，不會直接改排名或模型。",
+                "recommended_option": "同意轉入研究 queue，先診斷來源，不直接改 production。",
+                "options": ["同意轉入研究 queue", "先人工複核", "暫時擱置"],
+                "details": [
+                    f"任務ID：{task_id}",
+                    f"任務目的：{card.get('purpose') or '未指定'}",
+                    f"主要訊號：{'; '.join(str(item.get('title')) for item in findings[:3])}",
+                ],
+                "metrics": {
+                    "review_status": review.get("status"),
+                    "finding_count": (review.get("summary") or {}).get("finding_count"),
+                    "high_count": high_count,
+                    "research_card_count": (review.get("summary") or {}).get("research_card_count"),
+                },
+                "artifact_paths": [repo_ref(path)] if path else [],
+            }
+        )
+    return decisions
 
 
 def next_action_queue_decisions(queue: dict[str, Any], path: Path | None) -> list[dict[str, Any]]:
@@ -259,17 +371,21 @@ def render_markdown(brief: dict[str, Any]) -> str:
     if decisions:
         lines.append("需要你決策")
         for index, item in enumerate(decisions[:8], start=1):
-            lines.extend(
-                [
-                    f"{index}. {priority_label(item.get('priority'))}｜{item.get('title')}",
-                    f"   - 建議：{item.get('recommended_option')}",
-                    f"   - 原因：{item.get('why_decision_needed')}",
-                    f"   - 選項：{' / '.join(str(option) for option in list_value(item.get('options')))}",
-                ]
-            )
-            artifacts = list_value(item.get("artifact_paths"))
-            if artifacts:
-                lines.append(f"   - 證據：{', '.join(f'`{artifact}`' for artifact in artifacts[:3])}")
+            card = item.get("pm_card") if isinstance(item.get("pm_card"), dict) else {}
+            if card:
+                lines.extend(render_pm_card_markdown(card, index))
+            else:
+                lines.extend(
+                    [
+                        f"{index}. {priority_label(item.get('priority'))}｜{item.get('title')}",
+                        f"   - 建議：{item.get('recommended_option')}",
+                        f"   - 原因：{item.get('why_decision_needed')}",
+                        f"   - 選項：{' / '.join(str(option) for option in list_value(item.get('options')))}",
+                    ]
+                )
+                artifacts = list_value(item.get("artifact_paths"))
+                if artifacts:
+                    lines.append(f"   - 證據：{', '.join(f'`{artifact}`' for artifact in artifacts[:3])}")
         lines.append("")
     else:
         lines.extend(["需要你決策", "- 目前沒有新的人工決策事項。", ""])
@@ -284,6 +400,132 @@ def render_markdown(brief: dict[str, Any]) -> str:
         ]
     )
     return "\n".join(lines).rstrip() + "\n"
+
+
+def attach_pm_cards(decisions: list[dict[str, Any]], run_date: str) -> None:
+    counters: dict[str, int] = {}
+    date_token = run_date.replace("-", "")[2:]
+    for item in decisions:
+        prefix = pm_card_prefix(item)
+        counters[prefix] = counters.get(prefix, 0) + 1
+        card_id = f"{prefix}{date_token}-{counters[prefix]:02d}"
+        item["pm_card"] = build_pm_card(item, card_id)
+
+
+def pm_card_prefix(item: dict[str, Any]) -> str:
+    decision_id = str(item.get("id") or "")
+    formal_agent = str(item.get("formal_agent") or "")
+    if decision_id.startswith("performance-review-"):
+        return "PERF"
+    if formal_agent == "disagreement_next_actions":
+        return "EXT"
+    if formal_agent == "research_worker":
+        return "RQ"
+    return "TOP"
+
+
+def build_pm_card(item: dict[str, Any], card_id: str) -> dict[str, Any]:
+    title = str(item.get("title") or "未命名決策")
+    topic_name = pm_topic_name(item, title)
+    evidence = pm_evidence(item)
+    return {
+        "card_id": card_id,
+        "topic_name": topic_name,
+        "status": "待決策",
+        "system_area": pm_system_area(item),
+        "potential_improvement": pm_potential_improvement(item),
+        "decision_point": str(item.get("why_decision_needed") or title),
+        "next_harness": str(item.get("formal_agent") or item.get("owner_bot") or "manual_review"),
+        "evidence": evidence,
+        "decision_boundary": pm_decision_boundary(item),
+        "button_labels": {
+            "approve": f"核准 {card_id}",
+            "defer": f"延後 {card_id}",
+            "reject": f"否決 {card_id}",
+            "clarify": f"補說明 {card_id}",
+        },
+        "public_status_reply_template": f"已收到決策：卡 {card_id}｜{topic_name}，結果：<狀態>，決策人：<user>",
+    }
+
+
+def pm_topic_name(item: dict[str, Any], title: str) -> str:
+    decision_id = str(item.get("id") or "")
+    if decision_id.startswith("performance-review-") and "entry" in decision_id:
+        return "報牌短線進場時機診斷"
+    if decision_id.startswith("performance-review-") and "drawdown" in decision_id:
+        return "報牌 bucket 回撤風險診斷"
+    if str(item.get("formal_agent")) == "disagreement_next_actions":
+        return "TOP10 報牌外部檢核分歧處置"
+    if decision_id.startswith("strategy-archetype-"):
+        return title
+    return title
+
+
+def pm_system_area(item: dict[str, Any]) -> str:
+    decision_id = str(item.get("id") or "")
+    if decision_id.startswith("performance-review-"):
+        return "TOP10 daily recommendation performance、entry timing、risk overlay、research queue"
+    if str(item.get("formal_agent")) == "disagreement_next_actions":
+        return "TOP10 external review、daily recommendation interpretation、research handoff"
+    if decision_id.startswith("strategy-archetype-"):
+        return "TOP10 strategy archetype evidence map、research queue、PM approval"
+    return "TOP10 research queue、model experiment review、fog map"
+
+
+def pm_potential_improvement(item: dict[str, Any]) -> str:
+    decision_id = str(item.get("id") or "")
+    if decision_id.startswith("performance-review-") and "entry" in decision_id:
+        return "找出 D+1/D+3 偏弱是否來自入場時機、排名區間、market regime 或入榜持續性。"
+    if decision_id.startswith("performance-review-") and "drawdown" in decision_id:
+        return "確認 gross55 / capital_entry_quality 是否能降低報牌 bucket 回撤，不直接改正式規則。"
+    if str(item.get("formal_agent")) == "disagreement_next_actions":
+        return "把外部 AI 的反對點轉成可驗證研究題，避免主觀意見直接影響排名。"
+    if decision_id.startswith("strategy-archetype-"):
+        return "把高位防追高 / 急殺保護策略區轉成 worker 可執行研究卡，讓自動研究不再 queue empty。"
+    return "把研究資源集中在最需要 PM 拍板的下一步驗證。"
+
+
+def pm_decision_boundary(item: dict[str, Any]) -> str:
+    if item.get("decision_boundary_override"):
+        return str(item["decision_boundary_override"])
+    decision_id = str(item.get("id") or "")
+    if decision_id.startswith("performance-review-"):
+        return "核准只代表把復盤診斷交給研究 queue；不代表改報牌、交易規則、模型、權重或推播。"
+    if str(item.get("formal_agent")) == "disagreement_next_actions":
+        return "核准只代表轉成研究或人工複核；不代表採納外部 AI、改排名或改推播。"
+    return "核准只代表進下一階段研究驗證；不代表 production promotion、交易或上線。"
+
+
+def pm_evidence(item: dict[str, Any]) -> list[dict[str, str]]:
+    evidence = []
+    for detail in list_value(item.get("details"))[:4]:
+        evidence.append({"item": str(detail), "relevance": "支撐這張 PM 卡的判斷背景"})
+    for path in list_value(item.get("artifact_paths"))[:3]:
+        evidence.append({"item": str(path), "relevance": "可追溯 artifact"})
+    return evidence
+
+
+def render_pm_card_markdown(card: dict[str, Any], index: int) -> list[str]:
+    lines = [
+        f"{index}. {card.get('card_id')}｜{card.get('topic_name')}",
+        f"   - 狀態：{card.get('status')}",
+        f"   - 處理哪裡：{card.get('system_area')}",
+        f"   - 可能提升：{card.get('potential_improvement')}",
+        f"   - 判斷點：{card.get('decision_point')}",
+        f"   - 下一步 harness：{card.get('next_harness')}",
+    ]
+    evidence = [item for item in list_value(card.get("evidence")) if isinstance(item, dict)]
+    if evidence:
+        lines.append("   - 素材/證據：")
+        for row in evidence[:4]:
+            lines.append(f"     - {row.get('item')}: {row.get('relevance')}")
+    buttons = card.get("button_labels") if isinstance(card.get("button_labels"), dict) else {}
+    if buttons:
+        lines.append(
+            "   - 按鈕：" + " / ".join(str(buttons.get(key)) for key in ["approve", "defer", "reject", "clarify"] if buttons.get(key))
+        )
+    lines.append(f"   - 決策邊界：{card.get('decision_boundary')}")
+    return lines
 
 
 def load_external_summary(artifacts_dir: Path, run_date: str) -> tuple[dict[str, Any] | None, Path | None]:
@@ -322,6 +564,58 @@ def unique_decisions(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen.add(decision_id)
         result.append(item)
     return result
+
+
+def is_top10_stock_decision(item: dict[str, Any]) -> bool:
+    """只允許 TOP10 股票研究決策進入本專案 brief。"""
+    decision_id = str(item.get("id") or "")
+    allowed_prefixes = (
+        "external-review-",
+        "performance-review-",
+        "research-queue-",
+        "model-candidate-",
+        "strategy-archetype-",
+    )
+    if not decision_id.startswith(allowed_prefixes):
+        return False
+
+    formal_agent = str(item.get("formal_agent") or "")
+    if formal_agent not in {"research_worker", "disagreement_next_actions"}:
+        return False
+
+    text = json.dumps(item, ensure_ascii=False).lower()
+    blocked_terms = [
+        "ai vibe radar",
+        "ai-vibe-radar",
+        "ai-core",
+        "skill-intake",
+        "skill 系統",
+        "agent 工作流",
+        "browsermcp",
+        "chrome-devtools-mcp-flow",
+        "frontend-design-gate",
+        "global-memory-system",
+        "gemini-researcher",
+        "gpt-escalation-reviewer",
+    ]
+    if any(term in text for term in blocked_terms):
+        return False
+
+    allowed_artifact_prefixes = (
+        "artifacts/autonomous_research/",
+        "artifacts/backtest/",
+        "artifacts/daily_performance_review_",
+        "artifacts/external_review/",
+        "artifacts/model_experiments/",
+        "artifacts/research_map/",
+        "artifacts/research_council/",
+        "local_artifact/",
+    )
+    artifact_paths = [str(path) for path in list_value(item.get("artifact_paths")) if path]
+    if artifact_paths and not any(path.startswith(allowed_artifact_prefixes) for path in artifact_paths):
+        return False
+
+    return True
 
 
 def decision_sort_key(item: dict[str, Any]) -> tuple[int, str]:

@@ -38,6 +38,7 @@ AGENT_LABELS = {
     "disagreement_next_actions": "分歧與後續處置",
     "fog_map": "迷霧地圖",
     "research_worker": "自主研究 worker",
+    "pm_research_harness": "PM 研究核准 loop",
     "ops_reporter": "工作進度回報",
 }
 ACTION_LABELS = {
@@ -69,12 +70,16 @@ def main() -> int:
     run_date = str(rollup.get("run_date") or args.run_date or datetime.now().date().isoformat())
     external_summary = load_external_summary(artifacts_dir, run_date)
     research_decision_brief = load_research_decision_brief(artifacts_dir, run_date)
+    strategy_map = load_strategy_archetype_evidence_map(artifacts_dir, run_date)
+    pm_research_status = load_pm_research_status(artifacts_dir, run_date)
     message = render_ops_message(
         rollup,
         external_summary,
         rollup_path=rollup_path,
         artifacts_dir=artifacts_dir,
         research_decision_brief=research_decision_brief,
+        strategy_map=strategy_map,
+        pm_research_status=pm_research_status,
     )
     output = resolve_path(args.output) if args.output else artifacts_dir / f"ops_progress_message_{run_date}.md"
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -95,6 +100,12 @@ def main() -> int:
                 "research_decision_brief_path": safe_ref(research_decision_brief["_path"], artifacts_dir)
                 if research_decision_brief and research_decision_brief.get("_path")
                 else None,
+                "strategy_archetype_evidence_map_path": safe_ref(strategy_map["_path"], artifacts_dir)
+                if strategy_map and strategy_map.get("_path")
+                else None,
+                "pm_research_harness_status_path": safe_ref(pm_research_status["_path"], artifacts_dir)
+                if pm_research_status and pm_research_status.get("_path")
+                else None,
             },
             ensure_ascii=False,
             indent=2,
@@ -113,9 +124,11 @@ def resolve_path(path: Path) -> Path:
 def resolve_rollup_path(artifacts_dir: Path, run_date: str | None, run_id: str | None) -> Path | None:
     root = artifacts_dir / "harness_status"
     if run_date and run_id:
-        return root / run_date / run_id / "rollup.json"
+        path = root / run_date / run_id / "rollup.json"
+        return path if path.exists() else None
     if run_date:
-        return root / run_date / "latest_rollup.json"
+        path = root / run_date / "latest_rollup.json"
+        return path if path.exists() else None
     candidates = sorted(root.glob("*/latest_rollup.json"), reverse=True)
     return candidates[0] if candidates else None
 
@@ -148,6 +161,24 @@ def load_research_decision_brief(artifacts_dir: Path, run_date: str) -> dict[str
     return payload
 
 
+def load_strategy_archetype_evidence_map(artifacts_dir: Path, run_date: str) -> dict[str, Any] | None:
+    path = artifacts_dir / "research_council" / f"strategy_archetype_evidence_map_{run_date}.json"
+    if not path.exists():
+        return None
+    payload = read_json(path)
+    payload["_path"] = path
+    return payload
+
+
+def load_pm_research_status(artifacts_dir: Path, run_date: str) -> dict[str, Any] | None:
+    path = artifacts_dir / "pm_research_harness" / f"pm_research_harness_loop_{run_date}.json"
+    if not path.exists():
+        return None
+    payload = read_json(path)
+    payload["_path"] = path
+    return payload
+
+
 def render_ops_message(
     rollup: dict[str, Any],
     external_summary: dict[str, Any] | None,
@@ -155,6 +186,8 @@ def render_ops_message(
     rollup_path: Path,
     artifacts_dir: Path,
     research_decision_brief: dict[str, Any] | None = None,
+    strategy_map: dict[str, Any] | None = None,
+    pm_research_status: dict[str, Any] | None = None,
 ) -> str:
     run_date = str(rollup.get("run_date") or "unknown")
     run_id = str(rollup.get("run_id") or "unknown")
@@ -192,6 +225,8 @@ def render_ops_message(
         lines.extend(["狀態", "- daily harness 目前沒有 blocker。", ""])
 
     lines.extend(render_external_review_section(external_summary))
+    lines.extend(render_strategy_archetype_section(strategy_map, artifacts_dir))
+    lines.extend(render_pm_research_harness_section(pm_research_status, artifacts_dir))
     lines.extend(render_research_decision_section(research_decision_brief))
     lines.extend(render_next_actions(problem_agents, external_summary))
     return "\n".join(lines).rstrip() + "\n"
@@ -255,6 +290,10 @@ def render_research_decision_section(brief: dict[str, Any] | None) -> list[str]:
         rows.append("")
         return rows
     for item in requests[:5]:
+        card = item.get("pm_card") if isinstance(item.get("pm_card"), dict) else {}
+        if card:
+            rows.extend(render_pm_card_rows(card))
+            continue
         title = translate_text(item.get("title") or "未命名決策")
         recommended = translate_text(item.get("recommended_option") or "沒有建議")
         priority = priority_label(item.get("priority"))
@@ -264,6 +303,68 @@ def render_research_decision_section(brief: dict[str, Any] | None) -> list[str]:
         if options:
             rows.append(f"  選項：{options}")
     rows.append("")
+    return rows
+
+
+def render_strategy_archetype_section(strategy_map: dict[str, Any] | None, artifacts_dir: Path) -> list[str]:
+    if not strategy_map:
+        return ["策略研究地圖", "- 尚未產生 strategy archetype evidence map。", ""]
+    thesis = strategy_map.get("market_thesis") if isinstance(strategy_map.get("market_thesis"), dict) else {}
+    archetypes = [item for item in list_value(strategy_map.get("archetypes")) if isinstance(item, dict)]
+    rows = [
+        "策略研究地圖",
+        f"- 盤面語意：{translate_text(thesis.get('label') or '未知')}",
+        f"- 證據檔：`{safe_ref(strategy_map.get('_path'), artifacts_dir)}`",
+    ]
+    for item in archetypes[:4]:
+        evidence = item.get("current_evidence") if isinstance(item.get("current_evidence"), dict) else {}
+        rows.append(
+            f"- {item.get('priority')}｜{translate_text(item.get('label'))}："
+            f"next_action `{evidence.get('next_action_count', 0)}`；"
+            f"followup `{evidence.get('followup_signal_count', 0)}`；"
+            f"狀態 `{evidence.get('evidence_status', 'unknown')}`"
+        )
+    rows.append("")
+    return rows
+
+
+def render_pm_research_harness_section(status: dict[str, Any] | None, artifacts_dir: Path) -> list[str]:
+    if not status:
+        return ["PM 研究核准 loop", "- 尚未產生 PM research harness status。", ""]
+    rows = [
+        "PM 研究核准 loop",
+        f"- 狀態：`{status.get('status', 'unknown')}`；topic runs：`{status.get('topic_runs', 0)}`；loop enabled：`{status.get('loop_enabled_after')}`",
+        f"- 新 PM 核准：`{status.get('pending_approval_count', 0)}`；連續無新核准延續：`{status.get('consecutive_no_approval_runs', 0)}/{status.get('max_continuation_runs', '?')}`",
+        f"- Discord 發卡：sent `{status.get('pm_review_cards_sent')}`；dry-run `{status.get('pm_review_cards_dry_run')}`",
+        f"- 證據檔：`{safe_ref(status.get('_path'), artifacts_dir)}`",
+    ]
+    if status.get("research_artifact"):
+        rows.append(f"- 研究產物：`{status.get('research_artifact')}`")
+    if status.get("pm_review_run_dir"):
+        rows.append(f"- 下一輪 PM 卡：`{status.get('pm_review_run_dir')}`")
+    rows.append("")
+    return rows
+
+
+def render_pm_card_rows(card: dict[str, Any]) -> list[str]:
+    buttons = card.get("button_labels") if isinstance(card.get("button_labels"), dict) else {}
+    evidence = [item for item in list_value(card.get("evidence")) if isinstance(item, dict)]
+    rows = [
+        f"- {card.get('card_id')}｜{translate_text(card.get('topic_name'))}",
+        f"  狀態：{translate_text(card.get('status'))}",
+        f"  處理哪裡：{translate_text(card.get('system_area'))}",
+        f"  可能提升：{translate_text(card.get('potential_improvement'))}",
+        f"  判斷點：{translate_text(card.get('decision_point'))}",
+        f"  下一步 harness：`{card.get('next_harness')}`",
+    ]
+    if evidence:
+        rows.append("  素材/證據：")
+        for item in evidence[:3]:
+            rows.append(f"  - {translate_text(item.get('item'))}：{translate_text(item.get('relevance'))}")
+    if buttons:
+        labels = [str(buttons.get(key)) for key in ["approve", "defer", "reject", "clarify"] if buttons.get(key)]
+        rows.append(f"  按鈕：{' / '.join(labels)}")
+    rows.append(f"  決策邊界：{translate_text(card.get('decision_boundary'))}")
     return rows
 
 
@@ -381,7 +482,9 @@ def unique(values: list[str]) -> list[str]:
     return result
 
 
-def safe_ref(path: str | Path, artifacts_dir: Path) -> str:
+def safe_ref(path: str | Path | None, artifacts_dir: Path) -> str:
+    if path is None:
+        return "未寫入檔案"
     value = Path(path)
     if not value.is_absolute():
         return str(value)

@@ -241,15 +241,18 @@ def anomaly_event(
     started_at: str,
     finished_at: str,
 ) -> dict[str, Any]:
+    postcheck_step = step_map.get("daily.postcheck")
+    optional_postcheck_disabled = is_disabled_daily_postcheck(postcheck_step)
     steps = [
         step_map.get("decision.quality"),
         step_map.get("decision.quality.artifact"),
-        step_map.get("daily.postcheck"),
     ]
+    if not optional_postcheck_disabled:
+        steps.append(postcheck_step)
     artifact_paths = metadata_paths(metadata, artifacts_dir, ["decision_quality_artifact", "expected_decision_quality_artifact"])
     if not artifact_paths:
         artifact_paths = [artifacts_dir / f"decision_quality_{run_date}.json"]
-    return step_group_event(
+    event = step_group_event(
         run_id=run_id,
         run_date=run_date,
         agent_id="anomaly_circuit_breaker",
@@ -262,6 +265,26 @@ def anomaly_event(
         missing_status=upstream_missing_status(str(status.get("status") or "FAILED").upper(), step_map, "decision.quality"),
         missing_reason="anomaly/circuit breaker checks did not complete",
         next_action="review decision_quality/postcheck warning before relying on publish or external review",
+    )
+    if optional_postcheck_disabled:
+        event["metrics"]["optional_skipped_steps"] = [
+            {
+                "name": "daily.postcheck",
+                "status": "SKIPPED",
+                "message": postcheck_step.get("message") if isinstance(postcheck_step, dict) else None,
+                "reason": "config_disabled",
+            }
+        ]
+    return event
+
+
+def is_disabled_daily_postcheck(step: dict[str, Any] | None) -> bool:
+    if not isinstance(step, dict):
+        return False
+    return (
+        step.get("name") == "daily.postcheck"
+        and str(step.get("status") or "").upper() == "SKIPPED"
+        and "postcheck_enabled=false" in str(step.get("message") or "")
     )
 
 

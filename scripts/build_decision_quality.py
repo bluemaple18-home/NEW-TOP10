@@ -37,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--artifacts-dir", default="artifacts")
     parser.add_argument("--persistence", default=None, help="candidate_persistence JSON；未指定時依 ranking date 尋找")
     parser.add_argument("--backtest", default=None, help="production replay JSON；未指定時使用 artifacts/backtest/replay_*.json 最新檔")
+    parser.add_argument("--performance", default=None, help="每日報牌後驗 ledger；未指定時依 ranking date 尋找")
     parser.add_argument("--portfolio", default=None, help="portfolio replay JSON；未指定時使用 artifacts/backtest/portfolio_replay_*.json 最新檔")
     parser.add_argument("--market-context", default=None, help="market_context JSON；未指定時只使用同日期 artifact")
     parser.add_argument("--top-n", type=int, default=10)
@@ -215,6 +216,56 @@ def historical_backtest_summary(
     }
 
 
+def daily_performance_summary(
+    stock_id: str,
+    performance_payload: dict[str, Any],
+    target_date: str,
+) -> dict[str, Any]:
+    if not performance_payload:
+        return {"available": False, "reason": "missing_daily_recommendation_performance_artifact"}
+    as_of_date = text_value(performance_payload.get("as_of_date"))
+    if as_of_date and as_of_date > target_date:
+        return {
+            "available": False,
+            "reason": "performance_as_of_date_after_target_date",
+            "as_of_date": as_of_date,
+            "target_date": target_date,
+        }
+    trades = [
+        trade
+        for trade in performance_payload.get("trades", [])
+        if str(trade.get("stock_id", "")).zfill(4) == stock_id
+        and text_value(trade.get("ranking_date")) < target_date
+        and number_value(trade.get("net_return")) is not None
+    ]
+    if not trades:
+        return {"available": False, "reason": "no_matured_performance_before_ranking_date"}
+
+    by_horizon: dict[str, dict[str, Any]] = {}
+    for horizon, group in group_by(trades, lambda item: str(item.get("horizon"))).items():
+        returns = [float(item["net_return"]) for item in group]
+        maes = [float(item["mae"]) for item in group if number_value(item.get("mae")) is not None]
+        mfes = [float(item["mfe"]) for item in group if number_value(item.get("mfe")) is not None]
+        latest = sorted(group, key=lambda item: text_value(item.get("ranking_date")))[-1]
+        by_horizon[horizon] = {
+            "trade_count": len(group),
+            "avg_net_return": rounded(mean(returns)),
+            "median_net_return": rounded(median(returns)),
+            "hit_rate": rounded(sum(value > 0 for value in returns) / len(returns)),
+            "avg_mae": rounded(mean(maes)) if maes else None,
+            "avg_mfe": rounded(mean(mfes)) if mfes else None,
+            "latest_ranking_date": latest.get("ranking_date"),
+            "latest_net_return": number_value(latest.get("net_return")),
+        }
+    return {
+        "available": True,
+        "source_schema_version": performance_payload.get("schema_version"),
+        "as_of_date": performance_payload.get("as_of_date"),
+        "trade_count": len(trades),
+        "horizons": by_horizon,
+    }
+
+
 def portfolio_date_alignment(artifact_date: str | None, target_date: str) -> str:
     if artifact_date is None:
         return "unknown"
@@ -311,18 +362,29 @@ def resolve_market_context_path(args: argparse.Namespace, artifacts_dir: Path, t
     return exact if exact.exists() else None
 
 
+def resolve_performance_path(args: argparse.Namespace, artifacts_dir: Path, target_date: str) -> Path | None:
+    if args.performance:
+        return resolve_path(args.performance)
+    exact = artifacts_dir / f"daily_recommendation_performance_{target_date}.json"
+    if exact.exists():
+        return exact
+    return latest_existing("daily_recommendation_performance_*.json", artifacts_dir)
+
+
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     artifacts_dir = resolve_path(args.artifacts_dir) or ARTIFACTS_DIR
     ranking_path = resolve_ranking_path(artifacts_dir=artifacts_dir, date=args.date, ranking=args.ranking)
     target_date = ranking_date(ranking_path)
     persistence_path = resolve_path(args.persistence) or artifacts_dir / f"candidate_persistence_{target_date}.json"
     backtest_path = resolve_path(args.backtest) or latest_existing("replay_*.json", artifacts_dir / "backtest")
+    performance_path = resolve_performance_path(args, artifacts_dir, target_date)
     portfolio_path = resolve_path(args.portfolio) or latest_existing("portfolio_replay_*.json", artifacts_dir / "backtest")
     market_context_path = resolve_market_context_path(args, artifacts_dir, target_date)
 
     ranking_items = read_top_ranking(ranking_path, args.top_n)
     persistence = load_persistence(persistence_path)
     replay_payload = load_json(backtest_path)
+    performance_payload = load_json(performance_path)
     portfolio_payload = load_json(portfolio_path)
     market_payload = load_json(market_context_path)
     portfolio_risk = portfolio_risk_summary(portfolio_payload, portfolio_path, target_date)
@@ -334,6 +396,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             {
                 **item,
                 "persistence": persistence_summary(item["stock_id"], persistence),
+                "daily_performance": daily_performance_summary(item["stock_id"], performance_payload, target_date),
                 "historical_backtest": historical_backtest_summary(item["stock_id"], replay_payload, target_date),
             }
         )
@@ -350,6 +413,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "reference_scope": "read-only data/reference mapping for neutral industry/sector/market annotation only",
             "backtest_scope": "stock replay trades with ranking_date < target ranking_date",
+            "performance_review_scope": "daily recommendation ledger trades with ranking_date < target ranking_date",
             "portfolio_replay_scope": "exact ranking_date artifact only; mismatched artifacts are marked unavailable",
             "market_context_scope": "exact ranking_date artifact by default; explicit --market-context is marked if date mismatches",
             "model_feature": False,
@@ -358,21 +422,32 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "ranking": repo_path(ranking_path),
             "persistence": repo_path(persistence_path) if persistence_path and persistence_path.exists() else None,
             "backtest_replay": repo_path(backtest_path) if backtest_path and backtest_path.exists() else None,
+            "daily_recommendation_performance": repo_path(performance_path)
+            if performance_path and performance_path.exists()
+            else None,
             "portfolio_replay": repo_path(portfolio_path) if portfolio_path and portfolio_path.exists() else None,
             "market_context": repo_path(market_context_path) if market_context_path and market_context_path.exists() else None,
             "top_n": args.top_n,
         },
-        "summary": summary(enriched_items, portfolio_risk, market_context),
+        "summary": summary(enriched_items, portfolio_risk, market_context, performance_payload),
         "portfolio_replay_risk": portfolio_risk,
         "market_context": market_context,
         "top10": enriched_items,
     }
 
 
-def summary(items: list[dict[str, Any]], portfolio_risk: dict[str, Any], market_context: dict[str, Any]) -> dict[str, Any]:
+def summary(
+    items: list[dict[str, Any]],
+    portfolio_risk: dict[str, Any],
+    market_context: dict[str, Any],
+    performance_payload: dict[str, Any],
+) -> dict[str, Any]:
     return {
         "top_count": len(items),
         "persistence_available_count": sum(1 for item in items if item["persistence"].get("available")),
+        "daily_performance_available_count": sum(1 for item in items if item["daily_performance"].get("available")),
+        "daily_performance_trade_count": (performance_payload.get("summary") or {}).get("trade_count"),
+        "daily_performance_pending_count": (performance_payload.get("summary") or {}).get("pending_count"),
         "historical_backtest_available_count": sum(1 for item in items if item["historical_backtest"].get("available")),
         "portfolio_replay_risk_available": bool(portfolio_risk.get("available")),
         "market_context_available": bool(market_context.get("available")),

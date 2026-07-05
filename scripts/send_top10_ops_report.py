@@ -36,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--artifacts-dir", default=ARTIFACTS_DIR, type=Path)
     parser.add_argument("--config", default=Path("config/automation.yaml"), type=Path)
     parser.add_argument("--message", default=None, type=Path)
+    parser.add_argument("--presentation", default=None, type=Path, help="可選的 Clawd presentation JSON 檔，用於 Discord 審核按鈕")
     parser.add_argument("--send", action="store_true", help="正式送出；仍需 notify.ops_clawd_enabled=true 且 ops_clawd_dry_run=false")
     parser.add_argument("--allow-stale-send", action="store_true", help="允許補送非今日 ops 訊息")
     parser.add_argument("--output", default=None, type=Path)
@@ -56,6 +57,7 @@ def main() -> int:
     run_date = str(rollup.get("run_date") or args.run_date or datetime.now().date().isoformat())
     run_id = str(rollup.get("run_id") or args.run_id or f"daily-{run_date}")
     message_path = resolve_message(args.message, artifacts_dir, run_date)
+    build_strategy_archetype_evidence_map(run_date=run_date, artifacts_dir=artifacts_dir)
     build_research_decision_brief(run_date=run_date, artifacts_dir=artifacts_dir)
     if args.message is None or not message_path.exists():
         run_checked(
@@ -71,6 +73,7 @@ def main() -> int:
             ]
         )
     message_path = resolve_message(args.message, artifacts_dir, run_date)
+    presentation_path = resolve_path(args.presentation) if args.presentation else None
     output_path = resolve_path(args.output) if args.output else artifacts_dir / f"ops_progress_send_status_{run_date}.json"
 
     send_allowed = bool(args.send and notify.get("ops_clawd_enabled") is True and notify.get("ops_clawd_dry_run") is False)
@@ -84,6 +87,7 @@ def main() -> int:
         run_id=run_id,
         artifacts_dir=artifacts_dir,
         message_path=message_path,
+        presentation_path=presentation_path,
         rollup_path=rollup_path,
         output_path=output_path,
         channel=channel,
@@ -102,6 +106,7 @@ def main() -> int:
             channel=channel,
             target=target,
             message_path=message_path,
+            presentation_path=presentation_path,
             run_date=run_date,
             send_allowed=send_allowed,
             allow_stale_send=args.allow_stale_send,
@@ -120,6 +125,8 @@ def main() -> int:
             message_path.read_text(encoding="utf-8"),
             "--json",
         ]
+        if presentation_path is not None:
+            command.extend(["--presentation", read_presentation_payload(presentation_path)])
         if dry_run:
             command.append("--dry-run")
         status["command"] = mask_command(command)
@@ -162,6 +169,7 @@ def initial_status(
     run_id: str,
     artifacts_dir: Path,
     message_path: Path,
+    presentation_path: Path | None,
     rollup_path: Path,
     output_path: Path,
     channel: str,
@@ -178,6 +186,7 @@ def initial_status(
         "run_date": run_date,
         "run_id": run_id,
         "message_path": safe_ref(message_path, artifacts_dir),
+        "presentation_path": safe_ref(presentation_path, artifacts_dir) if presentation_path else None,
         "rollup_path": safe_ref(rollup_path, artifacts_dir),
         "output_path": safe_ref(output_path, artifacts_dir),
         "channel": channel,
@@ -206,6 +215,7 @@ def validate_preflight(
     channel: str,
     target: str,
     message_path: Path,
+    presentation_path: Path | None,
     run_date: str,
     send_allowed: bool,
     allow_stale_send: bool,
@@ -222,8 +232,12 @@ def validate_preflight(
         missing.append("notify.ops_clawd_to")
     if not message_path.exists():
         missing.append(f"message_path={message_path}")
+    if presentation_path is not None and not presentation_path.exists():
+        missing.append(f"presentation_path={presentation_path}")
     if missing:
         raise RuntimeError("Ops Clawd send preflight failed: " + ", ".join(missing))
+    if presentation_path is not None:
+        read_presentation_payload(presentation_path)
     local_today = datetime.now(ZoneInfo(timezone_name)).date().isoformat()
     if send_allowed and run_date != local_today and not allow_stale_send:
         raise RuntimeError(
@@ -285,6 +299,19 @@ def build_research_decision_brief(*, run_date: str, artifacts_dir: Path) -> None
     )
 
 
+def build_strategy_archetype_evidence_map(*, run_date: str, artifacts_dir: Path) -> None:
+    run_checked(
+        [
+            python_bin(),
+            "scripts/build_strategy_archetype_evidence_map.py",
+            "--date",
+            run_date,
+            "--artifacts-dir",
+            str(artifacts_dir),
+        ]
+    )
+
+
 def python_bin() -> str:
     candidate = PROJECT_ROOT / ".venv" / "bin" / "python"
     return str(candidate) if candidate.exists() else "python3"
@@ -292,11 +319,23 @@ def python_bin() -> str:
 
 def mask_command(command: list[str]) -> list[str]:
     masked = list(command)
-    if "--message" in masked:
-        index = masked.index("--message")
+    for key in ("--message", "--presentation"):
+        if key not in masked:
+            continue
+        index = masked.index(key)
         if index + 1 < len(masked):
-            masked[index + 1] = f"<message chars={len(masked[index + 1])}>"
+            masked[index + 1] = f"<{key[2:]} chars={len(masked[index + 1])}>"
     return masked
+
+
+def read_presentation_payload(path: Path) -> str:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"presentation JSON root must be object: {path}")
+    blocks = payload.get("blocks")
+    if not isinstance(blocks, list) or not blocks:
+        raise ValueError(f"presentation JSON must contain non-empty blocks: {path}")
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
 def redact_output(text: str) -> str:

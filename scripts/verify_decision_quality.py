@@ -117,6 +117,41 @@ def build_fixture(root: Path) -> dict[str, Path]:
         },
     )
     write_json(
+        artifacts / "daily_recommendation_performance_2026-01-05.json",
+        {
+            "schema_version": "daily-recommendation-performance.v1",
+            "status": "OK",
+            "as_of_date": "2026-01-05",
+            "summary": {"trade_count": 3, "pending_count": 1},
+            "trades": [
+                {
+                    "ranking_date": "2026-01-03",
+                    "stock_id": "1111",
+                    "horizon": 1,
+                    "net_return": 0.04,
+                    "mae": -0.01,
+                    "mfe": 0.07,
+                },
+                {
+                    "ranking_date": "2026-01-04",
+                    "stock_id": "1111",
+                    "horizon": 1,
+                    "net_return": -0.02,
+                    "mae": -0.03,
+                    "mfe": 0.01,
+                },
+                {
+                    "ranking_date": "2026-01-06",
+                    "stock_id": "1111",
+                    "horizon": 1,
+                    "net_return": 9.99,
+                    "mae": 0.0,
+                    "mfe": 9.99,
+                },
+            ],
+        },
+    )
+    write_json(
         backtest / "replay_2026-01-06.json",
         {
             "schema_version": "production-replay-backtest.v1",
@@ -195,6 +230,8 @@ def main() -> int:
                 str(paths["ranking"]),
                 "--artifacts-dir",
                 str(paths["artifacts"]),
+                "--performance",
+                str(paths["artifacts"] / "daily_recommendation_performance_2026-01-05.json"),
                 "--output",
                 str(paths["output"]),
             ],
@@ -209,6 +246,7 @@ def main() -> int:
             return completed.returncode
         payload = json.loads(paths["output"].read_text(encoding="utf-8"))
         first = payload["top10"][0]
+        first_performance = first["daily_performance"]["horizons"]["1"]
         first_horizon = first["historical_backtest"]["horizons"]["1"]
         output_text = paths["output"].read_text(encoding="utf-8")
         checks = {
@@ -223,6 +261,9 @@ def main() -> int:
             "score_copied_not_recomputed": first["scores"]["risk_adjusted_score"] == 2.5,
             "reference_annotation_added": first["reference"]["industry_name"] != "" and first["reference"]["sector_name"] != "",
             "persistence_included": first["persistence"]["consecutive_ranked_days"] == 3,
+            "daily_performance_included": first["daily_performance"]["trade_count"] == 2,
+            "daily_performance_uses_only_past_rankings": first_performance["avg_net_return"] == 0.01,
+            "daily_performance_summary_counted": payload["summary"]["daily_performance_available_count"] == 1,
             "backtest_uses_only_past_rankings": first["historical_backtest"]["trade_count"] == 2,
             "future_replay_excluded": first_horizon["avg_net_return"] == 0.02,
             "future_portfolio_replay_rejected": payload["portfolio_replay_risk"]["available"] is False,
