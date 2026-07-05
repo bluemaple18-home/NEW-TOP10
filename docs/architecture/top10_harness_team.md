@@ -1,6 +1,6 @@
 # TOP10 穩固版 Harness Team 架構
 
-本文件定義 TOP10 專案的穩固版 14 隻邏輯機器人。重點不是把每張流程卡都拆成一隻，而是把責任邊界、可驗證輸出、失敗回報與 dashboard 監控欄位固定下來。
+本文件定義 TOP10 專案的穩固版 15 隻邏輯機器人。重點不是把每張流程卡都拆成一隻，而是把責任邊界、可驗證輸出、失敗回報與 dashboard 監控欄位固定下來。
 
 ## 核心原則
 
@@ -17,7 +17,7 @@
 | 報牌頻道 | Daily Push Bot | 每日 Top10、推薦理由、風險摘要、`run_id` | debug log、研究假說、外部 review 草稿 |
 | 工作進度頻道 | Ops Reporter Bot | 成功/失敗狀態、卡關原因、外部 AI 反對點、後續動作、下一輪 blocker | 未通過 gate 的報牌名單 |
 
-## 14 隻機器人
+## 15 隻機器人
 
 | # | Agent | 責任 | 輸入 | 輸出 | 失敗處理 |
 | --- | --- | --- | --- | --- | --- |
@@ -32,9 +32,10 @@
 | 9 | External Review Harness Bot | daily OK 後包 review packet，啟動外部 review | ranking/publish artifacts | verified packet、host runner status | daily 未 OK 就 skipped |
 | 10 | AI Review Adapter Bot | 以固定 browser conversation 分別送 ChatGPT/Gemini 並收回標準格式；官方 API 只作明確切換備援 | verified packet | provider responses | 單一 provider 失敗可 partial；全 provider 失敗就 fail-loud |
 | 11 | Disagreement / Next Actions Bot | 找出外部 AI 跟我們完全相反之處，產生處置 | external review summary | disagreement report、next actions | 需要人工判斷就標 human_review |
-| 12 | Fog Map Bot | 維護研究迷霧，挑下一輪研究隊列，吸收研究 worker 結果 | outcome artifact、external review summary、research cards、run history | research queue handoff、research fog map、map html | 迷霧刷新或驗證失敗就 fail-loud，交給 ops |
+| 12 | Fog Map Bot | 維護研究迷霧，挑下一輪研究隊列，吸收研究 worker 結果 | outcome artifact、external review summary、research cards、run history | research queue handoff、research fog map、map html、候選策略隊列、研究團隊 Console、證據閘門、需要決策區 | 迷霧刷新或驗證失敗就 fail-loud，交給 ops |
 | 13 | Autonomous Research Worker Bot | 依 Fog Map queue 跑每日研究 quota | research queue、manager state、external review summary | daily research quota、run history、research evidence | 研究 quota 或驗證失敗就 stop，不改 ranking |
-| 14 | Ops Reporter Bot | 回報工作進度頻道，產生下一輪 blocker | stop events、next actions、status、research fog map、research quota | ops message、blocker list | 發送失敗要留下本地 artifact |
+| 14 | PM Research Harness Bot | 只消費 PM 核准的 TOP10_STOCK 研究卡，驅動下一輪受控研究 | PM decision state、PM review cards、manager state | approved work queue、research cards、PM harness status | launchd 明確啟用研究；未核准不產新卡、不送 Discord |
+| 15 | Ops Reporter Bot | 回報工作進度頻道，產生下一輪 blocker | stop events、next actions、status、research fog map、research quota、PM harness status | ops message、blocker list | 發送失敗要留下本地 artifact |
 
 ## 主流程
 
@@ -56,12 +57,15 @@ Harness Runner
  -> Fog Map Bot
  -> Ops Reporter Bot
  -> 工作進度頻道
+ -> PM approval
+ -> PM Research Harness Bot
+ -> Autonomous Research Worker Bot
  -> 下一輪 Harness Runner
 ```
 
-## 9 個 Owner Bot 與 14 個 Formal Agent 的翻譯層
+## 10 個 Owner Bot 與 15 個 Formal Agent 的翻譯層
 
-`web/harness-loop.html` 畫的是 9 個 owner bot，`docs/architecture/top10_harness_team.dashboard.json` 監控的是 14 個 formal agent。兩者不是兩套流程；owner bot 是換手、lock、失敗邊界，formal agent 是 dashboard/event contract 的可觀測節點。
+`web/harness-loop.html` 畫的是 owner bot，`docs/architecture/top10_harness_team.dashboard.json` 監控的是 15 個 formal agent。兩者不是兩套流程；owner bot 是換手、lock、失敗邊界，formal agent 是 dashboard/event contract 的可觀測節點。
 
 | Owner Bot | 包含的 formal agent | 換手邊界 |
 | --- | --- | --- |
@@ -73,6 +77,7 @@ Harness Runner
 | External Review Bot | `external_review_harness`、`ai_review_adapter`、`disagreement_next_actions` | daily OK 後才包 packet，外部 AI 結果只能變成 disagreement / next actions |
 | Fog Map Bot | `fog_map` | 維護研究地圖、queue、linkage 狀態；`linkage_ok` 不等於 replay drain running |
 | Research Worker Bot | `research_worker` | 唯一可宣告 research quota / representative replay drain progress 的 owner |
+| PM Research Harness Bot | `pm_research_harness` | PM 核准卡、approved work queue、下一輪研究卡與 PM harness status |
 | Ops Reporter Bot | `ops_reporter` | 工作進度頻道、blocker、下一輪 handoff |
 
 ## 研究回圈
@@ -82,7 +87,8 @@ Harness Runner
 - Outcome Tracker 發現命中率、報酬或誤報有後驗落差，交給 Fog Map Bot 變成地圖訊號。
 - Disagreement / Next Actions Bot 發現 ChatGPT 或 Gemini 明確反對我們的 Top10 結果，交給 Fog Map Bot 變成研究卡與下一輪 blocker。
 - Circuit Breaker 發現 ranking 異常但不能立即解釋，交給 Ops Reporter 與 Fog Map Bot 留下 stop/degrade 線索。
-- Fog Map Bot 每輪把最高價值的未知區丟給 Autonomous Research Worker Bot 跑研究 quota；worker 完成後回填 run history，Fog Map Bot 再刷新地圖。
+- Fog Map Bot 每輪把最高價值的未知區丟給 Autonomous Research Worker Bot 跑研究 quota；worker 完成後回填 run history，Fog Map Bot 再刷新地圖。地圖主星圖只呈現完成度與星星點亮，同頁底部呈現候選策略隊列、研究團隊 Console、證據閘門與需要 PM 決策的事項。
+- PM Research Harness Bot 只在 PM 明確核准 TOP10_STOCK review card 後，才把核准項目轉成研究 queue 並驅動既有 research runner；正式 launchd 會明確帶 enable env 讓它持續跑研究。
 
 研究回圈：
 
@@ -120,6 +126,7 @@ Fog Map
 | `disagreement_next_actions` | `scripts/run_external_review_host_runner.py` | `external_review_summary_{run_date}.json` | `needs_human_review` 可為 `warning` | summary verify failed 或 daily OK 後沒有 disagreement event |
 | `fog_map` | `scripts/run_top10_fog_map_handoff.py` | research campaign progress、fog map、verification | external review 被 skip 時可 `skipped` | review/outcome signal 已到但 fog map event 缺失 |
 | `research_worker` | `scripts/run_top10_fog_map_handoff.py` | daily quota artifact、verification、run history | `TOP10_SKIP_RESEARCH_QUOTA=1` 或 queue 空時 `skipped` | queue 存在但 quota/replay event 缺失 |
+| `pm_research_harness` | `scripts/run_pm_research_harness_loop.py` | PM harness status、approved work queue、research cards | wrapper 未 enable、無 PM 核准且延續上限已到、或 research runner lock active | PM 核准卡存在且 launchd 啟用，但 PM harness status 缺失 |
 | `ops_reporter` | `scripts/record_top10_daily_status_events.py`、`scripts/send_top10_ops_report.py` | rollup、ops progress message | 只建本地 artifact 尚未送出可 `warning` | stop/degraded 但沒有 ops event 或本地 message |
 
 ## Pending、Skipped 與 Missing 語意
@@ -182,7 +189,7 @@ Dashboard 至少要顯示下列資訊：
 | --- | --- |
 | `run_id` | 單次執行唯一 ID |
 | `run_date` | 交易日或執行日期 |
-| `agent_id` | 14 隻 agent 的固定 ID |
+| `agent_id` | 15 隻 agent 的固定 ID |
 | `status` | `pending/running/ok/warning/degraded/skipped/failed/blocked` |
 | `started_at` / `finished_at` | 執行時間 |
 | `duration_seconds` | 執行耗時 |
@@ -197,7 +204,7 @@ Dashboard 至少要顯示下列資訊：
 
 | 欄位 | 說明 |
 | --- | --- |
-| `formal_tasks` | 14 個固定任務節點，含 `task_id`、`agent_id`、責任、輸入/輸出、status、next_action、artifact_paths |
+| `formal_tasks` | 15 個固定任務節點，含 `task_id`、`agent_id`、責任、輸入/輸出、status、next_action、artifact_paths |
 | `flow_edges` | 流程圖連線狀態，含 `from`、`to`、`source_kind`、`target_kind`、`connected`、`edge_status` |
 
 監控儀表板應優先讀 `/api/monitoring/top10-harness`，用 `formal_tasks` 畫任務表/卡片，用 `flow_edges` 畫流程線；不要自行從檔名或 agent index 推導。
@@ -255,8 +262,27 @@ Ops Reporter 使用 `scripts/build_top10_ops_progress_message.py` 產生 `artifa
 | External review summary | `scripts/build_external_review_summary.py`、`scripts/verify_external_review_summary.py` |
 | Fog Map Bot | `scripts/run_top10_fog_map_handoff.py`、`scripts/build_research_campaign_progress.py`、`scripts/build_research_fog_map.py`、`scripts/verify_research_fog_map.py` |
 | Autonomous Research Worker Bot | `scripts/run_daily_research_quota.sh`、`scripts/run_autonomous_research.py`、`scripts/verify_daily_research_quota.py` |
+| PM Research Harness Bot | `scripts/run_pm_research_harness_loop.sh`、`scripts/run_pm_research_harness_loop.py`、`scripts/verify_pm_research_harness_loop.py` |
 | Monitoring API | `app/services/monitoring_service.py`、`app/api/routers/monitoring.py` |
 | Visual flow | `web/harness-loop.html` |
+
+## PM Research Harness Loop
+
+`PM Research Harness Bot` 是 PM approval 之後的受控研究迴圈，不是迷霧面板，也不是 Fog Map burn-down worker。
+
+- Fog Map Bot：維護完成度、星星點亮、候選策略隊列、研究團隊 Console、證據閘門與 blocker。
+- Autonomous Research Worker Bot：依 queue 跑白名單研究 quota，產 evidence，不改 ranking/model。
+- PM Research Harness Bot：只消費 PM 明確核准的 `TOP10_STOCK` review card，把核准項目轉成 `approved_work_queue` / `research_cards_YYYY-MM-DD.jsonl`，再驅動既有 research runner 並產下一輪 PM 決策卡。
+
+安全邊界：
+
+- `scripts/run_pm_research_harness_loop.sh` 本身預設 `TOP10_PM_RESEARCH_ENABLED=0`，避免人工誤跑；正式 launchd plist 會明確帶 `TOP10_PM_RESEARCH_ENABLED=1` 啟動研究 loop。
+- 正式 launchd 預設 `TOP10_PM_RESEARCH_SEND_CARDS=0`、`TOP10_PM_RESEARCH_DRY_RUN_SEND=1`，不會默默送 Discord 審核卡。
+- `TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS=8` 控制沒有新 PM 核准時最多延續研究幾輪；到上限後關閉 loop state，等待下一張 PM 核准卡。
+- `--dry-run-send` 只限制 Discord 發卡，不限制研究 state 更新；consumed approvals、runs、連續延續次數仍會落檔。
+- PM Research Harness Bot 與 Fog Map burn-down worker 使用 lock 互斥，避免兩條 loop 同時啟動 research runner。
+- Python loop 只有在找到 PM approved research card，或既有 loop state 已啟用且實際跑出研究結果時，才會產生下一輪 PM review card。
+- 核准只代表進下一步研究；不代表 production promotion、交易、ranking merge 或模型訓練。
 
 ## 下一步落地順序
 

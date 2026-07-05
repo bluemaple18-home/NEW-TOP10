@@ -85,6 +85,7 @@ models/backup/
 node_modules/
 web/frontend/dist/
 *.tsbuildinfo
+.pnpm-store/
 
 # Local scratch/vendor experiments
 temp_finlab_ai/

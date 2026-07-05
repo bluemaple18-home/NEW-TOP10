@@ -243,9 +243,9 @@
       "index": 12,
       "label": "Fog Map Bot",
       "lane": "research_handoff",
-      "responsibility": "維護研究迷霧、挑出下一輪研究隊列，並把研究 worker 的結果回寫成地圖與下一輪 blocker。",
+      "responsibility": "維護研究迷霧、挑出下一輪研究隊列，並把研究 worker 的結果回寫成星圖完成度、候選策略隊列、研究團隊 Console、證據閘門與下一輪 blocker。",
       "inputs": ["outcome_artifact", "external_review_summary", "research_cards", "autonomous_research_run_history"],
-      "outputs": ["research_queue_handoff", "research_fog_map", "research_map_html", "fog_signals"],
+      "outputs": ["research_queue_handoff", "research_fog_map", "research_map_html", "fog_signals", "strategy_queue_panel", "research_team_console", "evidence_gate_panel", "decision_panel"],
       "dashboard_metrics": ["status", "decision", "refresh_attempted", "research_quota_attempted", "command_count", "map_verified", "artifact_paths"],
       "artifact_paths": [
         "artifacts/autonomous_research/research_campaign_progress_{run_date}.json",
@@ -273,12 +273,29 @@
       "stop_conditions": ["quota_run_failed", "quota_verification_failed", "research_queue_missing"]
     },
     {
-      "id": "ops_reporter",
+      "id": "pm_research_harness",
       "index": 14,
+      "label": "PM Research Harness Loop",
+      "lane": "research_handoff",
+      "responsibility": "只在 PM 明確核准 TOP10_STOCK review card 後，將核准項目轉成 research queue、驅動既有 research runner，並產生下一輪 PM 決策卡；正式 launchd 明確啟用研究，但不自動送 Discord；沒有新核准時最多延續 8 輪既有 loop state。",
+      "inputs": ["pm_decision_state", "pm_review_cards", "research_decision_brief", "autonomous_research_manager_state"],
+      "outputs": ["approved_work_queue", "pm_research_harness_status", "pm_review_cards", "research_cards"],
+      "dashboard_metrics": ["status", "pending_approval_count", "topic_runs", "consecutive_no_approval_runs", "max_continuation_runs", "pm_review_cards_sent", "loop_enabled_after"],
+      "artifact_paths": [
+        "artifacts/pm_research_harness/pm_research_harness_loop_{run_date}.json",
+        "artifacts/pm_research_harness/harness_state.json",
+        "artifacts/pm_review_cards/{run_id}/approved_work_queue.json",
+        "artifacts/autonomous_research/research_cards_{run_date}.jsonl"
+      ],
+      "stop_conditions": ["wrapper_disabled", "no_pm_approval_after_continuation_limit", "research_run_failed", "pm_card_send_failed", "research_runner_lock_active"]
+    },
+    {
+      "id": "ops_reporter",
+      "index": 15,
       "label": "Ops Reporter Bot",
       "lane": "ops",
       "responsibility": "回報工作進度頻道，產生下一輪 blocker。",
-      "inputs": ["stop_event", "host_runner_status", "external_review_summary", "next_actions", "research_fog_map", "daily_research_quota_artifact", "research_decision_brief"],
+      "inputs": ["stop_event", "host_runner_status", "external_review_summary", "next_actions", "research_fog_map", "daily_research_quota_artifact", "research_decision_brief", "pm_research_harness_status"],
       "outputs": ["ops_progress_message", "blocker_list", "pm_decision_requests"],
       "dashboard_metrics": ["status", "discord_channel", "message_path", "blocker_count", "next_action_count", "decision_request_count"],
       "artifact_paths": [
@@ -306,6 +323,9 @@
     {"from": "disagreement_next_actions", "to": "fog_map", "kind": "research_handoff", "label": "review disagreement to fog map"},
     {"from": "fog_map", "to": "research_worker", "kind": "research_loop", "label": "research quota queue"},
     {"from": "research_worker", "to": "fog_map", "kind": "research_loop", "label": "quota evidence updates map"},
+    {"from": "ops_reporter", "to": "pm_research_harness", "kind": "feedback", "label": "PM decision requests"},
+    {"from": "pm_research_harness", "to": "research_worker", "kind": "research_loop", "label": "PM-approved research queue"},
+    {"from": "pm_research_harness", "to": "ops_reporter", "kind": "ops", "label": "approval loop status"},
     {"from": "fog_map", "to": "ops_reporter", "kind": "ops", "label": "research map status and next blockers"},
     {"from": "ops_reporter", "to": "ops_progress_channel", "kind": "discord", "label": "progress report"},
     {"from": "ops_progress_channel", "to": "harness_runner", "kind": "feedback", "label": "next-run blockers"},
@@ -315,6 +335,7 @@
   ],
   "research_loop": [
     "fog_map",
+    "pm_research_harness",
     "research_card",
     "experiment",
     "validation",
@@ -332,6 +353,7 @@
     {"owner_bot": "External Review Bot", "formal_agents": ["external_review_harness", "ai_review_adapter", "disagreement_next_actions"], "boundary": "external AI disagreement"},
     {"owner_bot": "Fog Map Bot", "formal_agents": ["fog_map"], "boundary": "research map and queue; linkage_ok is not replay progress"},
     {"owner_bot": "Research Worker Bot", "formal_agents": ["research_worker"], "boundary": "daily quota and representative replay progress"},
+    {"owner_bot": "PM Research Harness Bot", "formal_agents": ["pm_research_harness"], "boundary": "PM-approved research queue and review cards only; launchd-enabled research, Discord send dry-run by default; dry-run send still updates state; mutex with Fog Map burn-down worker"},
     {"owner_bot": "Ops Reporter Bot", "formal_agents": ["ops_reporter"], "boundary": "ops progress channel and next-run blockers"}
   ],
   "event_sources": [
@@ -348,6 +370,7 @@
     {"agent_id": "disagreement_next_actions", "writer": "scripts/run_external_review_host_runner.py", "source_artifacts": ["artifacts/external_review/{run_date}/external_review_summary_{run_date}.json"], "normal_wait": ["needs_human_review can be warning"], "missing_is_attention_when": "summary verification failed or daily OK has no disagreement event"},
     {"agent_id": "fog_map", "writer": "scripts/run_top10_fog_map_handoff.py", "source_artifacts": ["research campaign progress", "research fog map", "fog map verification"], "normal_wait": ["external review skipped", "explicit fog handoff skip"], "missing_is_attention_when": "review/outcome signal exists but fog_map event is missing"},
     {"agent_id": "research_worker", "writer": "scripts/run_top10_fog_map_handoff.py", "source_artifacts": ["daily quota artifact", "daily quota verification", "run_history.jsonl"], "normal_wait": ["TOP10_SKIP_RESEARCH_QUOTA=1", "empty research queue"], "missing_is_attention_when": "research queue exists but quota/replay event is missing"},
+    {"agent_id": "pm_research_harness", "writer": "scripts/run_pm_research_harness_loop.py", "source_artifacts": ["artifacts/pm_research_harness/pm_research_harness_loop_{run_date}.json", "artifacts/pm_review_cards/{run_id}/approved_work_queue.json"], "normal_wait": ["TOP10_PM_RESEARCH_ENABLED is not 1", "no PM-approved TOP10_STOCK card after continuation limit", "research runner lock is active"], "missing_is_attention_when": "PM-approved TOP10_STOCK card exists and wrapper is enabled but harness status is missing"},
     {"agent_id": "ops_reporter", "writer": "scripts/record_top10_daily_status_events.py and scripts/send_top10_ops_report.py", "source_artifacts": ["rollup", "ops progress message", "research decision brief"], "normal_wait": ["local ops message exists but send is pending can be warning"], "missing_is_attention_when": "stop/degraded status exists but no ops event or local message exists"}
   ],
   "pending_policy": {

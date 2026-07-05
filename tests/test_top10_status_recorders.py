@@ -50,6 +50,10 @@ class Top10StatusRecorderTest(unittest.TestCase):
             ranking = next(event for event in events if event["agent_id"] == "ranking")
             self.assertEqual(ranking["status"], "ok")
             self.assertEqual(ranking["decision"], "pass")
+            anomaly = next(event for event in events if event["agent_id"] == "anomaly_circuit_breaker")
+            self.assertEqual(anomaly["status"], "ok")
+            self.assertEqual(anomaly["decision"], "pass")
+            self.assertEqual(anomaly["metrics"]["optional_skipped_steps"][0]["name"], "daily.postcheck")
             ops = next(event for event in events if event["agent_id"] == "ops_reporter")
             self.assertEqual(ops["discord_channel"], "ops_progress_channel")
 
@@ -104,7 +108,7 @@ def sample_automation_status(artifacts: Path) -> dict:
             step("market.context", "OK"),
             step("decision.quality", "OK"),
             step("decision.quality.artifact", "OK", str(decision_quality)),
-            step("daily.postcheck", "SKIPPED"),
+            step("daily.postcheck", "SKIPPED", "config daily.postcheck_enabled=false"),
         ],
         "metadata": {
             "ranking_artifact": str(ranking),

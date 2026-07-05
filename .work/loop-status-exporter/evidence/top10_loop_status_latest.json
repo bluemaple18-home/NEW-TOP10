@@ -1,0 +1,142 @@
+{
+  "attention_items": [
+    {
+      "agent_id": "ai_review_adapter",
+      "failure_reason": null,
+      "next_action": null,
+      "status": "pending"
+    },
+    {
+      "agent_id": "disagreement_next_actions",
+      "failure_reason": null,
+      "next_action": null,
+      "status": "pending"
+    }
+  ],
+  "blockers": [
+    "harness_status:degraded",
+    "missing_count:2",
+    "formal_task_attention_count:2"
+  ],
+  "board_path": "external:top10/.work/boards/main.json",
+  "finished_at": "2026-07-04T10:50:21.196422+00:00",
+  "handoff_path": "external:top10/.work/current/handoff.md",
+  "latest_run_id": "daily-2026-07-04",
+  "latest_run_summary": "artifacts/harness_status/2026-07-04/daily-2026-07-04/rollup.json",
+  "loop_surface": {
+    "checker": "data quality gate, anomaly circuit breaker, external review harness",
+    "evidence": [
+      "artifacts/harness_status/2026-07-04/daily-2026-07-04/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-194920-b1/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-194920-replay-drain/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-200630-b1/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-200630-replay-drain/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-202341-b1/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-202341-replay-drain/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-204050-b1/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-204050-replay-drain/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-205756-b1/rollup.json",
+      "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-205756-replay-drain/rollup.json"
+    ],
+    "failure_policy": "fail loud through harness status blockers; exporter never publishes or changes ranking",
+    "flow": "top10",
+    "improvement_path": "outcome tracker, disagreement next actions, and review deltas become reviewed task cards",
+    "maker": "TOP10 owner bots and dashboard/event nodes",
+    "schema_version": "top10.loop_surface.v1",
+    "trigger": "daily pipeline and ops channels"
+  },
+  "metadata": {
+    "exporter_is_read_only": true,
+    "formal_agent_count": 15,
+    "no_channel_send": true,
+    "no_portfolio_action": true,
+    "no_production_push": true,
+    "owner_bot_count": 10
+  },
+  "next_action": "review TOP10 harness rollup blockers before marking live in ai-core",
+  "raw_harness_status": "degraded",
+  "refs": {
+    "daily_rollup": "artifacts/harness_status/2026-07-04/daily-2026-07-04/rollup.json",
+    "research_rollups": [
+      {
+        "generated_at": "2026-07-04T11:50:28.510109+00:00",
+        "run_id": "fog-research-2026-07-04-194920-b1",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-194920-b1/rollup.json"
+      },
+      {
+        "generated_at": "2026-07-04T11:51:30.289032+00:00",
+        "run_id": "fog-research-2026-07-04-194920-replay-drain",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-194920-replay-drain/rollup.json"
+      },
+      {
+        "generated_at": "2026-07-04T12:07:39.800782+00:00",
+        "run_id": "fog-research-2026-07-04-200630-b1",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-200630-b1/rollup.json"
+      },
+      {
+        "generated_at": "2026-07-04T12:08:41.493529+00:00",
+        "run_id": "fog-research-2026-07-04-200630-replay-drain",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-200630-replay-drain/rollup.json"
+      },
+      {
+        "generated_at": "2026-07-04T12:24:49.507744+00:00",
+        "run_id": "fog-research-2026-07-04-202341-b1",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-202341-b1/rollup.json"
+      },
+      {
+        "generated_at": "2026-07-04T12:25:49.980376+00:00",
+        "run_id": "fog-research-2026-07-04-202341-replay-drain",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-202341-replay-drain/rollup.json"
+      },
+      {
+        "generated_at": "2026-07-04T12:41:56.583970+00:00",
+        "run_id": "fog-research-2026-07-04-204050-b1",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-204050-b1/rollup.json"
+      },
+      {
+        "generated_at": "2026-07-04T12:42:56.895198+00:00",
+        "run_id": "fog-research-2026-07-04-204050-replay-drain",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-204050-replay-drain/rollup.json"
+      },
+      {
+        "generated_at": "2026-07-04T12:59:07.007600+00:00",
+        "run_id": "fog-research-2026-07-04-205756-b1",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-205756-b1/rollup.json"
+      },
+      {
+        "generated_at": "2026-07-04T12:59:58.599340+00:00",
+        "run_id": "fog-research-2026-07-04-205756-replay-drain",
+        "status": "degraded",
+        "summary_path": "artifacts/harness_status/2026-07-04/fog-research-2026-07-04-205756-replay-drain/rollup.json"
+      }
+    ]
+  },
+  "run_date": "2026-07-04",
+  "schema_version": "top10-loop-status-summary.v1",
+  "source_adapter": "external_project_status_exporter",
+  "status": "blocked",
+  "summary": {
+    "agent_count": 14,
+    "event_count": 12,
+    "failed_count": 0,
+    "flow_edge_blocked_count": 0,
+    "flow_edge_count": 22,
+    "formal_task_attention_count": 2,
+    "formal_task_count": 14,
+    "missing_count": 2,
+    "validation_error_count": 0,
+    "warning_count": 11
+  },
+  "team_id": "top10",
+  "team_name": "TOP10 Team",
+  "updated_at": "2026-07-05T06:09:02.074703+00:00"
+}
