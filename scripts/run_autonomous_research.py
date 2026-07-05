@@ -479,6 +479,10 @@ def load_next_action_queue() -> list[dict[str, Any]]:
     return load_list_payload(manager_paths()["queue"], "actions")
 
 
+def queued_topic_ids() -> set[str]:
+    return {str(item.get("topic_id")) for item in load_next_action_queue() if item.get("topic_id")}
+
+
 def topic_allowed_by_manager(topic: ResearchTopic, registry: dict[str, dict[str, Any]], args: argparse.Namespace) -> bool:
     current = registry.get(topic.topic_id, {})
     status = str(current.get("manager_status") or "candidate")
@@ -546,17 +550,68 @@ def topic_to_json(topic: ResearchTopic) -> dict[str, Any]:
     }
 
 
-def write_topic_bank(topics: list[ResearchTopic], args: argparse.Namespace) -> Path:
+def topic_from_json(row: dict[str, Any]) -> ResearchTopic | None:
+    topic_id = str(row.get("topic_id") or "")
+    if not topic_id:
+        return None
+    return ResearchTopic(
+        topic_id=topic_id,
+        title=str(row.get("title") or topic_id),
+        hypothesis=str(row.get("hypothesis") or ""),
+        validation_plan=str(row.get("validation_plan") or ""),
+        runner=str(row.get("runner") or "strategy_matrix_comparison"),
+        candidate_dir=str(row.get("candidate_dir") or ""),
+        baseline_dir=str(row.get("baseline_dir") or BASELINE_RANKINGS_DIR),
+        score=float(row.get("score") or 0),
+        reasons=[str(item) for item in row.get("reasons", []) if item],
+        evidence_sources=[str(item) for item in row.get("evidence_sources", []) if item],
+        ranking_file_count=int(row.get("ranking_file_count") or 0),
+        status=str(row.get("status") or "candidate"),
+        validation_profile=str(row.get("validation_profile") or "standard"),
+        horizons=str(row.get("horizons") or ""),
+        stop_loss_pcts=str(row.get("stop_loss_pcts") or ""),
+        take_profit_pcts=str(row.get("take_profit_pcts") or ""),
+        max_group_exposures=str(row.get("max_group_exposures") or ""),
+    )
+
+
+def load_active_topic_bank() -> list[ResearchTopic]:
+    rows = load_list_payload(manager_paths()["topic_bank"], "topics")
+    topics = [topic_from_json(row) for row in rows]
+    return [topic for topic in topics if topic is not None]
+
+
+def is_active_bank_topic(topic_id: str, registry_rows: dict[str, dict[str, Any]], queued_ids: set[str] | None = None) -> bool:
+    if queued_ids and topic_id in queued_ids:
+        return False
+    current = registry_rows.get(topic_id, {})
+    if int(current.get("run_count") or 0) > 0:
+        return False
+    status = str(current.get("manager_status") or "candidate")
+    return status == "candidate"
+
+
+def write_topic_bank(
+    topics: list[ResearchTopic],
+    args: argparse.Namespace,
+    registry_rows: dict[str, dict[str, Any]] | None = None,
+    queued_ids: set[str] | None = None,
+) -> Path:
     path = OUTPUT_DIR / "topic_bank.json"
+    registry_rows = registry_rows or load_topic_registry()
+    active_topics = [topic for topic in topics if is_active_bank_topic(topic.topic_id, registry_rows, queued_ids)]
     payload = {
         "schema_version": TOPIC_BANK_SCHEMA_VERSION,
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "topic_count": len(topics),
+        "topic_count": len(active_topics),
+        "generated_topic_count": len(topics),
         "source": "ranking_artifacts",
         "selection_limit_for_run": args.max_topics,
-        "topics": [topic_to_json(topic) for topic in topics],
+        "topics": [topic_to_json(topic) for topic in active_topics],
         "contract": {
             "research_only": True,
+            "active_bank_excludes_queued_topics": True,
+            "active_bank_excludes_completed_topics": True,
             "topic_bank_does_not_promote": True,
             "production_promotion_allowed": False,
         },
@@ -701,8 +756,15 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
             "candidate_dir": topic.get("candidate_dir"),
         }
         for topic in topics
-        if topic.get("manager_status") in actionable_statuses
+        if topic.get("manager_status") in actionable_statuses and topic.get("topic_id") not in selected_ids
     ][:25]
+    queued_ids = {str(item.get("topic_id")) for item in queue if item.get("topic_id")}
+    all_topics = [topic for topic in payload.get("all_topics", []) if isinstance(topic, dict)]
+    active_bank_topics = [
+        topic
+        for topic in all_topics
+        if topic.get("topic_id") and is_active_bank_topic(str(topic.get("topic_id")), registry_rows, queued_ids)
+    ]
     counts: dict[str, int] = {}
     for topic in topics:
         status = str(topic.get("manager_status") or "candidate")
@@ -715,6 +777,7 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
         "run_count": len(history),
         "status_counts": counts,
         "next_action_count": len(queue),
+        "active_topic_bank_count": len(active_bank_topics),
         "top_next_actions": queue[:5],
         "latest_run": history[-1] if history else None,
         "contract": {
@@ -734,6 +797,29 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
     write_text_atomic(
         paths["queue"],
         json.dumps({"schema_version": "autonomous-research-next-action-queue.v1", "updated_at": now, "actions": queue}, ensure_ascii=False, indent=2, allow_nan=False),
+    )
+    write_text_atomic(
+        paths["topic_bank"],
+        json.dumps(
+            {
+                "schema_version": TOPIC_BANK_SCHEMA_VERSION,
+                "updated_at": now,
+                "topic_count": len(active_bank_topics),
+                "generated_topic_count": len(all_topics),
+                "source": "ranking_artifacts",
+                "topics": active_bank_topics,
+                "contract": {
+                    "research_only": True,
+                    "active_bank_excludes_queued_topics": True,
+                    "active_bank_excludes_completed_topics": True,
+                    "topic_bank_does_not_promote": True,
+                    "production_promotion_allowed": False,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+            allow_nan=False,
+        ),
     )
     write_text_atomic(
         paths["runner_registry"],
@@ -764,6 +850,7 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
         "runner_registry": repo_path(paths["runner_registry"]),
         "status_counts": counts,
         "next_action_count": len(queue),
+        "active_topic_bank_count": len(active_bank_topics),
     }
 
 
@@ -833,6 +920,7 @@ def build_payload(
     outcome: dict[str, Any],
     outputs: dict[str, str],
     manager: dict[str, Any] | None = None,
+    all_topics: list[ResearchTopic] | None = None,
 ) -> dict[str, Any]:
     selected = selected_topics_for_run[0] if selected_topics_for_run else None
     executed = bool(args.execute and selected_topics_for_run)
@@ -872,6 +960,7 @@ def build_payload(
         "selected_topic": topic_to_json(selected) if selected else None,
         "selected_topics": [topic_to_json(topic) for topic in selected_topics_for_run],
         "topics": [topic_to_json(topic) for topic in topics],
+        "all_topics": [topic_to_json(topic) for topic in (all_topics or topics)],
         "topic_runs": topic_runs,
         "steps": steps,
         "outcome": outcome,
@@ -924,8 +1013,9 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=True, exist_ok=True)
     all_topics = generate_all_topics(args)
-    topic_bank_path = write_topic_bank(all_topics, args)
-    topics = all_topics[: args.max_topics]
+    topic_bank_path = write_topic_bank(all_topics, args, queued_ids=queued_topic_ids())
+    active_topics = load_active_topic_bank()
+    topics = all_topics[: args.max_topics] if args.from_queue else active_topics[: args.max_topics]
     selected_topics_for_run = select_topics_for_run(topics, args)
     steps: list[dict[str, Any]] = []
     topic_runs: list[dict[str, Any]] = []
@@ -960,11 +1050,11 @@ def main() -> int:
             },
             "promotion_allowed": False,
         }
-    payload = build_payload(args, topics, selected_topics_for_run, topic_runs, steps, outcome, outputs)
+    payload = build_payload(args, topics, selected_topics_for_run, topic_runs, steps, outcome, outputs, all_topics=all_topics)
     write_run_artifacts(payload, output)
     if not args.no_manager_update:
         manager = update_manager(payload, output)
-        payload = build_payload(args, topics, selected_topics_for_run, topic_runs, steps, outcome, outputs, manager=manager)
+        payload = build_payload(args, topics, selected_topics_for_run, topic_runs, steps, outcome, outputs, manager=manager, all_topics=all_topics)
         write_run_artifacts(payload, output)
     print(
         json.dumps(

@@ -238,11 +238,13 @@ def top_up_research_queue_from_registry(min_depth: int, max_items: int) -> int:
         ),
     )
     additions = []
+    added_ids = set()
     for manager_status, topic, registry_row in candidates[:needed]:
         is_revisit = manager_status == "rejected"
+        topic_id = str(topic.get("topic_id") or "")
         additions.append(
             {
-                "topic_id": topic.get("topic_id"),
+                "topic_id": topic_id,
                 "manager_status": manager_status,
                 "next_action": "rerun_rejected_with_larger_window_or_risk_check"
                 if is_revisit
@@ -253,6 +255,7 @@ def top_up_research_queue_from_registry(min_depth: int, max_items: int) -> int:
                 "queue_reason": "pm_harness_low_water_revisit" if is_revisit else "pm_harness_low_water_topic_bank",
             }
         )
+        added_ids.add(topic_id)
     if not additions:
         return 0
     output = {
@@ -261,6 +264,16 @@ def top_up_research_queue_from_registry(min_depth: int, max_items: int) -> int:
         "actions": [*actions, *additions],
     }
     write_state(queue_path, output)
+    if bank_topics and added_ids:
+        remaining_bank_topics = [
+            item
+            for item in bank_topics
+            if isinstance(item, dict) and str(item.get("topic_id") or "") not in added_ids
+        ]
+        topic_bank_payload["topics"] = remaining_bank_topics
+        topic_bank_payload["topic_count"] = len(remaining_bank_topics)
+        topic_bank_payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+        write_state(topic_bank_path, topic_bank_payload)
     return len(additions)
 
 

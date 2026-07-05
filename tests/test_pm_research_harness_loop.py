@@ -178,6 +178,8 @@ class PMResearchHarnessLoopTests(unittest.TestCase):
                 self.assertEqual([item["topic_id"] for item in queue["actions"]], ["existing", "fresh-high", "fresh-low"])
                 self.assertEqual(queue["actions"][1]["next_action"], "run_autonomous_research_execute_smoke")
                 self.assertEqual(queue["actions"][1]["queue_reason"], "pm_harness_low_water_topic_bank")
+                bank = json.loads((research_dir / "topic_bank.json").read_text(encoding="utf-8"))
+                self.assertEqual([item["topic_id"] for item in bank["topics"]], ["high", "low"])
             finally:
                 harness_loop.ARTIFACTS_DIR = original_artifacts_dir
 

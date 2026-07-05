@@ -24,7 +24,7 @@
 - Discord 發卡預設 `TOP10_PM_RESEARCH_SEND_CARDS=0`、`TOP10_PM_RESEARCH_DRY_RUN_SEND=1`。
 - `--dry-run-send` 不阻止 state 更新。
 - 無新 PM approval 時最多延續 `TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS=8` 輪。
-- 已啟用 loop 且 queue 低於 `TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH=12` 時，先產生完整 `topic_bank.json`；補貨優先拿 fresh 題，不足時才從高分 rejected 題補成 research-only revisit 候選，避免研究輪空。
+- 已啟用 loop 且 queue 低於 `TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH=12` 時，先產生 active `topic_bank.json`；題目進 queue 或完成後就不再留在 active bank，完成紀錄只留在 `topic_registry` / `run_history`。
 - 與 Fog worker 用 lock 互斥，避免兩條 loop 同時啟動 research runner。
 
 驗證：

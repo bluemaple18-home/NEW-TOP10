@@ -34,7 +34,7 @@
 | 11 | Disagreement / Next Actions Bot | 找出外部 AI 跟我們完全相反之處，產生處置 | external review summary | disagreement report、next actions | 需要人工判斷就標 human_review |
 | 12 | Fog Map Bot | 維護研究迷霧，挑下一輪研究隊列，吸收研究 worker 結果 | outcome artifact、external review summary、research cards、run history | research queue handoff、research fog map、map html、候選策略隊列、研究團隊 Console、證據閘門、需要決策區 | 迷霧刷新或驗證失敗就 fail-loud，交給 ops |
 | 13 | Autonomous Research Worker Bot | 依 Fog Map queue 跑每日研究 quota | research queue、manager state、external review summary | daily research quota、run history、research evidence | 研究 quota 或驗證失敗就 stop，不改 ranking |
-| 14 | PM Research Harness Bot | 只消費 PM 核准的 TOP10_STOCK 研究卡，驅動下一輪受控研究；queue 低水位時從 topic bank 補 research-only 候選題 | PM decision state、PM review cards、manager state、topic bank | approved work queue、research cards、PM harness status、topic discovery artifact | launchd 明確啟用研究；未核准不產新卡、不送 Discord |
+| 14 | PM Research Harness Bot | 只消費 PM 核准的 TOP10_STOCK 研究卡，驅動下一輪受控研究；queue 低水位時從 active topic bank 補 research-only 候選題 | PM decision state、PM review cards、manager state、active topic bank | approved work queue、research cards、PM harness status、topic discovery artifact | launchd 明確啟用研究；未核准不產新卡、不送 Discord |
 | 15 | Ops Reporter Bot | 回報工作進度頻道，產生下一輪 blocker | stop events、next actions、status、research fog map、research quota、PM harness status | ops message、blocker list | 發送失敗要留下本地 artifact |
 
 ## 主流程
@@ -88,7 +88,7 @@ Harness Runner
 - Disagreement / Next Actions Bot 發現 ChatGPT 或 Gemini 明確反對我們的 Top10 結果，交給 Fog Map Bot 變成研究卡與下一輪 blocker。
 - Circuit Breaker 發現 ranking 異常但不能立即解釋，交給 Ops Reporter 與 Fog Map Bot 留下 stop/degrade 線索。
 - Fog Map Bot 每輪把最高價值的未知區丟給 Autonomous Research Worker Bot 跑研究 quota；worker 完成後回填 run history，Fog Map Bot 再刷新地圖。地圖主星圖只呈現完成度與星星點亮，同頁底部呈現候選策略隊列、研究團隊 Console、證據閘門與需要 PM 決策的事項。
-- PM Research Harness Bot 只在 PM 明確核准 TOP10_STOCK review card 後，才把核准項目轉成研究 queue 並驅動既有 research runner；正式 launchd 會明確帶 enable env 讓它持續跑研究。若既有 loop 已啟用且 queue 低於 12，會先產生完整 topic bank，優先補 fresh 題，必要時才把高分 rejected 題補成 revisit 候選，避免輪空。
+- PM Research Harness Bot 只在 PM 明確核准 TOP10_STOCK review card 後，才把核准項目轉成研究 queue 並驅動既有 research runner；正式 launchd 會明確帶 enable env 讓它持續跑研究。若既有 loop 已啟用且 queue 低於 12，會先產生 active topic bank；題目一進 queue 或完成後就不再留在 active bank，完成紀錄只留在 registry/history。
 
 研究回圈：
 
@@ -279,7 +279,7 @@ Ops Reporter 使用 `scripts/build_top10_ops_progress_message.py` 產生 `artifa
 - `scripts/run_pm_research_harness_loop.sh` 本身預設 `TOP10_PM_RESEARCH_ENABLED=0`，避免人工誤跑；正式 launchd plist 會明確帶 `TOP10_PM_RESEARCH_ENABLED=1` 啟動研究 loop。
 - 正式 launchd 預設 `TOP10_PM_RESEARCH_SEND_CARDS=0`、`TOP10_PM_RESEARCH_DRY_RUN_SEND=1`，不會默默送 Discord 審核卡。
 - `TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS=8` 控制沒有新 PM 核准時最多延續研究幾輪；到上限後關閉 loop state，等待下一張 PM 核准卡。
-- `TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH=12` 與 `TOP10_PM_RESEARCH_DISCOVERY_MAX_TOPICS=30` 控制低水位補題；補題只更新 autonomous research topic bank、manager queue、revisit action 與 discovery artifact，不改 ranking/model/publish。
+- `TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH=12` 與 `TOP10_PM_RESEARCH_DISCOVERY_MAX_TOPICS=30` 控制低水位補題；補題只更新 autonomous research active topic bank、manager queue、revisit action 與 discovery artifact，不改 ranking/model/publish。
 - `--dry-run-send` 只限制 Discord 發卡，不限制研究 state 更新；consumed approvals、runs、連續延續次數仍會落檔。
 - PM Research Harness Bot 與 Fog Map burn-down worker 使用 lock 互斥，避免兩條 loop 同時啟動 research runner。
 - Python loop 只有在找到 PM approved research card，或既有 loop state 已啟用且實際跑出研究結果時，才會產生下一輪 PM review card。
