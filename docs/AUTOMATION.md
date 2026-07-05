@@ -163,7 +163,7 @@ bash scripts/run_fog_research_worker.sh
 1. repo wrapper 預設 `TOP10_PM_RESEARCH_ENABLED=0`，避免手動誤跑；正式 launchd plist 會明確帶 `TOP10_PM_RESEARCH_ENABLED=1` 讓研究 loop 持續執行。
 2. 正式 launchd 仍帶 `TOP10_PM_RESEARCH_SEND_CARDS=0`、`TOP10_PM_RESEARCH_DRY_RUN_SEND=1`，避免排程誤送 Discord 審核卡。
 3. `TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS=8` 控制沒有新 PM 核准時最多延續研究幾輪；達上限會把 loop state 關閉，等待下一張 PM 核准卡。
-4. 既有 loop 已啟用且 queue 低於 `TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH=12` 時，會先用 autonomous research manager 重新整理題庫；若仍不足，會從高分 rejected 題補成 revisit 候選，最多檢查 `TOP10_PM_RESEARCH_DISCOVERY_MAX_TOPICS=30` 個候選，再消費 queue。補題只產 research-only 候選，不改 ranking/model/publish。
+4. 既有 loop 已啟用且 queue 低於 `TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH=12` 時，會先用 autonomous research manager 產生完整 `topic_bank.json`；題庫由 ranking candidate 乘上 `standard`、`risk_guard`、`long_horizon`、`tight_exit` validation profile 組成。補貨優先拿尚未排隊的 fresh 題，不足時才把高分 rejected 題補成 revisit 候選。補題只產 research-only 候選，不改 ranking/model/publish。
 5. Python loop 只有在找到新的 PM approved research card，或既有 state 已進入 loop 且實際跑出研究結果時，才會產下一輪 PM review card；空跑不產新卡。
 6. `--dry-run-send` 只代表不送 Discord；研究 state、連續延續次數、consumed approvals 仍會正常更新。
 7. 它不是 Fog Map burn-down worker。Fog worker 消 Fog Map queue 與刷新星圖；PM harness 只處理 PM 已核准的下一步研究。兩者用 lock 互斥，避免同時啟動研究 runner。

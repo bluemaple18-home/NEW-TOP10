@@ -194,42 +194,63 @@ def current_queue_depth() -> int:
 
 
 def top_up_research_queue_from_registry(min_depth: int, max_items: int) -> int:
-    """queue 不足時，把高分 rejected 題轉成 revisit 研究候選，避免 loop 輪空。"""
+    """queue 不足時，優先從題目庫補 fresh 題，再用高分 rejected 題作 revisit。"""
     research_dir = ARTIFACTS_DIR / "autonomous_research"
     queue_path = research_dir / "next_action_queue.json"
     registry_path = research_dir / "topic_registry.json"
+    topic_bank_path = research_dir / "topic_bank.json"
     queue_payload = read_json(queue_path, {})
     registry_payload = read_json(registry_path, {})
+    topic_bank_payload = read_json(topic_bank_path, {})
     actions = queue_payload.get("actions") if isinstance(queue_payload.get("actions"), list) else []
     actions = [item for item in actions if isinstance(item, dict)]
     if len(actions) >= min_depth:
         return 0
 
-    topics = registry_payload.get("topics") if isinstance(registry_payload.get("topics"), list) else []
+    bank_topics = topic_bank_payload.get("topics") if isinstance(topic_bank_payload.get("topics"), list) else []
+    registry_topics = registry_payload.get("topics") if isinstance(registry_payload.get("topics"), list) else []
+    registry_by_id = {
+        str(item.get("topic_id")): item
+        for item in registry_topics
+        if isinstance(item, dict) and item.get("topic_id")
+    }
+    topic_rows = bank_topics if bank_topics else registry_topics
     existing_ids = {str(item.get("topic_id") or "") for item in actions}
     needed = max(0, min(max_items, min_depth - len(actions)))
+    candidates = []
+    for item in topic_rows:
+        if not isinstance(item, dict) or not item.get("topic_id"):
+            continue
+        topic_id = str(item.get("topic_id"))
+        if topic_id in existing_ids:
+            continue
+        registry_row = registry_by_id.get(topic_id, {})
+        manager_status = str(registry_row.get("manager_status") or item.get("manager_status") or item.get("status") or "candidate")
+        if manager_status not in {"candidate", "confirmed_for_next_replay", "partial_needs_followup", "blocked_missing_evidence", "rejected"}:
+            continue
+        candidates.append((manager_status, item, registry_row))
     candidates = sorted(
-        [
-            item
-            for item in topics
-            if isinstance(item, dict)
-            and item.get("topic_id")
-            and str(item.get("topic_id")) not in existing_ids
-            and item.get("manager_status") == "rejected"
-        ],
-        key=lambda item: (-float(item.get("score") or 0), str(item.get("topic_id"))),
+        candidates,
+        key=lambda row: (
+            1 if row[0] == "rejected" else 0,
+            -float(row[1].get("score") or 0),
+            str(row[1].get("topic_id")),
+        ),
     )
     additions = []
-    for topic in candidates[:needed]:
+    for manager_status, topic, registry_row in candidates[:needed]:
+        is_revisit = manager_status == "rejected"
         additions.append(
             {
                 "topic_id": topic.get("topic_id"),
-                "manager_status": "rejected",
-                "next_action": "rerun_rejected_with_larger_window_or_risk_check",
+                "manager_status": manager_status,
+                "next_action": "rerun_rejected_with_larger_window_or_risk_check"
+                if is_revisit
+                else "run_autonomous_research_execute_smoke",
                 "score": topic.get("score"),
-                "last_decision": topic.get("last_decision"),
+                "last_decision": registry_row.get("last_decision"),
                 "candidate_dir": topic.get("candidate_dir"),
-                "queue_reason": "pm_harness_low_water_revisit",
+                "queue_reason": "pm_harness_low_water_revisit" if is_revisit else "pm_harness_low_water_topic_bank",
             }
         )
     if not additions:

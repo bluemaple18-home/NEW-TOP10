@@ -27,6 +27,7 @@ OUTPUT_DIR = ARTIFACTS_DIR / "autonomous_research"
 LEDGER_PATH = ARTIFACTS_DIR / "model_experiments" / "model_experiment_ledger.json"
 SCHEMA_VERSION = "autonomous-research-run.v1"
 MANAGER_SCHEMA_VERSION = "autonomous-research-manager.v1"
+TOPIC_BANK_SCHEMA_VERSION = "autonomous-research-topic-bank.v1"
 RUNNER_REGISTRY_SCHEMA_VERSION = "autonomous-research-runner-registry.v1"
 ALLOWED_RUNNERS = {
     "scripts/run_backtest_strategy_matrix.py",
@@ -66,6 +67,55 @@ class ResearchTopic:
     evidence_sources: list[str]
     ranking_file_count: int
     status: str = "candidate"
+    validation_profile: str = "standard"
+    horizons: str = ""
+    stop_loss_pcts: str = ""
+    take_profit_pcts: str = ""
+    max_group_exposures: str = ""
+
+
+VALIDATION_PROFILES = [
+    {
+        "name": "standard",
+        "title_suffix": "standard matrix",
+        "hypothesis_suffix": "使用標準 horizons / stop-loss / take-profit / group exposure matrix。",
+        "score_bonus": 0.0,
+        "horizons": "3,5,10",
+        "stop_loss_pcts": "none,0.08,0.12",
+        "take_profit_pcts": "none,0.15,0.25",
+        "max_group_exposures": "none,0.35,0.55",
+    },
+    {
+        "name": "risk_guard",
+        "title_suffix": "risk guard matrix",
+        "hypothesis_suffix": "加強 stop-loss 與 group exposure 壓力檢查，驗證報酬是否不是靠集中風險撐起來。",
+        "score_bonus": 6.0,
+        "horizons": "3,5,10",
+        "stop_loss_pcts": "0.06,0.08,0.10",
+        "take_profit_pcts": "none,0.15,0.25",
+        "max_group_exposures": "0.25,0.35,0.45",
+    },
+    {
+        "name": "long_horizon",
+        "title_suffix": "long horizon matrix",
+        "hypothesis_suffix": "拉長持有 horizon，驗證候選策略是否只在短線噪音有效。",
+        "score_bonus": 4.0,
+        "horizons": "5,10,20",
+        "stop_loss_pcts": "none,0.08,0.12",
+        "take_profit_pcts": "none,0.20,0.30",
+        "max_group_exposures": "none,0.35,0.55",
+    },
+    {
+        "name": "tight_exit",
+        "title_suffix": "tight exit matrix",
+        "hypothesis_suffix": "使用較緊停損與較早停利，驗證候選策略是否能降低回撤。",
+        "score_bonus": 3.0,
+        "horizons": "3,5,10",
+        "stop_loss_pcts": "0.05,0.08",
+        "take_profit_pcts": "0.10,0.15,0.20",
+        "max_group_exposures": "none,0.35",
+    },
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -261,7 +311,9 @@ def topic_for_dir(
     ledger_candidates: list[str],
     external_signals: list[str],
     evidence_sources: list[str],
+    profile: dict[str, Any] | None = None,
 ) -> ResearchTopic | None:
+    profile = profile or VALIDATION_PROFILES[0]
     candidate_dir = str(row["repo_path"])
     if not candidate_dir or is_baseline_like(candidate_dir):
         return None
@@ -269,13 +321,15 @@ def topic_for_dir(
     sig_score, sig_reasons = signal_bonus(candidate_dir, ledger_candidates, external_signals)
     count = int(row["count"])
     sample_score = min(count, 60) / 3
-    score = round(10 + sample_score + key_score + sig_score, 3)
+    score = round(10 + sample_score + key_score + sig_score + float(profile.get("score_bonus") or 0), 3)
     label = candidate_dir
-    topic_id = f"strategy-matrix:{slugify(candidate_dir)}"
+    profile_name = str(profile.get("name") or "standard")
+    base_topic_id = f"strategy-matrix:{slugify(candidate_dir)}"
+    topic_id = base_topic_id if profile_name == "standard" else f"{base_topic_id}:{slugify(profile_name)}"
     return ResearchTopic(
         topic_id=topic_id,
-        title=f"回測 ranking variant：{Path(candidate_dir).name}",
-        hypothesis=f"{label} 相對 current baseline，在相同 strategy matrix 參數下可提升 best_score，且 max drawdown 不惡化。",
+        title=f"回測 ranking variant：{Path(candidate_dir).name}｜{profile.get('title_suffix')}",
+        hypothesis=f"{label} 相對 current baseline，在 {profile.get('title_suffix')} 下可提升 best_score，且 max drawdown 不惡化。{profile.get('hypothesis_suffix')}",
         validation_plan="同時跑 current baseline 與 candidate 的 strategy matrix，再用 compare_strategy_matrices 比較 best_score、return、drawdown。",
         runner="strategy_matrix_comparison",
         candidate_dir=candidate_dir,
@@ -284,10 +338,15 @@ def topic_for_dir(
         reasons=key_reasons + sig_reasons + [f"ranking files: {count}"],
         evidence_sources=evidence_sources + [candidate_dir],
         ranking_file_count=count,
+        validation_profile=profile_name,
+        horizons=str(profile.get("horizons") or ""),
+        stop_loss_pcts=str(profile.get("stop_loss_pcts") or ""),
+        take_profit_pcts=str(profile.get("take_profit_pcts") or ""),
+        max_group_exposures=str(profile.get("max_group_exposures") or ""),
     )
 
 
-def generate_topics(args: argparse.Namespace) -> list[ResearchTopic]:
+def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
     ledger_candidates, ledger_sources = ledger_signals()
     external_signals, external_sources = external_review_signals()
     evidence_sources = ledger_sources + external_sources
@@ -295,29 +354,39 @@ def generate_topics(args: argparse.Namespace) -> list[ResearchTopic]:
         path = resolve_path(args.candidate_dir)
         count = len(list(path.glob("ranking_*.csv"))) if path else 0
         row = {"repo_path": repo_path(path), "count": count, "mtime": path.stat().st_mtime if path and path.exists() else 0}
-        topic = topic_for_dir(
-            row,
-            baseline_dir=args.baseline_dir,
-            ledger_candidates=ledger_candidates,
-            external_signals=external_signals,
-            evidence_sources=evidence_sources,
-        )
-        return [topic] if topic else []
+        topics = [
+            topic_for_dir(
+                row,
+                baseline_dir=args.baseline_dir,
+                ledger_candidates=ledger_candidates,
+                external_signals=external_signals,
+                evidence_sources=evidence_sources,
+                profile=profile,
+            )
+            for profile in VALIDATION_PROFILES
+        ]
+        return [topic for topic in topics if topic]
     topics = []
     for row in ranking_dirs(args.min_ranking_files):
-        topic = topic_for_dir(
-            row,
-            baseline_dir=args.baseline_dir,
-            ledger_candidates=ledger_candidates,
-            external_signals=external_signals,
-            evidence_sources=evidence_sources,
-        )
-        if topic is not None:
-            topics.append(topic)
-    return sorted(topics, key=lambda item: (-item.score, item.topic_id))[: args.max_topics]
+        for profile in VALIDATION_PROFILES:
+            topic = topic_for_dir(
+                row,
+                baseline_dir=args.baseline_dir,
+                ledger_candidates=ledger_candidates,
+                external_signals=external_signals,
+                evidence_sources=evidence_sources,
+                profile=profile,
+            )
+            if topic is not None:
+                topics.append(topic)
+    return sorted(topics, key=lambda item: (-item.score, item.topic_id))
 
 
-def matrix_command(args: argparse.Namespace, rankings_dir: str, output: str) -> list[str]:
+def generate_topics(args: argparse.Namespace) -> list[ResearchTopic]:
+    return generate_all_topics(args)[: args.max_topics]
+
+
+def matrix_command(args: argparse.Namespace, rankings_dir: str, output: str, topic: ResearchTopic | None = None) -> list[str]:
     return [
         sys.executable,
         "scripts/run_backtest_strategy_matrix.py",
@@ -328,13 +397,13 @@ def matrix_command(args: argparse.Namespace, rankings_dir: str, output: str) -> 
         "--max-ranking-files",
         str(args.max_ranking_files),
         "--horizons",
-        args.horizons,
+        topic.horizons if topic and topic.horizons else args.horizons,
         "--stop-loss-pcts",
-        args.stop_loss_pcts,
+        topic.stop_loss_pcts if topic and topic.stop_loss_pcts else args.stop_loss_pcts,
         "--take-profit-pcts",
-        args.take_profit_pcts,
+        topic.take_profit_pcts if topic and topic.take_profit_pcts else args.take_profit_pcts,
         "--max-group-exposures",
-        args.max_group_exposures,
+        topic.max_group_exposures if topic and topic.max_group_exposures else args.max_group_exposures,
         "--output",
         output,
     ]
@@ -469,7 +538,31 @@ def topic_to_json(topic: ResearchTopic) -> dict[str, Any]:
         "evidence_sources": topic.evidence_sources,
         "ranking_file_count": topic.ranking_file_count,
         "status": topic.status,
+        "validation_profile": topic.validation_profile,
+        "horizons": topic.horizons,
+        "stop_loss_pcts": topic.stop_loss_pcts,
+        "take_profit_pcts": topic.take_profit_pcts,
+        "max_group_exposures": topic.max_group_exposures,
     }
+
+
+def write_topic_bank(topics: list[ResearchTopic], args: argparse.Namespace) -> Path:
+    path = OUTPUT_DIR / "topic_bank.json"
+    payload = {
+        "schema_version": TOPIC_BANK_SCHEMA_VERSION,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "topic_count": len(topics),
+        "source": "ranking_artifacts",
+        "selection_limit_for_run": args.max_topics,
+        "topics": [topic_to_json(topic) for topic in topics],
+        "contract": {
+            "research_only": True,
+            "topic_bank_does_not_promote": True,
+            "production_promotion_allowed": False,
+        },
+    }
+    write_text_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False))
+    return path
 
 
 def outcome_from_comparison(path: Path | None) -> dict[str, Any]:
@@ -526,6 +619,7 @@ def next_action_for_status(status: str, topic: dict[str, Any]) -> str:
 
 def manager_paths() -> dict[str, Path]:
     return {
+        "topic_bank": OUTPUT_DIR / "topic_bank.json",
         "registry": OUTPUT_DIR / "topic_registry.json",
         "history": OUTPUT_DIR / "run_history.json",
         "queue": OUTPUT_DIR / "next_action_queue.json",
@@ -663,6 +757,7 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
     return {
         "status": "OK",
         "topic_registry": repo_path(paths["registry"]),
+        "topic_bank": repo_path(paths["topic_bank"]),
         "run_history": repo_path(paths["history"]),
         "next_action_queue": repo_path(paths["queue"]),
         "manager_summary": repo_path(paths["summary"]),
@@ -687,8 +782,8 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
     candidate_output = run_dir / f"{slug}_candidate_strategy_matrix.json"
     comparison_output = run_dir / f"{slug}_comparison.json"
     commands = [
-        ("baseline.strategy_matrix", matrix_command(args, topic.baseline_dir, repo_path(baseline_output) or str(baseline_output))),
-        ("candidate.strategy_matrix", matrix_command(args, topic.candidate_dir, repo_path(candidate_output) or str(candidate_output))),
+        ("baseline.strategy_matrix", matrix_command(args, topic.baseline_dir, repo_path(baseline_output) or str(baseline_output), topic)),
+        ("candidate.strategy_matrix", matrix_command(args, topic.candidate_dir, repo_path(candidate_output) or str(candidate_output), topic)),
         (
             "compare.strategy_matrices",
             compare_command(
@@ -828,13 +923,15 @@ def main() -> int:
     run_dir = output.parent / f"run_{args.date}_{datetime.now().strftime('%H%M%S')}"
     output.parent.mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=True, exist_ok=True)
-    topics = generate_topics(args)
+    all_topics = generate_all_topics(args)
+    topic_bank_path = write_topic_bank(all_topics, args)
+    topics = all_topics[: args.max_topics]
     selected_topics_for_run = select_topics_for_run(topics, args)
     steps: list[dict[str, Any]] = []
     topic_runs: list[dict[str, Any]] = []
     first_topic = selected_topics_for_run[0] if selected_topics_for_run else None
     outcome = {"decision": "DRY_RUN_TOPIC_SELECTED" if first_topic else "NO_EXECUTABLE_TOPIC", "promotion_allowed": False}
-    outputs: dict[str, str] = {"run_dir": repo_path(run_dir) or str(run_dir)}
+    outputs: dict[str, str] = {"run_dir": repo_path(run_dir) or str(run_dir), "topic_bank": repo_path(topic_bank_path) or str(topic_bank_path)}
     if args.execute and selected_topics_for_run:
         decisions: list[str] = []
         for index, topic in enumerate(selected_topics_for_run, start=1):

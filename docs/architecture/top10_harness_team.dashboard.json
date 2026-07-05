@@ -277,14 +277,15 @@
       "index": 14,
       "label": "PM Research Harness Loop",
       "lane": "research_handoff",
-      "responsibility": "只在 PM 明確核准 TOP10_STOCK review card 後，將核准項目轉成 research queue、驅動既有 research runner，並產生下一輪 PM 決策卡；正式 launchd 明確啟用研究，但不自動送 Discord；沒有新核准時最多延續 8 輪既有 loop state；queue 低於 12 時先整理題庫，必要時把高分 rejected 題補成 research-only revisit 候選。",
-      "inputs": ["pm_decision_state", "pm_review_cards", "research_decision_brief", "autonomous_research_manager_state"],
+      "responsibility": "只在 PM 明確核准 TOP10_STOCK review card 後，將核准項目轉成 research queue、驅動既有 research runner，並產生下一輪 PM 決策卡；正式 launchd 明確啟用研究，但不自動送 Discord；沒有新核准時最多延續 8 輪既有 loop state；queue 低於 12 時先產完整 topic bank，優先補 fresh 題，必要時把高分 rejected 題補成 research-only revisit 候選。",
+      "inputs": ["pm_decision_state", "pm_review_cards", "research_decision_brief", "autonomous_research_manager_state", "topic_bank"],
       "outputs": ["approved_work_queue", "pm_research_harness_status", "pm_review_cards", "research_cards", "topic_discovery_artifact"],
       "dashboard_metrics": ["status", "pending_approval_count", "topic_runs", "queue_depth_before", "queue_depth_after_discovery", "queue_depth_after_run", "queue_top_up_count", "queue_top_up_after_run_count", "min_queue_depth", "discovery_max_topics", "consecutive_no_approval_runs", "max_continuation_runs", "pm_review_cards_sent", "loop_enabled_after"],
       "artifact_paths": [
         "artifacts/pm_research_harness/pm_research_harness_loop_{run_date}.json",
         "artifacts/pm_research_harness/harness_state.json",
         "artifacts/pm_review_cards/{run_id}/approved_work_queue.json",
+        "artifacts/autonomous_research/topic_bank.json",
         "artifacts/autonomous_research/research_cards_{run_date}.jsonl",
         "artifacts/autonomous_research/pm_research_topic_discovery_{run_date}_{stamp}.json"
       ],

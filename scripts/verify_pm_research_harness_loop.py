@@ -114,6 +114,8 @@ def loop_contract_ok() -> bool:
         '"revisits_rejected_topics_when_queue_low": True',
         "discover_research_topics",
         "top_up_research_queue_from_registry",
+        "topic_bank.json",
+        "pm_harness_low_water_topic_bank",
         "--include-rejected",
         "queue_depth_before",
         "queue_depth_after_discovery",

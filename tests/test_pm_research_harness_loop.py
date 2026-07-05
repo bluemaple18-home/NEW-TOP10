@@ -143,6 +143,20 @@ class PMResearchHarnessLoopTests(unittest.TestCase):
                     json.dumps({"actions": [{"topic_id": "existing", "manager_status": "confirmed_for_next_replay"}]}),
                     encoding="utf-8",
                 )
+                (research_dir / "topic_bank.json").write_text(
+                    json.dumps(
+                        {
+                            "topics": [
+                                {"topic_id": "fresh-low", "status": "candidate", "score": 3},
+                                {"topic_id": "fresh-high", "status": "candidate", "score": 8},
+                                {"topic_id": "high", "status": "candidate", "score": 9},
+                                {"topic_id": "low", "status": "candidate", "score": 1},
+                            ]
+                        },
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
                 (research_dir / "topic_registry.json").write_text(
                     json.dumps(
                         {
@@ -161,9 +175,9 @@ class PMResearchHarnessLoopTests(unittest.TestCase):
                 queue = json.loads((research_dir / "next_action_queue.json").read_text(encoding="utf-8"))
 
                 self.assertEqual(added, 2)
-                self.assertEqual([item["topic_id"] for item in queue["actions"]], ["existing", "high", "low"])
-                self.assertEqual(queue["actions"][1]["next_action"], "rerun_rejected_with_larger_window_or_risk_check")
-                self.assertEqual(queue["actions"][1]["queue_reason"], "pm_harness_low_water_revisit")
+                self.assertEqual([item["topic_id"] for item in queue["actions"]], ["existing", "fresh-high", "fresh-low"])
+                self.assertEqual(queue["actions"][1]["next_action"], "run_autonomous_research_execute_smoke")
+                self.assertEqual(queue["actions"][1]["queue_reason"], "pm_harness_low_water_topic_bank")
             finally:
                 harness_loop.ARTIFACTS_DIR = original_artifacts_dir
 
