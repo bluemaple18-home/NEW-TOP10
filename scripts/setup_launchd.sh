@@ -19,8 +19,9 @@ echo "  1. 每日 17:30 - 執行 ETL + 選股 + Clawd-ready payload；週末由 
 echo "  2. 每日 17:40 - 外部 AI review provider preflight；只檢查瀏覽器 session，不送 packet"
 echo "  3. 每日 17:50 - 外部 AI review + Fog Map / Research Worker harness handoff"
 echo "  4. 每 15 分鐘 - Fog Map / Research Worker burn-down worker；lock 會避免重疊"
-echo "  5. 每日 02:00 - PSI 漂移監控"
-echo "  6. 每月 1 日 03:30 - Reference sources 更新"
+echo "  5. 每 15 分鐘 - PM approval research harness；launchd 明確啟用研究，Discord 送卡 dry-run"
+echo "  6. 每日 02:00 - PSI 漂移監控"
+echo "  7. 每月 1 日 03:30 - Reference sources 更新"
 echo ""
 read -p "確認繼續? (y/n): " confirm
 
@@ -69,6 +70,11 @@ FOG_RESEARCH_WORKER_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.fog-research-worker.
 sed "s|__PROJECT_DIR__|$PROJECT_DIR|g" "$PROJECT_DIR/scripts/com.new-top10.fog-research-worker.plist" > "$FOG_RESEARCH_WORKER_PLIST"
 echo "✅ 已建立: $FOG_RESEARCH_WORKER_PLIST"
 
+# PM research harness loop plist
+PM_RESEARCH_HARNESS_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.pm-research-harness.plist"
+sed "s|__PROJECT_DIR__|$PROJECT_DIR|g" "$PROJECT_DIR/scripts/com.new-top10.pm-research-harness.plist" > "$PM_RESEARCH_HARNESS_PLIST"
+echo "✅ 已建立: $PM_RESEARCH_HARNESS_PLIST"
+
 # Reference plist
 REFERENCE_PLIST="$LAUNCH_AGENTS_DIR/com.new-top10.reference.plist"
 sed "s|__PROJECT_DIR__|$PROJECT_DIR|g" "$PROJECT_DIR/scripts/com.new-top10.reference.plist" > "$REFERENCE_PLIST"
@@ -97,6 +103,10 @@ launchctl unload "$FOG_RESEARCH_WORKER_PLIST" 2>/dev/null || true
 launchctl load "$FOG_RESEARCH_WORKER_PLIST"
 echo "✅ Fog Map / Research Worker 受控研究排程已載入"
 
+launchctl unload "$PM_RESEARCH_HARNESS_PLIST" 2>/dev/null || true
+launchctl load "$PM_RESEARCH_HARNESS_PLIST"
+echo "✅ PM approval research harness loop 排程已載入；launchd 明確啟用研究，Discord 送卡 dry-run"
+
 launchctl unload "$REFERENCE_PLIST" 2>/dev/null || true
 launchctl load "$REFERENCE_PLIST"
 echo "✅ 每月 reference 更新排程已載入"
@@ -117,6 +127,7 @@ echo "  • 每日 17:30 - ETL + 選股 + Clawd-ready payload；週末由 daily 
 echo "  • 每日 17:40 - 外部 AI review provider preflight；只檢查瀏覽器 session，不送 packet"
 echo "  • 每日 17:50 - 外部 AI review + Fog Map / Research Worker harness handoff"
 echo "  • 每 15 分鐘 - Fog Map / Research Worker burn-down worker；lock 會避免重疊"
+echo "  • 每 15 分鐘 - PM approval research harness；launchd 明確啟用研究，Discord 送卡 dry-run"
 echo "  • 每日 02:00 - PSI 漂移監控"
 echo "  • 每月 1 日 03:30 - Reference sources 更新"
 echo ""

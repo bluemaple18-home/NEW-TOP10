@@ -26,6 +26,8 @@ RUN_ID_BASE="${TOP10_FOG_RESEARCH_RUN_ID:-fog-research-${RUN_DATE}-$(date +%H%M%
 LOG_FILE="$LOG_DIR/fog_research_worker_$(date +%Y%m%d).log"
 LOCK_DIR="$LOG_DIR/fog_research_worker.lock"
 LOCK_PID_FILE="$LOCK_DIR/pid"
+PM_LOCK_DIR="$LOG_DIR/pm_research_harness_loop.lock"
+PM_LOCK_PID_FILE="$PM_LOCK_DIR/pid"
 QUOTA="${TOP10_FOG_RESEARCH_QUOTA:-${TOP10_RESEARCH_QUOTA:-5}}"
 MAX_BATCHES="${TOP10_FOG_RESEARCH_MAX_BATCHES:-6}"
 MAX_SECONDS="${TOP10_FOG_RESEARCH_MAX_SECONDS:-7200}"
@@ -59,6 +61,14 @@ acquire_lock() {
 }
 
 acquire_lock
+
+if [ -r "$PM_LOCK_PID_FILE" ]; then
+  PM_PID="$(cat "$PM_LOCK_PID_FILE" 2>/dev/null || true)"
+  if [ -n "$PM_PID" ] && kill -0 "$PM_PID" 2>/dev/null; then
+    echo "fog research worker skipped; PM research harness active pid=$PM_PID" | tee -a "$LOG_FILE"
+    exit 0
+  fi
+fi
 
 export TOP10_RESEARCH_FROM_QUEUE="${TOP10_RESEARCH_FROM_QUEUE:-1}"
 export TOP10_RESEARCH_ALLOW_RERUN="${TOP10_RESEARCH_ALLOW_RERUN:-0}"

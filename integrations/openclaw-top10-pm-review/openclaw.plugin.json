@@ -1,0 +1,20 @@
+{
+  "id": "top10-pm-review",
+  "name": "TOP10 PM Review",
+  "description": "Handles TOP10 Discord PM review decision buttons.",
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+      "top10Root": {
+        "type": "string"
+      },
+      "openclawDistDir": {
+        "type": "string"
+      }
+    }
+  }
+}

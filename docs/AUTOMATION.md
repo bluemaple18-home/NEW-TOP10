@@ -111,8 +111,8 @@ repo 內 `scripts/com.new-top10.daily.plist` 指向 `scripts/run_daily_publish.s
 6. 建立並驗證 `external_review_summary_YYYY-MM-DD.json`；單一 provider 成功時保留 `PARTIAL` 與 `needs_human_review=true`。
 7. 寫出 `artifacts/host_runner/YYYY-MM-DD/host_runner_status_YYYY-MM-DD.json` 與 `host_runner_summary_YYYY-MM-DD.json`。
 8. 交接給 Fog Map Bot，由 Fog Map Bot 挑下一輪研究隊列並呼叫 Autonomous Research Worker Bot 跑每日研究 quota。
-9. 研究 worker 成功後刷新並驗證 `artifacts/research_map/research_fog_map_latest.json` 與 `artifacts/research_map/index.html`，同時寫入 `research_worker` 與 `fog_map` harness event。
-10. 最後由 Ops Reporter 送工作進度頻道，回報外部 AI 差異、研究 quota、迷霧地圖狀態與下一輪 blocker。
+9. 研究 worker 成功後刷新並驗證 `artifacts/research_map/research_fog_map_latest.json` 與 `artifacts/research_map/index.html`，同時寫入 `research_worker` 與 `fog_map` harness event。迷霧頁面主星圖只承載完成度與星星點亮；同頁底部承載候選策略隊列、研究團隊 Console、證據閘門與需要 PM 決策的事項。
+10. 最後由 Ops Reporter 送工作進度頻道，回報外部 AI 差異、研究 quota、迷霧地圖狀態、候選策略隊列與下一輪 blocker。
 
 repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scripts/run_external_review_host_runner.sh`；它會自行等 daily OK，不會在 daily 失敗時送出外部 review。迷霧地圖與每日研究 quota 不再另開排程，改由這條 harness handoff 負責；需要暫停整段可設 `TOP10_SKIP_FOG_MAP_HANDOFF=1`，只除錯地圖可設 `TOP10_SKIP_RESEARCH_QUOTA=1`，但正式排程不應長期跳過。
 
@@ -126,7 +126,7 @@ repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scri
 | 送 ChatGPT | `ai_review_adapter` | 同一個 host runner → `review_chatgpt_chrome.sh` | 固定 `TOP10 External Review - ChatGPT PROD`，不是獨立排程。 |
 | 送 Gemini | `ai_review_adapter` | 同一個 host runner → `review_gemini_chrome.sh` | 固定 `TOP10 External Review - Gemini PROD`，不是獨立排程。 |
 | 驗證與合併 | `disagreement_next_actions` | `build_external_review_summary.py` / `verify_external_review_summary.py` | 只產生分歧、人工複核與研究題目，不改 ranking。 |
-| 研究交接 | `fog_map` | `run_top10_fog_map_handoff.py` | 把外部檢核分歧變成迷霧訊號與研究 queue。 |
+| 研究交接 | `fog_map` | `run_top10_fog_map_handoff.py` | 把外部檢核分歧變成迷霧訊號與研究 queue，並刷新同頁的候選策略隊列、研究團隊 Console、證據閘門與需要決策區。 |
 | 決策 brief | `ops_reporter` | `build_research_decision_brief.py` | 彙整外部 AI 分歧、研究 queue、模型候選中需要 PM 拍板的事項。 |
 | 工作回報 | `ops_reporter` | `build_top10_ops_progress_message.py` / `send_top10_ops_report.py` | 送工作進度頻道，回報文字與決策事項必須是中文。 |
 
@@ -146,7 +146,7 @@ repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scri
 1. 使用 `logs/fog_research_worker.lock`，同一時間只允許一個 worker；高頻 launchd 觸發不會造成重疊。
 2. 預設 `TOP10_RESEARCH_FROM_QUEUE=1`、`TOP10_RESEARCH_ALLOW_RERUN=0`，優先消費研究 queue，避免一直重跑同題。
 3. 預設 `TOP10_FOG_RESEARCH_MAX_BATCHES=6`、`TOP10_FOG_RESEARCH_MAX_SECONDS=7200`、`TOP10_FOG_RESEARCH_QUOTA=5`，catch-up 時會盡快消 queue，但保留停損上限。
-4. 每批都會驗證 `autonomous_research_daily_quota_YYYY-MM-DD.json` 與 `research_fog_map_latest.json`；驗證失敗就非 0 exit，不假成功。
+4. 每批都會驗證 `autonomous_research_daily_quota_YYYY-MM-DD.json` 與 `research_fog_map_latest.json`；`verify_research_fog_map.py` 也會檢查迷霧頁底部四區與 `focus-map` 可見性，驗證失敗就非 0 exit，不假成功。
 5. representative replay drain 會寫 `artifacts/weekend_training/representative_replay_drain_YYYY-MM-DD.json`，每批都跑 representative replay verifier、controlled-grid linkage 與 fog map verifier；queue 未清空但達到批次上限時，會寫 `max_batches_reached`，不會假裝 queue empty。
 6. 只寫本地 artifacts 與 harness events；是否送 ops Discord 仍由 ops reporter/監控面決定，避免高頻 worker 洗頻。
 
@@ -156,7 +156,30 @@ repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scri
 bash scripts/run_fog_research_worker.sh
 ```
 
+### `scripts/run_pm_research_harness_loop.sh`
+**功能**: PM approval → research harness → 下一輪 PM review card 的受控迴圈。它只消費 `TOP10_STOCK` PM 核准卡，將核准研究轉成 `approved_work_queue` / `research_cards_YYYY-MM-DD.jsonl`，再啟動既有 autonomous research runner 產生 evidence 與下一輪決策卡。不改 ranking、不訓練模型、不推播正式報牌。
+
+**啟動邊界**:
+1. repo wrapper 預設 `TOP10_PM_RESEARCH_ENABLED=0`，避免手動誤跑；正式 launchd plist 會明確帶 `TOP10_PM_RESEARCH_ENABLED=1` 讓研究 loop 持續執行。
+2. 正式 launchd 仍帶 `TOP10_PM_RESEARCH_SEND_CARDS=0`、`TOP10_PM_RESEARCH_DRY_RUN_SEND=1`，避免排程誤送 Discord 審核卡。
+3. `TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS=8` 控制沒有新 PM 核准時最多延續研究幾輪；達上限會把 loop state 關閉，等待下一張 PM 核准卡。
+4. Python loop 只有在找到新的 PM approved research card，或既有 state 已進入 loop 且實際跑出研究結果時，才會產下一輪 PM review card；空跑不產新卡。
+5. `--dry-run-send` 只代表不送 Discord；研究 state、連續延續次數、consumed approvals 仍會正常更新。
+6. 它不是 Fog Map burn-down worker。Fog worker 消 Fog Map queue 與刷新星圖；PM harness 只處理 PM 已核准的下一步研究。兩者用 lock 互斥，避免同時啟動研究 runner。
+
+手動跑：
+
+```bash
+TOP10_PM_RESEARCH_ENABLED=1 TOP10_PM_RESEARCH_SEND_CARDS=0 TOP10_PM_RESEARCH_DRY_RUN_SEND=1 bash scripts/run_pm_research_harness_loop.sh
+```
+
 手動驗證：
+
+```bash
+.venv/bin/python scripts/verify_pm_research_harness_loop.py
+```
+
+外部 review 手動驗證：
 
 ```bash
 # 真實 submit：預設 browser 主幹；需要 ChatGPT / Gemini 固定 conversation 已登入

@@ -23,6 +23,10 @@ daily:
   min_latest_market_coverage_ratio: 0.5
   weekly_snapshot_enabled: true # MOM-01：ranking 後產生本週模型初選池 / 每日快照 artifact
   candidate_persistence_enabled: true # PERSIST-01：ranking 後產生入榜天數 / 排名變化 artifact
+  daily_recommendation_performance_enabled: true # 每日報牌逐檔後驗 ledger；只讀既有 ranking/features，不改模型或推播
+  daily_recommendation_performance_verify_enabled: true # 對後驗 ledger 跑 read-only / horizon / monitorability gate
+  daily_performance_review_enabled: true # 將後驗數字轉成操盤復盤評論與研究派工候選；不自動改排名或送出
+  daily_performance_review_verify_enabled: true # 驗證復盤評論只產 research candidates，不越過 production 邊界
   daily_report_enabled: true    # DAILY-02：ranking 後產出 PM/使用者可讀的每日決策日報
   market_context_enabled: true  # MARKET-CONTEXT-02：daily decision quality 前產生同日台灣市場背景 artifact
   decision_quality_enabled: true # DECISION-QUALITY-01：彙整入榜天數、replay、portfolio risk、market context；不改 ranking score
@@ -84,6 +88,17 @@ monitor:
   psi_warning: 0.25           # PSI 警告閾值
   psi_critical: 0.5           # PSI 嚴重閾值
   auto_retrain: false         # 是否在嚴重漂移時自動重訓 (建議 false，手動確認)
+
+# ========================================
+# PM 核准研究迴圈
+# ========================================
+pm_research_harness:
+  launchd_enabled: true        # launchd plist 明確帶 TOP10_PM_RESEARCH_ENABLED=1，讓研究 loop 持續跑
+  quota: 2                     # 每輪 PM research harness 最多執行幾個研究 topic
+  max_ranking_files: 8         # 每個白名單回測最多讀幾份 historical ranking
+  max_continuation_runs: 8     # 沒有新 PM 核准時，最多延續跑幾輪既有 loop state
+  send_cards: false            # 目前不自動送 Discord PM 卡，避免洗頻
+  dry_run_send: true           # 送卡保持 dry-run；研究 state 仍正常更新
 
 # ========================================
 # 外部 reference 維護：產業 / 概念股 / ETF 關聯來源
