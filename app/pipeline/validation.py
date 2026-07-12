@@ -78,7 +78,7 @@ class ValidationReport:
 class PipelineDataValidator:
     """驗證既有 parquet 產物是否符合下游契約。"""
 
-    CORE_PRICE_COLUMNS = ("date", "stock_id", "open", "high", "low", "close", "volume")
+    CORE_PRICE_COLUMNS = ("date", "stock_id", "open", "high", "low", "close", "volume", "value")
     CORE_TECH_COLUMNS = (
         "ma5",
         "ma20",
@@ -87,6 +87,9 @@ class PipelineDataValidator:
         "macd_signal",
         "bb_middle",
         "avg_value_20d",
+        "daily_vwap",
+        "rolling_vwap_20d",
+        "close_vs_vwap_20d",
     )
 
     def __init__(
@@ -224,7 +227,9 @@ class PipelineDataValidator:
             if values.notna().sum() == 0:
                 summary.issues.append(ValidationIssue("ERROR", contract.name, "數值欄位全為空或不可轉數字", col))
                 continue
-            if col in {"open", "high", "low", "close", "volume", "avg_value_20d"} and (values.dropna() < 0).any():
+            if col in {"open", "high", "low", "close", "volume", "value", "avg_value_20d", "daily_vwap", "rolling_vwap_20d"} and (
+                values.dropna() < 0
+            ).any():
                 summary.issues.append(ValidationIssue("ERROR", contract.name, "價格/量能欄位不可為負", col))
 
     def _validate_latest_coverage(self, df: pd.DataFrame, contract: DatasetContract, summary: DatasetSummary) -> None:

@@ -69,8 +69,12 @@ class LocalOutputRepair:
         df["stock_id"] = df["stock_id"].astype(str).str.strip()
         df = df.sort_values(["stock_id", "date"]).reset_index(drop=True)
 
-        if "avg_value_20d" not in df.columns:
-            df = VolumeIndicators(df).calculate_avg_trading_value(period=20)
+        cost_basis_columns = {"daily_vwap", "rolling_vwap_20d", "close_vs_vwap_20d"}
+        if "avg_value_20d" not in df.columns or not cost_basis_columns <= set(df.columns):
+            indicators = VolumeIndicators(df)
+            if "avg_value_20d" not in df.columns:
+                indicators.calculate_avg_trading_value(period=20)
+            df = indicators.calculate_vwap_cost_basis(periods=[5, 20])
 
         if "low_20d" not in df.columns and "low" in df.columns:
             df["low_20d"] = df.groupby("stock_id")["low"].transform(lambda values: values.shift(1).rolling(20).min())
