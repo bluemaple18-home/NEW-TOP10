@@ -37,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--stride", type=int, default=1, help="每 N 個交易日取一天")
     parser.add_argument("--max-dates", type=int, default=None)
+    parser.add_argument("--top-n", type=int, default=10, help="每個交易日輸出的候選檔列數；Top50 用於 entry overlay 研究")
     parser.add_argument("--legacy-per-date-load", action="store_true", help="使用舊版逐日重載 feature frame；只保留作回歸對照")
     parser.add_argument("--manifest", default=None)
     return parser.parse_args()
@@ -132,6 +133,7 @@ def run_batch_ranking_for_date(
     features: pd.DataFrame,
     universe: pd.DataFrame,
     date_text: str,
+    top_n: int,
 ) -> Path:
     target_trade_date = pd.to_datetime(date_text).normalize()
     if not (features["trade_date"] == target_trade_date).any():
@@ -150,13 +152,17 @@ def run_batch_ranking_for_date(
     target_for_regime = df["date"].max() if "date" in df else target_trade_date
     market_regime = ranker.market_regime_service.evaluate(history_df, target_date=target_for_regime)
     rank_df = ranker.ranking_policy.apply(rank_df, market_regime)
-    top10 = rank_df.head(10).copy()
-    top10 = ranker.portfolio_policy.apply(top10, market_regime)
-    if "stock_name" not in top10.columns or top10["stock_name"].isnull().any():
-        top10["stock_name"] = stock_names(top10["stock_id"])
-    today_str = pd.Timestamp(top10["trade_date"].max()).strftime("%Y-%m-%d") if "trade_date" in top10.columns else date_text
+    selected = rank_df.head(top_n).copy()
+    # 正式投組政策只定義 Top10 權重；Top50 研究池只保留候選排序，不灌入假權重。
+    if top_n <= 10:
+        selected = ranker.portfolio_policy.apply(selected, market_regime)
+    if "stock_name" not in selected.columns or selected["stock_name"].isnull().any():
+        selected["stock_name"] = stock_names(selected["stock_id"])
+    selected.insert(0, "rank", range(1, len(selected) + 1))
+    today_str = pd.Timestamp(selected["trade_date"].max()).strftime("%Y-%m-%d") if "trade_date" in selected.columns else date_text
     path = ranker.artifact_dir / f"ranking_{today_str}.csv"
     out_cols = [
+        "rank",
         "stock_id",
         "stock_name",
         "close",
@@ -178,7 +184,7 @@ def run_batch_ranking_for_date(
         "market_regime",
         "reasons",
     ]
-    top10[[col for col in out_cols if col in top10.columns]].to_csv(path, index=False, encoding="utf-8-sig")
+    selected[[col for col in out_cols if col in selected.columns]].to_csv(path, index=False, encoding="utf-8-sig")
     return path
 
 
@@ -192,6 +198,10 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     output_dir = resolve_path(args.output_dir) or PROJECT_ROOT / "artifacts" / "research_rankings" / f"current_model_{args.start_date}_{args.end_date}"
     manifest_path = resolve_path(args.manifest) or output_dir / "manifest.json"
     output_dir.mkdir(parents=True, exist_ok=True)
+    if args.top_n < 1:
+        raise ValueError("--top-n 必須大於 0")
+    if args.legacy_per_date_load and args.top_n != 10:
+        raise ValueError("--legacy-per-date-load 只支援既有 Top10 輸出；Top50 請使用預設 batch mode")
 
     dates = load_trade_dates(
         data_dir=data_dir,
@@ -209,6 +219,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         generate_report=False,
         explain_top_n=0,
     )
+    ranker.top_n = args.top_n
     ranker.load_model()
     batch_frames = None if args.legacy_per_date_load else prepare_batch_frames(ranker)
 
@@ -222,7 +233,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                     path = ranker.run_ranking(date_text)
                 else:
                     features, universe = batch_frames
-                    path = run_batch_ranking_for_date(ranker, features, universe, date_text)
+                    path = run_batch_ranking_for_date(ranker, features, universe, date_text, args.top_n)
             outputs.append({"date": date_text, "path": repo_path(Path(path)), "stdout_tail": captured_stdout.getvalue()[-1000:]})
         except Exception as exc:
             failures.append({"date": date_text, "error": str(exc)})
@@ -246,6 +257,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "end_date": args.end_date,
             "stride": args.stride,
             "max_dates": args.max_dates,
+            "top_n": args.top_n,
             "batch_mode": not args.legacy_per_date_load,
         },
         "outputs": {
@@ -271,6 +283,7 @@ def main() -> int:
                 "manifest": payload["outputs"]["manifest"],
                 "ranking_count": payload["outputs"]["ranking_count"],
                 "failure_count": len(payload["failures"]),
+                "top_n": payload["inputs"]["top_n"],
             },
             ensure_ascii=False,
         )

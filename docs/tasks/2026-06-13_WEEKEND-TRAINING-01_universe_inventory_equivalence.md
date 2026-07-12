@@ -2,9 +2,11 @@
 
 ## 目的
 
-建立 `662,256` 個 V2 combo 的全量 inventory，並找出哪些 combo 在目前 replay runner 下其實等價。
+建立 V2 combo 的全量 inventory summary，並找出哪些 combo 在目前 replay runner 下其實等價。
 
 這張卡不跑昂貴 replay，只做 deterministic 分類。
+
+> 2026-07-06 更新：主線 artifact 已改為 summary-only。完整逐筆 records 只作人工追溯封存，詳見 `docs/tasks/2026-07-06_WEEKEND-TRAINING-22_summary_only_trace_archive.md`。
 
 ## Input
 
@@ -17,7 +19,7 @@
 
 - `scripts/build_weekend_universe_inventory.py`
 - `scripts/verify_weekend_universe_inventory.py`
-- `artifacts/weekend_training/weekend_universe_inventory_YYYY-MM-DD.json`
+- `artifacts/weekend_training/weekend_universe_inventory_YYYY-MM-DD.json`（主線預設 summary-only）
 - `artifacts/weekend_training/weekend_universe_inventory_YYYY-MM-DD.md`
 
 ## 必須分類
@@ -56,7 +58,7 @@ rankings_dir_family
 
 ## 驗收
 
-- inventory count 必須等於 `662,256`。
+- inventory count 必須等於當日 topic registry 展開後的 V2 universe total。
 - 已完成 count 必須等於目前 map 的 `expanded_processed`。
 - remaining count 必須等於 `656,199` 或當日最新剩餘數。
 - 每個 combo 都有 `equivalence_key`。

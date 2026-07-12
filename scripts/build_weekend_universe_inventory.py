@@ -43,6 +43,11 @@ SCHEMA_VERSION = "weekend-universe-inventory.v1"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="build weekend universe inventory")
     parser.add_argument("--date", required=True)
+    parser.add_argument(
+        "--include-records",
+        action="store_true",
+        help="輸出完整 records 陣列；大型 v2 universe 會產生數 GB JSON，預設關閉。",
+    )
     return parser.parse_args()
 
 
@@ -146,7 +151,7 @@ def normalize_unsupported_details(rows: list[dict[str, Any]]) -> None:
         row["unblock_requirement"] = info["unblock_requirement"]
 
 
-def build_payload(date: str) -> dict[str, Any]:
+def build_payload(date: str, include_records: bool = False) -> dict[str, Any]:
     rows, fog_map = build_initial_rows(date)
     assign_equivalence(rows)
     normalize_unsupported_details(rows)
@@ -158,7 +163,7 @@ def build_payload(date: str) -> dict[str, Any]:
     topics = load_topics()
     expected_total = expanded_universe_total(len(topics))
     processed_current = sum(count for status, count in current_counts.items() if status != "PENDING")
-    return {
+    payload = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": now_utc(),
         "date": date,
@@ -192,9 +197,12 @@ def build_payload(date: str) -> dict[str, Any]:
             "does_not_train_model": True,
             "does_not_change_production_ranking": True,
             "manual_progress_fill_allowed": False,
+            "records_inline": include_records,
         },
-        "records": rows,
     }
+    if include_records:
+        payload["records"] = rows
+    return payload
 
 
 def render_markdown(payload: dict[str, Any]) -> str:
@@ -230,7 +238,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
 
 def main() -> int:
     args = parse_args()
-    payload = build_payload(args.date)
+    payload = build_payload(args.date, include_records=args.include_records)
     json_path, md_path = inventory_paths(args.date)
     write_json(json_path, payload, compact=True)
     write_text(md_path, render_markdown(payload))

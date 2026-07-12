@@ -23,6 +23,15 @@ READY_REFERENCE_COVERAGE = 0.95
 MODEL_MIN_COVERAGE = 0.70
 
 PRICE_VOLUME_COLUMNS = ["open", "high", "low", "close", "volume", "value", "avg_volume_20d", "avg_value_20d"]
+COST_BASIS_COLUMNS = [
+    "daily_vwap",
+    "rolling_vwap_5d",
+    "rolling_vwap_20d",
+    "close_vs_vwap_5d",
+    "close_vs_vwap_20d",
+    "vwap_reclaim_20d",
+    "vwap_loss_20d",
+]
 TECHNICAL_COLUMNS = [
     "ma5",
     "ma10",
@@ -324,6 +333,14 @@ def build_audit(args: argparse.Namespace) -> dict[str, Any]:
             frame=features,
             columns=PRICE_VOLUME_COLUMNS,
             category="price",
+        ),
+        column_group_row(
+            dimension_id="cost_basis",
+            label="VWAP/市場成本線",
+            frame=features,
+            columns=COST_BASIS_COLUMNS,
+            category="price",
+            notes=["正式 features.parquet 維度；用於驗證成交量加權成本線是否改善預測與進場品質。"],
         ),
         column_group_row(
             dimension_id="technical_momentum",

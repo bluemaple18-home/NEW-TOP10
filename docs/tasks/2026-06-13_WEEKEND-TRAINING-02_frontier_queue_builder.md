@@ -4,6 +4,8 @@
 
 把 full universe inventory 轉成可執行 queue。
 
+> 2026-07-06 更新：summary-only 主線不再每次實體化 full frontier queue。若 inventory `contract.records_inline=false`，`run_controlled_grid_drain_host_runner.py` 會跳過 frontier queue 實體化，改由 inventory summary 產生 gates。完整 queue 只在 `--include-records` 或冷封存追溯場景使用。
+
 這張卡要回答：
 
 ```text
@@ -22,7 +24,7 @@
 
 - `scripts/build_weekend_frontier_queue.py`
 - `scripts/verify_weekend_frontier_queue.py`
-- `artifacts/weekend_training/weekend_frontier_queue_YYYY-MM-DD.json`
+- `artifacts/weekend_training/weekend_frontier_queue_YYYY-MM-DD.json`（完整 records 模式或追溯封存）
 - `artifacts/weekend_training/weekend_frontier_queue_YYYY-MM-DD.md`
 
 ## Queue Policy

@@ -178,6 +178,7 @@ def build_payload(date: str) -> dict[str, Any]:
     queue_summary = queue.get("summary") if isinstance(queue.get("summary"), dict) else {}
     queue_counts = queue_summary.get("queue_type_counts") if isinstance(queue_summary.get("queue_type_counts"), dict) else {}
     current_counts = inv_summary.get("current_status_counts") if isinstance(inv_summary.get("current_status_counts"), dict) else {}
+    burn_counts = inv_summary.get("burn_down_status_counts") if isinstance(inv_summary.get("burn_down_status_counts"), dict) else {}
     unsupported_category_counts = inv_summary.get("unsupported_category_counts") if isinstance(inv_summary.get("unsupported_category_counts"), dict) else {}
     unsupported_reason_top_counts = inv_summary.get("unsupported_reason_top_counts") if isinstance(inv_summary.get("unsupported_reason_top_counts"), dict) else {}
     rep_rows = representative.get("rows") if isinstance(representative.get("rows"), list) else []
@@ -212,15 +213,18 @@ def build_payload(date: str) -> dict[str, Any]:
         for row in survivor_rows
         if row.get("decision") == "MONITOR_ONLY"
     ][:20]
-    pending_equivalence_inherited = max(0, int(queue_counts.get("EQUIVALENCE_INHERIT", 0)) - processed_before)
-    active_representative_queue = int(queue_counts.get("REPRESENTATIVE_REPLAY", 0))
+    if queue_counts:
+        pending_equivalence_inherited = max(0, int(queue_counts.get("EQUIVALENCE_INHERIT", 0) or 0) - processed_before)
+    else:
+        pending_equivalence_inherited = int(burn_counts.get("EQUIVALENCE_INHERITED", 0) or 0)
+    active_representative_queue = int(queue_counts.get("REPRESENTATIVE_REPLAY", 0) or 0)
     representative_pending = int(inv_summary.get("representative_required_count") or 0)
     deferred_low_priority = max(0, representative_pending - active_representative_queue)
     rollup_counts = {
         "executed_replay_count": int(current_counts.get("EXECUTED_REPLAY", 0)),
         "equivalence_inherited_count": pending_equivalence_inherited,
-        "rule_pruned_count": int(queue_counts.get("RULE_PRUNE", 0)),
-        "unsupported_count": int(queue_counts.get("UNSUPPORTED", 0)),
+        "rule_pruned_count": int(queue_counts.get("RULE_PRUNE", burn_counts.get("RULE_PRUNED", 0)) or 0),
+        "unsupported_count": int(queue_counts.get("UNSUPPORTED", burn_counts.get("UNSUPPORTED_INPUT", 0)) or 0),
         "low_information_count": int(current_counts.get("LOW_INFORMATION", 0)),
         "next_stage_count": int(current_counts.get("NEXT_STAGE_CANDIDATE", 0)),
         "rejected_count": int(current_counts.get("REJECTED", 0)),

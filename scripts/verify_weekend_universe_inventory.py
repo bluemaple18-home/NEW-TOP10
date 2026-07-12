@@ -45,9 +45,16 @@ def build_payload(date: str, artifact: Path) -> dict[str, Any]:
     summary = inventory.get("summary") if isinstance(inventory.get("summary"), dict) else {}
     map_summary = fog_map.get("summary") if isinstance(fog_map.get("summary"), dict) else {}
     expected_total = expanded_universe_total(len(load_topics()))
-    current_processed = sum(1 for row in records if row.get("current_status") != "PENDING")
+    has_inline_records = bool(records)
+    current_processed = (
+        sum(1 for row in records if row.get("current_status") != "PENDING")
+        if has_inline_records
+        else int(summary.get("current_processed_count") or 0)
+    )
     source_processed = summary.get("map_expanded_processed")
     source_pending = summary.get("map_expanded_pending")
+    inventory_total = len(records) if has_inline_records else int(summary.get("full_universe_total") or 0)
+    inventory_remaining = inventory_total - current_processed
     combo_ids = [str(row.get("combo_id") or "") for row in records]
     non_replay_without_reason = [
         row.get("combo_id")
@@ -71,22 +78,34 @@ def build_payload(date: str, artifact: Path) -> dict[str, Any]:
     checks = [
         {"name": "artifact_exists", "ok": artifact.exists(), "value": repo_path(artifact)},
         {"name": "schema", "ok": inventory.get("schema_version") == "weekend-universe-inventory.v1", "value": inventory.get("schema_version")},
-        {"name": "inventory_count", "ok": len(records) == expected_total, "value": {"records": len(records), "expected": expected_total}},
-        {"name": "summary_count_matches_records", "ok": summary.get("full_universe_total") == len(records), "value": summary.get("full_universe_total")},
+        {
+            "name": "inventory_count",
+            "ok": (len(records) if has_inline_records else summary.get("full_universe_total")) == expected_total,
+            "value": {"records": len(records), "summary": summary.get("full_universe_total"), "expected": expected_total},
+        },
+        {
+            "name": "summary_count_matches_records",
+            "ok": (not has_inline_records) or summary.get("full_universe_total") == len(records),
+            "value": {"summary": summary.get("full_universe_total"), "records": len(records), "records_inline": has_inline_records},
+        },
         {"name": "current_processed_matches_source_snapshot", "ok": current_processed == source_processed, "value": {"inventory": current_processed, "source_snapshot": source_processed}},
-        {"name": "remaining_matches_source_snapshot", "ok": len(records) - current_processed == source_pending, "value": {"inventory": len(records) - current_processed, "source_snapshot": source_pending}},
+        {"name": "remaining_matches_source_snapshot", "ok": inventory_remaining == source_pending, "value": {"inventory": inventory_remaining, "source_snapshot": source_pending}},
         {"name": "latest_map_not_behind_inventory_snapshot", "ok": int(map_summary.get("expanded_processed") or 0) >= current_processed, "value": {"inventory_snapshot": current_processed, "latest_map": map_summary.get("expanded_processed")}},
-        {"name": "combo_ids_unique", "ok": len(combo_ids) == len(set(combo_ids)), "value": len(combo_ids) - len(set(combo_ids))},
-        {"name": "all_have_equivalence_key", "ok": all(row.get("equivalence_key") for row in records), "value": len(records)},
-        {"name": "non_replay_have_reason", "ok": not non_replay_without_reason, "value": non_replay_without_reason[:20]},
+        {"name": "combo_ids_unique", "ok": (not has_inline_records) or len(combo_ids) == len(set(combo_ids)), "value": len(combo_ids) - len(set(combo_ids))},
+        {"name": "all_have_equivalence_key", "ok": (not has_inline_records) or all(row.get("equivalence_key") for row in records), "value": len(records)},
+        {"name": "non_replay_have_reason", "ok": (not has_inline_records) or not non_replay_without_reason, "value": non_replay_without_reason[:20]},
         {
             "name": "unsupported_breakdown_fields_present",
-            "ok": not unsupported_missing_breakdown,
+            "ok": (not has_inline_records) or not unsupported_missing_breakdown,
             "value": unsupported_missing_breakdown[:20],
         },
         {
             "name": "unsupported_category_counts_sum",
-            "ok": unsupported_category_sum == len(unsupported_rows) == int(burn_counts.get("UNSUPPORTED_INPUT") or 0),
+            "ok": (
+                unsupported_category_sum == len(unsupported_rows) == int(burn_counts.get("UNSUPPORTED_INPUT") or 0)
+                if has_inline_records
+                else unsupported_category_sum == int(burn_counts.get("UNSUPPORTED_INPUT") or 0)
+            ),
             "value": {
                 "category_sum": unsupported_category_sum,
                 "unsupported_rows": len(unsupported_rows),
