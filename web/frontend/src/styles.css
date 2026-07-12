@@ -903,6 +903,77 @@ h2 {
   font-size: 0.78rem;
 }
 
+.strategy-route-strip {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: -4px 0 18px;
+  border: 1px solid rgba(242, 213, 126, 0.16);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(242, 213, 126, 0.045);
+}
+
+.strategy-route-strip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #8f9baa;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.strategy-route-strip__header strong {
+  overflow-wrap: anywhere;
+  color: #f3f0e8;
+  font-size: 0.86rem;
+  letter-spacing: 0;
+}
+
+.strategy-route-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.strategy-route-group {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.strategy-route-group b {
+  color: #f2d57e;
+  font-size: 0.72rem;
+}
+
+.strategy-route-group span {
+  overflow-wrap: anywhere;
+  color: #d5dde3;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.strategy-route-group--shadow b {
+  color: #7fd5c4;
+}
+
+.strategy-route-group--blocked {
+  opacity: 0.78;
+}
+
+.strategy-route-strip small {
+  color: #8f9baa;
+  font-size: 0.76rem;
+}
+
 .reference-chip {
   display: inline-flex;
   align-items: center;
@@ -1617,6 +1688,10 @@ html[data-theme="day"] .gesture-hint {
 
   .stock-reference-strip p {
     flex-shrink: 1;
+  }
+
+  .strategy-route-grid {
+    grid-template-columns: 1fr;
   }
 
   .stock-detail-layout {

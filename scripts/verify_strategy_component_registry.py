@@ -45,6 +45,8 @@ FORBIDDEN_PROMOTION_USES = {
     "publish_order_replacement",
     "unconditional_publish_replacement",
 }
+RUNTIME_STATUSES = {"off", "shadow", "report_only", "production"}
+MUTATING_EFFECTS = {"score_overlay", "filter", "risk_overlay", "sizing"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -87,10 +89,30 @@ def has_forbidden_allowed_use(row: dict[str, Any]) -> bool:
     return bool(allowed & FORBIDDEN_PROMOTION_USES)
 
 
+def runtime_components(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    registry = payload.get("runtime_registry") if isinstance(payload.get("runtime_registry"), dict) else {}
+    rows = registry.get("components") if isinstance(registry.get("components"), list) else []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def has_unreviewed_runtime_mutator(row: dict[str, Any]) -> bool:
+    if row.get("runtime_status") != "production":
+        return bool(row.get("can_change_production_ranking"))
+    if row.get("effect_type") not in MUTATING_EFFECTS:
+        return False
+    return not (
+        row.get("can_change_production_ranking") is True
+        and bool(row.get("evidence"))
+        and bool(row.get("promotion_gates"))
+    )
+
+
 def build_payload(path: Path) -> dict[str, Any]:
     payload = read_json(path)
     contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else {}
     components = payload.get("components") if isinstance(payload.get("components"), list) else []
+    runtime_rows = runtime_components(payload)
+    route_preview = payload.get("route_preview") if isinstance(payload.get("route_preview"), dict) else {}
     ids = {str(row.get("component_id")) for row in components if isinstance(row, dict)}
     status_by_id = {
         str(row.get("component_id")): str(row.get("status"))
@@ -110,6 +132,16 @@ def build_payload(path: Path) -> dict[str, Any]:
             and contract.get("production_switch_ready") is False
             and contract.get("promotion_ready") is False,
             "value": contract,
+        },
+        {
+            "name": "runtime_router_available",
+            "ok": contract.get("runtime_router_available") is True
+            and bool(runtime_rows)
+            and bool(route_preview),
+            "value": {
+                "runtime_component_count": len(runtime_rows),
+                "route_preview": sorted(route_preview),
+            },
         },
         {
             "name": "required_components_present",
@@ -172,6 +204,36 @@ def build_payload(path: Path) -> dict[str, Any]:
                 for row in components
                 if isinstance(row, dict) and row.get("status") == "REFERENCE_AVAILABLE"
             },
+        },
+        {
+            "name": "runtime_statuses_allowed",
+            "ok": all(str(row.get("runtime_status")) in RUNTIME_STATUSES for row in runtime_rows),
+            "value": sorted({str(row.get("runtime_status")) for row in runtime_rows}),
+        },
+        {
+            "name": "runtime_mutators_reviewed",
+            "ok": all(not has_unreviewed_runtime_mutator(row) for row in runtime_rows),
+            "value": {
+                row.get("component_id"): {
+                    "runtime_status": row.get("runtime_status"),
+                    "effect_type": row.get("effect_type"),
+                    "can_change_production_ranking": row.get("can_change_production_ranking"),
+                    "evidence": row.get("evidence"),
+                    "promotion_gates": row.get("promotion_gates"),
+                }
+                for row in runtime_rows
+                if has_unreviewed_runtime_mutator(row)
+            },
+        },
+        {
+            "name": "risk_off_routes_selloff_shadow",
+            "ok": "selloff_protection" in ((route_preview.get("RISK_OFF") or {}).get("shadow") or []),
+            "value": route_preview.get("RISK_OFF"),
+        },
+        {
+            "name": "panic_blocks_chase_protection",
+            "ok": "high_entry_chase_protection" in ((route_preview.get("PANIC_SELLING") or {}).get("blocked") or []),
+            "value": route_preview.get("PANIC_SELLING"),
         },
     ]
     failed = [check for check in checks if not check["ok"]]

@@ -12,6 +12,12 @@ export type RankingItem = {
   risk_adjusted_score?: number | null
   risk_reward?: number | null
   market_regime?: string | null
+  strategy_route_regime?: string | null
+  strategy_route_production?: string | null
+  strategy_route_shadow?: string | null
+  strategy_route_report_only?: string | null
+  strategy_route_blocked?: string | null
+  strategy_route_mutates_production_score?: boolean | null
   industry_code?: string | null
   industry_name?: string | null
   sector_name?: string | null

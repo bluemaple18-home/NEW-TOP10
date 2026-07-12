@@ -15,6 +15,7 @@ class MarkdownFormatter:
             md += self._score_breakdown(brief.get("score_breakdown") or {})
             md += self._section("風險警報", brief.get("risk_alerts"))
             md += self._section("正向催化", brief.get("positive_catalysts"))
+            md += self._strategy_route(brief.get("strategy_route") or {})
             md += self._section("操作檢查清單", brief.get("action_checklist"))
             md += self._coverage(brief.get("data_coverage") or [])
         return md
@@ -61,4 +62,28 @@ class MarkdownFormatter:
             lines.append(
                 f"| {item.get('field', '')} | {item.get('status', '')} | {item.get('reason', '')} |"
             )
+        return "\n".join(lines) + "\n"
+
+    def _strategy_route(self, route: dict) -> str:
+        if not route:
+            return ""
+        lines = ["\n### 策略路由\n"]
+        lines.append(f"- 盤勢：{route.get('regime') or 'UNKNOWN'}")
+        lines.append(f"- 摘要：{route.get('summary') or '無策略路由摘要。'}")
+        lines.append(f"- 正式策略是否改分數：{route.get('production_mutates_score') is True}")
+        rows = []
+        for label, key in (
+            ("正式生效", "production"),
+            ("影子觀察", "shadow"),
+            ("報告提示", "report_only"),
+            ("此盤勢停用", "blocked"),
+        ):
+            items = route.get(key) or []
+            if not items:
+                continue
+            names = "、".join(item.get("label") or item.get("component_id", "") for item in items[:6])
+            rows.append(f"| {label} | {names} |")
+        if rows:
+            lines.extend(["", "| 類型 | 元件 |", "|------|------|"])
+            lines.extend(rows)
         return "\n".join(lines) + "\n"

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,11 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.trading.strategy_components import StrategyComponentRegistry  # noqa: E402
+
 SCHEMA_VERSION = "strategy-component-registry.v1"
 
 STATUS_REUSABLE = "REUSABLE_CANDIDATE"
@@ -303,6 +309,12 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         status_counts[row["status"]] = status_counts.get(row["status"], 0) + 1
         category_counts[row["category"]] = category_counts.get(row["category"], 0) + 1
 
+    runtime_registry = StrategyComponentRegistry.default()
+    route_preview = {
+        regime: runtime_registry.route(regime).to_dict()
+        for regime in ["RISK_ON", "NEUTRAL", "RISK_OFF", "PANIC_SELLING", "NARROW_LEADER"]
+    }
+
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -316,6 +328,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "changes_model": False,
             "production_switch_ready": False,
             "promotion_ready": False,
+            "runtime_router_available": True,
         },
         "summary": {
             "component_count": len(components),
@@ -324,6 +337,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "next_mainline": "conditional_switch_research_for_candidate_trail10",
         },
         "components": components,
+        "runtime_registry": runtime_registry.to_dict(),
+        "route_preview": route_preview,
     }
 
 
@@ -334,6 +349,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
         f"- status: `{payload['status']}`",
         f"- component_count: `{payload['summary']['component_count']}`",
         f"- next_mainline: `{payload['summary']['next_mainline']}`",
+        f"- runtime_components: `{payload['runtime_registry']['component_count']}`",
         "",
         "| Component | Category | Status | Allowed Next Use | Blocked Uses |",
         "|---|---|---|---|---|",
@@ -357,9 +373,23 @@ def render_markdown(payload: dict[str, Any]) -> str:
             "- 不改推播。",
             "- 不改模型。",
             "- reference available 不等於 alpha validated。",
+            "- shadow / report_only 元件不能改正式分數或排序。",
             "",
+            "## Runtime Route Preview",
+            "",
+            "| Regime | Production | Shadow | Report Only |",
+            "|---|---|---|---|",
         ]
     )
+    for regime, route in payload["route_preview"].items():
+        lines.append(
+            "| {regime} | {production} | {shadow} | {report_only} |".format(
+                regime=regime,
+                production=", ".join(route["production"]),
+                shadow=", ".join(route["shadow"]),
+                report_only=", ".join(route["report_only"]),
+            )
+        )
     return "\n".join(lines)
 
 

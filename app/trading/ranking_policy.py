@@ -10,6 +10,7 @@ import pandas as pd
 
 from .market_regime import MarketRegime
 from .portfolio_risk_overlay import PortfolioRiskOverlay
+from .strategy_components import StrategyComponentRegistry
 from .tape_guard import add_tape_guard_columns
 from .trade_plan import TradePlanService
 
@@ -19,9 +20,11 @@ class RankingPolicy:
         self,
         trade_plan_service: TradePlanService | None = None,
         portfolio_overlay: PortfolioRiskOverlay | None = None,
+        strategy_registry: StrategyComponentRegistry | None = None,
     ):
         self.trade_plan_service = trade_plan_service or TradePlanService()
         self.portfolio_overlay = portfolio_overlay or PortfolioRiskOverlay()
+        self.strategy_registry = strategy_registry or StrategyComponentRegistry.default()
 
     def apply(
         self,
@@ -62,10 +65,18 @@ class RankingPolicy:
             df["prediction_score"] + df["setup_score"] + df["quality_score"] - df["risk_penalty"]
         ).clip(lower=0)
         df["market_regime"] = regime.label if regime else "UNKNOWN"
+        df = self._add_strategy_route(df, regime)
         df = self.portfolio_overlay.apply_score_overlay(df, regime)
         if apply_selection_guards:
             df = self._apply_tape_veto(df)
         return df.sort_values("risk_adjusted_score", ascending=False)
+
+    def _add_strategy_route(self, df: pd.DataFrame, regime: MarketRegime | None) -> pd.DataFrame:
+        result = df.copy()
+        route = self.strategy_registry.route(regime.label if regime else "UNKNOWN")
+        for column, value in route.to_columns().items():
+            result[column] = value
+        return result
 
     def _prediction_score(self, df: pd.DataFrame) -> pd.Series:
         source = df["model_prob"] if "model_prob" in df.columns else df.get("final_score", 0.5)

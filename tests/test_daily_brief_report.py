@@ -30,6 +30,13 @@ class DailyBriefReportTest(unittest.TestCase):
                     "positive_signals": "突破20日|月線支撐|",
                     "risk_signals": "",
                     "rr_guard_action": "ALLOW",
+                    "market_regime": "RISK_OFF",
+                    "strategy_route_regime": "RISK_OFF",
+                    "strategy_route_production": "base_regime_risk_multiplier",
+                    "strategy_route_shadow": "selloff_protection|feature_group_k9_shadow_fill",
+                    "strategy_route_report_only": "trail10_exit_rule|industry_theme_context",
+                    "strategy_route_blocked": "high_entry_chase_protection|chip_warning_overlay",
+                    "strategy_route_mutates_production_score": True,
                     "trade_plan": {
                         "entry_zone": {"low": 610.0, "high": 619.15},
                         "invalidation": "跌破 585.00 (月線支撐)",
@@ -67,6 +74,8 @@ class DailyBriefReportTest(unittest.TestCase):
         self.assertEqual(brief["schema_version"], "top10.daily_brief.v1")
         self.assertIn("模型勝率 78.0%", brief["why_pick"][0])
         self.assertIn("risk_adjusted_score", brief["score_breakdown"])
+        self.assertEqual(brief["strategy_route"]["regime"], "RISK_OFF")
+        self.assertIn("急殺保護", brief["strategy_route"]["summary"])
         self.assertTrue(any(item["status"] == "not_supported" for item in brief["data_coverage"]))
 
     def test_markdown_renders_daily_brief_sections(self):
@@ -76,6 +85,8 @@ class DailyBriefReportTest(unittest.TestCase):
         self.assertIn("### 入選理由", markdown)
         self.assertIn("### 風險警報", markdown)
         self.assertIn("### 正向催化", markdown)
+        self.assertIn("### 策略路由", markdown)
+        self.assertIn("急殺保護", markdown)
         self.assertIn("not_supported", markdown)
 
     def test_report_generator_keeps_markdown_json_html_artifacts(self):

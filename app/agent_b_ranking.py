@@ -24,6 +24,7 @@ try:
         PortfolioRiskOverlay,
         PortfolioRiskOverlayConfig,
         RankingPolicy,
+        StrategyComponentRegistry,
         TradePlanService,
     )
 except ImportError:
@@ -33,6 +34,7 @@ except ImportError:
         PortfolioRiskOverlay,
         PortfolioRiskOverlayConfig,
         RankingPolicy,
+        StrategyComponentRegistry,
         TradePlanService,
     )
 
@@ -116,7 +118,12 @@ class StockRanker:
         self.portfolio_overlay = PortfolioRiskOverlay(
             PortfolioRiskOverlayConfig.from_mapping(self.config.get("portfolio_risk_overlay"))
         )
-        self.ranking_policy = RankingPolicy(self.trade_plan_service, portfolio_overlay=self.portfolio_overlay)
+        self.strategy_registry = StrategyComponentRegistry.from_mapping(self.config.get("strategy_components"))
+        self.ranking_policy = RankingPolicy(
+            self.trade_plan_service,
+            portfolio_overlay=self.portfolio_overlay,
+            strategy_registry=self.strategy_registry,
+        )
         self.portfolio_policy = PortfolioPolicy(portfolio_overlay=self.portfolio_overlay)
         self.weights = self.config['scoring']['weights']
         # Alpha: 模型分數權重 (預設 0.5)
@@ -790,6 +797,8 @@ class StockRanker:
                 'quality_score', 'risk_penalty', 'suggested_weight', 'max_position_weight',
                 'gross_exposure', 'allocated_exposure', 'cash_weight', 'exposure_note', 'risk_reward',
                 'market_regime', 'shadow_market_regime', 'shadow_score', 'baseline_rank',
+                'strategy_route_regime', 'strategy_route_production', 'strategy_route_shadow',
+                'strategy_route_report_only', 'strategy_route_blocked', 'strategy_route_mutates_production_score',
                 'production_overlay_source', 'production_overlay_keep_count', 'rank', 'reasons'
             ]
             # Ensure cols exist

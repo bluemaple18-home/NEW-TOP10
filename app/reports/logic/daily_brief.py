@@ -10,6 +10,11 @@ from typing import Any
 
 import pandas as pd
 
+try:
+    from app.trading import StrategyComponentRegistry
+except ImportError:
+    from trading import StrategyComponentRegistry
+
 
 SCHEMA_VERSION = "top10.daily_brief.v1"
 NOT_SUPPORTED = "not_supported"
@@ -17,6 +22,13 @@ NOT_SUPPORTED = "not_supported"
 
 class DailyBriefBuilder:
     """將排名證據轉成固定欄位的晨報區塊。"""
+
+    def __init__(self, strategy_registry: StrategyComponentRegistry | None = None):
+        self.strategy_registry = strategy_registry or StrategyComponentRegistry.default()
+        self.strategy_labels = {
+            component.component_id: component.label
+            for component in self.strategy_registry.components
+        }
 
     def build(
         self,
@@ -34,6 +46,7 @@ class DailyBriefBuilder:
         risk_alerts = self._risk_alerts(row=row, latest=latest, risks=risks)
         positive_catalysts = self._positive_catalysts(row=row, triggers=triggers)
         action_checklist = self._action_checklist(row=row, trade_plan=trade_plan, verdict=verdict)
+        strategy_route = self._strategy_route(row)
 
         return {
             "schema_version": SCHEMA_VERSION,
@@ -43,6 +56,7 @@ class DailyBriefBuilder:
             "risk_alerts": risk_alerts,
             "positive_catalysts": positive_catalysts,
             "action_checklist": action_checklist,
+            "strategy_route": strategy_route,
             "data_coverage": self._data_coverage(row),
         }
 
@@ -172,6 +186,45 @@ class DailyBriefBuilder:
 
         return self._dedupe(checklist)
 
+    def _strategy_route(self, row: pd.Series) -> dict[str, Any]:
+        regime = str(row.get("strategy_route_regime") or row.get("market_regime") or "").strip()
+        production = self._route_items(row.get("strategy_route_production"))
+        shadow = self._route_items(row.get("strategy_route_shadow"))
+        report_only = self._route_items(row.get("strategy_route_report_only"))
+        blocked = self._route_items(row.get("strategy_route_blocked"))
+        production_mutates = self._truthy(row.get("strategy_route_mutates_production_score"))
+
+        if not any([regime, production, shadow, report_only, blocked]):
+            return {
+                "status": "missing",
+                "regime": None,
+                "production": [],
+                "shadow": [],
+                "report_only": [],
+                "blocked": [],
+                "production_mutates_score": False,
+                "summary": "ranking artifact 尚未提供策略路由欄位。",
+            }
+
+        summary_parts = []
+        if production:
+            summary_parts.append("正式生效：" + "、".join(item["label"] for item in production))
+        if shadow:
+            summary_parts.append("影子觀察：" + "、".join(item["label"] for item in shadow[:3]))
+        if report_only:
+            summary_parts.append("報告提示：" + "、".join(item["label"] for item in report_only[:3]))
+
+        return {
+            "status": "supported",
+            "regime": regime or None,
+            "production": production,
+            "shadow": shadow,
+            "report_only": report_only,
+            "blocked": blocked,
+            "production_mutates_score": production_mutates,
+            "summary": "；".join(summary_parts) if summary_parts else "此盤勢沒有啟用策略元件。",
+        }
+
     def _data_coverage(self, row: pd.Series) -> list[dict[str, str]]:
         coverage = [
             {
@@ -194,8 +247,26 @@ class DailyBriefBuilder:
                 "status": NOT_SUPPORTED,
                 "reason": "本切片只產生可推送 artifact，通知渠道會在後續切片接入。",
             },
+            {
+                "field": "strategy_route",
+                "status": "supported" if row.get("strategy_route_regime") else "missing",
+                "reason": "來自 StrategyComponentRegistry 的盤勢策略路由；shadow/report_only 不改正式排名。",
+            },
         ]
         return coverage
+
+    def _route_items(self, value: Any) -> list[dict[str, str]]:
+        if value is None or pd.isna(value):
+            return []
+        ids = [item for item in str(value or "").split("|") if item]
+        return [{"component_id": item, "label": self.strategy_labels.get(item, item)} for item in ids]
+
+    def _truthy(self, value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None or pd.isna(value):
+            return False
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
     def _compact_text(self, text: str) -> str:
         lines = [line.strip(" •") for line in text.splitlines() if line.strip()]

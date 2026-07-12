@@ -72,6 +72,7 @@ export function StockDetailPanel({
         </div>
       </div>
       <StockReferenceStrip reference={reference} selectedRanking={selectedRanking} />
+      <StrategyRouteStrip selectedRanking={selectedRanking} />
 
       <div className="stock-detail-layout">
         <DetailSection eyebrow="Price" title="K 線工作台">
@@ -103,6 +104,66 @@ export function StockDetailPanel({
         />
       </div>
     </Panel>
+  )
+}
+
+const strategyComponentLabels: Record<string, string> = {
+  base_regime_risk_multiplier: '盤勢風險倍率',
+  high_entry_chase_protection: '高位防追高',
+  selloff_protection: '急殺保護',
+  strong_trend_hold: '強趨勢續抱',
+  concentration_control: '集中度控制',
+  vwap_regime_gated_entry: 'VWAP 進場品質',
+  candidate_ranking_source: '候選排名來源',
+  trail10_exit_rule: 'Trail10 出場',
+  chip_warning_overlay: '籌碼警示',
+  feature_group_k9_shadow_fill: 'K9 補位',
+  industry_theme_context: '產業題材上下文',
+}
+
+function StrategyRouteStrip({ selectedRanking }: { selectedRanking?: RankingItem }) {
+  const production = strategyRouteLabels(selectedRanking?.strategy_route_production)
+  const shadow = strategyRouteLabels(selectedRanking?.strategy_route_shadow)
+  const reportOnly = strategyRouteLabels(selectedRanking?.strategy_route_report_only)
+  const blocked = strategyRouteLabels(selectedRanking?.strategy_route_blocked)
+  const regime = selectedRanking?.strategy_route_regime ?? selectedRanking?.market_regime
+
+  if (!regime && production.length === 0 && shadow.length === 0 && reportOnly.length === 0 && blocked.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="strategy-route-strip" aria-label="策略路由">
+      <div className="strategy-route-strip__header">
+        <span>Strategy Route</span>
+        <strong>{regime ?? 'UNKNOWN'}</strong>
+      </div>
+      <div className="strategy-route-grid">
+        <StrategyRouteGroup label="正式" items={production} tone="production" />
+        <StrategyRouteGroup label="影子" items={shadow} tone="shadow" />
+        <StrategyRouteGroup label="報告" items={reportOnly} tone="report" />
+        <StrategyRouteGroup label="停用" items={blocked} tone="blocked" />
+      </div>
+      {selectedRanking?.strategy_route_mutates_production_score ? <small>正式分數由 production 元件影響</small> : null}
+    </section>
+  )
+}
+
+function StrategyRouteGroup({
+  items,
+  label,
+  tone,
+}: {
+  items: string[]
+  label: string
+  tone: 'production' | 'shadow' | 'report' | 'blocked'
+}) {
+  if (items.length === 0) return null
+  return (
+    <div className={`strategy-route-group strategy-route-group--${tone}`}>
+      <b>{label}</b>
+      <span>{items.slice(0, 4).join('、')}</span>
+    </div>
   )
 }
 
@@ -437,4 +498,8 @@ function splitReferenceText(value?: string | null): string[] {
     .split(/[|,、/]/)
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function strategyRouteLabels(value?: string | null): string[] {
+  return splitReferenceText(value).map((item) => strategyComponentLabels[item] ?? item)
 }

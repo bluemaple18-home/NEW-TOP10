@@ -38,6 +38,12 @@ class RankingItem(BaseModel):
     exposure_note: str | None = None
     risk_reward: float | None = None
     market_regime: str | None = None
+    strategy_route_regime: str | None = None
+    strategy_route_production: str | None = None
+    strategy_route_shadow: str | None = None
+    strategy_route_report_only: str | None = None
+    strategy_route_blocked: str | None = None
+    strategy_route_mutates_production_score: bool | None = None
     industry_code: str | None = None
     industry_name: str | None = None
     sector_name: str | None = None
@@ -68,6 +74,13 @@ class RankingItem(BaseModel):
     @classmethod
     def blank_numeric_to_none(cls, value: object) -> object:
         """ranking artifact 的空白數值代表缺值，不應讓 API contract 爆掉。"""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("strategy_route_mutates_production_score", mode="before")
+    @classmethod
+    def blank_bool_to_none(cls, value: object) -> object:
         if isinstance(value, str) and not value.strip():
             return None
         return value
