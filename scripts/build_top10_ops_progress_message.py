@@ -227,7 +227,7 @@ def render_ops_message(
     lines.extend(render_external_review_section(external_summary))
     lines.extend(render_strategy_archetype_section(strategy_map, artifacts_dir))
     lines.extend(render_pm_research_harness_section(pm_research_status, artifacts_dir))
-    lines.extend(render_research_decision_section(research_decision_brief))
+    lines.extend(render_research_decision_section(research_decision_brief, artifacts_dir))
     lines.extend(render_next_actions(problem_agents, external_summary))
     return "\n".join(lines).rstrip() + "\n"
 
@@ -241,6 +241,8 @@ def render_agent_rows(agents: list[dict[str, Any]]) -> list[str]:
         reason = translate_text(agent.get("failure_reason") or agent.get("next_action") or "沒有細節")
         if agent_id == "ai_review_adapter" and str(agent.get("failure_reason") or "").strip().lower() in {"chatgpt", "gemini"}:
             reason = f"{provider_label(agent.get('failure_reason'))} 尚未完成或需要複核。"
+        if agent_id == "pm_research_harness" and reason == "沒有細節":
+            reason = "等待審核卡或下一輪排程。"
         rows.append(f"- {status}｜{label}：{reason}")
     return rows
 
@@ -266,42 +268,37 @@ def render_external_review_section(external_summary: dict[str, Any] | None) -> l
                 rows.append(f"  - {translate_text(item.get('title') or item.get('type'))}：{translate_text(item.get('detail') or item.get('providers'))}")
     if today_misses:
         rows.append("- AI 認為今天可能漏看的點：")
-        for item in today_misses[:5]:
-            if isinstance(item, dict):
-                symbol = item.get("stock_id") or item.get("symbol") or item.get("name") or "未知標的"
-                reason = item.get("reason") or item.get("detail") or item.get("note") or item.get("provider")
-                rows.append(f"  - {symbol}：{translate_text(reason)}")
+        misses_by_reason: dict[str, list[str]] = {}
+        for item in today_misses[:8]:
+            if not isinstance(item, dict):
+                continue
+            symbol = str(item.get("stock_id") or item.get("symbol") or item.get("name") or "未知標的")
+            reason = translate_text(item.get("reason") or item.get("detail") or item.get("note") or item.get("provider") or "外部 AI")
+            misses_by_reason.setdefault(reason, []).append(symbol)
+        for reason, symbols in misses_by_reason.items():
+            rows.append(f"  - {reason} 提到 {format_list(symbols)} 可能漏看。")
     if not disagreements and not today_misses:
         rows.append("- 目前沒有明確反對點或今日漏看清單。")
     rows.append("")
     return rows
 
 
-def render_research_decision_section(brief: dict[str, Any] | None) -> list[str]:
+def render_research_decision_section(brief: dict[str, Any] | None, artifacts_dir: Path) -> list[str]:
     if not brief:
-        return ["需要你決策", "- 尚未產生研究決策 brief。", ""]
+        return ["審核決策", "- 尚未產生研究決策 brief；本頻道不展開 approve/reject 卡。", ""]
     requests = [item for item in list_value(brief.get("decision_requests")) if isinstance(item, dict)]
     rows = [
-        "需要你決策",
-        f"- 待拍板事項：`{len(requests)}`；決策檔：`{safe_ref(brief.get('_path'), ARTIFACTS_DIR)}`",
+        "審核決策",
+        f"- 待拍板事項：`{len(requests)}`；決策檔：`{safe_ref(brief.get('_path'), artifacts_dir)}`",
+        "- approve/reject 卡不在本頻道展開；正式決策請看 `#review-approval`。",
     ]
     if not requests:
         rows.append("- 目前沒有新的人工決策事項。")
         rows.append("")
         return rows
-    for item in requests[:5]:
-        card = item.get("pm_card") if isinstance(item.get("pm_card"), dict) else {}
-        if card:
-            rows.extend(render_pm_card_rows(card))
-            continue
-        title = translate_text(item.get("title") or "未命名決策")
-        recommended = translate_text(item.get("recommended_option") or "沒有建議")
-        priority = priority_label(item.get("priority"))
-        options = " / ".join(translate_text(option) for option in list_value(item.get("options")))
-        rows.append(f"- {priority}｜{title}")
-        rows.append(f"  建議：{recommended}")
-        if options:
-            rows.append(f"  選項：{options}")
+    preview_titles = [translate_text(item.get("title") or "未命名決策") for item in requests[:3]]
+    if preview_titles:
+        rows.append("- 類型預覽：" + "；".join(preview_titles))
     rows.append("")
     return rows
 
@@ -311,19 +308,18 @@ def render_strategy_archetype_section(strategy_map: dict[str, Any] | None, artif
         return ["策略研究地圖", "- 尚未產生 strategy archetype evidence map。", ""]
     thesis = strategy_map.get("market_thesis") if isinstance(strategy_map.get("market_thesis"), dict) else {}
     archetypes = [item for item in list_value(strategy_map.get("archetypes")) if isinstance(item, dict)]
+    priority_items = sorted(archetypes, key=lambda item: int(item.get("priority") or 999))[:2]
     rows = [
         "策略研究地圖",
-        f"- 盤面語意：{translate_text(thesis.get('label') or '未知')}",
+        f"- 目前盤面：{translate_text(thesis.get('label') or '未知')}。",
         f"- 證據檔：`{safe_ref(strategy_map.get('_path'), artifacts_dir)}`",
     ]
-    for item in archetypes[:4]:
-        evidence = item.get("current_evidence") if isinstance(item.get("current_evidence"), dict) else {}
-        rows.append(
-            f"- {item.get('priority')}｜{translate_text(item.get('label'))}："
-            f"next_action `{evidence.get('next_action_count', 0)}`；"
-            f"followup `{evidence.get('followup_signal_count', 0)}`；"
-            f"狀態 `{evidence.get('evidence_status', 'unknown')}`"
-        )
+    if priority_items:
+        labels = [translate_text(item.get("label")) for item in priority_items]
+        rows.append(f"- 優先研究：{format_list(labels)}。")
+        for item in priority_items:
+            evidence = item.get("current_evidence") if isinstance(item.get("current_evidence"), dict) else {}
+            rows.append(f"- {translate_text(item.get('label'))}：{evidence_status_label(evidence.get('evidence_status'))}")
     rows.append("")
     return rows
 
@@ -331,17 +327,32 @@ def render_strategy_archetype_section(strategy_map: dict[str, Any] | None, artif
 def render_pm_research_harness_section(status: dict[str, Any] | None, artifacts_dir: Path) -> list[str]:
     if not status:
         return ["PM 研究核准 loop", "- 尚未產生 PM research harness status。", ""]
+    topic_runs = int(status.get("topic_runs") or 0)
+    pending_count = int(status.get("pending_approval_count") or 0)
+    no_approval_runs = int(status.get("consecutive_no_approval_runs") or 0)
+    max_runs = int(status.get("max_continuation_runs") or 0)
+    loop_enabled = bool(status.get("loop_enabled_after"))
     rows = [
         "PM 研究核准 loop",
-        f"- 狀態：`{status.get('status', 'unknown')}`；topic runs：`{status.get('topic_runs', 0)}`；loop enabled：`{status.get('loop_enabled_after')}`",
-        f"- 新 PM 核准：`{status.get('pending_approval_count', 0)}`；連續無新核准延續：`{status.get('consecutive_no_approval_runs', 0)}/{status.get('max_continuation_runs', '?')}`",
-        f"- Discord 發卡：sent `{status.get('pm_review_cards_sent')}`；dry-run `{status.get('pm_review_cards_dry_run')}`",
+        f"- 狀態：{pm_loop_status_text(status)}",
         f"- 證據檔：`{safe_ref(status.get('_path'), artifacts_dir)}`",
     ]
+    if pending_count:
+        rows.append(f"- 收到 {pending_count} 件新核准，會排入研究 loop。")
+    if topic_runs:
+        rows.append(f"- 本輪已執行 {topic_runs} 個研究題。")
+    if not loop_enabled and max_runs and no_approval_runs >= max_runs:
+        rows.append("- 已達連續等待上限，暫停自動延續，等下一張審核卡。")
+    elif not loop_enabled:
+        rows.append("- 目前未啟用自動延續，等待 PM 核准。")
+    else:
+        rows.append(f"- 研究 loop 仍在延續；無新核准連續 {no_approval_runs}/{max_runs} 輪。")
     if status.get("research_artifact"):
         rows.append(f"- 研究產物：`{status.get('research_artifact')}`")
     if status.get("pm_review_run_dir"):
-        rows.append(f"- 下一輪 PM 卡：`{status.get('pm_review_run_dir')}`")
+        rows.append(f"- 下一輪審核卡：`{status.get('pm_review_run_dir')}`")
+    elif not status.get("pm_review_cards_sent"):
+        rows.append("- 本輪沒有新審核卡送出。")
     rows.append("")
     return rows
 
@@ -377,7 +388,7 @@ def render_next_actions(problem_agents: list[dict[str, Any]], external_summary: 
         disagreements = list_value(external_summary.get("disagreements"))
         today_misses = list_value(external_summary.get("today_misses"))
         if disagreements or today_misses:
-            actions.append("把外部 AI 反對點轉成 research card；不能直接改 ranking。")
+            actions.append("外部 AI 分歧已記錄；需要拍板時會另送 #review-approval。")
     if not actions:
         actions.append("等待下一輪 daily 或 external review。")
     rows = ["下一步"]
@@ -410,6 +421,37 @@ def yes_no(value: bool) -> str:
     return "是" if value else "否"
 
 
+def format_list(values: list[str]) -> str:
+    clean = [value for value in values if value]
+    if not clean:
+        return "無"
+    if len(clean) == 1:
+        return clean[0]
+    return "、".join(clean[:-1]) + "、" + clean[-1]
+
+
+def evidence_status_label(value: Any) -> str:
+    text = str(value or "unknown")
+    labels = {
+        "PARTIAL_MECHANISM_EVIDENCE": "已有部分機制證據，還不能直接升正式規則。",
+        "NEEDS_TRIGGER_VALIDATION": "方向值得追，但要先驗證觸發條件。",
+        "SECOND_PRIORITY": "列為第二順位，先不搶主線資源。",
+        "OK": "已有可用證據，仍需依 promotion gate 判定。",
+        "unknown": "證據狀態不明，先保留觀察。",
+    }
+    return labels.get(text, translate_text(text))
+
+
+def pm_loop_status_text(status: dict[str, Any]) -> str:
+    base = str(status.get("status") or "unknown")
+    loop_enabled = bool(status.get("loop_enabled_after"))
+    if base == "OK" and loop_enabled:
+        return "正常，研究 loop 可繼續。"
+    if base == "OK":
+        return "正常，但目前暫停自動延續。"
+    return translate_text(base)
+
+
 def priority_label(value: Any) -> str:
     return {"high": "高", "medium": "中", "low": "低"}.get(str(value), "未分級")
 
@@ -434,6 +476,7 @@ def translate_text(value: Any) -> str:
         "provider": "外部 AI",
         "reviewer": "外部檢核",
         "review": "檢核",
+        "#檢核-approval": "#review-approval",
         "summary": "摘要",
         "manual": "人工",
         "required": "需要",

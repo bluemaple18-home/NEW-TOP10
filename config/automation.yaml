@@ -125,6 +125,9 @@ notify:
   ops_clawd_channel: "discord"
   ops_clawd_to: "channel:1519179377336651796"
   ops_clawd_dry_run: false
+  review_approval_clawd_channel: "discord"  # PM approve/reject 決策卡；不承載一般進度或 GPT review 摘要
+  review_approval_clawd_to: "channel:1523986945955463188"
+  review_approval_clawd_dry_run: false
   clawd_cli_node: "/opt/homebrew/opt/node/bin/node"
   clawd_cli_entry: "/Users/mattkuo/new clawd/dist/index.js"
   llm_rewrite_enabled: true  # 推播訊息最後交給免費 LLM 金鑰輪換做操盤手口吻改寫；失敗不阻斷 daily

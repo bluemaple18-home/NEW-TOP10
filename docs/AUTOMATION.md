@@ -128,7 +128,7 @@ repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scri
 | 驗證與合併 | `disagreement_next_actions` | `build_external_review_summary.py` / `verify_external_review_summary.py` | 只產生分歧、人工複核與研究題目，不改 ranking。 |
 | 研究交接 | `fog_map` | `run_top10_fog_map_handoff.py` | 把外部檢核分歧變成迷霧訊號與研究 queue，並刷新同頁的候選策略隊列、研究團隊 Console、證據閘門與需要決策區。 |
 | 決策 brief | `ops_reporter` | `build_research_decision_brief.py` | 彙整外部 AI 分歧、研究 queue、模型候選中需要 PM 拍板的事項。 |
-| 工作回報 | `ops_reporter` | `build_top10_ops_progress_message.py` / `send_top10_ops_report.py` | 送工作進度頻道，回報文字與決策事項必須是中文。 |
+| 工作回報 | `ops_reporter` | `build_top10_ops_progress_message.py` / `send_top10_ops_report.py` | 送工作進度頻道，回報文字必須是中文；只提示待審核數與 brief 路徑，不展開 approve/reject 決策卡。 |
 
 成功條件：ChatGPT 與 Gemini 正式 raw response 都必須至少 500 字、不得是 smoke marker，且 normalize / contract verify 通過。任何 provider 失敗都不得被補成假成功；單一 provider 成功只能是 `PARTIAL`，兩個都失敗就是 `FAILED`。
 
@@ -137,7 +137,20 @@ repo 內 `scripts/com.new-top10.external-review.plist` 預設 17:50 執行 `scri
 - `artifacts/research_decisions/research_decision_brief_YYYY-MM-DD.json`
 - `artifacts/research_decisions/research_decision_brief_YYYY-MM-DD.md`
 
-這個 brief 只做「要不要進下一階段研究 / shadow monitor / 人工複核」的決策提示，不允許直接改 ranking、訓練模型或 promotion。`scripts/send_top10_ops_report.py` 在送工作進度頻道前會自動重建 brief，並把「需要你決策」區塊放進中文回報。
+這個 brief 只做「要不要進下一階段研究 / shadow monitor / 人工複核」的決策提示，不允許直接改 ranking、訓練模型或 promotion。`scripts/send_top10_ops_report.py` 在送工作進度頻道前會自動重建 brief，但工作進度訊息只提示待審核數與 brief 路徑；approve/reject 決策卡由 PM research harness 送往 `notify.review_approval_clawd_to`。
+
+TOP10 Discord 路由檢查只驗本 repo，不掃其他共用頻道的專案設定：
+
+```bash
+.venv/bin/python scripts/verify_discord_channel_routing.py
+```
+
+新增或切換 Discord 頻道時，不能只用「訊息送達」判定打通。審核卡頻道至少要同時通過：
+
+- TOP10 `config/automation.yaml` 指向正確 `channel:<id>`。
+- OpenClaw `channels.discord.guilds.*.channels` 也列入同一個 channel id，且允許按鈕互動。
+- 實送測試卡後，PM 點按鈕不會被 Discord component authorization 擋下，且決策能寫回 artifact。
+- TOP10 PM 審核卡按鈕設定為約 7 天有效；卡片只保留短 fallback 提示，過期或無法使用時由 Codex 重送同一張卡，避免每張卡展開多行備援指令。
 
 ### `scripts/run_fog_research_worker.sh`
 **功能**: 受 harness 管控的 burn-down 研究 worker；launchd 每 15 分鐘觸發一次，但同一時間只允許一個 lock。每次啟動最多連跑 6 批或 2 小時，先消費本地白名單 research quota，刷新 Fog Map；若 research queue 空，會在同一個 lock 裡接著執行 representative replay drain，append run_history，重建 controlled-grid linkage，再刷新 Fog Map。它不送 ChatGPT/Gemini、不改 ranking/model、不取代 17:50 external-review handoff。
@@ -157,7 +170,18 @@ bash scripts/run_fog_research_worker.sh
 ```
 
 ### `scripts/run_pm_research_harness_loop.sh`
-**功能**: PM approval → research harness → 下一輪 PM review card 的受控迴圈。它只消費 `TOP10_STOCK` PM 核准卡，將核准研究轉成 `approved_work_queue` / `research_cards_YYYY-MM-DD.jsonl`，再啟動既有 autonomous research runner 產生 evidence 與下一輪決策卡。不改 ranking、不訓練模型、不推播正式報牌。
+**功能**: PM approval → research harness → 下一輪 PM review card 的受控迴圈。它只消費 `TOP10_STOCK` PM 核准卡，將核准研究轉成 `approved_work_queue` / `research_cards_YYYY-MM-DD.jsonl`，再啟動既有 autonomous research runner 產生 evidence 與下一輪決策卡。不改 ranking、不訓練模型、不推播正式報牌。PM approve/reject/defer/needs_review 決策卡預設送 `notify.review_approval_clawd_to`；一般 ops、blocker、external review 摘要仍送 `notify.ops_clawd_to`。
+
+PM 審核卡四種決策會寫入同一個 `pm_decision_state.json`，並同步維護每個 run_dir 底下的任務池：
+
+- `approved_research_queue.jsonl`: `approve`，允許進下一步 research-only 處理。
+- `deferred_review_queue.jsonl`: `defer`，先擱置，預設 `deferred_until` 為隔天台北時間 09:00，後續由重送流程撈回。
+- `clarification_queue.jsonl`: `needs_review`，要求 agent 重寫更清楚的審核卡，補齊決策目的、核准後果、拒絕後果、證據路徑與 production 邊界。
+- `rejected_archive.jsonl`: `reject`，關閉此卡並保留 `reason: unspecified`；未來類似題目只有在有新證據或條件改變時才可重提，且必須揭露歷史 reject。
+
+核准後的排隊規則：`research_worker`、`pm_research_harness` 與 `disagreement_next_actions` 都會被轉成 research queue item。`disagreement_next_actions` 代表外部檢核分歧處置，核准後會進 `approved_work_queue.json` / `research_cards_YYYY-MM-DD.jsonl` 等待研究流程排隊處理；它不代表立即改 ranking，也不代表立刻自動 production 執行。
+
+補說明池由 `scripts/build_pm_clarification_review_cards.py` 處理。它會讀取指定 run_dir 的 `clarification_queue.jsonl`，產生新的 `*-clarification-resend-*` review-card run_dir，保留 `source_card_id` 與原證據，並把卡片重寫成去重後的 PM 任務卡：一句話問題、要 PM 決定什麼、證據與邊界。它不在卡片內展開四顆按鈕的使用教學，也不得用「背景 / 目前問題 / 請你判斷 / 建議動作 / 為什麼現在要決定 / 要你拍板」拆段重複同一件事。預設使用 deterministic 模板；加 `--use-llm` 時才會用 Gemini 重寫，並由本地 validator 擋住交易建議、production 承諾、舊式重複標題與缺少 research-only 邊界的輸出。LLM 失敗會寫入 `llm_results.status=FALLBACK` 並保留模板卡。預設只產 artifact；加 `--send-cards` 才會透過 OpenClaw gateway 重送到 `notify.review_approval_clawd_to`。
 
 **啟動邊界**:
 1. repo wrapper 預設 `TOP10_PM_RESEARCH_ENABLED=0`，避免手動誤跑；正式 launchd plist 會明確帶 `TOP10_PM_RESEARCH_ENABLED=1` 讓研究 loop 持續執行。

@@ -5,7 +5,7 @@
 - 讀 PM decision state / approved work queue。
 - 觸發既有 autonomous research runner。
 - 產生下一輪 PM 審核卡。
-- 可選擇透過 OpenClaw gateway 送到 ops Discord 頻道。
+- 可選擇透過 OpenClaw gateway 送到 review-approval Discord 頻道。
 
 不改 ranking、不訓練模型、不改推播。
 """
@@ -491,7 +491,7 @@ def gateway_defaults(config: dict[str, Any]) -> tuple[str, str, str]:
     notify = config.get("notify") if isinstance(config.get("notify"), dict) else {}
     node_bin = str(notify.get("clawd_cli_node") or "/opt/homebrew/opt/node/bin/node")
     openclaw_entry = str(Path.home() / "new clawd" / "openclaw.mjs")
-    target = str(notify.get("ops_clawd_to") or "channel:1519179377336651796")
+    target = str(notify.get("review_approval_clawd_to") or notify.get("ops_clawd_to") or "channel:1519179377336651796")
     return node_bin, openclaw_entry, target
 
 

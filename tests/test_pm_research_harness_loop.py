@@ -6,10 +6,22 @@ import unittest
 from pathlib import Path
 
 from scripts import run_pm_research_harness_loop as harness_loop
-from scripts.run_pm_research_harness_loop import export_pm_review_cards, load_state
+from scripts.run_pm_research_harness_loop import export_pm_review_cards, gateway_defaults, load_state
 
 
 class PMResearchHarnessLoopTests(unittest.TestCase):
+    def test_gateway_defaults_prefers_review_approval_target(self):
+        _node, _entry, target = gateway_defaults(
+            {
+                "notify": {
+                    "ops_clawd_to": "channel:1519179377336651796",
+                    "review_approval_clawd_to": "channel:1523986945955463188",
+                }
+            }
+        )
+
+        self.assertEqual(target, "channel:1523986945955463188")
+
     def test_exports_unsent_research_decisions_as_pm_review_cards(self):
         with tempfile.TemporaryDirectory() as tmp:
             brief_path = Path(tmp) / "brief.json"

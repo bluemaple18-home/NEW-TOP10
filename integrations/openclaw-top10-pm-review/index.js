@@ -5,7 +5,9 @@ import { pathToFileURL } from "node:url";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
   DECISION_NAMESPACE,
+  DEFAULT_COMPONENT_TTL_MS,
   PROJECT_DOMAIN,
+  buildDecisionPools,
   buildDecisionPayload,
   buildReviewComponentSpec,
   buildFailureText,
@@ -48,8 +50,22 @@ async function writeJson(filePath, value) {
 async function writeJsonl(filePath, rows) {
   await writeFile(
     filePath,
-    rows.map((row) => JSON.stringify(row, Object.keys(row).sort())).join("\n") + (rows.length ? "\n" : ""),
+    rows.map((row) => JSON.stringify(sortJsonValue(row))).join("\n") + (rows.length ? "\n" : ""),
     "utf8",
+  );
+}
+
+function sortJsonValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(sortJsonValue);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, sortJsonValue(value[key])]),
   );
 }
 
@@ -95,7 +111,7 @@ function assertTop10StockCardsPayload(cardsPayload) {
   return cards;
 }
 
-function reportText({ runDir, state, approvedRows }) {
+function reportText({ runDir, state, approvedRows, deferredRows, clarificationRows, rejectedRows }) {
   const cards = state.cards || {};
   const lines = [
     "# TOP10 PM Decisions",
@@ -106,6 +122,9 @@ function reportText({ runDir, state, approvedRows }) {
     "",
     `- decided_cards: ${Object.keys(cards).length}`,
     `- approved_items: ${approvedRows.length}`,
+    `- deferred_items: ${deferredRows.length}`,
+    `- clarification_items: ${clarificationRows.length}`,
+    `- rejected_items: ${rejectedRows.length}`,
     `- run_dir: \`${runDir}\``,
     "",
     "## Cards",
@@ -132,10 +151,31 @@ function reportText({ runDir, state, approvedRows }) {
   for (const row of approvedRows) {
     lines.push(`- \`${row.card_id}\` -> \`${row.owner}\` / \`${row.next_harness}\``);
   }
+  lines.push("", "## Deferred Queue", "");
+  if (deferredRows.length === 0) {
+    lines.push("目前沒有延後等待重送的卡。", "");
+  }
+  for (const row of deferredRows) {
+    lines.push(`- \`${row.card_id}\` -> next review after \`${row.deferred_until}\``);
+  }
+  lines.push("", "## Clarification Queue", "");
+  if (clarificationRows.length === 0) {
+    lines.push("目前沒有等待補說明的卡。", "");
+  }
+  for (const row of clarificationRows) {
+    lines.push(`- \`${row.card_id}\` -> \`${row.required_action}\``);
+  }
+  lines.push("", "## Rejected Archive", "");
+  if (rejectedRows.length === 0) {
+    lines.push("目前沒有已否決封存的卡。", "");
+  }
+  for (const row of rejectedRows) {
+    lines.push(`- \`${row.card_id}\` -> reason \`${row.reason}\``);
+  }
   return lines.join("\n");
 }
 
-async function applyDecision(top10Root, payload, decidedAt) {
+export async function applyDecision(top10Root, payload, decidedAt) {
   const parsed = parseDecisionData(payload);
   const runPath = repoPath(top10Root, parsed.run_dir);
   await mkdir(runPath, { recursive: true });
@@ -152,6 +192,9 @@ async function applyDecision(top10Root, payload, decidedAt) {
   const statePath = path.join(runPath, "pm_decision_state.json");
   const historyPath = path.join(runPath, "pm_decisions.jsonl");
   const approvedPath = path.join(runPath, "approved_research_queue.jsonl");
+  const deferredPath = path.join(runPath, "deferred_review_queue.jsonl");
+  const clarificationPath = path.join(runPath, "clarification_queue.jsonl");
+  const rejectedPath = path.join(runPath, "rejected_archive.jsonl");
   const manifestPath = path.join(runPath, "pm_decision_manifest.json");
   const reportPath = path.join(runPath, "pm_decisions.md");
   const state = loadState(await readJson(statePath, {}));
@@ -176,26 +219,15 @@ async function applyDecision(top10Root, payload, decidedAt) {
   state.history = state.history.slice(-200);
   state.updated_at = decidedAt;
 
-  const approvedRows = [];
-  for (const stateCard of Object.values(state.cards)) {
-    if (stateCard.decision !== "approve") {
-      continue;
-    }
-    approvedRows.push({
-      card_id: stateCard.card_id,
-      title: stateCard.title,
-      owner: stateCard.owner,
-      next_harness: stateCard.next_harness,
-      project_domain: PROJECT_DOMAIN,
-      decision: "approve",
-      decided_at: stateCard.decided_at,
-    });
-  }
+  const { approvedRows, deferredRows, clarificationRows, rejectedRows } = buildDecisionPools(state);
 
   const artifacts = {
     state: `${parsed.run_dir}/pm_decision_state.json`,
     history: `${parsed.run_dir}/pm_decisions.jsonl`,
     approved_research_queue: `${parsed.run_dir}/approved_research_queue.jsonl`,
+    deferred_review_queue: `${parsed.run_dir}/deferred_review_queue.jsonl`,
+    clarification_queue: `${parsed.run_dir}/clarification_queue.jsonl`,
+    rejected_archive: `${parsed.run_dir}/rejected_archive.jsonl`,
     report: `${parsed.run_dir}/pm_decisions.md`,
   };
   const manifest = {
@@ -208,6 +240,9 @@ async function applyDecision(top10Root, payload, decidedAt) {
     card_ids: selectedIds,
     updated_cards: updatedCards,
     approved_count: approvedRows.length,
+    deferred_count: deferredRows.length,
+    clarification_count: clarificationRows.length,
+    rejected_count: rejectedRows.length,
     write_mode: "openclaw_plugin_js",
     artifacts,
   };
@@ -215,7 +250,14 @@ async function applyDecision(top10Root, payload, decidedAt) {
   await writeJson(statePath, state);
   await writeJsonl(historyPath, state.history);
   await writeJsonl(approvedPath, approvedRows);
-  await writeFile(reportPath, `${reportText({ runDir: parsed.run_dir, state, approvedRows })}\n`, "utf8");
+  await writeJsonl(deferredPath, deferredRows);
+  await writeJsonl(clarificationPath, clarificationRows);
+  await writeJsonl(rejectedPath, rejectedRows);
+  await writeFile(
+    reportPath,
+    `${reportText({ runDir: parsed.run_dir, state, approvedRows, deferredRows, clarificationRows, rejectedRows })}\n`,
+    "utf8",
+  );
   await writeJson(manifestPath, manifest);
   return { parsed, manifest };
 }
@@ -236,6 +278,16 @@ async function sendDecisionResponse(ctx, text) {
   }
   if (editedOriginal) {
     return;
+  }
+  await ctx.respond.reply({ text, ephemeral: true });
+}
+
+async function sendDecisionFailureResponse(ctx, text) {
+  try {
+    await ctx.respond.followUp({ text, ephemeral: false });
+    return;
+  } catch {
+    // 若公開回覆失敗，至少讓點擊者看到中文錯誤與 fallback。
   }
   await ctx.respond.reply({ text, ephemeral: true });
 }
@@ -297,6 +349,7 @@ async function sendReviewCards(api, params) {
     const result = await sendDiscordComponentMessage(target, entry.spec, {
       cfg: api.config,
       accountId,
+      componentTtlMs: DEFAULT_COMPONENT_TTL_MS,
     });
     sent.push({ card_id: entry.card_id, result });
   }
@@ -394,10 +447,7 @@ export default definePluginEntry({
           });
           await sendDecisionResponse(ctx, text);
         } catch (error) {
-          await ctx.respond.reply({
-            text: buildFailureText(error),
-            ephemeral: true,
-          });
+          await sendDecisionFailureResponse(ctx, buildFailureText(error));
         }
         return { handled: true };
       },

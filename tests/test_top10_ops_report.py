@@ -49,9 +49,13 @@ class Top10OpsReportTest(unittest.TestCase):
             self.assertIn("資料品質閘門", message)
             self.assertIn("2330 只有這個外部 AI 標記 Gemini", message)
             self.assertIn("2317", message)
-            self.assertIn("需要你決策", message)
-            self.assertIn("同意轉成研究卡", message)
-            self.assertIn("不能直接改排名", message)
+            self.assertIn("審核決策", message)
+            self.assertIn("待拍板事項：`1`", message)
+            self.assertIn("#review-approval", message)
+            self.assertIn("外部 AI 檢核有分歧，需要決定後續處置", message)
+            self.assertNotIn("同意轉成研究卡", message)
+            self.assertNotIn("不能直接改排名", message)
+            self.assertIn("需要拍板時會另送 #review-approval", message)
 
     def test_build_research_decision_brief_collects_external_and_queue_decisions(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -182,10 +186,14 @@ class Top10OpsReportTest(unittest.TestCase):
                 artifacts_dir=artifacts,
                 research_decision_brief=brief,
             )
-            self.assertIn(card["card_id"], message)
-            self.assertIn("處理哪裡", message)
-            self.assertIn("可能提升", message)
-            self.assertIn("按鈕", message)
+            self.assertIn("審核決策", message)
+            self.assertIn("待拍板事項：`1`", message)
+            self.assertIn("#review-approval", message)
+            self.assertIn("每日報牌復盤觸發研究候選", message)
+            self.assertNotIn(card["card_id"], message)
+            self.assertNotIn("處理哪裡", message)
+            self.assertNotIn("可能提升", message)
+            self.assertNotIn("按鈕", message)
 
     def test_write_ops_event_updates_rollup(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -251,8 +259,79 @@ class Top10OpsReportTest(unittest.TestCase):
                 pm_research_status=pm_status,
             )
             self.assertIn("PM 研究核准 loop", message)
-            self.assertIn("topic runs：`2`", message)
-            self.assertIn("連續無新核准延續：`3/8`", message)
+            self.assertIn("本輪已執行 2 個研究題", message)
+            self.assertIn("研究 loop 仍在延續", message)
+            self.assertNotIn("topic runs", message)
+            self.assertNotIn("loop enabled", message)
+
+    def test_ops_message_summarizes_strategy_map_without_internal_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            strategy_map = {
+                "_path": artifacts / "research_council" / "strategy_archetype_evidence_map_2026-06-24.json",
+                "market_thesis": {"label": "強趨勢 + 高波動"},
+                "archetypes": [
+                    {
+                        "priority": 1,
+                        "label": "高位防追高型",
+                        "current_evidence": {
+                            "next_action_count": 13,
+                            "followup_signal_count": 0,
+                            "evidence_status": "PARTIAL_MECHANISM_EVIDENCE",
+                        },
+                    },
+                    {
+                        "priority": 2,
+                        "label": "急殺保護型",
+                        "current_evidence": {
+                            "next_action_count": 14,
+                            "followup_signal_count": 20,
+                            "evidence_status": "NEEDS_TRIGGER_VALIDATION",
+                        },
+                    },
+                ],
+            }
+
+            message = render_ops_message(
+                sample_rollup(),
+                None,
+                rollup_path=artifacts / "harness_status" / "2026-06-24" / "daily-2026-06-24" / "rollup.json",
+                artifacts_dir=artifacts,
+                strategy_map=strategy_map,
+            )
+
+            self.assertIn("目前盤面：強趨勢 + 高波動。", message)
+            self.assertIn("優先研究：高位防追高型、急殺保護型。", message)
+            self.assertIn("已有部分機制證據", message)
+            self.assertIn("先驗證觸發條件", message)
+            self.assertNotIn("next_action", message)
+            self.assertNotIn("followup", message)
+
+    def test_ops_message_translates_pending_pm_loop_without_empty_detail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            rollup = {
+                "run_date": "2026-06-24",
+                "run_id": "daily-2026-06-24",
+                "status": "warning",
+                "summary": {"agent_count": 15, "event_count": 14, "failed_count": 0, "warning_count": 1, "missing_count": 1},
+                "agents": [
+                    {
+                        "agent_id": "pm_research_harness",
+                        "status": "pending",
+                    }
+                ],
+            }
+
+            message = render_ops_message(
+                rollup,
+                None,
+                rollup_path=artifacts / "harness_status" / "2026-06-24" / "daily-2026-06-24" / "rollup.json",
+                artifacts_dir=artifacts,
+            )
+
+            self.assertIn("等待審核卡或下一輪排程", message)
+            self.assertNotIn("沒有細節", message)
 
 
 def sample_rollup() -> dict:

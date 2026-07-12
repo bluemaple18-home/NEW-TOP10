@@ -18,6 +18,8 @@ export const DECISION_BUTTONS = [
 const ALLOWED_DECISIONS = new Set(Object.keys(DECISION_LABELS));
 const ALLOWED_SCOPES = new Set(["card", "run"]);
 const RUN_DIR_PREFIX = "artifacts/pm_review_cards/";
+export const DEFAULT_COMPONENT_TTL_DAYS = 7;
+export const DEFAULT_COMPONENT_TTL_MS = DEFAULT_COMPONENT_TTL_DAYS * 24 * 60 * 60 * 1000;
 const DECISION_ALIASES = new Map([
   ["approve", "approve"],
   ["approved", "approve"],
@@ -102,6 +104,90 @@ export function normalizeDecisionInput(value) {
   return decision;
 }
 
+export function nextTaipeiReviewAt(decidedAt) {
+  const decidedDate = new Date(decidedAt);
+  if (Number.isNaN(decidedDate.getTime())) {
+    throw new Error(`invalid decided_at: ${decidedAt}`);
+  }
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Taipei",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .formatToParts(decidedDate)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  const nextReview = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), 1, 0, 0));
+  nextReview.setUTCDate(nextReview.getUTCDate() + 1);
+  return nextReview.toISOString();
+}
+
+function basePoolRow(stateCard) {
+  return {
+    card_id: stateCard.card_id,
+    title: stateCard.title,
+    owner: stateCard.owner,
+    next_harness: stateCard.next_harness,
+    project_domain: PROJECT_DOMAIN,
+    decision: stateCard.decision,
+    decided_at: stateCard.decided_at,
+    run_dir: stateCard.run_dir,
+  };
+}
+
+export function buildDecisionPools(state) {
+  const cards = state?.cards && typeof state.cards === "object" ? state.cards : {};
+  const approvedRows = [];
+  const deferredRows = [];
+  const clarificationRows = [];
+  const rejectedRows = [];
+  for (const stateCard of Object.values(cards)) {
+    if (stateCard.decision === "approve") {
+      approvedRows.push({
+        ...basePoolRow(stateCard),
+        decision: "approve",
+        status: "queued",
+      });
+    }
+    if (stateCard.decision === "defer") {
+      deferredRows.push({
+        ...basePoolRow(stateCard),
+        status: "deferred",
+        deferred_until: nextTaipeiReviewAt(stateCard.decided_at),
+        defer_policy: "next_day_09_taipei",
+        resume_action: "resend_review_card",
+        reason: "PM 延後",
+      });
+    }
+    if (stateCard.decision === "needs_review") {
+      clarificationRows.push({
+        ...basePoolRow(stateCard),
+        status: "needs_clarification",
+        required_action: "rewrite_review_card_with_clearer_context",
+        clarification_targets: [
+          "這張卡要 PM 決定什麼",
+          "核准後會發生什麼",
+          "不核准會停止什麼",
+          "需要看的證據路徑",
+          "決策邊界與非 production 承諾",
+        ],
+      });
+    }
+    if (stateCard.decision === "reject") {
+      rejectedRows.push({
+        ...basePoolRow(stateCard),
+        status: "closed",
+        reason: "unspecified",
+        future_reconsideration_policy: "allow_only_with_new_evidence_or_changed_conditions",
+      });
+    }
+  }
+  return { approvedRows, deferredRows, clarificationRows, rejectedRows };
+}
+
 export function buildDecisionPayload({ cardId, decision, runDir, scope = "card" }) {
   const normalizedRunDir = normalizeRunDir(runDir);
   const normalizedDecision = normalizeDecisionInput(decision);
@@ -130,14 +216,8 @@ export function buildFallbackCommandHint({ cardId, runDir }) {
   if (!normalizedCardId) {
     throw new Error("card_id required");
   }
-  const normalizedRunDir = normalizeRunDir(runDir);
-  return [
-    "按鈕若過期，請在此頻道輸入其中一行：",
-    `/top10pm approve ${normalizedCardId} ${normalizedRunDir}`,
-    `/top10pm reject ${normalizedCardId} ${normalizedRunDir}`,
-    `/top10pm defer ${normalizedCardId} ${normalizedRunDir}`,
-    `/top10pm needs_review ${normalizedCardId} ${normalizedRunDir}`,
-  ].join("\n");
+  normalizeRunDir(runDir);
+  return `按鈕約 ${DEFAULT_COMPONENT_TTL_DAYS} 天內有效；如果按鈕過期或無法使用，請叫 Codex 重送此卡：${normalizedCardId}`;
 }
 
 export function buildReviewComponentSpec({ cardId, card = {}, markdown, runDir }) {
@@ -182,6 +262,10 @@ export function buildStatusText({ payload, manifest = {}, senderUsername = "", s
   const decisionLabel = DECISION_LABELS[parsed.decision] || parsed.decision;
   const approvedCount =
     typeof manifest.approved_count === "number" ? String(manifest.approved_count) : "未知";
+  const deferredCount = typeof manifest.deferred_count === "number" ? String(manifest.deferred_count) : "未知";
+  const clarificationCount =
+    typeof manifest.clarification_count === "number" ? String(manifest.clarification_count) : "未知";
+  const rejectedCount = typeof manifest.rejected_count === "number" ? String(manifest.rejected_count) : "未知";
   const artifacts = manifest.artifacts && typeof manifest.artifacts === "object" ? manifest.artifacts : {};
   const statePath = artifacts.state || `${parsed.run_dir}/pm_decision_state.json`;
   const queuePath = artifacts.approved_research_queue || `${parsed.run_dir}/approved_research_queue.jsonl`;
@@ -192,6 +276,7 @@ export function buildStatusText({ payload, manifest = {}, senderUsername = "", s
     `結果：${decisionLabel}`,
     `決策人：${actor}`,
     `核准佇列目前項目數：${approvedCount}`,
+    `延後池：${deferredCount}；補說明池：${clarificationCount}；否決封存：${rejectedCount}`,
     `已寫入：${statePath}`,
     `核准佇列：${queuePath}`,
     "",
@@ -201,5 +286,10 @@ export function buildStatusText({ payload, manifest = {}, senderUsername = "", s
 
 export function buildFailureText(error) {
   const message = error instanceof Error ? error.message : String(error);
-  return `TOP10 PM 決策寫入失敗：${message}`;
+  return [
+    "TOP10 PM 決策寫入失敗。",
+    `原因：${message}`,
+    "",
+    "請改用卡片內的 `/top10pm ...` 指令，或回報這張卡的 card id 與 run_dir。",
+  ].join("\n");
 }

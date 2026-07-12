@@ -88,6 +88,9 @@ def domain_guard_ok() -> bool:
         "unsupported cards project_domain",
         "unsupported card project_domain",
         "project_domain: PROJECT_DOMAIN",
+        "deferred_review_queue.jsonl",
+        "clarification_queue.jsonl",
+        "rejected_archive.jsonl",
     ]
     queue_required = [
         'PROJECT_DOMAIN = "TOP10_STOCK"',
@@ -105,6 +108,7 @@ def domain_guard_ok() -> bool:
 
 def loop_contract_ok() -> bool:
     text = (PROJECT_ROOT / "scripts/run_pm_research_harness_loop.py").read_text(encoding="utf-8")
+    config_text = (PROJECT_ROOT / "config/automation.yaml").read_text(encoding="utf-8")
     required = [
         '"requires_explicit_pm_approval": True',
         '"launchd_explicitly_enables_research": True',
@@ -123,8 +127,13 @@ def loop_contract_ok() -> bool:
         "queue_top_up_after_run_count",
         "consecutive_no_approval_runs",
         "if pending_approvals or topic_runs > 0:",
+        "review_approval_clawd_to",
     ]
-    return all(item in text for item in required)
+    config_required = [
+        'review_approval_clawd_channel: "discord"',
+        'review_approval_clawd_to: "channel:1523986945955463188"',
+    ]
+    return all(item in text for item in required) and all(item in config_text for item in config_required)
 
 
 def fog_worker_boundary_ok() -> bool:
