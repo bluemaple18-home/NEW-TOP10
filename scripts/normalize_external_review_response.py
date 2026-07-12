@@ -117,6 +117,7 @@ def normalize_payload(
         return normalize_plaintext_payload(provider, review_date, raw_text, packet)
 
     overall_review = object_value(payload.get("overall_review"))
+    overall_assessment = object_value(payload.get("overall_assessment"))
     recommendation_quality = object_value(payload.get("recommendation_quality"))
     sector_flow = object_value(payload.get("sector_flow_analysis"))
     worth_tracking = object_value(payload.get("worth_tracking"))
@@ -125,12 +126,21 @@ def normalize_payload(
 
     summary = first_non_empty(
         overall_review.get("summary"),
+        overall_assessment.get("summary"),
         payload.get("summary"),
         raw_text[:500],
         "外部 reviewer 回覆不足，需人工檢查 raw response。",
     )
-    quality_score = score_0_to_5(recommendation_quality.get("overall_score"))
-    confidence = float_value(payload.get("confidence"), 0.35 if raw_payload is None else 0.65)
+    score_value = first_non_empty(
+        recommendation_quality.get("overall_score"),
+        overall_assessment.get("score_0_to_10"),
+        overall_assessment.get("score_out_of_100"),
+    )
+    quality_score = score_0_to_5(score_value)
+    confidence = float_value(
+        first_non_empty(payload.get("confidence"), overall_assessment.get("confidence_0_to_1")),
+        0.35 if raw_payload is None else 0.65,
+    )
 
     observations = build_observations(payload, recommendation_quality, market_context, sector_flow)
     misses = build_misses(payload)
@@ -152,8 +162,8 @@ def normalize_payload(
         "review_date": review_date,
         "market": "TW",
         "overall": {
-            "score": score_0_to_100(recommendation_quality.get("overall_score")),
-            "verdict": verdict_from_score(recommendation_quality.get("overall_score")),
+            "score": score_0_to_100(score_value),
+            "verdict": verdict_from_score(score_value),
             "confidence": clamp(confidence, 0.0, 1.0),
             "summary": string_value(summary),
         },

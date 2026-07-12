@@ -67,6 +67,36 @@ class ExternalReviewApiProviderTest(unittest.TestCase):
         self.assertEqual(normalized["overall"]["verdict"], "good")
         self.assertTrue(normalized["safety"]["needs_human_review"])
 
+    def test_chatgpt_overall_assessment_score_normalizes(self) -> None:
+        packet = sample_packet()
+        raw_payload = {
+            "status": "review_complete",
+            "provider": "chatgpt",
+            "overall_assessment": {
+                "score_0_to_10": 7.1,
+                "confidence_0_to_1": 0.55,
+                "summary": "中上偏強，但短線過熱與高價股集中風險明顯。",
+            },
+            "misses": [
+                {
+                    "issue": "把爆量強攻誤判為安全起漲",
+                    "evidence": "隔日若未能續量站穩高點，可能只是短線情緒高潮。",
+                }
+            ],
+        }
+        normalized = normalize_payload(
+            provider="chatgpt",
+            review_date="2026-07-03",
+            raw_payload=raw_payload,
+            raw_text=json.dumps(raw_payload, ensure_ascii=False),
+            packet=packet,
+        )
+
+        self.assertEqual(validate(normalized), [])
+        self.assertEqual(normalized["overall"]["score"], 71)
+        self.assertEqual(normalized["overall"]["verdict"], "good")
+        self.assertEqual(normalized["overall"]["confidence"], 0.55)
+
     def test_host_runner_api_dry_run_provider_writes_response(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             artifacts = Path(tmp) / "artifacts"

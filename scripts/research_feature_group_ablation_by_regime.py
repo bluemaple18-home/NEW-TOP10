@@ -42,6 +42,15 @@ PRICE_VOLUME_PREFIXES = (
     "volume_ratio",
     "avg_value",
 )
+COST_BASIS_COLUMNS = {
+    "daily_vwap",
+    "rolling_vwap_5d",
+    "rolling_vwap_20d",
+    "close_vs_vwap_5d",
+    "close_vs_vwap_20d",
+    "vwap_reclaim_20d",
+    "vwap_loss_20d",
+}
 
 
 @dataclass(frozen=True)
@@ -176,13 +185,16 @@ def leave_one_out_mean(frame: pd.DataFrame, group_col: str, value_col: str) -> p
 def feature_groups(frame: pd.DataFrame, metadata_groups: dict[str, Any]) -> dict[str, list[str]]:
     groups: dict[str, list[str]] = {}
     technical = [col for col in metadata_groups.get("technical").columns if col in frame.columns]
+    cost_basis = [col for col in technical if col in COST_BASIS_COLUMNS]
     price_volume = [
         col
         for col in technical
-        if col in PRICE_VOLUME_EXACT_COLUMNS or any(col.startswith(prefix) for prefix in PRICE_VOLUME_PREFIXES)
+        if col not in set(cost_basis)
+        and (col in PRICE_VOLUME_EXACT_COLUMNS or any(col.startswith(prefix) for prefix in PRICE_VOLUME_PREFIXES))
     ]
-    trend_momentum = [col for col in technical if col not in set(price_volume)]
+    trend_momentum = [col for col in technical if col not in set(price_volume) and col not in set(cost_basis)]
     groups["price_volume"] = numeric_columns(frame, price_volume)
+    groups["cost_basis"] = numeric_columns(frame, cost_basis)
     groups["trend_momentum"] = numeric_columns(frame, trend_momentum)
     for name in ["event", "pattern", "fundamental"]:
         groups[name] = numeric_columns(frame, [col for col in metadata_groups.get(name).columns if col in frame.columns])
