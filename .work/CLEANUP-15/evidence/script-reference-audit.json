@@ -128,6 +128,51 @@
       ]
     },
     {
+      "path": "scripts/audit_script_references.py",
+      "status": "referenced",
+      "reason": "找到 tracked 靜態引用。",
+      "baseline_approved": false,
+      "reference_count": 6,
+      "references": [
+        {
+          "source": "config/script_lifecycle.yaml",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 74
+        },
+        {
+          "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 37
+        },
+        {
+          "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 40
+        },
+        {
+          "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 19
+        },
+        {
+          "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 50
+        },
+        {
+          "source": "tests/test_script_reference_audit.py",
+          "target": "scripts/audit_script_references.py",
+          "kind": "python_import",
+          "line": 10
+        }
+      ]
+    },
+    {
       "path": "scripts/backfill_model_experiment_ledger.py",
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
@@ -500,7 +545,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_candidate_persistence.py",
           "kind": "path",
-          "line": 348
+          "line": 349
         },
         {
           "source": "scripts/run_capital_aware_replay.py",
@@ -560,7 +605,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_candidate_trail10_daily_shadow_monitor.py",
           "kind": "path",
-          "line": 625
+          "line": 626
         }
       ]
     },
@@ -628,7 +673,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_capital_entry_quality_daily_shadow_monitor.py",
           "kind": "path",
-          "line": 575
+          "line": 576
         },
         {
           "source": "scripts/verify_research_tooling_merge_slices.py",
@@ -667,7 +712,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_capital_entry_quality_daily_shadow_monitor_batch.py",
           "kind": "path",
-          "line": 596
+          "line": 597
         },
         {
           "source": "scripts/verify_research_tooling_merge_slices.py",
@@ -1144,7 +1189,7 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": false,
-      "reference_count": 12,
+      "reference_count": 14,
       "references": [
         {
           "source": "docs/AUTOMATION.md",
@@ -1207,16 +1252,28 @@
           "line": 20
         },
         {
+          "source": "docs/tasks/2026-07-13_REFACTOR-14_clawd-payload-boundary.md",
+          "target": "scripts/build_clawd_publish_payload.py",
+          "kind": "path",
+          "line": 51
+        },
+        {
           "source": "scripts/run_automation.py",
           "target": "scripts/build_clawd_publish_payload.py",
           "kind": "path",
-          "line": 734
+          "line": 735
         },
         {
           "source": "scripts/verify_daily_tape_and_rr_guard.py",
           "target": "scripts/build_clawd_publish_payload.py",
           "kind": "python_import",
           "line": 17
+        },
+        {
+          "source": "tests/test_clawd_publish_payload_boundary.py",
+          "target": "scripts/build_clawd_publish_payload.py",
+          "kind": "python_dynamic_literal",
+          "line": 70
         }
       ]
     },
@@ -1280,7 +1337,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_daily_performance_review.py",
           "kind": "path",
-          "line": 467
+          "line": 468
         }
       ]
     },
@@ -1301,7 +1358,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_daily_recommendation_performance.py",
           "kind": "path",
-          "line": 399
+          "line": 400
         }
       ]
     },
@@ -1376,7 +1433,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_daily_shadow_status_report.py",
           "kind": "path",
-          "line": 689
+          "line": 690
         },
         {
           "source": "scripts/verify_research_tooling_merge_slices.py",
@@ -1433,7 +1490,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_decision_quality.py",
           "kind": "path",
-          "line": 441
+          "line": 442
         }
       ]
     },
@@ -1844,7 +1901,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_gross55_daily_shadow_monitor.py",
           "kind": "path",
-          "line": 518
+          "line": 519
         },
         {
           "source": "scripts/verify_research_tooling_merge_slices.py",
@@ -1877,7 +1934,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_gross55_daily_shadow_monitor_batch.py",
           "kind": "path",
-          "line": 539
+          "line": 540
         },
         {
           "source": "scripts/verify_research_tooling_merge_slices.py",
@@ -2845,7 +2902,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_overlap_first_daily_recommendation_shadow.py",
           "kind": "path",
-          "line": 662
+          "line": 663
         }
       ]
     },
@@ -3772,7 +3829,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_shadow_historical_evidence_report.py",
           "kind": "path",
-          "line": 712
+          "line": 713
         },
         {
           "source": "scripts/verify_research_tooling_merge_slices.py",
@@ -4435,7 +4492,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/build_weekly_candidate_snapshot.py",
           "kind": "path",
-          "line": 341
+          "line": 342
         }
       ]
     },
@@ -5183,7 +5240,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/generate_daily_report.py",
           "kind": "path",
-          "line": 358
+          "line": 359
         }
       ]
     },
@@ -5270,7 +5327,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/generate_model_health_report.py",
           "kind": "path",
-          "line": 165
+          "line": 166
         },
         {
           "source": "scripts/verify_model_group_acceptance.py",
@@ -5369,7 +5426,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/import_reference_sources.py",
           "kind": "path",
-          "line": 212
+          "line": 213
         },
         {
           "source": "scripts/verify_reference_sources.py",
@@ -5696,7 +5753,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/monitor_factors.py",
           "kind": "path",
-          "line": 154
+          "line": 155
         },
         {
           "source": "scripts/run_weekend_research_matrix.py",
@@ -5789,7 +5846,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/monitor_industry_momentum.py",
           "kind": "path",
-          "line": 164
+          "line": 165
         }
       ]
     },
@@ -5963,7 +6020,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/probe_reference_sources.py",
           "kind": "path",
-          "line": 211
+          "line": 212
         }
       ]
     },
@@ -6262,7 +6319,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/refresh_model_baseline.py",
           "kind": "path",
-          "line": 188
+          "line": 189
         }
       ]
     },
@@ -7580,7 +7637,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/rewrite_clawd_publish_message_llm.py",
           "kind": "path",
-          "line": 764
+          "line": 765
         }
       ]
     },
@@ -8059,7 +8116,7 @@
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/run_automation.py",
           "kind": "path",
-          "line": 137
+          "line": 143
         },
         {
           "source": "scripts/verify_research_tooling_merge_slices.py",
@@ -8840,7 +8897,7 @@
       "status": "protected",
       "reason": "正式 production entrypoint allowlist；即使靜態引用為 0 也不得視為可刪。",
       "baseline_approved": false,
-      "reference_count": 72,
+      "reference_count": 73,
       "references": [
         {
           "source": ".ai/codex_task_daily_v2_real_shadow.md",
@@ -9173,6 +9230,12 @@
           "line": 27
         },
         {
+          "source": "docs/tasks/2026-07-13_OPS-13_daily-status-history.md",
+          "target": "scripts/run_daily.sh",
+          "kind": "path",
+          "line": 62
+        },
+        {
           "source": "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
           "target": "scripts/run_daily.sh",
           "kind": "path",
@@ -9230,19 +9293,19 @@
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/run_daily.sh",
           "kind": "path",
-          "line": 104
+          "line": 110
         },
         {
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/run_daily.sh",
           "kind": "path",
-          "line": 105
+          "line": 111
         },
         {
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/run_daily.sh",
           "kind": "path",
-          "line": 118
+          "line": 124
         },
         {
           "source": "scripts/verify_scheduler_ownership.py",
@@ -9353,7 +9416,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/run_daily_postcheck.py",
           "kind": "path",
-          "line": 330
+          "line": 331
         }
       ]
     },
@@ -9362,7 +9425,7 @@
       "status": "protected",
       "reason": "正式 production entrypoint allowlist；即使靜態引用為 0 也不得視為可刪。",
       "baseline_approved": false,
-      "reference_count": 52,
+      "reference_count": 53,
       "references": [
         {
           "source": ".ai/codex_task_daily_v2_real_shadow.md",
@@ -9527,6 +9590,12 @@
           "line": 27
         },
         {
+          "source": "docs/tasks/2026-07-13_OPS-13_daily-status-history.md",
+          "target": "scripts/run_daily_publish.sh",
+          "kind": "path",
+          "line": 63
+        },
+        {
           "source": "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
           "target": "scripts/run_daily_publish.sh",
           "kind": "path",
@@ -9590,31 +9659,31 @@
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/run_daily_publish.sh",
           "kind": "path",
-          "line": 97
+          "line": 103
         },
         {
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/run_daily_publish.sh",
           "kind": "path",
-          "line": 98
+          "line": 104
         },
         {
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/run_daily_publish.sh",
           "kind": "path",
-          "line": 101
+          "line": 107
         },
         {
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/run_daily_publish.sh",
           "kind": "path",
-          "line": 160
+          "line": 166
         },
         {
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/run_daily_publish.sh",
           "kind": "path",
-          "line": 161
+          "line": 167
         },
         {
           "source": "scripts/verify_discord_channel_routing.py",
@@ -10701,7 +10770,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/run_sealed_oos_gate.py",
           "kind": "path",
-          "line": 185
+          "line": 186
         },
         {
           "source": "scripts/run_training_candidate_flow.py",
@@ -10937,7 +11006,7 @@
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/send_clawd_publish_message.py",
           "kind": "path",
-          "line": 129
+          "line": 135
         }
       ]
     },
@@ -12493,7 +12562,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/verify_daily_performance_review.py",
           "kind": "path",
-          "line": 488
+          "line": 489
         }
       ]
     },
@@ -12541,7 +12610,7 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": false,
-      "reference_count": 8,
+      "reference_count": 9,
       "references": [
         {
           "source": "docs/AUTOMATION.md",
@@ -12590,6 +12659,12 @@
           "target": "scripts/verify_daily_publish_workflow.py",
           "kind": "path",
           "line": 21
+        },
+        {
+          "source": "tests/test_daily_publish_workflow_status_history.py",
+          "target": "scripts/verify_daily_publish_workflow.py",
+          "kind": "python_import",
+          "line": 10
         }
       ]
     },
@@ -12640,7 +12715,7 @@
           "source": "scripts/verify_daily_publish_workflow.py",
           "target": "scripts/verify_daily_publish_wrapper_guards.py",
           "kind": "path",
-          "line": 144
+          "line": 150
         }
       ]
     },
@@ -12667,7 +12742,7 @@
           "source": "scripts/run_automation.py",
           "target": "scripts/verify_daily_recommendation_performance.py",
           "kind": "path",
-          "line": 420
+          "line": 421
         }
       ]
     },
@@ -12778,7 +12853,7 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": false,
-      "reference_count": 5,
+      "reference_count": 6,
       "references": [
         {
           "source": "docs/tasks/2026-06-09_DAILY-PUBLISH-REVIEW-01_status_question_guard.md",
@@ -12809,6 +12884,12 @@
           "target": "scripts/verify_daily_tape_and_rr_guard.py",
           "kind": "path",
           "line": 81
+        },
+        {
+          "source": "docs/tasks/2026-07-13_REFACTOR-14_clawd-payload-boundary.md",
+          "target": "scripts/verify_daily_tape_and_rr_guard.py",
+          "kind": "path",
+          "line": 63
         }
       ]
     },
@@ -17734,10 +17815,10 @@
     }
   ],
   "summary": {
-    "tracked_script_count": 457,
+    "tracked_script_count": 458,
     "status_counts": {
       "protected": 11,
-      "referenced": 345,
+      "referenced": 346,
       "suspected_orphan": 101
     },
     "unknown_reference_count": 1,

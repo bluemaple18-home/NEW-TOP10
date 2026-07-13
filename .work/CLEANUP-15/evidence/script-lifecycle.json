@@ -35,6 +35,14 @@
       "candidate_action": "retain"
     },
     {
+      "path": "scripts/audit_script_references.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:audit_",
+      "reason": "檔名符合 maintenance 分類前綴 audit_。",
+      "candidate_action": "retain"
+    },
+    {
       "path": "scripts/backfill_model_experiment_ledger.py",
       "category": "maintenance",
       "entrypoint": false,
@@ -3660,10 +3668,10 @@
     }
   ],
   "summary": {
-    "tracked_script_count": 457,
+    "tracked_script_count": 458,
     "category_counts": {
       "builder": 144,
-      "maintenance": 98,
+      "maintenance": 99,
       "production_entrypoint": 11,
       "research": 28,
       "verifier": 176
