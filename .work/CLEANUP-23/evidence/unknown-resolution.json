@@ -1,0 +1,255 @@
+{
+  "schema_version": "unknown-resolution.v1",
+  "task_id": "CLEANUP-23",
+  "generated_on": "2026-07-13",
+  "scope_count": 8,
+  "methodology": {
+    "operation_level": "read_only",
+    "repo_reference_rule": "排除 lifecycle allowlist、cleanup 卡片與既有 triage 證據；只有可執行程式碼引用或明確 artifact 路徑掃描才計為 consumer。",
+    "external_runtime_surfaces": [
+      "current user launchd domain",
+      "current user crontab",
+      "current user LaunchAgents",
+      "current process table",
+      "existing shell profiles and sanitized shell-history exact-name counts",
+      "known ai-core, Antigravity and Clawd SOP roots",
+      "repository handoffs and task documents",
+      "canonical project artifacts"
+    ],
+    "mutation_boundary": "未執行任一目標腳本，未執行 sync、push、send、daily 或 retrain，未修改 launchd、cron、runtime 或 canonical artifacts。",
+    "coverage_limit": "外部檢查只涵蓋 2026-07-13 當前主機可索引表面；未索引的其他主機與口頭 SOP 不在證據範圍。"
+  },
+  "summary": {
+    "retain": 3,
+    "archive_candidate": 3,
+    "delete_candidate": 2,
+    "unknown": 0
+  },
+  "records": [
+    {
+      "path": "scripts/build_consensus_publish_top10.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "repo_consumers": [
+        "scripts/verify_consensus_publish_top10.py",
+        "scripts/build_weekend_production_baseline_source_audit.py"
+      ],
+      "external_runtime_checks": {
+        "launchd": "no exact target-script match",
+        "cron": "no user crontab",
+        "process_table": "no exact target-script match",
+        "shell_and_known_sop_surfaces": "no exact target-script match",
+        "canonical_artifacts": [
+          "artifacts/publish_rankings/consensus/ranking_2026-05-15.csv",
+          "artifacts/model_experiments/consensus_publish_top10_2026-05-15.json",
+          "artifacts/model_experiments/consensus_publish_top10_verification_latest.json",
+          "artifacts/weekend_training/weekend_production_baseline_source_audit_2026-06-13.json"
+        ]
+      },
+      "paired_scripts": [
+        "scripts/verify_consensus_publish_top10.py"
+      ],
+      "artifact_consumers": [
+        "scripts/build_weekend_production_baseline_source_audit.py"
+      ],
+      "git_history": {
+        "last_commit": "ae9e59a9daf3ccfb675339cd0f772ebe44e743f8",
+        "last_commit_date": "2026-06-10",
+        "last_commit_summary": "Add odd-lot candidate research reports"
+      },
+      "rationale": "共識 publish ranking 不是孤立輸出：weekend production baseline source audit 明確掃描其輸出目錄，canonical audit 也記錄該 ranking 為可比較來源；同時存在專用 verifier。雖無排程直接執行 builder，明確 downstream artifact consumer 足以保留 builder/verifier 契約。"
+    },
+    {
+      "path": "scripts/run_controlled_grid_drain_host_runner.sh",
+      "verdict": "delete_candidate",
+      "confidence": "high",
+      "repo_consumers": [],
+      "external_runtime_checks": {
+        "launchd": "no exact target-script match",
+        "cron": "no user crontab",
+        "process_table": "no exact target-script match",
+        "shell_profiles": "no exact target-script match",
+        "sanitized_shell_history": "zero exact-name matches",
+        "known_sop_and_handoff_surfaces": "no exact target-script match outside cleanup records",
+        "canonical_artifacts": [
+          "artifacts/host_runner/2026-07-13/controlled_grid_drain_host_runner_status_2026-07-13.json",
+          "artifacts/host_runner/2026-07-13/controlled_grid_drain_host_runner_summary_2026-07-13.json"
+        ],
+        "artifact_attribution": "current artifacts prove the paired Python runner is active, but no evidence attributes execution to this shell wrapper"
+      },
+      "paired_scripts": [
+        "scripts/run_controlled_grid_drain_host_runner.py"
+      ],
+      "artifact_consumers": [
+        "scripts/build_weekend_training_rollup.py"
+      ],
+      "git_history": {
+        "last_commit": "c6d26c3bec3135841aa5a2c18ab51eefe713785c",
+        "last_commit_date": "2026-06-25",
+        "last_commit_summary": "Stabilize harness fog and review runners"
+      },
+      "rationale": "底層 Python runner 仍由 repo 程式直接呼叫並持續產出 artifact，但所有可索引 runtime、SOP、handoff、profile 與 history 都未找到 shell wrapper consumer。此 15 行 wrapper 只轉交日期與 Python 入口；保留 Python runner 即可維持現行契約，因此列高信心刪除候選。"
+    },
+    {
+      "path": "scripts/sync_from_remote.sh",
+      "verdict": "delete_candidate",
+      "confidence": "high",
+      "repo_consumers": [],
+      "external_runtime_checks": {
+        "launchd": "no exact target-script match",
+        "cron": "no user crontab",
+        "process_table": "no exact target-script match",
+        "shell_profiles": "no exact target-script match",
+        "sanitized_shell_history": "zero exact-name matches",
+        "known_sop_and_handoff_surfaces": "no exact target-script match outside cleanup records",
+        "canonical_artifacts": []
+      },
+      "paired_scripts": [],
+      "artifact_consumers": [],
+      "git_history": {
+        "last_commit": "f6572457ef02e492a609595d7fdadd1e6fa72ff6",
+        "last_commit_date": "2026-05-25",
+        "last_commit_summary": "初始化 NEW-TOP10 主線"
+      },
+      "rationale": "自初始 commit 後無後續路徑歷史、無 repo consumer、無 artifact，且 launchd、cron、profile、sanitized history、既知 SOP 與 handoff 均無使用證據。功能只是互動式包裝 fetch、pull --rebase 與 stash，沒有唯一契約，因此列高信心刪除候選；本卡未執行同步。"
+    },
+    {
+      "path": "scripts/verify_clawd_live_send_config.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "repo_consumers": [],
+      "external_runtime_checks": {
+        "launchd": "com.new-top10.daily is registered in the current user domain",
+        "installed_launch_agent": "present and points to scripts/run_daily_publish.sh",
+        "current_live_send_config": "clawd_enabled=true, clawd_dry_run=false, configured CLI paths exist",
+        "cron": "no user crontab",
+        "process_table": "no exact verifier invocation",
+        "shell_and_known_sop_surfaces": "no exact verifier invocation",
+        "canonical_artifacts": [
+          "artifacts/clawd_live_send_config_verification_latest.json"
+        ],
+        "latest_artifact_status": "OK on 2026-06-25 with 8/8 checks passing"
+      },
+      "paired_scripts": [],
+      "artifact_consumers": [],
+      "git_history": {
+        "last_commit": "d849d7ca84acd0d7c0bfe75ac2645e54ff19239b",
+        "last_commit_date": "2026-06-11",
+        "last_commit_summary": "Enable daily Clawd live send"
+      },
+      "rationale": "目前正式 daily launchd 已載入且 live-send 設定為啟用狀態；此 verifier 唯一整合檢查 repo/installed plist、current-run guard、sender 入口與外部 CLI 路徑。即使不是排程直接 consumer，它仍是 active write boundary 的專用唯讀安全檢查，應保留。"
+    },
+    {
+      "path": "scripts/verify_consensus_publish_top10.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "repo_consumers": [],
+      "external_runtime_checks": {
+        "launchd": "no exact target-script match",
+        "cron": "no user crontab",
+        "process_table": "no exact target-script match",
+        "shell_and_known_sop_surfaces": "no exact target-script match",
+        "canonical_artifacts": [
+          "artifacts/model_experiments/consensus_publish_top10_2026-05-15.json",
+          "artifacts/model_experiments/consensus_publish_top10_verification_latest.json",
+          "artifacts/publish_rankings/consensus/ranking_2026-05-15.csv"
+        ],
+        "latest_artifact_status": "OK on 2026-06-10 with 13/13 checks passing"
+      },
+      "paired_scripts": [
+        "scripts/build_consensus_publish_top10.py"
+      ],
+      "artifact_consumers": [],
+      "git_history": {
+        "last_commit": "ae9e59a9daf3ccfb675339cd0f772ebe44e743f8",
+        "last_commit_date": "2026-06-10",
+        "last_commit_summary": "Add odd-lot candidate research reports"
+      },
+      "rationale": "驗證輸出本身沒有 downstream consumer，但它是仍被 production-baseline source audit 掃描之共識 ranking 的唯一專用契約檢查，涵蓋 overlap 順序、row body 來源、Top10 數量與 publish contract。保留 verifier 可避免只保留 builder 而失去可重現的安全判定。"
+    },
+    {
+      "path": "scripts/verify_exit_rule_half_year_decision_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "high",
+      "repo_consumers": [],
+      "external_runtime_checks": {
+        "launchd": "no exact target-script match",
+        "cron": "no user crontab",
+        "process_table": "no exact target-script match",
+        "shell_and_known_sop_surfaces": "no exact target-script match",
+        "canonical_artifacts": [
+          "artifacts/model_experiments/exit_rule_half_year_decision_report_2026-06-02.json",
+          "artifacts/model_experiments/exit_rule_half_year_decision_verification_latest.json"
+        ],
+        "artifact_status": "historical OK artifact last modified 2026-06-02",
+        "model_boundary": "verifier default expects model sha256 76f530f6491f996f4838500acacbde40a10c90f43116cec0dcc69fb6b4935675; current canonical model sha256 is ce64379701339bf7eadd696872efa0f64be118b4b8c58582e90691ec175c8a5d"
+      },
+      "paired_scripts": [
+        "scripts/build_exit_rule_half_year_decision_report.py"
+      ],
+      "artifact_consumers": [],
+      "git_history": {
+        "last_commit": "70032555f7e9aa656ac0f8530b6bb6c9adca0b2f",
+        "last_commit_date": "2026-06-08",
+        "last_commit_summary": "Add capital exit and liquidity research tooling"
+      },
+      "rationale": "只找到 2026-06-02 的歷史 report/verification，無 runtime、SOP 或 downstream consumer；預設模型雜湊也已與目前 canonical 模型不同。配對 builder 已在 CLEANUP-17 列 archive_candidate，故 verifier 應成組進入退休審查，而非留在 active script set。"
+    },
+    {
+      "path": "scripts/verify_exit_rule_portfolio_level_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "high",
+      "repo_consumers": [],
+      "external_runtime_checks": {
+        "launchd": "no exact target-script match",
+        "cron": "no user crontab",
+        "process_table": "no exact target-script match",
+        "shell_and_known_sop_surfaces": "no exact target-script match",
+        "canonical_artifacts": [
+          "artifacts/model_experiments/exit_rule_portfolio_level_report_2026-06-02.json",
+          "artifacts/model_experiments/exit_rule_portfolio_level_verification_latest.json"
+        ],
+        "artifact_status": "historical OK artifact last modified 2026-06-02",
+        "model_boundary": "verifier default expects model sha256 76f530f6491f996f4838500acacbde40a10c90f43116cec0dcc69fb6b4935675; current canonical model sha256 is ce64379701339bf7eadd696872efa0f64be118b4b8c58582e90691ec175c8a5d"
+      },
+      "paired_scripts": [
+        "scripts/build_exit_rule_portfolio_level_report.py"
+      ],
+      "artifact_consumers": [],
+      "git_history": {
+        "last_commit": "70032555f7e9aa656ac0f8530b6bb6c9adca0b2f",
+        "last_commit_date": "2026-06-08",
+        "last_commit_summary": "Add capital exit and liquidity research tooling"
+      },
+      "rationale": "只找到 2026-06-02 的歷史 portfolio report/verification，無 runtime、SOP 或 downstream consumer；預設模型雜湊也已與目前 canonical 模型不同。配對 builder 已在 CLEANUP-17 列 archive_candidate，故 verifier 應成組進入退休審查。"
+    },
+    {
+      "path": "scripts/verify_exit_rule_rolling_regime_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "high",
+      "repo_consumers": [],
+      "external_runtime_checks": {
+        "launchd": "no exact target-script match",
+        "cron": "no user crontab",
+        "process_table": "no exact target-script match",
+        "shell_and_known_sop_surfaces": "no exact target-script match",
+        "canonical_artifacts": [
+          "artifacts/model_experiments/exit_rule_rolling_regime_report_2026-06-02.json",
+          "artifacts/model_experiments/exit_rule_rolling_regime_verification_latest.json"
+        ],
+        "artifact_status": "historical OK artifact last modified 2026-06-02",
+        "model_boundary": "verifier default expects model sha256 76f530f6491f996f4838500acacbde40a10c90f43116cec0dcc69fb6b4935675; current canonical model sha256 is ce64379701339bf7eadd696872efa0f64be118b4b8c58582e90691ec175c8a5d"
+      },
+      "paired_scripts": [
+        "scripts/build_exit_rule_rolling_regime_report.py"
+      ],
+      "artifact_consumers": [],
+      "git_history": {
+        "last_commit": "70032555f7e9aa656ac0f8530b6bb6c9adca0b2f",
+        "last_commit_date": "2026-06-08",
+        "last_commit_summary": "Add capital exit and liquidity research tooling"
+      },
+      "rationale": "只找到 2026-06-02 的歷史 rolling/regime report/verification，無 runtime、SOP 或 downstream consumer；預設模型雜湊也已與目前 canonical 模型不同。配對 builder 已在 CLEANUP-17 列 archive_candidate，故 verifier 應成組進入退休審查。"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # CLEANUP-23｜解除八支 unknown 腳本
 
-- status: ready
+- status: done
 - priority: P0
 - task thickness: strict
 
@@ -42,3 +42,12 @@
 ## 回報
 
 建立單一 atomic commit；回報分類、外部 consumer 與仍無法解除的 blocker，不 merge、不 push。
+
+## Result
+
+- 證據：`.work/CLEANUP-23/evidence/unknown-resolution.json`
+- 分類：`retain=3`、`archive_candidate=3`、`delete_candidate=2`、`unknown=0`。
+- `retain`：共識 publish builder/verifier 有明確 downstream artifact 掃描者；Clawd live-send verifier 對應目前已載入且啟用的正式 daily runtime。
+- `delete_candidate`：controlled-grid shell wrapper 與 sync helper 在 launchd、cron、process、profile、sanitized history、既知 SOP 與 handoff 均無 consumer；底層 Python runner 保留。
+- `archive_candidate`：三支 exit-rule verifier 只對應 2026-06-02 歷史 artifact，無 downstream consumer，且預設模型雜湊已不等於目前 canonical 模型；與 CLEANUP-17 的三支 builder 成組交 CLEANUP-24 退休審查。
+- 查核全程唯讀；未執行目標腳本、sync、push、send、daily、retrain，未修改外部 runtime。
