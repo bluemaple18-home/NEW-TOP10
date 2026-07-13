@@ -22,6 +22,15 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
+from app.automation.pipeline_policy import (
+    ResourceProfilePolicy,
+    apply_daily_default_pipeline_window,
+    evaluate_resource_profile,
+    pipeline_run_command,
+    pipeline_window_override,
+    resolve_resource_profile,
+)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATUS_PATH = PROJECT_ROOT / "artifacts" / "automation_status.json"
@@ -163,7 +172,9 @@ class AutomationRunner:
             return
         self._run_command("psi.monitor", ["python", "-m", "app.model_monitor"])
         self._run_command("factor.monitor", ["python", "scripts/monitor_factors.py"])
-        if self._is_local_safe() and not self._truthy_env("TOP10_ALLOW_HEAVY_MONITOR"):
+        allow_heavy_monitor = self._truthy_env("TOP10_ALLOW_HEAVY_MONITOR") if self._is_local_safe() else False
+        resource_policy = self._resource_profile_policy(allow_heavy_monitor=allow_heavy_monitor)
+        if resource_policy.skip_heavy_monitor:
             self._record_step(
                 "industry_momentum.monitor",
                 "SKIPPED",
@@ -225,13 +236,7 @@ class AutomationRunner:
         self._record_step("status", "OK", message="狀態檢查完成")
 
     def _pipeline_run_command(self) -> list[str]:
-        command = ["python", "-m", "app.pipeline_cli", "run"]
-        window = self._pipeline_window()
-        if "start_date" in window:
-            command.extend(["--start-date", window["start_date"]])
-        if "end_date" in window:
-            command.extend(["--end-date", window["end_date"]])
-        return command
+        return list(pipeline_run_command(self._pipeline_window()))
 
     def _pipeline_window(self) -> dict[str, str]:
         window = self._pipeline_window_override()
@@ -242,33 +247,25 @@ class AutomationRunner:
         return window
 
     def _pipeline_window_override(self) -> dict[str, str]:
-        window: dict[str, str] = {}
-        start_date = os.environ.get("TOP10_PIPELINE_START_DATE")
-        end_date = os.environ.get("TOP10_PIPELINE_END_DATE")
-        if start_date:
-            window["start_date"] = start_date
-        if end_date:
-            window["end_date"] = end_date
-        return window
+        return pipeline_window_override(
+            start_date=os.environ.get("TOP10_PIPELINE_START_DATE"),
+            end_date=os.environ.get("TOP10_PIPELINE_END_DATE"),
+        ).as_dict()
 
     def _apply_daily_default_pipeline_window(self, window: dict[str, str]) -> dict[str, str]:
         daily_config = self.config.get("daily", {})
-        lookback_days = int(daily_config.get("pipeline_lookback_days", 0) or 0)
-        if lookback_days <= 0:
+        policy = apply_daily_default_pipeline_window(
+            window,
+            lookback_days_value=daily_config.get("pipeline_lookback_days", 0),
+            today=self._today_local().date(),
+        )
+        if not policy.source:
             return window
-
-        result = dict(window)
-        end_text = result.get("end_date") or self._today_local().date().isoformat()
-        if "end_date" not in result:
-            result["end_date"] = end_text
-        if "start_date" not in result:
-            end_date = datetime.strptime(end_text, "%Y-%m-%d").date()
-            result["start_date"] = (end_date - timedelta(days=lookback_days)).isoformat()
         self.status.metadata["pipeline_window_policy"] = {
-            "source": "daily.pipeline_lookback_days",
-            "lookback_days": lookback_days,
+            "source": policy.source,
+            "lookback_days": policy.lookback_days,
         }
-        return result
+        return policy.as_dict()
 
     def _has_pipeline_window_override(self) -> bool:
         return bool(self._pipeline_window_override())
@@ -277,16 +274,28 @@ class AutomationRunner:
         return bool(self._pipeline_window())
 
     def _resolve_resource_profile(self, explicit: str | None) -> str:
-        profile = (
-            explicit
-            or os.environ.get("TOP10_RESOURCE_PROFILE")
-            or self.config.get("execution", {}).get("resource_profile")
-            or "standard"
+        return resolve_resource_profile(
+            explicit_profile=explicit,
+            env_profile=os.environ.get("TOP10_RESOURCE_PROFILE"),
+            config_profile=self.config.get("execution", {}).get("resource_profile"),
         )
-        profile = str(profile).strip().lower()
-        if profile not in {"local_safe", "standard", "host_full"}:
-            raise ValueError(f"未知 resource profile：{profile}")
-        return profile
+
+    def _resource_profile_policy(
+        self,
+        *,
+        has_pipeline_window_override: bool = False,
+        allow_full_etl: bool = False,
+        allow_heavy_retrain: bool = False,
+        allow_heavy_monitor: bool = False,
+    ) -> ResourceProfilePolicy:
+        return evaluate_resource_profile(
+            profile=self.resource_profile,
+            dry_run=self.dry_run,
+            has_pipeline_window_override=has_pipeline_window_override,
+            allow_full_etl=allow_full_etl,
+            allow_heavy_retrain=allow_heavy_retrain,
+            allow_heavy_monitor=allow_heavy_monitor,
+        )
 
     def _is_local_safe(self) -> bool:
         return self.resource_profile == "local_safe"
@@ -297,11 +306,18 @@ class AutomationRunner:
     def _guard_daily_resource_profile(self) -> None:
         if self.dry_run or not self._is_local_safe():
             return
-        if self._truthy_env("TOP10_ALLOW_FULL_ETL"):
+        allow_full_etl = self._truthy_env("TOP10_ALLOW_FULL_ETL")
+        if allow_full_etl:
             self._record_step("resource_guard.daily", "OK", message="TOP10_ALLOW_FULL_ETL=1")
             return
-        if self._has_pipeline_window_override():
-            self._record_step("resource_guard.daily", "OK", message="local_safe with explicit pipeline window")
+        has_window_override = self._has_pipeline_window_override()
+        resource_policy = self._resource_profile_policy(
+            has_pipeline_window_override=has_window_override,
+            allow_full_etl=allow_full_etl,
+        )
+        if not resource_policy.block_daily:
+            if has_window_override:
+                self._record_step("resource_guard.daily", "OK", message="local_safe with explicit pipeline window")
             return
         message = (
             "resource_profile=local_safe blocks daily ETL without TOP10_PIPELINE_START_DATE/"
@@ -313,8 +329,11 @@ class AutomationRunner:
     def _guard_retrain_resource_profile(self) -> None:
         if self.dry_run or not self._is_local_safe():
             return
-        if self._truthy_env("TOP10_ALLOW_HEAVY_RETRAIN"):
-            self._record_step("resource_guard.retrain", "OK", message="TOP10_ALLOW_HEAVY_RETRAIN=1")
+        allow_heavy_retrain = self._truthy_env("TOP10_ALLOW_HEAVY_RETRAIN")
+        resource_policy = self._resource_profile_policy(allow_heavy_retrain=allow_heavy_retrain)
+        if not resource_policy.block_retrain:
+            if allow_heavy_retrain:
+                self._record_step("resource_guard.retrain", "OK", message="TOP10_ALLOW_HEAVY_RETRAIN=1")
             return
         message = (
             "resource_profile=local_safe blocks formal retrain; use --dry-run for tests or "
