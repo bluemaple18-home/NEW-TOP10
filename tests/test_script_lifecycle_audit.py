@@ -20,6 +20,10 @@ def write_policy(path: Path, **overrides: object) -> Path:
             {"category": "maintenance", "prefixes": ["run_"]},
         ],
         "overrides": {
+            "scripts/run_daily_v2.py": {
+                "category": "research",
+                "reason": "shadow-only fixture lane",
+            },
             "scripts/legacy_probe.py": {
                 "category": "legacy_candidate",
                 "reason": "fixture legacy script",
@@ -42,6 +46,7 @@ class ScriptLifecycleAuditTest(unittest.TestCase):
                 policy,
                 [
                     "scripts/run_daily.py",
+                    "scripts/run_daily_v2.py",
                     "scripts/research_signal.py",
                     "scripts/build_report.py",
                     "scripts/verify_report.py",
@@ -51,6 +56,8 @@ class ScriptLifecycleAuditTest(unittest.TestCase):
         }
         self.assertEqual(entries["scripts/run_daily.py"]["category"], "production_entrypoint")
         self.assertTrue(entries["scripts/run_daily.py"]["entrypoint"])
+        self.assertEqual(entries["scripts/run_daily_v2.py"]["category"], "research")
+        self.assertFalse(entries["scripts/run_daily_v2.py"]["entrypoint"])
         self.assertEqual(entries["scripts/research_signal.py"]["category"], "research")
         self.assertEqual(entries["scripts/build_report.py"]["category"], "builder")
         self.assertEqual(entries["scripts/verify_report.py"]["category"], "verifier")

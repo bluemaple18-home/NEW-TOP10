@@ -11,7 +11,6 @@ production_entrypoints:
   - scripts/run_automation.py
   - scripts/run_daily.sh
   - scripts/run_daily_publish.sh
-  - scripts/run_daily_v2.py
   - scripts/run_reference_update.sh
   - scripts/start_market_ui.sh
 
@@ -65,6 +64,9 @@ prefix_categories:
 
 # 個別例外須保留明確理由，不以模糊前綴掩蓋。
 overrides:
+  scripts/run_daily_v2.py:
+    category: research
+    reason: shadow-only daily V2 lane; no production switch has been approved
   scripts/test_regex.py:
     category: legacy_candidate
     reason: ad-hoc regex probe; retained for manual review only
