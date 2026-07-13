@@ -1,0 +1,164 @@
+{
+  "schema_version": "cleanup31-training-candidate-risk-verifier-parity.v1",
+  "task_id": "CLEANUP-31",
+  "status": "PASS",
+  "profiles": [
+    "attribution",
+    "risk_control"
+  ],
+  "cases": [
+    "valid",
+    "invalid"
+  ],
+  "normalization": [
+    "generated_at removed",
+    "fixture absolute path replaced with <fixture-root>"
+  ],
+  "all_payloads_equal": true,
+  "all_console_equal": true,
+  "all_exit_codes_equal": true,
+  "all_checks_equal": true,
+  "consumer_gate": {
+    "updated_tests": [
+      "tests/test_training_candidate_risk_reports_verifier.py"
+    ],
+    "retired_entrypoints": [
+      "scripts/verify_training_candidate_risk_attribution.py",
+      "scripts/verify_training_candidate_risk_control_report.py"
+    ],
+    "retained_entrypoint": "scripts/verify_training_candidate_risk_reports.py",
+    "lifecycle_entry": "config/script_lifecycle.yaml"
+  },
+  "records": [
+    {
+      "profile": "attribution",
+      "case": "valid",
+      "default_output": "artifacts/model_experiments/training_candidate_risk_attribution_verification_latest.json",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "payload_equal": true,
+      "check_names_equal": true,
+      "check_values_equal": true,
+      "legacy": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": "shared/attribution/valid.json"
+        },
+        "payload_sha256": "a66a946d9385b1df8ac0e7336432c0d7baa7e2f58d6353e94aedb82a830e80a1"
+      },
+      "new": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": "shared/attribution/valid.json"
+        },
+        "payload_sha256": "a66a946d9385b1df8ac0e7336432c0d7baa7e2f58d6353e94aedb82a830e80a1"
+      }
+    },
+    {
+      "profile": "attribution",
+      "case": "invalid",
+      "default_output": "artifacts/model_experiments/training_candidate_risk_attribution_verification_latest.json",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "payload_equal": true,
+      "check_names_equal": true,
+      "check_values_equal": true,
+      "legacy": {
+        "exit_code": 1,
+        "console": {
+          "status": "FAILED",
+          "output": "shared/attribution/invalid.json"
+        },
+        "payload_sha256": "6191c3295dff2ead262ac86e43abbd72fcd17f5e768395778e725a638f9e1fc2"
+      },
+      "new": {
+        "exit_code": 1,
+        "console": {
+          "status": "FAILED",
+          "output": "shared/attribution/invalid.json"
+        },
+        "payload_sha256": "6191c3295dff2ead262ac86e43abbd72fcd17f5e768395778e725a638f9e1fc2"
+      }
+    },
+    {
+      "profile": "risk_control",
+      "case": "valid",
+      "default_output": "artifacts/model_experiments/training_candidate_risk_control_report_verification_latest.json",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "payload_equal": true,
+      "check_names_equal": true,
+      "check_values_equal": true,
+      "legacy": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": "shared/risk_control/valid.json"
+        },
+        "payload_sha256": "18eead0a9214a44fb0f07915c47a2e2df5fcb6943ecb628c23ad563a93579606"
+      },
+      "new": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": "shared/risk_control/valid.json"
+        },
+        "payload_sha256": "18eead0a9214a44fb0f07915c47a2e2df5fcb6943ecb628c23ad563a93579606"
+      }
+    },
+    {
+      "profile": "risk_control",
+      "case": "invalid",
+      "default_output": "artifacts/model_experiments/training_candidate_risk_control_report_verification_latest.json",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "payload_equal": true,
+      "check_names_equal": true,
+      "check_values_equal": true,
+      "legacy": {
+        "exit_code": 1,
+        "console": {
+          "status": "FAILED",
+          "output": "shared/risk_control/invalid.json"
+        },
+        "payload_sha256": "b554f3c91a3b341c567427fb2ae1e1333067a2f3425aa76c008d5eaba3b65428"
+      },
+      "new": {
+        "exit_code": 1,
+        "console": {
+          "status": "FAILED",
+          "output": "shared/risk_control/invalid.json"
+        },
+        "payload_sha256": "b554f3c91a3b341c567427fb2ae1e1333067a2f3425aa76c008d5eaba3b65428"
+      }
+    }
+  ],
+  "verification": {
+    "focused_tests": "PASS: 8 passed",
+    "py_compile": "PASS: scripts/verify_training_candidate_risk_reports.py scripts/audit_script_lifecycle.py",
+    "script_reference_audit_strict_new": "PASS: 436 tracked scripts, 0 new suspected orphans",
+    "script_lifecycle_audit_strict_new": "PASS: 436 tracked scripts, 0 new unclassified",
+    "full_pytest_worktree": "ENV_BLOCKED: 241 passed, 28 subtests passed, 1 failed because gitignored artifacts/data evidence files are absent in this worktree",
+    "full_pytest_canonical": "PASS: 242 passed, 28 subtests passed, 4 existing dependency deprecation warnings",
+    "git_diff_check": "PASS"
+  },
+  "full_pytest_blocker": {
+    "test": "tests/test_research_component_ledger.py::ResearchComponentLedgerTest::test_verifier_accepts_generated_ledger",
+    "failed_check": "evidence_exists",
+    "missing_evidence_examples": [
+      "artifacts/model_experiments/long_candidate_validation_report_2026-06-10.json",
+      "artifacts/model_experiments/candidate_trail10_retention_diagnostics_2026-06-10.json",
+      "data/clean/features.parquet",
+      "data/reference/stock_industry_map.csv"
+    ],
+    "assessment": "Environment data gap; unrelated to CLEANUP-31 verifier consolidation."
+  },
+  "daily_hashes": {
+    "scripts/run_daily.sh": "3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3",
+    "scripts/run_daily_publish.sh": "ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3",
+    "scripts/com.new-top10.daily.plist": "eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995",
+    "config/automation.yaml": "c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a"
+  }
+}

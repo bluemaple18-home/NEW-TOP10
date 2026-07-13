@@ -148,8 +148,7 @@ reference_audit:
     - scripts/verify_regime_feature_offline_ablation.py
     - scripts/verify_training_candidate_flow.py
     - scripts/verify_training_candidate_replay_flow.py
-    - scripts/verify_training_candidate_risk_attribution.py
-    - scripts/verify_training_candidate_risk_control_report.py
+    - scripts/verify_training_candidate_risk_reports.py
     - scripts/verify_weekend_overnight_campaign_summary.py
     - scripts/verify_weekend_production_baseline_source_audit.py
     - scripts/verify_weekend_ranking_dir_unlock_smoke.py
