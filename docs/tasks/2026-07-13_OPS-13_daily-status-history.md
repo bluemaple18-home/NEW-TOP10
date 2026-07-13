@@ -1,6 +1,6 @@
 # OPS-13｜Daily Status 歷史證據保留
 
-- status: ready
+- status: done
 - priority: P0
 - task thickness: strict
 
@@ -46,3 +46,24 @@
 ## 回報
 
 建立單一 atomic commit；回報 SHA、fixture 證據與剩餘風險，不 merge、不 push、不 reload。
+
+## Result
+
+- daily status 除 canonical latest 外，新增 deterministic `automation_status_<run_date>.json`；dry-run snapshot 以 `_dry_run` 隔離。
+- canonical latest 與 dated snapshot 使用同一份序列化 payload 原子寫入，既有 `daily-run-status.v1` 欄位與 latest 路徑不變。
+- publish verifier 有 `--date` 時只讀指定日期 snapshot；未指定日期仍讀 latest。缺歷史 snapshot 時明確回報 `historical status unavailable`，不 fallback 到 latest。
+- wrapper stale-send guard、send exit code、live 控制檔與正式發送流程均未修改。
+
+## Verification
+
+- targeted unittest：11/11 通過；涵蓋 latest、歷史 dated、週末 SKIPPED 覆蓋、缺 snapshot、FAILED／SKIPPED、dry-run 命名及 canonical／dated payload 完全相同。
+- publish workflow synthetic fixture：latest=`2026-07-12 SKIPPED`，指定 `--date 2026-07-09` 從 dated `OK` snapshot 驗證為 `DAILY_PUBLISH_WORKFLOW_OK`。
+- verifier CLI `--help` 直接啟動通過；受影響 Python 檔案 `py_compile` 通過。
+- `scripts/run_daily.sh` SHA-256：`3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3`（前後不變）。
+- `scripts/run_daily_publish.sh` SHA-256：`ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3`（前後不變）。
+- `git diff --check` 通過；未執行 live daily、send、reload、backfill、merge 或 push。
+
+## Remaining risk
+
+- 既有歷史日期不會自動回填 snapshot；依契約會回報 `historical status unavailable`，需等待新 daily run 自然累積。
+- 未跑全 repo test suite；本卡以 automation status、publish workflow 與 wrapper guard targeted tests 覆蓋受影響面。

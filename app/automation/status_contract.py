@@ -47,6 +47,12 @@ def status_output_path(canonical_path: Path, *, mode: str, dry_run: bool) -> Pat
     return status_path
 
 
+def daily_status_snapshot_path(canonical_path: Path, *, run_date: str, dry_run: bool) -> Path:
+    """回傳指定日期的 daily status snapshot 路徑。"""
+    dry_run_suffix = "_dry_run" if dry_run else ""
+    return canonical_path.with_name(f"{canonical_path.stem}_{run_date}{dry_run_suffix}{canonical_path.suffix}")
+
+
 def automation_summary_payload(
     status_payload: Mapping[str, Any],
     *,

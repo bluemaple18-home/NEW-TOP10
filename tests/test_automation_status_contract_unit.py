@@ -9,6 +9,24 @@ from app.automation import status_contract
 
 
 class AutomationStatusContractUnitTest(unittest.TestCase):
+    def test_daily_status_snapshot_path_table(self) -> None:
+        canonical = Path("/tmp/artifacts/automation_status.json")
+        cases = [
+            (False, "automation_status_2026-07-13.json"),
+            (True, "automation_status_2026-07-13_dry_run.json"),
+        ]
+
+        for dry_run, expected_name in cases:
+            with self.subTest(dry_run=dry_run):
+                self.assertEqual(
+                    status_contract.daily_status_snapshot_path(
+                        canonical,
+                        run_date="2026-07-13",
+                        dry_run=dry_run,
+                    ),
+                    canonical.with_name(expected_name),
+                )
+
     def test_status_output_path_table(self) -> None:
         canonical = Path("/tmp/artifacts/automation_status.json")
         cases = [

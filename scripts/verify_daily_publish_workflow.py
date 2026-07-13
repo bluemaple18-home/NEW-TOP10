@@ -13,9 +13,16 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.automation.status_contract import daily_status_snapshot_path  # noqa: E402
 
 try:
     import yaml
@@ -23,7 +30,6 @@ except ImportError:  # pragma: no cover - 讓錯誤訊息更明確
     yaml = None
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 
 
@@ -43,14 +49,14 @@ def main() -> int:
     if args.check_launchd:
         check_launchd(errors, warnings, details)
 
-    status = read_json(ARTIFACTS_DIR / "automation_status.json", errors)
+    status, status_path = load_daily_status(args.date, errors)
     run_date = args.date or status.get("run_date")
     if not run_date:
         errors.append("missing run_date: pass --date or provide artifacts/automation_status.json")
         run_date = datetime.now().date().isoformat()
     details["run_date"] = run_date
 
-    check_daily_artifacts(run_date, status, errors, warnings, details)
+    check_daily_artifacts(run_date, status, status_path, errors, warnings, details)
     check_publish_artifacts(run_date, args.require_send, errors, warnings, details)
 
     report = {
@@ -166,12 +172,13 @@ def check_launchd(errors: list[str], warnings: list[str], details: dict[str, Any
 def check_daily_artifacts(
     run_date: str,
     status: dict[str, Any],
+    status_path: Path,
     errors: list[str],
     warnings: list[str],
     details: dict[str, Any],
 ) -> None:
     details["automation_status"] = {
-        "path": str(ARTIFACTS_DIR / "automation_status.json"),
+        "path": str(status_path),
         "status": status.get("status"),
         "run_date": status.get("run_date"),
     }
@@ -261,6 +268,18 @@ def check_publish_artifacts(
         errors.append(f"send status missing: {send_path}")
     else:
         warnings.append(f"send status not checked because --require-send is false: {send_path}")
+
+
+def load_daily_status(requested_date: str | None, errors: list[str]) -> tuple[dict[str, Any], Path]:
+    latest_path = ARTIFACTS_DIR / "automation_status.json"
+    if requested_date is None:
+        return read_json(latest_path, errors), latest_path
+
+    snapshot_path = daily_status_snapshot_path(latest_path, run_date=requested_date, dry_run=False)
+    if not snapshot_path.exists():
+        errors.append(f"historical status unavailable: {snapshot_path}")
+        return {}, snapshot_path
+    return read_json(snapshot_path, errors), snapshot_path
 
 
 def read_json(path: Path, errors: list[str]) -> dict[str, Any]:

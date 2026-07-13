@@ -35,6 +35,7 @@ from app.automation.status_contract import (
     STATUS_SCHEMA_VERSION,
     StepResult,
     automation_summary_payload,
+    daily_status_snapshot_path,
     status_output_path,
 )
 
@@ -1395,7 +1396,17 @@ class AutomationRunner:
         status_path = self._status_output_path()
         status_path.parent.mkdir(parents=True, exist_ok=True)
         payload = asdict(self.status)
-        status_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        serialized_payload = json.dumps(payload, ensure_ascii=False, indent=2)
+        if self.mode == "daily":
+            snapshot_path = daily_status_snapshot_path(
+                STATUS_PATH,
+                run_date=self.run_date,
+                dry_run=self.dry_run,
+            )
+            self._write_text_atomic(snapshot_path, serialized_payload)
+            self._write_text_atomic(status_path, serialized_payload)
+        else:
+            status_path.write_text(serialized_payload, encoding="utf-8")
         if self.mode == "daily":
             summary_suffix = "_dry_run" if self.dry_run else ""
             summary_path = PROJECT_ROOT / "artifacts" / f"daily_run_summary_{self.run_date}{summary_suffix}.json"
@@ -1410,6 +1421,15 @@ class AutomationRunner:
                 json.dumps(self._automation_summary_payload(payload), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+
+    @staticmethod
+    def _write_text_atomic(path: Path, content: str) -> None:
+        temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        try:
+            temp_path.write_text(content, encoding="utf-8")
+            temp_path.replace(path)
+        finally:
+            temp_path.unlink(missing_ok=True)
 
     def _status_output_path(self) -> Path:
         """daily 狀態是下游 publish / external-review 的契約；其他模式不能覆蓋。"""
