@@ -1,6 +1,6 @@
 # CLEANUP-15｜Script Reference 可達性盤點
 
-- status: ready
+- status: completed
 - priority: P1
 - task thickness: standard
 
@@ -44,3 +44,16 @@
 ## 回報
 
 建立單一 atomic commit；回報 SHA、盤點統計與前 20 個 suspected orphan，不 merge、不 push、不刪檔。
+
+## Result
+
+- 新增 `scripts/audit_script_references.py`，輸出 deterministic `script-reference-audit.v1` JSON，並支援 `--strict-new`。
+- 既有 101 個 suspected orphan 已寫入 `reference_audit.approved_unreferenced` 基線；它們仍會出現在盤點清單，allowlist 僅避免既有候選使 strict-new 失敗。
+- 證據：`.work/CLEANUP-15/evidence/script-reference-audit.json`、`.work/CLEANUP-15/evidence/script-lifecycle.json`。
+
+## Verification
+
+- `uv run python -m unittest tests.test_script_reference_audit tests.test_script_lifecycle_audit`：9 tests PASS。
+- reference audit `--strict-new`：PASS；重跑 JSON 與首次輸出逐位元一致。
+- lifecycle audit `--strict-new`：PASS。
+- `git diff --check`：PASS。

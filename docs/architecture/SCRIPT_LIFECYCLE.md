@@ -31,3 +31,17 @@ uv run python -m unittest tests.test_script_lifecycle_audit
 uv run python scripts/audit_script_lifecycle.py --strict-new --output .work/CLEANUP-07/evidence/script-lifecycle.json
 git diff --check
 ```
+
+## Script Reference 可達性盤點
+
+`scripts/audit_script_references.py` 掃描 Git tracked 的 UTF-8 text files，辨識 Python import、shell／Python 路徑、plist、YAML 與 Markdown 的靜態引用。它只產出 `script-reference-audit.v1` JSON，不執行、搬移或刪除任何 script。
+
+```bash
+uv run python scripts/audit_script_references.py \
+  --output .work/CLEANUP-15/evidence/script-reference-audit.json \
+  --strict-new
+```
+
+報告依路徑排序，每支 script 都有 `reason`、`reference_count` 與引用證據。production entrypoint 由既有 exact allowlist 標示為 `protected`，即使引用數為零也不會列入 suspected orphan。無法靜態解析的 Python dynamic import 會放在 `unknown_references`；它們不構成可刪除結論。
+
+`config/script_lifecycle.yaml` 的 `reference_audit.approved_unreferenced` 是既有無引用基線。`--strict-new` 只對未列入該 allowlist 的新增 suspected orphan 失敗；allowlist 不改變 lifecycle 分類或 production entrypoint 行為。

@@ -1,0 +1,4027 @@
+{
+  "schema_version": "script-lifecycle.v1",
+  "source": "git-tracked-scripts",
+  "entries": [
+    {
+      "path": "scripts/analyze_fixed_share_persistence.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:analyze_",
+      "reason": "檔名符合 maintenance 分類前綴 analyze_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/artifact_retention.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:artifact_",
+      "reason": "檔名符合 maintenance 分類前綴 artifact_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/audit_research_dataset_coverage.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:audit_",
+      "reason": "檔名符合 maintenance 分類前綴 audit_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/audit_script_lifecycle.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:audit_",
+      "reason": "檔名符合 maintenance 分類前綴 audit_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/backfill_model_experiment_ledger.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:backfill_",
+      "reason": "檔名符合 maintenance 分類前綴 backfill_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/backfill_research_map_run_history.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:backfill_",
+      "reason": "檔名符合 maintenance 分類前綴 backfill_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/backtest_guarded_top10_performance.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:backtest_",
+      "reason": "檔名符合 maintenance 分類前綴 backtest_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/backtest_overlap_first_recommendation_performance.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:backtest_",
+      "reason": "檔名符合 maintenance 分類前綴 backtest_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/build_5913_combo_effectiveness_review.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_alpha_candidate_features.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_baseline_harness_medium_window_review.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_baseline_harness_unlock_policy_review.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_big_bull_blocker_resolution_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_big_bull_family_only_sealed_rollback_prep.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_big_bull_ranking_only_shadow_dry_run.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_big_bull_ranking_replay_extension_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_big_bull_sealed_split_policy_decision.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_big_bull_shadow_monitor.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_borrow_squeeze_materialized_features.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_borrow_squeeze_replay_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_candidate_historical_validation_gap_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_candidate_persistence.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_candidate_persistence_materialized_features.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_candidate_trail10_daily_shadow_monitor.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_candidate_trail10_retention_diagnostics.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_defensive_overlay_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_entry_quality_daily_shadow_monitor.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_entry_quality_daily_shadow_monitor_batch.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_entry_quality_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_exit_rule_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_long_validation_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_realism02_drawdown_state_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_realism02_followup_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_realism02_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_realism03_warning_effectiveness_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_realism04_warning_rule_recalibration.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_realism05_warning_dry_run_message.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_realism06_sizing_policy_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_capital_realism07_balanced_variant_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_chip_composite_warning_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_chip_data_contract.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_chip_flow_materialized_features.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_chip_flow_readiness_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_chip_flow_runtime_coverage.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_chip_warning_replay_aggregate.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_chip_warning_shadow_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_clawd_publish_payload.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_consensus_publish_top10.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_constrained_shadow_comparison.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_constrained_shadow_rankings.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_daily_performance_review.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_daily_recommendation_performance.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_daily_recommendation_pm_validation.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_daily_recommendation_shadow_monitor.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_daily_shadow_status_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_decision_quality.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_exit_rule_half_year_decision_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_exit_rule_portfolio_level_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_exit_rule_rolling_regime_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_external_review_packet.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_external_review_summary.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_factor_run_manifest.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_feature_experiment_gate.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_fixed_share_research_factory_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_fundamental_shadow_scores.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_gross55_daily_shadow_monitor.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_gross55_daily_shadow_monitor_batch.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_gross55_operational_shadow_dry_run.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_half_year_negative_fold_diagnostics.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_high_choppy_context_overlay.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_historical_ranking_replay_set.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_liquidity_quality_candidate_universe_replay_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_liquidity_quality_capital_aware_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_liquidity_quality_shadow_replay_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_liquidity_quality_strict_replay.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_liquidity_replay_v2_stage2.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_long_candidate_validation_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_mainline_a_regime_validation.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_market_defense_guard_replay.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_market_regime_history.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_mass_candidate_sector_cap_extension.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_mass_candidate_shadow_dry_run.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_mass_candidate_survivor_replay_extension.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_mass_candidate_training_batch.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_model_experiment_ledger_stats.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_model_experiment_plan.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_model_experiment_result_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_model_experiment_run_manifest.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_model_promotion_review.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_model_runtime_migration_candidate.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_odd_lot_candidate_comparison_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_odd_lot_candidate_decision_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_odd_lot_capital_matrix_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_odd_lot_exit_horizon_sensitivity_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_odd_lot_exit_strategy_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_odd_lot_exposure_sensitivity_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_odd_lot_regime_sensitivity_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_odd_lot_regime_throttle_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_operational_long_rule_validation_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_operational_portfolio_rule_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_operational_rule_candidate_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_operational_rule_experiment_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_operational_rule_validation_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_overlap_first_daily_recommendation_shadow.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_overnight_risk_matrix_summary.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_overnight_training_summary.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_pm_approved_work_queue.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_pm_clarification_review_cards.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_portfolio_overlay_promotion_review.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_portfolio_replay_regime_attribution.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_baseline_harness.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_baseline_materialization_review.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_baseline_materialization_smoke.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_tactics_replay.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_trail10_daily_report_dry_run.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_trail10_daily_report_review_loop.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_trail10_publish_preview.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_trail10_rollout_readiness.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_trail10_shadow.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_production_trail10_shadow_review.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_recent_top10_watchlist_warning.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_regime_conditional_hybrid_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_regime_conditional_shadow_rankings.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_regime_family_sealed_stability_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_replay_window_stability.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_research_campaign_progress.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_research_component_ledger.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_research_decision_brief.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_research_fog_map.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_shadow_feature_experiment.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_shadow_historical_evidence_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_stock_industry_map_from_concepts.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_strategy_archetype_evidence_map.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_strategy_component_registry.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_strategy_composition_isolation.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_strategy_composition_replay.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_task_status_ledger.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_technical_only_training_lane.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_top10_agent_status_rollup.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_top10_ops_progress_message.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_training_candidate_risk_attribution.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_training_candidate_risk_control_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_vwap_cost_basis_features.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_weekend_frontier_queue.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_weekend_overnight_campaign_audits.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_weekend_production_baseline_source_audit.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_weekend_ranking_dir_unlock_smoke.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_weekend_research_decision_report.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_weekend_training_rollup.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_weekend_universe_inventory.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_weekend_unsupported_unlock_audit.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/build_weekly_candidate_snapshot.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/cleanup_weekend_training_full_artifacts.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:cleanup_",
+      "reason": "檔名符合 maintenance 分類前綴 cleanup_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/com.new-top10.baseline-harness.plist",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:com.new-top10.",
+      "reason": "檔名符合 maintenance 分類前綴 com.new-top10.。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/com.new-top10.daily.plist",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/com.new-top10.daily.plist",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/com.new-top10.external-review-preflight.plist",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:com.new-top10.",
+      "reason": "檔名符合 maintenance 分類前綴 com.new-top10.。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/com.new-top10.external-review.plist",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:com.new-top10.",
+      "reason": "檔名符合 maintenance 分類前綴 com.new-top10.。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/com.new-top10.fog-research-worker.plist",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:com.new-top10.",
+      "reason": "檔名符合 maintenance 分類前綴 com.new-top10.。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/com.new-top10.pm-research-harness.plist",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:com.new-top10.",
+      "reason": "檔名符合 maintenance 分類前綴 com.new-top10.。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/com.new-top10.reference.plist",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/com.new-top10.reference.plist",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/com.new-top10.retrain.plist",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/com.new-top10.retrain.plist",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/com.new-top10.webui.plist",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/com.new-top10.webui.plist",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/compare_portfolio_replay_variants.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:compare_",
+      "reason": "檔名符合 maintenance 分類前綴 compare_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/compare_replay_variants.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:compare_",
+      "reason": "檔名符合 maintenance 分類前綴 compare_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/compare_strategy_matrices.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:compare_",
+      "reason": "檔名符合 maintenance 分類前綴 compare_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/daily_retrain.sh",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/daily_retrain.sh",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/export_top10_loop_status.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:export_",
+      "reason": "檔名符合 maintenance 分類前綴 export_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/external_review_api_provider.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:external_",
+      "reason": "檔名符合 maintenance 分類前綴 external_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/external_review_provider_contract.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:external_",
+      "reason": "檔名符合 maintenance 分類前綴 external_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/filter_clean_to_tradable_universe.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:filter_",
+      "reason": "檔名符合 maintenance 分類前綴 filter_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/generate_backtest_acceptance_report.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:generate_",
+      "reason": "檔名符合 maintenance 分類前綴 generate_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/generate_daily_report.py",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/generate_daily_report.py",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/generate_model_health_report.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:generate_",
+      "reason": "檔名符合 maintenance 分類前綴 generate_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/import_goodinfo_fundamentals.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:import_",
+      "reason": "檔名符合 maintenance 分類前綴 import_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/import_goodinfo_universe.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:import_",
+      "reason": "檔名符合 maintenance 分類前綴 import_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/import_reference_sources.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:import_",
+      "reason": "檔名符合 maintenance 分類前綴 import_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/import_tradable_universe.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:import_",
+      "reason": "檔名符合 maintenance 分類前綴 import_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/materialize_research_only_production_baseline_smoke.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:materialize_",
+      "reason": "檔名符合 maintenance 分類前綴 materialize_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/materialize_vwap_regime_gated_rankings.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:materialize_",
+      "reason": "檔名符合 maintenance 分類前綴 materialize_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/model_experiment_ledger.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:model_",
+      "reason": "檔名符合 maintenance 分類前綴 model_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/monitor_factors.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:monitor_",
+      "reason": "檔名符合 maintenance 分類前綴 monitor_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/monitor_industry_momentum.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:monitor_",
+      "reason": "檔名符合 maintenance 分類前綴 monitor_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/normalize_external_review_response.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:normalize_",
+      "reason": "檔名符合 maintenance 分類前綴 normalize_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/preflight_external_review_providers.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:preflight_",
+      "reason": "檔名符合 maintenance 分類前綴 preflight_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/print_daily_status.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:print_",
+      "reason": "檔名符合 maintenance 分類前綴 print_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/probe_reference_sources.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:probe_",
+      "reason": "檔名符合 maintenance 分類前綴 probe_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/probe_universe_rebuild.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:probe_",
+      "reason": "檔名符合 maintenance 分類前綴 probe_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/promote_model_runtime_candidate.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:promote_",
+      "reason": "檔名符合 maintenance 分類前綴 promote_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/push_changes.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:push_",
+      "reason": "檔名符合 maintenance 分類前綴 push_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/record_top10_daily_status_events.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:record_",
+      "reason": "檔名符合 maintenance 分類前綴 record_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/record_top10_publish_event.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:record_",
+      "reason": "檔名符合 maintenance 分類前綴 record_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/refresh_model_baseline.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:refresh_",
+      "reason": "檔名符合 maintenance 分類前綴 refresh_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/refresh_research_map_from_history.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:refresh_",
+      "reason": "檔名符合 maintenance 分類前綴 refresh_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/replay_guarded_top10_policy.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:replay_",
+      "reason": "檔名符合 maintenance 分類前綴 replay_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/report_stock_status.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:report_",
+      "reason": "檔名符合 maintenance 分類前綴 report_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/research_alpha_candidate_offline_ablation.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_alpha_candidate_overlay.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_alpha_candidate_overlay_portfolio_replay.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_alpha_candidate_overlay_replay.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_alpha_candidate_signal_check.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_big_bull_blended_shadow_ranking.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_big_bull_shadow_ranking.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_candidate_persistence_backtest.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_candidate_persistence_materialized_ablation.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_feature_group_ablation_by_regime.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_industry_etf_risk.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_industry_momentum_shadow.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_industry_momentum_walkforward.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_liquidity_quality_candidate_universe_shadow.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_liquidity_quality_shadow.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_map_contract.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_map_linkage_smoke.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_ranking_score_shadow.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_regime_family_sealed_replay.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_regime_family_training_candidates.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_regime_feature_offline_ablation.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_regime_shadow_ranking.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_replay_diagnostics.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_risk_off_narrow_routing.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_vwap_cost_basis.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_vwap_entry_quality_replay.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/research_vwap_regime_gated_entry_quality.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: research:research_",
+      "reason": "檔名符合 research 分類前綴 research_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/review_chatgpt_chrome.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:review_",
+      "reason": "檔名符合 maintenance 分類前綴 review_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/review_gemini_chrome.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:review_",
+      "reason": "檔名符合 maintenance 分類前綴 review_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/rewrite_clawd_publish_message_llm.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:rewrite_",
+      "reason": "檔名符合 maintenance 分類前綴 rewrite_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_a1_forward_shadow_monitor.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_automation.py",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/run_automation.py",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_autonomous_research.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_backtest_replay.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_backtest_strategy_matrix.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_baseline_harness_host_runner.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_baseline_harness_host_runner.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_baseline_harness_medium_window_replay.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_baseline_harness_minimal_replay_smoke.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_baseline_harness_small_window_replay.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_candidate_stress_matrix.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_capital_aware_replay.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_controlled_grid_drain_host_runner.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_controlled_grid_drain_host_runner.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_daily.sh",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/run_daily.sh",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_daily_postcheck.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_daily_publish.sh",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/run_daily_publish.sh",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_daily_research_quota.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_daily_v2.py",
+      "category": "research",
+      "entrypoint": false,
+      "reference_evidence": "override: scripts/run_daily_v2.py",
+      "reason": "shadow-only daily V2 lane; no production switch has been approved",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/run_external_review_host_runner.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_external_review_host_runner.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_external_review_provider_preflight.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_fixed_share_hypothesis_matrix.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_fixed_share_research_flow.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_fixed_share_top10_backtest.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_fog_research_worker.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_liquidity_replay_v2_batch.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_model_research_flow.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_odd_lot_portfolio_replay.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_overnight_shadow_training.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_pm_research_harness_loop.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_pm_research_harness_loop.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_portfolio_replay.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_production_trail10_batch_08_10.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_reference_update.sh",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/run_reference_update.sh",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_representative_replay_drain_worker.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_research_shadow_runs.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_sealed_oos_gate.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_top10_fog_map_handoff.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_training_candidate_flow.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_training_candidate_replay_flow.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_weekend_representative_replay.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_weekend_research_matrix.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/run_weekend_survivor_deep_replay.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/send_clawd_publish_message.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:send_",
+      "reason": "檔名符合 maintenance 分類前綴 send_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/send_pm_review_card_local.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:send_",
+      "reason": "檔名符合 maintenance 分類前綴 send_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/send_top10_ops_report.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:send_",
+      "reason": "檔名符合 maintenance 分類前綴 send_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/setup_cron.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:setup_",
+      "reason": "檔名符合 maintenance 分類前綴 setup_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/setup_launchd.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:setup_",
+      "reason": "檔名符合 maintenance 分類前綴 setup_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/setup_webui_launchd.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:setup_",
+      "reason": "檔名符合 maintenance 分類前綴 setup_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/start_market_ui.sh",
+      "category": "production_entrypoint",
+      "entrypoint": true,
+      "reference_evidence": "exact production allowlist: scripts/start_market_ui.sh",
+      "reason": "明確列入 production entrypoint allowlist。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/start_ui.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:start_",
+      "reason": "檔名符合 maintenance 分類前綴 start_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/sync_from_remote.sh",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:sync_",
+      "reason": "檔名符合 maintenance 分類前綴 sync_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/top10_agent_status.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:top10_",
+      "reason": "檔名符合 maintenance 分類前綴 top10_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/trace_weekend_training_artifact.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:trace_",
+      "reason": "檔名符合 maintenance 分類前綴 trace_。",
+      "candidate_action": "retain"
+    },
+    {
+      "path": "scripts/verify_5913_combo_effectiveness_review.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_features.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_offline_ablation.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_overlay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_overlay_portfolio_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_overlay_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_signal_check.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_autonomous_research.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_backtest_acceptance_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_backtest_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_backtest_strategy_matrix.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_baseline_harness_host_runner.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_baseline_harness_medium_window_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_baseline_harness_medium_window_review.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_baseline_harness_minimal_replay_smoke.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_baseline_harness_small_window_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_baseline_harness_unlock_policy_review.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_borrow_squeeze_materialized_features.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_borrow_squeeze_replay_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_candidate_historical_validation_gap_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_candidate_persistence.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_candidate_persistence_backtest.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_candidate_persistence_materialized_ablation.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_candidate_persistence_materialized_features.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_candidate_trail10_daily_shadow_monitor.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_candidate_trail10_retention_diagnostics.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_defensive_overlay_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_entry_quality_daily_shadow_monitor.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_entry_quality_daily_shadow_monitor_batch.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_entry_quality_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_exit_rule_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_long_validation_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_realism02_drawdown_state_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_realism02_followup_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_realism02_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_realism03_warning_effectiveness_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_realism04_warning_rule_recalibration.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_realism05_warning_dry_run_message.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_realism06_sizing_policy_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_capital_realism07_balanced_variant_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_chip_composite_warning_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_chip_data_contract.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_chip_flow_materialized_features.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_chip_flow_readiness_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_chip_flow_runtime_coverage.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_chip_warning_replay_aggregate.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_chip_warning_shadow_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_clawd_live_send_config.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_consensus_publish_top10.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_market_coverage_gate.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_performance_review.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_pipeline_window_override.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_publish_workflow.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_publish_wrapper_guards.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_recommendation_performance.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_recommendation_pm_validation.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_recommendation_shadow_monitor.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_research_quota.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_shadow_status_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_tape_and_rr_guard.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_data_contracts.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_decision_quality.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_discord_channel_routing.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_exit_rule_half_year_decision_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_exit_rule_portfolio_level_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_exit_rule_rolling_regime_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_external_review_contract.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_external_review_host_runner.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_external_review_packet.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_external_review_summary.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_feature_experiment_gate.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_feature_group_ablation_by_regime.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_fixed_share_research_factory.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_frontend_smoke.mjs",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_gross55_daily_shadow_monitor.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_gross55_daily_shadow_monitor_batch.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_gross55_operational_shadow_dry_run.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_guarded_top10_performance.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_guarded_top10_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_half_year_walkforward_no_hindsight.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_high_choppy_context_overlay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_liquidity_quality_candidate_universe_replay_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_liquidity_quality_candidate_universe_shadow.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_liquidity_quality_capital_aware_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_liquidity_quality_shadow.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_liquidity_quality_shadow_replay_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_liquidity_quality_strict_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_liquidity_replay_v2_batch.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_liquidity_replay_v2_stage2.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_local_dev_health.sh",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_long_candidate_validation_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_m4_full_features.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_market_context_fetcher.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_model_experiment_ledger.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_model_experiment_plan.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_model_experiment_result_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_model_experiment_run_manifest.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_model_foundation.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_model_group_acceptance.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_model_health_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_model_research_flow.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_notification_theme_buckets.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_odd_lot_candidate_comparison_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_odd_lot_candidate_decision_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_odd_lot_capital_matrix_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_odd_lot_exit_horizon_sensitivity_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_odd_lot_exit_strategy_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_odd_lot_exposure_sensitivity_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_odd_lot_portfolio_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_odd_lot_regime_sensitivity_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_odd_lot_regime_throttle_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_operational_long_rule_validation_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_operational_rule_validation_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_overlap_first_daily_recommendation_shadow.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_overlap_first_recommendation_performance.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_pipeline_refactor.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_pm_approved_work_queue.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_pm_research_harness_loop.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_portfolio_overlay_promotion_review.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_portfolio_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_portfolio_replay_regime_attribution.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_portfolio_risk_overlay_default_off.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_baseline_harness.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_baseline_materialization_review.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_baseline_materialization_smoke.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_ranking_overlay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_tactics_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_trail10_batch_03_05.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_trail10_batch_08_10.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_trail10_daily_report_dry_run.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_trail10_daily_report_review_loop.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_trail10_shadow.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_production_write_guard.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_publish_risk_grouping.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_recent_top10_watchlist_warning.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_reference_sources.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_regime_conditional_hybrid_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_regime_conditional_shadow_rankings.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_regime_family_sealed_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_regime_family_training_candidates.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_regime_feature_offline_ablation.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_research_component_ledger.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_research_fog_map.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_research_map_run_history_backfill.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_research_map_v2_schema.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_research_only_production_baseline_smoke.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_research_tooling_merge_slices.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_resource_guard.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_retrain_rollback.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_retrain_sealed_oos_capacity_preflight.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_review_fixes.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_scheduler_ownership.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_sealed_oos_gate.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_shadow_feature_experiment.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_shadow_historical_evidence_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_stock_switching_flow.mjs",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_strategy_component_registry.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_strategy_composition_isolation.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_strategy_composition_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_top10_agent_status_event.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_training_automation_readiness.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_training_candidate_flow.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_training_candidate_replay_flow.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_training_candidate_risk_attribution.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_training_candidate_risk_control_report.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_twse_fetch_retry.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_vwap_cost_basis_features.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_weekend_frontier_queue.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_weekend_overnight_campaign_summary.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_weekend_production_baseline_source_audit.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_weekend_ranking_dir_unlock_smoke.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_weekend_representative_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_weekend_survivor_deep_replay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_weekend_training_rollup.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_weekend_universe_inventory.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_weekend_unsupported_unlock_audit.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/weekend_training_common.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:weekend_",
+      "reason": "檔名符合 maintenance 分類前綴 weekend_。",
+      "candidate_action": "retain"
+    }
+  ],
+  "summary": {
+    "tracked_script_count": 457,
+    "category_counts": {
+      "builder": 144,
+      "maintenance": 98,
+      "production_entrypoint": 11,
+      "research": 28,
+      "verifier": 176
+    },
+    "review_candidates": [
+      "scripts/build_5913_combo_effectiveness_review.py",
+      "scripts/build_alpha_candidate_features.py",
+      "scripts/build_baseline_harness_medium_window_review.py",
+      "scripts/build_baseline_harness_unlock_policy_review.py",
+      "scripts/build_big_bull_blocker_resolution_report.py",
+      "scripts/build_big_bull_family_only_sealed_rollback_prep.py",
+      "scripts/build_big_bull_ranking_only_shadow_dry_run.py",
+      "scripts/build_big_bull_ranking_replay_extension_report.py",
+      "scripts/build_big_bull_sealed_split_policy_decision.py",
+      "scripts/build_big_bull_shadow_monitor.py",
+      "scripts/build_borrow_squeeze_materialized_features.py",
+      "scripts/build_borrow_squeeze_replay_report.py",
+      "scripts/build_candidate_historical_validation_gap_report.py",
+      "scripts/build_candidate_persistence.py",
+      "scripts/build_candidate_persistence_materialized_features.py",
+      "scripts/build_candidate_trail10_daily_shadow_monitor.py",
+      "scripts/build_candidate_trail10_retention_diagnostics.py",
+      "scripts/build_capital_defensive_overlay_report.py",
+      "scripts/build_capital_entry_quality_daily_shadow_monitor.py",
+      "scripts/build_capital_entry_quality_daily_shadow_monitor_batch.py",
+      "scripts/build_capital_entry_quality_report.py",
+      "scripts/build_capital_exit_rule_report.py",
+      "scripts/build_capital_long_validation_report.py",
+      "scripts/build_capital_realism02_drawdown_state_report.py",
+      "scripts/build_capital_realism02_followup_report.py",
+      "scripts/build_capital_realism02_report.py",
+      "scripts/build_capital_realism03_warning_effectiveness_report.py",
+      "scripts/build_capital_realism04_warning_rule_recalibration.py",
+      "scripts/build_capital_realism05_warning_dry_run_message.py",
+      "scripts/build_capital_realism06_sizing_policy_report.py",
+      "scripts/build_capital_realism07_balanced_variant_report.py",
+      "scripts/build_chip_composite_warning_report.py",
+      "scripts/build_chip_data_contract.py",
+      "scripts/build_chip_flow_materialized_features.py",
+      "scripts/build_chip_flow_readiness_report.py",
+      "scripts/build_chip_flow_runtime_coverage.py",
+      "scripts/build_chip_warning_replay_aggregate.py",
+      "scripts/build_chip_warning_shadow_report.py",
+      "scripts/build_clawd_publish_payload.py",
+      "scripts/build_consensus_publish_top10.py",
+      "scripts/build_constrained_shadow_comparison.py",
+      "scripts/build_constrained_shadow_rankings.py",
+      "scripts/build_daily_performance_review.py",
+      "scripts/build_daily_recommendation_performance.py",
+      "scripts/build_daily_recommendation_pm_validation.py",
+      "scripts/build_daily_recommendation_shadow_monitor.py",
+      "scripts/build_daily_shadow_status_report.py",
+      "scripts/build_decision_quality.py",
+      "scripts/build_exit_rule_half_year_decision_report.py",
+      "scripts/build_exit_rule_portfolio_level_report.py",
+      "scripts/build_exit_rule_rolling_regime_report.py",
+      "scripts/build_external_review_packet.py",
+      "scripts/build_external_review_summary.py",
+      "scripts/build_factor_run_manifest.py",
+      "scripts/build_feature_experiment_gate.py",
+      "scripts/build_fixed_share_research_factory_report.py",
+      "scripts/build_fundamental_shadow_scores.py",
+      "scripts/build_gross55_daily_shadow_monitor.py",
+      "scripts/build_gross55_daily_shadow_monitor_batch.py",
+      "scripts/build_gross55_operational_shadow_dry_run.py",
+      "scripts/build_half_year_negative_fold_diagnostics.py",
+      "scripts/build_high_choppy_context_overlay.py",
+      "scripts/build_historical_ranking_replay_set.py",
+      "scripts/build_liquidity_quality_candidate_universe_replay_report.py",
+      "scripts/build_liquidity_quality_capital_aware_report.py",
+      "scripts/build_liquidity_quality_shadow_replay_report.py",
+      "scripts/build_liquidity_quality_strict_replay.py",
+      "scripts/build_liquidity_replay_v2_stage2.py",
+      "scripts/build_long_candidate_validation_report.py",
+      "scripts/build_mainline_a_regime_validation.py",
+      "scripts/build_market_defense_guard_replay.py",
+      "scripts/build_market_regime_history.py",
+      "scripts/build_mass_candidate_sector_cap_extension.py",
+      "scripts/build_mass_candidate_shadow_dry_run.py",
+      "scripts/build_mass_candidate_survivor_replay_extension.py",
+      "scripts/build_mass_candidate_training_batch.py",
+      "scripts/build_model_experiment_ledger_stats.py",
+      "scripts/build_model_experiment_plan.py",
+      "scripts/build_model_experiment_result_report.py",
+      "scripts/build_model_experiment_run_manifest.py",
+      "scripts/build_model_promotion_review.py",
+      "scripts/build_model_runtime_migration_candidate.py",
+      "scripts/build_odd_lot_candidate_comparison_report.py",
+      "scripts/build_odd_lot_candidate_decision_report.py",
+      "scripts/build_odd_lot_capital_matrix_report.py",
+      "scripts/build_odd_lot_exit_horizon_sensitivity_report.py",
+      "scripts/build_odd_lot_exit_strategy_report.py",
+      "scripts/build_odd_lot_exposure_sensitivity_report.py",
+      "scripts/build_odd_lot_regime_sensitivity_report.py",
+      "scripts/build_odd_lot_regime_throttle_report.py",
+      "scripts/build_operational_long_rule_validation_report.py",
+      "scripts/build_operational_portfolio_rule_report.py",
+      "scripts/build_operational_rule_candidate_report.py",
+      "scripts/build_operational_rule_experiment_report.py",
+      "scripts/build_operational_rule_validation_report.py",
+      "scripts/build_overlap_first_daily_recommendation_shadow.py",
+      "scripts/build_overnight_risk_matrix_summary.py",
+      "scripts/build_overnight_training_summary.py",
+      "scripts/build_pm_approved_work_queue.py",
+      "scripts/build_pm_clarification_review_cards.py",
+      "scripts/build_portfolio_overlay_promotion_review.py",
+      "scripts/build_portfolio_replay_regime_attribution.py",
+      "scripts/build_production_baseline_harness.py",
+      "scripts/build_production_baseline_materialization_review.py",
+      "scripts/build_production_baseline_materialization_smoke.py",
+      "scripts/build_production_tactics_replay.py",
+      "scripts/build_production_trail10_daily_report_dry_run.py",
+      "scripts/build_production_trail10_daily_report_review_loop.py",
+      "scripts/build_production_trail10_publish_preview.py",
+      "scripts/build_production_trail10_rollout_readiness.py",
+      "scripts/build_production_trail10_shadow.py",
+      "scripts/build_production_trail10_shadow_review.py",
+      "scripts/build_recent_top10_watchlist_warning.py",
+      "scripts/build_regime_conditional_hybrid_report.py",
+      "scripts/build_regime_conditional_shadow_rankings.py",
+      "scripts/build_regime_family_sealed_stability_report.py",
+      "scripts/build_replay_window_stability.py",
+      "scripts/build_research_campaign_progress.py",
+      "scripts/build_research_component_ledger.py",
+      "scripts/build_research_decision_brief.py",
+      "scripts/build_research_fog_map.py",
+      "scripts/build_shadow_feature_experiment.py",
+      "scripts/build_shadow_historical_evidence_report.py",
+      "scripts/build_stock_industry_map_from_concepts.py",
+      "scripts/build_strategy_archetype_evidence_map.py",
+      "scripts/build_strategy_component_registry.py",
+      "scripts/build_strategy_composition_isolation.py",
+      "scripts/build_strategy_composition_replay.py",
+      "scripts/build_task_status_ledger.py",
+      "scripts/build_technical_only_training_lane.py",
+      "scripts/build_top10_agent_status_rollup.py",
+      "scripts/build_top10_ops_progress_message.py",
+      "scripts/build_training_candidate_risk_attribution.py",
+      "scripts/build_training_candidate_risk_control_report.py",
+      "scripts/build_vwap_cost_basis_features.py",
+      "scripts/build_weekend_frontier_queue.py",
+      "scripts/build_weekend_overnight_campaign_audits.py",
+      "scripts/build_weekend_production_baseline_source_audit.py",
+      "scripts/build_weekend_ranking_dir_unlock_smoke.py",
+      "scripts/build_weekend_research_decision_report.py",
+      "scripts/build_weekend_training_rollup.py",
+      "scripts/build_weekend_universe_inventory.py",
+      "scripts/build_weekend_unsupported_unlock_audit.py",
+      "scripts/build_weekly_candidate_snapshot.py",
+      "scripts/research_alpha_candidate_offline_ablation.py",
+      "scripts/research_alpha_candidate_overlay.py",
+      "scripts/research_alpha_candidate_overlay_portfolio_replay.py",
+      "scripts/research_alpha_candidate_overlay_replay.py",
+      "scripts/research_alpha_candidate_signal_check.py",
+      "scripts/research_big_bull_blended_shadow_ranking.py",
+      "scripts/research_big_bull_shadow_ranking.py",
+      "scripts/research_candidate_persistence_backtest.py",
+      "scripts/research_candidate_persistence_materialized_ablation.py",
+      "scripts/research_feature_group_ablation_by_regime.py",
+      "scripts/research_industry_etf_risk.py",
+      "scripts/research_industry_momentum_shadow.py",
+      "scripts/research_industry_momentum_walkforward.py",
+      "scripts/research_liquidity_quality_candidate_universe_shadow.py",
+      "scripts/research_liquidity_quality_shadow.py",
+      "scripts/research_map_contract.py",
+      "scripts/research_map_linkage_smoke.py",
+      "scripts/research_ranking_score_shadow.py",
+      "scripts/research_regime_family_sealed_replay.py",
+      "scripts/research_regime_family_training_candidates.py",
+      "scripts/research_regime_feature_offline_ablation.py",
+      "scripts/research_regime_shadow_ranking.py",
+      "scripts/research_replay_diagnostics.py",
+      "scripts/research_risk_off_narrow_routing.py",
+      "scripts/research_vwap_cost_basis.py",
+      "scripts/research_vwap_entry_quality_replay.py",
+      "scripts/research_vwap_regime_gated_entry_quality.py",
+      "scripts/run_daily_v2.py",
+      "scripts/verify_5913_combo_effectiveness_review.py",
+      "scripts/verify_alpha_candidate_features.py",
+      "scripts/verify_alpha_candidate_offline_ablation.py",
+      "scripts/verify_alpha_candidate_overlay.py",
+      "scripts/verify_alpha_candidate_overlay_portfolio_replay.py",
+      "scripts/verify_alpha_candidate_overlay_replay.py",
+      "scripts/verify_alpha_candidate_signal_check.py",
+      "scripts/verify_autonomous_research.py",
+      "scripts/verify_backtest_acceptance_report.py",
+      "scripts/verify_backtest_replay.py",
+      "scripts/verify_backtest_strategy_matrix.py",
+      "scripts/verify_baseline_harness_host_runner.py",
+      "scripts/verify_baseline_harness_medium_window_replay.py",
+      "scripts/verify_baseline_harness_medium_window_review.py",
+      "scripts/verify_baseline_harness_minimal_replay_smoke.py",
+      "scripts/verify_baseline_harness_small_window_replay.py",
+      "scripts/verify_baseline_harness_unlock_policy_review.py",
+      "scripts/verify_borrow_squeeze_materialized_features.py",
+      "scripts/verify_borrow_squeeze_replay_report.py",
+      "scripts/verify_candidate_historical_validation_gap_report.py",
+      "scripts/verify_candidate_persistence.py",
+      "scripts/verify_candidate_persistence_backtest.py",
+      "scripts/verify_candidate_persistence_materialized_ablation.py",
+      "scripts/verify_candidate_persistence_materialized_features.py",
+      "scripts/verify_candidate_trail10_daily_shadow_monitor.py",
+      "scripts/verify_candidate_trail10_retention_diagnostics.py",
+      "scripts/verify_capital_defensive_overlay_report.py",
+      "scripts/verify_capital_entry_quality_daily_shadow_monitor.py",
+      "scripts/verify_capital_entry_quality_daily_shadow_monitor_batch.py",
+      "scripts/verify_capital_entry_quality_report.py",
+      "scripts/verify_capital_exit_rule_report.py",
+      "scripts/verify_capital_long_validation_report.py",
+      "scripts/verify_capital_realism02_drawdown_state_report.py",
+      "scripts/verify_capital_realism02_followup_report.py",
+      "scripts/verify_capital_realism02_report.py",
+      "scripts/verify_capital_realism03_warning_effectiveness_report.py",
+      "scripts/verify_capital_realism04_warning_rule_recalibration.py",
+      "scripts/verify_capital_realism05_warning_dry_run_message.py",
+      "scripts/verify_capital_realism06_sizing_policy_report.py",
+      "scripts/verify_capital_realism07_balanced_variant_report.py",
+      "scripts/verify_chip_composite_warning_report.py",
+      "scripts/verify_chip_data_contract.py",
+      "scripts/verify_chip_flow_materialized_features.py",
+      "scripts/verify_chip_flow_readiness_report.py",
+      "scripts/verify_chip_flow_runtime_coverage.py",
+      "scripts/verify_chip_warning_replay_aggregate.py",
+      "scripts/verify_chip_warning_shadow_report.py",
+      "scripts/verify_clawd_live_send_config.py",
+      "scripts/verify_consensus_publish_top10.py",
+      "scripts/verify_daily_market_coverage_gate.py",
+      "scripts/verify_daily_performance_review.py",
+      "scripts/verify_daily_pipeline_window_override.py",
+      "scripts/verify_daily_publish_workflow.py",
+      "scripts/verify_daily_publish_wrapper_guards.py",
+      "scripts/verify_daily_recommendation_performance.py",
+      "scripts/verify_daily_recommendation_pm_validation.py",
+      "scripts/verify_daily_recommendation_shadow_monitor.py",
+      "scripts/verify_daily_research_quota.py",
+      "scripts/verify_daily_shadow_status_report.py",
+      "scripts/verify_daily_tape_and_rr_guard.py",
+      "scripts/verify_data_contracts.py",
+      "scripts/verify_decision_quality.py",
+      "scripts/verify_discord_channel_routing.py",
+      "scripts/verify_exit_rule_half_year_decision_report.py",
+      "scripts/verify_exit_rule_portfolio_level_report.py",
+      "scripts/verify_exit_rule_rolling_regime_report.py",
+      "scripts/verify_external_review_contract.py",
+      "scripts/verify_external_review_host_runner.py",
+      "scripts/verify_external_review_packet.py",
+      "scripts/verify_external_review_summary.py",
+      "scripts/verify_feature_experiment_gate.py",
+      "scripts/verify_feature_group_ablation_by_regime.py",
+      "scripts/verify_fixed_share_research_factory.py",
+      "scripts/verify_frontend_smoke.mjs",
+      "scripts/verify_gross55_daily_shadow_monitor.py",
+      "scripts/verify_gross55_daily_shadow_monitor_batch.py",
+      "scripts/verify_gross55_operational_shadow_dry_run.py",
+      "scripts/verify_guarded_top10_performance.py",
+      "scripts/verify_guarded_top10_replay.py",
+      "scripts/verify_half_year_walkforward_no_hindsight.py",
+      "scripts/verify_high_choppy_context_overlay.py",
+      "scripts/verify_liquidity_quality_candidate_universe_replay_report.py",
+      "scripts/verify_liquidity_quality_candidate_universe_shadow.py",
+      "scripts/verify_liquidity_quality_capital_aware_report.py",
+      "scripts/verify_liquidity_quality_shadow.py",
+      "scripts/verify_liquidity_quality_shadow_replay_report.py",
+      "scripts/verify_liquidity_quality_strict_replay.py",
+      "scripts/verify_liquidity_replay_v2_batch.py",
+      "scripts/verify_liquidity_replay_v2_stage2.py",
+      "scripts/verify_local_dev_health.sh",
+      "scripts/verify_long_candidate_validation_report.py",
+      "scripts/verify_m4_full_features.py",
+      "scripts/verify_market_context_fetcher.py",
+      "scripts/verify_model_experiment_ledger.py",
+      "scripts/verify_model_experiment_plan.py",
+      "scripts/verify_model_experiment_result_report.py",
+      "scripts/verify_model_experiment_run_manifest.py",
+      "scripts/verify_model_foundation.py",
+      "scripts/verify_model_group_acceptance.py",
+      "scripts/verify_model_health_report.py",
+      "scripts/verify_model_research_flow.py",
+      "scripts/verify_notification_theme_buckets.py",
+      "scripts/verify_odd_lot_candidate_comparison_report.py",
+      "scripts/verify_odd_lot_candidate_decision_report.py",
+      "scripts/verify_odd_lot_capital_matrix_report.py",
+      "scripts/verify_odd_lot_exit_horizon_sensitivity_report.py",
+      "scripts/verify_odd_lot_exit_strategy_report.py",
+      "scripts/verify_odd_lot_exposure_sensitivity_report.py",
+      "scripts/verify_odd_lot_portfolio_replay.py",
+      "scripts/verify_odd_lot_regime_sensitivity_report.py",
+      "scripts/verify_odd_lot_regime_throttle_report.py",
+      "scripts/verify_operational_long_rule_validation_report.py",
+      "scripts/verify_operational_rule_validation_report.py",
+      "scripts/verify_overlap_first_daily_recommendation_shadow.py",
+      "scripts/verify_overlap_first_recommendation_performance.py",
+      "scripts/verify_pipeline_refactor.py",
+      "scripts/verify_pm_approved_work_queue.py",
+      "scripts/verify_pm_research_harness_loop.py",
+      "scripts/verify_portfolio_overlay_promotion_review.py",
+      "scripts/verify_portfolio_replay.py",
+      "scripts/verify_portfolio_replay_regime_attribution.py",
+      "scripts/verify_portfolio_risk_overlay_default_off.py",
+      "scripts/verify_production_baseline_harness.py",
+      "scripts/verify_production_baseline_materialization_review.py",
+      "scripts/verify_production_baseline_materialization_smoke.py",
+      "scripts/verify_production_ranking_overlay.py",
+      "scripts/verify_production_tactics_replay.py",
+      "scripts/verify_production_trail10_batch_03_05.py",
+      "scripts/verify_production_trail10_batch_08_10.py",
+      "scripts/verify_production_trail10_daily_report_dry_run.py",
+      "scripts/verify_production_trail10_daily_report_review_loop.py",
+      "scripts/verify_production_trail10_shadow.py",
+      "scripts/verify_production_write_guard.py",
+      "scripts/verify_publish_risk_grouping.py",
+      "scripts/verify_recent_top10_watchlist_warning.py",
+      "scripts/verify_reference_sources.py",
+      "scripts/verify_regime_conditional_hybrid_report.py",
+      "scripts/verify_regime_conditional_shadow_rankings.py",
+      "scripts/verify_regime_family_sealed_replay.py",
+      "scripts/verify_regime_family_training_candidates.py",
+      "scripts/verify_regime_feature_offline_ablation.py",
+      "scripts/verify_research_component_ledger.py",
+      "scripts/verify_research_fog_map.py",
+      "scripts/verify_research_map_run_history_backfill.py",
+      "scripts/verify_research_map_v2_schema.py",
+      "scripts/verify_research_only_production_baseline_smoke.py",
+      "scripts/verify_research_tooling_merge_slices.py",
+      "scripts/verify_resource_guard.py",
+      "scripts/verify_retrain_rollback.py",
+      "scripts/verify_retrain_sealed_oos_capacity_preflight.py",
+      "scripts/verify_review_fixes.py",
+      "scripts/verify_scheduler_ownership.py",
+      "scripts/verify_sealed_oos_gate.py",
+      "scripts/verify_shadow_feature_experiment.py",
+      "scripts/verify_shadow_historical_evidence_report.py",
+      "scripts/verify_stock_switching_flow.mjs",
+      "scripts/verify_strategy_component_registry.py",
+      "scripts/verify_strategy_composition_isolation.py",
+      "scripts/verify_strategy_composition_replay.py",
+      "scripts/verify_top10_agent_status_event.py",
+      "scripts/verify_training_automation_readiness.py",
+      "scripts/verify_training_candidate_flow.py",
+      "scripts/verify_training_candidate_replay_flow.py",
+      "scripts/verify_training_candidate_risk_attribution.py",
+      "scripts/verify_training_candidate_risk_control_report.py",
+      "scripts/verify_twse_fetch_retry.py",
+      "scripts/verify_vwap_cost_basis_features.py",
+      "scripts/verify_weekend_frontier_queue.py",
+      "scripts/verify_weekend_overnight_campaign_summary.py",
+      "scripts/verify_weekend_production_baseline_source_audit.py",
+      "scripts/verify_weekend_ranking_dir_unlock_smoke.py",
+      "scripts/verify_weekend_representative_replay.py",
+      "scripts/verify_weekend_survivor_deep_replay.py",
+      "scripts/verify_weekend_training_rollup.py",
+      "scripts/verify_weekend_universe_inventory.py",
+      "scripts/verify_weekend_unsupported_unlock_audit.py"
+    ]
+  },
+  "strict_new": {
+    "approved_unclassified": [],
+    "new_unclassified": [],
+    "passed": true
+  }
+}
