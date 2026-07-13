@@ -49,7 +49,7 @@ from app.research.fog_map_domain import (  # noqa: E402
     summary_from_nodes,
 )
 from app.research.fog_map_render import render_html, render_metric_card  # noqa: E402
-from scripts.research_map_contract import (  # noqa: E402, F401
+from app.research.map_contract import (  # noqa: E402, F401
     apply_run_history,
     build_combo_registry,
     completed_v2_expansion_count,

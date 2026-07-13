@@ -10,7 +10,7 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
-from scripts.research_map_contract import (
+from app.research.map_contract import (
     apply_run_history,
     build_combo_registry,
     completed_v2_expansion_count,

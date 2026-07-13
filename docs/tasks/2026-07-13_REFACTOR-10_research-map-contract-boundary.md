@@ -1,6 +1,6 @@
 # REFACTOR-10｜Research Map Contract 依賴方向修復
 
-- status: ready
+- status: done
 - priority: P1
 - task thickness: standard
 
@@ -48,3 +48,23 @@
 ## 回報
 
 建立單一 atomic commit；回報 SHA、相容證據與剩餘風險，不 merge、不 push。
+
+## Result
+
+- `app/research/map_contract.py` 已成為唯一 contract 實作與 public API 清單來源。
+- `scripts/research_map_contract.py` 保留薄 compatibility re-export，並支援既有 script 直接啟動路徑。
+- `app/research/fog_map_domain.py` 與 `scripts/build_research_fog_map.py` 已改用 canonical import。
+- contract 常數、combo id、dimension schema、JSONL 讀寫與狀態演算法未變更。
+
+## Verification
+
+- targeted unittest：8/8 通過。
+- 既有 Research Fog Map verifier：`status=OK`、`failed_count=0`（唯讀 live artifact）。
+- 既有 v2 schema verifier：`status=OK`、`failed_count=0`（隔離 fixture artifact）。
+- legacy subprocess import、public symbol identity、combo/schema fixture 與 JSONL cross-compatible round-trip 均通過。
+- 靜態 import 盤點：13 個 consumer、19 個使用中 public symbols，缺漏 0；`app/*` 無 legacy contract import。
+- `git diff --check` 通過。
+
+## Remaining risk
+
+- 未跑全 repo test suite；本卡以 research-map targeted tests 與兩支既有 verifier 覆蓋受影響面。
