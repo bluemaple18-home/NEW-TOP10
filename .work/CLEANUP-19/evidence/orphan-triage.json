@@ -1,0 +1,612 @@
+{
+  "schema_version": "orphan-triage.v1",
+  "source": "CLEANUP-19 static repository evidence",
+  "scope_count": 26,
+  "reference_policy": "repo_reference_count follows scripts/audit_script_references.py baseline; config/script_lifecycle.yaml allowlist, generated audit evidence and this task card are governance evidence, not runtime consumers.",
+  "summary": {
+    "entry_count": 26,
+    "verdict_counts": {
+      "archive_candidate": 6,
+      "delete_candidate": 0,
+      "retain": 15,
+      "unknown": 5
+    },
+    "high_confidence_delete_candidates": [],
+    "scope_complete": true
+  },
+  "entries": [
+    {
+      "path": "scripts/verify_alpha_candidate_features.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "ff3332071465b0bbc02ed3bbd385932b6bb3eee0",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_alpha_candidate_features.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/alpha_candidate_features_YYYY-MM-DD.parquet",
+        "artifacts/model_experiments/alpha_candidate_features_YYYY-MM-DD.json",
+        "artifacts/model_experiments/alpha_candidate_features_YYYY-MM-DD.md",
+        "artifacts/model_experiments/alpha_candidate_features_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/research_alpha_candidate_signal_check.py",
+        "scripts/research_alpha_candidate_offline_ablation.py"
+      ],
+      "alternative_tests": [],
+      "runtime_evidence": [
+        "scripts/build_alpha_candidate_features.py:195-200",
+        "scripts/verify_alpha_candidate_features.py:209-240",
+        "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md:280-286"
+      ],
+      "reason": "Verifier has a direct builder pair, checks parquet plus metadata contract, and the feature artifact feeds the signal-check/offline-ablation chain; no replacement test is proven."
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_offline_ablation.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "ff3332071465b0bbc02ed3bbd385932b6bb3eee0",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/research_alpha_candidate_offline_ablation.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/alpha_candidate_offline_ablation_YYYY-MM-DD.json",
+        "artifacts/model_experiments/alpha_candidate_offline_ablation_YYYY-MM-DD.md",
+        "artifacts/model_experiments/alpha_candidate_offline_ablation_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/research_alpha_candidate_overlay.py",
+        "scripts/research_alpha_candidate_overlay_replay.py",
+        "scripts/research_alpha_candidate_overlay_portfolio_replay.py"
+      ],
+      "alternative_tests": [],
+      "runtime_evidence": [
+        "scripts/research_alpha_candidate_offline_ablation.py:117-120",
+        "scripts/research_alpha_candidate_offline_ablation.py:457-460",
+        "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md:280-286"
+      ],
+      "reason": "Verifier protects the offline-only/model-write boundary for an artifact consumed by subsequent overlay research; no equivalent test or safe replacement is tracked."
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_overlay.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "ff3332071465b0bbc02ed3bbd385932b6bb3eee0",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/research_alpha_candidate_overlay.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/alpha_candidate_overlay_YYYY-MM-DD.json",
+        "artifacts/model_experiments/alpha_candidate_overlay_YYYY-MM-DD.md",
+        "artifacts/model_experiments/alpha_candidate_overlay_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/research_alpha_candidate_overlay_replay.py",
+        "scripts/research_alpha_candidate_overlay_portfolio_replay.py"
+      ],
+      "alternative_tests": [],
+      "runtime_evidence": [
+        "scripts/research_alpha_candidate_overlay.py:341-344",
+        "scripts/verify_alpha_candidate_overlay.py:138-149",
+        "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md:280-306"
+      ],
+      "reason": "Overlay verification is paired with the research builder and its dated artifact is the explicit input to replay lanes; adjacent portfolio verification is not proof that this contract is replaceable."
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_overlay_replay.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "ff3332071465b0bbc02ed3bbd385932b6bb3eee0",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/research_alpha_candidate_overlay_replay.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/alpha_candidate_overlay_replay_YYYY-MM-DD.json",
+        "artifacts/model_experiments/alpha_candidate_overlay_replay_YYYY-MM-DD.md",
+        "artifacts/model_experiments/alpha_candidate_overlay_replay_verification_latest.json"
+      ],
+      "artifact_consumers": ["scripts/research_alpha_candidate_overlay_portfolio_replay.py"],
+      "alternative_tests": ["scripts/verify_alpha_candidate_overlay_portfolio_replay.py"],
+      "runtime_evidence": [
+        "scripts/research_alpha_candidate_overlay_replay.py:362-365",
+        "scripts/verify_alpha_candidate_overlay_replay.py:150-161",
+        "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md:280-306"
+      ],
+      "reason": "Replay verifier has a direct producer and a downstream portfolio replay; the adjacent portfolio verifier covers a different artifact boundary, so it is not a replacement."
+    },
+    {
+      "path": "scripts/verify_alpha_candidate_signal_check.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "ff3332071465b0bbc02ed3bbd385932b6bb3eee0",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/research_alpha_candidate_signal_check.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/alpha_candidate_signal_check_YYYY-MM-DD.json",
+        "artifacts/model_experiments/alpha_candidate_signal_check_YYYY-MM-DD.md",
+        "artifacts/model_experiments/alpha_candidate_signal_check_verification_latest.json"
+      ],
+      "artifact_consumers": ["scripts/research_alpha_candidate_offline_ablation.py"],
+      "alternative_tests": [],
+      "runtime_evidence": [
+        "scripts/research_alpha_candidate_signal_check.py:188-188",
+        "scripts/research_alpha_candidate_signal_check.py:255-258",
+        "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md:280-286"
+      ],
+      "reason": "The verifier protects the signal-check artifact consumed by offline ablation and also checks the no-production-write contract; no alternative test is evidenced."
+    },
+    {
+      "path": "scripts/verify_backtest_acceptance_report.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "53ffdddff8f033f320e810c21de0591882f9a239",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/generate_backtest_acceptance_report.py"],
+      "output_artifacts": [
+        "artifacts/backtest/acceptance_report_YYYY-MM-DD.json",
+        "artifacts/backtest/acceptance_report_YYYY-MM-DD.md",
+        "artifacts/backtest_acceptance_verification_latest.json"
+      ],
+      "artifact_consumers": ["docs/tasks/2026-05-28_BACKTEST-08_acceptance_report.md"],
+      "alternative_tests": ["scripts/verify_backtest_replay.py"],
+      "runtime_evidence": [
+        "scripts/generate_backtest_acceptance_report.py:175-181",
+        "scripts/verify_backtest_acceptance_report.py:16-271",
+        "docs/tasks/2026-05-28_BACKTEST-08_acceptance_report.md:7-9",
+        "artifacts/backtest_acceptance_verification_latest.json"
+      ],
+      "reason": "The acceptance verifier has a synthetic-input harness and a tracked verification artifact tied to the BACKTEST-08 acceptance contract; the replay verifier is adjacent, not equivalent."
+    },
+    {
+      "path": "scripts/verify_candidate_historical_validation_gap_report.py",
+      "verdict": "retain",
+      "confidence": "medium",
+      "git_last_commit": "ae9e59a9daf3ccfb675339cd0f772ebe44e743f8",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_candidate_historical_validation_gap_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/candidate_historical_validation_gap_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/candidate_historical_validation_gap_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/candidate_historical_validation_gap_report_verification_latest.json"
+      ],
+      "artifact_consumers": ["docs/tasks/2026-06-10_LONG-CANDIDATE-VALIDATION-01_odd_lot_candidate_long_history.md"],
+      "alternative_tests": [],
+      "runtime_evidence": [
+        "scripts/build_candidate_historical_validation_gap_report.py:289-294",
+        "scripts/verify_candidate_historical_validation_gap_report.py:104-114",
+        "docs/tasks/2026-06-10_LONG-CANDIDATE-VALIDATION-01_odd_lot_candidate_long_history.md:27-32"
+      ],
+      "reason": "There is a direct builder/artifact pair and a documented long-history evidence lane, but no tracked downstream code consumer or replacement test was found. Retain pending owner confirmation."
+    },
+    {
+      "path": "scripts/verify_candidate_trail10_daily_shadow_monitor.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "89f3358f024b707419849289598ba56465dd4441",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_candidate_trail10_daily_shadow_monitor.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/candidate_trail10_daily_shadow_monitor_YYYY-MM-DD.json",
+        "artifacts/model_experiments/candidate_trail10_daily_shadow_monitor_YYYY-MM-DD.md",
+        "artifacts/model_experiments/candidate_trail10_daily_shadow_monitor_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/run_automation.py",
+        "scripts/build_daily_shadow_status_report.py",
+        "scripts/build_overlap_first_daily_recommendation_shadow.py"
+      ],
+      "alternative_tests": ["scripts/verify_overlap_first_daily_recommendation_shadow.py"],
+      "runtime_evidence": [
+        "scripts/run_automation.py:612-649",
+        "scripts/build_candidate_trail10_daily_shadow_monitor.py:283-293",
+        "docs/tasks/2026-06-10_SHADOW-ROLLOUT-01_candidate_trail10_daily_monitor.md:20-27"
+      ],
+      "reason": "This verifier sits beside an automation-owned daily shadow artifact with documented verification output; downstream shadow reporting and overlap checks make deletion unsafe."
+    },
+    {
+      "path": "scripts/verify_candidate_trail10_retention_diagnostics.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "c203a4af1ee0fb121bc5b70d66d62f9da9096724",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_candidate_trail10_retention_diagnostics.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/candidate_trail10_retention_diagnostics_YYYY-MM-DD.json",
+        "artifacts/model_experiments/candidate_trail10_retention_diagnostics_YYYY-MM-DD.md",
+        "artifacts/model_experiments/candidate_trail10_retention_diagnostics_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/build_strategy_component_registry.py",
+        "scripts/build_strategy_composition_isolation.py",
+        "scripts/build_strategy_composition_replay.py",
+        "scripts/build_production_tactics_replay.py"
+      ],
+      "alternative_tests": [],
+      "runtime_evidence": [
+        "scripts/build_candidate_trail10_retention_diagnostics.py:292-301",
+        "scripts/build_strategy_component_registry.py:148-149",
+        "docs/tasks/2026-06-10_SHADOW-ROLLOUT-03_candidate_trail10_retention_diagnostics.md:15-17"
+      ],
+      "reason": "Retention diagnostics are consumed by strategy and production-tactics research composition, and the task explicitly names the verifier artifact; no replacement contract is proven."
+    },
+    {
+      "path": "scripts/verify_clawd_live_send_config.py",
+      "verdict": "unknown",
+      "confidence": "medium",
+      "git_last_commit": "d849d7ca84acd0d7c0bfe75ac2645e54ff19239b",
+      "repo_reference_count": 0,
+      "paired_scripts": [],
+      "output_artifacts": ["artifacts/clawd_live_send_config_verification_latest.json"],
+      "artifact_consumers": [],
+      "alternative_tests": [
+        "scripts/verify_daily_publish_workflow.py",
+        "scripts/verify_daily_publish_wrapper_guards.py"
+      ],
+      "runtime_evidence": [
+        "scripts/verify_clawd_live_send_config.py:35-131",
+        "scripts/run_daily_publish.sh:1-140",
+        "config/automation.yaml",
+        "scripts/com.new-top10.daily.plist"
+      ],
+      "reason": "This is a safety/configuration verifier rather than a builder pair. It reads repo config and external-path settings, while external runtime was intentionally not checked; adjacent publish guards do not prove replacement."
+    },
+    {
+      "path": "scripts/verify_consensus_publish_top10.py",
+      "verdict": "unknown",
+      "confidence": "medium",
+      "git_last_commit": "ae9e59a9daf3ccfb675339cd0f772ebe44e743f8",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_consensus_publish_top10.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/consensus_publish_top10_YYYY-MM-DD.json",
+        "artifacts/model_experiments/consensus_publish_top10_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_daily_publish_workflow.py"],
+      "runtime_evidence": [
+        "scripts/build_consensus_publish_top10.py:231-268",
+        "scripts/verify_consensus_publish_top10.py:20-132",
+        "scripts/build_clawd_publish_payload.py"
+      ],
+      "reason": "A builder and publish artifact contract exist, but no tracked consumer of the verifier output or equivalent consensus-specific replacement was found; keep unresolved rather than infer orphanage."
+    },
+    {
+      "path": "scripts/verify_exit_rule_half_year_decision_report.py",
+      "verdict": "unknown",
+      "confidence": "medium",
+      "git_last_commit": "70032555f7e9aa656ac0f8530b6bb6c9adca0b2f",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_exit_rule_half_year_decision_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/exit_rule_half_year_decision_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/exit_rule_half_year_decision_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/exit_rule_half_year_decision_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_capital_exit_rule_report.py"],
+      "runtime_evidence": [
+        "scripts/build_exit_rule_half_year_decision_report.py:247-254",
+        "scripts/verify_exit_rule_half_year_decision_report.py:60-111",
+        "scripts/verify_capital_exit_rule_report.py"
+      ],
+      "reason": "The verifier hashes the current model while checking a dated report, but no downstream consumer or exact replacement was found and current artifact/runtime usage is not present in the worktree."
+    },
+    {
+      "path": "scripts/verify_exit_rule_portfolio_level_report.py",
+      "verdict": "unknown",
+      "confidence": "medium",
+      "git_last_commit": "70032555f7e9aa656ac0f8530b6bb6c9adca0b2f",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_exit_rule_portfolio_level_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/exit_rule_portfolio_level_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/exit_rule_portfolio_level_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/exit_rule_portfolio_level_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_capital_exit_rule_report.py"],
+      "runtime_evidence": [
+        "scripts/build_exit_rule_portfolio_level_report.py:171-178",
+        "scripts/verify_exit_rule_portfolio_level_report.py:60-106",
+        "scripts/verify_capital_exit_rule_report.py"
+      ],
+      "reason": "The portfolio-level report has a matching builder and model-hash check, but no tracked artifact consumer or equivalent replacement was proven; do not archive/delete from static evidence alone."
+    },
+    {
+      "path": "scripts/verify_exit_rule_rolling_regime_report.py",
+      "verdict": "unknown",
+      "confidence": "medium",
+      "git_last_commit": "70032555f7e9aa656ac0f8530b6bb6c9adca0b2f",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_exit_rule_rolling_regime_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/exit_rule_rolling_regime_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/exit_rule_rolling_regime_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/exit_rule_rolling_regime_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_capital_exit_rule_report.py"],
+      "runtime_evidence": [
+        "scripts/build_exit_rule_rolling_regime_report.py:322-329",
+        "scripts/verify_exit_rule_rolling_regime_report.py:60-110",
+        "scripts/verify_capital_exit_rule_report.py"
+      ],
+      "reason": "The rolling-regime verifier has a direct report producer and model-hash boundary, but no tracked consumer or exact replacement was found; runtime evidence is incomplete."
+    },
+    {
+      "path": "scripts/verify_feature_group_ablation_by_regime.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "50f9bbf6cba7f43959cd771fa06a814329255b9a",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/research_feature_group_ablation_by_regime.py"],
+      "output_artifacts": [
+        "artifacts/feature_group_ablation_by_regime_latest.json",
+        "artifacts/feature_group_ablation_by_regime_latest.md",
+        "artifacts/feature_group_ablation_by_regime_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/build_feature_experiment_gate.py",
+        "scripts/verify_feature_experiment_gate.py",
+        "scripts/research_regime_shadow_ranking.py"
+      ],
+      "alternative_tests": ["scripts/verify_feature_experiment_gate.py"],
+      "runtime_evidence": [
+        "scripts/research_feature_group_ablation_by_regime.py:493-503",
+        "scripts/verify_feature_group_ablation_by_regime.py:20-86",
+        "scripts/build_feature_experiment_gate.py:335-352"
+      ],
+      "reason": "The verifier imports the research implementation and its verification artifact is read by the feature promotion gate; this is a live gate contract, not an orphan."
+    },
+    {
+      "path": "scripts/verify_gross55_operational_shadow_dry_run.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "70032555f7e9aa656ac0f8530b6bb6c9adca0b2f",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_gross55_operational_shadow_dry_run.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/gross55_operational_shadow_dry_run_YYYY-MM-DD.json",
+        "artifacts/model_experiments/gross55_operational_shadow_dry_run_YYYY-MM-DD.md",
+        "artifacts/model_experiments/gross55_operational_shadow_dry_run_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/build_gross55_daily_shadow_monitor.py",
+        "scripts/build_gross55_daily_shadow_monitor_batch.py"
+      ],
+      "alternative_tests": [
+        "scripts/verify_gross55_daily_shadow_monitor.py",
+        "scripts/verify_gross55_daily_shadow_monitor_batch.py"
+      ],
+      "runtime_evidence": [
+        "scripts/build_gross55_operational_shadow_dry_run.py:373-380",
+        "scripts/build_gross55_daily_shadow_monitor.py:22-38",
+        "scripts/build_gross55_daily_shadow_monitor_batch.py:23-39",
+        "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md:322"
+      ],
+      "reason": "The dry-run verifier protects an artifact consumed by two daily shadow monitor builders; related monitor verifiers are downstream checks, not replacements."
+    },
+    {
+      "path": "scripts/verify_high_choppy_context_overlay.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "cdf44f274746697281809fc599bfb686af354776",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_high_choppy_context_overlay.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/high_choppy_context_overlay_YYYY-MM-DD.json",
+        "artifacts/model_experiments/high_choppy_context_overlay_YYYY-MM-DD.md",
+        "artifacts/model_experiments/high_choppy_context_overlay_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/build_big_bull_ranking_replay_extension_report.py",
+        "scripts/build_big_bull_ranking_only_shadow_dry_run.py",
+        "scripts/build_mass_candidate_shadow_dry_run.py",
+        "scripts/build_mainline_a_regime_validation.py"
+      ],
+      "alternative_tests": ["scripts/verify_feature_experiment_gate.py"],
+      "runtime_evidence": [
+        "scripts/build_high_choppy_context_overlay.py:419-424",
+        "scripts/build_big_bull_ranking_replay_extension_report.py:36-37",
+        "docs/tasks/2026-06-01_AUTO-TRAINING-10_big_bull_ranking_replay_extension.md:14-15",
+        "docs/tasks/2026-06-01_AUTO-TRAINING-10_big_bull_ranking_replay_extension.md:118"
+      ],
+      "reason": "The overlay artifact and its verification output are explicit inputs to replay/shadow work and are documented as an OK gate; deleting the verifier would remove a checked boundary."
+    },
+    {
+      "path": "scripts/verify_long_candidate_validation_report.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "f3673619218577c5ee6cb40591ea1cbd53cd0fe7",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_long_candidate_validation_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/long_candidate_validation_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/long_candidate_validation_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/long_candidate_validation_report_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/build_strategy_component_registry.py",
+        "scripts/build_strategy_composition_isolation.py",
+        "scripts/build_strategy_composition_replay.py",
+        "scripts/build_production_tactics_replay.py"
+      ],
+      "alternative_tests": [],
+      "runtime_evidence": [
+        "scripts/build_long_candidate_validation_report.py:336-341",
+        "scripts/build_strategy_component_registry.py:148-149",
+        "docs/tasks/2026-06-10_LONG-CANDIDATE-VALIDATION-01_odd_lot_candidate_long_history.md:27-33"
+      ],
+      "reason": "Long-candidate validation is a named evidence lane with a downstream strategy-composition consumer and documented verifier artifact; no replacement proof exists."
+    },
+    {
+      "path": "scripts/verify_odd_lot_candidate_comparison_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "0cf4ac9b63b6887278faae95290eb3dabfda58d4",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_odd_lot_candidate_comparison_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/odd_lot_candidate_comparison_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/odd_lot_candidate_comparison_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/odd_lot_candidate_comparison_report_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_odd_lot_candidate_decision_report.py"],
+      "runtime_evidence": [
+        "scripts/build_odd_lot_candidate_comparison_report.py:227-232",
+        "scripts/verify_odd_lot_candidate_comparison_report.py:98-109",
+        "docs/tasks/2026-07-13_CLEANUP-17_orphan-triage-builders-a.md:30-30"
+      ],
+      "reason": "Direct builder/artifact pair exists, but no tracked consumer or exact replacement was found; adjacent candidate-decision verification is not equivalent. Archive only after owner confirms the comparison artifact is no longer a research input."
+    },
+    {
+      "path": "scripts/verify_odd_lot_candidate_decision_report.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "ae9e59a9daf3ccfb675339cd0f772ebe44e743f8",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_odd_lot_candidate_decision_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/odd_lot_candidate_decision_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/odd_lot_candidate_decision_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/odd_lot_candidate_decision_report_verification_latest.json"
+      ],
+      "artifact_consumers": ["scripts/build_research_decision_brief.py"],
+      "alternative_tests": [],
+      "runtime_evidence": [
+        "scripts/build_odd_lot_candidate_decision_report.py:174-179",
+        "scripts/build_research_decision_brief.py:296-296",
+        "scripts/verify_odd_lot_candidate_decision_report.py:105-116"
+      ],
+      "reason": "The verifier's latest artifact is explicitly consumed by the research decision brief, so lack of a script caller is not evidence of orphanage."
+    },
+    {
+      "path": "scripts/verify_odd_lot_exit_horizon_sensitivity_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "ae9e59a9daf3ccfb675339cd0f772ebe44e743f8",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_odd_lot_exit_horizon_sensitivity_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/odd_lot_exit_horizon_sensitivity_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/odd_lot_exit_horizon_sensitivity_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/odd_lot_exit_horizon_sensitivity_report_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_odd_lot_exit_strategy_report.py"],
+      "runtime_evidence": [
+        "scripts/build_odd_lot_exit_horizon_sensitivity_report.py:194-199",
+        "scripts/verify_odd_lot_exit_horizon_sensitivity_report.py:87-98",
+        "docs/tasks/2026-07-13_CLEANUP-17_orphan-triage-builders-a.md:32-32"
+      ],
+      "reason": "Only the matching builder and standalone artifact contract are evidenced; no downstream consumer or replacement test is proven. Archive is a review candidate, not permission to delete."
+    },
+    {
+      "path": "scripts/verify_odd_lot_exit_strategy_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "ae9e59a9daf3ccfb675339cd0f772ebe44e743f8",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_odd_lot_exit_strategy_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/odd_lot_exit_strategy_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/odd_lot_exit_strategy_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/odd_lot_exit_strategy_report_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_odd_lot_exit_horizon_sensitivity_report.py"],
+      "runtime_evidence": [
+        "scripts/build_odd_lot_exit_strategy_report.py:231-236",
+        "scripts/verify_odd_lot_exit_strategy_report.py:99-110",
+        "docs/tasks/2026-07-13_CLEANUP-17_orphan-triage-builders-a.md:33-33"
+      ],
+      "reason": "The matching strategy report builder remains, but no tracked consumer or exact replacement was found. Treat as archive candidate pending research-owner confirmation only."
+    },
+    {
+      "path": "scripts/verify_odd_lot_exposure_sensitivity_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "92363ce6f48c646088c570b85b7d8d0315ef4e3c",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_odd_lot_exposure_sensitivity_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/odd_lot_exposure_sensitivity_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/odd_lot_exposure_sensitivity_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/odd_lot_exposure_sensitivity_report_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_odd_lot_candidate_decision_report.py"],
+      "runtime_evidence": [
+        "scripts/build_odd_lot_exposure_sensitivity_report.py:197-202",
+        "scripts/verify_odd_lot_exposure_sensitivity_report.py:96-107",
+        "docs/tasks/2026-07-13_CLEANUP-17_orphan-triage-builders-a.md:34-34"
+      ],
+      "reason": "Only a matching builder and standalone verifier artifact are evidenced; no consumer or exact substitute was found. Archive review is allowed only after confirming no exposure research depends on the artifact."
+    },
+    {
+      "path": "scripts/verify_odd_lot_portfolio_replay.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "f107fa586df18279c8af0971cd80be3e4e9565ab",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/run_odd_lot_portfolio_replay.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/odd_lot_portfolio_replay_YYYY-MM-DD.json",
+        "artifacts/model_experiments/odd_lot_portfolio_replay_YYYY-MM-DD.md",
+        "artifacts/model_experiments/odd_lot_portfolio_replay_verification_latest.json"
+      ],
+      "artifact_consumers": [
+        "scripts/backtest_overlap_first_recommendation_performance.py",
+        "scripts/build_production_tactics_replay.py",
+        "scripts/build_strategy_composition_replay.py"
+      ],
+      "alternative_tests": ["scripts/verify_overlap_first_recommendation_performance.py"],
+      "runtime_evidence": [
+        "scripts/run_odd_lot_portfolio_replay.py:485-488",
+        "scripts/backtest_overlap_first_recommendation_performance.py:24-24",
+        "scripts/build_production_tactics_replay.py:23-23",
+        "scripts/build_strategy_composition_replay.py:25-25"
+      ],
+      "reason": "Portfolio replay is a shared implementation imported by multiple replay/report lanes; its verifier protects a common artifact contract and cannot be treated as an orphan."
+    },
+    {
+      "path": "scripts/verify_odd_lot_regime_sensitivity_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "f6f49dab04031a7fc5ee482fe128e1bd5bc209de",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_odd_lot_regime_sensitivity_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/odd_lot_regime_sensitivity_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/odd_lot_regime_sensitivity_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/odd_lot_regime_sensitivity_report_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_odd_lot_regime_throttle_report.py"],
+      "runtime_evidence": [
+        "scripts/build_odd_lot_regime_sensitivity_report.py:179-184",
+        "scripts/verify_odd_lot_regime_sensitivity_report.py:95-106",
+        "docs/tasks/2026-07-13_CLEANUP-17_orphan-triage-builders-a.md:35-35"
+      ],
+      "reason": "A direct builder pair exists, but no tracked consumer or exact replacement was found. Archive only after confirming the regime sensitivity artifact is not a research input."
+    },
+    {
+      "path": "scripts/verify_odd_lot_regime_throttle_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "ae9e59a9daf3ccfb675339cd0f772ebe44e743f8",
+      "repo_reference_count": 0,
+      "paired_scripts": ["scripts/build_odd_lot_regime_throttle_report.py"],
+      "output_artifacts": [
+        "artifacts/model_experiments/odd_lot_regime_throttle_report_YYYY-MM-DD.json",
+        "artifacts/model_experiments/odd_lot_regime_throttle_report_YYYY-MM-DD.md",
+        "artifacts/model_experiments/odd_lot_regime_throttle_report_verification_latest.json"
+      ],
+      "artifact_consumers": [],
+      "alternative_tests": ["scripts/verify_odd_lot_regime_sensitivity_report.py"],
+      "runtime_evidence": [
+        "scripts/build_odd_lot_regime_throttle_report.py:186-191",
+        "scripts/verify_odd_lot_regime_throttle_report.py:88-99",
+        "docs/tasks/2026-07-13_CLEANUP-17_orphan-triage-builders-a.md:36-36"
+      ],
+      "reason": "The matching builder and artifact contract are present, but no tracked consumer or exact substitute was found. Keep as archive candidate only; no deletion evidence exists."
+    }
+  ]
+}
