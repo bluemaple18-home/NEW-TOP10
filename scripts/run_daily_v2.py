@@ -18,11 +18,21 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.contracts.daily_v2 import DailyStep, StepSpec  # noqa: E402
 from app.workflows.daily_v2 import DailyWorkflowV2, WorkflowExecutionError  # noqa: E402
+from app.workflows.daily_v2_real_shadow import (  # noqa: E402
+    RealShadowExecutionError,
+    run_real_shadow,
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="執行每日報牌 v2 shadow-only dry-run")
     parser.add_argument("--dry-run", action="store_true", help="必要安全閘門；只產 publish-ready artifact")
+    parser.add_argument(
+        "--source",
+        choices=("fixture", "real"),
+        default="fixture",
+        help="fixture 跑原隔離 smoke；real 唯讀正式 features／model 並與 baseline 比較",
+    )
     parser.add_argument("--run-date", required=True, help="執行日期，格式 YYYY-MM-DD")
     parser.add_argument("--run-id", help="可續跑識別碼；預設依日期固定產生")
     parser.add_argument(
@@ -32,9 +42,17 @@ def parse_args() -> argparse.Namespace:
         help="shadow run 根目錄",
     )
     parser.add_argument("--step-timeout", type=float, default=30.0, help="各子程序 timeout 秒數")
+    parser.add_argument("--data-dir", type=Path, default=PROJECT_ROOT / "data" / "clean")
+    parser.add_argument("--model-dir", type=Path, default=PROJECT_ROOT / "models")
+    parser.add_argument("--model-filename", default="latest_lgbm.pkl")
+    parser.add_argument("--baseline-ranking", type=Path)
+    parser.add_argument("--config", type=Path, default=PROJECT_ROOT / "config" / "signals.yaml")
+    parser.add_argument("--numeric-tolerance", type=float, default=1e-9)
     args = parser.parse_args()
     if not args.dry_run:
         parser.error("REFACTOR-01 僅允許 --dry-run；live send 尚未整合")
+    if args.source == "real" and args.baseline_ranking is None:
+        parser.error("--source real 必須指定 --baseline-ranking")
     return args
 
 
@@ -169,8 +187,28 @@ def main() -> int:
         return run_fixture_stage(sys.argv[2:])
 
     args = parse_args()
-    run_id = args.run_id or f"daily-v2-{args.run_date.replace('-', '')}-shadow"
+    run_id_suffix = "real-shadow" if args.source == "real" else "shadow"
+    run_id = args.run_id or f"daily-v2-{args.run_date.replace('-', '')}-{run_id_suffix}"
     run_root = args.workspace.expanduser().resolve()
+    if args.source == "real":
+        try:
+            result = run_real_shadow(
+                run_id=run_id,
+                run_date=args.run_date,
+                workspace=run_root,
+                data_dir=args.data_dir,
+                model_dir=args.model_dir,
+                baseline_ranking=args.baseline_ranking,
+                model_filename=args.model_filename,
+                config_path=args.config,
+                numeric_tolerance=args.numeric_tolerance,
+            )
+        except (FileNotFoundError, ValueError, RealShadowExecutionError) as exc:
+            print(f"daily v2 real shadow failed: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result["status"] == "GO" else 2
+
     model_path = run_root / run_id / "fixture_model.pkl"
     model_path.parent.mkdir(parents=True, exist_ok=True)
     if not model_path.exists():
