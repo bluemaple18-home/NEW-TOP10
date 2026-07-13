@@ -21,6 +21,12 @@ POLICY_PATH = PROJECT_ROOT / "config" / "script_lifecycle.yaml"
 SCRIPT_PATH_RE = re.compile(
     r"(?<![A-Za-z0-9_.\-/])(scripts/[A-Za-z0-9_.\-/]+)(?=$|[^A-Za-z0-9_.\-/])"
 )
+GENERATED_AUDIT_EVIDENCE_SCHEMAS = frozenset(
+    {
+        "script-lifecycle.v1",
+        "script-reference-audit.v1",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -74,6 +80,17 @@ def tracked_script_paths(root: Path) -> list[str]:
     return [path for path in tracked_paths(root) if path.startswith("scripts/")]
 
 
+def is_generated_audit_evidence(path: str, text: str) -> bool:
+    """辨識會把 script 清單反向污染成引用的 audit 產物。"""
+    if not path.endswith(".json") or '"schema_version"' not in text:
+        return False
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(payload, dict) and payload.get("schema_version") in GENERATED_AUDIT_EVIDENCE_SCHEMAS
+
+
 def load_tracked_text(root: Path, excluded_paths: frozenset[str]) -> dict[str, str]:
     texts: dict[str, str] = {}
     for path in tracked_paths(root):
@@ -82,7 +99,9 @@ def load_tracked_text(root: Path, excluded_paths: frozenset[str]) -> dict[str, s
         try:
             content = (root / path).read_bytes()
             if b"\0" not in content:
-                texts[path] = content.decode("utf-8")
+                text = content.decode("utf-8")
+                if not is_generated_audit_evidence(path, text):
+                    texts[path] = text
         except (OSError, UnicodeDecodeError):
             continue
     return texts

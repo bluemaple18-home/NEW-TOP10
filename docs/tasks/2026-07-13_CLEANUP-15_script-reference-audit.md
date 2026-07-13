@@ -57,3 +57,9 @@
 - reference audit `--strict-new`：PASS；重跑 JSON 與首次輸出逐位元一致。
 - lifecycle audit `--strict-new`：PASS。
 - `git diff --check`：PASS。
+
+## Review repair
+
+- 主線整合後發現已提交的 reference/lifecycle audit JSON 會被下一次掃描當成引用來源，使 101 個候選錯誤歸零。
+- 掃描器現依 `script-reference-audit.v1`／`script-lifecycle.v1` schema 排除自身生成證據；一般 `.work` evidence 不受影響。
+- 補上回歸測試，主線重跑維持 101 個 suspected orphan 且 `--strict-new` PASS。

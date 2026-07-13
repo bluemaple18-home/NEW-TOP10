@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -98,6 +99,35 @@ class ScriptReferenceAuditTest(unittest.TestCase):
         )
         alpha = next(entry for entry in audit.build_inventory(policy, scripts, references, unknown)["entries"] if entry["path"] == "scripts/alpha.py")
         self.assertEqual(alpha["reference_count"], 0)
+
+    def test_generated_audit_evidence_is_not_scanned_as_reference_source(self) -> None:
+        scripts = ["scripts/existing_baseline.py"]
+        evidence_payloads = {
+            ".work/CLEANUP-15/evidence/script-reference-audit.json": {
+                "schema_version": "script-reference-audit.v1",
+                "entries": [{"path": scripts[0]}],
+            },
+            ".work/CLEANUP-15/evidence/script-lifecycle.json": {
+                "schema_version": "script-lifecycle.v1",
+                "entries": [{"path": scripts[0]}],
+            },
+        }
+
+        for path, payload in evidence_payloads.items():
+            with self.subTest(path=path):
+                self.assertTrue(
+                    audit.is_generated_audit_evidence(
+                        path,
+                        json.dumps(payload, ensure_ascii=False),
+                    )
+                )
+
+        self.assertFalse(
+            audit.is_generated_audit_evidence(
+                ".work/OTHER/evidence/result.json",
+                json.dumps({"schema_version": "other.v1", "path": scripts[0]}),
+            )
+        )
 
 
 if __name__ == "__main__":
