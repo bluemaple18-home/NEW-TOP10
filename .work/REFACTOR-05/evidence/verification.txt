@@ -1,0 +1,28 @@
+REFACTOR-05 verification
+========================
+
+Parity and focused tests
+------------------------
+- tests/test_exit_rule_validation_suite.py: PASS (16 tests).
+- evidence/parity.json: PASS for three profiles across builder valid/invalid, verifier valid/invalid, and Markdown hashes.
+
+Main checkout full suite
+------------------------
+- .venv/bin/python -m pytest -q: PASS (180 tests, 28 subtests; 4 dependency deprecation warnings).
+- Source compile check: PASS for the new builder, verifier, and test modules.
+- git diff --check: PASS.
+- Hardcoded local path / secret scan: no match in the scoped new files and task evidence.
+
+Daily control hash gate
+-----------------------
+- scripts/run_daily.sh: 3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3
+- scripts/run_daily_publish.sh: ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3
+- scripts/com.new-top10.daily.plist: eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995
+- config/automation.yaml: c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a
+
+Staged-tree gates
+-----------------
+- Reference audit --strict-new: PASS (447 tracked scripts; 0 suspected orphans).
+- Lifecycle audit --strict-new: PASS (447 tracked scripts; no new unclassified scripts).
+- Focused suite plus audit tests: PASS (26 tests, 2 subtests).
+- Raw audit JSON is intentionally not retained because it is a large deterministic derived artifact; rerun the commands above to reproduce it.

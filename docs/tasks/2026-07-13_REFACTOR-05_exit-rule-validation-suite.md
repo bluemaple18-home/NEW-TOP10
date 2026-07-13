@@ -1,6 +1,6 @@
 # REFACTOR-05｜Exit-rule validation suite 收斂
 
-- status: ready
+- status: completed
 - priority: P1
 - task thickness: strict
 - blocked_by: none（CLEANUP-26 已整合為 `3413b18`）
