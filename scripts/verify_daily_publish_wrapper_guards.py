@@ -130,6 +130,46 @@ raise SystemExit(exit_code)
 """,
         executable=True,
     )
+    write_text(
+        root / "scripts" / "record_top10_publish_event.py",
+        """#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import os
+import sys
+from pathlib import Path
+
+project = Path(__file__).resolve().parents[1]
+exit_code = int(os.environ.get("FAKE_EVENT_EXIT", "0"))
+(project / "artifacts" / "fake_event_args.json").write_text(
+    json.dumps({"args": sys.argv[1:], "exit_code": exit_code}, ensure_ascii=False, indent=2),
+    encoding="utf-8",
+)
+raise SystemExit(exit_code)
+""",
+        executable=True,
+    )
+    write_text(
+        root / "scripts" / "send_top10_ops_report.py",
+        """#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import os
+import sys
+from pathlib import Path
+
+project = Path(__file__).resolve().parents[1]
+exit_code = int(os.environ.get("FAKE_OPS_EXIT", "0"))
+(project / "artifacts" / "fake_ops_args.json").write_text(
+    json.dumps({"args": sys.argv[1:], "exit_code": exit_code}, ensure_ascii=False, indent=2),
+    encoding="utf-8",
+)
+raise SystemExit(exit_code)
+""",
+        executable=True,
+    )
 
 
 def run_wrapper_case(name: str, send_exit: int) -> dict[str, Any]:
@@ -149,6 +189,10 @@ def run_wrapper_case(name: str, send_exit: int) -> dict[str, Any]:
         )
         args_path = project / "artifacts" / "fake_send_args.json"
         send_args = json.loads(args_path.read_text(encoding="utf-8"))["args"] if args_path.exists() else []
+        event_path = project / "artifacts" / "fake_event_args.json"
+        event = json.loads(event_path.read_text(encoding="utf-8")) if event_path.exists() else {}
+        ops_path = project / "artifacts" / "fake_ops_args.json"
+        ops = json.loads(ops_path.read_text(encoding="utf-8")) if ops_path.exists() else {}
         status_path = project / "artifacts" / "automation_status.json"
         status = json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists() else {}
         publish_logs = "\n".join(path.read_text(encoding="utf-8") for path in sorted((project / "logs").glob("daily_publish_*.log")))
@@ -157,6 +201,17 @@ def run_wrapper_case(name: str, send_exit: int) -> dict[str, Any]:
             {"name": "wrapper_exit_code", "ok": completed.returncode == expected_exit, "value": completed.returncode},
             {"name": "run_date_preserved", "ok": status.get("run_date") == CATCH_UP_DATE, "value": status.get("run_date")},
             {"name": "stale_send_requires_flag", "ok": "--allow-stale-send" in send_args, "value": send_args},
+            {
+                "name": "event_receives_run_date",
+                "ok": event.get("exit_code") == 0 and event.get("args", [])[:2] == ["--run-date", CATCH_UP_DATE],
+                "value": event,
+            },
+            {
+                "name": "ops_receives_stale_send_contract",
+                "ok": ops.get("exit_code") == 0
+                and ops.get("args") == ["--run-date", CATCH_UP_DATE, "--send", "--allow-stale-send"],
+                "value": ops,
+            },
         ]
         return {
             "name": name,
