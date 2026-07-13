@@ -274,20 +274,20 @@ TOP10_SKIP_RESEARCH_QUOTA=1 bash scripts/run_external_review_host_runner.sh
 **功能**: 自動化統一入口，shell、launchd、cron 都只呼叫它
 **模式**:
 ```bash
-uv run --with-requirements requirements.txt python -m scripts.run_automation daily --dry-run
-uv run --with-requirements requirements.txt python -m scripts.run_automation monitor --dry-run
-uv run --with-requirements requirements.txt python -m scripts.run_automation retrain --dry-run
-uv run --with-requirements requirements.txt python -m scripts.run_automation retrain --trigger scheduled --dry-run
-uv run --with-requirements requirements.txt python -m scripts.run_automation reference --dry-run
-uv run --with-requirements requirements.txt python -m scripts.run_automation status
+.venv/bin/python -m scripts.run_automation daily --dry-run
+.venv/bin/python -m scripts.run_automation monitor --dry-run
+.venv/bin/python -m scripts.run_automation retrain --dry-run
+.venv/bin/python -m scripts.run_automation retrain --trigger scheduled --dry-run
+.venv/bin/python -m scripts.run_automation reference --dry-run
+.venv/bin/python -m scripts.run_automation status
 ```
 
-每日流程會在 ETL 後執行 `python -m app.pipeline_cli validate`，確認 `features/events/universe` 符合資料契約後才跑排名。正式 `data/clean/features.parquet` 的最新日也會在資料契約層檢查 TWSE/TPEX 覆蓋；若只剩單一市場，`validate` 會直接失敗，不只依賴 automation freshness gate。
+每日流程會在 ETL 後執行 `.venv/bin/python -m app.pipeline_cli validate`，確認 `features/events/universe` 符合資料契約後才跑排名。正式 `data/clean/features.parquet` 的最新日也會在資料契約層檢查 TWSE/TPEX 覆蓋；若只剩單一市場，`validate` 會直接失敗，不只依賴 automation freshness gate。
 
 ranking 後會執行 weekly snapshot：
 
 ```bash
-uv run --with-requirements requirements.txt python scripts/build_weekly_candidate_snapshot.py --ranking artifacts/ranking_YYYY-MM-DD.csv
+.venv/bin/python scripts/build_weekly_candidate_snapshot.py --ranking artifacts/ranking_YYYY-MM-DD.csv
 ```
 
 這個 artifact 只固定「模型初選池 / 每日快照」來源資料，不套用前台全域投資設定；`/api/weekly-candidates` 會優先讀最新 `weekly_candidate_snapshot_*.json`，沒有 snapshot 才 fallback 到 latest ranking。
@@ -295,8 +295,8 @@ uv run --with-requirements requirements.txt python scripts/build_weekly_candidat
 ranking 後也會產生日報與 Clawd-ready payload：
 
 ```bash
-uv run --with-requirements requirements.txt python scripts/generate_daily_report.py --ranking artifacts/ranking_YYYY-MM-DD.csv
-uv run --with-requirements requirements.txt python scripts/build_clawd_publish_payload.py --report artifacts/daily_report_YYYY-MM-DD.json
+.venv/bin/python scripts/generate_daily_report.py --ranking artifacts/ranking_YYYY-MM-DD.csv
+.venv/bin/python scripts/build_clawd_publish_payload.py --report artifacts/daily_report_YYYY-MM-DD.json
 ```
 
 `build_clawd_publish_payload.py` 只寫 artifact，不會呼叫 Clawd、不會讀 token、不會送出訊息。未設定 `notify.clawd_channel` / `notify.clawd_to` 時，payload 會標記為 `PENDING_TARGET`；實際發送仍受 `notify.clawd_enabled=false` 保護，後續需另開發送卡才會接上 Clawd。
@@ -314,9 +314,9 @@ scripts/report_stock_status.sh --dry-run --message "[stock project dry-run] New 
 每日後驗收可手動執行：
 
 ```bash
-uv run --with-requirements requirements.txt python scripts/run_daily_postcheck.py --skip-api
-uv run --with-requirements requirements.txt python scripts/run_daily_postcheck.py --ranking artifacts/ranking_YYYY-MM-DD.csv --skip-api
-uv run --with-requirements requirements.txt python scripts/run_daily_postcheck.py --include-frontend
+.venv/bin/python scripts/run_daily_postcheck.py --skip-api
+.venv/bin/python scripts/run_daily_postcheck.py --ranking artifacts/ranking_YYYY-MM-DD.csv --skip-api
+.venv/bin/python scripts/run_daily_postcheck.py --include-frontend
 ```
 
 `--skip-api` 只驗 ranking artifact；若最近一次 `automation_status.json` 來自 dry-run，請明確傳入 `--ranking artifacts/ranking_YYYY-MM-DD.csv`，避免把 `expected_ranking_artifact` 誤當成正式 daily 產物。`--include-frontend` 會呼叫既有 frontend smoke，確認候補列表、個股頁、K 線 30D 與交易計畫 rail badge 載入。自動化 daily 預設不啟用 postcheck，避免 launchd 被前端或 Chrome 環境影響。
@@ -347,7 +347,7 @@ uv run --with-requirements requirements.txt python scripts/run_daily_postcheck.p
 測試指定日期 gate 可用：
 
 ```bash
-TOP10_RUN_DATE=2026-05-23 uv run --with-requirements requirements.txt python -m scripts.run_automation daily --dry-run
+TOP10_RUN_DATE=2026-05-23 .venv/bin/python -m scripts.run_automation daily --dry-run
 ```
 
 ### `scripts/run_reference_update.sh`
@@ -369,8 +369,8 @@ TOP10_RUN_DATE=2026-05-23 uv run --with-requirements requirements.txt python -m 
 ### `app.pipeline_cli`
 **功能**: ETL 與資料產物維護入口
 ```bash
-uv run --with-requirements requirements.txt python -m app.pipeline_cli validate --json
-uv run --with-requirements requirements.txt python -m app.pipeline_cli repair-local
+.venv/bin/python -m app.pipeline_cli validate --json
+.venv/bin/python -m app.pipeline_cli repair-local
 ```
 
 `repair-local` 只使用既有 `data/clean/features.parquet` 重建衍生產物，不會抓外部 API；適合在缺 `events.parquet` 或 `universe.parquet` 時快速修復本地狀態。
@@ -380,7 +380,7 @@ uv run --with-requirements requirements.txt python -m app.pipeline_cli repair-lo
 **用法**:
 ```bash
 # 手動執行監控
-python app/model_monitor.py
+.venv/bin/python app/model_monitor.py
 
 # 查看結果
 cat artifacts/psi_report.json
@@ -395,7 +395,7 @@ cat artifacts/psi_report.json
 若正式模型已重訓，請刷新與模型 feature list 綁定的 PSI baseline：
 
 ```bash
-uv run --with-requirements requirements.txt python scripts/refresh_model_baseline.py --check-after
+.venv/bin/python scripts/refresh_model_baseline.py --check-after
 ```
 
 刷新後 `models/baseline_stats.json` 會記錄模型 sha256、模型 feature count、baseline latest date 與 M4 feature frame 來源。正式 retrain flow 會自動備份並刷新 baseline；若後續驗證失敗，baseline 會與模型一起 rollback。
@@ -404,7 +404,7 @@ uv run --with-requirements requirements.txt python scripts/refresh_model_baselin
 **功能**: M13 產業動能 shadow monitor
 
 ```bash
-uv run --with-requirements requirements.txt python scripts/monitor_industry_momentum.py
+.venv/bin/python scripts/monitor_industry_momentum.py
 ```
 
 此腳本會重跑 `scripts/research_industry_momentum_walkforward.py`，更新：
@@ -418,7 +418,7 @@ uv run --with-requirements requirements.txt python scripts/monitor_industry_mome
 **功能**: M11 模型健康總覽
 **用法**:
 ```bash
-uv run --with-requirements requirements.txt python scripts/generate_model_health_report.py
+.venv/bin/python scripts/generate_model_health_report.py
 ```
 
 只讀 `models/latest_lgbm.pkl`、`artifacts/ranking_*.csv`、PSI / factor / industry monitor artifact 與 `data/clean/features.parquet`，輸出：
@@ -431,7 +431,7 @@ uv run --with-requirements requirements.txt python scripts/generate_model_health
 模型組總驗收可用：
 
 ```bash
-uv run --with-requirements requirements.txt python scripts/verify_model_group_acceptance.py
+.venv/bin/python scripts/verify_model_group_acceptance.py
 ```
 
 它會重跑模型底座、review regression、data contracts、model health、rollback gate 等只讀驗證，並輸出 `artifacts/model_group_acceptance_YYYY-MM-DD.json`。`status=OK` 代表模型組驗收入口可營運；`auto_retrain_readiness=READY` 代表健康檢查全綠，`READY_WITH_MONITORING_WARNINGS` 代表只剩已分類的監控 warning，可進訓練啟動 review，但 production promotion 仍需後續 gate；`BLOCKED` 代表仍不可啟動自動訓練。
@@ -439,7 +439,7 @@ uv run --with-requirements requirements.txt python scripts/verify_model_group_ac
 訓練啟動前總閘門可用：
 
 ```bash
-uv run --with-requirements requirements.txt python scripts/verify_training_automation_readiness.py
+.venv/bin/python scripts/verify_training_automation_readiness.py
 ```
 
 `status=READY_FOR_AUTOMATED_TRAINING_REVIEW` 且 `training_launch_ready=true` 代表事前準備已足以啟動預註冊自動訓練候選；這不等於可升正式模型。正式升版仍要看 `promotion_ready=true`，並通過 sealed OOS、replay、no-hindsight verifier 與人工 review。
@@ -601,4 +601,4 @@ launchctl unload ~/Library/LaunchAgents/com.new-top10.*.plist
 1. 日誌檔案 (`logs/`)
 2. PSI 監控報告 (`artifacts/psi_report.json`)
 3. 自動化狀態檔 (`artifacts/automation_status.json`)
-4. 確認 `uv run --with-requirements requirements.txt ...` 可正常建立執行環境
+4. 確認 `.venv/bin/python ...` 可正常使用 repo lockfile 環境

@@ -1,6 +1,6 @@
 # DOC-16｜Automation 指令契約一致化
 
-- status: ready
+- status: completed
 - priority: P2
 - task thickness: minimal
 
@@ -41,3 +41,15 @@
 ## 回報
 
 建立單一 atomic commit；回報 SHA 與變更行號，不 merge、不 push。
+
+## Verification
+
+- `docs/AUTOMATION.md` 已移除 active automation 區塊中的 `--with-requirements`。
+- `tests/test_environment_contract.py` 已新增 `docs/AUTOMATION.md` 的 allowlist 驗證。
+- `git diff --check` 通過。
+
+## Result
+
+- active automation 文件命令已統一為 repo `.venv/bin/python` 入口。
+- 歷史事故與舊任務證據未改寫，且未碰 scripts/config/plist/lockfile。
+- 驗證命令可重跑，且環境契約測試通過。

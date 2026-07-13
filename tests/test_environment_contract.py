@@ -50,3 +50,9 @@ class EnvironmentContractTests(unittest.TestCase):
         )
         for documented_path in documented_paths:
             self.assertTrue((PROJECT_ROOT / documented_path).exists(), documented_path)
+
+    def test_automation_doc_uses_repo_venv_entrypoints(self) -> None:
+        content = (PROJECT_ROOT / "docs/AUTOMATION.md").read_text(encoding="utf-8")
+        self.assertIn(".venv/bin/python", content)
+        self.assertNotIn("--with-requirements", content)
+        self.assertNotIn("/Users/", content)
