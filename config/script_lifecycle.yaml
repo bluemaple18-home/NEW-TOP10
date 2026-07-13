@@ -134,14 +134,9 @@ reference_audit:
     - scripts/verify_gross55_operational_shadow_dry_run.py
     - scripts/verify_high_choppy_context_overlay.py
     - scripts/verify_long_candidate_validation_report.py
-    - scripts/verify_odd_lot_candidate_comparison_report.py
     - scripts/verify_odd_lot_candidate_decision_report.py
-    - scripts/verify_odd_lot_exit_horizon_sensitivity_report.py
-    - scripts/verify_odd_lot_exit_strategy_report.py
-    - scripts/verify_odd_lot_exposure_sensitivity_report.py
     - scripts/verify_odd_lot_portfolio_replay.py
-    - scripts/verify_odd_lot_regime_sensitivity_report.py
-    - scripts/verify_odd_lot_regime_throttle_report.py
+    - scripts/verify_odd_lot_research_suite.py
     - scripts/verify_operational_long_rule_validation_report.py
     - scripts/verify_operational_rule_validation_report.py
     - scripts/verify_overlap_first_daily_recommendation_shadow.py

@@ -1,6 +1,6 @@
 # CLEANUP-28｜Odd-lot research verifier suite 收斂
 
-- status: ready
+- status: accepted
 - priority: P1
 - task thickness: standard
 - blocked_by: CLEANUP-27 已整合為 `0883601`
@@ -59,3 +59,11 @@
 ## 回報
 
 單一 atomic commit，不 merge、不 push；主線讀實際 diff 與證據後才整合，整合驗證通過即封存任務並回收 worktree。
+
+## 驗收結果
+
+- 主線已整合為本卡 atomic commit
+- canonical full pytest：`219 passed, 28 subtests passed`
+- reference／lifecycle `--strict-new`：PASS
+- focused tests：`39 passed`
+- 每日四檔 hash：未變

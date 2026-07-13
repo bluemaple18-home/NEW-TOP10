@@ -1,0 +1,114 @@
+{
+  "schema_version": "odd-lot-research-verifier-suite-parity.v1",
+  "task_id": "CLEANUP-28",
+  "status": "PASS",
+  "normalization": [
+    "generated_at omitted",
+    "artifact path normalized to <artifact>",
+    "full normalized verification payload hashed with sorted JSON keys"
+  ],
+  "profiles": {
+    "candidate_comparison": {
+      "valid_payload_sha256": "078b83f6f21866e3fca4122270ee68263d2ac607cbd3e1ca1b700eafe8a1caa7",
+      "invalid_payload_sha256": "62d77eea1308f9873fba3d4370504d111da89d00804e21da5066ef619e6e2fca",
+      "check_names": ["schema", "status_ok", "research_only", "fixed_capital_odd_lot", "model_changes_false", "production_ranking_changes_false", "promotion_ready_false", "capital_levels_minimum", "required_variants_present", "rows_complete", "peer_delta_present", "missing_empty", "decision_safe"],
+      "valid_summary": {"check_count": 13, "failed_count": 0, "row_count": 12, "decision": "BLOCKED_RESEARCH_ONLY"},
+      "invalid_summary": {"check_count": 13, "failed_count": 1, "row_count": 12, "decision": "BLOCKED_RESEARCH_ONLY"},
+      "valid_exit_code": 0,
+      "invalid_exit_code": 1,
+      "default_output": "artifacts/model_experiments/odd_lot_candidate_comparison_report_verification_latest.json"
+    },
+    "exit_horizon": {
+      "valid_payload_sha256": "23003f8568415817b31d3f05763043f26a05be858b3a02b3fcd8e545ca4c1439",
+      "invalid_payload_sha256": "b49d3e41ef75425e261d59828414b67d026d5537508721043c685722a3492c08",
+      "check_names": ["schema", "status_ok", "research_only", "model_changes_false", "production_ranking_changes_false", "promotion_ready_false", "horizons_present", "kinds_present", "missing_empty", "decision_safe"],
+      "valid_summary": {"check_count": 10, "failed_count": 0, "row_count": 9, "decision": "BLOCKED_RESEARCH_ONLY", "selected_horizon": 40},
+      "invalid_summary": {"check_count": 10, "failed_count": 1, "row_count": 9, "decision": "BLOCKED_RESEARCH_ONLY", "selected_horizon": 40},
+      "valid_exit_code": 0,
+      "invalid_exit_code": 1,
+      "default_output": "artifacts/model_experiments/odd_lot_exit_horizon_sensitivity_report_verification_latest.json"
+    },
+    "exit_strategy": {
+      "valid_payload_sha256": "34b58b895cc7696c5f79f3bbc538324bae8e942336be4ea03ff8d4e6d06acde6",
+      "invalid_payload_sha256": "cd879fab9debd18cf16a1f60d5940614548b2655aea6f5c48b9ec0fef676a1c7",
+      "check_names": ["schema", "status_ok", "research_only", "model_changes_false", "production_ranking_changes_false", "promotion_ready_false", "partial_runner_contract", "capital_levels_minimum", "required_variants_present", "missing_empty", "candidate_beats_production_peer_all_capitals", "decision_safe"],
+      "valid_summary": {"check_count": 12, "failed_count": 0, "row_count": 15, "decision": "BLOCKED_RESEARCH_ONLY", "selected": "candidate_ptp25_third"},
+      "invalid_summary": {"check_count": 12, "failed_count": 1, "row_count": 15, "decision": "BLOCKED_RESEARCH_ONLY", "selected": "candidate_ptp25_third"},
+      "valid_exit_code": 0,
+      "invalid_exit_code": 1,
+      "default_output": "artifacts/model_experiments/odd_lot_exit_strategy_report_verification_latest.json"
+    },
+    "exposure_sensitivity": {
+      "valid_payload_sha256": "465eb049c3e5dbe4ce4913ce70ebfd663c7887e012948620a8dfd2813aee56fd",
+      "invalid_payload_sha256": "7cc6f47bf26828c623a15d6e8311d6c8059084e1666fd35b18be5f1684572e2a",
+      "check_names": ["schema", "status_ok", "research_only", "fixed_capital_odd_lot", "model_changes_false", "production_ranking_changes_false", "promotion_ready_false", "capital_levels_minimum", "settings_minimum", "sides_present", "rows_complete", "missing_empty", "decision_safe"],
+      "valid_summary": {"check_count": 13, "failed_count": 0, "row_count": 12, "decision": "BLOCKED_RESEARCH_ONLY"},
+      "invalid_summary": {"check_count": 13, "failed_count": 1, "row_count": 12, "decision": "BLOCKED_RESEARCH_ONLY"},
+      "valid_exit_code": 0,
+      "invalid_exit_code": 1,
+      "default_output": "artifacts/model_experiments/odd_lot_exposure_sensitivity_report_verification_latest.json"
+    },
+    "regime_sensitivity": {
+      "valid_payload_sha256": "029e9c543a510bc420f466bb2005eb508057b1f479fcb3b4aa60c6df570f3d65",
+      "invalid_payload_sha256": "ca4a39cd1a764fbd4883b0b78e066d16333640914d5e93fabd4bd8bff7aebd82",
+      "check_names": ["schema", "status_ok", "research_only", "fixed_capital_odd_lot", "model_changes_false", "production_ranking_changes_false", "promotion_ready_false", "capital_levels_minimum", "required_regimes_present", "summary_regimes_present", "missing_empty", "decision_safe"],
+      "valid_summary": {"check_count": 12, "failed_count": 0, "row_count": 9, "decision": "BLOCKED_RESEARCH_ONLY"},
+      "invalid_summary": {"check_count": 12, "failed_count": 1, "row_count": 9, "decision": "BLOCKED_RESEARCH_ONLY"},
+      "valid_exit_code": 0,
+      "invalid_exit_code": 1,
+      "default_output": "artifacts/model_experiments/odd_lot_regime_sensitivity_report_verification_latest.json"
+    },
+    "regime_throttle": {
+      "valid_payload_sha256": "3351bcd3cf7c02235906b7915cd07a72d9a584347032f4e3b3f17cd926b5d6d2",
+      "invalid_payload_sha256": "9ac403cf9f182cadda8264cc5a755a41692e45db58bf01145a07eb624751f295",
+      "check_names": ["schema", "status_ok", "research_only", "model_changes_false", "production_ranking_changes_false", "promotion_ready_false", "signal_day_regime_controls_next_entry", "required_variants_present", "missing_empty", "decision_safe"],
+      "valid_summary": {"check_count": 10, "failed_count": 0, "row_count": 4, "decision": "BLOCKED_RESEARCH_ONLY"},
+      "invalid_summary": {"check_count": 10, "failed_count": 1, "row_count": 4, "decision": "BLOCKED_RESEARCH_ONLY"},
+      "valid_exit_code": 0,
+      "invalid_exit_code": 1,
+      "default_output": "artifacts/model_experiments/odd_lot_regime_throttle_report_verification_latest.json"
+    }
+  },
+  "consumer_gate": {
+    "decision_suite_horizon_strategy_throttle": "PASS",
+    "active_old_verifier_reference_scan_scripts_tests_config": "PASS",
+    "retired_old_entrypoints": [
+      "scripts/verify_odd_lot_candidate_comparison_report.py",
+      "scripts/verify_odd_lot_exit_horizon_sensitivity_report.py",
+      "scripts/verify_odd_lot_exit_strategy_report.py",
+      "scripts/verify_odd_lot_exposure_sensitivity_report.py",
+      "scripts/verify_odd_lot_regime_sensitivity_report.py",
+      "scripts/verify_odd_lot_regime_throttle_report.py"
+    ],
+    "retained_entrypoints": [
+      "scripts/verify_odd_lot_candidate_decision_report.py",
+      "scripts/verify_odd_lot_capital_matrix_report.py",
+      "scripts/verify_odd_lot_portfolio_replay.py"
+    ]
+  },
+  "verification": {
+    "focused_tests": "PASS: 39 passed",
+    "script_reference_audit_strict_new": {
+      "status": "PASS",
+      "tracked_script_count": 439,
+      "status_counts": {"protected": 11, "referenced": 428},
+      "unknown_reference_count": 1,
+      "new_suspected_orphans": []
+    },
+    "script_lifecycle_audit_strict_new": {
+      "status": "PASS",
+      "tracked_script_count": 439,
+      "category_counts": {"builder": 137, "maintenance": 95, "production_entrypoint": 11, "research": 27, "verifier": 169},
+      "new_unclassified": []
+    },
+    "git_diff_check": "PASS",
+    "full_pytest_worktree": "ENV_LIMIT: mainline observed 216 passed, 28 subtests, 3 worktree-environment failures",
+    "full_pytest_canonical": "PASS: 219 passed, 28 subtests passed"
+  },
+  "daily_hashes": {
+    "scripts/run_daily.sh": "3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3",
+    "scripts/run_daily_publish.sh": "ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3",
+    "scripts/com.new-top10.daily.plist": "eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995",
+    "config/automation.yaml": "c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a"
+  }
+}

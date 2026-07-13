@@ -10,9 +10,7 @@ import pytest
 
 from scripts import build_odd_lot_decision_suite as suite_builder
 from scripts import verify_odd_lot_candidate_decision_report as candidate_verifier
-from scripts import verify_odd_lot_exit_horizon_sensitivity_report as horizon_verifier
-from scripts import verify_odd_lot_exit_strategy_report as strategy_verifier
-from scripts import verify_odd_lot_regime_throttle_report as throttle_verifier
+from scripts import verify_odd_lot_research_suite as research_verifier
 
 
 FIXTURE_DATE = "2026-07-13"
@@ -284,28 +282,27 @@ def test_candidate_profile_preserves_existing_verifier_gate(
 
 
 @pytest.mark.parametrize(
-    ("profile", "verifier"),
+    "profile",
     (
-        ("exit_horizon", horizon_verifier),
-        ("exit_strategy", strategy_verifier),
-        ("regime_throttle", throttle_verifier),
+        "exit_horizon",
+        "exit_strategy",
+        "regime_throttle",
     ),
 )
 @pytest.mark.parametrize("valid", (True, False), ids=("valid", "invalid"))
-def test_analysis_profiles_remain_compatible_with_existing_verifiers(
+def test_analysis_profiles_remain_compatible_with_research_verifier_suite(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     profile: str,
-    verifier: Any,
     valid: bool,
 ) -> None:
     patch_project_roots(monkeypatch, tmp_path)
-    monkeypatch.setattr(verifier, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(research_verifier, "PROJECT_ROOT", tmp_path)
     payload = suite_payload(profile, tmp_path, valid)
     artifact = tmp_path / "reports" / f"{profile}.json"
     write_json(artifact, payload)
 
-    verification = verifier.build_payload(artifact)
+    verification = research_verifier.build_payload(profile, artifact)
 
     assert verification["status"] == ("OK" if valid else "FAILED")
     if valid:
