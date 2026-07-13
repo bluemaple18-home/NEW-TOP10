@@ -339,6 +339,87 @@ class DailyV2RealShadowTest(unittest.TestCase):
         self.assertEqual(comparison["status"], "NO-GO")
         self.assertTrue(comparison["schema"]["blocking"])
         self.assertEqual(comparison["schema"]["extra_in_shadow"], ["unexpected"])
+        self.assertEqual(comparison["schema"]["unexpected_extra_in_shadow"], ["unexpected"])
+
+    def test_legacy_rankless_rankings_use_position_and_can_go(self) -> None:
+        baseline_rows = ranking_rows()
+        shadow_rows = ranking_rows()
+        for row in baseline_rows + shadow_rows:
+            row.pop("rank")
+        shadow_path = self.root / "shadow_rankless.csv"
+        write_ranking(self.baseline_path, baseline_rows)
+        write_ranking(shadow_path, shadow_rows)
+
+        comparison = build_ranking_comparison(
+            baseline_path=self.baseline_path,
+            shadow_path=shadow_path,
+            input_snapshots={"features": {"sha256": "abc"}},
+        )
+
+        self.assertEqual(comparison["status"], "GO")
+        self.assertEqual(comparison["top10"]["rank_source"], "position")
+        self.assertTrue(
+            all(row["status"] == "unchanged" for row in comparison["rank_changes"])
+        )
+
+    def test_rank_missing_on_only_one_side_is_explicit_no_go(self) -> None:
+        shadow_path = self.root / "shadow_rankless.csv"
+        rows = ranking_rows()
+        for row in rows:
+            row.pop("rank")
+        write_ranking(shadow_path, rows)
+
+        comparison = build_ranking_comparison(
+            baseline_path=self.baseline_path,
+            shadow_path=shadow_path,
+            input_snapshots={"features": {"sha256": "abc"}},
+        )
+
+        self.assertEqual(comparison["status"], "NO-GO")
+        self.assertTrue(comparison["schema"]["blocking"])
+        self.assertEqual(comparison["schema"]["missing_in_shadow"], ["rank"])
+        self.assertIn("shadow 缺少 rank 欄位", comparison["conclusion"]["reasons"])
+
+    def test_invalid_rank_remains_explicit_no_go(self) -> None:
+        shadow_path = self.root / "shadow_invalid_rank.csv"
+        rows = ranking_rows()
+        rows[0]["rank"] = 0
+        write_ranking(shadow_path, rows)
+
+        comparison = build_ranking_comparison(
+            baseline_path=self.baseline_path,
+            shadow_path=shadow_path,
+            input_snapshots={"features": {"sha256": "abc"}},
+        )
+
+        self.assertEqual(comparison["status"], "NO-GO")
+        self.assertIn("shadow rank 必須依序為 1..10", comparison["conclusion"]["reasons"])
+
+    def test_allowlisted_additive_schema_columns_do_not_block(self) -> None:
+        shadow_path = self.root / "shadow_allowlisted_schema.csv"
+        rows = ranking_rows()
+        allowed_columns = [
+            "strategy_route_regime",
+            "strategy_route_production",
+            "strategy_route_shadow",
+            "strategy_route_report_only",
+            "strategy_route_blocked",
+            "strategy_route_mutates_production_score",
+        ]
+        for row in rows:
+            row.update({column: False for column in allowed_columns})
+        write_ranking(shadow_path, rows)
+
+        comparison = build_ranking_comparison(
+            baseline_path=self.baseline_path,
+            shadow_path=shadow_path,
+            input_snapshots={"features": {"sha256": "abc"}},
+        )
+
+        self.assertEqual(comparison["status"], "GO")
+        self.assertFalse(comparison["schema"]["blocking"])
+        self.assertEqual(comparison["schema"]["allowed_additive_in_shadow"], allowed_columns)
+        self.assertEqual(comparison["schema"]["unexpected_extra_in_shadow"], [])
 
     def test_top10_order_mismatch_is_explicit_no_go(self) -> None:
         shadow_path = self.root / "shadow_order.csv"

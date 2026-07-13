@@ -23,6 +23,16 @@ CORE_NUMERIC_COLUMNS = (
     "risk_penalty",
     "score",
 )
+ALLOWED_ADDITIVE_SHADOW_COLUMNS = frozenset(
+    {
+        "strategy_route_regime",
+        "strategy_route_production",
+        "strategy_route_shadow",
+        "strategy_route_report_only",
+        "strategy_route_blocked",
+        "strategy_route_mutates_production_score",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -56,10 +66,17 @@ def build_ranking_comparison(
     shadow_columns = list(shadow.columns)
     missing_in_shadow = [column for column in baseline_columns if column not in shadow_columns]
     extra_in_shadow = [column for column in shadow_columns if column not in baseline_columns]
-    schema_blocking = bool(missing_in_shadow or extra_in_shadow)
+    allowed_additive_in_shadow = [
+        column for column in extra_in_shadow if column in ALLOWED_ADDITIVE_SHADOW_COLUMNS
+    ]
+    unexpected_extra_in_shadow = [
+        column for column in extra_in_shadow if column not in ALLOWED_ADDITIVE_SHADOW_COLUMNS
+    ]
+    schema_blocking = bool(missing_in_shadow or unexpected_extra_in_shadow)
+    rank_source = "position" if "rank" not in baseline and "rank" not in shadow else "rank"
 
-    baseline_errors, baseline_ids = _validate_top10(baseline, "baseline")
-    shadow_errors, shadow_ids = _validate_top10(shadow, "shadow")
+    baseline_errors, baseline_ids = _validate_top10(baseline, "baseline", rank_source)
+    shadow_errors, shadow_ids = _validate_top10(shadow, "shadow", rank_source)
     overlap_count = len(set(baseline_ids) & set(shadow_ids))
     same_order = baseline_ids == shadow_ids and len(baseline_ids) == 10
     rank_changes = _rank_changes(baseline, shadow)
@@ -97,6 +114,8 @@ def build_ranking_comparison(
             "shadow_columns": shadow_columns,
             "missing_in_shadow": missing_in_shadow,
             "extra_in_shadow": extra_in_shadow,
+            "allowed_additive_in_shadow": allowed_additive_in_shadow,
+            "unexpected_extra_in_shadow": unexpected_extra_in_shadow,
             "column_order_equal": baseline_columns == shadow_columns,
             "blocking": schema_blocking,
         },
@@ -107,6 +126,7 @@ def build_ranking_comparison(
             "shadow_stock_ids": shadow_ids,
             "overlap_count": overlap_count,
             "same_order": same_order,
+            "rank_source": rank_source,
             "baseline_errors": baseline_errors,
             "shadow_errors": shadow_errors,
         },
@@ -131,7 +151,11 @@ def _read_ranking(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, encoding="utf-8-sig", dtype={"stock_id": "string"})
 
 
-def _validate_top10(frame: pd.DataFrame, label: str) -> tuple[list[str], list[str]]:
+def _validate_top10(
+    frame: pd.DataFrame,
+    label: str,
+    rank_source: str,
+) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     if "stock_id" not in frame.columns:
         return [f"{label} 缺少 stock_id 欄位"], []
@@ -143,9 +167,9 @@ def _validate_top10(frame: pd.DataFrame, label: str) -> tuple[list[str], list[st
         errors.append(f"{label} stock_id 不得為空")
     if len(set(stock_ids)) != len(stock_ids):
         errors.append(f"{label} stock_id 不得重複")
-    if "rank" not in frame.columns:
+    if "rank" not in frame.columns and rank_source != "position":
         errors.append(f"{label} 缺少 rank 欄位")
-    else:
+    elif rank_source != "position":
         ranks = pd.to_numeric(frame["rank"], errors="coerce")
         if ranks.isna().any() or ranks.tolist() != list(range(1, 11)):
             errors.append(f"{label} rank 必須依序為 1..10")
