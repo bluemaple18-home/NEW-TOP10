@@ -19,33 +19,29 @@ TOP10new/
 │   └── trading/     # 交易計畫、排名政策、市場狀態
 ├── web/frontend/     # React + KLineCharts 看盤 UI
 ├── skills/           # 自訂技能與工具
-├── requirements.txt  # Python 套件相依
+├── pyproject.toml    # Python 相依來源（uv）
+├── uv.lock           # 鎖定後的可重現相依版本
+├── requirements.txt  # 舊版工具相容清單（非 source of truth）
 ├── .env.sample      # 環境變數範本
 └── README.md        # 專案說明文件
 ```
 
 ## 安裝步驟
 
-### 1. 建立虛擬環境（使用 uv）
+### 1. 同步可重現環境（使用 uv）
 
 ```bash
 # 安裝 uv（如果尚未安裝）
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 建立虛擬環境
-uv venv
-
-# 啟動虛擬環境
-source .venv/bin/activate  # macOS/Linux
+# 安裝 runtime、訓練、報表與測試相依，並建立 .venv
+uv sync --all-groups
 ```
 
-### 2. 安裝相依套件
+`pyproject.toml` 與 `uv.lock` 是唯一相依來源。日常執行只需 runtime 時可使用
+`uv sync`；訓練、報表或測試請使用 `uv sync --all-groups`。
 
-```bash
-uv pip install -r requirements.txt
-```
-
-### 3. 設定環境變數
+### 2. 設定環境變數
 
 ```bash
 cp .env.sample .env
@@ -66,13 +62,13 @@ python test_agent_a.py
 
 ```bash
 # 執行完整 ETL 流程
-uv run --with-requirements requirements.txt python -m app.pipeline_cli run
+uv run python -m app.pipeline_cli run
 
 # 指定日期範圍
-uv run --with-requirements requirements.txt python -m app.pipeline_cli run --start-date 2023-01-01 --end-date 2026-01-20
+uv run python -m app.pipeline_cli run --start-date 2023-01-01 --end-date 2026-01-20
 
 # 僅執行驗收測試
-uv run --with-requirements requirements.txt python -m app.pipeline_cli validate
+uv run python -m app.pipeline_cli validate
 ```
 
 **產出檔案**：
@@ -97,7 +93,7 @@ uv run --with-requirements requirements.txt python -m app.pipeline_cli validate
 
 ```bash
 # 手動執行選股
-python app/agent_b_ranking.py
+uv run python -m app.agent_b_ranking
 
 # 查看結果
 cat artifacts/ranking_$(date +%Y-%m-%d).csv
@@ -115,7 +111,7 @@ bash scripts/setup_launchd.sh
 ```
 
 **功能**:
-- 📊 **每日 22:00**: ETL 資料更新 + 選股推論
+- 📊 **每日 17:30**: ETL 資料更新 + 選股推論 + 發布流程
 - 🔧 **每日 02:00**: PSI 漂移監控
 - 📈 **PSI 監控**: 自動偵測市場環境變化
 
@@ -128,7 +124,7 @@ bash scripts/run_daily.sh
 # 本機輕量測試 PSI 監控；重型產業監控會被 local_safe 跳過
 bash scripts/daily_retrain.sh monitor
 
-# 模擬正式 02:00 monitor 排程
+# 模擬 02:00 monitor 排程
 TOP10_RESOURCE_PROFILE=host_full bash scripts/daily_retrain.sh monitor --trigger scheduled
 
 # 手動模型重訓
@@ -139,6 +135,11 @@ python app/model_monitor.py
 ```
 
 詳細說明請參考：[AUTOMATION.md](docs/AUTOMATION.md)
+
+> [!WARNING]
+> 目前 `config/automation.yaml` 設定為 `notify.clawd_enabled: true` 與
+> `notify.clawd_dry_run: false`。因此 `scripts/run_daily_publish.sh` 在 daily 成功後會嘗試正式發送；
+> 若只需要本機產生資料與 payload，請執行 `bash scripts/run_daily.sh`，不要執行 publish wrapper。
 
 ---
 

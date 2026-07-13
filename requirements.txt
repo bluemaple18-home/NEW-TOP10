@@ -1,4 +1,7 @@
-# TW Top10 選股系統 - 套件相依清單
+# 相容匯出清單（不再作為相依來源）
+#
+# 唯一 source of truth 是 pyproject.toml 與 uv.lock。
+# 新環境請使用 `uv sync --all-groups`；此檔僅保留給尚未遷移到 uv 的外部工具。
 
 # 資料處理
 pandas>=2.0.0

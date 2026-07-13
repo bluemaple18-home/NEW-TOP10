@@ -39,17 +39,27 @@ run_agent_b.py               ← 訓練腳本
 
 ---
 
-## 每日工作流程
+## 本機開發流程
 
-### 開始工作前（兩台都要）
+### 建立環境
+
 ```bash
-./scripts/sync_from_remote.sh
+uv sync --all-groups
+pnpm --dir web/frontend install
 ```
 
-### 完成工作後
+Python 相依以 `pyproject.toml` 與 `uv.lock` 為準；`requirements.txt` 只保留給舊版外部工具。
+
+### 常用驗證入口
+
 ```bash
-./scripts/push_changes.sh "簡述修改內容"
+uv run python -m app.pipeline_cli validate
+uv run python -m app.agent_b_ranking
+uv run --group training python -c "import app.agent_b_modeling"
 ```
+
+每日流程排定於 17:30。`bash scripts/run_daily.sh` 只產生 daily 結果與 payload；
+`scripts/run_daily_publish.sh` 會依目前通知設定處理正式發送，非本機開發預設入口。
 
 ---
 
