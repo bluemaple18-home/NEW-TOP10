@@ -74,7 +74,6 @@ approved_unclassified: []
 # scripts/audit_script_references.py 的 --strict-new 使用，不影響生命週期或正式入口。
 reference_audit:
   approved_unreferenced:
-    - scripts/analyze_fixed_share_persistence.py
     - scripts/backtest_overlap_first_recommendation_performance.py
     - scripts/build_alpha_candidate_features.py
     - scripts/build_big_bull_blocker_resolution_report.py
@@ -88,8 +87,6 @@ reference_audit:
     - scripts/build_exit_rule_half_year_decision_report.py
     - scripts/build_exit_rule_portfolio_level_report.py
     - scripts/build_exit_rule_rolling_regime_report.py
-    - scripts/build_mainline_a_regime_validation.py
-    - scripts/build_mass_candidate_sector_cap_extension.py
     - scripts/build_mass_candidate_shadow_dry_run.py
     - scripts/build_odd_lot_candidate_comparison_report.py
     - scripts/build_odd_lot_candidate_decision_report.py

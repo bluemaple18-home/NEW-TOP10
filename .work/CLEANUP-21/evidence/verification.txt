@@ -1,0 +1,51 @@
+CLEANUP-21 verification
+=======================
+
+Scope
+-----
+Deleted only these proven orphan research scripts:
+- scripts/analyze_fixed_share_persistence.py
+- scripts/build_mainline_a_regime_validation.py
+- scripts/build_mass_candidate_sector_cap_extension.py
+
+Removed only their three matching entries from
+config/script_lifecycle.yaml:reference_audit.approved_unreferenced.
+
+Passing checks
+--------------
+- uv run python scripts/audit_script_lifecycle.py --strict-new
+  PASS: 458 tracked scripts; strict-new PASS.
+- uv run python -m pytest -q tests/test_script_lifecycle_audit.py tests/test_script_reference_audit.py
+  PASS: 10 passed, 2 subtests passed.
+- Active code/config reference scan (app, config, scripts, tests) for all three
+  deleted paths
+  PASS: no matches.
+- git diff --check
+  PASS.
+- Daily control-file SHA-256 checks
+  PASS:
+  scripts/run_daily.sh 3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3
+  scripts/run_daily_publish.sh ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3
+  scripts/com.new-top10.daily.plist eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995
+  config/automation.yaml c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a
+
+Scope-external failures not remediated
+--------------------------------------
+- uv run python scripts/audit_script_references.py --strict-new
+  FAIL: scripts/build_mass_candidate_survivor_replay_extension.py is now a
+  suspected orphan. Before this change it had exactly one static consumer:
+  scripts/build_mass_candidate_sector_cap_extension.py, imported at line 16.
+  The consumer is one of the three required deletions. The survivor script is
+  outside this card's allowed files and is not one of its approved lifecycle
+  exceptions, so it is not deleted, changed, or allowlisted here.
+- uv run python -m pytest -q
+  FAIL: 163 passed, 1 failed, 28 subtests passed. Failing test:
+  tests/test_research_component_ledger.py::ResearchComponentLedgerTest::test_verifier_accepts_generated_ledger
+  (expected report status OK; received FAILED). CLEANUP-21 does not modify the
+  ledger code, its test, or its dependencies, so this failure is not remediated
+  within the card's strict scope.
+
+Environment note
+----------------
+The sandbox could not read the existing uv cache. The verification commands
+were rerun in the approved environment using the project uv virtualenv.
