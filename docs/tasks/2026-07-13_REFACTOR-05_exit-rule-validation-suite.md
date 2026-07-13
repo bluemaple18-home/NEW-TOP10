@@ -1,9 +1,9 @@
 # REFACTOR-05｜Exit-rule validation suite 收斂
 
-- status: pending
+- status: ready
 - priority: P1
 - task thickness: strict
-- blocked_by: CLEANUP-26（避免平行修改 `config/script_lifecycle.yaml`）
+- blocked_by: none（CLEANUP-26 已整合為 `3413b18`）
 
 ## 目標
 
