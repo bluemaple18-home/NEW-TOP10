@@ -1,0 +1,44 @@
+{
+  "schema_version": "odd-lot-decision-builder-parity.v1",
+  "task_id": "CLEANUP-27",
+  "legacy_source_commit": "d3c7b69",
+  "status": "PASS",
+  "normalization": ["generated_at omitted", "fixture root normalized"],
+  "profiles": {
+    "exit_horizon": {
+      "valid_golden_sha256": "320acfefce2175ea2888abffee0833055655d8c01241da69fca1ef5d053d47e7",
+      "invalid_golden_sha256": "15e5753258e2f074a449d7a439095864d2ed30926d4097f0a194b066892c2bc9",
+      "markdown_sha256": "58f59076b0b608c7713b50f4a7ed7076270c27c54371177a122d88541ac8a06a",
+      "verifier_consumer": "PASS"
+    },
+    "exit_strategy": {
+      "valid_golden_sha256": "542ae9e3142896ba6a9cf58a833c9c684dbc2a96ce27e643f43fc68ec094bd6e",
+      "invalid_golden_sha256": "bdd45c41046dc873d3e2a0d87b5492898bf2b51bb4d9589b094125be636d585d",
+      "markdown_sha256": "e174d89582149d74799d5e3433ac2922a4b6984d4e24a33c1e580d6a9240be55",
+      "verifier_consumer": "PASS"
+    },
+    "regime_throttle": {
+      "valid_golden_sha256": "8e144aaffb72cd1daa2c6bbe9130652e89abac1839cb0ca8e3ea94efd37aa283",
+      "invalid_golden_sha256": "564e7843d870371653a749fc3c7b03df799ed2052243c0a95d900cd14dcbe9e0",
+      "markdown_sha256": "0153e31e7c08c5bbb7ad3088fc96482d5acb2e6c634a464240ef027b0470ad73",
+      "verifier_consumer": "PASS"
+    },
+    "candidate_decision": {
+      "valid_golden_sha256": "1d5a4e09ed47214d574119550cc13ca9ad5c66ca688fe91bdcffb271979cf3c0",
+      "invalid_golden_sha256": "0eec384f7995e5382bb2d0c834bdc792f911a9bbe9585aeeee9949d1d6a51aca",
+      "markdown_sha256": "619bf1d2275972eb5ebe9576d8b49f7fbfe33385fa7da76169185ea33ab27bc8",
+      "verifier_consumer": "PASS"
+    }
+  },
+  "consumer_gate": {
+    "repo_runtime_search": "PASS",
+    "active_legacy_builder_consumers": 0
+  },
+  "daily_hashes": {
+    "scripts/run_daily.sh": "3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3",
+    "scripts/run_daily_publish.sh": "ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3",
+    "scripts/com.new-top10.daily.plist": "eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995",
+    "config/automation.yaml": "c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a"
+  },
+  "environment_limit": "Worktree full pytest: 200 passed, 28 subtests passed, 1 pre-existing evidence_exists failure caused by unavailable gitignored artifacts/data; rerun in canonical repo after merge."
+}

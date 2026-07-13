@@ -1,6 +1,6 @@
 # CLEANUP-27｜Odd-lot decision builder suite 收斂
 
-- status: ready
+- status: accepted（`a525fda`；canonical full pytest 201 passed、28 subtests passed）
 - priority: P1
 - task thickness: strict
 - blocked_by: none（REFACTOR-05 已整合為 `5b2456a`）

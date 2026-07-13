@@ -88,12 +88,9 @@ reference_audit:
     - scripts/build_mass_candidate_shadow_dry_run.py
     - scripts/build_mass_candidate_survivor_replay_extension.py
     - scripts/build_odd_lot_candidate_comparison_report.py
-    - scripts/build_odd_lot_candidate_decision_report.py
-    - scripts/build_odd_lot_exit_horizon_sensitivity_report.py
-    - scripts/build_odd_lot_exit_strategy_report.py
+    - scripts/build_odd_lot_decision_suite.py
     - scripts/build_odd_lot_exposure_sensitivity_report.py
     - scripts/build_odd_lot_regime_sensitivity_report.py
-    - scripts/build_odd_lot_regime_throttle_report.py
     - scripts/build_operational_long_rule_validation_report.py
     - scripts/build_operational_rule_candidate_report.py
     - scripts/build_operational_rule_experiment_report.py
