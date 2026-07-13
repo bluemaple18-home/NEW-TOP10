@@ -1,6 +1,6 @@
 # REFACTOR-05｜Research Fog Map 模組邊界
 
-- status: ready
+- status: done
 - priority: P1
 - owner: Codex worktree
 - task thickness: standard
@@ -51,3 +51,10 @@
 ## 回報
 
 列出修改檔案、測試、未驗證原因與剩餘風險；建立單一 atomic commit，不 merge、不 push。
+
+## 實作結果
+
+- 原 script 已縮為 CLI／I/O adapter，既有 public functions 與輸出契約保留。
+- payload domain 與 HTML renderer 已拆為可獨立 import 的模組。
+- fixture JSON 深度相等、HTML 正規化後內容相等；fog map verifier 與 v2 schema verifier 通過。
+- 未觸碰每日報牌、ranking、model、通知與 launchd 路徑。
