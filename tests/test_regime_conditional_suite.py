@@ -10,8 +10,7 @@ from pathlib import Path
 import pytest
 
 from scripts import build_regime_conditional_suite as suite_builder
-from scripts import verify_regime_conditional_hybrid_report as hybrid_verifier
-from scripts import verify_regime_conditional_shadow_rankings as shadow_verifier
+from scripts import verify_regime_conditional_research_contract as research_verifier
 
 
 FIXTURE_DATE_COUNT = 12
@@ -61,6 +60,36 @@ HYBRID_GOLDEN = {
             "output": "output/hybrid.json",
         },
         "exit_code": 1,
+    },
+}
+VERIFIER_GOLDEN = {
+    "shadow_rankings": {
+        "valid": {
+            "payload_sha256": "ebc84eaf3ad34dbbf8e47055b140e980a75e5d5a4cf8e8a21db142d9755f700f",
+            "status": "OK",
+            "exit_code": 0,
+            "default_output": "artifacts/model_experiments/regime_conditional_shadow_ranking_verification_latest.json",
+        },
+        "invalid": {
+            "payload_sha256": "3bdf4d4c6d6fab67fe72e8546e3b50c143f7d82f4f04afd9b303ab9b95c450fc",
+            "status": "FAILED",
+            "exit_code": 1,
+            "default_output": "artifacts/model_experiments/regime_conditional_shadow_ranking_verification_latest.json",
+        },
+    },
+    "hybrid_report": {
+        "valid": {
+            "payload_sha256": "037e5848dd836a2c6fecbb4bbc5cfbcb0f667a5b49e804f6d8cb6a8ff2f01721",
+            "status": "OK",
+            "exit_code": 0,
+            "default_output": "artifacts/model_experiments/regime_conditional_hybrid_report_verification_latest.json",
+        },
+        "invalid": {
+            "payload_sha256": "b2c36ec12413c908c62130423ab8d12cf73891866d4c72bda185fac440b541ae",
+            "status": "FAILED",
+            "exit_code": 1,
+            "default_output": "artifacts/model_experiments/regime_conditional_hybrid_report_verification_latest.json",
+        },
     },
 }
 
@@ -146,6 +175,47 @@ def write_hybrid_fixture(root: Path) -> None:
                 ),
                 encoding="utf-8",
             )
+
+
+def write_verifier_artifact(profile: str, root: Path, valid: bool, monkeypatch: pytest.MonkeyPatch) -> Path:
+    if profile == "shadow_rankings":
+        fixture = write_shadow_fixture(root)
+        if not valid:
+            for path in fixture["shadow"].glob("ranking_*.csv"):
+                path.rename(path.with_name(path.name.replace("2026-01", "2025-12")))
+        payload = suite_builder.build_shadow_rankings(
+            Namespace(
+                production_dir=str(fixture["production"]),
+                shadow_dir=str(fixture["shadow"]),
+                output_dir=str(fixture["output"]),
+                market_regime_history=str(fixture["regime"]),
+                active_family="BIG_BULL",
+                top_n=2,
+            )
+        )
+        summary_path = fixture["output"] / "regime_conditional_shadow_ranking.json"
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return summary_path
+
+    if profile == "hybrid_report":
+        if valid:
+            write_hybrid_fixture(root)
+        monkeypatch.setattr(suite_builder, "PROJECT_ROOT", root.resolve())
+        output = root / "output" / "hybrid.json"
+        payload = suite_builder.build_hybrid_report(
+            Namespace(
+                profile="hybrid_report",
+                date="2026-07-13",
+                output=str(output),
+                capital_levels="100000,300000,500000",
+            )
+        )
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return output
+
+    raise ValueError(f"unsupported profile: {profile}")
 
 
 def test_shadow_rankings_valid_cli_matches_frozen_legacy_contract(tmp_path: Path) -> None:
@@ -301,12 +371,12 @@ def test_shadow_rankings_empty_date_intersection_stays_successful(tmp_path: Path
 def test_hybrid_report_default_output_and_existing_verifier_consumer_gate(tmp_path: Path, monkeypatch, capsys) -> None:
     write_hybrid_fixture(tmp_path)
     monkeypatch.setattr(suite_builder, "PROJECT_ROOT", tmp_path.resolve())
-    monkeypatch.setattr(hybrid_verifier, "PROJECT_ROOT", tmp_path.resolve())
+    monkeypatch.setattr(research_verifier, "PROJECT_ROOT", tmp_path.resolve())
     monkeypatch.setattr(sys, "argv", ["suite", "--profile", "hybrid_report", "--date", "2026-07-13"])
 
     assert suite_builder.main() == 0
     output = tmp_path / "artifacts" / "model_experiments" / "regime_conditional_hybrid_report_2026-07-13.json"
-    verification = hybrid_verifier.build_payload(output)
+    verification = research_verifier.build_payload("hybrid_report", output)
 
     assert json.loads(capsys.readouterr().out)["output"] == "artifacts/model_experiments/regime_conditional_hybrid_report_2026-07-13.json"
     assert verification["status"] == "OK"
@@ -316,7 +386,7 @@ def test_hybrid_report_default_output_and_existing_verifier_consumer_gate(tmp_pa
 def test_shadow_rankings_existing_verifier_consumer_gate(tmp_path: Path, monkeypatch) -> None:
     fixture = write_shadow_fixture(tmp_path)
     monkeypatch.setattr(suite_builder, "PROJECT_ROOT", tmp_path.resolve())
-    monkeypatch.setattr(shadow_verifier, "PROJECT_ROOT", tmp_path.resolve())
+    monkeypatch.setattr(research_verifier, "PROJECT_ROOT", tmp_path.resolve())
     payload = suite_builder.build_shadow_rankings(
         Namespace(
             production_dir=str(fixture["production"]),
@@ -329,7 +399,55 @@ def test_shadow_rankings_existing_verifier_consumer_gate(tmp_path: Path, monkeyp
     )
     summary_path = fixture["output"] / "regime_conditional_shadow_ranking.json"
     summary_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    verification = shadow_verifier.build_payload(summary_path)
+    verification = research_verifier.build_payload("shadow_rankings", summary_path)
 
     assert verification["status"] == "OK"
     assert verification["summary"]["failed_count"] == 0
+
+
+@pytest.mark.parametrize("profile", ("hybrid_report", "shadow_rankings"))
+@pytest.mark.parametrize("valid", (True, False))
+def test_research_verifier_profile_payload_matches_frozen_legacy_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile: str, valid: bool
+) -> None:
+    artifact = write_verifier_artifact(profile, tmp_path, valid, monkeypatch)
+    monkeypatch.setattr(research_verifier, "PROJECT_ROOT", tmp_path.resolve())
+
+    payload = research_verifier.build_payload(profile, artifact)
+
+    case = "valid" if valid else "invalid"
+    assert normalized_hash(payload, tmp_path) == VERIFIER_GOLDEN[profile][case]["payload_sha256"]
+    assert payload["status"] == VERIFIER_GOLDEN[profile][case]["status"]
+
+
+@pytest.mark.parametrize("profile", ("hybrid_report", "shadow_rankings"))
+@pytest.mark.parametrize("valid", (True, False))
+def test_research_verifier_cli_preserves_console_default_output_and_exit_code(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    profile: str,
+    valid: bool,
+) -> None:
+    artifact = write_verifier_artifact(profile, tmp_path, valid, monkeypatch)
+    monkeypatch.setattr(research_verifier, "PROJECT_ROOT", tmp_path.resolve())
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "verifier",
+            "--profile",
+            profile,
+            "--artifact",
+            str(artifact),
+        ],
+    )
+
+    exit_code = research_verifier.main()
+    console = json.loads(capsys.readouterr().out)
+
+    case = "valid" if valid else "invalid"
+    expected = VERIFIER_GOLDEN[profile][case]
+    assert exit_code == expected["exit_code"]
+    assert console == {"status": expected["status"], "output": expected["default_output"]}
+    assert (tmp_path / expected["default_output"]).exists()

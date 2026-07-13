@@ -1,0 +1,119 @@
+{
+  "schema_version": "regime-conditional-verifier-suite-parity.v1",
+  "task_id": "CLEANUP-30",
+  "status": "PASS",
+  "normalization": [
+    "generated_at omitted",
+    "fixture root normalized",
+    "full normalized JSON payload hashed with sorted keys"
+  ],
+  "profiles": {
+    "shadow_rankings": {
+      "valid": {
+        "old_new_payload_parity": true,
+        "payload_sha256": "ebc84eaf3ad34dbbf8e47055b140e980a75e5d5a4cf8e8a21db142d9755f700f",
+        "status": "OK",
+        "summary": {
+          "check_count": 9,
+          "failed_count": 0,
+          "date_count": 12,
+          "shadow_active_family_count": 6
+        },
+        "console": {
+          "status": "OK",
+          "output": "artifacts/model_experiments/regime_conditional_shadow_ranking_verification_latest.json"
+        },
+        "exit_code": 0
+      },
+      "invalid": {
+        "old_new_payload_parity": true,
+        "payload_sha256": "3bdf4d4c6d6fab67fe72e8546e3b50c143f7d82f4f04afd9b303ab9b95c450fc",
+        "status": "FAILED",
+        "summary": {
+          "check_count": 9,
+          "failed_count": 4,
+          "date_count": 0,
+          "shadow_active_family_count": 0
+        },
+        "console": {
+          "status": "FAILED",
+          "output": "artifacts/model_experiments/regime_conditional_shadow_ranking_verification_latest.json"
+        },
+        "exit_code": 1
+      },
+      "retained_contracts": [
+        "schema version and check name/order/value/ok parity",
+        "date/family counts",
+        "rows accounting",
+        "sample output existence",
+        "training and production mutation false"
+      ]
+    },
+    "hybrid_report": {
+      "valid": {
+        "old_new_payload_parity": true,
+        "payload_sha256": "037e5848dd836a2c6fecbb4bbc5cfbcb0f667a5b49e804f6d8cb6a8ff2f01721",
+        "status": "OK",
+        "summary": {
+          "check_count": 11,
+          "failed_count": 0,
+          "row_count": 9,
+          "decision": "HYBRID_CANDIDATE"
+        },
+        "console": {
+          "status": "OK",
+          "output": "artifacts/model_experiments/regime_conditional_hybrid_report_verification_latest.json"
+        },
+        "exit_code": 0
+      },
+      "invalid": {
+        "old_new_payload_parity": true,
+        "payload_sha256": "b2c36ec12413c908c62130423ab8d12cf73891866d4c72bda185fac440b541ae",
+        "status": "FAILED",
+        "summary": {
+          "check_count": 11,
+          "failed_count": 4,
+          "row_count": 0,
+          "decision": "HYBRID_REJECTED"
+        },
+        "console": {
+          "status": "FAILED",
+          "output": "artifacts/model_experiments/regime_conditional_hybrid_report_verification_latest.json"
+        },
+        "exit_code": 1
+      },
+      "retained_contracts": [
+        "schema version and check name/order/value/ok parity",
+        "capital matrix",
+        "required sides and missing list",
+        "decision safety",
+        "production and model mutation false"
+      ]
+    }
+  },
+  "consumer_gate": {
+    "updated_tests": [
+      "tests/test_regime_conditional_suite.py"
+    ],
+    "retired_entrypoints": [
+      "scripts/verify_regime_conditional_hybrid_report.py",
+      "scripts/verify_regime_conditional_shadow_rankings.py"
+    ],
+    "retained_entrypoint": "scripts/verify_regime_conditional_research_contract.py",
+    "lifecycle_entry": "config/script_lifecycle.yaml"
+  },
+  "verification": {
+    "focused_tests": "PASS: 15 passed",
+    "script_reference_audit_strict_new": "PASS: 437 tracked scripts, 0 new suspected orphans",
+    "script_lifecycle_audit_strict_new": "PASS: 437 tracked scripts, 0 new unclassified",
+    "full_pytest_worktree": "ENV_LIMIT: 233 passed, 28 subtests passed, 1 failed (pre-existing missing gitignored research ledger evidence)",
+    "full_pytest_canonical": "PASS: 234 passed, 28 subtests passed, 4 existing dependency deprecation warnings",
+    "git_diff_check": "PASS"
+  },
+  "daily_hashes": {
+    "scripts/run_daily.sh": "3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3",
+    "scripts/run_daily_publish.sh": "ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3",
+    "scripts/com.new-top10.daily.plist": "eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995",
+    "config/automation.yaml": "c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a"
+  }
+}

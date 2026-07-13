@@ -144,8 +144,7 @@ reference_audit:
     - scripts/verify_production_baseline_materialization_review.py
     - scripts/verify_production_trail10_batch_08_10.py
     - scripts/verify_reference_sources.py
-    - scripts/verify_regime_conditional_hybrid_report.py
-    - scripts/verify_regime_conditional_shadow_rankings.py
+    - scripts/verify_regime_conditional_research_contract.py
     - scripts/verify_regime_feature_offline_ablation.py
     - scripts/verify_training_candidate_flow.py
     - scripts/verify_training_candidate_replay_flow.py
