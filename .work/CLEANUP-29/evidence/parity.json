@@ -1,0 +1,88 @@
+{
+  "schema_version": "regime-conditional-builder-suite-parity.v1",
+  "task_id": "CLEANUP-29",
+  "status": "PASS",
+  "normalization": [
+    "generated_at omitted",
+    "fixture root normalized",
+    "full normalized JSON payload hashed with sorted keys"
+  ],
+  "profiles": {
+    "shadow_rankings": {
+      "valid_payload_sha256": "72d1591098d507c056e67841975c89c9fe17020cdd3c5f56f74788697608a97a",
+      "csv_bytes_sha256": {
+        "ranking_2026-01-02.csv": "563c5c00c47ad2d65d56f0e1498725b222d1ff5401b53f4254aca6c7034eec34",
+        "ranking_2026-01-03.csv": "0c3aa98f6606aa245350ebedb7e0a0603215b5a0db70d2d4c1dfb755f183a1ce",
+        "ranking_2026-01-04.csv": "e164b4d71bc61eb1f07c7951a322e4a23fce9314582475b35a2531131868ec67",
+        "ranking_2026-01-05.csv": "6badf7a60135adad0b3fcfbf1e613030487f8f7c2952a9ba17ae964959680c80",
+        "ranking_2026-01-06.csv": "92628ad4fc7efb509b4b87b738c91c80957b8d2a46bd73d4e1968e3f3de40207",
+        "ranking_2026-01-07.csv": "54c4df8e1d22a7836a5f9a94e3895d8aea06fa3a1e7052714a353d49180791e0",
+        "ranking_2026-01-08.csv": "6ea350ef573088d2f3ab1aee1c531ead8bf135e4e1c7b708973404f3a3e3955c",
+        "ranking_2026-01-09.csv": "adf42f7e585b7af02e71c877922e68b0cf57f0ba31a0acf3effdae1bb7a1361c",
+        "ranking_2026-01-10.csv": "abc6adae2eb438ac959ff543c899c0e2a15f94bdbb134da0cb0b763d935e621d",
+        "ranking_2026-01-11.csv": "0fbe220657549e33c1080898a56cbe3fc10cfb16e9a580375479752b911ac09c",
+        "ranking_2026-01-12.csv": "debafd9111b045946a42e0a10e206f8cddd1cca4d3583ee2264fb45e53e67611",
+        "ranking_2026-01-13.csv": "815675f2c858a0ef22d1bd0545339784b35dfe1534945270ea794a424192acac"
+      },
+      "console": {
+        "status": "OK",
+        "summary": "<fixture-root>/output/regime_conditional_shadow_ranking.json",
+        "date_count": 12,
+        "shadow_active_family_count": 6,
+        "production_inactive_family_count": 6
+      },
+      "exit_code": 0,
+      "default_summary_path": "<output-dir>/regime_conditional_shadow_ranking.json",
+      "edge_empty_date_intersection": "PASS: empty rows/outputs, exit 0",
+      "unsupported_family_exception": "PASS: ValueError: unsupported active family: HIGH_CHOPPY",
+      "existing_verifier_consumer": "PASS"
+    },
+    "hybrid_report": {
+      "valid_payload_sha256": "c2c47bf396ef1ebaf0e79436840a1b7e414c6b7441668fbedfdd257dc0cd1821",
+      "valid_markdown_sha256": "0b74719bf2a5760fad026ee341c823cdb0f1b6344b8d081b38c75a4dbf11a30b",
+      "valid_console": {
+        "status": "OK",
+        "decision": "HYBRID_CANDIDATE",
+        "output": "output/hybrid.json"
+      },
+      "valid_exit_code": 0,
+      "missing_payload_sha256": "8211008f48e28872c93c711fb13183dcc4c85073510ba9d8d1eded17a80a3252",
+      "missing_markdown_sha256": "fce7373c77fb8eb195277d6cfc7d9cb0c80a6045f65cd46dd8f843371e5154f5",
+      "missing_console": {
+        "status": "FAILED",
+        "decision": "HYBRID_REJECTED",
+        "output": "output/hybrid.json"
+      },
+      "missing_exit_code": 1,
+      "default_output_path": "artifacts/model_experiments/regime_conditional_hybrid_report_2026-07-13.json",
+      "existing_verifier_consumer": "PASS"
+    }
+  },
+  "consumer_gate": {
+    "active_legacy_builder_references_in_scripts_tests_config": 0,
+    "runtime_recheck": "PASS: no matching known launchd or cron reference found",
+    "retired_entrypoints": [
+      "scripts/build_regime_conditional_shadow_rankings.py",
+      "scripts/build_regime_conditional_hybrid_report.py"
+    ],
+    "retained_entrypoints": [
+      "scripts/verify_regime_conditional_shadow_rankings.py",
+      "scripts/verify_regime_conditional_hybrid_report.py"
+    ]
+  },
+  "verification": {
+    "focused_tests": "PASS: 7 passed",
+    "script_reference_audit_strict_new": "PASS: 438 tracked scripts, 0 new suspected orphans",
+    "script_lifecycle_audit_strict_new": "PASS: 438 tracked scripts, 0 new unclassified",
+    "py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "full_pytest_worktree": "ENV_LIMIT: 225 passed, 28 subtests passed, 1 failed (pre-existing missing gitignored research ledger evidence)",
+    "full_pytest_canonical": "PASS: 226 passed, 28 subtests passed, 4 existing dependency deprecation warnings"
+  },
+  "daily_hashes": {
+    "scripts/run_daily.sh": "3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3",
+    "scripts/run_daily_publish.sh": "ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3",
+    "scripts/com.new-top10.daily.plist": "eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995",
+    "config/automation.yaml": "c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a"
+  }
+}

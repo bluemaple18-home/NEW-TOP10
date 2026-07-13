@@ -98,8 +98,6 @@ reference_audit:
     - scripts/build_portfolio_overlay_promotion_review.py
     - scripts/build_portfolio_replay_regime_attribution.py
     - scripts/build_production_baseline_materialization_review.py
-    - scripts/build_regime_conditional_hybrid_report.py
-    - scripts/build_regime_conditional_shadow_rankings.py
     - scripts/build_training_candidate_risk_attribution.py
     - scripts/build_training_candidate_risk_control_report.py
     - scripts/build_weekend_overnight_campaign_audits.py
