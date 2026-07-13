@@ -88,6 +88,7 @@ reference_audit:
     - scripts/build_exit_rule_portfolio_level_report.py
     - scripts/build_exit_rule_rolling_regime_report.py
     - scripts/build_mass_candidate_shadow_dry_run.py
+    - scripts/build_mass_candidate_survivor_replay_extension.py
     - scripts/build_odd_lot_candidate_comparison_report.py
     - scripts/build_odd_lot_candidate_decision_report.py
     - scripts/build_odd_lot_exit_horizon_sensitivity_report.py
