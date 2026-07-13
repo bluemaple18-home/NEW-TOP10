@@ -1,6 +1,6 @@
 # CLEANUP-17｜Orphan Triage：Builders A
 
-- status: ready
+- status: completed
 - priority: P1
 - task thickness: standard
 
@@ -61,3 +61,8 @@
 ## 回報
 
 建立單一 atomic commit；回報四類統計、高信心刪除候選及阻擋刪除的證據，不 merge、不 push。
+
+## Result
+
+- evidence: `.work/CLEANUP-17/evidence/orphan-triage.json`
+- coverage: 27/27；`retain=9`、`archive_candidate=14`、`delete_candidate=3`、`unknown=1`
