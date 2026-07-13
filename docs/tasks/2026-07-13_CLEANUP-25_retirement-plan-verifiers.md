@@ -1,6 +1,6 @@
 # CLEANUP-25｜Verifier 退休／合併計畫
 
-- status: ready
+- status: completed
 - priority: P1
 - task thickness: standard
 
@@ -41,3 +41,17 @@
 ## 回報
 
 建立單一 atomic commit；回報可刪、需保留與合併方案，不 merge、不 push。
+
+## Result
+
+- evidence: `.work/CLEANUP-25/evidence/verifier-retirement-plan.json`
+- coverage: 12/12；`retire_delete=0`、`retain_contract=2`、`merge_candidate=10`、`unknown=0`
+- merge groups: odd-lot research contract（6）、regime conditional research（2）、training candidate risk（2）
+- retained contracts: `scripts/verify_operational_rule_validation_report.py`、`scripts/verify_weekend_overnight_campaign_summary.py`
+- deletion gate: 無任何項目具備已證明的等價替代 verifier；不得直接刪除。
+
+## Verification
+
+- JSON 可解析、12 entries、path 排序、repo-relative，且每筆包含 builder pair、input schema、unique assertions、replacement、retained consumers 與 rationale。
+- 未修改 `scripts/`、`app/`、`config/` 或 runtime artifacts；只新增本卡 evidence 並更新本卡結果。
+- `git diff --check` 應於提交前執行。

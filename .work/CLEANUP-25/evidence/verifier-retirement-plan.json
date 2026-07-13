@@ -1,0 +1,436 @@
+{
+  "schema_version": "verifier-retirement-plan.v1",
+  "source": "CLEANUP-25 verifier assertion and replacement-contract comparison",
+  "scope_count": 12,
+  "classification_policy": {
+    "retire_delete": "Only when every unique assertion has an evidenced equivalent replacement and no retained consumer remains.",
+    "retain_contract": "Keep the verifier because its safety or historical contract is unique and no equivalent replacement is proven.",
+    "merge_candidate": "Shared base assertions are duplicative, but unique assertions must remain as a profile and parity evidence is required before retirement.",
+    "unknown": "Use when repository evidence cannot establish the assertion contract, replacement, or consumer boundary."
+  },
+  "summary": {
+    "verdict_counts": {
+      "retire_delete": 0,
+      "retain_contract": 2,
+      "merge_candidate": 10,
+      "unknown": 0
+    },
+    "high_confidence_delete_candidates": [],
+    "merge_group_count": 3,
+    "deletion_blocker": "No scoped verifier has an evidenced equivalent replacement; adjacent verifiers cover different artifacts or assertions."
+  },
+  "merge_groups": [
+    {
+      "id": "MG-ODD-LOT-RESEARCH-CONTRACT",
+      "members": [
+        "scripts/verify_odd_lot_candidate_comparison_report.py",
+        "scripts/verify_odd_lot_exit_horizon_sensitivity_report.py",
+        "scripts/verify_odd_lot_exit_strategy_report.py",
+        "scripts/verify_odd_lot_exposure_sensitivity_report.py",
+        "scripts/verify_odd_lot_regime_sensitivity_report.py",
+        "scripts/verify_odd_lot_regime_throttle_report.py"
+      ],
+      "shared_fields": [
+        "report.schema_version",
+        "report.status == OK",
+        "report.contract.research_only == true",
+        "report.contract.model_changes == false",
+        "report.contract.production_ranking_changes == false",
+        "report.contract.promotion_ready == false",
+        "report.missing is empty",
+        "report.decision.promotion_ready == false"
+      ],
+      "retained_unique_assertions": "Each profile must retain its own dimensions: variants/peers, horizons/kinds, partial-take-profit candidate comparison, exposure settings and row matrix, regime and summary coverage, or signal-day entry-control semantics.",
+      "replacement_test_or_verifier": "Propose scripts/verify_odd_lot_research_contract.py with profile-specific assertions; no such shared verifier exists today.",
+      "recommended_batch": "B1",
+      "exit_criteria": "Run old and profile-based verifier on the same fixture/artifact set; compare status and every check name/value; only then retire six standalone entry points."
+    },
+    {
+      "id": "MG-REGIME-CONDITIONAL-RESEARCH",
+      "members": [
+        "scripts/verify_regime_conditional_hybrid_report.py",
+        "scripts/verify_regime_conditional_shadow_rankings.py"
+      ],
+      "shared_fields": [
+        "report.schema_version",
+        "report.contract.research_only == true",
+        "production mutation is false"
+      ],
+      "retained_unique_assertions": "Hybrid retains status, model_changes, production_ranking_changes, promotion boundary, capital/side coverage, row completeness, missing-empty, and decision safety. Shadow retains trains_model, modifies_production_ranking, date/family counts, row-to-date count equality, and sample output existence.",
+      "replacement_test_or_verifier": "Propose scripts/verify_regime_conditional_research_contract.py with hybrid and shadow profiles; the existing two verifiers are not equivalent replacements for each other.",
+      "recommended_batch": "B2",
+      "exit_criteria": "Profile tests must prove the distinct contract keys and output-path checks remain unchanged; parity must cover both a valid and an invalid fixture for each profile."
+    },
+    {
+      "id": "MG-TRAINING-CANDIDATE-RISK",
+      "members": [
+        "scripts/verify_training_candidate_risk_attribution.py",
+        "scripts/verify_training_candidate_risk_control_report.py"
+      ],
+      "shared_fields": [
+        "report.schema_version",
+        "report.status == OK",
+        "report.contract.research_only == true",
+        "report.contract.model_changes == false",
+        "report.contract.production_ranking_changes == false",
+        "report.contract.promotion_ready == false"
+      ],
+      "retained_unique_assertions": "Attribution retains source-input existence, headline deltas, sector/rank/month/trade attribution, minimum hypotheses/experiments, and decision safety. Risk-control retains five-or-more variants, return/drawdown metrics, non-promotion decision text, reason, and next-step count.",
+      "replacement_test_or_verifier": "Propose scripts/verify_training_candidate_risk_reports.py with attribution and control profiles; no existing verifier proves both contracts.",
+      "recommended_batch": "B3",
+      "exit_criteria": "Parity must compare all unique check results and preserve the research-only/no-promotion boundary before removing either standalone verifier."
+    }
+  ],
+  "entries": [
+    {
+      "path": "scripts/verify_odd_lot_candidate_comparison_report.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_odd_lot_candidate_comparison_report.py"],
+      "input_schema": {
+        "report_schema": "odd-lot-candidate-comparison-report.v1",
+        "source_pattern": "artifacts/model_experiments/odd_lot_portfolio_{production|candidate}_..._{date}.json",
+        "report_fields": ["contract", "inputs.capital_levels", "rows.variant", "rows.peer_variant", "rows.return_delta_vs_peer", "missing", "decision.promotion_ready"],
+        "required_dimensions": ["capital_levels >= 3", "production_top7", "production_top7_sl12_min5", "candidate_top7", "candidate_top7_sl12_min5"]
+      },
+      "unique_assertions": [
+        "contract.fixed_capital_odd_lot == true",
+        "required four variants are present",
+        "rows >= capital_levels * 4",
+        "every row has peer_variant and return_delta_vs_peer"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": ["scripts/verify_odd_lot_candidate_decision_report.py"],
+        "proposed_shared": "scripts/verify_odd_lot_research_contract.py --profile candidate_comparison",
+        "equivalence_status": "not_proven; adjacent candidate-decision verifier is a different artifact contract"
+      },
+      "retained_consumers": [],
+      "rationale": "The common research-only safety checks duplicate the other five odd-lot verifiers, but peer completeness and four-variant comparison are unique. No delete evidence exists; merge only after profile parity.",
+      "source_evidence": ["scripts/verify_odd_lot_candidate_comparison_report.py:45-84", "scripts/build_odd_lot_candidate_comparison_report.py:158-200", ".work/CLEANUP-19/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_odd_lot_exit_horizon_sensitivity_report.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_odd_lot_exit_horizon_sensitivity_report.py"],
+      "input_schema": {
+        "report_schema": "odd-lot-exit-horizon-sensitivity-report.v1",
+        "source_pattern": "artifacts/model_experiments/odd_lot_portfolio_*_{h20|h40|h60}_..._{date}.json",
+        "report_fields": ["contract", "rows.horizon", "rows.kind", "missing", "decision.promotion_ready"],
+        "required_dimensions": ["horizons 20, 40, 60", "kinds candidate_baseline, candidate_exit, production_exit"]
+      },
+      "unique_assertions": [
+        "horizons include 20, 40, 60",
+        "kinds include candidate_baseline, candidate_exit, production_exit"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": ["scripts/verify_odd_lot_exit_strategy_report.py"],
+        "proposed_shared": "scripts/verify_odd_lot_research_contract.py --profile exit_horizon_sensitivity",
+        "equivalence_status": "not_proven; exit strategy verifier does not validate horizon/kind coverage"
+      },
+      "retained_consumers": [],
+      "rationale": "The horizon report has the same safety boundary as the odd-lot family, but its 20/40/60 horizon and three-kind matrix are not checked by the adjacent exit-strategy verifier.",
+      "source_evidence": ["scripts/verify_odd_lot_exit_horizon_sensitivity_report.py:47-72", "scripts/build_odd_lot_exit_horizon_sensitivity_report.py:137-168", ".work/CLEANUP-19/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_odd_lot_exit_strategy_report.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_odd_lot_exit_strategy_report.py"],
+      "input_schema": {
+        "report_schema": "odd-lot-exit-strategy-report.v1",
+        "source_pattern": "artifacts/model_experiments/odd_lot_portfolio_{production|candidate}_..._{date}.json",
+        "report_fields": ["contract", "inputs.capital_levels", "rows.variant", "rows.return_delta_vs_production_peer", "missing", "decision.promotion_ready"],
+        "required_dimensions": ["capital_levels >= 3", "five exit/baseline variants"]
+      },
+      "unique_assertions": [
+        "contract.partial_take_profit_runner == true",
+        "required five variants are present",
+        "candidate_ptp25_third return_delta_vs_production_peer > 0 for every candidate row"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": ["scripts/verify_odd_lot_exit_horizon_sensitivity_report.py"],
+        "proposed_shared": "scripts/verify_odd_lot_research_contract.py --profile exit_strategy",
+        "equivalence_status": "not_proven; horizon verifier does not check partial-take-profit or peer outcome assertions"
+      },
+      "retained_consumers": [],
+      "rationale": "The common safety checks are duplicative, while partial-take-profit semantics and candidate peer performance are unique. Keep those assertions in a profile during any merge.",
+      "source_evidence": ["scripts/verify_odd_lot_exit_strategy_report.py:52-84", "scripts/build_odd_lot_exit_strategy_report.py:171-205", ".work/CLEANUP-19/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_odd_lot_exposure_sensitivity_report.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_odd_lot_exposure_sensitivity_report.py"],
+      "input_schema": {
+        "report_schema": "odd-lot-exposure-sensitivity-report.v1",
+        "source_pattern": "artifacts/model_experiments/odd_lot_portfolio_{production|candidate}_top7_sl12_min5_{capital}_{setting}_{date}.json",
+        "report_fields": ["contract", "inputs.capital_levels", "inputs.settings", "rows.side", "rows.setting", "rows.capital", "missing", "decision.promotion_ready"],
+        "required_dimensions": ["g85_pos15", "g75_pos12", "candidate and production sides", "capital/settings cross-product"]
+      },
+      "unique_assertions": [
+        "contract.fixed_capital_odd_lot == true",
+        "settings include g85_pos15 and g75_pos12",
+        "sides include candidate and production",
+        "unique row keys cover capital_levels * settings * 2"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": ["scripts/verify_odd_lot_candidate_decision_report.py"],
+        "proposed_shared": "scripts/verify_odd_lot_research_contract.py --profile exposure_sensitivity",
+        "equivalence_status": "not_proven; candidate-decision verifier does not validate exposure matrix completeness"
+      },
+      "retained_consumers": [],
+      "rationale": "Exposure matrix completeness is unique even though its research-only and no-promotion checks duplicate the odd-lot family. No exact replacement is present.",
+      "source_evidence": ["scripts/verify_odd_lot_exposure_sensitivity_report.py:45-82", "scripts/build_odd_lot_exposure_sensitivity_report.py:137-174", ".work/CLEANUP-19/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_odd_lot_regime_sensitivity_report.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_odd_lot_regime_sensitivity_report.py"],
+      "input_schema": {
+        "report_schema": "odd-lot-regime-sensitivity-report.v1",
+        "source_pattern": "artifacts/model_experiments/portfolio_replay_regime_attribution_odd_lot_candidate_{variant}_{capital}_{setting}_{date}.json",
+        "report_fields": ["contract", "inputs.capital_levels", "rows.regime", "summary.regime", "missing", "decision.promotion_ready"],
+        "required_dimensions": ["BIG_BULL", "HIGH_CHOPPY_CONTEXT", "OTHER", "capital_levels >= 3"]
+      },
+      "unique_assertions": [
+        "contract.fixed_capital_odd_lot == true",
+        "all three regime rows are present",
+        "summary contains all three regime keys"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": ["scripts/verify_odd_lot_regime_throttle_report.py"],
+        "proposed_shared": "scripts/verify_odd_lot_research_contract.py --profile regime_sensitivity",
+        "equivalence_status": "not_proven; throttle verifier checks variants and entry-control semantics instead"
+      },
+      "retained_consumers": [],
+      "rationale": "Regime row and summary coverage is distinct from throttle variant coverage. The common odd-lot contract is a merge opportunity, not deletion evidence.",
+      "source_evidence": ["scripts/verify_odd_lot_regime_sensitivity_report.py:46-81", "scripts/build_odd_lot_regime_sensitivity_report.py:123-154", ".work/CLEANUP-19/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_odd_lot_regime_throttle_report.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_odd_lot_regime_throttle_report.py"],
+      "input_schema": {
+        "report_schema": "odd-lot-regime-throttle-report.v1",
+        "source_pattern": "artifacts/model_experiments/odd_lot_portfolio_candidate_top7_sl12_min5_{capital}_regime_signal_throttle_{variant}_{date}.json",
+        "report_fields": ["contract", "rows.variant", "missing", "decision.promotion_ready"],
+        "required_dimensions": ["baseline", "hc45", "hc55", "hc65"]
+      },
+      "unique_assertions": [
+        "contract.signal_day_regime_controls_next_entry == true",
+        "variants include baseline, hc45, hc55, hc65"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": ["scripts/verify_odd_lot_regime_sensitivity_report.py"],
+        "proposed_shared": "scripts/verify_odd_lot_research_contract.py --profile regime_throttle",
+        "equivalence_status": "not_proven; regime sensitivity verifier does not validate signal-day control semantics"
+      },
+      "retained_consumers": [],
+      "rationale": "The signal-day-to-next-entry boundary is a safety assertion unique to throttle research. It can share a base contract but cannot be replaced by regime-sensitivity coverage.",
+      "source_evidence": ["scripts/verify_odd_lot_regime_throttle_report.py:46-74", "scripts/build_odd_lot_regime_throttle_report.py:125-160", ".work/CLEANUP-19/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_operational_rule_validation_report.py",
+      "verdict": "retain_contract",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_operational_rule_validation_report.py"],
+      "input_schema": {
+        "report_schema": "operational-rule-validation-report.v1",
+        "report_fields": ["status", "contract", "summary", "variants.production_fixed40", "variants.production_sector45", "variants.production_top3", "comparisons"],
+        "external_input": "models/latest_lgbm.pkl SHA-256 must equal the expected model hash"
+      },
+      "unique_assertions": [
+        "artifact exists and status is OK",
+        "model_changes is false and latest_lgbm SHA-256 matches expected hash",
+        "default candidate is production_fixed40_sector45_monitor",
+        "sector45 tolerance passes and return delta is at least -0.02",
+        "gross55 and top3 are not default",
+        "candidate overlay and dynamic family exposure are rejected for now",
+        "BIG_BULL daily_count >= 50 and HIGH_CHOPPY_CONTEXT daily_count >= 20",
+        "dynamic family underperforms, top3 drawdown is worse, and sector45 drawdown is within tolerance"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": [],
+        "proposed_shared": null,
+        "equivalence_status": "none proven; model-hash plus operational-default boundary is unique within scope"
+      },
+      "retained_consumers": [],
+      "rationale": "This is not a generic schema verifier: it binds a specific model hash to operational default/rejection decisions and regime coverage. Removing it or folding it into a research-only schema checker would lose the operational boundary.",
+      "source_evidence": ["scripts/verify_operational_rule_validation_report.py:61-118", "scripts/build_operational_rule_validation_report.py:146-197", ".work/CLEANUP-20/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_regime_conditional_hybrid_report.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_regime_conditional_hybrid_report.py"],
+      "input_schema": {
+        "report_schema": "regime-conditional-hybrid-report.v1",
+        "source_pattern": "artifacts/model_experiments/odd_lot_portfolio_{production|candidate|hybrid}_..._{date}.json",
+        "report_fields": ["contract", "inputs.capital_levels", "rows.side", "missing", "decision.promotion_ready"],
+        "required_dimensions": ["production", "candidate_all", "hybrid_big_bull", "capital_levels >= 3"]
+      },
+      "unique_assertions": [
+        "contract.model_changes == false",
+        "contract.production_ranking_changes == false",
+        "contract.promotion_ready == false",
+        "three sides are present and rows >= capital_levels * 3",
+        "missing is empty and decision.promotion_ready is false"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": [],
+        "proposed_shared": "scripts/verify_regime_conditional_research_contract.py --profile hybrid",
+        "equivalence_status": "not proven; shadow-ranking verifier uses different contract keys and output checks"
+      },
+      "retained_consumers": [],
+      "rationale": "Hybrid shares a research-only boundary with shadow rankings, but its capital/side matrix and no-promotion checks are unique. Merge is feasible only with a profile-aware replacement.",
+      "source_evidence": ["scripts/verify_regime_conditional_hybrid_report.py:46-75", "scripts/build_regime_conditional_hybrid_report.py:128-162", ".work/CLEANUP-20/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_regime_conditional_shadow_rankings.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_regime_conditional_shadow_rankings.py"],
+      "input_schema": {
+        "report_schema": "regime-conditional-shadow-ranking.v1",
+        "report_fields": ["contract", "summary.date_count", "summary.shadow_active_family_count", "summary.production_inactive_family_count", "rows", "outputs"],
+        "input_paths": ["production_dir/ranking_YYYY-MM-DD.csv", "shadow_dir/ranking_YYYY-MM-DD.csv", "market_regime_history"],
+        "output_contract": "sample output paths listed in outputs must exist"
+      },
+      "unique_assertions": [
+        "contract.trains_model == false",
+        "contract.modifies_production_ranking == false",
+        "date_count > 0, shadow_active_family_count > 0, production_inactive_family_count > 0",
+        "rows length equals summary.date_count",
+        "all sampled outputs exist"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": [],
+        "proposed_shared": "scripts/verify_regime_conditional_research_contract.py --profile shadow_rankings",
+        "equivalence_status": "not proven; hybrid verifier does not validate ranking output files or family counts"
+      },
+      "retained_consumers": [],
+      "rationale": "Shadow ranking verification protects a filesystem output and active/inactive family accounting, which is materially different from hybrid replay rows. Share only the base research boundary.",
+      "source_evidence": ["scripts/verify_regime_conditional_shadow_rankings.py:45-85", "scripts/build_regime_conditional_shadow_rankings.py:81-124", ".work/CLEANUP-20/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_training_candidate_risk_attribution.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_training_candidate_risk_attribution.py"],
+      "input_schema": {
+        "report_schema": "training-candidate-risk-attribution.v1",
+        "report_fields": ["contract", "inputs.summary", "inputs.candidate_matrix", "inputs.production_matrix", "headline", "matrix_attribution", "trade_attribution", "risk_hypotheses", "next_experiments", "decision"],
+        "input_contract": "summary/candidate_matrix/production_matrix paths must exist"
+      },
+      "unique_assertions": [
+        "summary, candidate_matrix, and production_matrix inputs exist",
+        "headline contains return and drawdown deltas",
+        "sector concentration and candidate top-rank attribution exist",
+        "month and rank trade attribution exist",
+        "at least three risk hypotheses and three next experiments",
+        "decision.promotion_ready == false"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": [],
+        "proposed_shared": "scripts/verify_training_candidate_risk_reports.py --profile attribution",
+        "equivalence_status": "not proven; risk-control verifier does not validate attribution inputs or analysis sections"
+      },
+      "retained_consumers": [],
+      "rationale": "The base research-only contract duplicates risk-control verification, but attribution has a broad evidence-integrity surface and explicit source-file existence checks. Preserve those in a profile.",
+      "source_evidence": ["scripts/verify_training_candidate_risk_attribution.py:57-130", "scripts/build_training_candidate_risk_attribution.py:288-396", ".work/CLEANUP-20/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_training_candidate_risk_control_report.py",
+      "verdict": "merge_candidate",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_training_candidate_risk_control_report.py"],
+      "input_schema": {
+        "report_schema": "training-candidate-risk-control-report.v1",
+        "report_fields": ["contract", "variants_ranked", "decision", "next"],
+        "required_dimensions": ["at least five variants", "each variant has total_return and max_drawdown", "decision reason", "at least two next steps"]
+      },
+      "unique_assertions": [
+        "variants_ranked has at least five entries",
+        "every ranked variant has total_return and max_drawdown",
+        "decision status is present and does not contain promotion",
+        "decision reason is present",
+        "next has at least two entries"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": [],
+        "proposed_shared": "scripts/verify_training_candidate_risk_reports.py --profile risk_control",
+        "equivalence_status": "not proven; attribution verifier does not validate variant ranking or next-step contract"
+      },
+      "retained_consumers": [],
+      "rationale": "Risk-control report can share the safety prelude with attribution, but its variant ranking and non-promotion decision wording are unique assertions that must survive.",
+      "source_evidence": ["scripts/verify_training_candidate_risk_control_report.py:45-78", "scripts/build_training_candidate_risk_control_report.py:174-217", ".work/CLEANUP-20/evidence/orphan-triage.json"]
+    },
+    {
+      "path": "scripts/verify_weekend_overnight_campaign_summary.py",
+      "verdict": "retain_contract",
+      "confidence": "high",
+      "builder_pair": ["scripts/build_weekend_overnight_campaign_audits.py", "scripts/build_weekend_training_rollup.py"],
+      "input_schema": {
+        "report_schema": "weekend-overnight-campaign-summary-verification.v1",
+        "source_artifacts": ["weekend_production_baseline_provenance_design", "weekend_topic_default_entry_filter_contract_audit", "weekend_regime_slice_data_adequacy_audit", "overnight_campaign_summary", "weekend_training_rollup"],
+        "report_fields": ["production_impact", "actual_replay_count", "gate_summary", "research_map_progress_change", "summary.unsupported_reason_count", "summary.unsupported_category_count", "provenance.gate", "topic_default.gate", "regime.slices"]
+      },
+      "unique_assertions": [
+        "all four campaign artifacts exist",
+        "production impact equals the no-change contract",
+        "actual replay count is zero and smoke replay was skipped because no gate passed",
+        "artifact blocker count equals rollup value 202176",
+        "topic-default count equals rollup value 88695",
+        "regime-slice count equals rollup value 283824",
+        "artifact blocker did not increase expanded progress",
+        "materialization, log mapping, and percentile mapping remain disallowed",
+        "every regime slice remains unsupported and insufficient for replay"
+      ],
+      "replacement_test_or_verifier": {
+        "current_adjacent": ["scripts/verify_weekend_unsupported_unlock_audit.py", "scripts/verify_weekend_production_baseline_source_audit.py"],
+        "proposed_shared": null,
+        "equivalence_status": "none proven; adjacent weekend verifiers cover different gates and do not validate the cross-artifact count joins"
+      },
+      "retained_consumers": ["scripts/build_weekend_training_rollup.py", "scripts/build_weekend_overnight_campaign_audits.py"],
+      "rationale": "Although the prior orphan triage found no tracked downstream consumer, this verifier is the only cross-artifact join for blocker counts, zero-replay status, and materialization safety. Retain until historical artifacts and an equivalent audit contract are explicitly preserved.",
+      "source_evidence": ["scripts/verify_weekend_overnight_campaign_summary.py:46-133", "scripts/build_weekend_overnight_campaign_audits.py:441-552", ".work/CLEANUP-20/evidence/orphan-triage.json"]
+    }
+  ],
+  "recommended_batches": [
+    {
+      "batch": "B1",
+      "scope": "MG-ODD-LOT-RESEARCH-CONTRACT",
+      "action": "Implement one profile-based verifier, preserve all six unique assertion sets, run old/new parity, then retire standalone verifiers only after parity evidence.",
+      "risk": "Medium: six schemas share a safety prelude but have different matrix dimensions and decision semantics."
+    },
+    {
+      "batch": "B2",
+      "scope": "MG-REGIME-CONDITIONAL-RESEARCH",
+      "action": "Implement hybrid/shadow profiles with separate contract adapters and filesystem-output checks; validate valid/invalid fixtures before retirement.",
+      "risk": "High: shadow ranking output existence and family-count accounting must not be reduced to replay schema checks."
+    },
+    {
+      "batch": "B3",
+      "scope": "MG-TRAINING-CANDIDATE-RISK",
+      "action": "Implement attribution/control profiles, preserve analysis completeness and decision wording checks, then compare every old/new check result.",
+      "risk": "Medium: both are research-only but protect different evidence surfaces."
+    },
+    {
+      "batch": "B4",
+      "scope": ["scripts/verify_operational_rule_validation_report.py", "scripts/verify_weekend_overnight_campaign_summary.py"],
+      "action": "Retain; do not include in deletion or generic-schema merge until a separately evidenced replacement is approved.",
+      "risk": "High: operational model-hash/default boundary and weekend cross-artifact safety joins are unique."
+    }
+  ],
+  "verification": {
+    "scope_complete": true,
+    "entries_sorted_by_path": true,
+    "repo_relative_paths_only": true,
+    "code_or_config_modified": false,
+    "artifact_modified": false,
+    "delete_candidates_require_equivalent_replacement": true
+  }
+}
