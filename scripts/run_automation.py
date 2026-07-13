@@ -14,7 +14,7 @@ import pickle
 import shutil
 import subprocess
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -30,37 +30,17 @@ from app.automation.pipeline_policy import (
     pipeline_window_override,
     resolve_resource_profile,
 )
+from app.automation.status_contract import (
+    AutomationStatus,
+    STATUS_SCHEMA_VERSION,
+    StepResult,
+    automation_summary_payload,
+    status_output_path,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATUS_PATH = PROJECT_ROOT / "artifacts" / "automation_status.json"
-STATUS_SCHEMA_VERSION = "daily-run-status.v1"
-
-
-@dataclass
-class StepResult:
-    name: str
-    status: str
-    command: list[str] | None = None
-    message: str | None = None
-    started_at: str | None = None
-    finished_at: str | None = None
-    exit_code: int | None = None
-
-
-@dataclass
-class AutomationStatus:
-    schema_version: str
-    mode: str
-    status: str
-    dry_run: bool
-    started_at: str
-    run_date: str
-    finished_at: str | None = None
-    skip_reason: str | None = None
-    steps: list[StepResult] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class AutomationRunner:
@@ -1433,39 +1413,18 @@ class AutomationRunner:
 
     def _status_output_path(self) -> Path:
         """daily 狀態是下游 publish / external-review 的契約；其他模式不能覆蓋。"""
-        if self.mode == "daily":
-            status_path = STATUS_PATH
-        else:
-            status_path = STATUS_PATH.with_name(f"{self.mode}_automation_status{STATUS_PATH.suffix}")
-        if self.dry_run:
-            status_path = STATUS_PATH.with_name(f"{STATUS_PATH.stem}_dry_run{STATUS_PATH.suffix}")
-        return status_path
+        return status_output_path(STATUS_PATH, mode=self.mode, dry_run=self.dry_run)
 
     def _daily_summary_payload(self, status_payload: dict[str, Any]) -> dict[str, Any]:
         return self._automation_summary_payload(status_payload)
 
     def _automation_summary_payload(self, status_payload: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "schema_version": STATUS_SCHEMA_VERSION,
-            "run_date": self.run_date,
-            "mode": self.mode,
-            "status": status_payload["status"],
-            "dry_run": self.dry_run,
-            "skip_reason": status_payload.get("skip_reason"),
-            "started_at": status_payload["started_at"],
-            "finished_at": status_payload.get("finished_at"),
-            "errors": status_payload.get("errors", []),
-            "step_summary": [
-                {
-                    "name": step["name"],
-                    "status": step["status"],
-                    "message": step.get("message"),
-                    "exit_code": step.get("exit_code"),
-                }
-                for step in status_payload.get("steps", [])
-            ],
-            "metadata": status_payload.get("metadata", {}),
-        }
+        return automation_summary_payload(
+            status_payload,
+            run_date=self.run_date,
+            mode=self.mode,
+            dry_run=self.dry_run,
+        )
 
     def _model_snapshot(self, path: Path) -> dict[str, Any]:
         return self._file_snapshot(path)
