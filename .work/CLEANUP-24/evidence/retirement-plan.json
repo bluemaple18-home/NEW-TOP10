@@ -1,0 +1,510 @@
+{
+  "schema_version": "retirement-plan.v1",
+  "task_id": "CLEANUP-24",
+  "generated_on": "2026-07-13",
+  "source_evidence": [
+    ".work/CLEANUP-17/evidence/orphan-triage.json",
+    ".work/CLEANUP-18/evidence/orphan-triage.json"
+  ],
+  "methodology": {
+    "scope_rule": "只處理任務卡列出的 31 支 archive_candidate；分類與批次互斥。",
+    "delete_rule": "僅在無 repo 或已知外部 runtime consumer、無唯一契約、既有歷史 artifact 足以保留結論且不需要重建時，才標記 retire_delete/high。",
+    "merge_rule": "仍有可重現價值但與同一研究問題、輸入鏈或編排步驟重疊者，先標記 merge_candidate；完成替代入口與 verifier 後才可退休舊入口。",
+    "runtime_limit": "CLEANUP-18 已檢查 launchctl、crontab、LaunchAgents、已知 SOP 根目錄與可索引 shell history；未索引人工 SOP 或其他主機仍須在實作批次前重查。"
+  },
+  "summary": {
+    "retire_delete": 2,
+    "retain_reproducibility": 8,
+    "merge_candidate": 20,
+    "unknown": 1,
+    "total": 31
+  },
+  "batches": [
+    {
+      "id": "RETIRE-01",
+      "classification": "retire_delete",
+      "paths": [
+        "scripts/compare_portfolio_replay_variants.py",
+        "scripts/research_ranking_score_shadow.py"
+      ],
+      "action": "保留既有 artifact 與 git 歷史後刪除兩支一次性比較工具。",
+      "preconditions": [
+        "重新執行 repo 與外部 runtime consumer 搜尋。",
+        "確認列出的歷史 artifact 可讀且其上游 replay/ranking 工具仍存在。"
+      ]
+    },
+    {
+      "id": "RETAIN-01",
+      "classification": "retain_reproducibility",
+      "paths": [
+        "scripts/build_candidate_historical_validation_gap_report.py"
+      ],
+      "action": "保留獨立的歷史驗證缺口判定。",
+      "preconditions": []
+    },
+    {
+      "id": "RETAIN-02",
+      "classification": "retain_reproducibility",
+      "paths": [
+        "scripts/build_odd_lot_candidate_comparison_report.py",
+        "scripts/build_odd_lot_exposure_sensitivity_report.py",
+        "scripts/build_odd_lot_regime_sensitivity_report.py"
+      ],
+      "action": "保留三個未被 decision report 涵蓋的 odd-lot 分析維度。",
+      "preconditions": []
+    },
+    {
+      "id": "RETAIN-03",
+      "classification": "retain_reproducibility",
+      "paths": [
+        "scripts/build_portfolio_overlay_promotion_review.py",
+        "scripts/build_portfolio_replay_regime_attribution.py"
+      ],
+      "action": "保留 promotion 與 regime attribution 的獨立可重現契約。",
+      "preconditions": []
+    },
+    {
+      "id": "RETAIN-04",
+      "classification": "retain_reproducibility",
+      "paths": [
+        "scripts/research_alpha_candidate_signal_check.py",
+        "scripts/research_risk_off_narrow_routing.py"
+      ],
+      "action": "保留 alpha 與 RISK_OFF 的專屬研究方法。",
+      "preconditions": []
+    },
+    {
+      "id": "MERGE-01",
+      "classification": "merge_candidate",
+      "paths": [
+        "scripts/build_exit_rule_half_year_decision_report.py",
+        "scripts/build_exit_rule_portfolio_level_report.py",
+        "scripts/build_exit_rule_rolling_regime_report.py"
+      ],
+      "replacement_or_merge_target": "scripts/build_exit_rule_validation_suite.py (new)",
+      "action": "以同一 exit-rule 驗證 suite 輸出三個具名 section；移植三支 verifier 的 coverage 後才退休舊入口。",
+      "preconditions": ["新 suite 的 JSON 與 Markdown 必須保留三支舊報告各自的決策欄位。"]
+    },
+    {
+      "id": "MERGE-02",
+      "classification": "merge_candidate",
+      "paths": [
+        "scripts/build_odd_lot_candidate_decision_report.py",
+        "scripts/build_odd_lot_exit_horizon_sensitivity_report.py",
+        "scripts/build_odd_lot_exit_strategy_report.py",
+        "scripts/build_odd_lot_regime_throttle_report.py"
+      ],
+      "replacement_or_merge_target": "scripts/build_odd_lot_decision_suite.py (new)",
+      "action": "將 decision 與其三個直接輸入報告收斂為可選 section 的單一 suite。",
+      "preconditions": ["新 suite 必須以同一日期 manifest 鎖定四份輸入與四份結果。"]
+    },
+    {
+      "id": "MERGE-03",
+      "classification": "merge_candidate",
+      "paths": [
+        "scripts/build_operational_rule_candidate_report.py",
+        "scripts/build_operational_rule_experiment_report.py"
+      ],
+      "replacement_or_merge_target": "scripts/build_operational_rule_review.py (new)",
+      "action": "以 candidate 與 experiment 兩個 section 收斂相同 constrained-shadow/mass-candidate 輸入鏈。",
+      "preconditions": ["新入口需保留兩份現有 report 的 policy、risk guard 與 rank 結論。"]
+    },
+    {
+      "id": "MERGE-04",
+      "classification": "merge_candidate",
+      "paths": [
+        "scripts/build_regime_conditional_hybrid_report.py",
+        "scripts/build_regime_conditional_shadow_rankings.py"
+      ],
+      "replacement_or_merge_target": "scripts/build_regime_conditional_suite.py (new)",
+      "action": "將 shadow ranking 產生與 hybrid decision report 收斂成具 manifest 的單一 regime suite。",
+      "preconditions": ["輸出必須同時保有 ranking payload 與 hybrid decision payload。"]
+    },
+    {
+      "id": "MERGE-05",
+      "classification": "merge_candidate",
+      "paths": [
+        "scripts/build_training_candidate_risk_attribution.py",
+        "scripts/build_training_candidate_risk_control_report.py"
+      ],
+      "replacement_or_merge_target": "scripts/build_training_candidate_risk_review.py (new)",
+      "action": "將 attribution 與 control review 合併為一份候選模型風險審查。",
+      "preconditions": ["新入口需逐欄保留 attribution 和 control 的現有決策資料。"]
+    },
+    {
+      "id": "MERGE-06",
+      "classification": "merge_candidate",
+      "paths": [
+        "scripts/build_weekend_overnight_campaign_audits.py",
+        "scripts/build_weekend_ranking_dir_unlock_smoke.py",
+        "scripts/build_weekend_unsupported_unlock_audit.py"
+      ],
+      "replacement_or_merge_target": "scripts/build_weekend_readiness_audit.py (new)",
+      "action": "統一週末 campaign、ranking-dir smoke 與 unsupported audit 的入口、共用 inventory 與輸出 manifest。",
+      "preconditions": ["不得改變 PRODUCTION_IMPACT 邊界；新入口需分別輸出三項 audit 結果。"]
+    },
+    {
+      "id": "MERGE-07",
+      "classification": "merge_candidate",
+      "paths": [
+        "scripts/build_overnight_risk_matrix_summary.py",
+        "scripts/run_a1_forward_shadow_monitor.py",
+        "scripts/run_candidate_stress_matrix.py",
+        "scripts/run_overnight_shadow_training.py"
+      ],
+      "replacement_or_merge_target": "scripts/run_shadow_research_campaign.py (new)",
+      "action": "收斂重複的 shadow/replay subprocess 編排，並將 stress matrix summary 改為此 campaign 的一個具名 stage。",
+      "preconditions": ["新 runner 必須提供 dry-run、逐 stage 狀態與與舊產物相容的 manifest。"]
+    },
+    {
+      "id": "UNKNOWN-01",
+      "classification": "unknown",
+      "paths": ["scripts/build_big_bull_family_only_sealed_rollback_prep.py"],
+      "action": "暫不退休。先補齊或明確豁免缺失的 sealed rollback output，再判斷歷史 task card 是否足以取代重建能力。",
+      "preconditions": ["確認十個 named sealed/retrain input artifacts 的保存政策與 AUTO-TRAINING-11 rollback owner。"]
+    }
+  ],
+  "records": [
+    {
+      "path": "scripts/build_big_bull_family_only_sealed_rollback_prep.py",
+      "classification": "unknown",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "封存 Big Bull sealed rollback 的輸入完整性與 ledger traceability。",
+      "retained_consumers": [],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "UNKNOWN-01",
+      "evidence": "CLEANUP-17 無 executable consumer，但沒有 matching output artifact，且腳本固定檢查十個 sealed/retrain 輸入。"
+    },
+    {
+      "path": "scripts/build_candidate_historical_validation_gap_report.py",
+      "classification": "retain_reproducibility",
+      "confidence": "high",
+      "rebuild_value": "high",
+      "unique_contract": "候選模型歷史 ranking、feature 與 regime 覆蓋缺口判定。",
+      "retained_consumers": ["scripts/verify_candidate_historical_validation_gap_report.py"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETAIN-01",
+      "evidence": "CLEANUP-17 僅見 verifier；該工具獨自計算 date/feature/regime windows，現有 task card 不能取代重建。"
+    },
+    {
+      "path": "scripts/build_exit_rule_half_year_decision_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "medium",
+      "unique_contract": "half-year exit-rule policy 決策 section。",
+      "retained_consumers": ["scripts/verify_exit_rule_half_year_decision_report.py"],
+      "replacement_or_merge_target": "scripts/build_exit_rule_validation_suite.py",
+      "recommended_batch": "MERGE-01",
+      "evidence": "CLEANUP-17 無 runtime consumer；與同組兩個 exit-rule 報告共用研究問題但保有不同決策輸出。"
+    },
+    {
+      "path": "scripts/build_exit_rule_portfolio_level_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "medium",
+      "unique_contract": "portfolio-level exit-rule 結果 section。",
+      "retained_consumers": ["scripts/verify_exit_rule_portfolio_level_report.py"],
+      "replacement_or_merge_target": "scripts/build_exit_rule_validation_suite.py",
+      "recommended_batch": "MERGE-01",
+      "evidence": "CLEANUP-17 僅見 verifier；讀取同一半年度 replay 家族，可在輸出分節後收斂。"
+    },
+    {
+      "path": "scripts/build_exit_rule_rolling_regime_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "medium",
+      "unique_contract": "rolling/regime exit-rule 結果 section。",
+      "retained_consumers": ["scripts/verify_exit_rule_rolling_regime_report.py"],
+      "replacement_or_merge_target": "scripts/build_exit_rule_validation_suite.py",
+      "recommended_batch": "MERGE-01",
+      "evidence": "CLEANUP-17 僅見 verifier；與同組共用 half-year replay 輸入，但其 regime slice 必須保留。"
+    },
+    {
+      "path": "scripts/build_odd_lot_candidate_comparison_report.py",
+      "classification": "retain_reproducibility",
+      "confidence": "high",
+      "rebuild_value": "high",
+      "unique_contract": "odd-lot candidate 與 peer variants 的比較判定。",
+      "retained_consumers": ["scripts/verify_odd_lot_candidate_comparison_report.py"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETAIN-02",
+      "evidence": "CLEANUP-17 僅見 verifier；比較維度未被 decision suite 的三個直接輸入涵蓋。"
+    },
+    {
+      "path": "scripts/build_odd_lot_candidate_decision_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "整合 three odd-lot exit 分析的決策。",
+      "retained_consumers": ["scripts/build_odd_lot_exit_horizon_sensitivity_report.py", "scripts/build_odd_lot_exit_strategy_report.py", "scripts/build_odd_lot_regime_throttle_report.py", "scripts/verify_odd_lot_candidate_decision_report.py"],
+      "replacement_or_merge_target": "scripts/build_odd_lot_decision_suite.py",
+      "recommended_batch": "MERGE-02",
+      "evidence": "CLEANUP-17 確認它與三個輸入報告形成已完成的 research chain，適合收斂但不可直接刪除。"
+    },
+    {
+      "path": "scripts/build_odd_lot_exit_horizon_sensitivity_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "odd-lot exit horizon sensitivity section。",
+      "retained_consumers": ["scripts/build_odd_lot_candidate_decision_report.py", "scripts/verify_odd_lot_exit_horizon_sensitivity_report.py"],
+      "replacement_or_merge_target": "scripts/build_odd_lot_decision_suite.py",
+      "recommended_batch": "MERGE-02",
+      "evidence": "CLEANUP-17 指出其結果直接餵入 candidate decision report。"
+    },
+    {
+      "path": "scripts/build_odd_lot_exit_strategy_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "odd-lot exit strategy comparison section。",
+      "retained_consumers": ["scripts/build_odd_lot_candidate_decision_report.py", "scripts/verify_odd_lot_exit_strategy_report.py"],
+      "replacement_or_merge_target": "scripts/build_odd_lot_decision_suite.py",
+      "recommended_batch": "MERGE-02",
+      "evidence": "CLEANUP-17 指出其結果直接餵入 candidate decision report。"
+    },
+    {
+      "path": "scripts/build_odd_lot_exposure_sensitivity_report.py",
+      "classification": "retain_reproducibility",
+      "confidence": "high",
+      "rebuild_value": "high",
+      "unique_contract": "odd-lot exposure sensitivity 的獨立研究軸。",
+      "retained_consumers": ["scripts/verify_odd_lot_exposure_sensitivity_report.py"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETAIN-02",
+      "evidence": "CLEANUP-17 僅見 verifier；此研究維度沒有被 candidate decision report 消費。"
+    },
+    {
+      "path": "scripts/build_odd_lot_regime_sensitivity_report.py",
+      "classification": "retain_reproducibility",
+      "confidence": "high",
+      "rebuild_value": "high",
+      "unique_contract": "odd-lot regime sensitivity 的獨立研究軸。",
+      "retained_consumers": ["scripts/verify_odd_lot_regime_sensitivity_report.py"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETAIN-02",
+      "evidence": "CLEANUP-17 僅見 verifier；此 sensitivity 結論不等同於 regime throttle。"
+    },
+    {
+      "path": "scripts/build_odd_lot_regime_throttle_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "odd-lot regime throttle decision section。",
+      "retained_consumers": ["scripts/build_odd_lot_candidate_decision_report.py", "scripts/verify_odd_lot_regime_throttle_report.py"],
+      "replacement_or_merge_target": "scripts/build_odd_lot_decision_suite.py",
+      "recommended_batch": "MERGE-02",
+      "evidence": "CLEANUP-17 指出其結果直接餵入 candidate decision report。"
+    },
+    {
+      "path": "scripts/build_operational_rule_candidate_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "medium",
+      "unique_contract": "candidate operational-rule conclusion section。",
+      "retained_consumers": ["scripts/build_constrained_shadow_comparison.py", "scripts/build_mass_candidate_shadow_dry_run.py"],
+      "replacement_or_merge_target": "scripts/build_operational_rule_review.py",
+      "recommended_batch": "MERGE-03",
+      "evidence": "CLEANUP-17 無 runtime consumer；與 experiment report 共用 constrained-shadow 與 mass-candidate 輸入。"
+    },
+    {
+      "path": "scripts/build_operational_rule_experiment_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "medium",
+      "unique_contract": "experiment operational-rule conclusion section。",
+      "retained_consumers": ["scripts/build_constrained_shadow_comparison.py", "scripts/build_mass_candidate_shadow_dry_run.py"],
+      "replacement_or_merge_target": "scripts/build_operational_rule_review.py",
+      "recommended_batch": "MERGE-03",
+      "evidence": "CLEANUP-17 無 runtime consumer；與 candidate report 使用同一 research input chain。"
+    },
+    {
+      "path": "scripts/build_overnight_risk_matrix_summary.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "medium",
+      "unique_contract": "candidate stress matrix 的可讀摘要。",
+      "retained_consumers": ["scripts/run_candidate_stress_matrix.py"],
+      "replacement_or_merge_target": "scripts/run_shadow_research_campaign.py",
+      "recommended_batch": "MERGE-07",
+      "evidence": "CLEANUP-18 有 canonical artifact，且此工具是 stress matrix 的報告尾段，無 active runtime consumer。"
+    },
+    {
+      "path": "scripts/build_portfolio_overlay_promotion_review.py",
+      "classification": "retain_reproducibility",
+      "confidence": "high",
+      "rebuild_value": "high",
+      "unique_contract": "portfolio overlay promotion review 與其 verify packet。",
+      "retained_consumers": ["scripts/verify_portfolio_overlay_promotion_review.py"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETAIN-03",
+      "evidence": "CLEANUP-18 有 review 與 verification artifacts；promotion 邊界不宜僅以無 scheduler 判定刪除。"
+    },
+    {
+      "path": "scripts/build_portfolio_replay_regime_attribution.py",
+      "classification": "retain_reproducibility",
+      "confidence": "high",
+      "rebuild_value": "high",
+      "unique_contract": "portfolio replay 依 market regime 歸因的重算。",
+      "retained_consumers": ["scripts/verify_portfolio_replay_regime_attribution.py"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETAIN-03",
+      "evidence": "CLEANUP-18 有多份 historical attribution artifact 與 verifier；歸因資料仍是獨立分析契約。"
+    },
+    {
+      "path": "scripts/build_regime_conditional_hybrid_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "regime conditional hybrid decision report。",
+      "retained_consumers": ["scripts/build_regime_conditional_shadow_rankings.py", "scripts/verify_regime_conditional_hybrid_report.py"],
+      "replacement_or_merge_target": "scripts/build_regime_conditional_suite.py",
+      "recommended_batch": "MERGE-04",
+      "evidence": "CLEANUP-18 有 report 與 verifier artifacts；該 report 與 shadow rankings 是封閉研究鏈。"
+    },
+    {
+      "path": "scripts/build_regime_conditional_shadow_rankings.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "regime conditional shadow ranking 產生。",
+      "retained_consumers": ["scripts/build_regime_conditional_hybrid_report.py", "scripts/verify_regime_conditional_shadow_rankings.py"],
+      "replacement_or_merge_target": "scripts/build_regime_conditional_suite.py",
+      "recommended_batch": "MERGE-04",
+      "evidence": "CLEANUP-18 有 ranking 與 verifier artifacts；其輸出是 hybrid report 的同組輸入。"
+    },
+    {
+      "path": "scripts/build_training_candidate_risk_attribution.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "training candidate 的 risk attribution。",
+      "retained_consumers": ["scripts/build_training_candidate_risk_control_report.py", "scripts/verify_training_candidate_risk_attribution.py"],
+      "replacement_or_merge_target": "scripts/build_training_candidate_risk_review.py",
+      "recommended_batch": "MERGE-05",
+      "evidence": "CLEANUP-18 有 analysis 與 verifier artifacts；與 risk-control report 構成同一候選風險審查。"
+    },
+    {
+      "path": "scripts/build_training_candidate_risk_control_report.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "training candidate 的 risk-control recommendation。",
+      "retained_consumers": ["scripts/build_training_candidate_risk_attribution.py", "scripts/verify_training_candidate_risk_control_report.py"],
+      "replacement_or_merge_target": "scripts/build_training_candidate_risk_review.py",
+      "recommended_batch": "MERGE-05",
+      "evidence": "CLEANUP-18 有 report 與 verifier artifacts；保留獨立欄位後可與 attribution 收斂。"
+    },
+    {
+      "path": "scripts/build_weekend_overnight_campaign_audits.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "週末 campaign 的 provenance、topic-default 與 regime-slice audit。",
+      "retained_consumers": ["scripts/build_weekend_ranking_dir_unlock_smoke.py", "scripts/build_weekend_unsupported_unlock_audit.py", "scripts/verify_weekend_overnight_campaign_summary.py"],
+      "replacement_or_merge_target": "scripts/build_weekend_readiness_audit.py",
+      "recommended_batch": "MERGE-06",
+      "evidence": "CLEANUP-18 記錄一次性 audit artifacts，且三支工具有共同 weekend readiness 問題與相依。"
+    },
+    {
+      "path": "scripts/build_weekend_ranking_dir_unlock_smoke.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "medium",
+      "unique_contract": "ranking-dir unlock smoke 結果。",
+      "retained_consumers": ["scripts/build_weekend_unsupported_unlock_audit.py", "scripts/verify_weekend_ranking_dir_unlock_smoke.py"],
+      "replacement_or_merge_target": "scripts/build_weekend_readiness_audit.py",
+      "recommended_batch": "MERGE-06",
+      "evidence": "CLEANUP-18 有 smoke 與 verifier artifact；同一 inventory 可由 readiness audit 共用。"
+    },
+    {
+      "path": "scripts/build_weekend_unsupported_unlock_audit.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "medium",
+      "unique_contract": "unsupported 類別與 unlock plan audit。",
+      "retained_consumers": ["scripts/build_weekend_ranking_dir_unlock_smoke.py", "scripts/verify_weekend_unsupported_unlock_audit.py"],
+      "replacement_or_merge_target": "scripts/build_weekend_readiness_audit.py",
+      "recommended_batch": "MERGE-06",
+      "evidence": "CLEANUP-18 有 audit 與 verifier artifact；與 ranking-dir smoke 共享缺口 inventory。"
+    },
+    {
+      "path": "scripts/compare_portfolio_replay_variants.py",
+      "classification": "retire_delete",
+      "confidence": "high",
+      "rebuild_value": "low",
+      "unique_contract": "無；僅比較已存在的 portfolio replay summaries。",
+      "retained_consumers": ["scripts/run_portfolio_replay.py (上游資料產生者)"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETIRE-01",
+      "evidence": "CLEANUP-18 無 repo/external consumer，已有完整 comparison JSON/Markdown，且上游 replay 保留可重建。"
+    },
+    {
+      "path": "scripts/research_alpha_candidate_signal_check.py",
+      "classification": "retain_reproducibility",
+      "confidence": "high",
+      "rebuild_value": "high",
+      "unique_contract": "alpha candidate feature 的 IC、spread 與統計檢驗。",
+      "retained_consumers": ["scripts/build_alpha_candidate_features.py", "scripts/verify_alpha_candidate_signal_check.py"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETAIN-04",
+      "evidence": "CLEANUP-18 有 signal-check 與 verifier artifacts；統計檢驗是 feature builder 無法替代的研究契約。"
+    },
+    {
+      "path": "scripts/research_ranking_score_shadow.py",
+      "classification": "retire_delete",
+      "confidence": "high",
+      "rebuild_value": "low",
+      "unique_contract": "無；為既有 ranking 做一次性 shadow score 輸出。",
+      "retained_consumers": ["scripts/run_portfolio_replay.py (上游資料驗證)"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETIRE-01",
+      "evidence": "CLEANUP-18 無 repo/external consumer，保有兩組 historical shadow artifacts，且無 verifier 或獨立 downstream contract。"
+    },
+    {
+      "path": "scripts/research_risk_off_narrow_routing.py",
+      "classification": "retain_reproducibility",
+      "confidence": "high",
+      "rebuild_value": "high",
+      "unique_contract": "RISK_OFF 窄盤的 LightGBM routing 與 fold evaluation。",
+      "retained_consumers": ["scripts/research_regime_feature_offline_ablation.py"],
+      "replacement_or_merge_target": null,
+      "recommended_batch": "RETAIN-04",
+      "evidence": "CLEANUP-18 有診斷 artifact；專屬 regime routing 及 model evaluation 不能由一般 research runner 取代。"
+    },
+    {
+      "path": "scripts/run_a1_forward_shadow_monitor.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "A1 forward shadow 的多步 monitor 編排。",
+      "retained_consumers": ["scripts/research_regime_shadow_ranking.py", "scripts/build_constrained_shadow_rankings.py", "scripts/run_portfolio_replay.py"],
+      "replacement_or_merge_target": "scripts/run_shadow_research_campaign.py",
+      "recommended_batch": "MERGE-07",
+      "evidence": "CLEANUP-18 無現行排程，但腳本以 subprocess 編排三個仍保留的研究工具；可與 overnight runner 共用 stage runner。"
+    },
+    {
+      "path": "scripts/run_candidate_stress_matrix.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "candidate stress matrix 產生與決策。",
+      "retained_consumers": ["scripts/build_overnight_risk_matrix_summary.py", "scripts/run_portfolio_replay.py"],
+      "replacement_or_merge_target": "scripts/run_shadow_research_campaign.py",
+      "recommended_batch": "MERGE-07",
+      "evidence": "CLEANUP-18 有研究 artifact；其 subprocess replay 與 summary stage 可整合至同一 campaign。"
+    },
+    {
+      "path": "scripts/run_overnight_shadow_training.py",
+      "classification": "merge_candidate",
+      "confidence": "medium",
+      "rebuild_value": "high",
+      "unique_contract": "overnight shadow training 的 planned steps 與 step ledger。",
+      "retained_consumers": ["scripts/run_backtest_replay.py", "scripts/run_portfolio_replay.py", "scripts/research_regime_shadow_ranking.py", "scripts/build_constrained_shadow_rankings.py", "scripts/build_overnight_training_summary.py"],
+      "replacement_or_merge_target": "scripts/run_shadow_research_campaign.py",
+      "recommended_batch": "MERGE-07",
+      "evidence": "CLEANUP-18 無 runtime consumer，但它與 A1 monitor 重疊編排 shadow/replay 研究步驟；需先以相容 manifest 取代。"
+    }
+  ]
+}

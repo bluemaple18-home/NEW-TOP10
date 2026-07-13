@@ -1,6 +1,6 @@
 # CLEANUP-24｜研究／Builder 退休計畫
 
-- status: ready
+- status: complete
 - priority: P1
 - task thickness: standard
 
@@ -60,3 +60,9 @@
 ## 回報
 
 建立單一 atomic commit；回報可安全退休數量、需保留重現者與合併群組，不 merge、不 push。
+
+## 結果
+
+- retirement plan：`.work/CLEANUP-24/evidence/retirement-plan.json`
+- 分類：`retire_delete` 2、`retain_reproducibility` 8、`merge_candidate` 20、`unknown` 1（共 31）。
+- 本卡僅完成規劃；所有刪除與合併批次均保留執行前 runtime 重查條件。
