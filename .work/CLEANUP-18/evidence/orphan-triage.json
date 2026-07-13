@@ -1,0 +1,750 @@
+{
+  "schema_version": "orphan-triage.v1",
+  "task_id": "CLEANUP-18",
+  "generated_on": "2026-07-13",
+  "scope_count": 28,
+  "methodology": {
+    "repo_reference_source": ".work/CLEANUP-15/evidence/script-reference-audit.json",
+    "repo_reference_note": "repo_reference_count 沿用 CLEANUP-15 的 tracked 靜態引用基線；排除 lifecycle allowlist、目前 cleanup 卡與只靠動態字串組合的引用。",
+    "runtime_surfaces": [
+      "launchctl current user domain",
+      "user crontab",
+      "user LaunchAgents",
+      "known ai-core and Antigravity SOP roots",
+      "sanitized zsh history candidate-name counts",
+      "canonical project runtime artifacts"
+    ],
+    "delete_rule": "delete_candidate/high 必須同時排除 repo consumer、外部 runtime、唯一 artifact consumer 與仍使用中的 paired tool；本批沒有項目達標。",
+    "coverage_limit": "唯讀檢查只能覆蓋已知且可索引的本機表面；未索引的人工 SOP 或其他主機 consumer 仍可能存在。"
+  },
+  "global_runtime_checks": {
+    "launchctl": {
+      "matching_candidates": [
+        {
+          "path": "scripts/com.new-top10.external-review-preflight.plist",
+          "label": "com.new-top10.external-review-preflight",
+          "registered": true,
+          "last_exit_status": 0
+        }
+      ]
+    },
+    "user_crontab": {
+      "status": "absent"
+    },
+    "user_launch_agents": {
+      "matching_candidates": [
+        "scripts/com.new-top10.external-review-preflight.plist"
+      ]
+    },
+    "known_external_sop_roots": {
+      "matching_candidates": [
+        "scripts/run_training_candidate_replay_flow.py"
+      ],
+      "evidence": "ai-core monthly operation log records a completed candidate replay flow."
+    },
+    "sanitized_shell_history": {
+      "candidate_invocation_counts": {
+        "scripts/push_changes.sh": 1,
+        "scripts/send_pm_review_card_local.sh": 3
+      }
+    }
+  },
+  "summary": {
+    "retain": 9,
+    "archive_candidate": 17,
+    "delete_candidate": 0,
+    "unknown": 2,
+    "total": 28
+  },
+  "entries": [
+    {
+      "path": "scripts/build_overnight_risk_matrix_summary.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "cdf44f274746697281809fc599bfb686af354776",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/run_candidate_stress_matrix.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/overnight_risk_matrix_summary_2026-06-02_half_year_dense.json",
+        "artifacts/model_experiments/overnight_risk_matrix_summary_2026-06-02_half_year_dense.md"
+      ],
+      "runtime_evidence": [
+        "canonical project runtime artifact is present",
+        "no active repo consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "有 2026-06-02 研究產物，但無 active repo 或外部 runtime consumer；適合封存，不足以判定可刪。"
+    },
+    {
+      "path": "scripts/build_portfolio_overlay_promotion_review.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "163194ace563749f302096766837498d8d23e035",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/verify_portfolio_overlay_promotion_review.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/portfolio_overlay_promotion_review_2026-05-30.json",
+        "artifacts/model_experiments/portfolio_overlay_promotion_review_2026-05-30.md",
+        "artifacts/model_experiments/portfolio_overlay_promotion_review_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "builder and verifier artifacts are present",
+        "no active repo consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "歷史 promotion review 與 verifier 證據完整，但目前沒有 runtime 接線；只適合封存評估。"
+    },
+    {
+      "path": "scripts/build_portfolio_replay_regime_attribution.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "c23b437160c8a8db497f0afe50d8dc6a9540c0a8",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/verify_portfolio_replay_regime_attribution.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/portfolio_replay_regime_attribution_candidate_top7_2026-06-08.json",
+        "artifacts/model_experiments/portfolio_replay_regime_attribution_candidate_top7_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "multiple historical attribution artifacts are present",
+        "paired verifier is retained"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "大量歷史 attribution artifact 證明曾使用，但沒有 active consumer；封存優先於刪除。"
+    },
+    {
+      "path": "scripts/build_production_baseline_materialization_review.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "c763974a31ec0b193f3f436ca046a12040ffc3f6",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_production_baseline_harness.py",
+        "scripts/materialize_research_only_production_baseline_smoke.py",
+        "scripts/verify_production_baseline_materialization_review.py"
+      ],
+      "output_artifacts": [
+        "artifacts/weekend_training/production_baseline_materialization_review_2026-06-18.json",
+        "artifacts/weekend_training/production_baseline_materialization_review_2026-06-18.md",
+        "artifacts/weekend_training/production_baseline_materialization_review_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "review artifact is an input to research-only baseline materialization",
+        "paired verifier and task contract are present"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "production baseline 邊界仍有 tracked 下游 artifact consumer 與 verifier；保留以維持安全 materialization 契約。"
+    },
+    {
+      "path": "scripts/build_regime_conditional_hybrid_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "cc593029ca8227734dfadda9a687341a0720954a",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_regime_conditional_shadow_rankings.py",
+        "scripts/verify_regime_conditional_hybrid_report.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/regime_conditional_hybrid_report_2026-06-08.json",
+        "artifacts/model_experiments/regime_conditional_hybrid_report_2026-06-08.md",
+        "artifacts/model_experiments/regime_conditional_hybrid_report_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "historical report and verifier artifacts are present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "屬已完成的 regime research 報告鏈；保留封存價值，但缺 active runtime 證據。"
+    },
+    {
+      "path": "scripts/build_regime_conditional_shadow_rankings.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "cc593029ca8227734dfadda9a687341a0720954a",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_regime_conditional_hybrid_report.py",
+        "scripts/verify_regime_conditional_shadow_rankings.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/regime_conditional_rankings_big_bull_candidate_2025-11-17_2026-05-15/regime_conditional_shadow_ranking.json",
+        "artifacts/model_experiments/regime_conditional_shadow_ranking_big_bull_candidate_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "shadow ranking summary and verifier artifact are present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "曾產生完整 shadow ranking 與驗證證據，但目前只見歷史研究用途；列封存候選。"
+    },
+    {
+      "path": "scripts/build_training_candidate_risk_attribution.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "c23b437160c8a8db497f0afe50d8dc6a9540c0a8",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_training_candidate_risk_control_report.py",
+        "scripts/verify_training_candidate_risk_attribution.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/training_candidate_risk_attribution_2026-06-08.json",
+        "artifacts/model_experiments/training_candidate_risk_attribution_2026-06-08.md",
+        "artifacts/model_experiments/training_candidate_risk_attribution_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "historical candidate analysis and verifier artifacts are present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "候選模型風險歸因已有封存證據與 verifier，但目前沒有 active pipeline 接線。"
+    },
+    {
+      "path": "scripts/build_training_candidate_risk_control_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "c23b437160c8a8db497f0afe50d8dc6a9540c0a8",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_training_candidate_risk_attribution.py",
+        "scripts/verify_training_candidate_risk_control_report.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/training_candidate_risk_control_report_2026-06-08.json",
+        "artifacts/model_experiments/training_candidate_risk_control_report_2026-06-08.md",
+        "artifacts/model_experiments/training_candidate_risk_control_report_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "historical risk-control report and verifier artifacts are present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "報告與 verifier 顯示曾完成研究閉環；缺 active consumer，因此只列封存候選。"
+    },
+    {
+      "path": "scripts/build_weekend_overnight_campaign_audits.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "99e4f4f35ab064094cc918cae7d07ddb5ea8bc6f",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_weekend_production_baseline_source_audit.py",
+        "scripts/build_weekend_ranking_dir_unlock_smoke.py",
+        "scripts/build_weekend_unsupported_unlock_audit.py",
+        "scripts/verify_weekend_overnight_campaign_summary.py"
+      ],
+      "output_artifacts": [
+        "artifacts/weekend_training/weekend_production_baseline_provenance_design_2026-06-17.json",
+        "artifacts/weekend_training/weekend_regime_slice_data_adequacy_audit_2026-06-17.json",
+        "artifacts/weekend_training/weekend_topic_default_entry_filter_contract_audit_2026-06-17.json"
+      ],
+      "runtime_evidence": [
+        "three campaign audit artifact families are present",
+        "no scheduler or active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "weekend burn-down 的一次性稽核產物已落地；目前無 scheduler 接線，適合封存評估。"
+    },
+    {
+      "path": "scripts/build_weekend_production_baseline_source_audit.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "99e4f4f35ab064094cc918cae7d07ddb5ea8bc6f",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_production_baseline_materialization_smoke.py",
+        "scripts/build_weekend_training_rollup.py",
+        "scripts/verify_weekend_production_baseline_source_audit.py",
+        "scripts/verify_weekend_training_rollup.py"
+      ],
+      "output_artifacts": [
+        "artifacts/weekend_training/weekend_production_baseline_source_audit_2026-06-13.json",
+        "artifacts/weekend_training/weekend_production_baseline_source_audit_2026-06-13.md",
+        "artifacts/weekend_training/weekend_production_baseline_source_audit_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "source-audit artifact has tracked downstream consumers",
+        "paired verifier and weekend rollup reader are present"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "其 artifact 仍被 baseline smoke 與 weekend rollup 讀取；刪除會破壞 production baseline 證據鏈。"
+    },
+    {
+      "path": "scripts/build_weekend_ranking_dir_unlock_smoke.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "99e4f4f35ab064094cc918cae7d07ddb5ea8bc6f",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_weekend_unsupported_unlock_audit.py",
+        "scripts/verify_weekend_ranking_dir_unlock_smoke.py"
+      ],
+      "output_artifacts": [
+        "artifacts/weekend_training/weekend_ranking_dir_unlock_smoke_2026-06-13.json",
+        "artifacts/weekend_training/weekend_ranking_dir_unlock_smoke_2026-06-13.md",
+        "artifacts/weekend_training/weekend_ranking_dir_unlock_smoke_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "historical smoke and verifier artifacts are present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "已完成 ranking-dir 缺口 smoke，沒有現行 scheduler 接線；保留封存與追溯價值。"
+    },
+    {
+      "path": "scripts/build_weekend_unsupported_unlock_audit.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "99e4f4f35ab064094cc918cae7d07ddb5ea8bc6f",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_weekend_ranking_dir_unlock_smoke.py",
+        "scripts/verify_weekend_unsupported_unlock_audit.py"
+      ],
+      "output_artifacts": [
+        "artifacts/weekend_training/weekend_unsupported_unlock_audit_2026-06-13.json",
+        "artifacts/weekend_training/weekend_unsupported_unlock_audit_2026-06-13.md",
+        "artifacts/weekend_training/weekend_unsupported_unlock_audit_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "historical audit and verifier artifacts are present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "unsupported 分類稽核已留完整 artifact；沒有 active runtime 證據，列封存候選。"
+    },
+    {
+      "path": "scripts/com.new-top10.external-review-preflight.plist",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "c6d26c3bec3135841aa5a2c18ab51eefe713785c",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/run_external_review_provider_preflight.sh",
+        "scripts/setup_launchd.sh"
+      ],
+      "output_artifacts": [
+        "logs/launchd_external_review_preflight.log",
+        "logs/launchd_external_review_preflight.err"
+      ],
+      "runtime_evidence": [
+        "installed user LaunchAgent copy is present",
+        "launchctl label is registered with last exit status 0",
+        "launchd log files are present"
+      ],
+      "external_runtime_checks": {
+        "profile": "active_launchd",
+        "candidate_findings": [
+          "installed LaunchAgent",
+          "registered launchctl job",
+          "scheduled provider preflight runner"
+        ]
+      },
+      "reason": "已部署且目前註冊於 launchctl；這是明確外部 runtime 契約，必須保留。"
+    },
+    {
+      "path": "scripts/compare_portfolio_replay_variants.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "e2ea73204d6b056c924de1c8dfd258c47ba1da40",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/run_portfolio_replay.py"
+      ],
+      "output_artifacts": [
+        "artifacts/backtest/portfolio_replay_variant_comparison_current_model_sealed_decision_layer.json",
+        "artifacts/backtest/portfolio_replay_variant_comparison_current_model_sealed_decision_layer.md"
+      ],
+      "runtime_evidence": [
+        "multiple replay comparison artifacts are present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "一次性 portfolio replay 比較工具已有完整產物；缺現行 consumer，適合封存。"
+    },
+    {
+      "path": "scripts/push_changes.sh",
+      "verdict": "retain",
+      "confidence": "medium",
+      "git_last_commit": "f6572457ef02e492a609595d7fdadd1e6fa72ff6",
+      "repo_reference_count": 0,
+      "paired_scripts": [],
+      "output_artifacts": [],
+      "runtime_evidence": [
+        "sanitized zsh history contains one candidate invocation",
+        "script performs git add, commit, pull --rebase, and push"
+      ],
+      "external_runtime_checks": {
+        "profile": "manual_shell_usage",
+        "candidate_findings": [
+          "shell_history_invocation_count:1"
+        ]
+      },
+      "reason": "有實際人工 shell 使用證據；雖無 repo consumer，不能當孤兒或高信心刪除候選。"
+    },
+    {
+      "path": "scripts/research_alpha_candidate_signal_check.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "ff3332071465b0bbc02ed3bbd385932b6bb3eee0",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_alpha_candidate_features.py",
+        "scripts/verify_alpha_candidate_signal_check.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/alpha_candidate_signal_check_2026-06-07.json",
+        "artifacts/model_experiments/alpha_candidate_signal_check_2026-06-07.md",
+        "artifacts/model_experiments/alpha_candidate_signal_check_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "historical signal-check and verifier artifacts are present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "alpha signal 第一階段已完成並有 verifier；目前沒有 active research runner 接線，列封存候選。"
+    },
+    {
+      "path": "scripts/research_map_linkage_smoke.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "6c6d8f4ee7e03b0efc4505a429cf462ec2ee2654",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/backfill_research_map_run_history.py",
+        "scripts/research_map_contract.py",
+        "tests/test_research_map_contract_boundary.py"
+      ],
+      "output_artifacts": [
+        "artifacts/research_map/evidence/research_map_linkage_smoke_01.json",
+        "artifacts/research_map/evidence/research_map_linkage_smoke_02.json",
+        "artifacts/research_map/evidence/research_map_linkage_smoke_03.json",
+        "artifacts/autonomous_research/run_history.jsonl"
+      ],
+      "runtime_evidence": [
+        "smoke records are recognized by tracked backfill logic",
+        "contract tests explicitly preserve research_map_linkage_smoke source rows"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "產物語意仍被 backfill 與 contract tests 消費；這是有效 repo consumer，應保留。"
+    },
+    {
+      "path": "scripts/research_ranking_score_shadow.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "961d181b4b6c5c25ed422e12f6abf3dae733d34f",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/run_portfolio_replay.py"
+      ],
+      "output_artifacts": [
+        "artifacts/research_rankings/current_model_sealed_no_setup/ranking_score_shadow_no_setup.json",
+        "artifacts/research_rankings/current_model_sealed_model_only/ranking_score_shadow_model_only.json"
+      ],
+      "runtime_evidence": [
+        "several shadow-ranking artifact directories are present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "decision-layer shadow 實驗已有多組產物，但沒有現行接線；列封存候選。"
+    },
+    {
+      "path": "scripts/research_risk_off_narrow_routing.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "cdf44f274746697281809fc599bfb686af354776",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/research_regime_feature_offline_ablation.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/risk_off_narrow_routing_8fold_2026-06-02.json",
+        "artifacts/model_experiments/risk_off_narrow_routing_8fold_2026-06-02.md"
+      ],
+      "runtime_evidence": [
+        "historical 8-fold diagnostic artifact is present",
+        "no active runtime consumer was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "RISK_OFF 窄盤研究已留診斷產物，沒有 active consumer；可評估封存但不可直接刪除。"
+    },
+    {
+      "path": "scripts/research_vwap_cost_basis.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "9076f7707f210cc8e55a3f55841fe9b9f59c48e5",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_vwap_cost_basis_features.py",
+        "scripts/research_vwap_entry_quality_replay.py",
+        "scripts/research_vwap_regime_gated_entry_quality.py",
+        "scripts/verify_vwap_cost_basis_features.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/vwap_cost_basis_research_2026-07-05.json",
+        "artifacts/model_experiments/vwap_cost_basis_research_2026-07-05.md"
+      ],
+      "runtime_evidence": [
+        "FEATURE-SYNTH-01 records this artifact as the first-wave result",
+        "git history shows the lane was added to the current cleanup base on 2026-07-13",
+        "successor VWAP replay scripts are present"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "VWAP research lane is recent and has tracked successor work; it is not an orphan despite the zero static-reference baseline."
+    },
+    {
+      "path": "scripts/run_a1_forward_shadow_monitor.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "cdf44f274746697281809fc599bfb686af354776",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_constrained_shadow_rankings.py",
+        "scripts/research_regime_shadow_ranking.py",
+        "scripts/run_portfolio_replay.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/a1_forward_shadow_monitor_2026-06-02.json",
+        "artifacts/model_experiments/a1_forward_shadow_monitor_2026-06-02.md"
+      ],
+      "runtime_evidence": [
+        "one historical forward-monitor artifact is present",
+        "no scheduler or external SOP match was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "A1 forward monitor 有一次性執行證據但無現行排程；列封存候選，避免誤刪研究追溯工具。"
+    },
+    {
+      "path": "scripts/run_candidate_stress_matrix.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "cdf44f274746697281809fc599bfb686af354776",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_overnight_risk_matrix_summary.py",
+        "scripts/run_portfolio_replay.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/candidate_stress_matrix_2026-06-02.json",
+        "artifacts/model_experiments/candidate_stress_matrix_2026-06-02.md"
+      ],
+      "runtime_evidence": [
+        "historical stress-matrix artifact is present",
+        "no scheduler or external SOP match was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "候選壓力矩陣已有研究產物但沒有 active consumer；可封存，不符合高信心刪除條件。"
+    },
+    {
+      "path": "scripts/run_controlled_grid_drain_host_runner.sh",
+      "verdict": "unknown",
+      "confidence": "medium",
+      "git_last_commit": "c6d26c3bec3135841aa5a2c18ab51eefe713785c",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/run_controlled_grid_drain_host_runner.py"
+      ],
+      "output_artifacts": [
+        "artifacts/host_runner/2026-07-13/controlled_grid_drain_host_runner_status_2026-07-13.json",
+        "artifacts/host_runner/2026-07-13/controlled_grid_drain_host_runner_summary_2026-07-13.json"
+      ],
+      "runtime_evidence": [
+        "paired Python host runner has artifacts through 2026-07-13",
+        "direct invocation of the shell wrapper was not proven"
+      ],
+      "external_runtime_checks": {
+        "profile": "paired_runtime_active_direct_wrapper_unproven",
+        "candidate_findings": [
+          "paired_runner_artifact_date:2026-07-13"
+        ]
+      },
+      "reason": "底層 Python runner 明確仍在使用，但無法證明今日是否經由此 shell wrapper；保守標 unknown，禁止刪除。"
+    },
+    {
+      "path": "scripts/run_overnight_shadow_training.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "cdf44f274746697281809fc599bfb686af354776",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_overnight_training_summary.py",
+        "scripts/run_backtest_replay.py",
+        "scripts/run_portfolio_replay.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/overnight_shadow_training_runner_2026-06-02_extended.json",
+        "artifacts/model_experiments/overnight_shadow_training_runner_2026-06-02_half_year_dense.json"
+      ],
+      "runtime_evidence": [
+        "two historical runner artifacts are present",
+        "no launchd, cron, or external SOP match was found"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "曾執行兩個 overnight research window，但目前無排程或外部 consumer；列封存候選。"
+    },
+    {
+      "path": "scripts/run_production_trail10_batch_08_10.py",
+      "verdict": "retain",
+      "confidence": "medium",
+      "git_last_commit": "74f8835eb8e88f27185e0ba8395934c872b2ff17",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_production_trail10_daily_report_review_loop.py",
+        "scripts/verify_production_trail10_batch_08_10.py"
+      ],
+      "output_artifacts": [
+        "artifacts/shadow/production_trail10/production_trail10_official_daily_report_review_2026-06-10.json",
+        "artifacts/shadow/production_trail10/production_trail10_official_daily_report_integration_2026-06-10.json",
+        "artifacts/shadow/production_trail10/production_trail10_clawd_dry_run_preview_2026-06-10.json"
+      ],
+      "runtime_evidence": [
+        "production-trail task contract and paired verifier are present",
+        "three dry-run boundary artifacts are present"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match",
+        "candidate_findings": []
+      },
+      "reason": "雖未找到外部排程，這支維護 official-report／Clawd dry-run 邊界且有 verifier；production 不確定性下應保留。"
+    },
+    {
+      "path": "scripts/run_training_candidate_replay_flow.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "861605dbe29090e425555c4aecce53c525e0cdbe",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/run_training_candidate_flow.py",
+        "scripts/verify_training_candidate_replay_flow.py"
+      ],
+      "output_artifacts": [
+        "artifacts/model_experiments/training_candidates/current_baseline_candidate_2026-06-08/training_candidate_replay_flow.json",
+        "artifacts/model_experiments/training_candidate_replay_flow_verification_latest.json"
+      ],
+      "runtime_evidence": [
+        "candidate replay artifacts are present",
+        "paired verifier is present",
+        "ai-core operation log records a completed candidate replay flow"
+      ],
+      "external_runtime_checks": {
+        "profile": "external_sop_history",
+        "candidate_findings": [
+          "ai-core operation-log match"
+        ]
+      },
+      "reason": "有外部 SOP 歷史、候選 replay artifact 與 verifier；這是仍具有效契約的 training runner。"
+    },
+    {
+      "path": "scripts/send_pm_review_card_local.sh",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "434155b5fbbd2eb8d3330d6c0685a9b904fb9cb9",
+      "repo_reference_count": 0,
+      "paired_scripts": [
+        "scripts/build_pm_clarification_review_cards.py"
+      ],
+      "output_artifacts": [],
+      "runtime_evidence": [
+        "sanitized zsh history contains three candidate invocations",
+        "canonical project has multiple pm_review_cards inputs",
+        "script uses an external OpenClaw gateway and defaults to dry-run"
+      ],
+      "external_runtime_checks": {
+        "profile": "manual_shell_usage",
+        "candidate_findings": [
+          "shell_history_invocation_count:3",
+          "external_gateway_consumer"
+        ]
+      },
+      "reason": "近期加入且有三次人工 shell 使用與外部 gateway consumer；必須保留。"
+    },
+    {
+      "path": "scripts/sync_from_remote.sh",
+      "verdict": "unknown",
+      "confidence": "low",
+      "git_last_commit": "f6572457ef02e492a609595d7fdadd1e6fa72ff6",
+      "repo_reference_count": 0,
+      "paired_scripts": [],
+      "output_artifacts": [],
+      "runtime_evidence": [
+        "no repo, launchd, cron, known external SOP, or shell-history match was found",
+        "script mutates git state through fetch, pull --rebase, stash, and stash pop"
+      ],
+      "external_runtime_checks": {
+        "profile": "no_external_match_manual_sop_unresolved",
+        "candidate_findings": []
+      },
+      "reason": "缺少外部人工 SOP 的完整可見性，且腳本會改 git 狀態；依契約不得判 delete_candidate/high。"
+    }
+  ]
+}

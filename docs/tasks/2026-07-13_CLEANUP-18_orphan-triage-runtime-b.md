@@ -1,6 +1,6 @@
 # CLEANUP-18｜Orphan Triage：Runtime／Research B
 
-- status: ready
+- status: completed
 - priority: P0
 - task thickness: strict
 
@@ -62,3 +62,20 @@
 ## 回報
 
 建立單一 atomic commit；回報統計、外部 runtime 發現與高信心候選，不 merge、不 push、不改外部狀態。
+
+## Result
+
+- 28/28 全數完成分級：`retain=9`、`archive_candidate=17`、`delete_candidate=0`、`unknown=2`。
+- 高信心刪除候選：無；沒有任何項目同時排除 repo consumer、外部 runtime、artifact consumer 與 paired tool。
+- 明確外部 runtime：`scripts/com.new-top10.external-review-preflight.plist` 已安裝且由 `launchctl` 註冊，最近退出碼為 0，判定 `retain/high`。
+- 明確人工／外部 SOP 使用：shell history 命中 `scripts/push_changes.sh` 1 次、`scripts/send_pm_review_card_local.sh` 3 次；ai-core operation log 記錄 `scripts/run_training_candidate_replay_flow.py` 的完成紀錄。
+- production／runtime 不確定性：`scripts/run_controlled_grid_drain_host_runner.sh` 因底層 runner 仍有 2026-07-13 artifact，但無法證明 shell wrapper 直接 consumer，判定 `unknown/medium`；`scripts/sync_from_remote.sh` 因人工 SOP 不可完全排除，判定 `unknown/low`。
+- 高信心保留另包含 production baseline materialization/source-audit 證據鏈、research-map linkage contract、近期 VWAP research lane、training candidate replay 與 PM review card local sender。
+- 證據：`.work/CLEANUP-18/evidence/orphan-triage.json`。
+
+## Verification
+
+- JSON 可解析；28 entries、28 unique paths，與卡片 scope 無缺漏／無額外項目。
+- entries 依 path 排序，所有必要欄位含 `external_runtime_checks`。
+- evidence 無 `/Users/...`、`/private/...`、secret、token 或 password 字串。
+- 未執行任何 runner/send/sync/push；未 unload/reload、未改 cron/launchd、未修改候選/config/plist。
