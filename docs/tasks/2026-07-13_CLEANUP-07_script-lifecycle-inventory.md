@@ -1,6 +1,6 @@
 # CLEANUP-07｜Scripts 生命週期清冊
 
-- status: ready
+- status: completed
 - priority: P1
 - owner: Codex worktree
 - task thickness: standard
@@ -49,3 +49,9 @@
 ## 回報
 
 附 inventory 摘要與 evidence 路徑；建立單一 atomic commit，不 merge、不 push。
+
+## Result
+
+- `scripts/audit_script_lifecycle.py --strict-new` 對 tracked scripts 實跑通過；分類與前 20 個 review candidates 由 CLI 摘要輸出。
+- fixture 已覆蓋 exact production、prefix、override、new unknown 與 path escape；同一 Git tree 連跑兩次 JSON 結果相同。
+- 可重跑 evidence 命令與 schema 說明：`docs/architecture/SCRIPT_LIFECYCLE.md`。

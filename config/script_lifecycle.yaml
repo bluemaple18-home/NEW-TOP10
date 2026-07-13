@@ -1,0 +1,73 @@
+schema_version: script-lifecycle-policy.v1
+
+# 正式入口只能由明確清單認定；名稱前綴不得推定 production。
+production_entrypoints:
+  - scripts/com.new-top10.daily.plist
+  - scripts/com.new-top10.reference.plist
+  - scripts/com.new-top10.retrain.plist
+  - scripts/com.new-top10.webui.plist
+  - scripts/daily_retrain.sh
+  - scripts/generate_daily_report.py
+  - scripts/run_automation.py
+  - scripts/run_daily.sh
+  - scripts/run_daily_publish.sh
+  - scripts/run_daily_v2.py
+  - scripts/run_reference_update.sh
+  - scripts/start_market_ui.sh
+
+# 順序即分類優先序；所有前綴均只決定非 production 類別。
+prefix_categories:
+  - category: research
+    prefixes: [research_]
+  - category: builder
+    prefixes: [build_]
+  - category: verifier
+    prefixes: [verify_]
+  - category: maintenance
+    prefixes:
+      - analyze_
+      - artifact_
+      - audit_
+      - backfill_
+      - backtest_
+      - cleanup_
+      - com.new-top10.
+      - compare_
+      - daily_
+      - export_
+      - external_
+      - filter_
+      - generate_
+      - import_
+      - materialize_
+      - model_
+      - monitor_
+      - normalize_
+      - preflight_
+      - print_
+      - probe_
+      - promote_
+      - push_
+      - record_
+      - refresh_
+      - replay_
+      - report_
+      - review_
+      - rewrite_
+      - run_
+      - send_
+      - setup_
+      - start_
+      - sync_
+      - top10_
+      - trace_
+      - weekend_
+
+# 個別例外須保留明確理由，不以模糊前綴掩蓋。
+overrides:
+  scripts/test_regex.py:
+    category: legacy_candidate
+    reason: ad-hoc regex probe; retained for manual review only
+
+# 既有 unclassified 的核准基線。新路徑須明確加入前才可通過 --strict-new。
+approved_unclassified: []
