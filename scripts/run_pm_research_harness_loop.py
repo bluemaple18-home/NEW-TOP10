@@ -297,9 +297,10 @@ def discover_research_topics(date_text: str, max_topics: int, max_ranking_files:
     return output
 
 
-def run_research(date_text: str, quota: int, max_ranking_files: int) -> Path:
+def run_research(date_text: str, quota: int, max_ranking_files: int) -> tuple[Path, str]:
     stamp = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y%m%d_%H%M%S")
     output = ARTIFACTS_DIR / "autonomous_research" / f"pm_research_harness_{date_text}_{stamp}.json"
+    verification_output = output.with_name(f"{output.stem}_verification.json")
     run_checked(
         [
             python_bin(),
@@ -327,10 +328,12 @@ def run_research(date_text: str, quota: int, max_ranking_files: int) -> Path:
             "--artifact",
             repo_path(output) or str(output),
             "--min-quota",
-            "0",
+            str(quota),
+            "--output",
+            repo_path(verification_output) or str(verification_output),
         ]
     )
-    return output
+    return output, str(read_json(verification_output, {}).get("status") or "BLOCKED")
 
 
 def build_research_brief(date_text: str) -> Path:
@@ -554,6 +557,7 @@ def main() -> int:
     send_result: dict[str, Any] | None = None
     sent_keys: list[str] = []
     topic_runs = 0
+    research_quota_state: str | None = None
     queue_depth_before = current_queue_depth()
     discovery_artifact = None
     queue_top_up_count = 0
@@ -568,7 +572,7 @@ def main() -> int:
         queue_depth_after_run = queue_depth_after_discovery
 
     if state["loop_enabled"]:
-        research_artifact = run_research(date_text, args.quota, args.max_ranking_files)
+        research_artifact, research_quota_state = run_research(date_text, args.quota, args.max_ranking_files)
         research_payload = read_json(research_artifact, {})
         topic_runs = len(list_value(research_payload.get("topic_runs")))
         if topic_runs == 0:
@@ -579,6 +583,8 @@ def main() -> int:
                 state["consecutive_no_approval_runs"] = 0
             else:
                 state["consecutive_no_approval_runs"] = int(state.get("consecutive_no_approval_runs") or 0) + 1
+        if research_quota_state == "PARTIAL_NO_MORE_WORK":
+            state["loop_enabled"] = False
         if state["consecutive_empty_runs"] >= 2:
             state["loop_enabled"] = False
         if not pending_approvals and state["consecutive_no_approval_runs"] >= max(args.max_continuation_runs, 0):
@@ -613,6 +619,7 @@ def main() -> int:
         "pending_approval_count": len(pending_approvals),
         "loop_enabled_after": state["loop_enabled"],
         "topic_runs": topic_runs,
+        "research_quota_state": research_quota_state,
         "research_artifact": repo_path(research_artifact) if research_artifact else None,
         "topic_discovery_artifact": repo_path(discovery_artifact) if discovery_artifact else None,
         "queue_top_up_count": queue_top_up_count,
@@ -633,6 +640,7 @@ def main() -> int:
         "queue_paths": [repo_path(Path(path)) for path in queue_paths],
         "pending_approval_count": len(pending_approvals),
         "topic_runs": topic_runs,
+        "research_quota_state": research_quota_state,
         "research_artifact": repo_path(research_artifact) if research_artifact else None,
         "topic_discovery_artifact": repo_path(discovery_artifact) if discovery_artifact else None,
         "research_decision_brief": repo_path(brief_path) if brief_path else None,

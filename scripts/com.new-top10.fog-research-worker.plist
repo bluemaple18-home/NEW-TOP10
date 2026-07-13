@@ -14,6 +14,16 @@
     <key>StartInterval</key>
     <integer>900</integer>
 
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>TOP10_RESEARCH_QUEUE_OWNER</key>
+        <string>fog_worker</string>
+        <key>TOP10_FOG_RESEARCH_MAX_RETRIES</key>
+        <string>3</string>
+        <key>TOP10_FOG_RESEARCH_RETRY_BACKOFF_SECONDS</key>
+        <string>30</string>
+    </dict>
+
     <key>StandardOutPath</key>
     <string>__PROJECT_DIR__/logs/launchd_fog_research_worker.log</string>
 

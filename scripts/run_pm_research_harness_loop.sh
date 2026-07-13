@@ -25,6 +25,17 @@ LOCK_DIR="$LOG_DIR/pm_research_harness_loop.lock"
 LOCK_PID_FILE="$LOCK_DIR/pid"
 FOG_LOCK_DIR="$LOG_DIR/fog_research_worker.lock"
 FOG_LOCK_PID_FILE="$FOG_LOCK_DIR/pid"
+QUEUE_OWNER="${TOP10_RESEARCH_QUEUE_OWNER:-fog_worker}"
+QUEUE_OWNER_LOCK_DIR="$LOG_DIR/research_queue_owner.lock"
+QUEUE_OWNER_PID_FILE="$QUEUE_OWNER_LOCK_DIR/pid"
+QUEUE_OWNER_NAME_FILE="$QUEUE_OWNER_LOCK_DIR/owner"
+PM_LOCK_HELD=0
+QUEUE_OWNER_LOCK_HELD=0
+
+if [ "$QUEUE_OWNER" != "pm_research_harness" ]; then
+  echo "pm research harness loop skipped; queue owner=$QUEUE_OWNER" >> "$LOG_FILE" 2>&1
+  exit 0
+fi
 
 if [ "$ENABLED" != "1" ] && [ "$ENABLED" != "true" ] && [ "$ENABLED" != "TRUE" ]; then
   {
@@ -43,9 +54,49 @@ if [ -r "$FOG_LOCK_PID_FILE" ]; then
   fi
 fi
 
+cleanup_locks() {
+  if [ "$PM_LOCK_HELD" = "1" ] && [ -r "$LOCK_PID_FILE" ] && [ "$(cat "$LOCK_PID_FILE")" = "$$" ]; then
+    rm -f "$LOCK_PID_FILE"
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+  fi
+  if [ "$QUEUE_OWNER_LOCK_HELD" = "1" ] && [ -r "$QUEUE_OWNER_PID_FILE" ] && [ "$(cat "$QUEUE_OWNER_PID_FILE")" = "$$" ]; then
+    rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE"
+    rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+  fi
+}
+
+acquire_queue_owner_lock() {
+  if mkdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null; then
+    echo "$$" > "$QUEUE_OWNER_PID_FILE"
+    echo "pm_research_harness" > "$QUEUE_OWNER_NAME_FILE"
+    QUEUE_OWNER_LOCK_HELD=1
+    return 0
+  fi
+
+  local existing_pid=""
+  if [ -r "$QUEUE_OWNER_PID_FILE" ]; then
+    existing_pid="$(cat "$QUEUE_OWNER_PID_FILE" 2>/dev/null || true)"
+  fi
+  if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+    echo "pm research harness loop skipped; research queue owned by pid=$existing_pid" | tee -a "$LOG_FILE"
+    exit 0
+  fi
+
+  rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE"
+  if rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null && mkdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null; then
+    echo "$$" > "$QUEUE_OWNER_PID_FILE"
+    echo "pm_research_harness" > "$QUEUE_OWNER_NAME_FILE"
+    QUEUE_OWNER_LOCK_HELD=1
+    return 0
+  fi
+
+  echo "pm research harness loop skipped; cannot acquire research queue ownership" | tee -a "$LOG_FILE"
+  exit 0
+}
+
 if mkdir "$LOCK_DIR" 2>/dev/null; then
   echo "$$" > "$LOCK_PID_FILE"
-  trap 'rm -f "$LOCK_PID_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
+  PM_LOCK_HELD=1
 else
   if [ -r "$LOCK_PID_FILE" ]; then
     existing_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
@@ -58,8 +109,11 @@ else
   rmdir "$LOCK_DIR" 2>/dev/null || true
   mkdir "$LOCK_DIR"
   echo "$$" > "$LOCK_PID_FILE"
-  trap 'rm -f "$LOCK_PID_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
+  PM_LOCK_HELD=1
 fi
+
+trap cleanup_locks EXIT INT TERM
+acquire_queue_owner_lock
 
 PYTHON_BIN="${TOP10_DAILY_PYTHON:-$PROJECT_DIR/.venv/bin/python}"
 if [ ! -x "$PYTHON_BIN" ]; then

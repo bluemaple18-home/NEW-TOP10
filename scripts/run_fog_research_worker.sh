@@ -32,11 +32,26 @@ QUOTA="${TOP10_FOG_RESEARCH_QUOTA:-${TOP10_RESEARCH_QUOTA:-5}}"
 MAX_BATCHES="${TOP10_FOG_RESEARCH_MAX_BATCHES:-6}"
 MAX_SECONDS="${TOP10_FOG_RESEARCH_MAX_SECONDS:-7200}"
 BATCH_SLEEP_SECONDS="${TOP10_FOG_RESEARCH_BATCH_SLEEP_SECONDS:-30}"
+QUEUE_OWNER="${TOP10_RESEARCH_QUEUE_OWNER:-fog_worker}"
+QUEUE_OWNER_LOCK_DIR="$LOG_DIR/research_queue_owner.lock"
+QUEUE_OWNER_PID_FILE="$QUEUE_OWNER_LOCK_DIR/pid"
+QUEUE_OWNER_NAME_FILE="$QUEUE_OWNER_LOCK_DIR/owner"
+MAX_RETRIES="${TOP10_FOG_RESEARCH_MAX_RETRIES:-3}"
+RETRY_BACKOFF_SECONDS="${TOP10_FOG_RESEARCH_RETRY_BACKOFF_SECONDS:-30}"
+RETRY_STATE_FILE="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.state"
+RETRY_CONTEXT_FILE="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.context.log"
+FOG_LOCK_HELD=0
+QUEUE_OWNER_LOCK_HELD=0
+
+if [ "$QUEUE_OWNER" != "fog_worker" ]; then
+  echo "fog research worker skipped; queue owner=$QUEUE_OWNER" | tee -a "$LOG_FILE"
+  exit 0
+fi
 
 acquire_lock() {
   if mkdir "$LOCK_DIR" 2>/dev/null; then
     echo "$$" > "$LOCK_PID_FILE"
-    trap 'rm -f "$LOCK_PID_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
+    FOG_LOCK_HELD=1
     return 0
   fi
 
@@ -52,7 +67,7 @@ acquire_lock() {
   rm -f "$LOCK_PID_FILE"
   if rmdir "$LOCK_DIR" 2>/dev/null && mkdir "$LOCK_DIR" 2>/dev/null; then
     echo "$$" > "$LOCK_PID_FILE"
-    trap 'rm -f "$LOCK_PID_FILE"; rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT INT TERM
+    FOG_LOCK_HELD=1
     return 0
   fi
 
@@ -60,7 +75,49 @@ acquire_lock() {
   exit 0
 }
 
+acquire_queue_owner_lock() {
+  if mkdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null; then
+    echo "$$" > "$QUEUE_OWNER_PID_FILE"
+    echo "fog_worker" > "$QUEUE_OWNER_NAME_FILE"
+    QUEUE_OWNER_LOCK_HELD=1
+    return 0
+  fi
+
+  local existing_pid=""
+  if [ -r "$QUEUE_OWNER_PID_FILE" ]; then
+    existing_pid="$(cat "$QUEUE_OWNER_PID_FILE" 2>/dev/null || true)"
+  fi
+  if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+    echo "fog research worker skipped; research queue owned by pid=$existing_pid" | tee -a "$LOG_FILE"
+    exit 0
+  fi
+
+  rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE"
+  if rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null && mkdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null; then
+    echo "$$" > "$QUEUE_OWNER_PID_FILE"
+    echo "fog_worker" > "$QUEUE_OWNER_NAME_FILE"
+    QUEUE_OWNER_LOCK_HELD=1
+    return 0
+  fi
+
+  echo "fog research worker skipped; cannot acquire research queue ownership" | tee -a "$LOG_FILE"
+  exit 0
+}
+
+cleanup_locks() {
+  if [ "$FOG_LOCK_HELD" = "1" ] && [ -r "$LOCK_PID_FILE" ] && [ "$(cat "$LOCK_PID_FILE")" = "$$" ]; then
+    rm -f "$LOCK_PID_FILE"
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+  fi
+  if [ "$QUEUE_OWNER_LOCK_HELD" = "1" ] && [ -r "$QUEUE_OWNER_PID_FILE" ] && [ "$(cat "$QUEUE_OWNER_PID_FILE")" = "$$" ]; then
+    rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE"
+    rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+  fi
+}
+
 acquire_lock
+acquire_queue_owner_lock
+trap cleanup_locks EXIT INT TERM
 
 if [ -r "$PM_LOCK_PID_FILE" ]; then
   PM_PID="$(cat "$PM_LOCK_PID_FILE" 2>/dev/null || true)"
@@ -89,6 +146,38 @@ START_EPOCH="$(date +%s)"
 BATCH=1
 EXIT_CODE=0
 LAST_ROLLUP_EXIT_CODE=0
+CIRCUIT_OPEN=0
+BATCH_LOG_START_LINE=0
+
+if [ -f "$RETRY_STATE_FILE" ] && grep -qx "circuit_open=1" "$RETRY_STATE_FILE"; then
+  echo "fog research worker skipped; retry circuit remains open state=$RETRY_STATE_FILE context=$RETRY_CONTEXT_FILE" | tee -a "$LOG_FILE"
+  exit 0
+fi
+
+record_failure() {
+  local current_batch_start failure_detail fingerprint previous_fingerprint previous_attempts attempt
+  current_batch_start=$((BATCH_LOG_START_LINE + 1))
+  failure_detail="$(awk -v start="$current_batch_start" 'NR >= start && /TOP10_FOG_MAP_HANDOFF_FAILED/ { detail = $0 } END { print detail }' "$LOG_FILE")"
+  if [ -z "$failure_detail" ]; then
+    failure_detail="fog_map_handoff_exit_$EXIT_CODE"
+  fi
+  fingerprint="$(printf '%s' "$failure_detail" | shasum -a 256 | awk '{print $1}')"
+  previous_fingerprint="$(sed -n 's/^fingerprint=//p' "$RETRY_STATE_FILE" 2>/dev/null | head -n 1)"
+  previous_attempts="$(sed -n 's/^attempts=//p' "$RETRY_STATE_FILE" 2>/dev/null | head -n 1)"
+  if [ "$fingerprint" = "$previous_fingerprint" ] && [ -n "$previous_attempts" ]; then
+    attempt=$((previous_attempts + 1))
+  else
+    attempt=1
+  fi
+  {
+    echo "fingerprint=$fingerprint"
+    echo "attempts=$attempt"
+    echo "last_exit_code=$EXIT_CODE"
+    echo "circuit_open=0"
+  } > "$RETRY_STATE_FILE"
+  tail -n +"$current_batch_start" "$LOG_FILE" > "$RETRY_CONTEXT_FILE"
+  echo "$attempt"
+}
 
 while [ "$BATCH" -le "$MAX_BATCHES" ]; do
   NOW_EPOCH="$(date +%s)"
@@ -100,6 +189,7 @@ while [ "$BATCH" -le "$MAX_BATCHES" ]; do
 
   RUN_ID="${RUN_ID_BASE}-b${BATCH}"
   echo "fog research batch start batch=$BATCH run_id=$RUN_ID elapsed=$ELAPSED" | tee -a "$LOG_FILE"
+  BATCH_LOG_START_LINE="$(wc -l < "$LOG_FILE")"
 
   set +e
   "$PYTHON_BIN" scripts/run_top10_fog_map_handoff.py \
@@ -118,9 +208,23 @@ while [ "$BATCH" -le "$MAX_BATCHES" ]; do
   set -e
 
   if [ "$EXIT_CODE" -ne 0 ]; then
-    echo "fog research batch failed batch=$BATCH exit_code=$EXIT_CODE" | tee -a "$LOG_FILE"
-    break
+    RETRY_ATTEMPT="$(record_failure)"
+    echo "fog research batch failed batch=$BATCH exit_code=$EXIT_CODE fingerprint_state=$RETRY_STATE_FILE attempt=$RETRY_ATTEMPT/$MAX_RETRIES" | tee -a "$LOG_FILE"
+    if [ "$RETRY_ATTEMPT" -ge "$MAX_RETRIES" ]; then
+      sed -i '' 's/^circuit_open=.*/circuit_open=1/' "$RETRY_STATE_FILE"
+      echo "fog research retry circuit opened; retries exhausted fingerprint_state=$RETRY_STATE_FILE context=$RETRY_CONTEXT_FILE" | tee -a "$LOG_FILE"
+      CIRCUIT_OPEN=1
+      EXIT_CODE=0
+      break
+    fi
+    BATCH=$((BATCH + 1))
+    BACKOFF_SECONDS=$((RETRY_BACKOFF_SECONDS * RETRY_ATTEMPT))
+    echo "fog research retry backoff seconds=$BACKOFF_SECONDS next_batch=$BATCH" | tee -a "$LOG_FILE"
+    sleep "$BACKOFF_SECONDS"
+    continue
   fi
+
+  rm -f "$RETRY_STATE_FILE" "$RETRY_CONTEXT_FILE"
 
   if [ "$LAST_ROLLUP_EXIT_CODE" -ne 0 ]; then
     echo "fog research batch rollup warning batch=$BATCH exit_code=$LAST_ROLLUP_EXIT_CODE" | tee -a "$LOG_FILE"
@@ -144,8 +248,21 @@ topic_runs = payload.get("topic_runs") if isinstance(payload.get("topic_runs"), 
 print("1" if inputs.get("from_queue") is True and outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs else "0")
 PY
 )"
-  if [ "$QUEUE_EMPTY" = "1" ]; then
-    echo "fog research worker stop; queue empty after batch=$BATCH" | tee -a "$LOG_FILE"
+  RESEARCH_STATE="$("$PYTHON_BIN" - "$RUN_DATE" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(f"artifacts/autonomous_research/daily_research_quota_verification_latest.json")
+if not path.exists():
+    print("UNKNOWN")
+    raise SystemExit
+payload = json.loads(path.read_text(encoding="utf-8"))
+print(payload.get("status") or "UNKNOWN")
+PY
+)"
+  if [ "$QUEUE_EMPTY" = "1" ] || [ "$RESEARCH_STATE" = "PARTIAL_NO_MORE_WORK" ]; then
+    echo "fog research worker stop; terminal_state=$RESEARCH_STATE queue_empty=$QUEUE_EMPTY after batch=$BATCH" | tee -a "$LOG_FILE"
     break
   fi
 
@@ -159,7 +276,7 @@ if [ "$LAST_ROLLUP_EXIT_CODE" -ne 0 ]; then
   echo "fog research worker last rollup warning exit_code=$LAST_ROLLUP_EXIT_CODE" | tee -a "$LOG_FILE"
 fi
 
-if [ "$EXIT_CODE" -eq 0 ] && [ "${TOP10_REPLAY_DRAIN_ENABLED:-1}" = "1" ]; then
+if [ "$EXIT_CODE" -eq 0 ] && [ "$CIRCUIT_OPEN" -eq 0 ] && [ "${TOP10_REPLAY_DRAIN_ENABLED:-1}" = "1" ]; then
   REPLAY_RUN_ID="${RUN_ID_BASE}-replay-drain"
   REPLAY_BATCH_SIZE="${TOP10_REPLAY_DRAIN_BATCH_SIZE:-24}"
   REPLAY_MAX_BATCHES="${TOP10_REPLAY_DRAIN_MAX_BATCHES:-6}"

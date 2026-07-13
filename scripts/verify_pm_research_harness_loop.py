@@ -29,6 +29,10 @@ def wrapper_safety_defaults_ok() -> bool:
         'MAX_CONTINUATION_RUNS="${TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS:-8}"',
         'MIN_QUEUE_DEPTH="${TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH:-12}"',
         'DISCOVERY_MAX_TOPICS="${TOP10_PM_RESEARCH_DISCOVERY_MAX_TOPICS:-30}"',
+        'QUEUE_OWNER="${TOP10_RESEARCH_QUEUE_OWNER:-fog_worker}"',
+        'QUEUE_OWNER_LOCK_DIR="$LOG_DIR/research_queue_owner.lock"',
+        'queue owner=$QUEUE_OWNER',
+        "acquire_queue_owner_lock",
         "reason=disabled TOP10_PM_RESEARCH_ENABLED=",
         "fog research worker active",
     ]
@@ -43,14 +47,15 @@ def plist_ok() -> bool:
     return (
         payload.get("Label") == "com.new-top10.pm-research-harness"
         and "__PROJECT_DIR__/scripts/run_pm_research_harness_loop.sh" in payload.get("ProgramArguments", [])
-        and env.get("TOP10_PM_RESEARCH_ENABLED") == "1"
+        and env.get("TOP10_PM_RESEARCH_ENABLED") == "0"
+        and env.get("TOP10_RESEARCH_QUEUE_OWNER") == "fog_worker"
         and env.get("TOP10_PM_RESEARCH_SEND_CARDS") == "0"
         and env.get("TOP10_PM_RESEARCH_DRY_RUN_SEND") == "1"
         and env.get("TOP10_PM_RESEARCH_MAX_CONTINUATION_RUNS") == "8"
         and env.get("TOP10_PM_RESEARCH_MIN_QUEUE_DEPTH") == "12"
         and env.get("TOP10_PM_RESEARCH_DISCOVERY_MAX_TOPICS") == "30"
         and payload.get("StartInterval") == 900
-        and payload.get("RunAtLoad") is True
+        and payload.get("RunAtLoad") is False
     )
 
 
@@ -126,6 +131,7 @@ def loop_contract_ok() -> bool:
         "queue_depth_after_run",
         "queue_top_up_after_run_count",
         "consecutive_no_approval_runs",
+        'research_quota_state == "PARTIAL_NO_MORE_WORK"',
         "if pending_approvals or topic_runs > 0:",
         "review_approval_clawd_to",
     ]
@@ -140,6 +146,10 @@ def fog_worker_boundary_ok() -> bool:
     text = (PROJECT_ROOT / "scripts/run_fog_research_worker.sh").read_text(encoding="utf-8")
     required = [
         'PM_LOCK_DIR="$LOG_DIR/pm_research_harness_loop.lock"',
+        'QUEUE_OWNER_LOCK_DIR="$LOG_DIR/research_queue_owner.lock"',
+        'MAX_RETRIES="${TOP10_FOG_RESEARCH_MAX_RETRIES:-3}"',
+        "PARTIAL_NO_MORE_WORK",
+        "retry circuit opened",
         "PM research harness active",
     ]
     return all(item in text for item in required)

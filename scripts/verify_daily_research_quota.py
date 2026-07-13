@@ -14,16 +14,17 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_VERSION = "daily-research-quota-verification.v1"
+SCHEMA_VERSION = "daily-research-quota-verification.v2"
 REPORT_SCHEMA = "autonomous-research-run.v1"
 FOLLOWUP_DECISIONS = {"CONFIRMED_FOR_NEXT_REPLAY", "PARTIAL_SCORE_ONLY"}
 REJECTION_DECISIONS = {"REJECTED_BY_STRATEGY_MATRIX", "NO_COMPARISON_EVIDENCE"}
+SUCCESS_STATES = {"COMPLETED", "PARTIAL_NO_MORE_WORK"}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="verify daily research quota artifact")
     parser.add_argument("--artifact", required=True)
-    parser.add_argument("--min-quota", type=int, default=5)
+    parser.add_argument("--min-quota", type=int, default=5, help="相容參數；研究單批最多可執行 topic 數")
     parser.add_argument("--output", default="artifacts/autonomous_research/daily_research_quota_verification_latest.json")
     return parser.parse_args()
 
@@ -49,6 +50,7 @@ def read_json(path: Path) -> dict[str, Any]:
 
 
 def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
+    """驗證單批上限，並把可接受的 partial 與實際失敗分開。"""
     payload = read_json(artifact)
     contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else {}
     inputs = payload.get("inputs") if isinstance(payload.get("inputs"), dict) else {}
@@ -64,6 +66,7 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
     allowed_scripts = {"scripts/run_backtest_strategy_matrix.py", "scripts/compare_strategy_matrices.py"}
     decisions = [(run.get("outcome") or {}).get("decision") for run in topic_runs]
     outcome = payload.get("outcome") if isinstance(payload.get("outcome"), dict) else {}
+    quota = int(inputs.get("execute_topic_count") or 0)
     queue_empty = inputs.get("from_queue") is True and outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs
     followup_count = sum(1 for decision in decisions if decision in FOLLOWUP_DECISIONS)
     rejection_count = sum(1 for decision in decisions if decision in REJECTION_DECISIONS)
@@ -85,16 +88,18 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
             "ok": inputs.get("from_queue") in {True, False},
             "value": {"from_queue": inputs.get("from_queue")},
         },
-        {"name": "quota_configured", "ok": int(inputs.get("execute_topic_count") or 0) >= min_quota, "value": inputs.get("execute_topic_count")},
         {
-            "name": "selected_topic_count_meets_daily_quota",
-            "ok": queue_empty or (len(selected_topics) >= min_quota and len(topic_runs) >= min_quota),
+            "name": "quota_is_batch_cap",
+            "ok": quota > 0 and (min_quota <= 0 or quota <= min_quota),
+            "value": {"configured_quota": quota, "max_quota": min_quota},
+        },
+        {
+            "name": "topic_count_within_batch_cap",
+            "ok": len(selected_topics) <= quota and len(topic_runs) <= quota,
             "value": {
                 "topic_runs": len(topic_runs),
                 "selected_topics": len(selected_topics),
-                "min_quota": min_quota,
-                "queue_empty": queue_empty,
-                "outcome_decision": outcome.get("decision"),
+                "configured_quota": quota,
             },
         },
         {
@@ -124,10 +129,20 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
         },
     ]
     failed = [check for check in checks if not check["ok"]]
+    runtime_failed = payload.get("status") != "OK" or any(run.get("status") != "OK" for run in topic_runs)
+    if runtime_failed:
+        state = "FAILED"
+    elif failed:
+        state = "BLOCKED"
+    elif len(topic_runs) >= quota:
+        state = "COMPLETED"
+    else:
+        # quota 是單批上限：queue 沒有更多可執行 topic 時，0/1/3 筆都可正常結束。
+        state = "PARTIAL_NO_MORE_WORK"
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "status": "OK" if not failed else "FAILED",
+        "status": state,
         "artifact": repo_path(artifact),
         "summary": {
             "check_count": len(checks),
@@ -135,6 +150,7 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
             "topic_runs": len(topic_runs),
             "selected_topics": len(selected_topics),
             "requested_quota": min_quota,
+            "configured_quota": quota,
             "research_value_status": research_value_status,
             "followup_signal_count": followup_count,
             "rejection_count": rejection_count,
@@ -157,7 +173,7 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     print(json.dumps({"status": payload["status"], "output": repo_path(output), "topic_runs": payload["summary"]["topic_runs"]}, ensure_ascii=False))
-    return 0 if payload["status"] == "OK" else 1
+    return 0 if payload["status"] in SUCCESS_STATES else 1
 
 
 if __name__ == "__main__":

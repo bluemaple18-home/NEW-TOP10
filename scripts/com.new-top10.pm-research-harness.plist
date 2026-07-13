@@ -14,7 +14,9 @@
     <key>EnvironmentVariables</key>
     <dict>
         <key>TOP10_PM_RESEARCH_ENABLED</key>
-        <string>1</string>
+        <string>0</string>
+        <key>TOP10_RESEARCH_QUEUE_OWNER</key>
+        <string>fog_worker</string>
         <key>TOP10_PM_RESEARCH_SEND_CARDS</key>
         <string>0</string>
         <key>TOP10_PM_RESEARCH_DRY_RUN_SEND</key>
@@ -37,6 +39,6 @@
     <string>__PROJECT_DIR__/logs/launchd_pm_research_harness.err</string>
 
     <key>RunAtLoad</key>
-    <true/>
+    <false/>
 </dict>
 </plist>
