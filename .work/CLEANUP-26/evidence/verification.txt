@@ -1,0 +1,36 @@
+CLEANUP-26 verification
+=======================
+
+Scope
+-----
+- Deleted: scripts/run_controlled_grid_drain_host_runner.sh
+- Deleted: scripts/sync_from_remote.sh
+- Deleted: scripts/compare_portfolio_replay_variants.py
+- Deleted: scripts/research_ranking_score_shadow.py
+- Retained: scripts/run_controlled_grid_drain_host_runner.py
+- Removed only the four matching reference_audit.approved_unreferenced entries.
+
+Consumer and reference checks
+-----------------------------
+- Repo active-code/config scan: PASS. Each deleted target had no match outside docs/tasks and .work evidence.
+- Runtime surface check: PASS. launchctl, crontab, LaunchAgents, known SOP roots, and process query found no target consumer. The process query returned only its own query process.
+
+Strict audits
+-------------
+- uv run python scripts/audit_script_references.py --strict-new --output .work/CLEANUP-26/evidence/script-reference-audit.json: PASS (455 tracked scripts; 0 suspected orphans).
+- uv run python scripts/audit_script_lifecycle.py --strict-new --output .work/CLEANUP-26/evidence/script-lifecycle.json: PASS (455 tracked scripts; no new unclassified scripts).
+- uv run python -m unittest tests.test_script_reference_audit tests.test_script_lifecycle_audit: PASS (10 tests).
+
+Full test suite
+---------------
+- uv run python -m pytest: PARTIAL (163 passed, 1 failed).
+- The only failure is tests/test_research_component_ledger.py::ResearchComponentLedgerTest::test_verifier_accepts_generated_ledger.
+- Its verifier reports only evidence_exists failures for pre-existing missing artifact/data paths; none of the four deleted tools or config/script_lifecycle.yaml is in that failure set. No out-of-scope repair was made.
+
+Integrity gates
+---------------
+- git diff --check: PASS.
+- scripts/run_daily.sh: 3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3
+- scripts/run_daily_publish.sh: ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3
+- scripts/com.new-top10.daily.plist: eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995
+- config/automation.yaml: c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a
