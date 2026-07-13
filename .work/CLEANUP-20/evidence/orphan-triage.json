@@ -1,0 +1,233 @@
+{
+  "schema_version": "orphan-triage.v1",
+  "scope": "CLEANUP-20",
+  "entries": [
+    {
+      "path": "scripts/verify_operational_long_rule_validation_report.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "7003255",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_operational_long_rule_validation_report.py"],
+      "output_artifacts": ["artifacts/model_experiments/operational_long_rule_validation_verification_latest.json"],
+      "runtime_evidence": ["scripts/build_gross55_operational_shadow_dry_run.py", "config/script_lifecycle.yaml"],
+      "reason": "驗證輸出被 shadow dry-run 當作輸入，且成對 builder 產生受模型雜湊與 manifest failure_count 約束的報告；不得以無直接 caller 判定刪除。"
+    },
+    {
+      "path": "scripts/verify_operational_rule_validation_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "7003255",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_operational_rule_validation_report.py"],
+      "output_artifacts": ["artifacts/model_experiments/operational_rule_validation_verification_latest.json"],
+      "runtime_evidence": ["config/script_lifecycle.yaml"],
+      "reason": "有成對 builder 與明確 artifact schema，但未找到 verifier output 的 tracked consumer 或人工 SOP；可連同 builder 作封存評估，證據不足以刪除。"
+    },
+    {
+      "path": "scripts/verify_overlap_first_daily_recommendation_shadow.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "89e75d7",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_overlap_first_daily_recommendation_shadow.py"],
+      "output_artifacts": ["artifacts/model_experiments/overlap_first_daily_recommendation_shadow_verification_latest.json"],
+      "runtime_evidence": ["scripts/run_automation.py", "docs/tasks/2026-06-10_SHADOW-ROLLOUT-02_overlap_first_daily_recommendation.md"],
+      "reason": "daily shadow automation 產生其輸入 artifact，任務 SOP 明列 verifier artifact；此為 shadow 決策資料的契約檢查。"
+    },
+    {
+      "path": "scripts/verify_overlap_first_recommendation_performance.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "845b3e4",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/backtest_overlap_first_recommendation_performance.py"],
+      "output_artifacts": ["artifacts/model_experiments/overlap_first_recommendation_performance_verification_latest.json"],
+      "runtime_evidence": ["scripts/build_strategy_component_registry.py", "scripts/build_candidate_trail10_retention_diagnostics.py", "docs/tasks/2026-06-10_SHADOW-ROLLOUT-02_overlap_first_daily_recommendation.md"],
+      "reason": "performance artifacts 有 tracked consumers 且 SOP 明列驗證輸出；verifier 鎖住回放 performance schema。"
+    },
+    {
+      "path": "scripts/verify_portfolio_overlay_promotion_review.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "163194a",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_portfolio_overlay_promotion_review.py"],
+      "output_artifacts": ["artifacts/model_experiments/portfolio_overlay_promotion_review_verification_latest.json"],
+      "runtime_evidence": ["scripts/build_research_decision_brief.py", "docs/tasks/2026-05-30_MODEL-EXP-01_offline_experiment_plan.md"],
+      "reason": "promotion review verifier output 被 decision brief 讀取，且任務文件要求 default-off 與人工 review gate；屬不可刪的升版防線。"
+    },
+    {
+      "path": "scripts/verify_portfolio_replay_regime_attribution.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "c23b437",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_portfolio_replay_regime_attribution.py"],
+      "output_artifacts": ["artifacts/model_experiments/portfolio_replay_regime_attribution_verification_latest.json"],
+      "runtime_evidence": ["scripts/build_odd_lot_regime_sensitivity_report.py", "docs/tasks/2026-06-10_LONG-CANDIDATE-VALIDATION-01_odd_lot_candidate_long_history.md"],
+      "reason": "regime attribution artifact 有後續研究 consumer 與 long-candidate 任務證據；verifier 保護其輸入 schema。"
+    },
+    {
+      "path": "scripts/verify_production_baseline_materialization_review.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "c763974",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_production_baseline_materialization_review.py"],
+      "output_artifacts": ["artifacts/weekend_training/production_baseline_materialization_review_verification_latest.json"],
+      "runtime_evidence": ["scripts/materialize_research_only_production_baseline_smoke.py", "docs/tasks/2026-06-18_WEEKEND-TRAINING-15_controlled_production_baseline_materialization_review.md"],
+      "reason": "檢查 target 不可寫入 artifacts/backtest/production，並服務受控 materialization SOP；是 production boundary gate。"
+    },
+    {
+      "path": "scripts/verify_production_trail10_batch_08_10.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "74f8835",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/run_production_trail10_batch_08_10.py"],
+      "output_artifacts": ["artifacts/shadow/production_trail10/production_trail10_batch_08_10_verification_latest.json"],
+      "runtime_evidence": ["docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-08_10_official_report_and_clawd_dry_run.md", "config/script_lifecycle.yaml"],
+      "reason": "驗證 batch artifacts 並明確檢查 official daily report 不可被變更；任務 SOP 明列輸出，屬 operational guard。"
+    },
+    {
+      "path": "scripts/verify_reference_sources.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "f657245",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/import_reference_sources.py", "scripts/probe_reference_sources.py"],
+      "output_artifacts": [],
+      "runtime_evidence": ["scripts/run_automation.py", "scripts/com.new-top10.reference.plist", "docs/AUTOMATION.md"],
+      "reason": "雖不寫長存 artifact，仍以離線 fixture 鎖住 monthly reference update 所依賴的 Yahoo 參數、HTML fallback 與跨來源保留契約。"
+    },
+    {
+      "path": "scripts/verify_regime_conditional_hybrid_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "cc59302",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_regime_conditional_hybrid_report.py"],
+      "output_artifacts": ["artifacts/model_experiments/regime_conditional_hybrid_report_verification_latest.json"],
+      "runtime_evidence": ["config/script_lifecycle.yaml"],
+      "reason": "有 schema-specific paired builder，但未找到 tracked artifact consumer、verifier consumer 或人工 SOP；適合與 builder 一起封存審查，非刪除。"
+    },
+    {
+      "path": "scripts/verify_regime_conditional_shadow_rankings.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "cc59302",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_regime_conditional_shadow_rankings.py"],
+      "output_artifacts": ["artifacts/model_experiments/regime_conditional_shadow_ranking_verification_latest.json"],
+      "runtime_evidence": ["config/script_lifecycle.yaml"],
+      "reason": "保留 outputs sample-existence contract，但無 tracked consumer 或 SOP 證據；可與 builder 整組封存評估，不能據此高信心刪除。"
+    },
+    {
+      "path": "scripts/verify_regime_feature_offline_ablation.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "163194a",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/research_regime_feature_offline_ablation.py"],
+      "output_artifacts": ["artifacts/model_experiments/regime_feature_offline_ablation_verification_latest.json"],
+      "runtime_evidence": ["scripts/research_risk_off_narrow_routing.py", "scripts/build_model_experiment_result_report.py", "docs/tasks/2026-07-05_FEATURE-SYNTH-01_vwap_cost_basis_shadow_research.md"],
+      "reason": "offline ablation 仍被研究路由與結果報告使用，且有近期 feature-research SOP；verifier 是實驗 artifact 的 schema gate。"
+    },
+    {
+      "path": "scripts/verify_training_candidate_flow.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "cdf44f2",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/run_training_candidate_flow.py"],
+      "output_artifacts": ["artifacts/model_experiments/training_candidate_flow_verification_latest.json"],
+      "runtime_evidence": ["scripts/run_training_candidate_flow.py", "config/script_lifecycle.yaml"],
+      "reason": "候選訓練 runner 的 flow artifact 有 errors-empty 與 schema 檢查；此為人工訓練評估前的低風險 gate。"
+    },
+    {
+      "path": "scripts/verify_training_candidate_replay_flow.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "cdf44f2",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/run_training_candidate_replay_flow.py"],
+      "output_artifacts": ["artifacts/model_experiments/training_candidate_replay_flow_verification_latest.json"],
+      "runtime_evidence": ["scripts/run_training_candidate_replay_flow.py", "config/script_lifecycle.yaml"],
+      "reason": "verifier 同時檢查 replay、portfolio replay、fixed-share side artifacts 與 errors；沒有替代的單一測試可覆蓋此跨 artifact gate。"
+    },
+    {
+      "path": "scripts/verify_training_candidate_risk_attribution.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "c23b437",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_training_candidate_risk_attribution.py"],
+      "output_artifacts": ["artifacts/model_experiments/training_candidate_risk_attribution_verification_latest.json"],
+      "runtime_evidence": ["config/script_lifecycle.yaml"],
+      "reason": "程式明示僅驗證研究 artifact、不得作升版判斷；有 paired builder 卻沒有 tracked consumer 或 SOP，適合封存候選而非刪除。"
+    },
+    {
+      "path": "scripts/verify_training_candidate_risk_control_report.py",
+      "verdict": "archive_candidate",
+      "confidence": "medium",
+      "git_last_commit": "c23b437",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_training_candidate_risk_control_report.py"],
+      "output_artifacts": ["artifacts/model_experiments/training_candidate_risk_control_report_verification_latest.json"],
+      "runtime_evidence": ["config/script_lifecycle.yaml"],
+      "reason": "有 schema-specific paired builder 與 report contract，但未找到 tracked consumer、替代驗證或人工 SOP；可整組封存評估。"
+    },
+    {
+      "path": "scripts/verify_weekend_overnight_campaign_summary.py",
+      "verdict": "archive_candidate",
+      "confidence": "high",
+      "git_last_commit": "99e4f4f",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_weekend_overnight_campaign_audits.py", "scripts/build_weekend_training_rollup.py"],
+      "output_artifacts": [],
+      "runtime_evidence": ["config/script_lifecycle.yaml"],
+      "reason": "固定 2026-06-23/2026-06-21 日期與 blocker_count=202176，且無 verifier output、tracked consumer 或 SOP；保留歷史審計價值，適合封存而非刪除。"
+    },
+    {
+      "path": "scripts/verify_weekend_production_baseline_source_audit.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "99e4f4f",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_weekend_production_baseline_source_audit.py"],
+      "output_artifacts": ["artifacts/weekend_training/weekend_production_baseline_source_audit_verification_latest.json"],
+      "runtime_evidence": ["scripts/build_production_baseline_materialization_smoke.py", "scripts/build_weekend_training_rollup.py", "docs/tasks/2026-06-17_WEEKEND-TRAINING-11_production_baseline_ranking_source_audit.md"],
+      "reason": "source audit 是 weekend baseline materialization 的輸入與任務 SOP gate，並檢查不得 materialize artifacts/backtest/production。"
+    },
+    {
+      "path": "scripts/verify_weekend_ranking_dir_unlock_smoke.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "99e4f4f",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_weekend_ranking_dir_unlock_smoke.py"],
+      "output_artifacts": ["artifacts/weekend_training/weekend_ranking_dir_unlock_smoke_verification_latest.json"],
+      "runtime_evidence": ["docs/tasks/2026-06-17_WEEKEND-TRAINING-11_production_baseline_ranking_source_audit.md", "config/script_lifecycle.yaml"],
+      "reason": "SOP 明列 artifact 與 verifier output，並鎖住不可在沒有新 artifacts 時擴張及不可標記 PROMOTION_READY。"
+    },
+    {
+      "path": "scripts/verify_weekend_unsupported_unlock_audit.py",
+      "verdict": "retain",
+      "confidence": "high",
+      "git_last_commit": "99e4f4f",
+      "repo_reference_count": 1,
+      "paired_scripts": ["scripts/build_weekend_unsupported_unlock_audit.py"],
+      "output_artifacts": ["artifacts/weekend_training/weekend_unsupported_unlock_audit_verification_latest.json"],
+      "runtime_evidence": ["docs/tasks/2026-06-17_WEEKEND-TRAINING-10_unsupported_unlock_plan.md", "docs/tasks/2026-06-17_WEEKEND-TRAINING-11_production_baseline_ranking_source_audit.md"],
+      "reason": "unsupported unlock 的人工 SOP 明列 verifier artifact，且程式禁止 PROMOTION_READY；是週末人工 release gate。"
+    }
+  ],
+  "summary": {
+    "total": 20,
+    "retain": 14,
+    "archive_candidate": 6,
+    "delete_candidate": 0,
+    "unknown": 0
+  }
+}

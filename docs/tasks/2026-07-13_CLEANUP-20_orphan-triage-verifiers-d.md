@@ -1,6 +1,6 @@
 # CLEANUP-20｜Orphan Triage：Verifiers D
 
-- status: ready
+- status: completed
 - priority: P1
 - task thickness: standard
 
@@ -54,3 +54,11 @@
 ## 回報
 
 建立單一 atomic commit；回報分類統計、高信心候選與不能刪的 gate，不 merge、不 push。
+
+## Result
+
+- evidence: `.work/CLEANUP-20/evidence/orphan-triage.json`
+- classification: retain 14、archive_candidate 6、delete_candidate 0、unknown 0（20/20）
+- 高信心封存候選：`scripts/verify_weekend_overnight_campaign_summary.py`（固定歷史日期與 blocker count，無 verifier output、tracked consumer 或 SOP）；其餘 5 支封存候選仍有 paired builder，僅建議成對封存評估。
+- 不可刪 gate：production baseline materialization、production trail10、reference-source contract、overlap shadow/performance、portfolio promotion，以及 weekend source/unlock verifiers；皆有 artifact consumer、人工 SOP 或 release/production boundary contract。
+- verification: JSON 已依 path 排序；僅使用 repo-relative evidence paths；未執行 production daily/retrain/send。
