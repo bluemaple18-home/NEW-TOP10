@@ -1,13 +1,20 @@
 #!/bin/bash
-# NEW-TOP10 自動化排程安裝腳本
-# 功能: 設定 macOS cron jobs
+# NEW-TOP10 封存 cron 相容入口；正式 daily owner 為 launchd。
 
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
+if [ "${TOP10_ALLOW_LEGACY_CRON:-}" != "1" ]; then
+    echo "❌ legacy cron 已預設停用：正式 daily owner 是 launchd com.new-top10.daily。"
+    echo "如需封存相容流程，請明確設定 TOP10_ALLOW_LEGACY_CRON=1。"
+    exit 1
+fi
+
+echo "⚠️ legacy cron 相容模式：可能與 launchd com.new-top10.daily 同時排程。"
+echo "   正式 owner 仍為 launchd → scripts/run_daily_publish.sh；請先確認沒有雙重 daily。"
 echo "========================================="
-echo "🔧 NEW-TOP10 自動化排程設定"
+echo "🔧 NEW-TOP10 legacy cron 相容設定"
 echo "========================================="
 echo ""
 echo "專案路徑: $PROJECT_DIR"
@@ -35,7 +42,7 @@ crontab -l 2>/dev/null | grep -q "daily_retrain.sh" && RETRAIN_EXISTS=1 || RETRA
 crontab -l 2>/dev/null | grep -q "run_reference_update.sh" && REFERENCE_EXISTS=1 || REFERENCE_EXISTS=0
 
 # 備份現有 crontab
-echo "" 
+echo ""
 echo "💾 備份現有 crontab..."
 crontab -l > /tmp/crontab_backup_$(date +%Y%m%d_%H%M%S).txt 2>/dev/null || true
 
@@ -72,19 +79,12 @@ echo "========================================="
 crontab -l | grep "$PROJECT_DIR" || echo "(無 NEW-TOP10 相關排程)"
 echo ""
 
+echo "請執行 .venv/bin/python scripts/verify_scheduler_ownership.py 確認 owner。"
+
 # macOS 特殊提示
-echo "========================================="
-echo "⚠️ macOS 使用者注意事項"
-echo "========================================="
-echo "1. 需授予終端機「完整磁碟存取權限」"
-echo "   系統偏好設定 → 安全性與隱私 → 完整磁碟取用權限"
 echo ""
-echo "2. cron 在 macOS 可能被 launchd 取代"
-echo "   若 cron 無法運作，請改用 launchd (scripts/setup_launchd.sh)"
-echo ""
-echo "3. 手動測試腳本:"
-echo "   bash $PROJECT_DIR/scripts/run_daily.sh"
-echo "   TOP10_RESOURCE_PROFILE=host_full bash $PROJECT_DIR/scripts/daily_retrain.sh monitor --trigger scheduled"
-echo "   bash $PROJECT_DIR/scripts/daily_retrain.sh retrain"
-echo "   bash $PROJECT_DIR/scripts/run_reference_update.sh"
-echo "========================================="
+echo "手動測試腳本:"
+echo "  bash $PROJECT_DIR/scripts/run_daily.sh"
+echo "  TOP10_RESOURCE_PROFILE=host_full bash $PROJECT_DIR/scripts/daily_retrain.sh monitor --trigger scheduled"
+echo "  bash $PROJECT_DIR/scripts/daily_retrain.sh retrain"
+echo "  bash $PROJECT_DIR/scripts/run_reference_update.sh"

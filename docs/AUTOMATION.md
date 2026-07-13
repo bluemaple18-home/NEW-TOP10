@@ -22,7 +22,7 @@ cd <repo-root>
 bash scripts/setup_launchd.sh
 ```
 
-**說明**: macOS 上 launchd 比 cron 更可靠，開機後會自動載入。
+**說明**: 正式 daily 的唯一 owner 是 `com.new-top10.daily` launchd job，並指向 `scripts/run_daily_publish.sh`。macOS 開機後會自動載入。
 
 ### 2. 手動測試腳本
 
@@ -57,6 +57,9 @@ tail -f logs/launchd_retrain.log
 
 # 不送真訊息，驗證 wrapper 失敗會 fail-loud、catch-up 日期會傳到 sender
 .venv/bin/python scripts/verify_daily_publish_wrapper_guards.py
+
+# 唯讀檢查 daily scheduler 是否只有 launchd owner
+.venv/bin/python scripts/verify_scheduler_ownership.py
 
 # 不觸發 browser submit，只驗 external review host runner 的 partial / skip 證據格式
 TOP10_EXTERNAL_REVIEW_SKIP_PROVIDER_SUBMIT=1 bash scripts/run_external_review_host_runner.sh
@@ -532,7 +535,7 @@ NEW-TOP10/
 │   ├── daily_retrain.sh          # PSI 監控/手動重訓腳本
 │   ├── run_automation.py         # 自動化統一入口
 │   ├── setup_launchd.sh          # launchd 安裝
-│   ├── setup_cron.sh             # cron 安裝 (備選)
+│   ├── setup_cron.sh             # 封存 cron 相容入口（需明確 override）
 │   ├── com.new-top10.daily.plist  # launchd 設定
 │   └── com.new-top10.retrain.plist
 │
