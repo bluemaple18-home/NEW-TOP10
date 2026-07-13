@@ -1,0 +1,871 @@
+{
+  "schema_version": "clawd-publish-payload.v1",
+  "generated_at": "<generated_at>",
+  "ranking_date": "2026-07-10",
+  "source": {
+    "daily_report": "tests/fixtures/clawd_publish_payload/daily_report_2026-07-10.json",
+    "ranking_artifact": "artifacts/ranking_2026-07-10.csv",
+    "ranking_source": {
+      "source_type": "production",
+      "delivery_safe": true,
+      "allow_research_ranking": false,
+      "message": "正式 ranking artifact，可用於日報與推播 payload。"
+    },
+    "automation_status": {
+      "status": "OK",
+      "run_date": "2026-07-10",
+      "skip_reason": null,
+      "data_freshness": {
+        "max_lag_days": 2
+      }
+    }
+  },
+  "delivery": {
+    "status": "READY_FOR_CLAWD",
+    "mode": "artifact_only",
+    "channel": "discord",
+    "to": "channel:fixture",
+    "missing": [],
+    "send_attempted": false,
+    "note": "payload 已可交給 Clawd；本腳本不負責實際發送。"
+  },
+  "summary": {
+    "top_count": 6,
+    "market_regime": "RISK_OFF",
+    "gross_exposure": 0.45,
+    "allocated_exposure": 0.36,
+    "cash_weight": 0.55,
+    "missing_score_columns": []
+  },
+  "market_overview": {
+    "market": "偏弱",
+    "market_text": "今天大盤偏弱，先保守看待，名單有出現也要降低追價衝動。",
+    "capital_flow": [
+      {
+        "name": "保留現金",
+        "sector": "現金",
+        "weight": 0.55,
+        "count": 0
+      },
+      {
+        "name": "半導體/IC",
+        "sector": "電子相關",
+        "weight": 0.07,
+        "count": 1,
+        "themes": [
+          "IC生產製造"
+        ]
+      },
+      {
+        "name": "電腦與AI硬體",
+        "sector": "電子相關",
+        "weight": 0.065,
+        "count": 1,
+        "themes": [
+          "組裝代工"
+        ]
+      },
+      {
+        "name": "電機機械",
+        "sector": "工業",
+        "weight": 0.055,
+        "count": 1,
+        "themes": [
+          "電機機械"
+        ]
+      },
+      {
+        "name": "電子零組件",
+        "sector": "電子相關",
+        "weight": 0.05,
+        "count": 1,
+        "themes": [
+          "PCB"
+        ]
+      },
+      {
+        "name": "航運",
+        "sector": "航運",
+        "weight": 0.04,
+        "count": 1,
+        "themes": [
+          "航運"
+        ]
+      },
+      {
+        "name": "光電顯示",
+        "sector": "電子相關",
+        "weight": 0.02,
+        "count": 1,
+        "themes": [
+          "面板業"
+        ]
+      }
+    ],
+    "capital_flow_text": "半導體/IC 7.0%、電腦與AI硬體 6.5%、電機機械 5.5%、電子零組件 5.0%、航運 4.0%、光電顯示 2.0%；另外保留現金 55.0%，代表今天沒有把資金全壓進名單。",
+    "hot_groups": [
+      {
+        "sector": "電子相關",
+        "count": 4,
+        "capital_weight": 0.205,
+        "suggested_weight": 0.205,
+        "themes": [
+          "IC生產製造",
+          "PCB",
+          "組裝代工",
+          "面板業"
+        ]
+      },
+      {
+        "sector": "工業",
+        "count": 1,
+        "capital_weight": 0.055,
+        "suggested_weight": 0.055,
+        "themes": [
+          "電機機械"
+        ]
+      },
+      {
+        "sector": "航運",
+        "count": 1,
+        "capital_weight": 0.04,
+        "suggested_weight": 0.04,
+        "themes": [
+          "航運"
+        ]
+      }
+    ],
+    "hot_groups_text": "今天不是亂分散，主軸先看 半導體/IC；其次是 電腦與AI硬體、電機機械、電子零組件；電子相關合計 20.5%，但已拆成不同題材看。",
+    "hot_concepts": [
+      {
+        "concept": "AI伺服器",
+        "count": 3,
+        "examples": [
+          "2330 台積電",
+          "2317 鴻海",
+          "3037 欣興"
+        ]
+      },
+      {
+        "concept": "Apple",
+        "count": 1,
+        "examples": [
+          "2317 鴻海"
+        ]
+      },
+      {
+        "concept": "低軌衛星",
+        "count": 1,
+        "examples": [
+          "3481 群創"
+        ]
+      },
+      {
+        "concept": "儲能",
+        "count": 1,
+        "examples": [
+          "1513 中興電"
+        ]
+      },
+      {
+        "concept": "台積電",
+        "count": 1,
+        "examples": [
+          "2330 台積電"
+        ]
+      },
+      {
+        "concept": "智慧電網",
+        "count": 1,
+        "examples": [
+          "1513 中興電"
+        ]
+      }
+    ],
+    "hot_concepts_text": "AI伺服器（3 檔）、Apple（1 檔）、低軌衛星（1 檔）、儲能（1 檔）。"
+  },
+  "risk": {
+    "market_regime": "RISK_OFF",
+    "max_risk_penalty": 0.7,
+    "low_risk_reward_count": 1,
+    "data_freshness": {
+      "datasets": {
+        "price": {
+          "latest_date": "2026-07-10",
+          "lag_days": 0,
+          "rows": 1280
+        },
+        "institutional": {
+          "latest_date": "2026-07-09",
+          "lag_days": 1,
+          "rows": 1200
+        }
+      }
+    },
+    "notes": [
+      "Top10 內有風險扣分，需看停損與部位上限。",
+      "固定 fixture：不得改寫推播文字與排序。"
+    ]
+  },
+  "top10": [
+    {
+      "rank": 1,
+      "stock_id": "2330",
+      "stock_name": "台積電",
+      "close": 1085.0,
+      "scores": {
+        "risk_adjusted_score": 2.31,
+        "model_prob": 0.62,
+        "risk_penalty": 0.0
+      },
+      "position": {
+        "suggested_weight": 0.07
+      },
+      "tape": {
+        "open": 1060.0,
+        "high": 1090.0,
+        "low": 1055.0,
+        "close": 1085.0,
+        "prev_close": 1055.0,
+        "return_pct": 2.8436,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "IC生產製造",
+        "sector_name": "科技",
+        "concept_tags": [
+          "台積電",
+          "AI伺服器"
+        ]
+      },
+      "trade_plan": {
+        "entry": 1065.0,
+        "stop_loss": 1020.0,
+        "target_price": 1160.0,
+        "risk_reward": 2.11,
+        "risk_reward_score": 1.2,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "突破20日新高",
+        "MACD黃金交叉",
+        "AI: obv(+0.59) bb_width(+0.46)"
+      ],
+      "audience_group": {
+        "sector": "電子相關",
+        "theme": "IC生產製造",
+        "concepts": [
+          "台積電",
+          "AI伺服器"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "⚠️ 高價強勢股，能看但不能亂追",
+        "why_bullets": [
+          "台積電不是只在原地整理，而是往上推過最近容易卡關的位置。",
+          "台積電短線動能剛轉強，接下來重點看買盤能不能延續。",
+          "除了型態，數據面還有買盤有累積、波動開始打開在加分。",
+          "從族群來看，台積電、AI伺服器 是它今天比較容易被注意的原因。"
+        ],
+        "translation": "它在今天資金主軸 半導體/IC 裡，IC生產製造這檔屬於高價強勢股，能看，但不要用一般低價股的節奏去追。",
+        "risk": "股價單價高，漲跌一格金額感受會比較大，部位要比一般股票更小。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高"
+        },
+        {
+          "type": "technical_signal",
+          "label": "MACD 黃金交叉",
+          "plain": "短線動能開始轉強",
+          "raw": "MACD黃金交叉"
+        },
+        {
+          "type": "ai_factor",
+          "label": "OBV 量價累積",
+          "plain": "買盤有累積進來的跡象",
+          "raw": "obv"
+        },
+        {
+          "type": "ai_factor",
+          "label": "布林帶寬度擴張",
+          "plain": "股價波動開始放大，可能要走出一段行情",
+          "raw": "bb_width"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高",
+        "MACD黃金交叉",
+        "AI:obv",
+        "AI:bb_width"
+      ],
+      "market_context": {
+        "bucket": "半導體/IC",
+        "bucket_weight": 0.07,
+        "bucket_count": 1,
+        "is_lead_bucket": true,
+        "lead_bucket": "半導體/IC",
+        "lead_weight": 0.07,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "台積電",
+          "AI伺服器"
+        ]
+      },
+      "list_role": "primary"
+    },
+    {
+      "rank": 2,
+      "stock_id": "2317",
+      "stock_name": "鴻海",
+      "close": 214.5,
+      "scores": {
+        "risk_adjusted_score": 2.08,
+        "model_prob": 0.58,
+        "risk_penalty": 0.0
+      },
+      "position": {
+        "suggested_weight": 0.065
+      },
+      "tape": {
+        "open": 210.0,
+        "high": 216.0,
+        "low": 209.0,
+        "close": 214.5,
+        "prev_close": 210.5,
+        "return_pct": 1.9002,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "組裝代工",
+        "sector_name": "科技",
+        "concept_tags": [
+          "AI伺服器",
+          "Apple"
+        ]
+      },
+      "trade_plan": {
+        "entry_zone": {
+          "low": 209.0,
+          "high": 213.0
+        },
+        "stop_loss": 202.0,
+        "target_price": 231.0,
+        "risk_reward": 2.2,
+        "risk_reward_score": 1.15,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "成交量暴增",
+        "跳空強勢收紅",
+        "AI: transactions(+0.41) avg_volume_10d(+0.33)"
+      ],
+      "audience_group": {
+        "sector": "電子相關",
+        "theme": "組裝代工",
+        "concepts": [
+          "AI伺服器",
+          "Apple"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "🔥 交易轉熱，可列入觀察",
+        "why_bullets": [
+          "鴻海開高後沒有一路滑掉，代表追價資金至少守到收盤。",
+          "鴻海量能比平常熱，短線關注度明顯升溫。",
+          "這檔入選不是單靠突破，參與的人變多、近期量能升溫也有幫忙加分。",
+          "產業標籤偏 AI伺服器、Apple，不是完全沒有題材支撐。"
+        ],
+        "translation": "它不是今天第一主軸 半導體/IC，但個股訊號夠強，組裝代工這檔買盤有升溫，適合放進名單追蹤，等價格回到合理區間再判斷。",
+        "risk": "這檔也連到 AI伺服器、Apple，同題材不要一次買太多檔。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "成交量暴增",
+          "plain": "今天交易明顯變熱，市場注意力提高",
+          "raw": "成交量暴增"
+        },
+        {
+          "type": "technical_signal",
+          "label": "跳空強勢收紅",
+          "plain": "一開盤買盤就比較積極，收盤也沒有被打下來",
+          "raw": "跳空強勢收紅"
+        },
+        {
+          "type": "ai_factor",
+          "label": "成交筆數",
+          "plain": "成交筆數增加，代表參與的人變多",
+          "raw": "transactions"
+        },
+        {
+          "type": "ai_factor",
+          "label": "10日均量",
+          "plain": "最近成交量比平常熱",
+          "raw": "avg_volume_10d"
+        }
+      ],
+      "raw_signals": [
+        "成交量暴增",
+        "跳空強勢收紅",
+        "AI:transactions",
+        "AI:avg_volume_10d"
+      ],
+      "market_context": {
+        "bucket": "電腦與AI硬體",
+        "bucket_weight": 0.065,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "半導體/IC",
+        "lead_weight": 0.07,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "AI伺服器",
+          "Apple"
+        ]
+      },
+      "list_role": "primary"
+    },
+    {
+      "rank": 3,
+      "stock_id": "1513",
+      "stock_name": "中興電",
+      "close": 168.0,
+      "scores": {
+        "risk_adjusted_score": 1.92,
+        "model_prob": 0.54,
+        "risk_penalty": 0.1
+      },
+      "position": {
+        "suggested_weight": 0.055
+      },
+      "tape": {
+        "open": 164.0,
+        "high": 170.0,
+        "low": 163.0,
+        "close": 168.0,
+        "prev_close": 164.5,
+        "return_pct": 2.1277,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "電機機械",
+        "sector_name": "工業",
+        "concept_tags": [
+          "智慧電網",
+          "儲能"
+        ]
+      },
+      "trade_plan": {
+        "entry": 165.0,
+        "stop_loss": 157.0,
+        "target_price": 182.0,
+        "risk_reward": 2.125,
+        "risk_reward_score": 1.1,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "月線支撐",
+        "錘子線",
+        "AI: turnover_rate(+0.27) rsi(+0.19)"
+      ],
+      "audience_group": {
+        "sector": "工業",
+        "theme": "電機機械",
+        "concepts": [
+          "智慧電網",
+          "儲能"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "🛡 拉回有人接，短線偏強",
+        "why_bullets": [
+          "中興電賣壓出來時沒有失控，短線支撐感比前面好。",
+          "從模型角度看，換手變活躍、短線強弱偏正面讓它比一般轉強股更醒目。",
+          "題材線索落在 智慧電網、儲能，容易被同族群資金一起檢視。"
+        ],
+        "translation": "它不是今天第一主軸 半導體/IC，但個股訊號夠強，電機機械這檔盤中有賣壓但被接住，代表市場還願意撐，適合先觀察。",
+        "risk": "這檔有風險扣分，買之前要先想好停損，不能越跌越加。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "月線支撐",
+          "plain": "股價靠近重要支撐時有人接",
+          "raw": "月線支撐"
+        },
+        {
+          "type": "technical_signal",
+          "label": "錘子線",
+          "plain": "盤中被賣下去後又有人接回來",
+          "raw": "錘子線"
+        },
+        {
+          "type": "ai_factor",
+          "label": "週轉率",
+          "plain": "股票換手變快，市場比較活躍",
+          "raw": "turnover_rate"
+        },
+        {
+          "type": "ai_factor",
+          "label": "RSI 強弱",
+          "plain": "短線強弱偏正面",
+          "raw": "rsi"
+        }
+      ],
+      "raw_signals": [
+        "月線支撐",
+        "錘子線",
+        "AI:turnover_rate",
+        "AI:rsi"
+      ],
+      "market_context": {
+        "bucket": "電機機械",
+        "bucket_weight": 0.055,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "半導體/IC",
+        "lead_weight": 0.07,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "智慧電網",
+          "儲能"
+        ]
+      },
+      "list_role": "primary"
+    },
+    {
+      "rank": 4,
+      "stock_id": "3037",
+      "stock_name": "欣興",
+      "close": 201.0,
+      "scores": {
+        "risk_adjusted_score": 1.78,
+        "model_prob": 0.49,
+        "risk_penalty": 0.0
+      },
+      "position": {
+        "suggested_weight": 0.05
+      },
+      "tape": {
+        "open": 198.0,
+        "high": 203.5,
+        "low": 196.5,
+        "close": 201.0,
+        "prev_close": 198.0,
+        "return_pct": 1.5152,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "PCB",
+        "sector_name": "科技",
+        "concept_tags": [
+          "AI伺服器"
+        ]
+      },
+      "trade_plan": {
+        "entry": 198.0,
+        "stop_loss": 190.0,
+        "target_price": 218.0,
+        "risk_reward": 2.5,
+        "risk_reward_score": 1.08,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "紅三兵",
+        "AI: ma20(+0.31) close(+0.22)"
+      ],
+      "audience_group": {
+        "sector": "電子相關",
+        "theme": "PCB",
+        "concepts": [
+          "AI伺服器"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "🚀 多方延續，短線仍有氣勢",
+        "why_bullets": [
+          "欣興股價連續幾天墊高，多方還沒有明顯退場。",
+          "模型加分不只看價格，也看到價格站回近期平均成本上方、收盤價格強。",
+          "它連到 AI伺服器，後面要一起看同題材有沒有續強。"
+        ],
+        "translation": "它不是今天第一主軸 半導體/IC，所以先當候補看，PCB這檔短線氣勢還在，不過已經不是剛起漲，觀察重點是拉回有沒有人接。",
+        "risk": "這檔也連到 AI伺服器，同題材不要一次買太多檔。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "紅三兵",
+          "plain": "股價連續幾天走強",
+          "raw": "紅三兵"
+        },
+        {
+          "type": "ai_factor",
+          "label": "月線位置",
+          "plain": "價格站在近期平均成本上方",
+          "raw": "ma20"
+        },
+        {
+          "type": "ai_factor",
+          "label": "收盤價",
+          "plain": "收盤價格表現偏強",
+          "raw": "close"
+        }
+      ],
+      "raw_signals": [
+        "紅三兵",
+        "AI:ma20",
+        "AI:close"
+      ],
+      "market_context": {
+        "bucket": "電子零組件",
+        "bucket_weight": 0.05,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "半導體/IC",
+        "lead_weight": 0.07,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "AI伺服器"
+        ]
+      },
+      "list_role": "backup"
+    },
+    {
+      "rank": 5,
+      "stock_id": "2603",
+      "stock_name": "長榮",
+      "close": 226.0,
+      "scores": {
+        "risk_adjusted_score": 1.65,
+        "model_prob": 0.47,
+        "risk_penalty": 0.2
+      },
+      "position": {
+        "suggested_weight": 0.04
+      },
+      "tape": {
+        "open": 223.0,
+        "high": 229.0,
+        "low": 221.0,
+        "close": 226.0,
+        "prev_close": 224.0,
+        "return_pct": 0.8929,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "航運",
+        "sector_name": "工業",
+        "concept_tags": [
+          "貨櫃航運"
+        ]
+      },
+      "trade_plan": {
+        "entry": 220.0,
+        "stop_loss": 213.0,
+        "target_price": 232.0,
+        "risk_reward": 1.7143,
+        "risk_reward_score": 0.72,
+        "rr_guard_action": "WAIT_PULLBACK",
+        "rr_guard_reason": "現價風險報酬不足"
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "突破60日新高",
+        "AI: volume(+0.35) avg_value_20d(+0.26)"
+      ],
+      "audience_group": {
+        "sector": "航運",
+        "theme": "航運",
+        "concepts": [
+          "貨櫃航運"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "⚠️ 空間不漂亮，只能等拉回",
+        "why_bullets": [
+          "現價風險報酬不足，所以今天只能列為等待名單。",
+          "長榮需要等價格回到合理區間，或看到承接確認後再評估。"
+        ],
+        "translation": "航運這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。",
+        "risk": "上方空間小於下方風險，現在不適合追，等拉回或重新站穩。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破60日新高",
+          "plain": "股價突破更長一段時間的壓力區",
+          "raw": "突破60日新高"
+        },
+        {
+          "type": "ai_factor",
+          "label": "成交量",
+          "plain": "成交量有放大",
+          "raw": "volume"
+        },
+        {
+          "type": "ai_factor",
+          "label": "20日成交值",
+          "plain": "最近成交金額夠大，比較不冷門",
+          "raw": "avg_value_20d"
+        }
+      ],
+      "raw_signals": [
+        "突破60日新高",
+        "AI:volume",
+        "AI:avg_value_20d"
+      ],
+      "market_context": {
+        "bucket": "航運",
+        "bucket_weight": 0.04,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "半導體/IC",
+        "lead_weight": 0.07,
+        "market": "偏弱",
+        "matched_hot_concepts": []
+      },
+      "list_role": "pullback"
+    },
+    {
+      "rank": 6,
+      "stock_id": "3481",
+      "stock_name": "群創",
+      "close": 13.5,
+      "scores": {
+        "risk_adjusted_score": 1.51,
+        "model_prob": 0.44,
+        "risk_penalty": 0.7
+      },
+      "position": {
+        "suggested_weight": 0.02
+      },
+      "tape": {
+        "open": 13.5,
+        "high": 13.5,
+        "low": 13.5,
+        "close": 13.5,
+        "prev_close": 15.0,
+        "return_pct": -10.0,
+        "intraday_position": 0.0,
+        "one_price_locked": true,
+        "limit_state": "ONE_PRICE_LIMIT_DOWN",
+        "tape_guard_action": "EXCLUDE",
+        "tape_guard_reason": "一字跌停，當天沒有給出正常換手觀察點"
+      },
+      "reference": {
+        "industry_name": "面板業",
+        "sector_name": "科技",
+        "concept_tags": [
+          "低軌衛星",
+          "特斯拉"
+        ]
+      },
+      "trade_plan": {
+        "entry": 14.8,
+        "stop_loss": 14.0,
+        "target_price": 16.5,
+        "risk_reward": 2.125,
+        "risk_reward_score": 1.05,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "W底突破",
+        "AI: obv(+0.45) bb_width(+0.38)"
+      ],
+      "audience_group": {
+        "sector": "電子相關",
+        "theme": "面板業",
+        "concepts": [
+          "低軌衛星",
+          "特斯拉"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "⚠️ 當日賣壓過重，只能列風險觀察",
+        "why_bullets": [
+          "一字跌停，當天沒有給出正常換手觀察點，這種狀態不能當作進場訊號。",
+          "模型看到的是前段量價痕跡，但今天這根 K 棒已經先否決追價。"
+        ],
+        "translation": "白話講，這檔不是今天可以追的強勢股；先等它止跌、打開成交，再重新評估。",
+        "risk": "未進場者先不要追；已持有者要自己檢查是否跌破原本停損或風控線。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "W底突破",
+          "plain": "當日價格偏弱，這個訊號只能當背景參考",
+          "raw": "W底突破"
+        },
+        {
+          "type": "ai_factor",
+          "label": "OBV 量價累積",
+          "plain": "模型看到前段資料，但今天只能當背景參考",
+          "raw": "obv"
+        },
+        {
+          "type": "ai_factor",
+          "label": "布林帶寬度擴張",
+          "plain": "模型看到前段資料，但今天只能當背景參考",
+          "raw": "bb_width"
+        }
+      ],
+      "raw_signals": [
+        "W底突破",
+        "AI:obv",
+        "AI:bb_width"
+      ],
+      "market_context": {
+        "bucket": "光電顯示",
+        "bucket_weight": 0.02,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "半導體/IC",
+        "lead_weight": 0.07,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "低軌衛星"
+        ]
+      },
+      "list_role": "risk"
+    }
+  ],
+  "message_markdown": "Top10 每日選股｜2026-07-10\n\n狀態：OK｜大盤：偏弱\n來源：正式 ranking artifact，可用於日報與推播 payload。\n讀法：這是今天的觀察名單，不是叫你一次買滿。盤勢不夠強時，後段名單只當候補。\n\n今日大盤與資金\n- 大盤情況：今天大盤偏弱，先保守看待，名單有出現也要降低追價衝動。\n- 資金分布：半導體/IC 7.0%、電腦與AI硬體 6.5%、電機機械 5.5%、電子零組件 5.0%、航運 4.0%、光電顯示 2.0%；另外保留現金 55.0%，代表今天沒有把資金全壓進名單。\n- 資金重心：今天不是亂分散，主軸先看 半導體/IC；其次是 電腦與AI硬體、電機機械、電子零組件；電子相關合計 20.5%，但已拆成不同題材看。\n- 熱門概念：AI伺服器（3 檔）、Apple（1 檔）、低軌衛星（1 檔）、儲能（1 檔）。\n\n今日名單怎麼讀？\n- 大盤偏弱，最多先看前 3 檔，其餘 3 檔只當候補、保留現金 55.0%。\n\n今日 10 檔總覽\n- 1. 2330 台積電｜主攻觀察\n- 2. 2317 鴻海｜主攻觀察\n- 3. 1513 中興電｜主攻觀察\n- 4. 3037 欣興｜候補觀察\n- 5. 2603 長榮｜只等拉回\n- 6. 3481 群創｜風險警示\n\n逐檔重點\n\n主攻觀察\n1. 2330 台積電｜IC生產製造｜台積電、AI伺服器\n⚠️ 高價強勢股，能看但不能亂追\n\n跟今天盤勢的關係：\n台積電落在今天資金最集中的 半導體/IC（約 7.0%），所以它不是孤立強，是跟著今日主軸被挑出來。 同時也連到熱門概念 台積電、AI伺服器。\n\n為什麼入選：\n- 台積電不是只在原地整理，而是往上推過最近容易卡關的位置。\n- 台積電短線動能剛轉強，接下來重點看買盤能不能延續。\n- 除了型態，數據面還有買盤有累積、波動開始打開在加分。\n- 從族群來看，台積電、AI伺服器 是它今天比較容易被注意的原因。\n\n怎麼看：\n- 觀察區間：1065.00 ~ 1080.97 元\n- 跌破 1020.00 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 1160.00 元。\n- 族群有資金加持，但若跌破區間，代表熱度沒有延續。\n\n白話翻譯：\n它在今天資金主軸 半導體/IC 裡，IC生產製造這檔屬於高價強勢股，能看，但不要用一般低價股的節奏去追。\n提醒：股價單價高，漲跌一格金額感受會比較大，部位要比一般股票更小。\n\n主攻觀察\n2. 2317 鴻海｜組裝代工｜AI伺服器、Apple\n🔥 交易轉熱，可列入觀察\n\n跟今天盤勢的關係：\n今天盤面主軸是 半導體/IC，鴻海則是在支線 電腦與AI硬體（約 6.5%）裡轉強。 同時也連到熱門概念 AI伺服器、Apple。\n\n為什麼入選：\n- 鴻海開高後沒有一路滑掉，代表追價資金至少守到收盤。\n- 鴻海量能比平常熱，短線關注度明顯升溫。\n- 這檔入選不是單靠突破，參與的人變多、近期量能升溫也有幫忙加分。\n- 產業標籤偏 AI伺服器、Apple，不是完全沒有題材支撐。\n\n怎麼看：\n- 觀察區間：209.00 ~ 213.00 元\n- 跌破 202.00 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 231.00 元。\n- 支線股要更挑價格，站不穩觀察區間就先退一步。\n\n白話翻譯：\n它不是今天第一主軸 半導體/IC，但個股訊號夠強，組裝代工這檔買盤有升溫，適合放進名單追蹤，等價格回到合理區間再判斷。\n提醒：這檔也連到 AI伺服器、Apple，同題材不要一次買太多檔。\n\n主攻觀察\n3. 1513 中興電｜電機機械｜智慧電網、儲能\n🛡 拉回有人接，短線偏強\n\n跟今天盤勢的關係：\n電機機械（約 5.5%）不是今天最大資金池，但中興電在這條支線裡有自己的強度。 同時也連到熱門概念 智慧電網、儲能。\n\n為什麼入選：\n- 中興電賣壓出來時沒有失控，短線支撐感比前面好。\n- 從模型角度看，換手變活躍、短線強弱偏正面讓它比一般轉強股更醒目。\n- 題材線索落在 智慧電網、儲能，容易被同族群資金一起檢視。\n\n怎麼看：\n- 觀察區間：165.00 ~ 167.47 元\n- 跌破 157.00 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 182.00 元。\n- 如果主軸資金沒有外溢到它身上，就不要硬追。\n\n白話翻譯：\n它不是今天第一主軸 半導體/IC，但個股訊號夠強，電機機械這檔盤中有賣壓但被接住，代表市場還願意撐，適合先觀察。\n提醒：這檔有風險扣分，買之前要先想好停損，不能越跌越加。\n\n候補觀察\n4. 3037 欣興｜PCB｜AI伺服器\n🚀 多方延續，短線仍有氣勢\n\n跟今天盤勢的關係：\n資金最大方向先看 半導體/IC；欣興屬於次主線 電子零組件（約 5.0%），要更重視後續確認。 同時也連到熱門概念 AI伺服器。\n\n為什麼入選：\n- 欣興股價連續幾天墊高，多方還沒有明顯退場。\n- 模型加分不只看價格，也看到價格站回近期平均成本上方、收盤價格強。\n- 它連到 AI伺服器，後面要一起看同題材有沒有續強。\n\n怎麼看：\n- 觀察區間：198.00 ~ 200.97 元\n- 跌破 190.00 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 218.00 元。\n- 排名落在候補，代表可以追蹤，但要等價格和買盤一起確認。\n\n白話翻譯：\n它不是今天第一主軸 半導體/IC，所以先當候補看，PCB這檔短線氣勢還在，不過已經不是剛起漲，觀察重點是拉回有沒有人接。\n提醒：這檔也連到 AI伺服器，同題材不要一次買太多檔。\n\n只等拉回\n5. 2603 長榮｜航運｜貨櫃航運\n⚠️ 空間不漂亮，只能等拉回\n\n跟今天盤勢的關係：\n長榮有族群脈絡可追蹤，落在 航運（約 4.0%）；但目前買點條件還沒到位，先等價格確認。\n\n為什麼入選：\n- 現價風險報酬不足，所以今天只能列為等待名單。\n- 長榮需要等價格回到合理區間，或看到承接確認後再評估。\n\n怎麼看：\n- 觀察區間：220.00 ~ 223.30 元，但現在空間不夠漂亮（RR 約 0.72）。\n- 短線執行停損先看 213.00 元。\n- 趨勢失效價另看 213.00 元，不要把它當成追高停損。\n- 等拉回後仍有承接，或重新站穩再看。\n\n白話翻譯：\n航運這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。\n提醒：上方空間小於下方風險，現在不適合追，等拉回或重新站穩。\n\n風險警示\n6. 3481 群創｜面板業｜低軌衛星、特斯拉\n⚠️ 當日賣壓過重，只能列風險觀察\n\n跟今天盤勢的關係：\n群創雖然有族群或題材背景，但一字跌停，當天沒有給出正常換手觀察點，今天不能視為主線強勢。\n\n為什麼入選：\n- 一字跌停，當天沒有給出正常換手觀察點，這種狀態不能當作進場訊號。\n- 模型看到的是前段量價痕跡，但今天這根 K 棒已經先否決追價。\n\n怎麼看：\n- 今天不列主攻觀察，先等跌停打開或重新站回觀察區間。\n- 原本跌破 14.00 元才算趨勢轉弱，但一字跌停屬於更早的風控警訊。\n- 未進場者先不要追；已持有者要回到自己的停損規則檢查。\n\n白話翻譯：\n白話講，這檔不是今天可以追的強勢股；先等它止跌、打開成交，再重新評估。\n提醒：未進場者先不要追；已持有者要自己檢查是否跌破原本停損或風控線。\n\n風險提醒\n- Top10 內有風險扣分，需看停損與部位上限。\n- 固定 fixture：不得改寫推播文字與排序。\n\n資料狀態\n- 排名使用的資料更新到 2026-07-10。\n",
+  "message_stats": {
+    "characters": 3115,
+    "listed_items": 6
+  },
+  "artifacts": {
+    "payload": "clawd_publish_payload_2026-07-10.json",
+    "message": "clawd_publish_message_2026-07-10.md"
+  }
+}

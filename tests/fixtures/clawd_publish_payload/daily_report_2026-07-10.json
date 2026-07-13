@@ -1,0 +1,341 @@
+{
+  "schema_version": "daily-decision-report.v1",
+  "generated_at": "2026-07-10T08:00:00+00:00",
+  "ranking_date": "2026-07-10",
+  "ranking_artifact": "artifacts/ranking_2026-07-10.csv",
+  "ranking_source": {
+    "source_type": "production",
+    "delivery_safe": true,
+    "allow_research_ranking": false,
+    "message": "正式 ranking artifact，可用於日報與推播 payload。"
+  },
+  "automation_status": {
+    "status": "OK",
+    "run_date": "2026-07-10",
+    "skip_reason": null,
+    "data_freshness": {
+      "max_lag_days": 2
+    }
+  },
+  "summary": {
+    "top_count": 6,
+    "market_regime": "RISK_OFF",
+    "gross_exposure": 0.45,
+    "allocated_exposure": 0.36,
+    "cash_weight": 0.55,
+    "missing_score_columns": []
+  },
+  "risk": {
+    "market_regime": "RISK_OFF",
+    "max_risk_penalty": 0.7,
+    "low_risk_reward_count": 1,
+    "data_freshness": {
+      "datasets": {
+        "price": {
+          "latest_date": "2026-07-10",
+          "lag_days": 0,
+          "rows": 1280
+        },
+        "institutional": {
+          "latest_date": "2026-07-09",
+          "lag_days": 1,
+          "rows": 1200
+        }
+      }
+    },
+    "notes": [
+      "Top10 內有風險扣分，需看停損與部位上限。",
+      "固定 fixture：不得改寫推播文字與排序。"
+    ]
+  },
+  "top10": [
+    {
+      "rank": 1,
+      "stock_id": "2330",
+      "stock_name": "台積電",
+      "close": 1085.0,
+      "scores": {
+        "risk_adjusted_score": 2.31,
+        "model_prob": 0.62,
+        "risk_penalty": 0.0
+      },
+      "position": {
+        "suggested_weight": 0.07
+      },
+      "tape": {
+        "open": 1060.0,
+        "high": 1090.0,
+        "low": 1055.0,
+        "close": 1085.0,
+        "prev_close": 1055.0,
+        "return_pct": 2.8436,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "IC生產製造",
+        "sector_name": "科技",
+        "concept_tags": [
+          "台積電",
+          "AI伺服器"
+        ]
+      },
+      "trade_plan": {
+        "entry": 1065.0,
+        "stop_loss": 1020.0,
+        "target_price": 1160.0,
+        "risk_reward": 2.11,
+        "risk_reward_score": 1.2,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "突破20日新高",
+        "MACD黃金交叉",
+        "AI: obv(+0.59) bb_width(+0.46)"
+      ]
+    },
+    {
+      "rank": 2,
+      "stock_id": "2317",
+      "stock_name": "鴻海",
+      "close": 214.5,
+      "scores": {
+        "risk_adjusted_score": 2.08,
+        "model_prob": 0.58,
+        "risk_penalty": 0.0
+      },
+      "position": {
+        "suggested_weight": 0.065
+      },
+      "tape": {
+        "open": 210.0,
+        "high": 216.0,
+        "low": 209.0,
+        "close": 214.5,
+        "prev_close": 210.5,
+        "return_pct": 1.9002,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "組裝代工",
+        "sector_name": "科技",
+        "concept_tags": [
+          "AI伺服器",
+          "Apple"
+        ]
+      },
+      "trade_plan": {
+        "entry_zone": {
+          "low": 209.0,
+          "high": 213.0
+        },
+        "stop_loss": 202.0,
+        "target_price": 231.0,
+        "risk_reward": 2.2,
+        "risk_reward_score": 1.15,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "成交量暴增",
+        "跳空強勢收紅",
+        "AI: transactions(+0.41) avg_volume_10d(+0.33)"
+      ]
+    },
+    {
+      "rank": 3,
+      "stock_id": "1513",
+      "stock_name": "中興電",
+      "close": 168.0,
+      "scores": {
+        "risk_adjusted_score": 1.92,
+        "model_prob": 0.54,
+        "risk_penalty": 0.1
+      },
+      "position": {
+        "suggested_weight": 0.055
+      },
+      "tape": {
+        "open": 164.0,
+        "high": 170.0,
+        "low": 163.0,
+        "close": 168.0,
+        "prev_close": 164.5,
+        "return_pct": 2.1277,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "電機機械",
+        "sector_name": "工業",
+        "concept_tags": [
+          "智慧電網",
+          "儲能"
+        ]
+      },
+      "trade_plan": {
+        "entry": 165.0,
+        "stop_loss": 157.0,
+        "target_price": 182.0,
+        "risk_reward": 2.125,
+        "risk_reward_score": 1.1,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "月線支撐",
+        "錘子線",
+        "AI: turnover_rate(+0.27) rsi(+0.19)"
+      ]
+    },
+    {
+      "rank": 4,
+      "stock_id": "3037",
+      "stock_name": "欣興",
+      "close": 201.0,
+      "scores": {
+        "risk_adjusted_score": 1.78,
+        "model_prob": 0.49,
+        "risk_penalty": 0.0
+      },
+      "position": {
+        "suggested_weight": 0.05
+      },
+      "tape": {
+        "open": 198.0,
+        "high": 203.5,
+        "low": 196.5,
+        "close": 201.0,
+        "prev_close": 198.0,
+        "return_pct": 1.5152,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "PCB",
+        "sector_name": "科技",
+        "concept_tags": [
+          "AI伺服器"
+        ]
+      },
+      "trade_plan": {
+        "entry": 198.0,
+        "stop_loss": 190.0,
+        "target_price": 218.0,
+        "risk_reward": 2.5,
+        "risk_reward_score": 1.08,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "紅三兵",
+        "AI: ma20(+0.31) close(+0.22)"
+      ]
+    },
+    {
+      "rank": 5,
+      "stock_id": "2603",
+      "stock_name": "長榮",
+      "close": 226.0,
+      "scores": {
+        "risk_adjusted_score": 1.65,
+        "model_prob": 0.47,
+        "risk_penalty": 0.2
+      },
+      "position": {
+        "suggested_weight": 0.04
+      },
+      "tape": {
+        "open": 223.0,
+        "high": 229.0,
+        "low": 221.0,
+        "close": 226.0,
+        "prev_close": 224.0,
+        "return_pct": 0.8929,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_name": "航運",
+        "sector_name": "工業",
+        "concept_tags": [
+          "貨櫃航運"
+        ]
+      },
+      "trade_plan": {
+        "entry": 220.0,
+        "stop_loss": 213.0,
+        "target_price": 232.0,
+        "risk_reward": 1.7143,
+        "risk_reward_score": 0.72,
+        "rr_guard_action": "WAIT_PULLBACK",
+        "rr_guard_reason": "現價風險報酬不足"
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "突破60日新高",
+        "AI: volume(+0.35) avg_value_20d(+0.26)"
+      ]
+    },
+    {
+      "rank": 6,
+      "stock_id": "3481",
+      "stock_name": "群創",
+      "close": 13.5,
+      "scores": {
+        "risk_adjusted_score": 1.51,
+        "model_prob": 0.44,
+        "risk_penalty": 0.7
+      },
+      "position": {
+        "suggested_weight": 0.02
+      },
+      "tape": {
+        "open": 13.5,
+        "high": 13.5,
+        "low": 13.5,
+        "close": 13.5,
+        "prev_close": 15.0,
+        "return_pct": -10.0,
+        "intraday_position": 0.0,
+        "one_price_locked": true,
+        "limit_state": "ONE_PRICE_LIMIT_DOWN",
+        "tape_guard_action": "EXCLUDE",
+        "tape_guard_reason": "一字跌停，當天沒有給出正常換手觀察點"
+      },
+      "reference": {
+        "industry_name": "面板業",
+        "sector_name": "科技",
+        "concept_tags": [
+          "低軌衛星",
+          "特斯拉"
+        ]
+      },
+      "trade_plan": {
+        "entry": 14.8,
+        "stop_loss": 14.0,
+        "target_price": 16.5,
+        "risk_reward": 2.125,
+        "risk_reward_score": 1.05,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": ""
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "W底突破",
+        "AI: obv(+0.45) bb_width(+0.38)"
+      ]
+    }
+  ]
+}
