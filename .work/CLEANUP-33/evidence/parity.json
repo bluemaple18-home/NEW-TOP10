@@ -1,0 +1,202 @@
+{
+  "schema_version": "cleanup33-operational-rule-builder-parity.v1",
+  "task_id": "CLEANUP-33",
+  "status": "PASS",
+  "profiles": [
+    "candidate",
+    "experiment"
+  ],
+  "cases": [
+    "valid",
+    "missing"
+  ],
+  "normalization": [
+    "generated_at removed from JSON payload comparison",
+    "payload SHA uses sorted compact JSON after normalization",
+    "old/new commands use identical --output path for console parity"
+  ],
+  "retired_entrypoints": [
+    "scripts/build_operational_rule_candidate_report.py",
+    "scripts/build_operational_rule_experiment_report.py"
+  ],
+  "retained_entrypoint": "scripts/build_operational_rule_review.py",
+  "records": [
+    {
+      "profile": "candidate",
+      "case": "valid",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "stderr_last_line_equal": true,
+      "payload_equal": true,
+      "markdown_equal": true,
+      "legacy": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": ".work/CLEANUP-33/evidence/parity_runs/candidate/valid/output.json",
+          "decision": "CONTINUE_RULE_RESEARCH_NO_PROMOTION"
+        },
+        "console_sha256": "3f4eebcc9b2b46ff872e851df9faea922035761fd6666a016cea7e35f095497e",
+        "stderr_last_line": null,
+        "payload_sha256": "2f612d202c1d7a44c6218c38647547b5efbef8a4cd8b5df0f865615f2ed03315",
+        "markdown_sha256": "a61e9ff71810b2ca63282e1f7972b17b3905315473b0c0152362c6dccf11b911"
+      },
+      "new": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": ".work/CLEANUP-33/evidence/parity_runs/candidate/valid/output.json",
+          "decision": "CONTINUE_RULE_RESEARCH_NO_PROMOTION"
+        },
+        "console_sha256": "3f4eebcc9b2b46ff872e851df9faea922035761fd6666a016cea7e35f095497e",
+        "stderr_last_line": null,
+        "payload_sha256": "2f612d202c1d7a44c6218c38647547b5efbef8a4cd8b5df0f865615f2ed03315",
+        "markdown_sha256": "a61e9ff71810b2ca63282e1f7972b17b3905315473b0c0152362c6dccf11b911"
+      }
+    },
+    {
+      "profile": "candidate",
+      "case": "missing",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "stderr_last_line_equal": true,
+      "payload_equal": true,
+      "markdown_equal": true,
+      "legacy": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": ".work/CLEANUP-33/evidence/parity_runs/candidate/missing/output.json",
+          "decision": "CONTINUE_RULE_RESEARCH_NO_PROMOTION"
+        },
+        "console_sha256": "62ee0d1f788c38542fa49321673aaecad430ada6a03a331cc2217a08281b5a33",
+        "stderr_last_line": null,
+        "payload_sha256": "151b2a5b53cccdf71bf97862ee37325f58d5a6677cdcf428a177629cb4f47757",
+        "markdown_sha256": "a61e9ff71810b2ca63282e1f7972b17b3905315473b0c0152362c6dccf11b911"
+      },
+      "new": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": ".work/CLEANUP-33/evidence/parity_runs/candidate/missing/output.json",
+          "decision": "CONTINUE_RULE_RESEARCH_NO_PROMOTION"
+        },
+        "console_sha256": "62ee0d1f788c38542fa49321673aaecad430ada6a03a331cc2217a08281b5a33",
+        "stderr_last_line": null,
+        "payload_sha256": "151b2a5b53cccdf71bf97862ee37325f58d5a6677cdcf428a177629cb4f47757",
+        "markdown_sha256": "a61e9ff71810b2ca63282e1f7972b17b3905315473b0c0152362c6dccf11b911"
+      }
+    },
+    {
+      "profile": "experiment",
+      "case": "valid",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "stderr_last_line_equal": true,
+      "payload_equal": true,
+      "markdown_equal": true,
+      "legacy": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": ".work/CLEANUP-33/evidence/parity_runs/experiment/valid/output.json",
+          "overall_decision": "KEEP_RESEARCHING_NO_DEPLOYABLE_RULE_YET",
+          "oprule_01": "NEEDS_DYNAMIC_RISK_GUARD",
+          "oprule_02": "RANK_BUCKET_NOT_STABLE_ENOUGH",
+          "oprule_03": "SECTOR_GUARD_REQUIRED_BUT_NOT_VALIDATED",
+          "oprule_04": "READY_FOR_SHADOW_MONITOR_ONLY"
+        },
+        "console_sha256": "74fb212ae4dad832c57244672293d15770d8323990c309586bd6240085729fe5",
+        "stderr_last_line": null,
+        "payload_sha256": "25de333ff2efc508de044a93f940156b51ab9ddc7ddca2672af1250870a4c2a8",
+        "markdown_sha256": "08b19b2128d0dc3f5134c1359a84e86d0d6825f6d02d2ef8a186fc2c49778768"
+      },
+      "new": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": ".work/CLEANUP-33/evidence/parity_runs/experiment/valid/output.json",
+          "overall_decision": "KEEP_RESEARCHING_NO_DEPLOYABLE_RULE_YET",
+          "oprule_01": "NEEDS_DYNAMIC_RISK_GUARD",
+          "oprule_02": "RANK_BUCKET_NOT_STABLE_ENOUGH",
+          "oprule_03": "SECTOR_GUARD_REQUIRED_BUT_NOT_VALIDATED",
+          "oprule_04": "READY_FOR_SHADOW_MONITOR_ONLY"
+        },
+        "console_sha256": "74fb212ae4dad832c57244672293d15770d8323990c309586bd6240085729fe5",
+        "stderr_last_line": null,
+        "payload_sha256": "25de333ff2efc508de044a93f940156b51ab9ddc7ddca2672af1250870a4c2a8",
+        "markdown_sha256": "08b19b2128d0dc3f5134c1359a84e86d0d6825f6d02d2ef8a186fc2c49778768"
+      }
+    },
+    {
+      "profile": "experiment",
+      "case": "missing",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "stderr_last_line_equal": true,
+      "payload_equal": true,
+      "markdown_equal": true,
+      "legacy": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": ".work/CLEANUP-33/evidence/parity_runs/experiment/missing/output.json",
+          "overall_decision": "KEEP_RESEARCHING_NO_DEPLOYABLE_RULE_YET",
+          "oprule_01": "NEEDS_DYNAMIC_RISK_GUARD",
+          "oprule_02": "RANK_BUCKET_NOT_STABLE_ENOUGH",
+          "oprule_03": "SECTOR_GUARD_REQUIRED_BUT_NOT_VALIDATED",
+          "oprule_04": "READY_FOR_SHADOW_MONITOR_ONLY"
+        },
+        "console_sha256": "bd0f6335e4b8bcf107615b77ffa9183941a93a6bcb85e80fd4d785ad976519e2",
+        "stderr_last_line": null,
+        "payload_sha256": "3c0afbc77852b4e147f900dbbef4e34ed1929342257b4341cb14af6def9dbd8b",
+        "markdown_sha256": "08b19b2128d0dc3f5134c1359a84e86d0d6825f6d02d2ef8a186fc2c49778768"
+      },
+      "new": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": ".work/CLEANUP-33/evidence/parity_runs/experiment/missing/output.json",
+          "overall_decision": "KEEP_RESEARCHING_NO_DEPLOYABLE_RULE_YET",
+          "oprule_01": "NEEDS_DYNAMIC_RISK_GUARD",
+          "oprule_02": "RANK_BUCKET_NOT_STABLE_ENOUGH",
+          "oprule_03": "SECTOR_GUARD_REQUIRED_BUT_NOT_VALIDATED",
+          "oprule_04": "READY_FOR_SHADOW_MONITOR_ONLY"
+        },
+        "console_sha256": "bd0f6335e4b8bcf107615b77ffa9183941a93a6bcb85e80fd4d785ad976519e2",
+        "stderr_last_line": null,
+        "payload_sha256": "3c0afbc77852b4e147f900dbbef4e34ed1929342257b4341cb14af6def9dbd8b",
+        "markdown_sha256": "08b19b2128d0dc3f5134c1359a84e86d0d6825f6d02d2ef8a186fc2c49778768"
+      }
+    }
+  ],
+  "verification": {
+    "focused_tests": "PASS: 4 passed (tests/test_operational_rule_review_builder.py)",
+    "py_compile": "PASS: scripts/build_operational_rule_review.py scripts/audit_script_lifecycle.py scripts/audit_script_references.py",
+    "script_lifecycle_audit_strict_new": "PASS: 434 tracked scripts, 0 new unclassified",
+    "script_reference_audit_strict_new": "PASS: 434 tracked scripts, 0 new suspected orphans",
+    "full_pytest_worktree": "ENV_BLOCKED: 249 passed, 28 subtests passed, 1 failed because gitignored research/data evidence files are absent in this worktree",
+    "full_pytest_canonical": "PASS: 250 passed, 28 subtests passed, 4 existing dependency deprecation warnings",
+    "git_diff_check": "PASS"
+  },
+  "daily_hashes": {
+    "scripts/run_daily.sh": "3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3",
+    "scripts/run_daily_publish.sh": "ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3",
+    "scripts/com.new-top10.daily.plist": "eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995",
+    "config/automation.yaml": "c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a"
+  },
+  "blocker": "Full pytest in this worktree is blocked by missing gitignored research/data evidence artifacts; focused CLEANUP-33 checks and strict audits pass.",
+  "full_pytest_blocker": {
+    "test": "tests/test_research_component_ledger.py::ResearchComponentLedgerTest::test_verifier_accepts_generated_ledger",
+    "failed_check": "evidence_exists",
+    "missing_evidence_examples": [
+      "artifacts/model_experiments/long_candidate_validation_report_2026-06-10.json",
+      "artifacts/model_experiments/candidate_trail10_retention_diagnostics_2026-06-10.json",
+      "artifacts/model_experiments/overlap_first_recommendation_performance_recent_100_2026-06-10.json",
+      "artifacts/model_experiments/chip_flow_readiness_report_2026-06-08.json",
+      "data/clean/features.parquet",
+      "data/reference/stock_industry_map.csv"
+    ],
+    "assessment": "Environment data gap; unrelated to CLEANUP-33 builder consolidation."
+  }
+}

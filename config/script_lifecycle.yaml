@@ -92,8 +92,7 @@ reference_audit:
     - scripts/build_odd_lot_exposure_sensitivity_report.py
     - scripts/build_odd_lot_regime_sensitivity_report.py
     - scripts/build_operational_long_rule_validation_report.py
-    - scripts/build_operational_rule_candidate_report.py
-    - scripts/build_operational_rule_experiment_report.py
+    - scripts/build_operational_rule_review.py
     - scripts/build_overnight_risk_matrix_summary.py
     - scripts/build_portfolio_overlay_promotion_review.py
     - scripts/build_portfolio_replay_regime_attribution.py
