@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from build_weekend_unsupported_unlock_audit import SCHEMA_VERSION, audit_paths
+from build_weekend_readiness_audit import UNSUPPORTED_UNLOCK_SCHEMA_VERSION as SCHEMA_VERSION, audit_paths
 from weekend_training_common import PRODUCTION_IMPACT, UNSUPPORTED_CATEGORIES, repo_path, resolve_path, rollup_paths, write_json
 
 

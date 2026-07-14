@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""建立 weekend overnight campaign audits。
+"""以具名 profile 建立 weekend readiness audits。
 
-這支腳本只把 blocker 做成可決策的 research artifact；不跑 replay、
-不 materialize production baseline、不修改 production ranking / model / Clawd。
+三個 profile 只分派既有 research-only 契約；不跑 replay、不 materialize
+production baseline、不修改 production ranking / model / Clawd。
 """
 
 from __future__ import annotations
@@ -10,14 +10,15 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from weekend_training_common import (
     PRODUCTION_IMPACT,
     PROJECT_ROOT,
     WEEKEND_DIR,
+    inventory_paths,
     now_utc,
     read_json,
     repo_path,
@@ -28,6 +29,8 @@ from weekend_training_common import (
 
 
 SCHEMA_VERSION = "weekend-overnight-campaign-audits.v1"
+RANKING_DIR_SCHEMA_VERSION = "weekend-ranking-dir-unlock-smoke.v1"
+UNSUPPORTED_UNLOCK_SCHEMA_VERSION = "weekend-unsupported-unlock-audit.v1"
 REPORT_DATE = "2026-06-17"
 TRAINING_DATE = "2026-06-13"
 REGIME_HISTORY_PATH = PROJECT_ROOT / "artifacts" / "market_regime_history_2026-06-01.json"
@@ -36,11 +39,23 @@ SOURCE_AUDIT_STEM = "weekend_production_baseline_source_audit"
 RANKING_DATE_RE = re.compile(r"ranking_(\d{4}-\d{2}-\d{2})\.csv$")
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="build weekend overnight campaign audits")
-    parser.add_argument("--date", default=REPORT_DATE, help="report date for overnight artifacts")
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="build weekend readiness audit")
+    parser.add_argument(
+        "--profile",
+        choices=("campaign", "ranking-dir-smoke", "unsupported-unlock"),
+        required=True,
+    )
+    parser.add_argument("--date", default=None, help="report or training artifact date")
     parser.add_argument("--training-date", default=TRAINING_DATE, help="weekend training artifact date")
-    return parser.parse_args()
+    parser.add_argument("--sample-size", type=int, default=20)
+    args = parser.parse_args(argv)
+    if args.date is None:
+        if args.profile == "campaign":
+            args.date = REPORT_DATE
+        else:
+            parser.error("--date is required for this profile")
+    return args
 
 
 def artifact_path(stem: str, date: str, suffix: str) -> Path:
@@ -588,8 +603,300 @@ def write_pair(stem: str, date: str, payload: dict[str, Any], markdown: str) -> 
     return json_path, md_path
 
 
-def main() -> int:
-    args = parse_args()
+def smoke_paths(date: str) -> tuple[Path, Path]:
+    stem = f"weekend_ranking_dir_unlock_smoke_{date}"
+    return WEEKEND_DIR / f"{stem}.json", WEEKEND_DIR / f"{stem}.md"
+
+
+def missing_path_from_reason(reason: str) -> str | None:
+    if ":" not in reason:
+        return None
+    prefix, value = reason.split(":", 1)
+    if prefix not in {"MISSING_BASELINE_RANKINGS_DIR", "MISSING_CANDIDATE_RANKINGS_DIR"}:
+        return None
+    return value
+
+
+def build_ranking_dir_payload(date: str, sample_size: int) -> dict[str, Any]:
+    inventory_path, _ = inventory_paths(date)
+    inventory = read_json(inventory_path)
+    records = inventory.get("records") if isinstance(inventory.get("records"), list) else []
+    rows = [
+        row
+        for row in records
+        if isinstance(row, dict)
+        and row.get("burn_down_status") == "UNSUPPORTED_INPUT"
+        and row.get("unsupported_category") == "UNSUPPORTED_RANKING_DIR_MISSING"
+    ]
+    by_reason = Counter(str(row.get("unsupported_reason") or "") for row in rows)
+    by_candidate_dir = Counter(str(row.get("candidate_dir") or "") for row in rows)
+    by_entry_filter = Counter(str((row.get("dimensions") or {}).get("entry_filter") or "") for row in rows)
+    topic_counts: dict[str, int] = defaultdict(int)
+    path_counts: Counter[str] = Counter()
+    for row in rows:
+        topic_counts[str(row.get("topic_id") or "")] += 1
+        missing_path = missing_path_from_reason(str(row.get("unsupported_reason") or ""))
+        if missing_path:
+            path_counts[missing_path] += 1
+    sample = []
+    for row in rows[: max(sample_size, 0)]:
+        sample.append(
+            {
+                "combo_id": row.get("combo_id"),
+                "topic_id": row.get("topic_id"),
+                "candidate_dir": row.get("candidate_dir"),
+                "dimensions": row.get("dimensions"),
+                "unsupported_reason": row.get("unsupported_reason"),
+            }
+        )
+    can_expand_without_new_artifacts = False
+    decision = "SMOKE_DONE_ARTIFACT_REQUIRED"
+    reason = "缺的是 baseline/candidate ranking 目錄本身；目前只能定位缺口，不能把缺口自動視為可跑。"
+    return {
+        "schema_version": RANKING_DIR_SCHEMA_VERSION,
+        "generated_at": now_utc(),
+        "date": date,
+        "status": "OK",
+        "production_impact": PRODUCTION_IMPACT,
+        "source": {"inventory": repo_path(inventory_path)},
+        "summary": {
+            "ranking_dir_missing_count": len(rows),
+            "unique_missing_reasons": len(by_reason),
+            "unique_missing_paths": len(path_counts),
+            "unique_topics": len(topic_counts),
+            "entry_filter_counts": dict(sorted(by_entry_filter.items())),
+            "top_missing_reasons": dict(by_reason.most_common(10)),
+            "top_missing_paths": dict(path_counts.most_common(10)),
+            "top_candidate_dirs": dict(by_candidate_dir.most_common(10)),
+            "can_expand_without_new_artifacts": can_expand_without_new_artifacts,
+            "decision": decision,
+            "reason": reason,
+            "next_action": "補一張 ranking artifact source audit：確認是否要產生 artifacts/backtest/production，或把 topic 指到既有 production baseline。",
+        },
+        "sample": sample,
+        "contract": {
+            "research_only": True,
+            "does_not_execute_replay": True,
+            "does_not_create_ranking_dirs": True,
+            "does_not_change_production_ranking": True,
+        },
+        "errors": [],
+    }
+
+
+def render_ranking_dir_markdown(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    lines = [
+        "# Weekend Ranking Dir Unlock Smoke",
+        "",
+        f"- status: `{payload['status']}`",
+        f"- ranking_dir_missing_count: `{summary['ranking_dir_missing_count']}`",
+        f"- unique_missing_paths: `{summary['unique_missing_paths']}`",
+        f"- unique_topics: `{summary['unique_topics']}`",
+        f"- decision: `{summary['decision']}`",
+        f"- can_expand_without_new_artifacts: `{summary['can_expand_without_new_artifacts']}`",
+        f"- reason: {summary['reason']}",
+        f"- next_action: {summary['next_action']}",
+        "",
+        "## Entry Filters",
+        "",
+    ]
+    for key, value in summary["entry_filter_counts"].items():
+        lines.append(f"- `{key}`: `{value}`")
+    lines.extend(["", "## Top Missing Paths", ""])
+    for key, value in summary["top_missing_paths"].items():
+        lines.append(f"- `{key}`: `{value}`")
+    lines.extend(["", "No production ranking, model, or Clawd changes.", ""])
+    return "\n".join(lines)
+
+
+def run_ranking_dir_smoke(args: argparse.Namespace) -> int:
+    payload = build_ranking_dir_payload(args.date, args.sample_size)
+    json_path, md_path = smoke_paths(args.date)
+    write_json(json_path, payload)
+    write_text(md_path, render_ranking_dir_markdown(payload))
+    print(
+        json.dumps(
+            {"status": payload["status"], "output": repo_path(json_path), "decision": payload["summary"]["decision"]},
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def audit_paths(date: str) -> tuple[Path, Path]:
+    stem = f"weekend_unsupported_unlock_audit_{date}"
+    return WEEKEND_DIR / f"{stem}.json", WEEKEND_DIR / f"{stem}.md"
+
+
+def reason_matches_category(reason: str, category: str) -> bool:
+    if category == "UNSUPPORTED_RANKING_DIR_MISSING":
+        return reason.startswith("MISSING_BASELINE_RANKINGS_DIR:") or reason.startswith("MISSING_CANDIDATE_RANKINGS_DIR:")
+    if category == "UNSUPPORTED_ENTRY_FILTER_NOT_AVAILABLE":
+        return reason.startswith("UNSUPPORTED_ENTRY_FILTER:")
+    if category == "UNSUPPORTED_REGIME_SLICE_NO_DATA":
+        return reason.startswith("UNSUPPORTED_REGIME_GATE:")
+    return False
+
+
+def category_plan(category: str, count: int, reason_counts: dict[str, int]) -> dict[str, Any]:
+    top_reasons = [
+        {"reason": reason, "count": value}
+        for reason, value in reason_counts.items()
+        if reason_matches_category(reason, category)
+    ][:5]
+    if category == "UNSUPPORTED_RANKING_DIR_MISSING":
+        return {
+            "category": category,
+            "count": count,
+            "unlock_decision": "SMOKE_UNLOCK_CANDIDATE",
+            "priority": 1,
+            "can_unlock_now": False,
+            "why": "這類最像 artifact 接線缺口，但不能直接假設缺的 ranking 目錄等價於現有目錄。",
+            "risk": "若直接補路徑，可能把不同 ranking source 混成同一條策略。",
+            "next_action": "先做 ranking dir availability smoke：選 1 個 topic、1 個 entry filter、1 個 horizon，確認 baseline/candidate 目錄來源後再展開。",
+            "top_reasons": top_reasons,
+        }
+    if category == "UNSUPPORTED_ENTRY_FILTER_NOT_AVAILABLE":
+        return {
+            "category": category,
+            "count": count,
+            "unlock_decision": "CONTRACT_DECISION_REQUIRED",
+            "priority": 2,
+            "can_unlock_now": False,
+            "why": "`TOPIC_DEFAULT` 不是 replay runner 支援的 entry filter，不能偷映射成 LOG_GATE 或 PERCENTILE_GATE。",
+            "risk": "錯誤映射會讓同一個研究點代表不同進場邏輯，地圖會失真。",
+            "next_action": "先定義 TOPIC_DEFAULT 是 topic 原生 filter、NONE filter，還是 deprecated coordinate；只允許 smoke 驗證，不直接大跑。",
+            "top_reasons": top_reasons,
+        }
+    if category == "UNSUPPORTED_REGIME_SLICE_NO_DATA":
+        return {
+            "category": category,
+            "count": count,
+            "unlock_decision": "HOLD_UNSUPPORTED_FOR_NOW",
+            "priority": 3,
+            "can_unlock_now": False,
+            "why": "數量最大，但牽涉 NEUTRAL / PANIC_SELLING / RISK_OFF 的樣本與合約定義；直接展開會把低樣本盤勢當有效結論。",
+            "risk": "容易把防守盤、崩跌盤與牛市策略混在一起，產生看似完整但不可交易的結論。",
+            "next_action": "先做 regime-slice data adequacy audit，確認各 regime 的日期數、可比較 ranking、交易結果樣本，再決定是否開子宇宙。",
+            "top_reasons": top_reasons,
+        }
+    return {
+        "category": category,
+        "count": count,
+        "unlock_decision": "MANUAL_REVIEW_REQUIRED",
+        "priority": 99,
+        "can_unlock_now": False,
+        "why": "未知 unsupported category，需要先拆穩定分類。",
+        "risk": "分類不清會污染 burn-down 統計。",
+        "next_action": "補 category contract 後再評估。",
+        "top_reasons": top_reasons,
+    }
+
+
+def build_unsupported_unlock_payload(date: str) -> dict[str, Any]:
+    rollup_path, _ = rollup_paths(date)
+    rollup = read_json(rollup_path)
+    summary = rollup.get("summary") if isinstance(rollup.get("summary"), dict) else {}
+    category_counts = summary.get("unsupported_category_counts") if isinstance(summary.get("unsupported_category_counts"), dict) else {}
+    reason_counts = summary.get("unsupported_reason_top_counts") if isinstance(summary.get("unsupported_reason_top_counts"), dict) else {}
+    categories = [
+        category_plan(str(category), int(count or 0), {str(k): int(v or 0) for k, v in reason_counts.items()})
+        for category, count in sorted(category_counts.items())
+    ]
+    categories.sort(key=lambda item: int(item["priority"]))
+    unsupported_count = int(summary.get("unsupported_count") or 0)
+    category_total = sum(int(item["count"]) for item in categories)
+    errors: list[str] = []
+    if category_total != unsupported_count:
+        errors.append("category total does not match unsupported_count")
+    return {
+        "schema_version": UNSUPPORTED_UNLOCK_SCHEMA_VERSION,
+        "generated_at": now_utc(),
+        "date": date,
+        "status": "OK" if not errors else "FAILED",
+        "production_impact": PRODUCTION_IMPACT,
+        "source": {"rollup": repo_path(rollup_path)},
+        "summary": {
+            "unsupported_count": unsupported_count,
+            "category_total": category_total,
+            "category_count": len(categories),
+            "first_unlock_candidate": categories[0]["category"] if categories else None,
+            "first_unlock_decision": categories[0]["unlock_decision"] if categories else None,
+            "can_unlock_now_count": sum(1 for item in categories if item.get("can_unlock_now") is True),
+        },
+        "categories": categories,
+        "contract": {
+            "research_only": True,
+            "does_not_execute_replay": True,
+            "does_not_train_model": True,
+            "does_not_change_production_ranking": True,
+            "does_not_publish_clawd": True,
+        },
+        "errors": errors,
+    }
+
+
+def render_unsupported_unlock_markdown(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    lines = [
+        "# Weekend Unsupported Unlock Audit",
+        "",
+        f"- status: `{payload['status']}`",
+        f"- unsupported_count: `{summary['unsupported_count']}`",
+        f"- category_total: `{summary['category_total']}`",
+        f"- first_unlock_candidate: `{summary['first_unlock_candidate']}`",
+        f"- first_unlock_decision: `{summary['first_unlock_decision']}`",
+        f"- production_impact: `{payload['production_impact']}`",
+        "",
+        "## Categories",
+        "",
+    ]
+    for item in payload["categories"]:
+        lines.extend(
+            [
+                f"### {item['category']}",
+                "",
+                f"- count: `{item['count']}`",
+                f"- unlock_decision: `{item['unlock_decision']}`",
+                f"- priority: `{item['priority']}`",
+                f"- can_unlock_now: `{item['can_unlock_now']}`",
+                f"- why: {item['why']}",
+                f"- risk: {item['risk']}",
+                f"- next_action: {item['next_action']}",
+                "",
+            ]
+        )
+        if item["top_reasons"]:
+            lines.append("Top reasons:")
+            for reason in item["top_reasons"]:
+                lines.append(f"- `{reason['reason']}`: `{reason['count']}`")
+            lines.append("")
+    lines.append("No production ranking, model, or Clawd changes.")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def run_unsupported_unlock(args: argparse.Namespace) -> int:
+    payload = build_unsupported_unlock_payload(args.date)
+    json_path, md_path = audit_paths(args.date)
+    write_json(json_path, payload)
+    write_text(md_path, render_unsupported_unlock_markdown(payload))
+    print(
+        json.dumps(
+            {
+                "status": payload["status"],
+                "output": repo_path(json_path),
+                "first_unlock_candidate": payload["summary"]["first_unlock_candidate"],
+                "unsupported_count": payload["summary"]["unsupported_count"],
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0 if payload["status"] == "OK" else 1
+
+
+def run_campaign(args: argparse.Namespace) -> int:
     rollup = read_json(rollup_paths(args.training_date)[0])
     research_map = read_json(RESEARCH_MAP_PATH)
     source_audit = read_json(source_audit_path(args.training_date))
@@ -617,6 +924,15 @@ def main() -> int:
         )
     )
     return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+    if args.profile == "campaign":
+        return run_campaign(args)
+    if args.profile == "ranking-dir-smoke":
+        return run_ranking_dir_smoke(args)
+    return run_unsupported_unlock(args)
 
 
 if __name__ == "__main__":

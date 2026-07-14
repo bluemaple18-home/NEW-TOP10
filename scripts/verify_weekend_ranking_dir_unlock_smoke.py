@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from build_weekend_ranking_dir_unlock_smoke import SCHEMA_VERSION, smoke_paths
+from build_weekend_readiness_audit import RANKING_DIR_SCHEMA_VERSION as SCHEMA_VERSION, smoke_paths
 from weekend_training_common import PRODUCTION_IMPACT, repo_path, resolve_path, write_json
 
 
