@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""建立候選模型風險歸因報告。
+"""以具名 profile 建立候選模型風險研究報告。
 
-這份報告只整理研究 artifact：候選模型相對 production 贏在哪、風險多在哪，
-以及下一輪該優先測哪些控制條件。它不訓練模型，也不改正式 ranking。
+這支入口只整理既有研究 artifact，不訓練模型、不改正式 ranking。
+`attribution` 與 `risk_control` profile 分別保留退休前兩支 builder 的輸出契約。
 """
 
 from __future__ import annotations
@@ -12,25 +12,59 @@ import json
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_VERSION = "training-candidate-risk-attribution.v1"
+ATTRIBUTION_SCHEMA_VERSION = "training-candidate-risk-attribution.v1"
+RISK_CONTROL_SCHEMA_VERSION = "training-candidate-risk-control-report.v1"
 DEFAULT_CANDIDATE_ID = "current_baseline_candidate_{date}"
 
+RISK_CONTROL_VARIANT_FILES = {
+    "candidate_fixed40": "candidate_portfolio_replay_40d.json",
+    "candidate_top5": "portfolio_replay_candidate_fixed40_top5_{date}.json",
+    "candidate_top7": "portfolio_replay_candidate_fixed40_top7_{date}.json",
+    "candidate_sector55": "portfolio_replay_candidate_fixed40_sector55_{date}.json",
+    "candidate_sector65": "portfolio_replay_candidate_fixed40_sector65_{date}.json",
+    "candidate_sector75": "portfolio_replay_candidate_fixed40_sector75_{date}.json",
+    "candidate_top5_sector65": "portfolio_replay_candidate_fixed40_top5_sector65_{date}.json",
+    "candidate_top7_sector55": "portfolio_replay_candidate_fixed40_top7_sector55_{date}.json",
+    "candidate_top7_sector65": "portfolio_replay_candidate_fixed40_top7_sector65_{date}.json",
+    "candidate_top7_sl10_min5": "portfolio_replay_candidate_fixed40_top7_sl10_min5_{date}.json",
+    "candidate_top7_sl12_min5": "portfolio_replay_candidate_fixed40_top7_sl12_min5_{date}.json",
+    "candidate_top7_trail18_min5": "portfolio_replay_candidate_fixed40_top7_trail18_min5_{date}.json",
+    "candidate_top7_tp35_sl12_min5": "portfolio_replay_candidate_fixed40_top7_tp35_sl12_min5_{date}.json",
+}
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="build training candidate risk attribution report")
+RISK_CONTROL_PRODUCTION_VARIANT_FILES = {
+    "candidate_top7": "artifacts/model_experiments/production_portfolio_replay_40d_top7_{date}.json",
+    "candidate_top7_sector55": "artifacts/model_experiments/production_portfolio_replay_40d_top7_{date}.json",
+    "candidate_top7_sector65": "artifacts/model_experiments/production_portfolio_replay_40d_top7_{date}.json",
+    "candidate_top7_sl12_min5": "artifacts/model_experiments/production_portfolio_replay_40d_top7_sl12_min5_{date}.json",
+    "candidate_top7_trail18_min5": "artifacts/model_experiments/production_portfolio_replay_40d_top7_trail18_min5_{date}.json",
+}
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="build training candidate risk review report")
+    parser.add_argument("--profile", choices=("attribution", "risk_control"), required=True)
     parser.add_argument("--date", default=date.today().isoformat())
     parser.add_argument("--candidate-id", default=None)
     parser.add_argument("--candidate-root", default=None)
     parser.add_argument("--summary", default="artifacts/model_experiments/candidate_vs_production_summary_{date}.json")
+    parser.add_argument("--production", default="artifacts/model_experiments/production_portfolio_replay_40d_{date}.json")
     parser.add_argument("--output", default=None)
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def resolve_path(value: str | Path | None) -> Path | None:
+    if value is None:
+        return None
+    path = Path(str(value)).expanduser()
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def resolve_attribution_path(value: str | Path | None) -> Path | None:
     if value is None:
         return None
     path = Path(str(value).format(date=date.today().isoformat())).expanduser()
@@ -50,9 +84,9 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def candidate_root(args: argparse.Namespace) -> Path:
+def candidate_root(args: argparse.Namespace, *, attribution: bool = False) -> Path:
     if args.candidate_root:
-        root = resolve_path(args.candidate_root)
+        root = resolve_attribution_path(args.candidate_root) if attribution else resolve_path(args.candidate_root)
         if root is None:
             raise RuntimeError("candidate root resolution failed")
         return root
@@ -206,7 +240,7 @@ def sector_concentration(payload: dict[str, Any], policy: str) -> dict[str, Any]
     return value if isinstance(value, dict) else {}
 
 
-def build_findings(report: dict[str, Any]) -> list[dict[str, Any]]:
+def build_attribution_findings(report: dict[str, Any]) -> list[dict[str, Any]]:
     headline = report["headline"]
     fixed_40d = report["matrix_attribution"]["fixed_40d"]
     sector = report["matrix_attribution"]["sector_concentration_fixed_40d"]
@@ -248,7 +282,7 @@ def build_findings(report: dict[str, Any]) -> list[dict[str, Any]]:
     return findings
 
 
-def next_experiments() -> list[dict[str, Any]]:
+def attribution_next_experiments() -> list[dict[str, Any]]:
     return [
         {
             "id": "CAND-RISK-01",
@@ -285,8 +319,8 @@ def next_experiments() -> list[dict[str, Any]]:
     ]
 
 
-def build_payload(args: argparse.Namespace) -> dict[str, Any]:
-    root = candidate_root(args)
+def build_attribution_payload(args: argparse.Namespace) -> dict[str, Any]:
+    root = candidate_root(args, attribution=True)
     summary_path = dated_path(args.summary, args.date)
     candidate_matrix_path = root / f"fixed_share_hypothesis_matrix_candidate_{args.date}.json"
     production_matrix_path = PROJECT_ROOT / "artifacts" / "model_experiments" / f"production_fixed_share_hypothesis_matrix_{args.date}.json"
@@ -316,7 +350,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     sector_production = sector_concentration(production_matrix, "fixed_40d")
 
     report: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": ATTRIBUTION_SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "date": args.date,
         "status": "OK",
@@ -386,18 +420,18 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "production_top_rank_policies": top_by_return(production_matrix, "rank_policy"),
         },
         "risk_hypotheses": [],
-        "next_experiments": next_experiments(),
+        "next_experiments": attribution_next_experiments(),
         "decision": {
             "status": "KEEP_CANDIDATE_RESEARCH_WITH_RISK_CONTROLS",
             "promotion_ready": False,
             "plain_language": "候選模型比較會抓強股，但也更容易集中在同一族群、承受更深回撤；下一步先測風控，不直接上正式。",
         },
     }
-    report["risk_hypotheses"] = build_findings(report)
+    report["risk_hypotheses"] = build_attribution_findings(report)
     return report
 
 
-def write_markdown(payload: dict[str, Any], output_path: Path) -> None:
+def write_attribution_markdown(payload: dict[str, Any], output_path: Path) -> None:
     headline = payload["headline"]
     sector = payload["matrix_attribution"]["sector_concentration_fixed_40d"]
     lines = [
@@ -426,17 +460,192 @@ def write_markdown(payload: dict[str, Any], output_path: Path) -> None:
     output_path.with_suffix(".md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def main() -> int:
-    args = parse_args()
-    output = resolve_path(args.output) or PROJECT_ROOT / "artifacts" / "model_experiments" / f"training_candidate_risk_attribution_{args.date}.json"
+def risk_control_summary_row(
+    label: str,
+    path: Path,
+    payload: dict[str, Any],
+    baseline: dict[str, Any],
+    peer_path: Path | None = None,
+    peer_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    base = baseline.get("summary") if isinstance(baseline.get("summary"), dict) else {}
+    total_return = safe_float(summary.get("total_return"))
+    max_drawdown = safe_float(summary.get("max_drawdown"))
+    baseline_return = safe_float(base.get("total_return"))
+    baseline_drawdown = safe_float(base.get("max_drawdown"))
+    peer_summary = peer_payload.get("summary", {}) if isinstance(peer_payload, dict) else {}
+    peer_return = safe_float(peer_summary.get("total_return")) if peer_summary else None
+    peer_drawdown = safe_float(peer_summary.get("max_drawdown")) if peer_summary else None
+    return {
+        "label": label,
+        "path": repo_path(path),
+        "production_peer": repo_path(peer_path),
+        "total_return": round(total_return, 6),
+        "max_drawdown": round(max_drawdown, 6),
+        "trade_count": summary.get("trade_count"),
+        "win_rate": summary.get("win_rate"),
+        "avg_gross_exposure": summary.get("avg_gross_exposure"),
+        "max_group_exposure": summary.get("max_group_exposure"),
+        "return_delta_vs_production": round(total_return - baseline_return, 6),
+        "drawdown_delta_vs_production": round(max_drawdown - baseline_drawdown, 6),
+        "return_delta_vs_peer": round(total_return - peer_return, 6) if peer_return is not None else None,
+        "drawdown_delta_vs_peer": round(max_drawdown - peer_drawdown, 6) if peer_drawdown is not None else None,
+        "return_to_drawdown": round(total_return / abs(max_drawdown), 6) if max_drawdown else None,
+        "keeps_return_edge": total_return > baseline_return,
+        "drawdown_worse_than_production": max_drawdown < baseline_drawdown,
+    }
+
+
+def rank_risk_control_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def score(row: dict[str, Any]) -> float:
+        # 研究排序：先看報酬，再罰回撤惡化；不是 production gate。
+        return safe_float(row.get("return_delta_vs_production")) + safe_float(row.get("drawdown_delta_vs_production")) * 0.5
+
+    return sorted(rows, key=score, reverse=True)
+
+
+def risk_control_decision(rows: list[dict[str, Any]], baseline: dict[str, Any]) -> dict[str, Any]:
+    baseline_summary = baseline.get("summary") if isinstance(baseline.get("summary"), dict) else {}
+    acceptable = [
+        row
+        for row in rows
+        if row["keeps_return_edge"]
+        and row["return_delta_vs_production"] >= 0.02
+        and row["drawdown_delta_vs_production"] >= -0.03
+    ]
+    ranked = rank_risk_control_rows(acceptable)
+    if not ranked:
+        return {
+            "status": "NO_RISK_CONTROL_CANDIDATE",
+            "selected": None,
+            "reason": "沒有變體同時保留明顯報酬優勢且控制回撤惡化。",
+            "production_baseline": {
+                "total_return": baseline_summary.get("total_return"),
+                "max_drawdown": baseline_summary.get("max_drawdown"),
+            },
+        }
+    selected = ranked[0]
+    return {
+        "status": "RISK_CONTROL_REPLAY_CANDIDATE",
+        "selected": selected["label"],
+        "reason": "此變體保留候選模型報酬優勢，且回撤惡化仍在研究容忍範圍內；下一步進更嚴格分盤勢與本金約束回測。",
+        "selected_metrics": selected,
+        "production_baseline": {
+            "total_return": baseline_summary.get("total_return"),
+            "max_drawdown": baseline_summary.get("max_drawdown"),
+        },
+    }
+
+
+def build_risk_control_payload(args: argparse.Namespace) -> dict[str, Any]:
+    root = candidate_root(args)
+    production_path = resolve_path(args.production.format(date=args.date))
+    if production_path is None or not production_path.exists():
+        raise FileNotFoundError(f"production replay not found: {production_path}")
+    production = read_json(production_path)
+    rows = []
+    missing = []
+    for label, template in RISK_CONTROL_VARIANT_FILES.items():
+        path = root / template.format(date=args.date)
+        if not path.exists():
+            missing.append({"label": label, "path": repo_path(path)})
+            continue
+        peer_path = (
+            resolve_path(RISK_CONTROL_PRODUCTION_VARIANT_FILES[label].format(date=args.date))
+            if label in RISK_CONTROL_PRODUCTION_VARIANT_FILES
+            else None
+        )
+        peer_payload = read_json(peer_path) if peer_path is not None and peer_path.exists() else None
+        rows.append(risk_control_summary_row(label, path, read_json(path), production, peer_path, peer_payload))
+    ranked = rank_risk_control_rows(rows)
+    return {
+        "schema_version": RISK_CONTROL_SCHEMA_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "date": args.date,
+        "status": "OK" if rows else "FAILED",
+        "contract": {
+            "research_only": True,
+            "model_changes": False,
+            "production_ranking_changes": False,
+            "risk_adjusted_score_changes": False,
+            "promotion_ready": False,
+        },
+        "inputs": {
+            "candidate_root": repo_path(root),
+            "production": repo_path(production_path),
+        },
+        "summary": {
+            "variant_count": len(rows),
+            "missing_count": len(missing),
+            "best_by_research_score": ranked[0]["label"] if ranked else None,
+            "best_total_return": max((row["total_return"] for row in rows), default=None),
+            "best_max_drawdown": max((row["max_drawdown"] for row in rows), default=None),
+        },
+        "decision": risk_control_decision(rows, production),
+        "variants_ranked": ranked,
+        "missing": missing,
+        "next": [
+            "對 selected 變體跑 fixed capital / odd-lot portfolio replay。",
+            "對 selected 變體跑 BIG_BULL / HIGH_CHOPPY_CONTEXT 分層 replay。",
+            "若 selected 在分層與本金約束仍成立，才進 promotion review candidate；目前不改正式模型。",
+        ],
+    }
+
+
+def write_risk_control_markdown(payload: dict[str, Any], output_path: Path) -> None:
+    decision_payload = payload["decision"]
+    lines = [
+        "# Training Candidate Risk Control Report",
+        "",
+        f"- status: {payload['status']}",
+        f"- decision: {decision_payload['status']}",
+        f"- selected: {decision_payload.get('selected')}",
+        f"- promotion_ready: {payload['contract']['promotion_ready']}",
+        "",
+        "## Variants",
+        "",
+    ]
+    for row in payload["variants_ranked"]:
+        lines.append(
+            "- {label}: return={total_return}, maxDD={max_drawdown}, "
+            "return_delta={return_delta_vs_production}, dd_delta={drawdown_delta_vs_production}".format(**row)
+        )
+    output_path.with_suffix(".md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def default_output(profile: str, run_date: str) -> Path:
+    if profile == "attribution":
+        return PROJECT_ROOT / "artifacts" / "model_experiments" / f"training_candidate_risk_attribution_{run_date}.json"
+    if profile == "risk_control":
+        return PROJECT_ROOT / "artifacts" / "model_experiments" / f"training_candidate_risk_control_report_{run_date}.json"
+    raise ValueError(f"unsupported profile: {profile}")
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+    output = (
+        resolve_attribution_path(args.output)
+        if args.profile == "attribution"
+        else resolve_path(args.output)
+    ) or default_output(args.profile, args.date)
     if output is None:
         raise RuntimeError("output resolution failed")
-    payload = build_payload(args)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    write_markdown(payload, output)
-    print(json.dumps({"status": payload["status"], "output": repo_path(output)}, ensure_ascii=False))
-    return 0
+    if args.profile == "attribution":
+        payload = build_attribution_payload(args)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        write_attribution_markdown(payload, output)
+        print(json.dumps({"status": payload["status"], "output": repo_path(output)}, ensure_ascii=False))
+        return 0
+    if args.profile == "risk_control":
+        payload = build_risk_control_payload(args)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        write_risk_control_markdown(payload, output)
+        print(json.dumps({"status": payload["status"], "decision": payload["decision"]["status"], "output": repo_path(output)}, ensure_ascii=False))
+        return 0 if payload["status"] == "OK" else 1
+    raise ValueError(f"unsupported profile: {args.profile}")
 
 
 if __name__ == "__main__":

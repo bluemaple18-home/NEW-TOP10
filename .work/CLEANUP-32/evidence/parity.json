@@ -1,0 +1,192 @@
+{
+  "schema_version": "cleanup32-training-candidate-risk-builder-parity.v1",
+  "task_id": "CLEANUP-32",
+  "status": "PASS",
+  "profiles": [
+    "attribution",
+    "risk_control"
+  ],
+  "cases": [
+    "valid",
+    "missing"
+  ],
+  "normalization": [
+    "generated_at removed",
+    "payload SHA uses sorted compact JSON",
+    "missing stderr compared by final exception line",
+    "fixture root path replaced with <fixture-root> in stderr evidence"
+  ],
+  "retired_entrypoints": [
+    "scripts/build_training_candidate_risk_attribution.py",
+    "scripts/build_training_candidate_risk_control_report.py"
+  ],
+  "retained_entrypoint": "scripts/build_training_candidate_risk_review.py",
+  "records": [
+    {
+      "profile": "attribution",
+      "case": "valid",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "stderr_last_line_equal": true,
+      "payload_equal": true,
+      "markdown_equal": true,
+      "legacy": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": "shared/attribution/valid.json"
+        },
+        "console_sha256": "6c0dc1ebb0df54ca985dc3c7ae4859e4228298c708c2f235717df724b176b057",
+        "stderr_last_line": null,
+        "payload_sha256": "943fa60ea9757e6ef269911a64c1c0573faa37aa65f91c363758352da0191b47",
+        "markdown_sha256": "94efac006ef58938eef0cb29580d015c9bc9924b871da9435efb1f5941c9716f"
+      },
+      "new": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "output": "shared/attribution/valid.json"
+        },
+        "console_sha256": "6c0dc1ebb0df54ca985dc3c7ae4859e4228298c708c2f235717df724b176b057",
+        "stderr_last_line": null,
+        "payload_sha256": "943fa60ea9757e6ef269911a64c1c0573faa37aa65f91c363758352da0191b47",
+        "markdown_sha256": "94efac006ef58938eef0cb29580d015c9bc9924b871da9435efb1f5941c9716f"
+      }
+    },
+    {
+      "profile": "attribution",
+      "case": "missing",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "stderr_last_line_equal": true,
+      "payload_equal": true,
+      "markdown_equal": true,
+      "legacy": {
+        "exit_code": 1,
+        "console": null,
+        "console_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_last_line": "<fixture-root>/cases/attribution/missing/artifacts/model_experiments/candidate_vs_production_summary_2026-06-08.json'",
+        "payload_sha256": null,
+        "markdown_sha256": null
+      },
+      "new": {
+        "exit_code": 1,
+        "console": null,
+        "console_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_last_line": "<fixture-root>/cases/attribution/missing/artifacts/model_experiments/candidate_vs_production_summary_2026-06-08.json'",
+        "payload_sha256": null,
+        "markdown_sha256": null
+      }
+    },
+    {
+      "profile": "risk_control",
+      "case": "valid",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "stderr_last_line_equal": true,
+      "payload_equal": true,
+      "markdown_equal": true,
+      "legacy": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "decision": "RISK_CONTROL_REPLAY_CANDIDATE",
+          "output": "shared/risk_control/valid.json"
+        },
+        "console_sha256": "53a479be4c462d23f29e30e099e2390b5aedd69d9edd2aa1c96943e3d13aa469",
+        "stderr_last_line": null,
+        "payload_sha256": "40748e90a52e1857a177481ff246e980bf46626b76d7e6b899c7d4ee2a0afb92",
+        "markdown_sha256": "b4cbf8b1a6448ee616694441fd15dd82a9b5774ae9051c4dcd00c1f95e600eb8"
+      },
+      "new": {
+        "exit_code": 0,
+        "console": {
+          "status": "OK",
+          "decision": "RISK_CONTROL_REPLAY_CANDIDATE",
+          "output": "shared/risk_control/valid.json"
+        },
+        "console_sha256": "53a479be4c462d23f29e30e099e2390b5aedd69d9edd2aa1c96943e3d13aa469",
+        "stderr_last_line": null,
+        "payload_sha256": "40748e90a52e1857a177481ff246e980bf46626b76d7e6b899c7d4ee2a0afb92",
+        "markdown_sha256": "b4cbf8b1a6448ee616694441fd15dd82a9b5774ae9051c4dcd00c1f95e600eb8"
+      }
+    },
+    {
+      "profile": "risk_control",
+      "case": "missing",
+      "exit_code_equal": true,
+      "console_equal": true,
+      "stderr_last_line_equal": true,
+      "payload_equal": true,
+      "markdown_equal": true,
+      "legacy": {
+        "exit_code": 1,
+        "console": {
+          "status": "FAILED",
+          "decision": "NO_RISK_CONTROL_CANDIDATE",
+          "output": "shared/risk_control/missing.json"
+        },
+        "console_sha256": "cfc8ab7b7aeb4fbd1df6d4a86514e226a70abacb40eca4c1a9e4062817aa3b9a",
+        "stderr_last_line": null,
+        "payload_sha256": "e4e9457b704a933cbddbb385235d2c1931708e8ae4b636fb67c41f322d5caaf3",
+        "markdown_sha256": "d519b0baad97eb27d44c1c4395f4eeba14fa69211996fba57f719f88a842d153"
+      },
+      "new": {
+        "exit_code": 1,
+        "console": {
+          "status": "FAILED",
+          "decision": "NO_RISK_CONTROL_CANDIDATE",
+          "output": "shared/risk_control/missing.json"
+        },
+        "console_sha256": "cfc8ab7b7aeb4fbd1df6d4a86514e226a70abacb40eca4c1a9e4062817aa3b9a",
+        "stderr_last_line": null,
+        "payload_sha256": "e4e9457b704a933cbddbb385235d2c1931708e8ae4b636fb67c41f322d5caaf3",
+        "markdown_sha256": "d519b0baad97eb27d44c1c4395f4eeba14fa69211996fba57f719f88a842d153"
+      }
+    }
+  ],
+  "consumer_gate": {
+    "verifier": "scripts/verify_training_candidate_risk_reports.py",
+    "records": [
+      {
+        "profile": "attribution",
+        "exit_code": 0,
+        "stdout": "{\"status\": \"OK\", \"output\": \"shared/attribution/verification.json\"}",
+        "status": "OK"
+      },
+      {
+        "profile": "risk_control",
+        "exit_code": 0,
+        "stdout": "{\"status\": \"OK\", \"output\": \"shared/risk_control/verification.json\"}",
+        "status": "OK"
+      }
+    ]
+  },
+  "verification": {
+    "focused_tests": "PASS: 12 passed (tests/test_training_candidate_risk_review_builder.py tests/test_training_candidate_risk_reports_verifier.py)",
+    "py_compile": "PASS: scripts/build_training_candidate_risk_review.py scripts/verify_training_candidate_risk_reports.py scripts/audit_script_lifecycle.py scripts/audit_script_references.py",
+    "script_lifecycle_audit_strict_new": "PASS: 435 tracked scripts, 0 new unclassified",
+    "script_reference_audit_strict_new": "PASS: 435 tracked scripts, 0 new suspected orphans",
+    "full_pytest_worktree": "ENV_BLOCKED: 245 passed, 28 subtests passed, 1 failed because gitignored artifacts/data evidence files are absent in this worktree",
+    "full_pytest_canonical": "PASS: 246 passed, 28 subtests passed, 4 existing dependency deprecation warnings",
+    "git_diff_cached_check": "PASS"
+  },
+  "full_pytest_blocker": {
+    "test": "tests/test_research_component_ledger.py::ResearchComponentLedgerTest::test_verifier_accepts_generated_ledger",
+    "failed_check": "evidence_exists",
+    "missing_evidence_examples": [
+      "artifacts/model_experiments/long_candidate_validation_report_2026-06-10.json",
+      "artifacts/model_experiments/candidate_trail10_retention_diagnostics_2026-06-10.json",
+      "artifacts/model_experiments/overlap_first_recommendation_performance_recent_100_2026-06-10.json",
+      "artifacts/model_experiments/chip_flow_readiness_report_2026-06-08.json",
+      "data/clean/features.parquet"
+    ],
+    "assessment": "Environment data gap; unrelated to CLEANUP-32 builder consolidation."
+  },
+  "daily_hashes": {
+    "scripts/run_daily.sh": "3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3",
+    "scripts/run_daily_publish.sh": "ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3",
+    "scripts/com.new-top10.daily.plist": "eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995",
+    "config/automation.yaml": "c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a"
+  }
+}
