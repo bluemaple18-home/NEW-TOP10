@@ -1,0 +1,65 @@
+{
+  "schema_version": "shadow-research-campaign-parity.v1",
+  "task_id": "CLEANUP-35",
+  "generated_on": "2026-07-14",
+  "status": "PASS",
+  "baseline_commit": "9748b95",
+  "method": {
+    "inputs": "synthetic valid/missing fixtures only",
+    "execution": "old and new entrypoints loaded together before retirement with identical mocked subprocess results",
+    "normalization": [
+      "remove generated_at and per-step timestamps",
+      "replace fixture-root absolute paths with <ROOT>",
+      "compare JSON objects, exact Markdown, normalized TSV rows, console JSON, exit codes and subprocess command order"
+    ],
+    "real_replay_or_training_count": 0
+  },
+  "stages": {
+    "a1-forward": {
+      "command_count": 4,
+      "valid": {"status": "PASS", "normalized_sha256": "30b34c9dc894510076a00478a919ab2810828ff48340afd362972ec79ad3d16e", "exit_code": 0},
+      "missing": {"status": "PASS", "normalized_sha256": "9a7e3ad0ae08def7f3306434de2e48e94c48ea29188aab36521e020477f42a2c", "exit_code": 0},
+      "failure": {"status": "PASS", "normalized_sha256": "3dd325cf28ccfe4c0a22a2523fbd65cd89972bdb97b149c75094526409242ec6", "exit_code": 1}
+    },
+    "candidate-stress": {
+      "command_count": 60,
+      "valid": {"status": "PASS", "normalized_sha256": "cc509a32945b726df44f8e8cae3f6b6e33e5c6ab3dedc41292d89dc323d05c2a", "exit_code": 0},
+      "missing": {"status": "PASS", "normalized_sha256": "0bda87082fe57204ee72edaeb1f8bc7860d7316b9f47d1733e20577183eefcdf", "exit_code": 0},
+      "failure": {"status": "PASS", "normalized_sha256": "ef536257a5ce5c75ace21cf1a27075311e9eacb49a9ab0639ba9491ded79ca85", "exit_code": 1}
+    },
+    "overnight-training": {
+      "default_command_count": 23,
+      "keeps_6_fixture_command_count": 11,
+      "valid": {"status": "PASS", "normalized_sha256": "1dba2ea062e48c3834d86730fd87cbb30639dbc527e314c1cee0a69506adc80f", "exit_code": 0},
+      "missing": {"status": "PASS", "normalized_sha256": "f6e6107c6c1911b130431d4d0010d7e94f5b5ab1c1996f4e96de6395fc815344", "exit_code": 1},
+      "failure": {"status": "PASS", "normalized_sha256": "8618012825996a673507efb14e6cac24e747053da8f40df3914ad1e540fee587", "exit_code": 1}
+    },
+    "risk-matrix-summary": {
+      "command_count": 0,
+      "valid": {"status": "PASS", "normalized_sha256": "7ac02583d185018257c2f4aba1c3b344ccc424c981fcaf880040a0b3dd02321e", "exit_code": 0},
+      "missing": {"status": "PASS", "normalized_sha256": "5f31efaa06274242f0648a7591978c474cfbef7fe4ffcb999414d5c1490818d1", "exit_code": 1},
+      "failure": {"status": "PASS", "normalized_sha256": "42e218f0fa720f898fd63149725c2310092bb03c806989e99b053726f7910e89", "exit_code": 1}
+    }
+  },
+  "dry_run_gate": {
+    "status": "PASS",
+    "subprocess_calls": 0,
+    "preexisting_stage_artifact_bytes_unchanged": true,
+    "preexisting_steps_tsv_bytes_unchanged": true,
+    "stage_artifacts_written": 0,
+    "manifest_written_only_when_explicit_output": true
+  },
+  "failure_semantics": {
+    "a1-forward": "continue all four commands, aggregate FAILED, exit 1",
+    "candidate-stress": "stop on first CalledProcessError, no stage artifact, CLI exit 1",
+    "overnight-training": "continue remaining commands and summary, append every TSV row, aggregate FAILED, exit 1",
+    "risk-matrix-summary": "write JSON/Markdown with errors for missing baseline or hash mismatch, exit 1"
+  },
+  "daily_hashes": {
+    "scripts/run_daily.sh": "3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3",
+    "scripts/run_daily_publish.sh": "ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3",
+    "scripts/com.new-top10.daily.plist": "eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995",
+    "config/automation.yaml": "c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a"
+  },
+  "focused_test": "tests/test_shadow_research_campaign.py"
+}

@@ -67,6 +67,9 @@ overrides:
   scripts/run_daily_v2.py:
     category: research
     reason: shadow-only daily V2 lane; no production switch has been approved
+  scripts/run_shadow_research_campaign.py:
+    category: research
+    reason: stage-based research-only shadow campaign; no production promotion is allowed
 # 既有 unclassified 的核准基線。新路徑須明確加入前才可通過 --strict-new。
 approved_unclassified: []
 
@@ -93,7 +96,6 @@ reference_audit:
     - scripts/build_odd_lot_regime_sensitivity_report.py
     - scripts/build_operational_long_rule_validation_report.py
     - scripts/build_operational_rule_review.py
-    - scripts/build_overnight_risk_matrix_summary.py
     - scripts/build_portfolio_overlay_promotion_review.py
     - scripts/build_portfolio_replay_regime_attribution.py
     - scripts/build_production_baseline_materialization_review.py
@@ -105,9 +107,6 @@ reference_audit:
     - scripts/research_map_linkage_smoke.py
     - scripts/research_risk_off_narrow_routing.py
     - scripts/research_vwap_cost_basis.py
-    - scripts/run_a1_forward_shadow_monitor.py
-    - scripts/run_candidate_stress_matrix.py
-    - scripts/run_overnight_shadow_training.py
     - scripts/run_production_trail10_batch_08_10.py
     - scripts/run_training_candidate_replay_flow.py
     - scripts/send_pm_review_card_local.sh
