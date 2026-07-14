@@ -16,14 +16,18 @@ type: result
 ## Evidence
 
 - parity：`.work/CLEANUP-35/evidence/parity.json` → `PASS`
-- focused dry-run / mocked subprocess tests：`13 passed`
+  - 重建：`uv run python scripts/verify_shadow_research_campaign_parity.py`
+  - frozen legacy source：`9748b95` Git objects；12 組 synthetic fixture，真實 replay/training `0` 次
+- focused dry-run / mocked subprocess tests：`15 passed`（含 schema mutation sensitivity）
 - candidate full pytest：`266 passed, 28 subtests passed, 4 warnings`
   - 原始 worktree run 為 `264 passed, 1 failed`；唯一失敗是既有 ledger verifier 缺 gitignored evidence
   - local-only adapter 只把 verifier evidence root 指向 canonical checkout；未 copy/symlink artifact，完整 suite 通過
-- lifecycle strict-new：`432 tracked scripts` → `PASS`
-- reference strict-new：`432 tracked scripts, 0 new suspected orphans` → `PASS`
-- stale old-entry references in `scripts/tests/config`：`0`
-- py_compile：新 runner 通過
+- repair full pytest：`267 passed, 1 failed, 28 subtests passed, 4 warnings`
+  - 唯一失敗仍為 `test_research_component_ledger` 的既有 gitignored evidence 缺口；本 repair 不處理
+- lifecycle strict-new：`430 tracked scripts` → `PASS`
+- reference strict-new：`430 tracked scripts, 0 new suspected orphans` → `PASS`
+- 四支舊入口只保留於 parity harness 的 pinned Git source path，不恢復為可執行入口
+- py_compile：新 runner 與 parity verifier 通過
 - `git diff --check`：`PASS`
 
 ## Failure Semantics

@@ -14,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 import run_shadow_research_campaign as runner
+import verify_shadow_research_campaign_parity as parity
 
 
 RUN_DATE = "2026-06-18"
@@ -275,3 +276,24 @@ def test_risk_matrix_valid_missing_and_hash_failure(
     assert payload["status"] == expected_status
     assert console == {"status": expected_status, "output": runner.repo_path(output), "errors": payload["errors"]}
     assert output.with_suffix(".md").read_text(encoding="utf-8") == runner.render_risk_markdown(json.loads(output.read_text(encoding="utf-8")))
+
+
+def test_committed_old_new_parity_harness_covers_all_stage_cases() -> None:
+    evidence = parity.build_evidence()
+    assert evidence["status"] == "PASS"
+    assert set(evidence["stages"]) == set(parity.STAGES)
+    for stage in parity.STAGES:
+        assert set(evidence["stages"][stage]) == set(parity.CASES)
+        for case in parity.CASES:
+            assert evidence["stages"][stage][case]["status"] == "PASS"
+            assert all(evidence["stages"][stage][case]["comparisons"].values())
+    assert evidence["mutation_sensitivity"]["status"] == "PASS"
+
+
+def test_parity_harness_detects_schema_mutation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(runner, "A1_SCHEMA_VERSION", "a1-forward-shadow-monitor.mutated")
+    result = parity.run_suite(stages=("a1-forward",), cases=("valid",))
+    case = result["stages"]["a1-forward"]["valid"]
+    assert result["status"] == "FAIL"
+    assert case["status"] == "FAIL"
+    assert case["comparisons"]["normalized_json"] is False

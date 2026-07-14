@@ -20,7 +20,7 @@ None。完整 pytest 在乾淨 worktree 首次執行時，既有 research compon
 
 ## Current Status
 
-已新增 `scripts/run_shadow_research_campaign.py`，保留 `a1-forward`、`candidate-stress`、`overnight-training`、`risk-matrix-summary` 四個 stage。valid/missing/failure 舊新 normalized parity、全域 dry-run 零副作用、mocked failure semantics、strict audits、完整 pytest 與 daily hashes 均通過，四支舊入口已退休。
+已新增 `scripts/run_shadow_research_campaign.py`，保留 `a1-forward`、`candidate-stress`、`overnight-training`、`risk-matrix-summary` 四個 stage。`uv run python scripts/verify_shadow_research_campaign_parity.py` 可從 pinned baseline `9748b95` 重建 valid/missing/failure 舊新 normalized parity；四支舊入口維持退休，不恢復為 production-like CLI。
 
 ## Next Step
 

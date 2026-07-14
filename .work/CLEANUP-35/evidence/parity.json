@@ -1,65 +1,229 @@
 {
-  "schema_version": "shadow-research-campaign-parity.v1",
-  "task_id": "CLEANUP-35",
-  "generated_on": "2026-07-14",
+  "schema_version": "shadow-research-campaign-parity.v2",
+  "task_id": "CLEANUP-35-F1",
   "status": "PASS",
   "baseline_commit": "9748b95",
   "method": {
-    "inputs": "synthetic valid/missing fixtures only",
-    "execution": "old and new entrypoints loaded together before retirement with identical mocked subprocess results",
-    "normalization": [
-      "remove generated_at and per-step timestamps",
-      "replace fixture-root absolute paths with <ROOT>",
-      "compare JSON objects, exact Markdown, normalized TSV rows, console JSON, exit codes and subprocess command order"
+    "legacy_source": "git show 9748b95:<legacy-path>",
+    "inputs": "synthetic valid/missing/failure fixtures",
+    "subprocess": "mocked in-process; no replay, ranking or training command executed",
+    "comparison": [
+      "normalized JSON",
+      "exact Markdown",
+      "normalized TSV",
+      "console JSON",
+      "exit code",
+      "executed and artifact command order"
     ],
     "real_replay_or_training_count": 0
   },
   "stages": {
     "a1-forward": {
-      "command_count": 4,
-      "valid": {"status": "PASS", "normalized_sha256": "30b34c9dc894510076a00478a919ab2810828ff48340afd362972ec79ad3d16e", "exit_code": 0},
-      "missing": {"status": "PASS", "normalized_sha256": "9a7e3ad0ae08def7f3306434de2e48e94c48ea29188aab36521e020477f42a2c", "exit_code": 0},
-      "failure": {"status": "PASS", "normalized_sha256": "3dd325cf28ccfe4c0a22a2523fbd65cd89972bdb97b149c75094526409242ec6", "exit_code": 1}
+      "valid": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "5e770bf5de971d62a38208429eb79af78d60cbcad0dfefb97952883654c02072",
+        "new_sha256": "5e770bf5de971d62a38208429eb79af78d60cbcad0dfefb97952883654c02072",
+        "exit_code": 0,
+        "executed_command_count": 4,
+        "artifact_command_count": 4
+      },
+      "missing": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "f54b572f581267f0fb3527f0f617ff8b012c3070acf262390b4bcf66392c1a3d",
+        "new_sha256": "f54b572f581267f0fb3527f0f617ff8b012c3070acf262390b4bcf66392c1a3d",
+        "exit_code": 0,
+        "executed_command_count": 4,
+        "artifact_command_count": 4
+      },
+      "failure": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "936ca9c6b49121ee60ca8a88b5a192d916c4dd2e8ac906a0a1fc134568046f59",
+        "new_sha256": "936ca9c6b49121ee60ca8a88b5a192d916c4dd2e8ac906a0a1fc134568046f59",
+        "exit_code": 1,
+        "executed_command_count": 4,
+        "artifact_command_count": 4
+      }
     },
     "candidate-stress": {
-      "command_count": 60,
-      "valid": {"status": "PASS", "normalized_sha256": "cc509a32945b726df44f8e8cae3f6b6e33e5c6ab3dedc41292d89dc323d05c2a", "exit_code": 0},
-      "missing": {"status": "PASS", "normalized_sha256": "0bda87082fe57204ee72edaeb1f8bc7860d7316b9f47d1733e20577183eefcdf", "exit_code": 0},
-      "failure": {"status": "PASS", "normalized_sha256": "ef536257a5ce5c75ace21cf1a27075311e9eacb49a9ab0639ba9491ded79ca85", "exit_code": 1}
+      "valid": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "5861124b03a4bafece7905d7cd08915021799a0a5105525736ceb70a0a2961a6",
+        "new_sha256": "5861124b03a4bafece7905d7cd08915021799a0a5105525736ceb70a0a2961a6",
+        "exit_code": 0,
+        "executed_command_count": 60,
+        "artifact_command_count": 60
+      },
+      "missing": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "95d21aecdffe8e9453f751b37061ad5c990f410c39543ced5ad812052712e8e9",
+        "new_sha256": "95d21aecdffe8e9453f751b37061ad5c990f410c39543ced5ad812052712e8e9",
+        "exit_code": 0,
+        "executed_command_count": 0,
+        "artifact_command_count": 60
+      },
+      "failure": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "31938131cac8fa17076fd779a34f48adb6f2f543f25c1cebadf9b4887edec816",
+        "new_sha256": "31938131cac8fa17076fd779a34f48adb6f2f543f25c1cebadf9b4887edec816",
+        "exit_code": 1,
+        "executed_command_count": 2,
+        "artifact_command_count": 0
+      }
     },
     "overnight-training": {
-      "default_command_count": 23,
-      "keeps_6_fixture_command_count": 11,
-      "valid": {"status": "PASS", "normalized_sha256": "1dba2ea062e48c3834d86730fd87cbb30639dbc527e314c1cee0a69506adc80f", "exit_code": 0},
-      "missing": {"status": "PASS", "normalized_sha256": "f6e6107c6c1911b130431d4d0010d7e94f5b5ab1c1996f4e96de6395fc815344", "exit_code": 1},
-      "failure": {"status": "PASS", "normalized_sha256": "8618012825996a673507efb14e6cac24e747053da8f40df3914ad1e540fee587", "exit_code": 1}
+      "valid": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "a527ab5edac96c3bc0f2dd7825fef276b738764c5297cf02b0f3a4a47dbd88a0",
+        "new_sha256": "a527ab5edac96c3bc0f2dd7825fef276b738764c5297cf02b0f3a4a47dbd88a0",
+        "exit_code": 0,
+        "executed_command_count": 11,
+        "artifact_command_count": 11
+      },
+      "missing": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "cd2a532014c605b47e00f701afa62e8e6e1ffaa0341d488e13866fbfaa3a14a8",
+        "new_sha256": "cd2a532014c605b47e00f701afa62e8e6e1ffaa0341d488e13866fbfaa3a14a8",
+        "exit_code": 1,
+        "executed_command_count": 11,
+        "artifact_command_count": 11
+      },
+      "failure": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "b41955a30234afd32dc4e0cc26ea7fc06c2f7d70323cacac967dce20b7b5599d",
+        "new_sha256": "b41955a30234afd32dc4e0cc26ea7fc06c2f7d70323cacac967dce20b7b5599d",
+        "exit_code": 1,
+        "executed_command_count": 11,
+        "artifact_command_count": 11
+      }
     },
     "risk-matrix-summary": {
-      "command_count": 0,
-      "valid": {"status": "PASS", "normalized_sha256": "7ac02583d185018257c2f4aba1c3b344ccc424c981fcaf880040a0b3dd02321e", "exit_code": 0},
-      "missing": {"status": "PASS", "normalized_sha256": "5f31efaa06274242f0648a7591978c474cfbef7fe4ffcb999414d5c1490818d1", "exit_code": 1},
-      "failure": {"status": "PASS", "normalized_sha256": "42e218f0fa720f898fd63149725c2310092bb03c806989e99b053726f7910e89", "exit_code": 1}
+      "valid": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "2e0b4da0fb2b91bb93d25fe21559d45199b90ea7e1a8aea27567e2b02f791bba",
+        "new_sha256": "2e0b4da0fb2b91bb93d25fe21559d45199b90ea7e1a8aea27567e2b02f791bba",
+        "exit_code": 0,
+        "executed_command_count": 0,
+        "artifact_command_count": 0
+      },
+      "missing": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "ed8a043783b33346734b1ebf01e061c9e95d3f101c02f2ea860e39de99f40cd9",
+        "new_sha256": "ed8a043783b33346734b1ebf01e061c9e95d3f101c02f2ea860e39de99f40cd9",
+        "exit_code": 1,
+        "executed_command_count": 0,
+        "artifact_command_count": 0
+      },
+      "failure": {
+        "status": "PASS",
+        "comparisons": {
+          "normalized_json": true,
+          "exact_markdown": true,
+          "normalized_tsv": true,
+          "console_json": true,
+          "exit_code": true,
+          "command_order": true
+        },
+        "old_sha256": "37f4123e518da61fb6e9cc0660163d2a9c1bcc8eacf17c90c9b2439336ce140b",
+        "new_sha256": "37f4123e518da61fb6e9cc0660163d2a9c1bcc8eacf17c90c9b2439336ce140b",
+        "exit_code": 1,
+        "executed_command_count": 0,
+        "artifact_command_count": 0
+      }
     }
   },
-  "dry_run_gate": {
+  "mutation_sensitivity": {
     "status": "PASS",
-    "subprocess_calls": 0,
-    "preexisting_stage_artifact_bytes_unchanged": true,
-    "preexisting_steps_tsv_bytes_unchanged": true,
-    "stage_artifacts_written": 0,
-    "manifest_written_only_when_explicit_output": true
-  },
-  "failure_semantics": {
-    "a1-forward": "continue all four commands, aggregate FAILED, exit 1",
-    "candidate-stress": "stop on first CalledProcessError, no stage artifact, CLI exit 1",
-    "overnight-training": "continue remaining commands and summary, append every TSV row, aggregate FAILED, exit 1",
-    "risk-matrix-summary": "write JSON/Markdown with errors for missing baseline or hash mismatch, exit 1"
-  },
-  "daily_hashes": {
-    "scripts/run_daily.sh": "3a0a0905a9f24f79938eb8a5d24c4c0d20bf841833ce0a5c07b078be4718f4a3",
-    "scripts/run_daily_publish.sh": "ff001af0c95d100d7e077bf1a6735f488e36234dadd4a8d73223486d747e84c3",
-    "scripts/com.new-top10.daily.plist": "eba01f79b457916608b2a2ca5c42bf61af12a2ec81b5f1901934491859155995",
-    "config/automation.yaml": "c68ca07816a859103013323214cdd47da23ee277cab54e0bd08d59839d70004a"
-  },
-  "focused_test": "tests/test_shadow_research_campaign.py"
+    "mutation": "A1_SCHEMA_VERSION",
+    "expected_parity_status": "FAIL",
+    "observed_parity_status": "FAIL",
+    "detected_by": "normalized_json"
+  }
 }
