@@ -1,88 +1,89 @@
 ---
 id: CLEANUP-35-R1
-status: no-go
-type: strict-independent-review
+status: go
+type: strict-independent-re-review
 candidate_commit: f9b4a71
-verdict: NO-GO
+repair_commit: ef0f7c3
+reviewed_commit: ef0f7c3
+verdict: GO
 ---
 
 # CLEANUP-35-R1 Review
 
 ## Verdict
 
-`NO-GO`
+`GO`
 
-Candidate 的 runner 實作經靜態比對後未發現明確 production 邊界破壞，focused tests、全域 dry-run、strict audits 與 daily hash 也通過；但四個舊入口已刪除，而核心 old/new parity acceptance 沒有可由 repository 重跑的 harness。這使最重要的退役前契約仍無法獨立驗證。
+原 `NO-GO` 的兩項 findings 已由 `ef0f7c3` 關閉。Reviewer 在原 R1 worktree 獨立重跑 committed parity harness、focused tests、strict audits、py_compile、daily hashes 與完整 pytest；repair 沒有修改 candidate runner、daily/publish、production ranking、model、weights 或 automation。
 
-## Review Boundary
+## Re-review Boundary
 
-- base commit：`9748b95`
-- candidate commit：`f9b4a71`
-- diff：`9748b95..f9b4a71`
-- do not touch：candidate code、tests、config、既有 candidate evidence
+- chain_id：`CLEANUP-35`
+- base candidate：`f9b4a71`
+- original review evidence：`b7d7e4d`
+- repair card commit：`e00919b`
+- repair commit：`ef0f7c3`
+- repair diff：`e00919b..ef0f7c3`
+- 本輪只判定：`C35-R1-F1`、`C35-R1-F2`
 - 禁止執行：真實 replay、shadow ranking、training、長跑 subprocess
 
-## Findings
+## Finding Closure
 
-### C35-R1-F1
+### C35-R1-F1 — RESOLVED
 
-- finding_id：`C35-R1-F1`
-- severity：`P1`
-- category：`testing / spec compliance`
-- path:line：`tests/test_shadow_research_campaign.py:16`
-- trigger：嘗試從 candidate commit 重建 `.work/CLEANUP-35/evidence/parity.json` 宣稱的 old/new normalized parity。
-- evidence：focused test 只 import `run_shadow_research_campaign`；`pytest --collect-only` 收到 13 cases，但沒有載入 parent 四支舊入口，也沒有 `9748b95` source loader、parity generator 或 hash assertion。`rg` 只找到靜態 `.work/CLEANUP-35/evidence/parity.json` 宣告，找不到產生該證據的程式。
-- risk：四支舊入口已刪除；若 CLI/default、完整 command plan、JSON/Markdown/TSV、console 或 exit semantics 有漂移，現有測試仍可能全綠。這直接違反 parent card 的退役前 acceptance，且失去可重跑的 rollback/parity 證明。
-- required_fix：先恢復四支舊入口，或提供同等可重跑的 frozen legacy fixture；新增 committed parity harness，同時執行 old/new valid、missing、subprocess failure fixture，逐項比較 normalized payload、exact Markdown、normalized TSV、console JSON、exit code 與完整 command order，再由該 harness 產生 parity evidence。
-- verification：在乾淨 worktree 執行單一 parity command，必須重建 `.work/CLEANUP-35/evidence/parity.json` 並逐 stage PASS；測試需在故意改動任一 CLI default／command argument／schema field 時可失敗。
-- confidence：`high`
+- 原 severity：`P1`
+- repair path：`scripts/verify_shadow_research_campaign_parity.py`
+- evidence：committed harness 固定從 `9748b95` Git objects 載入四支 legacy entrypoint；四 stage × valid/missing/failure 共 12 組皆 PASS。
+- comparison axes：normalized JSON、exact Markdown、normalized TSV、console JSON、exit code、executed/artifact command order 全部一致。
+- reproducibility：獨立執行 `uv run python scripts/verify_shadow_research_campaign_parity.py` exit 0，重建 parity evidence 後 worktree 無 diff。
+- sensitivity：`A1_SCHEMA_VERSION` mutation 被判為 parity `FAIL`，證明 harness 不是只驗 happy-path 或手寫 PASS。
+- boundary：harness 只允許 `git show` 讀 frozen source；stage subprocess 全部由 in-process fake 攔截，真實 replay/ranking/training 次數為 0。
+- closure：`RESOLVED`
 
-### C35-R1-F2
+### C35-R1-F2 — RESOLVED
 
-- finding_id：`C35-R1-F2`
-- severity：`P3`
-- category：`evidence accuracy`
-- path:line：`.work/CLEANUP-35/result.md:23`
-- trigger：在 candidate commit 執行 lifecycle/reference `--strict-new`。
-- evidence：兩支 audit 都回報 `429 tracked scripts`，不是 result 記錄的 `432`；這符合四舊刪除、一新增加的淨減 3。
-- risk：PASS verdict 不受影響，但 evidence summary 無法逐字對上實際命令輸出，增加後續 acceptance 誤判成本。
-- required_fix：把兩處 tracked script count 修正為 `429`，並留下實際可重跑命令。
-- verification：兩支 strict audit 的輸出與 result 記錄一致。
-- confidence：`high`
+- 原 severity：`P3`
+- repair path：`.work/CLEANUP-35/result.md`
+- evidence：新增 verifier 後，reference/lifecycle strict audit 都獨立回報 `430 tracked scripts` 且 PASS；result/status 已同步為 430。
+- closure：`RESOLVED`
 
 ## Spec Axis
 
-- `FAIL`：parent card 明定 old/new valid/missing/failure parity 是刪除舊入口前的必要契約；candidate 只有不可重建的摘要 artifact。
-- 其餘已核對：四個 stage、主要 CLI/default、command ordering、failure semantics、global dry-run、daily 四檔 do-not-touch 均未發現額外阻塞問題。
+`PASS`
+
+- 退役前 old/new parity 已具備 committed、可重跑、mutation-sensitive 的證據。
+- CLI/default、command ordering、JSON/Markdown/TSV、console 與 exit semantics 的原 finding 已被 12 組比較關閉。
+- candidate runner 本體未因 repair 改動。
 
 ## Standards Axis
 
-- subprocess 使用 argv list，未引入 shell injection。
-- focused tests 使用 mocked subprocess／temporary root，未觸發真實 replay 或 training。
-- lifecycle/reference strict-new 均 PASS。
-- 主要缺口是 acceptance evidence 不可重跑，不是風格問題。
+`PASS`
 
-## Verification Summary
+- Harness 使用 argv list 呼叫固定 `git show`，沒有 shell invocation。
+- Synthetic fixture 全部位於 temporary directory。
+- Focused tests 會直接執行 parity harness 並驗證 mutation failure。
+- Repair diff 僅包含兩項 findings 所需 verifier、tests 與 evidence/docs。
 
-- focused pytest：`13 passed`
-- global CLI dry-run：四個 stage 都 exit 0，manifest 均為 `SKIPPED`，command count 分別為 `4 / 60 / 23 / 0`
-- reference audit：`429 tracked scripts`，`strict-new: PASS`
-- lifecycle audit：`429 tracked scripts`，`strict-new: PASS`
+## Independent Verification
+
+- parity harness：`PASS`
+- focused pytest：`15 passed`
+- reference strict-new：`430 tracked scripts`，PASS
+- lifecycle strict-new：`430 tracked scripts`，PASS
 - py_compile：PASS
-- daily 四檔 SHA-256：與 card 基線完全一致
-- candidate diff check：PASS
-- full pytest：`265 passed, 1 failed, 28 subtests passed, 4 warnings`；唯一失敗是已揭露的 gitignored research ledger evidence 缺失，與 candidate diff 無直接關聯
-- 真實 replay / shadow ranking / training 次數：`0`
+- repair diff check：PASS
+- daily 四檔 SHA-256：與原 card 基線一致
+- full pytest：`267 passed, 1 failed, 28 subtests passed, 4 warnings`
+- 真實 replay / shadow ranking / training：`0`
 
-## Testing Gaps
+## Remaining Risk
 
-- 未能從 repository 重建 candidate 宣稱的 old/new parity hash。
-- candidate 所述 local-only ledger adapter 沒有保留可重跑命令；review 只能重現未套 adapter 的既有單一失敗。
+完整 pytest 唯一 failure 仍是 `test_research_component_ledger` 缺 gitignored historical evidence；此缺口已在原 R1 記錄，且不在 `e00919b..ef0f7c3` repair diff。它不阻擋本輪兩項 findings closure，但主線不得把此 GO 擴張解讀成整個 repository 零失敗。
 
-## Open Questions
+## Open Findings
 
-無。阻塞條件與 bounded repair scope 已足夠明確。
+無。`C35-R1-F1/F2` 均已關閉。
 
 ## Evidence
 
-完整命令與輸出摘要見 `.work/CLEANUP-35-R1/evidence/verification.md`。
+本輪命令與輸出摘要：`.work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md`。
