@@ -50,6 +50,6 @@ thread_status: local-card-only
 
 - 日期契約已加入：單日來源要求 exact match；歷史來源要求 max date 不得晚於 ranking date。
 - 已補 exact/historical pass 與 future-date blocking fixtures。
-- Candidate commit：`9971650`。
+- Candidate commit：`22fe86d`。
 - Candidate scope：`app/research_auditor.py`、`tests/test_research_auditor.py`、兩張任務卡。
 - 下一狀態：回 parent reviewer re-review。
