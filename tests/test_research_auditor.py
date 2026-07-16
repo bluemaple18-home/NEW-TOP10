@@ -53,3 +53,26 @@ def test_audit_cannot_overwrite_input(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="must not overwrite"):
         write_audit(payload, ranking)
 
+
+def test_date_alignment_passes_for_historical_source(tmp_path: Path) -> None:
+    ranking = tmp_path / "ranking_2026-07-17.csv"
+    source = tmp_path / "features.csv"
+    _write_ranking(ranking)
+    pd.DataFrame({"stock_id": ["2330", "2317"], "date": ["2026-07-16", "2026-07-17"]}).to_csv(source, index=False)
+
+    payload = build_audit(AuditInputs(ranking=ranking, features=source))
+
+    date_check = next(item for item in payload["checks"] if item["name"] == "features_date_consistency")
+    assert date_check["ok"] is True
+
+
+def test_future_source_date_is_blocking(tmp_path: Path) -> None:
+    ranking = tmp_path / "ranking_2026-07-17.csv"
+    source = tmp_path / "features.csv"
+    _write_ranking(ranking)
+    pd.DataFrame({"stock_id": ["2330", "2317"], "date": ["2026-07-18", "2026-07-18"]}).to_csv(source, index=False)
+
+    payload = build_audit(AuditInputs(ranking=ranking, features=source))
+
+    assert payload["status"] == "NO-GO"
+    assert "features_date_consistency" in payload["conclusion"]["blocking_reasons"]

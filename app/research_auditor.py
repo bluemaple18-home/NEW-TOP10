@@ -6,7 +6,8 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Iterable
+import re
+from typing import Any
 
 import pandas as pd
 
@@ -18,6 +19,8 @@ CORE_SCORE_COLUMNS = (
     "prediction_score",
     "quality_score",
 )
+DATE_COLUMNS = ("date", "trade_date", "ranking_date", "feature_date", "observation_date", "as_of_date")
+RANKING_DATE_PATTERN = re.compile(r"ranking_(\d{4}-\d{2}-\d{2})")
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,7 @@ def build_audit(inputs: AuditInputs) -> dict[str, Any]:
     checks.append(_reasons_evidence_check(ranking))
 
     optional_sources: dict[str, Any] = {}
+    ranking_date = _ranking_date(inputs.ranking, ranking)
     for label, path in (
         ("features", inputs.features),
         ("fundamentals", inputs.fundamentals),
@@ -52,6 +56,7 @@ def build_audit(inputs: AuditInputs) -> dict[str, Any]:
         if label in {"features", "fundamentals"}:
             frame = _read_table(path)
             checks.append(_stock_id_coverage_check(ranking, frame, label))
+            checks.append(_date_consistency_check(ranking_date, frame, label))
 
     blocking = [item for item in checks if item["severity"] == "blocking" and not item["ok"]]
     warnings = [item for item in checks if item["severity"] == "warning" and not item["ok"]]
@@ -67,6 +72,10 @@ def build_audit(inputs: AuditInputs) -> dict[str, Any]:
         "inputs": {
             "ranking": _snapshot(inputs.ranking),
             **optional_sources,
+        },
+        "date_contract": {
+            "ranking_date": ranking_date,
+            "allowed_source_date_columns": list(DATE_COLUMNS),
         },
         "summary": {
             "blocking_count": len(blocking),
@@ -156,6 +165,49 @@ def _stock_id_coverage_check(ranking: pd.DataFrame, source: pd.DataFrame, label:
     return _check(f"{label}_ranking_coverage", not missing, "warning", {"missing_stock_ids": missing[:20], "missing_count": len(missing)})
 
 
+def _ranking_date(path: Path, frame: pd.DataFrame) -> str | None:
+    for column in ("ranking_date", "date", "trade_date"):
+        if column in frame.columns:
+            values = _normalise_dates(frame[column])
+            unique = sorted(set(values.dropna()))
+            if len(unique) == 1:
+                return unique[0]
+    match = RANKING_DATE_PATTERN.search(Path(path).stem)
+    return match.group(1) if match else None
+
+
+def _date_consistency_check(ranking_date: str | None, source: pd.DataFrame, label: str) -> dict[str, Any]:
+    date_column = next((column for column in DATE_COLUMNS if column in source.columns), None)
+    if ranking_date is None:
+        return _check(f"{label}_date_consistency", False, "blocking", {"reason": "ranking date is not identifiable"})
+    if date_column is None:
+        return _check(f"{label}_date_consistency", False, "blocking", {"reason": "source date column is not identifiable"})
+    values = _normalise_dates(source[date_column]).dropna()
+    if values.empty:
+        return _check(f"{label}_date_consistency", False, "blocking", {"reason": "source date column has no parseable values", "date_column": date_column})
+    future_dates = sorted(value for value in set(values) if value > ranking_date)
+    aligned = len(set(values)) == 1 and next(iter(set(values))) == ranking_date
+    historical = len(set(values)) > 1 and not future_dates
+    ok = aligned or historical
+    return _check(
+        f"{label}_date_consistency",
+        ok,
+        "blocking",
+        {
+            "ranking_date": ranking_date,
+            "date_column": date_column,
+            "source_min_date": min(values),
+            "source_max_date": max(values),
+            "future_dates": future_dates[:20],
+            "mode": "exact_match" if aligned else "historical_not_after_ranking" if historical else "mismatch",
+        },
+    )
+
+
+def _normalise_dates(values: pd.Series) -> pd.Series:
+    return pd.to_datetime(values, errors="coerce").dt.strftime("%Y-%m-%d")
+
+
 def _check(name: str, ok: bool, severity: str, details: dict[str, Any]) -> dict[str, Any]:
     return {"name": name, "ok": bool(ok), "severity": severity, "details": details}
 
@@ -166,4 +218,3 @@ def _snapshot(path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"audit input not found: {path}")
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     return {"provided": True, "path": str(path), "size_bytes": path.stat().st_size, "sha256": digest}
-

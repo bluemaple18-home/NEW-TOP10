@@ -1,7 +1,7 @@
 ---
 card_id: RESEARCH-AUDITOR-01
 title: TOP10 Research Auditor MVP
-status: DELIVERED_CANDIDATE
+status: REVIEW_NO_GO
 ownership: mainline
 thickness: standard
 risk: medium
@@ -77,6 +77,7 @@ LLM／Agent 若未來加入，只能解讀已驗證證據並產生草稿；資�
 - 驗證：`.venv/bin/python -m pytest -q tests/test_research_auditor.py` → `3 passed`。
 - 驗證：`.venv/bin/python -m py_compile app/research_auditor.py scripts/run_research_auditor.py` → pass。
 - 驗證：`git diff --check` → pass。
-- Candidate commit：`667f262`。
+- Candidate commit：`f0fe163c30d6cd4bb6edcde5a6e8e0a107e23734`。
 - Candidate scope：本卡 4 個檔案；既有其他 dirty paths 未納入。
-- 下一狀態：`READY_FOR_REVIEW`，需固定 candidate SHA 後由獨立 reviewer 執行 review。
+- Review evidence：`.work/RESEARCH-AUDITOR-01/review/review_result.md`。
+- 下一狀態：`REPAIR_READY`，repair card：`docs/tasks/2026-07-17_RESEARCH-AUDITOR-01R1.md`。
