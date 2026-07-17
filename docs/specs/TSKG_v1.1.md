@@ -100,8 +100,8 @@ source: TSKG-v1.0-authoritative-parent-thread-baseline
 |---|---|---|---|
 | AC-01 | 核准 identity fixture 含 NVIDIA／NVDA／Nvidia、Tesla／TESLA、Meta／Facebook 及市場代碼 `3017` | 執行 resolve 與 company lookup | aliases 解析到各自 canonical entity；`3017` 先解析 Security 再連到 issuer Organization；回傳名稱取自 fixture，不由規格臆造 |
 | AC-02 | 同名不同 jurisdiction、alias collision，以及已核准 merge／split event | 執行 resolution 與歷史 as-of 查詢 | collision 回 `AMBIGUOUS`；不自動 fuzzy merge；舊 ID 可 redirect 且 lineage、valid time、claims 不遺失 |
-| AC-03 | 一筆具 evidence 的 `SUPPLIES_TO(A,B)` 與一筆無 evidence 的示意 edge | 查正向、inverse 與二跳關係 | 正向只儲存一次，inverse 標示 derived；示意 edge 被拒絕；不得自行推導 transitive `UPSTREAM_OF` |
-| AC-04 | 同一 canonical fact 有兩個相容來源及一個互斥來源 | promotion／query | 相容 evidence 聚合在同一 claim identity；互斥版本各自保留並標示 `CONFLICTED`，不得以來源優先序靜默覆寫 |
+| AC-03 | 四筆同義輸入：`A supplies B`、`B is supplied by A`、`A has customer B`、`B is customer of A`，以及一筆無 evidence 的示意 edge | normalization、promotion、正反向 API query | 四筆正規化為唯一 `SUPPLIES_TO(A,B)` canonical fact；相容 assertions/evidence 聚合，不建立 `SUPPLIED_BY/HAS_CUSTOMER/CUSTOMER_OF` canonical claim；API 依 `canonical_fact_id` 去重並標示 query-derived label；示意 edge 被拒絕；不得自行推導 transitive `UPSTREAM_OF` |
+| AC-04 | 同一 `canonical_fact_id` 有兩個相容 assertions 及一個有效期／qualifier 互斥 assertion | 建立 conflict、review resolution，並在 decision 前後以 `known_at` 查詢 | 相容 evidence 聚合；互斥 claim 同屬一個 conflict set；decision 保存 evidence、actor、time、policy 與 selected/rejected/superseded lineage；現在查詢反映 decision，歷史 `known_at` 仍重建原衝突與當時可見 decision，不得靜默覆寫 |
 | AC-05 | 固定 raw artifact、parser version、policy version 與 idempotency key | 同批執行兩次，並在 projection 前模擬失敗後重跑 | authoritative rows、claims、outbox event 不重複；checkpoint 可重入；projection 最終與 authoritative snapshot 一致 |
 | AC-06 | LLM 產出未知 entity、缺 evidence locator、無法校準 confidence 或 alias collision candidate | promotion gate | deterministic validation fail loud；高影響歧義進 `PENDING_REVIEW`；LLM 不直接寫 authoritative store |
 | AC-07 | 核准 company fixture 與可追溯關係 | 呼叫 `/company/3017` 及 `/company/3017/graph` | response 具有 company、products、themes、customers、suppliers、competitors、upstream、downstream、etfs、freshness、provenance；未證實集合為空而非臆造 |
@@ -109,7 +109,7 @@ source: TSKG-v1.0-authoritative-parent-thread-baseline
 | AC-09 | 基線 snapshot 與包含 add、modify、invalidate、conflict、resolve 的下一 snapshot | 執行 daily diff | change event 種類、before/after hash、原因、run ID 與計數符合預期；未核准 hard delete 不發生 |
 | AC-10 | 來源 registry 缺 terms/robots/rate/retention 任一決策 | 嘗試建立 ingestion run | run 在讀取來源前即被阻擋；robots 允許不能取代 terms／legal basis 核准 |
 | AC-11 | Top10 input 與具 evidence 的一跳關係 | expand graph | 只回傳 Related Stocks、路徑、claim/evidence、sector summary 與限制聲明；不輸出買賣、報酬或補漲預測 |
-| AC-12 | 核准 universe manifest 與 benchmark dataset | 執行 coverage gate 與 cache-hit benchmark | coverage 對帳無漏失；指定 query shape 的 p95 <300ms，並記錄資料量、暖機、percentile、錯誤率與環境 |
+| AC-12 | 核准 universe manifest，以及符合 `TSKG-BENCH-v1` 的 benchmark manifest；reference environment 尚未核准時 | 執行 coverage contract gate 與 benchmark preflight | coverage 對帳無漏失；benchmark manifest 固定 generator/version/seed、graph distribution、expected response sizes、cache state 與 measurement contract；reference environment 未核准前回 `BLOCKED_FOR_SLO_ACCEPTANCE`，不得宣稱 p95 SLO PASS |
 
 ## 4. System Requirements（SRS）
 
@@ -123,14 +123,14 @@ source: TSKG-v1.0-authoritative-parent-thread-baseline
 | SRS-ID-04 | alias collision 或不足以唯一識別時回傳候選與 `AMBIGUOUS`，不得自動 fuzzy merge。 | US-01、US-03 | AC-02 |
 | SRS-ID-05 | merge／split 以 versioned event、redirect 與 lineage 表達，保留舊 ID 及歷史 as-of 結果。 | US-03 | AC-02 |
 | SRS-SCH-01 | canonical schema 覆蓋 Organization／Company role、Security／ETF subtype、Theme、Product、Industry、Source、Evidence、RelationshipClaim。 | US-01、US-02 | AC-01、AC-04 |
-| SRS-REL-01 | 每條 semantic relation 以一筆 canonical RelationshipClaim 儲存，不以 inverse 複製第二份事實。 | US-02 | AC-03 |
+| SRS-REL-01 | 每條 semantic relation 以一個 stable canonical fact identity 表達；canonical predicate、legacy/inverse normalization 與 API 去重不得以反向 label 複製第二份事實。 | US-02 | AC-03 |
 | SRS-REL-02 | 每個 relationship type 定義 source/target type、canonical direction、inverse、symmetry、attributes 及 valid time。 | US-02 | AC-03 |
 | SRS-REL-03 | symmetric relation 以 canonical endpoint ordering 去重，反向查詢標示 derived。 | US-02 | AC-03 |
 | SRS-REL-04 | derived relation 只可由白名單 rule 產生，回傳 rule/version/input claims；未列規則及 transitive supply-chain 推導一律禁止。 | US-02、US-09 | AC-03、AC-11 |
 | SRS-EVD-01 | 每條 promoted fact／claim 至少連結一筆可定位 Source 與 Evidence；缺 evidence 不得成為 active fact。 | US-02、US-05 | AC-03、AC-04、AC-06 |
-| SRS-EVD-02 | Evidence／Claim 同時保存 observed/retrieved、source published（若有）、valid time 與 system time。 | US-02 | AC-04 |
+| SRS-EVD-02 | Evidence／Claim 同時保存 observed/retrieved、source published（若有），並以可序列化 discriminator 完整表達 business/system interval；unknown、unbounded、current 與非法／空 interval 不得混用。 | US-02 | AC-04 |
 | SRS-EVD-03 | extraction confidence 與 truth status 分離，並保存 extractor/model、prompt/schema、validator 及 policy version。 | US-02、US-05 | AC-04、AC-06 |
-| SRS-EVD-04 | 多來源相容 evidence 可聚合；互斥 assertion 必須共存並進入 conflict state，不得靜默覆寫。 | US-02、US-03 | AC-04 |
+| SRS-EVD-04 | 多來源相容 evidence 可聚合；互斥 assertions 必須以 stable fact、assertion/version、claim、conflict set 與 resolution decision lineage 共存，不得靜默覆寫。 | US-02、US-03 | AC-04 |
 | SRS-ETL-01 | ingestion 每一 stage 定義 versioned input/output artifact、schema gate 與 fail-loud error context。 | US-04 | AC-05 |
 | SRS-ETL-02 | ingestion、claim promotion、outbox 與 projection 使用可重算 idempotency key，使相同 input/version 重跑不重複。 | US-04 | AC-05 |
 | SRS-ETL-03 | normalized authoritative record 與 graph projection 必須有單一權威方向；禁止 request-level best-effort dual write。 | US-04 | AC-05 |
@@ -158,7 +158,7 @@ source: TSKG-v1.0-authoritative-parent-thread-baseline
 | Entity | Required fields | Identity key／規則 |
 |---|---|---|
 | Organization | `entity_id`, `canonical_name`, `organization_kind`, `jurisdiction`, `status` | 優先使用已核准 legal identifier；不可用股票代碼直接當 Organization ID |
-| Security | `entity_id`, `security_type`, `market`, `code`, `issuer_id`, `valid_from/to` | active interval 內 `(market, code)` 唯一；代碼保留前導零；`issuer_id` 指向 Organization |
+| Security | `entity_id`, `security_type`, `market`, `code`, `issuer_id`, `valid_time` | 依 6.3 interval contract 的 active interval 內 `(market, code)` 唯一；代碼保留前導零；`issuer_id` 指向 Organization |
 | Theme | `entity_id`, `canonical_name`, `taxonomy_version`, `status` | `(taxonomy_version, normalized_name)`；synonym 是 alias，不是新 theme |
 | Product | `entity_id`, `canonical_name`, `product_taxonomy_version`, `status` | taxonomy path + normalized name；無足夠分類時保持 candidate |
 | Industry | `entity_id`, `canonical_name`, `classification_system`, `code`, `version` | `(classification_system, version, code)` |
@@ -187,35 +187,73 @@ source: TSKG-v1.0-authoritative-parent-thread-baseline
 
 ## 6. Relationship Claim 與 Evidence Contract
 
-### 6.1 RelationshipClaim schema
+### 6.1 Stable fact、assertion/version 與 claim identity
 
-| Field | Required | Semantics |
+三層 identity 不得互換或由資料庫 edge ID 代替：
+
+| Identity | Required fields | Stability / key contract |
 |---|---|---|
-| `claim_id` | yes | opaque immutable ID |
-| `relationship_type` | yes | versioned enum |
-| `subject_id`, `object_id` | yes | canonical direction endpoints |
-| `qualifiers` | yes | type-specific JSON，空物件也須存在 |
-| `evidence_ids` | yes | 至少一筆 active Evidence |
-| `claim_state` | yes | `CANDIDATE/PENDING_REVIEW/ACTIVE/CONFLICTED/INVALIDATED/RETRACTED/SUPERSEDED` |
-| `valid_from`, `valid_to` | yes | business time；未知界線用明確 open interval，不以 ingestion time 假冒 |
-| `system_from`, `system_to` | yes | authority 內可見時間 |
-| `observed_at`, `retrieved_at` | yes | 觀測與擷取時間 |
-| `source_published_at` | no | 來源可取得時保存 |
-| `extraction_confidence` | conditional | `0..1`；只表示 extraction，不表示真實性 |
-| `extractor_type/version` | yes | deterministic／LLM／human 及版本 |
-| `model/prompt/schema_version` | conditional | 使用 LLM 時必填；不得存未核准敏感 prompt content |
-| `validator_version`, `policy_version` | yes | promotion 決策可重現 |
-| `semantic_key` | yes | type + endpoints + normalized qualifiers + valid interval hash |
+| `CanonicalFact` | `canonical_fact_id`, `relationship_type`, `subject_id`, `object_id`, `identity_qualifiers`, `canonical_fact_key_version` | `canonical_fact_id` 是同一邏輯事實的 stable opaque ID。deterministic key 為 canonical predicate + canonical direction endpoints + 只影響事實身份的 normalized identity qualifiers；**不得**包含來源、assertion 值、evidence、valid/system interval 或 lifecycle state，因此互斥 qualifier／有效期仍能被分到同一 fact。 |
+| `SourceAssertion` | `assertion_id`, `source_id`, `artifact_hash`, `locator`, `source_assertion_key` | `assertion_id` 是來源中一項陳述的 immutable lineage ID；同一 locator 的內容修訂不重用別項 assertion ID。 |
+| `AssertionVersion` | `assertion_version_id`, `assertion_id`, `content_hash`, `normalized_payload`, `normalizer_version`, `extractor_type/version`, conditional `model/prompt/schema_version`, `observed_at`, `retrieved_at`, optional `source_published_at`, optional `extraction_confidence`, `supersedes_assertion_version_id` | 每次來源內容或 normalization/extraction contract 改變產生新 version。`extraction_confidence` 只屬 provenance，`0..1/null` 不表示 truth，且不可跨 extractor 比較。 |
+| `RelationshipClaim` | `claim_id`, `canonical_fact_id`, `assertion_version_ids`, `relationship_type`, `subject_id`, `object_id`, `qualifiers`, `evidence_ids`, `claim_state`, `valid_time`, `system_time`, `validator_version`, `policy_version`, optional `conflict_set_id`, optional `supersedes_claim_id` | `claim_id` 是 authority 內一個 promoted interpretation 的 immutable ID；相容 assertion versions 可聚合到同一 claim。互斥 interpretation 必須是不同 claim，但共用 `canonical_fact_id`。狀態修訂建立新的 system-time row，不覆寫歷史。 |
 
-### 6.2 Direction、inverse、symmetry 與 derivation
+`claim_state` enum 為 `CANDIDATE/PENDING_REVIEW/ACTIVE/CONFLICTED/REJECTED/INVALIDATED/RETRACTED/SUPERSEDED`。promoted claim 至少連結一筆 active Evidence；`qualifiers` 即使為空也必須是 `{}`。`relationship_type/subject_id/object_id` 必須與其 `CanonicalFact` 完全一致，否則 promotion fail loud。
+
+### 6.2 Conflict set、resolution decision 與 lineage
+
+| Record | Required fields | Invariant |
+|---|---|---|
+| `ConflictSet` | `conflict_set_id`, `canonical_fact_id`, `member_claim_ids`, `conflict_reason_codes`, `conflict_state`, `created_at`, `system_time`, `policy_version` | `conflict_state=OPEN/RESOLVED/SUPERSEDED`；至少兩個 distinct member claims；所有 members 的 `canonical_fact_id` 相同；member list append-only，歷史 row 不覆寫。 |
+| `ResolutionDecision` | `decision_id`, `conflict_set_id`, `decision_type`, `selected_claim_ids`, `rejected_claim_ids`, `superseded_claim_ids`, `decision_evidence_ids`, `decided_by`, `decided_at`, `policy_version`, optional `supersedes_decision_id`, `system_time` | `decision_type=SELECT/KEEP_UNRESOLVED/VOID_PRIOR_DECISION`；所有 referenced claims 必須是該 set members；`SELECT` 至少一個 selected，且 selected/rejected/superseded 集合不得重疊；decision evidence、actor、time、policy 不可缺。 |
+
+State transition contract：
+
+1. validated candidate 只可 `CANDIDATE → PENDING_REVIEW → ACTIVE`，或依 deterministic policy `CANDIDATE → ACTIVE`；validation failure 不得 promotion。
+2. 新 claim 與同一 `canonical_fact_id` 的可見 claim 在方向 normalization 後，若 qualifier 或可判定 business-time overlap 互斥，建立／重用 `OPEN` conflict set，所有互斥 members 新版本轉為 `CONFLICTED`。UNKNOWN interval 不得被當作相容；無法判定時進 `PENDING_REVIEW` 或 conflict。
+3. `KEEP_UNRESOLVED` 保持 set `OPEN`、members `CONFLICTED`。`SELECT` 產生 immutable decision：selected claims 轉 `ACTIVE`，明確否決者轉 `REJECTED`，被新版取代者轉 `SUPERSEDED`，set 轉 `RESOLVED`。
+4. resolution 後新增互斥 assertion 或撤銷決策時，不改舊 decision；建立新 conflict-set system version 與 `supersedes_decision_id` lineage。`INVALIDATED/RETRACTED` 只能由來源失效／撤回事件觸發，並保存原因與 evidence。
+5. 每次 transition 關閉舊 `system_time.end` 並新增 current row；`known_at` 只選在該 instant 可見的 fact/claim/conflict/decision rows。不得因目前 decision 隱藏歷史 conflict。
+
+Golden round-trip `TDS-CONFLICT-01`：`C1`、`C2` 共用 `canonical_fact_id=F1` 且有效期互斥 → `CS1(OPEN, members=[C1,C2])` → `D1(SELECT C2, REJECT C1)`。decision 前 `known_at=t0` 必須回 `CS1=OPEN`、兩個 `CONFLICTED` claims、無 decision；decision 後 `known_at=t1` 回 `CS1=RESOLVED`、`C2=ACTIVE`、`C1=REJECTED` 與完整 `D1`；再次查 `t0` 的 canonical JSON 必須 byte-equivalent。Negative cases：跨 `canonical_fact_id` member、缺 decision evidence/actor/policy、集合重疊、直接覆寫舊 decision，全部 schema/promotion reject。
+
+### 6.3 Temporal wire contract
+
+所有 business/system interval 使用同一可序列化 endpoint shape，不接受裸 timestamp 或 `null`：
+
+```json
+{"start":{"kind":"KNOWN","timestamp":"2026-01-01T00:00:00Z","inclusive":true},"end":{"kind":"UNBOUNDED"}}
+```
+
+| Endpoint `kind` | `timestamp` | `inclusive` | Semantics |
+|---|---|---|---|
+| `KNOWN` | 必填 RFC 3339 UTC timestamp | 必填 boolean | 已知界線；不得以 ingestion time 補 business time |
+| `UNKNOWN` | 禁止 | 禁止 | 來源未提供／無法判定；不等於無界，不能自行證明 overlap、active 或 expired |
+| `UNBOUNDED` | 禁止 | 禁止 | start 表 `-∞`、end 表 `+∞`；唯一合法的 open infinity 表示 |
+
+Business time 可使用三種 kind；「目前無已知終點」唯一表示為 `end.kind=UNBOUNDED`，`UNKNOWN` end 不得當作 current。兩端 KNOWN 時 start < end；start = end 僅在兩端 `inclusive=true` 時表示單點 interval，其他為 empty 並 reject。任何 start > end、額外欄位、缺 discriminator 或 timestamp 非 UTC 均 reject。
+
+System time 不允許 `UNKNOWN`：start 必須 `KNOWN/inclusive=true`；end 只能 `KNOWN/inclusive=false` 或 `UNBOUNDED`。authority current row 的唯一表示是 `system_time.end={"kind":"UNBOUNDED"}`；current row 不得有第二筆相同 identity，歷史 row 不得保留 UNBOUNDED end。
+
+`TDS-TIME-01` round-trip matrix 的每一列都必須由 parser 輸入 JSON，經 authority、projection、API 後保持 discriminator、timestamp、inclusion 與 canonical JSON semantics：
+
+| Case | Business interval | System interval | Expected |
+|---|---|---|---|
+| known range | KNOWN inclusive → KNOWN exclusive | KNOWN inclusive → UNBOUNDED | exact round-trip；current authority row |
+| unknown start | UNKNOWN → KNOWN inclusive | KNOWN inclusive → UNBOUNDED | exact round-trip；不得補 start |
+| unknown end | KNOWN inclusive → UNKNOWN | KNOWN inclusive → UNBOUNDED | exact round-trip；不得標 current/expired |
+| all-time | UNBOUNDED → UNBOUNDED | KNOWN inclusive → UNBOUNDED | exact round-trip；business all-time |
+| closed history | KNOWN inclusive → KNOWN exclusive | KNOWN inclusive → KNOWN exclusive | exact round-trip；非 current authority row |
+| invalid/empty | reversed、exclusive equal、UNKNOWN system end、KNOWN 缺 timestamp/inclusion、UNBOUNDED 帶 timestamp | any | parser/schema reject；不得進 authority/projection/API |
+
+### 6.4 Direction、inverse、symmetry 與 derivation
 
 | Canonical type | Subject → Object | Inverse query label | Symmetric | Derivation policy |
 |---|---|---|---|---|
 | `ISSUER_OF` | Organization → Security | `ISSUED_BY` | no | inverse query-only；不得由同名推導 |
 | `PRODUCES_PRODUCT` | Organization → Product | `PRODUCED_BY` | no | evidence required |
 | `USES_PRODUCT` | Organization → Product | `USED_BY` | no | evidence required |
-| `SUPPLIES_TO` | Organization → Organization | `SUPPLIED_BY` | no | 不得由 `CUSTOMER_OF` 或示意圖自動建立 |
-| `CUSTOMER_OF` | Organization → Organization | `HAS_CUSTOMER` | no | 只依來源明確語意；不與 `SUPPLIES_TO` 視為同一 claim |
+| `SUPPLIES_TO` | supplier Organization → customer Organization | `SUPPLIED_BY`（反向）、`HAS_CUSTOMER`（正向 role view）、`CUSTOMER_OF`（反向 legacy role view） | no | 唯一 canonical supply/customer predicate；四種 label 皆須先正規化到本型別，不得各自 promotion |
 | `COMPETES_WITH` | Organization → Organization | same | yes | endpoint ID 排序後只存一筆；原始 `COMPETITOR_OF` 正規化到此型別 |
 | `PARTNERS_WITH` | Organization → Organization | same | yes | 原始 `PARTNER_OF` 正規化；不得推導供應關係 |
 | `SAME_GROUP_AS` | Organization → Organization | same | yes | 需定義 group/effective time qualifier |
@@ -225,16 +263,20 @@ source: TSKG-v1.0-authoritative-parent-thread-baseline
 | `UPSTREAM_OF` | Organization/Product → Organization/Product | `DOWNSTREAM_OF` | no | 預設不可 transitive 推導；每條結論需 evidence 或白名單 rule inputs |
 | `RELATED_TO` | Entity → Entity | same | yes | 只作明確 evidence 的弱語意，不能替代未知具體關係；MVP SHOULD quarantine |
 
-只有 query layer 產生 inverse view，回傳 `derived=true`, `derivation_kind=INVERSE`, `source_claim_id`。其他 derived claim 必須具 `rule_id`, `rule_version`, `input_claim_ids` 與重新計算方式。任何未列白名單的傳遞律、共同客戶推論或「A 供應 B 且 B 供應 C，所以 A 供應 C」一律禁止。
+供應／客戶 normalization SHALL 使用：`SUPPLIES_TO(A,B)`→`SUPPLIES_TO(A,B)`、`SUPPLIED_BY(B,A)`→`SUPPLIES_TO(A,B)`、`HAS_CUSTOMER(A,B)`→`SUPPLIES_TO(A,B)`、`CUSTOMER_OF(B,A)`→`SUPPLIES_TO(A,B)`。原 label 與原 endpoints 保存在 `AssertionVersion.normalized_payload` provenance，不進 canonical identity。若來源只說「客戶／供應商」但無法判定方向，candidate 必須 `PENDING_REVIEW`，不得猜測。
 
-### 6.3 Evidence／Source
+只有 query layer 產生 inverse／role view，回傳 canonical `relationship_type=SUPPLIES_TO`、`query_label`、`derived=true`, `derivation_kind=INVERSE_OR_ROLE_VIEW`, `source_claim_id`, `canonical_fact_id`。company A 的 `customers` 取 outgoing `SUPPLIES_TO(A,*)`；company B 的 `suppliers` 取 incoming `SUPPLIES_TO(*,B)`。同一 response section 以 `(canonical_fact_id, claim_id, as_of, known_at)` 去重；相容 multi-source assertions 合併 `evidence_refs`，不得因 legacy/query label 重複 item。conflict 則回一個 fact envelope 與其可見 member claims，不以 label 再複製。
+
+其他 derived claim 必須具 `rule_id`, `rule_version`, `input_claim_ids` 與重新計算方式。任何未列白名單的傳遞律、共同客戶推論或「A 供應 B 且 B 供應 C，所以 A 供應 C」一律禁止。
+
+### 6.5 Evidence／Source
 
 Evidence 必須能定位到公開來源的特定頁、段落、表格或檔案區段；只保存核准政策允許的 bytes／snippet。若不允許保存內容，保留 hash、locator、metadata 與可稽核的 retrieval record，不以規格繞過權利限制。
 
-同一 semantic claim 的多來源：
+同一 canonical fact 的多來源：
 
-- qualifiers 與有效期相容：附加 evidence，不新增 inverse/duplicate claim。
-- 互斥 qualifiers、方向或有效期：保留各 assertion，將 conflict set 標為 `CONFLICTED`。
+- normalized predicate/endpoints、qualifiers 與有效期相容：將 assertion version/evidence 聚合至同一 claim，不新增 inverse/duplicate claim。
+- 互斥 qualifiers、方向或可判定有效期：保留各 assertion/claim，使用 6.2 的 conflict set 與 resolution lineage。
 - 來源優先序只能協助 review 排序，不可自動刪除低優先來源。
 - 來源撤回／過期：以 `INVALIDATED`／`RETRACTED` 和 system time 結束，不 hard delete。
 
@@ -320,7 +362,7 @@ v1.0 extractor label 必須先映射到 canonical schema，不能直接創造新
 | Method / logical route | Purpose | Core parameters |
 |---|---|---|
 | `GET /company/{stock_id}` | company aggregate | `market`, `as_of`, `include`, bounded per-section `limit/cursor` |
-| `GET /company/{stock_id}/graph` | bounded graph expansion | `direction`, `relationship_types`, `depth` default 1/max 2, `limit` default 50/max 200, `cursor`, `min_confidence` |
+| `GET /company/{stock_id}/graph` | bounded graph expansion | `direction`, `relationship_types`, `claim_states`, `review_status`, `depth` default 1/max 2, `limit` default 50/max 200, `cursor`；public confidence filter 禁止 |
 | `GET /theme/{theme}` | members/claims of canonical theme | `as_of`, `limit`, `cursor` |
 | `GET /customer/{alias}` | organizations with evidence-backed customer relation | `as_of`, `limit`, `cursor` |
 | `GET /supplier/{alias}` | organizations with evidence-backed supply relation | `as_of`, `limit`, `cursor` |
@@ -344,7 +386,9 @@ v1.0 extractor label 必須先映射到 canonical schema，不能直接創造新
 }
 ```
 
-每個 relation item SHALL 含 `claim_id`, canonical `relationship_type`, `direction`, counterparty/entity, `valid_time`, `claim_state`, `evidence_refs`, `derived` 與 `derivation`（若有）。空陣列表示目前沒有符合條件且可回傳的 active claim，不表示現實世界不存在。
+每個 relation item SHALL 含 `canonical_fact_id`, `claim_id`, canonical `relationship_type`, `query_label`, `direction`, counterparty/entity, `valid_time`, `claim_state`, `review_status`, `promotion_policy_version`, `evidence_refs`, `derived` 與 `derivation`（若有）。空陣列表示目前沒有符合條件且可回傳的 claim，不表示現實世界不存在。
+
+calibration ADR 核准前，所有 public API 禁止 `min_confidence`／`min_extraction_confidence` 或任何以 extraction score 篩 truth 的參數。truth 可用性只依 `claim_state`、promotion policy、evidence completeness 與 review status；`ACTIVE` deterministic/human claim 即使 `extraction_confidence=null` 也不得被排除，reviewed low-confidence claim 依 review/promotion state處理。若 provenance scope 回傳 `extraction_confidence`，必須同時回 extractor/version，且文件與 schema 明示不可跨 extractor 排序或比較。`CONFLICTED` 是否顯示由 `claim_states`／API policy 決定，不得用 confidence 隱藏。
 
 ### 9.3 Pagination、snapshot 與 error
 
@@ -371,13 +415,20 @@ Error envelope：
 
 ### 9.4 Cache-hit SLO benchmark
 
-`<300ms` 只作 cache-hit read SLO，不是所有 request 或外部來源 SLA：
+`<300ms` 只作 cache-hit read SLO，不是所有 request 或外部來源 SLA。唯一 acceptance profile 為 `TSKG-BENCH-v1`：
 
-- Dataset：至少 2,000 個 Security、10,000 個總 entities、100,000 active claims、100,000 evidence metadata；manifest 記錄實際 counts/hash。
-- Shapes：company aggregate（每 section limit 20）、depth=1 graph（limit 50）、theme first page（limit 50）。
-- Method：每 shape 先 200 次暖機，再量 1,000 次；concurrency=8；server-side latency p95 <300ms、error rate=0；分別報 p50/p95/p99。
-- Environment：固定 container/runtime、CPU/RAM、cache policy、dataset hash、commit、冷／暖狀態與量測工具版本；禁止把開發者網路 latency 混入 server-side 指標。
-- Reference hardware 尚待 OQ-PERF-01 核准；未核准前可執行相對 benchmark，但不得宣稱 production SLO accepted。
+| Contract dimension | Fixed value / required manifest field |
+|---|---|
+| Generator | `benchmark_manifest_id=tskg-bench-v1-20260717`, `generator_contract=tskg-benchgen-v1`, `seed=20260717`；entity IDs 依 kind + zero-padded ordinal；每個 edge endpoint 以 UTF-8 `seed\nrelationship_type\nordinal\nrole\nattempt\n` 的 SHA-256 對該 role eligible pool 取 modulo，遇 self-loop/duplicate 就遞增 attempt；generator artifact 必須有 immutable content SHA-256，run 不得改 algorithm/seed |
+| Entity distribution | exactly 10,000 entities：2,000 Security（其中 100 ETF）、3,000 Organization、1,500 Product、1,000 Theme、500 Industry、2,000 other support entities；fixture 不含真實供應鏈主張 |
+| Claim distribution | exactly 100,000 active claims：`SUPPLIES_TO=25,000`, `PRODUCES_PRODUCT=15,000`, `USES_PRODUCT=10,000`, `BELONGS_TO_THEME=15,000`, `BELONGS_TO_INDUSTRY=10,000`, `HELD_BY_ETF=10,000`, `COMPETES_WITH=5,000`, `PARTNERS_WITH=5,000`, `UPSTREAM_OF=3,000`, `RELATED_TO=2,000`；exactly 100,000 Evidence metadata |
+| Graph topology | 上述 endpoint algorithm + exact type counts 是唯一 topology generator；materialized manifest 必須固定 endpoint degree histogram（p50/p95/p99/max）、connected-component sizes、每 type fan-out histogram 與 dataset canonical hash；任一值或 hash 不同即非同一 acceptance dataset |
+| Query set / expected sizes | 依 `SHA-256(seed\nquery-shape\nentity-id)` 升序固定選 100 個 company IDs、100 個 graph roots、50 個 themes。company aggregate 每 response 總計 108 relation items（各 section `20/12/20/20/8/8/8/12`）；depth-1 graph 50 items；theme first page 50 items。每筆另保存 canonical JSON expected byte length 與 SHA-256，response 不符即 functional failure，不納入 latency PASS |
+| Cache state | `WARM_CACHE_HIT`：先清空專用 namespace，再對 exact query set 各暖機 200 次；measurement 期間 dataset/projection 不變、TTL 大於完整 run + 60 秒、禁止 refresh/rebuild/eviction；每個 measured response 必須回可稽核 `cache_hit=true`，否則 run invalid |
+| Measurement | `measurement_contract=tskg-latency-v1`；每 shape 1,000 measured requests、concurrency=8、monotonic clock、只量 server receive→response bytes complete、不得含 client/network latency、不得遺漏或重送 slow/error samples；固定 query order 由 seed 洗牌；分別報 p50/p95/p99/max、error count、cache-miss count與 raw sample artifact hash |
+| Run manifest | benchmark/generator/measurement contract versions、seed、generator SHA、dataset hash、query-set hash、expected-response manifest hash、app commit、container image digest、runtime、CPU model/count、RAM limit、OS/kernel、cache implementation/config、tool executable/image digest、start/end time |
+
+reference container image digest、CPU/RAM 與 production traffic envelope 仍由 OQ-PERF-01 核准。在這些欄位未有 owner-approved immutable values，或 generator／measurement executable digest 尚未固定前，SLC-07 performance gate 的唯一合法結果是 `BLOCKED_FOR_SLO_ACCEPTANCE`；可以保存 diagnostic run，但不得標 SC-07／AC-12／production p95 SLO PASS。
 
 ## 10. Daily Diff 與 Change Report
 
@@ -426,23 +477,27 @@ Change report SHALL 包含 `report_id`, `run_id`, baseline/current snapshot IDs,
 
 | ID | Measurable criterion | Dataset／method |
 |---|---|---|
-| SC-01 | 100% promoted claims 具有至少一 Evidence、Source、valid/system time、extractor/validator/policy version | TDS-CLAIM schema scan |
+| SC-01 | 100% promoted claims 具有 stable fact/assertion/version/claim identity、至少一 Evidence／Source、合法 valid/system interval、extractor/validator/policy version | TDS-CLAIM、TDS-TIME、TDS-CONFLICT contract scan |
 | SC-02 | identity fixture 的 alias 正確解析；所有 collision 回 ambiguous；無 fuzzy auto-merge | TDS-IDENTITY，含 NVIDIA/Meta/Tesla/3017 |
-| SC-03 | relationship direction、inverse、symmetry、禁止傳遞推導 100% 符合 matrix | TDS-RELATIONSHIP synthetic fixtures |
+| SC-03 | relationship canonicalization、direction、inverse/legacy role view、symmetry、API 去重與禁止傳遞推導 100% 符合 matrix | TDS-RELATIONSHIP synthetic fixtures |
 | SC-04 | 同 batch 重跑兩次的 authority/projection logical checksum 相同且 duplicate active claims=0 | TDS-RERUN |
 | SC-05 | expected daily change events 與 report counts 100% 相符 | TDS-DIFF golden manifest |
 | SC-06 | universe manifest 中 in-scope Security coverage=100%，每筆 included/excluded reason 完整 | TDS-UNIVERSE approved snapshot；目標 ≥2,000 Security |
-| SC-07 | cache-hit query shapes p95 <300ms、error rate=0 | 9.4 benchmark contract |
+| SC-07 | owner-approved reference environment 上 cache-hit query shapes p95 <300ms、error/cache-miss=0；核准前狀態固定為 `BLOCKED_FOR_SLO_ACCEPTANCE` | TDS-BENCH / `TSKG-BENCH-v1` contract |
 | SC-08 | Top10／LLM response 中 100% relation paths 可回 claim/evidence，且 prohibited trading fields=0 | TDS-INTEGRATION contract fixtures |
 
 Test dataset definitions：
 
 - **TDS-IDENTITY**：synthetic/offline identity fixture；至少含 12 entities、上述 alias groups、同名跨 jurisdiction collision、`3017` Security→issuer link。名稱取自 fixture，不在 spec 宣稱真實 company mapping。
-- **TDS-RELATIONSHIP**：每種 canonical relation 至少一正向、一 inverse query、symmetric dedup、invalid direction、missing evidence、prohibited transitive case；全部為 synthetic。
-- **TDS-CLAIM**：active、conflicted、invalidated、open-ended valid interval、多 evidence、missing locator、LLM version 欄位缺漏案例。
+- **TDS-RELATIONSHIP**：每種 canonical relation 至少一正向、一 inverse query、symmetric dedup、invalid direction、missing evidence、prohibited transitive case；供應關係另固定四種同義輸入只得一個 `SUPPLIES_TO(A,B)` fact/compatible claim，API customers/suppliers view 依 `canonical_fact_id` 去重；全部為 synthetic。
+- **TDS-CLAIM**：active、conflicted、invalidated、多 evidence、missing locator、LLM version 欄位缺漏，以及 stable fact/assertion/version/claim identity 不可互換案例。
+- **TDS-CONFLICT**：同 fact 的相容與互斥 claims、OPEN→KEEP_UNRESOLVED／SELECT、decision evidence/actor/time/policy、selected/rejected/superseded lineage、decision supersession 與 `known_at` 歷史 round-trip；含跨 fact member 與覆寫 decision negative cases。
+- **TDS-TIME**：6.3 的 KNOWN／UNKNOWN／UNBOUNDED business/system interval matrix；parser→authority→projection→API exact semantic round-trip 與 invalid/empty rejection。
+- **TDS-API-CONFIDENCE**：deterministic/human `null` confidence、不同 extractor scale、reviewed low-confidence、conflicted claim；public schema 不含 confidence truth filter，結果只依 state/policy/evidence/review status。
 - **TDS-RERUN**：固定 RawArtifact 與 expected stage hashes，含 projection 前故障注入。
 - **TDS-DIFF**：兩個 synthetic snapshots，覆蓋七種 event 與零變更 report。
 - **TDS-UNIVERSE**：source owner 核准的上市／上櫃／ETF snapshot manifest；含 source date、hash、counts、exclusions。
+- **TDS-BENCH**：9.4 `TSKG-BENCH-v1` immutable manifest、generator/measurement contract、query/expected-response manifests 與 reference-environment approval；未核准時只可產生 blocked preflight evidence。
 - **TDS-INTEGRATION**：synthetic Top10 IDs 與 evidence-backed one-hop paths；不含預測或真實供應鏈聲明。
 
 ## 14. MVP Vertical Slices、Dependencies 與 Frontier
@@ -453,13 +508,13 @@ Test dataset definitions：
 |---|---|---|---|---|
 | SLC-01 Offline identity-to-company-query | TDS-IDENTITY raw fixture → parsed/normalized bundle → `/company/3017` local response | accepted v1.1 schema；不依賴 crawler/DB/scheduler | AC-01/02/07；schema_gate + trace_gate；aliases、ambiguity、empty evidence-backed sections | **CURRENT** |
 | SLC-02 One approved public fixture-to-claim | 已核准單一 local RawArtifact → normalized claim/evidence → local query | SLC-01；Source Gate `APPROVED`；blocking: OQ-SRC-01 for selected source | AC-03/04/10；artifact hash、evidence locator、no unsupported claims | blocked |
-| SLC-03 Relationship graph query | SLC-02 claims → forward/inverse/symmetric bounded graph response | SLC-02 | AC-03/07/08；direction matrix、no duplicate inverse、no transitive inference | blocked |
+| SLC-03 Relationship graph query | SLC-02 claims → forward/inverse/role-view/symmetric bounded graph response | SLC-02 | AC-03/07/08；四種 supply/customer label canonicalization、fact/API dedup、direction matrix、no transitive inference | blocked |
 | CP-A Contract checkpoint | SLC-01..03 artifacts → review report | SLC-01..03 | identity/claim/API contracts remain compatible；diff/trace gates | checkpoint |
 | SLC-04 Idempotent rerun + daily diff | fixed fixture + prior snapshot → rerun checksum + change report | SLC-02 | AC-05/09；recompute_gate、golden change manifest、failure injection | blocked |
-| SLC-05 Conflict/review path | conflicting candidates → conflict set → reviewed/resolved response | SLC-02；review policy decisions | AC-04/06；trace_gate；no silent overwrite | blocked |
+| SLC-05 Conflict/review path | conflicting candidates → conflict set → reviewed/resolved response | SLC-02；review policy decisions | AC-04/06；fact/assertion/version/claim invariant、state transition、decision lineage、temporal/known_at round-trip、no silent overwrite | blocked |
 | SLC-06 Authority-to-graph projection | promotion batch → Postgres authority/outbox → reconciled Neo4j projection | SLC-03/04/05；ADR-01 accepted | AC-05；transaction/idempotency/rebuild/checksum tests | blocked |
 | CP-B Persistence checkpoint | authority + projection + diff → recovery drill report | SLC-04..06 | clean rebuild and watermark reconciliation | checkpoint |
-| SLC-07 REST + cache-hit read path | reconciled projection → versioned REST/cache response | SLC-06；ADR-02/07 decision | AC-07/08/12；OpenAPI contract + benchmark harness | blocked |
+| SLC-07 REST + cache-hit read path | reconciled projection → versioned REST/cache response | SLC-06；ADR-02/07 decision；**blocking: OQ-PERF-01 for SLO acceptance** | AC-07/08；public confidence filter absence；AC-12/SC-07 保持 `BLOCKED_FOR_SLO_ACCEPTANCE` 至 reference environment 核准；`TSKG-BENCH-v1` preflight + harness | blocked |
 | SLC-08 Universe expansion | approved universe/source fixtures → coverage manifest + read queries | SLC-07；OQ-UNIV-01 and per-source governance approvals | AC-10/12；coverage=100%, exclusions explicit | blocked |
 | SLC-09 Top10/LLM read-only context | Top10 IDs → graph expansion → related candidates/sector summary | SLC-07, coverage threshold from SLC-08；separate Top10 integration card | AC-11；prohibited-field scan + claim/evidence trace | blocked |
 
@@ -498,7 +553,7 @@ Current frontier 只有 **SLC-01**：其 blockers 已由 synthetic offline fixtu
 | OQ-CONF-01 | 不同 extractor 的 confidence 如何校準？哪些 relation/policy 可自動 promotion？ | automated promotion；未決時全部高風險進 review |
 | OQ-RET-01 | 各 source media 的 raw/snippet/metadata retention、刪除 SLA 與 legal hold？ | source approval、production storage |
 | OQ-API-01 | API 是 internal-only 或 external；auth scope、consumer quota、PII/security/log policy？ | SLC-07 production exposure |
-| OQ-PERF-01 | reference hardware/container profile 與 production traffic envelope？ | production SLO acceptance；不阻擋 contract benchmark |
+| OQ-PERF-01 | `TSKG-BENCH-v1` 的 reference container image digest、CPU/RAM 與 production traffic envelope，以及 generator/measurement executable digest 為何？ | **SLC-07 performance acceptance、SC-07、AC-12**；核准前固定 `BLOCKED_FOR_SLO_ACCEPTANCE` |
 | OQ-FRESH-01 | 各 source 的 expected freshness 與 stale-beyond-policy threshold？ | 503 stale policy、daily operations acceptance |
 | OQ-RELATED-01 | `RELATED_TO` 是否保留；若保留，允許的語意、evidence 與 consumer 顯示方式？ | `RELATED_TO` promotion；MVP 預設 quarantine |
 
@@ -518,8 +573,8 @@ Current frontier 只有 **SLC-01**：其 blockers 已由 synthetic offline fixtu
 
 - [x] Problem、Goal、Actors、In/Out Scope 明確。
 - [x] 每條 SRS 可追溯至 User Story／BRS 與 Acceptance Scenario。
-- [x] canonical entities、relationship、evidence、time、conflict、merge/split 契約完整。
+- [x] canonical entities、single supply/customer fact、fact/assertion/version/claim、evidence、temporal wire、conflict/decision lineage、merge/split 契約具可判定 invariants/cases；runtime 尚未執行。
 - [x] 候選技術與使用者需求分離，未定項有 ADR／Open Question。
-- [x] success criteria 與 test datasets 可量測，`<300ms` 限定 cache-hit benchmark。
+- [x] success criteria 與 test datasets 有 contract；`<300ms` 限定 `TSKG-BENCH-v1` cache-hit benchmark，reference environment 未核准故 SLO acceptance 為 `BLOCKED_FOR_SLO_ACCEPTANCE`。
 - [x] slices 垂直、dependency/blocking edge/frontier/checkpoint 明確。
 - [x] 高影響歧義沒有假裝已解決；每一項標出所阻擋 slice。

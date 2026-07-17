@@ -3,7 +3,7 @@ card_id: REPAIR-TSKG-01
 chain_id: TSKG-01
 generation: 1
 title: Repair Taiwan Stock Knowledge Graph v1.1 contract
-status: REPAIR_READY
+status: DELIVERED_CANDIDATE
 owner: Codex 主線
 assignee: 獨立 Repair 執行線
 thickness: strict
@@ -89,4 +89,14 @@ evidence_path: docs/evidence/REPAIR-TSKG-01/
 
 ## Result
 
-待 Repair 執行線填寫。
+- Delivery status：`DELIVERED_CANDIDATE`；不代表 findings resolved／accepted／integrated／completed，須送原 reviewer re-review。
+- Successor commit：本次 Repair successor；完整 SHA 由交付回報提供，避免 commit 自參照。
+- Changed files：
+  - `docs/specs/TSKG_v1.1.md`
+  - `docs/evidence/TSKG-01/requirements_traceability.md`
+  - `docs/evidence/TSKG-01/verification.md`
+  - `docs/evidence/REPAIR-TSKG-01/repair.md`
+  - `docs/tasks/2026-07-17_REPAIR-TSKG-01_executable_spec.md`（僅 status／Result）
+- Finding dispositions：F-01/F-02/F-03/F-05 `CONTRACT_PASS/RUNTIME_NOT_RUN`；F-04 `CONTRACT_PASS` 且仍待 reviewer；F-06 `PARTIAL/BLOCKED`（`baseline_sha256=PENDING_REPRODUCIBLE_CAPTURE`，依三次停損不做第四次 hash）；F-07 contract `CONTRACT_PASS/RUNTIME_NOT_RUN`、SLO `BLOCKED_FOR_SLO_ACCEPTANCE`。
+- Verification：僅 repo/git 靜態 contract checks；未執行 runtime、API、database、benchmark 或外部存取。changed-file allowlist、internal SRS set 31/31、AC/BL sets、`git diff --check` 與 post-commit clean workspace 由本線完成並在交付回報提供。
+- Evidence：`docs/evidence/REPAIR-TSKG-01/repair.md`、`docs/evidence/TSKG-01/verification.md`、`docs/evidence/TSKG-01/requirements_traceability.md`。
