@@ -1,0 +1,192 @@
+schema_version: top10.architecture-control-plane.v1
+
+domains:
+  automation:
+    owner: app.automation
+    paths: [app/automation, app/workflows, scripts/run_automation.py]
+  data_pipeline:
+    owner: app.pipeline
+    paths: [app/pipeline, app/pipeline_cli.py]
+  modeling:
+    owner: app.modeling
+    paths: [app/modeling, app/agent_b_modeling.py]
+  ranking_decision:
+    owner: app.trading
+    paths: [app/trading, app/agent_b_ranking.py]
+  publishing:
+    owner: app.publishing
+    paths: [app/publishing, scripts/generate_daily_report.py]
+  monitoring:
+    owner: app.monitoring
+    paths: [app/monitoring, app/model_monitor.py]
+  reference_data:
+    owner: app.reference_sources
+    paths: [app/reference_sources, scripts/run_reference_update.sh]
+  web:
+    owner: app.api
+    paths: [app/api, web/frontend]
+
+entrypoints:
+  scripts/com.new-top10.daily.plist:
+    domain: automation
+    workflows: [daily, daily_publish]
+    required_verification: [daily_contract, publish_guard, scheduler_ownership]
+  scripts/com.new-top10.reference.plist:
+    domain: reference_data
+    workflows: [reference]
+    required_verification: [reference_contract, scheduler_ownership]
+  scripts/com.new-top10.retrain.plist:
+    domain: modeling
+    workflows: [monitor, retrain]
+    required_verification: [retrain_contract, scheduler_ownership]
+  scripts/com.new-top10.webui.plist:
+    domain: web
+    workflows: [webui]
+    required_verification: [web_health, scheduler_ownership]
+  scripts/daily_retrain.sh:
+    domain: modeling
+    workflows: [monitor, retrain]
+    required_verification: [retrain_contract]
+  scripts/generate_daily_report.py:
+    domain: publishing
+    workflows: [daily]
+    required_verification: [daily_contract]
+  scripts/run_automation.py:
+    domain: automation
+    workflows: [daily, monitor, retrain, reference]
+    required_verification: [daily_contract, retrain_contract, reference_contract]
+  scripts/run_daily.sh:
+    domain: automation
+    workflows: [daily]
+    required_verification: [daily_contract, scheduler_ownership]
+  scripts/run_daily_publish.sh:
+    domain: publishing
+    workflows: [daily_publish]
+    required_verification: [publish_guard, scheduler_ownership]
+  scripts/run_reference_update.sh:
+    domain: reference_data
+    workflows: [reference]
+    required_verification: [reference_contract]
+  scripts/start_market_ui.sh:
+    domain: web
+    workflows: [webui]
+    required_verification: [web_health]
+
+workflows:
+  daily:
+    owner_domain: automation
+    production: true
+    entrypoints: [scripts/com.new-top10.daily.plist, scripts/run_daily.sh, scripts/run_automation.py, scripts/generate_daily_report.py]
+    required_verification: [daily_contract]
+    steps:
+      - id: etl
+        outputs: [features, events, universe]
+      - id: validate
+        inputs: [features, events, universe]
+      - id: rank
+        inputs: [features, events, universe, production_model]
+        outputs: [ranking]
+      - id: report
+        inputs: [ranking]
+        outputs: [daily_report]
+      - id: payload
+        inputs: [ranking, daily_report]
+        outputs: [publish_payload]
+  daily_publish:
+    owner_domain: publishing
+    production: true
+    entrypoints: [scripts/com.new-top10.daily.plist, scripts/run_daily_publish.sh]
+    required_verification: [publish_guard]
+    steps:
+      - id: verify_daily
+        inputs: [automation_status, ranking, daily_report, publish_payload]
+      - id: send
+        inputs: [publish_payload]
+        outputs: [publish_status]
+  monitor:
+    owner_domain: monitoring
+    production: true
+    entrypoints: [scripts/com.new-top10.retrain.plist, scripts/daily_retrain.sh, scripts/run_automation.py]
+    required_verification: [retrain_contract]
+    steps:
+      - id: evaluate
+        inputs: [production_model, features]
+        outputs: [model_health]
+  retrain:
+    owner_domain: modeling
+    production: true
+    entrypoints: [scripts/com.new-top10.retrain.plist, scripts/daily_retrain.sh, scripts/run_automation.py]
+    required_verification: [retrain_contract]
+    steps:
+      - id: train
+        inputs: [features]
+        outputs: [model_candidate]
+      - id: sealed_oos
+        inputs: [model_candidate, features]
+        outputs: [sealed_oos_report]
+      - id: promote
+        inputs: [model_candidate, sealed_oos_report, model_health]
+        outputs: [production_model]
+  reference:
+    owner_domain: reference_data
+    production: true
+    entrypoints: [scripts/com.new-top10.reference.plist, scripts/run_reference_update.sh, scripts/run_automation.py]
+    required_verification: [reference_contract]
+    steps:
+      - id: probe
+        outputs: [reference_probe]
+      - id: import
+        inputs: [reference_probe]
+        outputs: [reference_dataset]
+  webui:
+    owner_domain: web
+    production: true
+    entrypoints: [scripts/com.new-top10.webui.plist, scripts/start_market_ui.sh]
+    required_verification: [web_health]
+    steps:
+      - id: serve
+        inputs: [ranking, daily_report]
+        outputs: [web_health_status]
+
+artifacts:
+  features: {path: data/clean/features.parquet, producers: [daily.etl], consumers: [daily, monitor, retrain]}
+  events: {path: data/clean/events.parquet, producers: [daily.etl], consumers: [daily]}
+  universe: {path: data/clean/universe.parquet, producers: [daily.etl], consumers: [daily]}
+  production_model: {path: models/latest_lgbm.pkl, producers: [retrain.promote], consumers: [daily, monitor]}
+  model_candidate: {path: models/candidates/*.pkl, producers: [retrain.train], consumers: [retrain]}
+  sealed_oos_report: {path: artifacts/model_experiments/sealed_oos_*.json, producers: [retrain.sealed_oos], consumers: [retrain]}
+  model_health: {path: artifacts/model_health_report.json, producers: [monitor.evaluate], consumers: [retrain]}
+  ranking: {path: artifacts/ranking_YYYY-MM-DD.csv, producers: [daily.rank], consumers: [daily, daily_publish, webui]}
+  daily_report: {path: artifacts/daily_report_YYYY-MM-DD.md, producers: [daily.report], consumers: [daily, daily_publish, webui]}
+  publish_payload: {path: artifacts/clawd_publish_payload_YYYY-MM-DD.json, producers: [daily.payload], consumers: [daily_publish]}
+  automation_status: {path: artifacts/automation_status.json, producers: [daily.payload], consumers: [daily_publish]}
+  publish_status: {path: artifacts/clawd_publish_status_YYYY-MM-DD.json, producers: [daily_publish.send], consumers: [daily_publish]}
+  reference_probe: {path: artifacts/reference_probe.json, producers: [reference.probe], consumers: [reference]}
+  reference_dataset: {path: data/reference/*.csv, producers: [reference.import], consumers: [reference]}
+  web_health_status: {path: /api/health, producers: [webui.serve], consumers: [webui]}
+
+verification:
+  daily_contract:
+    kind: test
+    command: [uv, run, python, -m, unittest, tests.test_automation_status_contract, tests.test_daily_publish_wrapper_guards, tests.test_daily_workflow_v2]
+    paths: [tests/test_automation_status_contract.py, tests/test_daily_publish_wrapper_guards.py, tests/test_daily_workflow_v2.py]
+  publish_guard:
+    kind: test
+    command: [uv, run, python, -m, unittest, tests.test_daily_publish_wrapper_guards, tests.test_clawd_publish_payload_boundary]
+    paths: [tests/test_daily_publish_wrapper_guards.py, tests/test_clawd_publish_payload_boundary.py]
+  retrain_contract:
+    kind: test
+    command: [uv, run, python, -m, unittest, tests.test_model_runtime_promotion, tests.test_model_runtime_migration]
+    paths: [tests/test_model_runtime_promotion.py, tests/test_model_runtime_migration.py]
+  reference_contract:
+    kind: gate
+    command: [uv, run, python, scripts/verify_reference_sources.py, --help]
+    paths: [scripts/verify_reference_sources.py]
+  scheduler_ownership:
+    kind: test
+    command: [uv, run, python, -m, unittest, tests.test_scheduler_ownership]
+    paths: [tests/test_scheduler_ownership.py]
+  web_health:
+    kind: gate
+    command: [bash, scripts/verify_local_dev_health.sh]
+    paths: [scripts/verify_local_dev_health.sh]

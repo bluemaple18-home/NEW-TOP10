@@ -1,0 +1,647 @@
+{
+  "control_plane": {
+    "artifacts": {
+      "automation_status": {
+        "consumers": [
+          "daily_publish"
+        ],
+        "path": "artifacts/automation_status.json",
+        "producers": [
+          "daily.payload"
+        ]
+      },
+      "daily_report": {
+        "consumers": [
+          "daily",
+          "daily_publish",
+          "webui"
+        ],
+        "path": "artifacts/daily_report_YYYY-MM-DD.md",
+        "producers": [
+          "daily.report"
+        ]
+      },
+      "events": {
+        "consumers": [
+          "daily"
+        ],
+        "path": "data/clean/events.parquet",
+        "producers": [
+          "daily.etl"
+        ]
+      },
+      "features": {
+        "consumers": [
+          "daily",
+          "monitor",
+          "retrain"
+        ],
+        "path": "data/clean/features.parquet",
+        "producers": [
+          "daily.etl"
+        ]
+      },
+      "model_candidate": {
+        "consumers": [
+          "retrain"
+        ],
+        "path": "models/candidates/*.pkl",
+        "producers": [
+          "retrain.train"
+        ]
+      },
+      "model_health": {
+        "consumers": [
+          "retrain"
+        ],
+        "path": "artifacts/model_health_report.json",
+        "producers": [
+          "monitor.evaluate"
+        ]
+      },
+      "production_model": {
+        "consumers": [
+          "daily",
+          "monitor"
+        ],
+        "path": "models/latest_lgbm.pkl",
+        "producers": [
+          "retrain.promote"
+        ]
+      },
+      "publish_payload": {
+        "consumers": [
+          "daily_publish"
+        ],
+        "path": "artifacts/clawd_publish_payload_YYYY-MM-DD.json",
+        "producers": [
+          "daily.payload"
+        ]
+      },
+      "publish_status": {
+        "consumers": [
+          "daily_publish"
+        ],
+        "path": "artifacts/clawd_publish_status_YYYY-MM-DD.json",
+        "producers": [
+          "daily_publish.send"
+        ]
+      },
+      "ranking": {
+        "consumers": [
+          "daily",
+          "daily_publish",
+          "webui"
+        ],
+        "path": "artifacts/ranking_YYYY-MM-DD.csv",
+        "producers": [
+          "daily.rank"
+        ]
+      },
+      "reference_dataset": {
+        "consumers": [
+          "reference"
+        ],
+        "path": "data/reference/*.csv",
+        "producers": [
+          "reference.import"
+        ]
+      },
+      "reference_probe": {
+        "consumers": [
+          "reference"
+        ],
+        "path": "artifacts/reference_probe.json",
+        "producers": [
+          "reference.probe"
+        ]
+      },
+      "sealed_oos_report": {
+        "consumers": [
+          "retrain"
+        ],
+        "path": "artifacts/model_experiments/sealed_oos_*.json",
+        "producers": [
+          "retrain.sealed_oos"
+        ]
+      },
+      "universe": {
+        "consumers": [
+          "daily"
+        ],
+        "path": "data/clean/universe.parquet",
+        "producers": [
+          "daily.etl"
+        ]
+      },
+      "web_health_status": {
+        "consumers": [
+          "webui"
+        ],
+        "path": "/api/health",
+        "producers": [
+          "webui.serve"
+        ]
+      }
+    },
+    "domains": {
+      "automation": {
+        "owner": "app.automation",
+        "paths": [
+          "app/automation",
+          "app/workflows",
+          "scripts/run_automation.py"
+        ]
+      },
+      "data_pipeline": {
+        "owner": "app.pipeline",
+        "paths": [
+          "app/pipeline",
+          "app/pipeline_cli.py"
+        ]
+      },
+      "modeling": {
+        "owner": "app.modeling",
+        "paths": [
+          "app/modeling",
+          "app/agent_b_modeling.py"
+        ]
+      },
+      "monitoring": {
+        "owner": "app.monitoring",
+        "paths": [
+          "app/monitoring",
+          "app/model_monitor.py"
+        ]
+      },
+      "publishing": {
+        "owner": "app.publishing",
+        "paths": [
+          "app/publishing",
+          "scripts/generate_daily_report.py"
+        ]
+      },
+      "ranking_decision": {
+        "owner": "app.trading",
+        "paths": [
+          "app/trading",
+          "app/agent_b_ranking.py"
+        ]
+      },
+      "reference_data": {
+        "owner": "app.reference_sources",
+        "paths": [
+          "app/reference_sources",
+          "scripts/run_reference_update.sh"
+        ]
+      },
+      "web": {
+        "owner": "app.api",
+        "paths": [
+          "app/api",
+          "web/frontend"
+        ]
+      }
+    },
+    "entrypoints": {
+      "scripts/com.new-top10.daily.plist": {
+        "domain": "automation",
+        "required_verification": [
+          "daily_contract",
+          "publish_guard",
+          "scheduler_ownership"
+        ],
+        "workflows": [
+          "daily",
+          "daily_publish"
+        ]
+      },
+      "scripts/com.new-top10.reference.plist": {
+        "domain": "reference_data",
+        "required_verification": [
+          "reference_contract",
+          "scheduler_ownership"
+        ],
+        "workflows": [
+          "reference"
+        ]
+      },
+      "scripts/com.new-top10.retrain.plist": {
+        "domain": "modeling",
+        "required_verification": [
+          "retrain_contract",
+          "scheduler_ownership"
+        ],
+        "workflows": [
+          "monitor",
+          "retrain"
+        ]
+      },
+      "scripts/com.new-top10.webui.plist": {
+        "domain": "web",
+        "required_verification": [
+          "web_health",
+          "scheduler_ownership"
+        ],
+        "workflows": [
+          "webui"
+        ]
+      },
+      "scripts/daily_retrain.sh": {
+        "domain": "modeling",
+        "required_verification": [
+          "retrain_contract"
+        ],
+        "workflows": [
+          "monitor",
+          "retrain"
+        ]
+      },
+      "scripts/generate_daily_report.py": {
+        "domain": "publishing",
+        "required_verification": [
+          "daily_contract"
+        ],
+        "workflows": [
+          "daily"
+        ]
+      },
+      "scripts/run_automation.py": {
+        "domain": "automation",
+        "required_verification": [
+          "daily_contract",
+          "retrain_contract",
+          "reference_contract"
+        ],
+        "workflows": [
+          "daily",
+          "monitor",
+          "retrain",
+          "reference"
+        ]
+      },
+      "scripts/run_daily.sh": {
+        "domain": "automation",
+        "required_verification": [
+          "daily_contract",
+          "scheduler_ownership"
+        ],
+        "workflows": [
+          "daily"
+        ]
+      },
+      "scripts/run_daily_publish.sh": {
+        "domain": "publishing",
+        "required_verification": [
+          "publish_guard",
+          "scheduler_ownership"
+        ],
+        "workflows": [
+          "daily_publish"
+        ]
+      },
+      "scripts/run_reference_update.sh": {
+        "domain": "reference_data",
+        "required_verification": [
+          "reference_contract"
+        ],
+        "workflows": [
+          "reference"
+        ]
+      },
+      "scripts/start_market_ui.sh": {
+        "domain": "web",
+        "required_verification": [
+          "web_health"
+        ],
+        "workflows": [
+          "webui"
+        ]
+      }
+    },
+    "schema_version": "top10.architecture-control-plane.v1",
+    "verification": {
+      "daily_contract": {
+        "command": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_automation_status_contract",
+          "tests.test_daily_publish_wrapper_guards",
+          "tests.test_daily_workflow_v2"
+        ],
+        "kind": "test",
+        "paths": [
+          "tests/test_automation_status_contract.py",
+          "tests/test_daily_publish_wrapper_guards.py",
+          "tests/test_daily_workflow_v2.py"
+        ]
+      },
+      "publish_guard": {
+        "command": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_daily_publish_wrapper_guards",
+          "tests.test_clawd_publish_payload_boundary"
+        ],
+        "kind": "test",
+        "paths": [
+          "tests/test_daily_publish_wrapper_guards.py",
+          "tests/test_clawd_publish_payload_boundary.py"
+        ]
+      },
+      "reference_contract": {
+        "command": [
+          "uv",
+          "run",
+          "python",
+          "scripts/verify_reference_sources.py",
+          "--help"
+        ],
+        "kind": "gate",
+        "paths": [
+          "scripts/verify_reference_sources.py"
+        ]
+      },
+      "retrain_contract": {
+        "command": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_model_runtime_promotion",
+          "tests.test_model_runtime_migration"
+        ],
+        "kind": "test",
+        "paths": [
+          "tests/test_model_runtime_promotion.py",
+          "tests/test_model_runtime_migration.py"
+        ]
+      },
+      "scheduler_ownership": {
+        "command": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_scheduler_ownership"
+        ],
+        "kind": "test",
+        "paths": [
+          "tests/test_scheduler_ownership.py"
+        ]
+      },
+      "web_health": {
+        "command": [
+          "bash",
+          "scripts/verify_local_dev_health.sh"
+        ],
+        "kind": "gate",
+        "paths": [
+          "scripts/verify_local_dev_health.sh"
+        ]
+      }
+    },
+    "workflows": {
+      "daily": {
+        "entrypoints": [
+          "scripts/com.new-top10.daily.plist",
+          "scripts/run_daily.sh",
+          "scripts/run_automation.py",
+          "scripts/generate_daily_report.py"
+        ],
+        "owner_domain": "automation",
+        "production": true,
+        "required_verification": [
+          "daily_contract"
+        ],
+        "steps": [
+          {
+            "id": "etl",
+            "outputs": [
+              "features",
+              "events",
+              "universe"
+            ]
+          },
+          {
+            "id": "validate",
+            "inputs": [
+              "features",
+              "events",
+              "universe"
+            ]
+          },
+          {
+            "id": "rank",
+            "inputs": [
+              "features",
+              "events",
+              "universe",
+              "production_model"
+            ],
+            "outputs": [
+              "ranking"
+            ]
+          },
+          {
+            "id": "report",
+            "inputs": [
+              "ranking"
+            ],
+            "outputs": [
+              "daily_report"
+            ]
+          },
+          {
+            "id": "payload",
+            "inputs": [
+              "ranking",
+              "daily_report"
+            ],
+            "outputs": [
+              "publish_payload"
+            ]
+          }
+        ]
+      },
+      "daily_publish": {
+        "entrypoints": [
+          "scripts/com.new-top10.daily.plist",
+          "scripts/run_daily_publish.sh"
+        ],
+        "owner_domain": "publishing",
+        "production": true,
+        "required_verification": [
+          "publish_guard"
+        ],
+        "steps": [
+          {
+            "id": "verify_daily",
+            "inputs": [
+              "automation_status",
+              "ranking",
+              "daily_report",
+              "publish_payload"
+            ]
+          },
+          {
+            "id": "send",
+            "inputs": [
+              "publish_payload"
+            ],
+            "outputs": [
+              "publish_status"
+            ]
+          }
+        ]
+      },
+      "monitor": {
+        "entrypoints": [
+          "scripts/com.new-top10.retrain.plist",
+          "scripts/daily_retrain.sh",
+          "scripts/run_automation.py"
+        ],
+        "owner_domain": "monitoring",
+        "production": true,
+        "required_verification": [
+          "retrain_contract"
+        ],
+        "steps": [
+          {
+            "id": "evaluate",
+            "inputs": [
+              "production_model",
+              "features"
+            ],
+            "outputs": [
+              "model_health"
+            ]
+          }
+        ]
+      },
+      "reference": {
+        "entrypoints": [
+          "scripts/com.new-top10.reference.plist",
+          "scripts/run_reference_update.sh",
+          "scripts/run_automation.py"
+        ],
+        "owner_domain": "reference_data",
+        "production": true,
+        "required_verification": [
+          "reference_contract"
+        ],
+        "steps": [
+          {
+            "id": "probe",
+            "outputs": [
+              "reference_probe"
+            ]
+          },
+          {
+            "id": "import",
+            "inputs": [
+              "reference_probe"
+            ],
+            "outputs": [
+              "reference_dataset"
+            ]
+          }
+        ]
+      },
+      "retrain": {
+        "entrypoints": [
+          "scripts/com.new-top10.retrain.plist",
+          "scripts/daily_retrain.sh",
+          "scripts/run_automation.py"
+        ],
+        "owner_domain": "modeling",
+        "production": true,
+        "required_verification": [
+          "retrain_contract"
+        ],
+        "steps": [
+          {
+            "id": "train",
+            "inputs": [
+              "features"
+            ],
+            "outputs": [
+              "model_candidate"
+            ]
+          },
+          {
+            "id": "sealed_oos",
+            "inputs": [
+              "model_candidate",
+              "features"
+            ],
+            "outputs": [
+              "sealed_oos_report"
+            ]
+          },
+          {
+            "id": "promote",
+            "inputs": [
+              "model_candidate",
+              "sealed_oos_report",
+              "model_health"
+            ],
+            "outputs": [
+              "production_model"
+            ]
+          }
+        ]
+      },
+      "webui": {
+        "entrypoints": [
+          "scripts/com.new-top10.webui.plist",
+          "scripts/start_market_ui.sh"
+        ],
+        "owner_domain": "web",
+        "production": true,
+        "required_verification": [
+          "web_health"
+        ],
+        "steps": [
+          {
+            "id": "serve",
+            "inputs": [
+              "ranking",
+              "daily_report"
+            ],
+            "outputs": [
+              "web_health_status"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "lifecycle_contract": {
+    "automatic_full_fallback_allowed": false,
+    "resume_requires_persistent_manifest": true,
+    "step_statuses": [
+      "pending",
+      "running",
+      "succeeded",
+      "failed",
+      "skipped"
+    ]
+  },
+  "schema_version": "top10.architecture-manifest.v1",
+  "source": {
+    "git_sha": "2ca23b2d6157e3336ae69babe81cb0cefb6800bd",
+    "inputs": {
+      "config/architecture_control_plane.yaml": "c82a9b8c15f4fe9beb015bc895b6b455faee6e7f85fd7a989b061fdc056bc652",
+      "config/script_lifecycle.yaml": "17dff8e607d56dc986dbfd33452768599422a37a69114583300960254b9aee6f"
+    }
+  }
+}
