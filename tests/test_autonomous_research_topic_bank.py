@@ -163,6 +163,7 @@ class AutonomousResearchTopicBankTests(unittest.TestCase):
                             "runs": [
                                 {
                                     "generated_at": (now - timedelta(hours=25)).isoformat(),
+                                    "execute": True,
                                     "selected_topic_ids": [eligible.topic_id],
                                 }
                             ]
@@ -179,6 +180,110 @@ class AutonomousResearchTopicBankTests(unittest.TestCase):
 
                 paths["queue"].write_text(json.dumps({"actions": []}), encoding="utf-8")
                 self.assertEqual(research.select_topics_for_run([eligible, rejected], self.manager_args()), [])
+            finally:
+                research.OUTPUT_DIR = original_output_dir
+
+    def test_history_fallback_requires_proven_real_execution(self):
+        now = datetime(2026, 7, 17, 12, tzinfo=timezone.utc)
+        topic = self.make_topic("legacy-history")
+        with tempfile.TemporaryDirectory() as tmp:
+            original_output_dir = research.OUTPUT_DIR
+            try:
+                research.OUTPUT_DIR = Path(tmp)
+                history_path = research.manager_paths()["history"]
+                base_row = {
+                    "generated_at": (now - timedelta(hours=25)).isoformat(),
+                    "selected_topic_id": topic.topic_id,
+                }
+                registry = {topic.topic_id: {"manager_status": "partial_needs_followup", "run_count": 1}}
+
+                for row in [{**base_row, "execute": False}, base_row]:
+                    history_path.write_text(json.dumps({"runs": [row]}), encoding="utf-8")
+                    fallback = research.load_last_run_at_by_topic()
+                    self.assertNotIn(topic.topic_id, fallback)
+                    self.assertFalse(
+                        research.topic_allowed_by_manager(
+                            topic,
+                            registry,
+                            self.manager_args(),
+                            last_run_at_by_topic=fallback,
+                            now=now,
+                        )
+                    )
+
+                history_path.write_text(json.dumps({"runs": [{**base_row, "execute": True}]}), encoding="utf-8")
+                fallback = research.load_last_run_at_by_topic()
+                self.assertIn(topic.topic_id, fallback)
+                self.assertTrue(
+                    research.topic_allowed_by_manager(
+                        topic,
+                        registry,
+                        self.manager_args(),
+                        last_run_at_by_topic=fallback,
+                        now=now,
+                    )
+                )
+            finally:
+                research.OUTPUT_DIR = original_output_dir
+
+    def test_partial_topic_stays_queued_until_third_run_then_exhausts(self):
+        topic = self.make_topic("partial-lifecycle")
+        with tempfile.TemporaryDirectory() as tmp:
+            original_output_dir = research.OUTPUT_DIR
+            try:
+                research.OUTPUT_DIR = Path(tmp)
+                paths = research.manager_paths()
+                paths["registry"].write_text(
+                    json.dumps(
+                        {
+                            "topics": [
+                                {
+                                    **research.topic_to_json(topic),
+                                    "manager_status": "partial_needs_followup",
+                                    "run_count": 1,
+                                    "last_run_at": (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat(),
+                                }
+                            ]
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                payload = {
+                    "date": "2026-07-17",
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "OK",
+                    "inputs": {"execute": True},
+                    "topics": [research.topic_to_json(topic)],
+                    "all_topics": [research.topic_to_json(topic)],
+                    "selected_topics": [research.topic_to_json(topic)],
+                    "topic_runs": [
+                        {
+                            "topic": research.topic_to_json(topic),
+                            "status": "OK",
+                            "outcome": {"decision": "PARTIAL_SCORE_ONLY", "promotion_allowed": False},
+                        }
+                    ],
+                    "outcome": {"decision": "PARTIAL_SCORE_ONLY", "promotion_allowed": False},
+                }
+
+                self.assertTrue(research.topic_allowed_by_manager(topic, research.load_topic_registry(), self.manager_args()))
+                research.update_manager(payload, paths["history"])
+                registry = research.load_topic_registry()
+                self.assertEqual(registry[topic.topic_id]["run_count"], 2)
+                self.assertEqual(research.queued_topic_ids(), {topic.topic_id})
+                self.assertEqual(research.select_topics_for_run([topic], self.manager_args()), [])
+
+                registry[topic.topic_id]["last_run_at"] = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+                paths["registry"].write_text(json.dumps({"topics": list(registry.values())}), encoding="utf-8")
+                self.assertEqual(
+                    [item.topic_id for item in research.select_topics_for_run([topic], self.manager_args())],
+                    [topic.topic_id],
+                )
+
+                research.update_manager(payload, paths["history"])
+                self.assertEqual(research.load_topic_registry()[topic.topic_id]["run_count"], 3)
+                self.assertEqual(research.load_next_action_queue(), [])
+                self.assertEqual(research.select_topics_for_run([topic], self.manager_args()), [])
             finally:
                 research.OUTPUT_DIR = original_output_dir
 

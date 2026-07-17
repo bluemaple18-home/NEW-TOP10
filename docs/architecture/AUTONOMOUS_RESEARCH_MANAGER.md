@@ -43,7 +43,7 @@
   --max-ranking-files 5
 ```
 
-若要重跑已跑過的題目，必須明確加 `--rerun`。預設會冷卻已執行過的 topic，避免同一題一直消耗回測資源。
+已跑過的題目只能依 manager 狀態、最大執行次數與 24 小時 cooldown 受控重跑，不需要也不能用 CLI flag 繞過政策。`--rerun` 與 `--include-rejected` 僅保留舊入口參數相容性，不會放寬選題資格。
 
 ## 管理層產物
 
@@ -92,9 +92,11 @@ scripts/compare_strategy_matrices.py
 
 - `--from-queue`：從 `next_action_queue` 語意選題。
 - `--execute-topic-count N`：同一次最多跑 N 題。
-- 預設跳過 `run_count > 0` 的 topic。
-- `--rerun`：允許重跑已跑過的 topic。
-- `--include-rejected`：允許 rejected topic 重新進入佇列。
+- `confirmed_for_next_replay` 最多執行 2 次，`partial_needs_followup` 最多執行 3 次；兩者每次 execute 後至少冷卻 24 小時。
+- 仍有後續執行次數的 topic 會保留在 queue；冷卻期間 selection gate 會跳過，但不會把它從 queue 移除。
+- `rejected`、已達最大執行次數、缺少可證明真實 execute 時間的 topic 均 fail closed。
+- history fallback 只接受 `execute=true` 的 real-execution row；dry-run 或缺少 `execute` 的 row 不構成 cooldown 證據。
+- `--rerun`／`--include-rejected`：僅相容 legacy 呼叫，不得繞過上述 manager policy。
 
 單次 run 會保留：
 

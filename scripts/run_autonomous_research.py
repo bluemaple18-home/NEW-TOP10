@@ -502,6 +502,8 @@ def parse_utc_timestamp(value: Any) -> datetime | None:
 def load_last_run_at_by_topic() -> dict[str, str]:
     latest: dict[str, tuple[datetime, str]] = {}
     for row in load_list_payload(manager_paths()["history"], "runs"):
+        if row.get("execute") is not True:
+            continue
         raw_time = str(row.get("generated_at") or "")
         run_at = parse_utc_timestamp(raw_time)
         if run_at is None:
@@ -729,6 +731,16 @@ def next_action_for_status(status: str, topic: dict[str, Any]) -> str:
     return mapping.get(status, f"manual_review:{topic.get('topic_id')}")
 
 
+def topic_actionable_for_queue(topic: dict[str, Any]) -> bool:
+    """判斷 topic 是否仍有可執行的 manager lifecycle；冷卻由選題 gate 負責。"""
+    status = str(topic.get("manager_status") or "candidate")
+    run_count = int(topic.get("run_count") or 0)
+    if run_count == 0:
+        return status in {"candidate", "confirmed_for_next_replay", "partial_needs_followup", "blocked_missing_evidence"}
+    policy = CONTROLLED_RERUN_POLICIES.get(status)
+    return policy is not None and run_count < policy["max_run_count"]
+
+
 def manager_paths() -> dict[str, Path]:
     return {
         "topic_bank": OUTPUT_DIR / "topic_bank.json",
@@ -805,7 +817,6 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
     )
     history = history[-200:]
     topics = sorted(registry_rows.values(), key=lambda item: (-float(item.get("score") or 0), str(item.get("topic_id"))))
-    actionable_statuses = {"candidate", "confirmed_for_next_replay", "partial_needs_followup", "blocked_missing_evidence"}
     queue = [
         {
             "topic_id": topic.get("topic_id"),
@@ -816,7 +827,7 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
             "candidate_dir": topic.get("candidate_dir"),
         }
         for topic in topics
-        if topic.get("manager_status") in actionable_statuses and topic.get("topic_id") not in selected_ids
+        if topic_actionable_for_queue(topic)
     ][:25]
     queued_ids = {str(item.get("topic_id")) for item in queue if item.get("topic_id")}
     all_topics = [topic for topic in payload.get("all_topics", []) if isinstance(topic, dict)]
