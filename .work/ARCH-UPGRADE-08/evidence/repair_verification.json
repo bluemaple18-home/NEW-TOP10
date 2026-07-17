@@ -16,7 +16,14 @@
     {
       "command": [".venv/bin/python", "-m", "pytest", "-q"],
       "exit_code": 0,
-      "result": "324 passed, 28 subtests passed"
+      "result": "324 passed, 28 subtests passed",
+      "scope": "main working tree；含任務開始前既存的未提交研究檔，不作 fresh-checkout 證據"
+    },
+    {
+      "command": [".venv/bin/python", "-m", "pytest", "-q"],
+      "exit_code": 1,
+      "result": "323 passed, 28 subtests passed, 1 baseline failure: tests/test_research_component_ledger.py:44",
+      "scope": "fresh checkout；同一失敗可在固定 base 重現，非本候選回歸"
     },
     {
       "command": [".venv/bin/python", "scripts/verify_daily_v2_promotion_decision.py", "--base-sha", "2ca23b2d6157e3336ae69babe81cb0cefb6800bd", "--candidate-sha", "e7106800e6ecc7eb0daae4da17066bdf3234b350"],

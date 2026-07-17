@@ -1,6 +1,6 @@
 ---
 id: ARCH-UPGRADE-07
-status: blocked
+status: completed
 type: acceptance
 priority: P0
 thickness: standard
@@ -35,3 +35,11 @@ model_reason: 需獨立重算驗證、審查跨模組 diff 與 production regres
 ## Evidence
 
 `.work/ARCH-UPGRADE-07/evidence/`
+
+## 收卡
+
+- 07A：初審 NO-GO，四個 P1 已進 Repair-2。
+- 07B：production regression GO。
+- 07C：初審 NO-GO，三個 gate/evidence findings 已進 Repair-2。
+- 08A：最終 contract re-review GO。
+- 08B：最終 fresh-checkout/evidence re-review GO；既存 ledger 測試環境依賴列為非候選回歸 P2。

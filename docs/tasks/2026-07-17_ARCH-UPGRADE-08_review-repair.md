@@ -1,6 +1,6 @@
 ---
 id: ARCH-UPGRADE-08
-status: ready_for_review
+status: completed
 type: repair
 parent: ARCH-UPGRADE-07
 source_review: ARCH-UPGRADE-07A,ARCH-UPGRADE-07C
@@ -26,7 +26,10 @@ code_candidate_sha: e7106800e6ecc7eb0daae4da17066bdf3234b350
 ## 驗證
 
 - targeted contract tests：23 passed。
-- full suite：324 passed、28 subtests passed。
+- main working tree full suite：324 passed、28 subtests passed；不冒充 fresh-checkout evidence。
+- fresh checkout：323 passed、28 subtests passed、1 個固定 base 同樣失敗的既存 ledger 測試。
 - promotion evidence：file-backed 重算通過，決策維持 `NO-GO / retain_current_production`。
 - repo root 外重算 parity/promotion：通過。
 - `git diff --check`：通過。
+- 08A contract re-review：`GO`。
+- 08B evidence/impact re-review：`GO`。

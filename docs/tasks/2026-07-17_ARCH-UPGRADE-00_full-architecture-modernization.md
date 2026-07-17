@@ -1,6 +1,6 @@
 ---
 id: ARCH-UPGRADE-00
-status: active
+status: completed
 type: program
 priority: P0
 thickness: strict
@@ -56,8 +56,9 @@ Promotion decision (GO / NO-GO) → explicit production switch or shadow retenti
 | `ARCH-UPGRADE-05` | scripts 全量治理與共用邏輯收斂 | 01、02、04 |
 | `ARCH-UPGRADE-06` | promotion gate 與安全切換判定 | 03、04、05 |
 | `ARCH-UPGRADE-07` | independent review 與 acceptance | 01–06 |
+| `ARCH-UPGRADE-08` | review findings repair 與雙軸 re-review | 07 |
 
-目前 frontier：`ARCH-UPGRADE-01`。
+最終狀態：01–08 已完成；Daily V2 production promotion 依 fail-closed 契約維持 `NO-GO / retain_current_production`。
 
 ## Checkpoints
 

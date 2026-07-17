@@ -1,6 +1,6 @@
 ---
 id: ARCH-UPGRADE-03
-status: ready_for_review
+status: completed
 type: implementation
 priority: P0
 thickness: strict
