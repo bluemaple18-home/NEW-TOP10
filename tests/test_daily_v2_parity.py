@@ -4,14 +4,17 @@ import tempfile
 import unittest
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 
+from app.contracts.daily_v2_comparison import build_ranking_comparison
 from app.workflows.daily_v2_parity import (
     DailyV2ParityError,
     build_daily_v2_parity_report,
     build_daily_v2_parity_report_from_files,
     verify_daily_v2_parity_report,
     verify_daily_v2_parity_report_from_files,
+    _verify_ranking_comparison_from_files,
 )
 
 
@@ -112,6 +115,46 @@ def ranking_comparison() -> dict:
 
 
 class DailyV2ParityTest(unittest.TestCase):
+    def test_ranking_comparison_is_recomputed_from_physical_csv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            baseline = root / "baseline.csv"
+            shadow = root / "shadow.csv"
+            rows = "rank,stock_id,score\n" + "".join(
+                f"{rank},{1000 + rank},{1 - rank / 100:.2f}\n" for rank in range(1, 11)
+            )
+            baseline.write_text(rows, encoding="utf-8")
+            shadow.write_text(rows, encoding="utf-8")
+            comparison = build_ranking_comparison(
+                baseline_path=baseline,
+                shadow_path=shadow,
+                input_snapshots={},
+                run_date=RUN_DATE,
+            )
+            _verify_ranking_comparison_from_files(comparison)
+
+            comparison["top10"]["same_order"] = False
+            with self.assertRaisesRegex(DailyV2ParityError, "重算結果不一致"):
+                _verify_ranking_comparison_from_files(comparison)
+
+    def test_dry_run_cannot_be_successful_execution_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            production = production_status()
+            production["dry_run"] = True
+            report = build_daily_v2_parity_report(
+                production_status=production,
+                workflow_manifest=workflow_manifest(root),
+                real_shadow_manifest=real_shadow_manifest(root),
+                ranking_comparison=ranking_comparison(),
+                shadow_root=root,
+                workflow_profile="fixture",
+            )
+        self.assertEqual(report["execution_outcome"], "not_succeeded")
+        self.assertIn(
+            "production_dry_run_not_execution_evidence",
+            {item["code"] for item in report["mismatches"] if item["blocking"]},
+        )
     def test_matching_skipped_runs_are_not_successful_execution_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -349,7 +392,12 @@ class DailyV2ParityTest(unittest.TestCase):
                 workflow_profile="fixture",
             )
             self.assertTrue(all(not Path(item["path"]).is_absolute() for item in report["source_files"].values()))
-            verify_daily_v2_parity_report_from_files(report)
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tempfile.gettempdir())
+                verify_daily_v2_parity_report_from_files(report)
+            finally:
+                os.chdir(original_cwd)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from app.contracts.daily_v2_comparison import build_ranking_comparison
+
 from app.automation.daily_contract import (
     DAILY_CORE_CONTRACT_VERSION,
     DAILY_CORE_STEPS,
@@ -33,6 +35,7 @@ MISMATCH_TYPES = frozenset(
 )
 CORE_STEP_MAP = PRODUCTION_CORE_STEP_MAP
 CORE_STEPS = DAILY_CORE_STEPS
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class DailyV2ParityError(ValueError):
@@ -141,7 +144,7 @@ def _outputs_preserved(workflow_manifest: Mapping[str, Any]) -> bool:
 def _snapshot_matches_file(snapshot: Any) -> bool:
     if not isinstance(snapshot, Mapping) or snapshot.get("exists") is not True:
         return False
-    path = Path(str(snapshot.get("path") or "")).expanduser()
+    path = _resolve_portable_path(str(snapshot.get("path") or ""))
     if not path.is_file():
         return False
     return hashlib.sha256(path.read_bytes()).hexdigest() == snapshot.get("sha256")
@@ -241,9 +244,21 @@ def build_daily_v2_parity_report(
     )
     execution_outcome = (
         "succeeded"
-        if production_outcome == workflow_outcome == "succeeded" and all_core_succeeded
+        if production_outcome == workflow_outcome == "succeeded"
+        and all_core_succeeded
+        and production_status.get("dry_run") is False
         else "failed" if "failed" in {production_outcome, workflow_outcome} else "not_succeeded"
     )
+    if production_status.get("dry_run") is not False:
+        mismatches.append(
+            _mismatch(
+                "contract_gap",
+                "production_dry_run_not_execution_evidence",
+                "production dry-run 或缺少 dry_run=false 不得作為 promotion 成功執行證據",
+                blocking=True,
+                evidence={"dry_run": production_status.get("dry_run")},
+            )
+        )
 
     if production_failed != workflow_failed:
         mismatches.append(
@@ -538,9 +553,39 @@ def _sha256(path: Path) -> str:
 def _portable_path(path: Path) -> str:
     resolved = path.expanduser().resolve()
     try:
-        return resolved.relative_to(Path.cwd().resolve()).as_posix()
+        return resolved.relative_to(PROJECT_ROOT).as_posix()
     except ValueError:
         return str(resolved)
+
+
+def _resolve_portable_path(path: str | Path) -> Path:
+    candidate = Path(path).expanduser()
+    return candidate.resolve() if candidate.is_absolute() else (PROJECT_ROOT / candidate).resolve()
+
+
+def _verify_ranking_comparison_from_files(ranking_comparison: Mapping[str, Any]) -> None:
+    """由實體 baseline/shadow CSV 重算完整 ranking comparison。"""
+
+    outputs = ranking_comparison.get("outputs")
+    if not isinstance(outputs, Mapping):
+        raise DailyV2ParityError("production-equivalent ranking comparison 缺少 outputs")
+    baseline = outputs.get("baseline")
+    shadow = outputs.get("shadow")
+    if not _snapshot_matches_file(baseline) or not _snapshot_matches_file(shadow):
+        raise DailyV2ParityError("ranking baseline/shadow 實體 snapshot 不一致")
+    numeric = ranking_comparison.get("numeric_differences")
+    tolerance = numeric.get("tolerance") if isinstance(numeric, Mapping) else None
+    expected = build_ranking_comparison(
+        baseline_path=_resolve_portable_path(str(baseline["path"])),
+        shadow_path=_resolve_portable_path(str(shadow["path"])),
+        input_snapshots=dict(ranking_comparison.get("inputs") or {}),
+        numeric_tolerance=float(tolerance if tolerance is not None else 1e-9),
+        runtime_versions=dict(ranking_comparison.get("runtime_versions") or {}),
+        model_compatibility=dict(ranking_comparison.get("model_compatibility") or {}),
+        run_date=ranking_comparison.get("run_date"),
+    )
+    if dict(ranking_comparison) != expected:
+        raise DailyV2ParityError("ranking comparison 與實體 CSV 重算結果不一致")
 
 
 def build_daily_v2_parity_report_from_files(
@@ -563,11 +608,14 @@ def build_daily_v2_parity_report_from_files(
     for label, path in paths.items():
         if not path.is_file():
             raise FileNotFoundError(f"{label} evidence 不存在：{path}")
+    ranking_comparison = _read_json(paths["ranking_comparison"])
+    if workflow_profile == PRODUCTION_EQUIVALENT_PROFILE:
+        _verify_ranking_comparison_from_files(ranking_comparison)
     report = build_daily_v2_parity_report(
         production_status=_read_json(paths["production_status"]),
         workflow_manifest=_read_json(paths["workflow_manifest"]),
         real_shadow_manifest=_read_json(paths["real_shadow_manifest"]),
-        ranking_comparison=_read_json(paths["ranking_comparison"]),
+        ranking_comparison=ranking_comparison,
         shadow_root=shadow_root,
         workflow_profile=workflow_profile,
     )
@@ -588,7 +636,7 @@ def verify_daily_v2_parity_report_from_files(report: dict[str, Any]) -> None:
         record = source_files.get(label)
         if not isinstance(record, dict):
             raise DailyV2ParityError(f"source_files 缺少 {label}")
-        path = Path(str(record.get("path"))).expanduser().resolve()
+        path = _resolve_portable_path(str(record.get("path")))
         if not path.is_file() or _sha256(path) != record.get("sha256"):
             raise DailyV2ParityError(f"source evidence digest 不一致：{label}")
         paths[label] = path
@@ -597,7 +645,7 @@ def verify_daily_v2_parity_report_from_files(report: dict[str, Any]) -> None:
         workflow_manifest_path=paths["workflow_manifest"],
         real_shadow_manifest_path=paths["real_shadow_manifest"],
         ranking_comparison_path=paths["ranking_comparison"],
-        shadow_root=Path(report["contract"]["shadow_root"]),
+        shadow_root=_resolve_portable_path(str(report["contract"]["shadow_root"])),
         workflow_profile=str(report["contract"]["workflow_profile"]),
     )
     if report != expected:

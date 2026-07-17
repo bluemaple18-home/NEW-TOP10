@@ -42,4 +42,4 @@ model_reason: production daily 切換或 NO-GO 判定，涉及正式排程、報
 - blockers：2026-07-09 代表日期 parity NO-GO、production-equivalent 日期 0/2、缺 persistent resume/failure/rollback acceptance、缺獨立 review。
 - script governance：441/441 covered、94 production-reachable、0 contract gaps、0 unknown dynamic edges。
 - promotion gate tests：36 passed；涵蓋 hypothetical GO、fixture relabel、單日期不足與任一代表日 NO-GO。
-- production switch 未授權且未執行；daily entrypoint、live notification、ranking、model 均未修改。
+- production switch 未授權且未執行；`scripts/run_automation.py` 已做行為等價模組化，但 launchd target、live notification、ranking、model 均未切換。

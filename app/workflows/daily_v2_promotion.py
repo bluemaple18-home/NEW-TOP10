@@ -19,7 +19,14 @@ PROMOTION_DECISION_SCHEMA_VERSION = "top10.daily-v2.promotion-decision.v1"
 PROMOTION_ACCEPTANCE_SCHEMA_VERSION = "top10.daily-v2.promotion-acceptance.v1"
 INDEPENDENT_REVIEW_SCHEMA_VERSION = "top10.architecture-independent-review.v1"
 SCRIPT_GOVERNANCE_SCHEMA_VERSION = "top10.script-governance.v1"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_FAILURE_SCENARIOS = frozenset({"timeout", "partial_output", "stale_input"})
+ACCEPTANCE_EVIDENCE_SCHEMAS = {
+    "failure_injection": "top10.daily-v2.failure-injection-evidence.v1",
+    "persistent_resume": "top10.daily-v2.resume-evidence.v1",
+    "wrapper_rollback": "top10.daily-v2.rollback-evidence.v1",
+}
+REVIEW_EVIDENCE_SCHEMA_VERSION = "top10.architecture-review-evidence.v1"
 
 
 class DailyV2PromotionError(ValueError):
@@ -30,7 +37,13 @@ def _blocker(code: str, message: str, evidence: Any = None) -> dict[str, Any]:
     return {"code": code, "message": message, "evidence": evidence}
 
 
-def _bound_evidence_valid(payload: Mapping[str, Any], *, kind: str) -> bool:
+def _bound_evidence_valid(
+    payload: Mapping[str, Any],
+    *,
+    kind: str,
+    expected_base_sha: str,
+    expected_candidate_sha: str,
+) -> bool:
     if not re.fullmatch(r"[0-9a-f]{40}", str(payload.get("base_sha") or "")):
         return False
     if not re.fullmatch(r"[0-9a-f]{40}", str(payload.get("candidate_sha") or "")):
@@ -38,17 +51,26 @@ def _bound_evidence_valid(payload: Mapping[str, Any], *, kind: str) -> bool:
     records = payload.get("evidence")
     if not isinstance(records, list) or not records:
         return False
+    evidence_payloads: dict[str, Mapping[str, Any]] = {}
     for record in records:
         if not isinstance(record, Mapping):
             return False
-        path = Path(str(record.get("path") or "")).expanduser()
+        path = _resolve_portable_path(str(record.get("path") or ""))
         if not path.is_file() or _sha256(path) != record.get("sha256"):
             return False
+        evidence_kind = str(record.get("kind") or "")
+        try:
+            parsed = _read_json(path)
+        except (OSError, json.JSONDecodeError, DailyV2PromotionError):
+            return False
+        evidence_payloads[evidence_kind] = parsed
     base_sha = str(payload["base_sha"])
     candidate_sha = str(payload["candidate_sha"])
+    if base_sha != expected_base_sha or candidate_sha != expected_candidate_sha:
+        return False
     ancestry = subprocess.run(
         ["git", "merge-base", "--is-ancestor", base_sha, candidate_sha],
-        cwd=Path.cwd(),
+        cwd=PROJECT_ROOT,
         capture_output=True,
         check=False,
     )
@@ -58,19 +80,71 @@ def _bound_evidence_valid(payload: Mapping[str, Any], *, kind: str) -> bool:
         runner = payload.get("runner")
         if not isinstance(runner, Mapping) or not runner.get("id") or not runner.get("version"):
             return False
+        if set(evidence_payloads) != set(ACCEPTANCE_EVIDENCE_SCHEMAS):
+            return False
+        for evidence_kind, schema in ACCEPTANCE_EVIDENCE_SCHEMAS.items():
+            item = evidence_payloads[evidence_kind]
+            if (
+                item.get("schema_version") != schema
+                or item.get("base_sha") != base_sha
+                or item.get("candidate_sha") != candidate_sha
+                or item.get("runner") != runner
+            ):
+                return False
+        failure = evidence_payloads["failure_injection"]
+        scenario_results = failure.get("scenarios")
+        if not isinstance(scenario_results, Mapping) or any(
+            scenario_results.get(name) != "GO" for name in REQUIRED_FAILURE_SCENARIOS
+        ):
+            return False
+        resume = evidence_payloads["persistent_resume"]
+        if not (
+            resume.get("status") == "GO"
+            and str(resume.get("checkpointer_backend") or "").lower() not in {"", "memory", "inmemory", "memorysaver"}
+            and isinstance(resume.get("idempotency_keys"), list)
+            and bool(resume.get("idempotency_keys"))
+            and resume.get("completed_outputs_preserved") is True
+        ):
+            return False
+        rollback = evidence_payloads["wrapper_rollback"]
+        if not (
+            rollback.get("status") == "GO"
+            and rollback.get("tested") is True
+            and rollback.get("entrypoint_before_sha256")
+            and rollback.get("entrypoint_after_sha256") == rollback.get("entrypoint_before_sha256")
+        ):
+            return False
     elif kind == "review":
         reviewer = payload.get("reviewer")
         if not isinstance(reviewer, Mapping) or reviewer.get("independent") is not True or not reviewer.get("id"):
             return False
+        if set(evidence_payloads) != {"review"}:
+            return False
+        review = evidence_payloads["review"]
+        if not (
+            review.get("schema_version") == REVIEW_EVIDENCE_SCHEMA_VERSION
+            and review.get("base_sha") == base_sha
+            and review.get("candidate_sha") == candidate_sha
+            and review.get("reviewer") == reviewer
+            and review.get("verdict") == payload.get("verdict")
+            and isinstance(review.get("findings"), list)
+            and isinstance(review.get("verification"), list)
+            and bool(review.get("verification"))
+            and all(isinstance(item, Mapping) and item.get("exit_code") == 0 for item in review["verification"])
+        ):
+            return False
     return True
 
 
-def build_daily_v2_promotion_decision(
+def _build_daily_v2_promotion_decision(
     *,
     parity_reports: Iterable[Mapping[str, Any]],
     script_governance: Mapping[str, Any],
     acceptance: Mapping[str, Any] | None,
     independent_review: Mapping[str, Any] | None,
+    expected_base_sha: str,
+    expected_candidate_sha: str,
+    evidence_files_verified: bool,
 ) -> dict[str, Any]:
     """只產生決策，不修改 wrapper、launchd、通知或任何 production artifact。"""
 
@@ -81,8 +155,19 @@ def build_daily_v2_promotion_decision(
         raise DailyV2PromotionError("parity report schema 不支援")
     if script_governance.get("schema_version") != SCRIPT_GOVERNANCE_SCHEMA_VERSION:
         raise DailyV2PromotionError("script governance schema 不支援")
+    if not re.fullmatch(r"[0-9a-f]{40}", expected_base_sha):
+        raise DailyV2PromotionError("expected base SHA 必須是完整 40 字元 SHA")
+    if not re.fullmatch(r"[0-9a-f]{40}", expected_candidate_sha):
+        raise DailyV2PromotionError("expected candidate SHA 必須是完整 40 字元 SHA")
 
     blockers: list[dict[str, Any]] = []
+    if not evidence_files_verified:
+        blockers.append(
+            _blocker(
+                "unverified_evidence_sources",
+                "直接傳入的記憶體 payload 不得授權 promotion；必須使用 file-backed builder/verifier",
+            )
+        )
     parity_no_go = [item.get("run_date") for item in parity if item.get("status") != "GO"]
     if parity_no_go:
         blockers.append(_blocker("parity_no_go", "所有代表日期 parity 必須為 GO", parity_no_go))
@@ -123,29 +208,25 @@ def build_daily_v2_promotion_decision(
     else:
         if acceptance.get("schema_version") != PROMOTION_ACCEPTANCE_SCHEMA_VERSION:
             raise DailyV2PromotionError("promotion acceptance schema 不支援")
-        if not _bound_evidence_valid(acceptance, kind="acceptance"):
-            blockers.append(_blocker("promotion_acceptance_unbound", "acceptance 必須綁定 base/candidate SHA 與原始 evidence digest"))
-        failure = acceptance.get("failure_injection") or {}
-        scenarios = set(map(str, failure.get("scenarios") or []))
-        if failure.get("status") != "GO" or not REQUIRED_FAILURE_SCENARIOS.issubset(scenarios):
-            blockers.append(_blocker("failure_injection_no_go", "timeout、partial output、stale input 必須全數 GO"))
-        resume = acceptance.get("resume") or {}
-        if not (
-            resume.get("status") == "GO"
-            and resume.get("persistent_checkpointer") is True
-            and resume.get("idempotent_side_effects") is True
+        if not _bound_evidence_valid(
+            acceptance,
+            kind="acceptance",
+            expected_base_sha=expected_base_sha,
+            expected_candidate_sha=expected_candidate_sha,
         ):
-            blockers.append(_blocker("persistent_resume_no_go", "resume 必須持久化且副作用具 idempotency"))
-        rollback = acceptance.get("wrapper_rollback") or {}
-        if not (rollback.get("status") == "GO" and rollback.get("tested") is True):
-            blockers.append(_blocker("wrapper_rollback_no_go", "wrapper/launchd rollback 必須實際演練通過"))
+            blockers.append(_blocker("promotion_acceptance_unbound", "acceptance 必須綁定 base/candidate SHA 與原始 evidence digest"))
 
     if independent_review is None:
         blockers.append(_blocker("independent_review_missing", "缺少固定 SHA 的獨立 review"))
     else:
         if independent_review.get("schema_version") != INDEPENDENT_REVIEW_SCHEMA_VERSION:
             raise DailyV2PromotionError("independent review schema 不支援")
-        if not _bound_evidence_valid(independent_review, kind="review"):
+        if not _bound_evidence_valid(
+            independent_review,
+            kind="review",
+            expected_base_sha=expected_base_sha,
+            expected_candidate_sha=expected_candidate_sha,
+        ):
             blockers.append(_blocker("independent_review_unbound", "independent review 必須綁定 base/candidate SHA 與 review evidence digest"))
         if independent_review.get("verdict") != "GO":
             blockers.append(_blocker("independent_review_no_go", "獨立 review verdict 必須為 GO"))
@@ -155,16 +236,44 @@ def build_daily_v2_promotion_decision(
         "schema_version": PROMOTION_DECISION_SCHEMA_VERSION,
         "status": status,
         "decision": "promote" if status == "GO" else "retain_current_production",
+        "base_sha": expected_base_sha,
+        "candidate_sha": expected_candidate_sha,
         "parity_dates": sorted({str(item.get("run_date")) for item in parity if item.get("run_date")}),
         "production_equivalent_dates": equivalent_dates,
         "blockers": blockers,
         "production_switch": {
             "authorized": status == "GO",
             "executed": False,
-            "daily_entrypoint_modified": False,
+            "daily_entrypoint_modified": _git_path_modified(
+                expected_base_sha,
+                expected_candidate_sha,
+                "scripts/run_automation.py",
+            ),
             "live_notification_modified": False,
         },
     }
+
+
+def build_daily_v2_promotion_decision(
+    *,
+    parity_reports: Iterable[Mapping[str, Any]],
+    script_governance: Mapping[str, Any],
+    acceptance: Mapping[str, Any] | None,
+    independent_review: Mapping[str, Any] | None,
+    expected_base_sha: str,
+    expected_candidate_sha: str,
+) -> dict[str, Any]:
+    """建立不可授權的記憶體預覽；正式決策只接受 file-backed API。"""
+
+    return _build_daily_v2_promotion_decision(
+        parity_reports=parity_reports,
+        script_governance=script_governance,
+        acceptance=acceptance,
+        independent_review=independent_review,
+        expected_base_sha=expected_base_sha,
+        expected_candidate_sha=expected_candidate_sha,
+        evidence_files_verified=False,
+    )
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -180,9 +289,25 @@ def _sha256(path: Path) -> str:
 
 def _portable_path(path: Path) -> str:
     try:
-        return path.resolve().relative_to(Path.cwd().resolve()).as_posix()
+        return path.resolve().relative_to(PROJECT_ROOT).as_posix()
     except ValueError:
         return str(path.resolve())
+
+
+def _resolve_portable_path(path: str | Path) -> Path:
+    candidate = Path(path).expanduser()
+    return candidate.resolve() if candidate.is_absolute() else (PROJECT_ROOT / candidate).resolve()
+
+
+def _git_path_modified(base_sha: str, candidate_sha: str, path: str) -> bool:
+    result = subprocess.run(
+        ["git", "diff", "--quiet", base_sha, candidate_sha, "--", path],
+        cwd=PROJECT_ROOT,
+        check=False,
+    )
+    if result.returncode not in {0, 1}:
+        raise DailyV2PromotionError(f"無法比較 production entrypoint：{base_sha}..{candidate_sha}")
+    return result.returncode == 1
 
 
 def build_daily_v2_promotion_decision_from_files(
@@ -191,6 +316,8 @@ def build_daily_v2_promotion_decision_from_files(
     script_governance_path: Path,
     acceptance_path: Path | None = None,
     independent_review_path: Path | None = None,
+    expected_base_sha: str,
+    expected_candidate_sha: str,
 ) -> dict[str, Any]:
     paths = [Path(path).expanduser().resolve() for path in parity_paths]
     governance_path = Path(script_governance_path).expanduser().resolve()
@@ -204,11 +331,14 @@ def build_daily_v2_promotion_decision_from_files(
     parity = [_read_json(path) for path in paths]
     for report in parity:
         verify_daily_v2_parity_report_from_files(report)
-    decision = build_daily_v2_promotion_decision(
+    decision = _build_daily_v2_promotion_decision(
         parity_reports=parity,
         script_governance=_read_json(governance_path),
         acceptance=_read_json(optional["acceptance"]) if optional["acceptance"] else None,
         independent_review=_read_json(optional["independent_review"]) if optional["independent_review"] else None,
+        expected_base_sha=expected_base_sha,
+        expected_candidate_sha=expected_candidate_sha,
+        evidence_files_verified=True,
     )
     decision["source_files"] = {
         "parity_reports": [{"path": _portable_path(path), "sha256": _sha256(path)} for path in paths],
@@ -222,9 +352,16 @@ def build_daily_v2_promotion_decision_from_files(
     return decision
 
 
-def verify_daily_v2_promotion_decision_from_files(decision: Mapping[str, Any]) -> None:
+def verify_daily_v2_promotion_decision_from_files(
+    decision: Mapping[str, Any],
+    *,
+    expected_base_sha: str,
+    expected_candidate_sha: str,
+) -> None:
     if decision.get("schema_version") != PROMOTION_DECISION_SCHEMA_VERSION:
         raise DailyV2PromotionError("promotion decision schema 不支援")
+    if decision.get("base_sha") != expected_base_sha or decision.get("candidate_sha") != expected_candidate_sha:
+        raise DailyV2PromotionError("promotion decision 未綁定 verifier 指定的 base/candidate SHA")
     sources = decision.get("source_files")
     if not isinstance(sources, Mapping):
         raise DailyV2PromotionError("promotion decision 缺少 source_files")
@@ -233,7 +370,7 @@ def verify_daily_v2_promotion_decision_from_files(decision: Mapping[str, Any]) -
         raise DailyV2PromotionError("source_files 缺少 parity reports")
 
     def checked_path(record: Mapping[str, Any]) -> Path:
-        path = Path(str(record.get("path"))).expanduser().resolve()
+        path = _resolve_portable_path(str(record.get("path")))
         if not path.is_file() or _sha256(path) != record.get("sha256"):
             raise DailyV2PromotionError(f"source digest 不一致：{path}")
         return path
@@ -245,6 +382,8 @@ def verify_daily_v2_promotion_decision_from_files(decision: Mapping[str, Any]) -
         independent_review_path=(
             checked_path(sources["independent_review"]) if "independent_review" in sources else None
         ),
+        expected_base_sha=expected_base_sha,
+        expected_candidate_sha=expected_candidate_sha,
     )
     if decision != expected:
         raise DailyV2PromotionError("promotion decision 與 evidence 重算結果不一致")

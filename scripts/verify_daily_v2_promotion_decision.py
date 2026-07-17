@@ -19,10 +19,16 @@ from app.workflows.daily_v2_promotion import verify_daily_v2_promotion_decision_
 def main() -> int:
     parser = argparse.ArgumentParser(description="驗證 Daily V2 promotion decision")
     parser.add_argument("--decision", type=Path, default=Path(".work/ARCH-UPGRADE-06/evidence/promotion_decision.json"))
+    parser.add_argument("--base-sha", required=True)
+    parser.add_argument("--candidate-sha", required=True)
     args = parser.parse_args()
     path = args.decision.resolve() if args.decision.is_absolute() else (PROJECT_ROOT / args.decision).resolve()
     payload = json.loads(path.read_text(encoding="utf-8"))
-    verify_daily_v2_promotion_decision_from_files(payload)
+    verify_daily_v2_promotion_decision_from_files(
+        payload,
+        expected_base_sha=args.base_sha,
+        expected_candidate_sha=args.candidate_sha,
+    )
     print(json.dumps({"status": "OK", "decision": payload["status"]}))
     return 0
 

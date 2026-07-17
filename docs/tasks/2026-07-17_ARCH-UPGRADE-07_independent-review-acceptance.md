@@ -29,7 +29,7 @@ model_reason: 需獨立重算驗證、審查跨模組 diff 與 production regres
 ## 完成定義
 
 - control plane、impact planner、parity、script convergence 均有可重跑 evidence。
-- production switch 若為 `GO`，有 rollback 與 acceptance；若為 `NO-GO`，確認正式 daily 完全未變。
+- production switch 若為 `GO`，有 rollback 與 acceptance；若為 `NO-GO`，確認 launchd target、正式通知、ranking/model 與 daily 行為契約未切換，並精確揭露 production entrypoint 原始碼變更。
 - 文件、task status、result 與剩餘風險一致。
 
 ## Evidence
