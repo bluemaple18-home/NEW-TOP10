@@ -1,7 +1,7 @@
 ---
 card_id: REVIEW-TSKG-01
 title: Review Taiwan Stock Knowledge Graph v1.1 executable spec
-status: CARD_DRAFTED
+status: REVIEW_NO_GO
 owner: Codex 主線
 assignee: 獨立規格 Reviewer
 thickness: strict
@@ -55,4 +55,12 @@ evidence_path: docs/evidence/REVIEW-TSKG-01/
 
 ## Result
 
-待 Reviewer 填寫。
+- Review status：`REVIEW_NO_GO`
+- Verdict：`NO_GO`
+- Reviewed candidate：`fad395589c90254ffbf4f0e7292a36920d019298`
+- Base：`2855510f740334b2636dfd0c391d93d7e4675706`
+- Candidate scope：4 個 docs 檔案；review card commit `117d506428812fc674ede836e52e436d6126a0c1` 僅作指示，未納入 candidate。
+- Findings：4 個 P1、3 個 P2；Spec axis `NO_GO`，Standards axis `NO_GO`。
+- Blocking summary：relationship canonicalization、conflict/resolution lineage、valid-time round-trip 與 verification false-positive 尚未達 executable contract。
+- Evidence：`docs/evidence/REVIEW-TSKG-01/review.md`。
+- Review artifact commit：完整 SHA 由 reviewer 回報提供，避免 commit 自參照。
