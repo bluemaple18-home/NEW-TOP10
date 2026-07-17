@@ -1,6 +1,6 @@
 ---
 id: ARCH-UPGRADE-02
-status: blocked
+status: ready_for_review
 type: implementation
 priority: P0
 thickness: standard

@@ -65,6 +65,13 @@ class ArchitectureControlPlaneTest(unittest.TestCase):
             path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
             verify_architecture_manifest(json.loads(path.read_text(encoding="utf-8")), PROJECT_ROOT)
 
+    def test_unknown_source_commit_is_rejected(self) -> None:
+        manifest = build_architecture_manifest(PROJECT_ROOT)
+        manifest["source"]["git_sha"] = "0" * 40
+
+        with self.assertRaisesRegex(ArchitectureControlPlaneError, "不是目前 HEAD ancestor"):
+            verify_architecture_manifest(manifest, PROJECT_ROOT)
+
 
 if __name__ == "__main__":
     unittest.main()

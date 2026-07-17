@@ -83,6 +83,14 @@
       "candidate_action": "review"
     },
     {
+      "path": "scripts/build_architecture_manifest.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
       "path": "scripts/build_baseline_harness_medium_window_review.py",
       "category": "builder",
       "entrypoint": false,
@@ -1355,6 +1363,14 @@
       "candidate_action": "retain"
     },
     {
+      "path": "scripts/plan_incremental_verification.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:plan_",
+      "reason": "檔名符合 maintenance 分類前綴 plan_。",
+      "candidate_action": "retain"
+    },
+    {
       "path": "scripts/preflight_external_review_providers.py",
       "category": "maintenance",
       "entrypoint": false,
@@ -2155,6 +2171,14 @@
       "candidate_action": "review"
     },
     {
+      "path": "scripts/verify_architecture_manifest.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
       "path": "scripts/verify_autonomous_research.py",
       "category": "verifier",
       "entrypoint": false,
@@ -2724,6 +2748,14 @@
     },
     {
       "path": "scripts/verify_high_choppy_context_overlay.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_incremental_verification_plan.py",
       "category": "verifier",
       "entrypoint": false,
       "reference_evidence": "prefix rule: verifier:verify_",
@@ -3452,17 +3484,18 @@
     }
   ],
   "summary": {
-    "tracked_script_count": 431,
+    "tracked_script_count": 435,
     "category_counts": {
-      "builder": 131,
-      "maintenance": 93,
+      "builder": 132,
+      "maintenance": 94,
       "production_entrypoint": 11,
       "research": 28,
-      "verifier": 168
+      "verifier": 170
     },
     "review_candidates": [
       "scripts/build_5913_combo_effectiveness_review.py",
       "scripts/build_alpha_candidate_features.py",
+      "scripts/build_architecture_manifest.py",
       "scripts/build_baseline_harness_medium_window_review.py",
       "scripts/build_baseline_harness_unlock_policy_review.py",
       "scripts/build_big_bull_blocker_resolution_report.py",
@@ -3627,6 +3660,7 @@
       "scripts/verify_alpha_candidate_overlay_portfolio_replay.py",
       "scripts/verify_alpha_candidate_overlay_replay.py",
       "scripts/verify_alpha_candidate_signal_check.py",
+      "scripts/verify_architecture_manifest.py",
       "scripts/verify_autonomous_research.py",
       "scripts/verify_backtest_acceptance_report.py",
       "scripts/verify_backtest_replay.py",
@@ -3699,6 +3733,7 @@
       "scripts/verify_guarded_top10_replay.py",
       "scripts/verify_half_year_walkforward_no_hindsight.py",
       "scripts/verify_high_choppy_context_overlay.py",
+      "scripts/verify_incremental_verification_plan.py",
       "scripts/verify_liquidity_quality_candidate_universe_replay_report.py",
       "scripts/verify_liquidity_quality_candidate_universe_shadow.py",
       "scripts/verify_liquidity_quality_capital_aware_report.py",

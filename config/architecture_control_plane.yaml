@@ -1,30 +1,42 @@
 schema_version: top10.architecture-control-plane.v1
 
 domains:
+  architecture:
+    owner: app.architecture
+    paths: [app/architecture, config/architecture_control_plane.yaml, config/script_lifecycle.yaml]
+    required_verification: [architecture_contract]
   automation:
     owner: app.automation
     paths: [app/automation, app/workflows, scripts/run_automation.py]
+    required_verification: [daily_contract, retrain_contract, reference_contract]
   data_pipeline:
     owner: app.pipeline
     paths: [app/pipeline, app/pipeline_cli.py]
+    required_verification: [daily_contract]
   modeling:
     owner: app.modeling
     paths: [app/modeling, app/agent_b_modeling.py]
+    required_verification: [retrain_contract]
   ranking_decision:
     owner: app.trading
     paths: [app/trading, app/agent_b_ranking.py]
+    required_verification: [daily_contract]
   publishing:
     owner: app.publishing
     paths: [app/publishing, scripts/generate_daily_report.py]
+    required_verification: [daily_contract, publish_guard]
   monitoring:
     owner: app.monitoring
     paths: [app/monitoring, app/model_monitor.py]
+    required_verification: [retrain_contract]
   reference_data:
     owner: app.reference_sources
     paths: [app/reference_sources, scripts/run_reference_update.sh]
+    required_verification: [reference_contract]
   web:
     owner: app.api
     paths: [app/api, web/frontend]
+    required_verification: [web_health]
 
 entrypoints:
   scripts/com.new-top10.daily.plist:
@@ -166,6 +178,10 @@ artifacts:
   web_health_status: {path: /api/health, producers: [webui.serve], consumers: [webui]}
 
 verification:
+  architecture_contract:
+    kind: test
+    command: [uv, run, python, -m, unittest, tests.test_architecture_control_plane, tests.test_incremental_impact_planner]
+    paths: [tests/test_architecture_control_plane.py, tests/test_incremental_impact_planner.py]
   daily_contract:
     kind: test
     command: [uv, run, python, -m, unittest, tests.test_automation_status_contract, tests.test_daily_publish_wrapper_guards, tests.test_daily_workflow_v2]

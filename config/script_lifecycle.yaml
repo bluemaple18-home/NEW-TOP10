@@ -42,6 +42,7 @@ prefix_categories:
       - model_
       - monitor_
       - normalize_
+      - plan_
       - preflight_
       - print_
       - probe_

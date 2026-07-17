@@ -1,0 +1,1912 @@
+{
+  "changed_files": [
+    "scripts/run_daily.sh"
+  ],
+  "impact": {
+    "artifacts": [
+      "automation_status",
+      "daily_report",
+      "events",
+      "features",
+      "production_model",
+      "publish_payload",
+      "ranking",
+      "universe"
+    ],
+    "domains": [
+      "architecture"
+    ],
+    "entrypoints": [
+      "scripts/run_daily.sh"
+    ],
+    "evidence": [
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": ".ai/codex_task_daily_v2_real_shadow.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 104,
+        "source": ".ai/codex_task_daily_v2_real_shadow.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/ARCH-UPGRADE-01/brief.md",
+        "target": "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/ARCH-UPGRADE-01/context_manifest.md",
+        "target": "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": ".work/ARCH-UPGRADE-01/result.md",
+        "target": "scripts/build_architecture_manifest.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": ".work/ARCH-UPGRADE-01/result.md",
+        "target": "scripts/verify_architecture_manifest.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/ARCH-UPGRADE-02/brief.md",
+        "target": "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": ".work/ARCH-UPGRADE-02/result.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 238,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 261,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 90,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 112,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 123,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 145,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 156,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 167,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 178,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 189,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 211,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 101,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 12,
+        "source": ".work/CLEANUP-21/evidence/verification.txt",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 27,
+        "source": ".work/CLEANUP-21/evidence/verification.txt",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 18,
+        "source": ".work/CLEANUP-21/evidence/verification.txt",
+        "target": "tests/test_script_reference_audit.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/CLEANUP-21/result.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 10,
+        "source": ".work/CLEANUP-22/evidence/verification.txt",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 27,
+        "source": ".work/CLEANUP-22/evidence/verification.txt",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 18,
+        "source": ".work/CLEANUP-22/evidence/verification.txt",
+        "target": "tests/test_script_reference_audit.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 28,
+        "source": ".work/CLEANUP-26/evidence/verification.txt",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": ".work/CLEANUP-26/evidence/verification.txt",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 38,
+        "source": ".work/CLEANUP-27/evidence/parity.json",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 109,
+        "source": ".work/CLEANUP-28/evidence/parity.json",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 83,
+        "source": ".work/CLEANUP-29/evidence/parity.json",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 103,
+        "source": ".work/CLEANUP-30/evidence/parity.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 114,
+        "source": ".work/CLEANUP-30/evidence/parity.json",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": ".work/CLEANUP-30/status.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": ".work/CLEANUP-31/evidence/parity.json",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 159,
+        "source": ".work/CLEANUP-31/evidence/parity.json",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": ".work/CLEANUP-31/status.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 187,
+        "source": ".work/CLEANUP-32/evidence/parity.json",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": ".work/CLEANUP-32/result.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 18,
+        "source": ".work/CLEANUP-32/status.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 183,
+        "source": ".work/CLEANUP-33/evidence/parity.json",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": ".work/CLEANUP-33/result.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 18,
+        "source": ".work/CLEANUP-33/status.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": ".work/CLEANUP-34/result.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": ".work/CLEANUP-35-F1/evidence/verification.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 49,
+        "source": ".work/CLEANUP-35-F1/evidence/verification.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 80,
+        "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": ".work/CLEANUP-35-R1/evidence/verification.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 70,
+        "source": ".work/CLEANUP-35-R1/evidence/verification.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 43,
+        "source": ".work/CLEANUP-35/result.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 18,
+        "source": ".work/REFACTOR-05/evidence/verification.txt",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/current/context_manifest.md",
+        "target": "docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 10,
+        "source": ".work/current/status.md",
+        "target": "docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 136,
+        "source": "CHANGELOG.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 131,
+        "source": "CHANGELOG.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 61,
+        "source": "DEVELOPMENT.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 26,
+        "source": "QUICKSTART.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 137,
+        "source": "README.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 122,
+        "source": "README.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 142,
+        "source": "README.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "python_import",
+        "line": 3,
+        "source": "app/architecture/__init__.py",
+        "target": "app/architecture/control_plane.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 10,
+        "source": "app/architecture/__init__.py",
+        "target": "app/architecture/impact.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 223,
+        "source": "app/architecture/control_plane.py",
+        "target": "config/architecture_control_plane.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 224,
+        "source": "app/architecture/control_plane.py",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "python_import",
+        "line": 14,
+        "source": "app/architecture/impact.py",
+        "target": "app/architecture/control_plane.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 6,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 70,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 91,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 184,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_architecture_control_plane.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 184,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_incremental_impact_planner.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 204,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 12,
+        "source": "config/script_lifecycle.yaml",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 73,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 92,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 100,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 56,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 238,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 62,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/verify_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 3,
+        "source": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+        "target": "config/architecture_control_plane.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 3,
+        "source": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 8,
+        "source": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+        "target": "scripts/build_architecture_manifest.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+        "target": "scripts/plan_incremental_verification.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+        "target": "scripts/verify_architecture_manifest.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 25,
+        "source": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+        "target": "scripts/verify_incremental_verification_plan.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 47,
+        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 235,
+        "source": "docs/architecture/top10_harness_team.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 256,
+        "source": "docs/architecture/top10_harness_team.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 45,
+        "source": "docs/architecture/top10_integration_manifest.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 46,
+        "source": "docs/architecture/top10_integration_manifest.md",
+        "target": "docs/architecture/top10_harness_team.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 80,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 60,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 50,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 75,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 88,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 121,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 49,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 84,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 63,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-04_fundamental_shadow_rerun.md",
+        "target": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-05_ranking_integration_gate.md",
+        "target": "docs/tasks/2026-05-16_UQ-04_fundamental_shadow_rerun.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 38,
+        "source": "docs/tasks/2026-05-16_UQ-06_remove_dummy_fundamental_fallback.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md",
+        "target": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md",
+        "target": "docs/tasks/2026-05-16_UQ-06_remove_dummy_fundamental_fallback.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-08_restore_latest_lgbm_model.md",
+        "target": "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-09_twse_history_source_repair.md",
+        "target": "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-10_enforce_fundamental_ranking_gate.md",
+        "target": "docs/tasks/2026-05-16_UQ-05_ranking_integration_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-11_enforce_fundamental_model_gate.md",
+        "target": "docs/tasks/2026-05-16_UQ-04_fundamental_shadow_rerun.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-11_enforce_fundamental_model_gate.md",
+        "target": "docs/tasks/2026-05-16_UQ-05_ranking_integration_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 8,
+        "source": "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-05-18_REVIEW-M13-07_industry_momentum_monitor_automation.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 6,
+        "source": "docs/tasks/2026-05-18_REVIEW-M13-07_industry_momentum_monitor_automation.md",
+        "target": "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 86,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 25,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 73,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 79,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 86,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+        "target": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md",
+        "target": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 15,
+        "source": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 25,
+        "source": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-27_REVIEW-DAILY-PROD-05_pipeline_window_override.md",
+        "target": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-27_REVIEW-DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 169,
+        "source": "docs/tasks/2026-05-28_MARKET-CONTEXT-01_external_dashboard_research.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 205,
+        "source": "docs/tasks/2026-05-28_MARKET-CONTEXT-02_tw_context_handoff.md",
+        "target": "docs/tasks/2026-05-28_MARKET-CONTEXT-01_external_dashboard_research.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 43,
+        "source": "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 51,
+        "source": "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 10,
+        "source": "docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md",
+        "target": "docs/tasks/2026-05-28_MARKET-CONTEXT-02_tw_context_handoff.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-06-09_DAILY-PUBLISH-REVIEW-01_status_question_guard.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 49,
+        "source": "docs/tasks/2026-06-09_DAILY-PUBLISH-REVIEW-01_status_question_guard.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 99,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 162,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 197,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 200,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 201,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 202,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 23,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 136,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 187,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 190,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 191,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 192,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-07_daily_report_dry_run_review_loop.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-07_daily_report_dry_run_review_loop.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 26,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-07_daily_report_dry_run_review_loop.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 25,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "docs/tasks/2026-06-12_REVIEW_research_map_v2_and_daily_publish_boundary.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": "docs/tasks/2026-06-12_REVIEW_research_map_v2_and_daily_publish_boundary.md",
+        "target": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-06-12_REVIEW_research_map_v2_and_daily_publish_boundary.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-06-12_REVIEW_research_map_v2_and_daily_publish_boundary.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 23,
+        "source": "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
+        "target": "docs/architecture/SCRIPT_LIFECYCLE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 57,
+        "source": "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
+        "target": "docs/architecture/SCRIPT_LIFECYCLE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 14,
+        "source": "docs/tasks/2026-07-13_CLEANUP-11_legacy-regex-retirement.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_CLEANUP-11_legacy-regex-retirement.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-07-13_CLEANUP-11_legacy-regex-retirement.md",
+        "target": "docs/architecture/SCRIPT_LIFECYCLE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 16,
+        "source": "docs/tasks/2026-07-13_CLEANUP-21_delete-three-proven-orphans.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-07-13_CLEANUP-21_delete-three-proven-orphans.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 38,
+        "source": "docs/tasks/2026-07-13_CLEANUP-21_delete-three-proven-orphans.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": "docs/tasks/2026-07-13_CLEANUP-22_register-retained-survivor-builder.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-07-13_CLEANUP-26_delete-four-proven-orphans.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 40,
+        "source": "docs/tasks/2026-07-13_CLEANUP-26_delete-four-proven-orphans.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-07-13_CLEANUP-27_odd-lot-decision-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-07-13_CLEANUP-28_odd-lot-research-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 16,
+        "source": "docs/tasks/2026-07-13_CLEANUP-29_regime-conditional-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 14,
+        "source": "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 47,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 48,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "tests/test_environment_contract.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 48,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "tests/test_environment_contract.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 23,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 28,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+        "target": "scripts/setup_cron.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+        "target": "scripts/verify_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+        "target": "tests/test_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 8,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.result.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.result.md",
+        "target": "scripts/setup_cron.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 6,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.result.md",
+        "target": "scripts/verify_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.result.md",
+        "target": "tests/test_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 27,
+        "source": "docs/tasks/2026-07-13_OPS-13_daily-status-history.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 62,
+        "source": "docs/tasks/2026-07-13_OPS-13_daily-status-history.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-07-13_OPS-13_daily-status-history.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/tasks/2026-07-13_REFACTOR-02_research-worker-state.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": "docs/tasks/2026-07-13_REFACTOR-05_exit-rule-validation-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-07-13_REFACTOR-05_fog-map-module-boundary.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-07-13_REFACTOR-06_automation-pipeline-policy.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": "docs/tasks/2026-07-13_REFACTOR-12_automation-status-contract.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 26,
+        "source": "docs/tasks/2026-07-13_REFACTOR-14_clawd-payload-boundary.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 27,
+        "source": "docs/tasks/2026-07-13_TEST-09_daily-publish-wrapper-fixture.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": "docs/tasks/2026-07-14_CLEANUP-31_training-candidate-risk-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-14_CLEANUP-31_training-candidate-risk-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": "docs/tasks/2026-07-14_CLEANUP-32_training-candidate-risk-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-14_CLEANUP-32_training-candidate-risk-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 12,
+        "source": "docs/tasks/2026-07-14_CLEANUP-33_operational-rule-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": "docs/tasks/2026-07-14_CLEANUP-33_operational-rule-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-07-14_CLEANUP-34_weekend-readiness-audit-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 27,
+        "source": "docs/tasks/2026-07-14_CLEANUP-34_weekend-readiness-audit-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 58,
+        "source": "docs/tasks/2026-07-14_CLEANUP-34_weekend-readiness-audit-suite.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35-F1_repair-parity-harness.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35-F1_repair-parity-harness.md",
+        "target": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35-R1_shadow-campaign-review.md",
+        "target": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35-R1_shadow-campaign-review.md",
+        "target": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 14,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 52,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 26,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
+        "target": "config/architecture_control_plane.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 27,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
+        "target": "scripts/build_architecture_manifest.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 49,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
+        "target": "scripts/build_architecture_manifest.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 28,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
+        "target": "scripts/verify_architecture_manifest.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 50,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
+        "target": "scripts/verify_architecture_manifest.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
+        "target": "tests/test_architecture_control_plane.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md",
+        "target": "app/architecture/impact.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 34,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md",
+        "target": "scripts/plan_incremental_verification.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md",
+        "target": "scripts/verify_incremental_verification_plan.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 36,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md",
+        "target": "tests/test_incremental_impact_planner.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 17,
+        "source": "scripts/build_architecture_manifest.py",
+        "target": "app/architecture/__init__.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 18,
+        "source": "scripts/plan_incremental_verification.py",
+        "target": "app/architecture/__init__.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 72,
+        "source": "scripts/probe_universe_rebuild.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "scripts/setup_cron.sh",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 82,
+        "source": "scripts/setup_cron.sh",
+        "target": "scripts/verify_scheduler_ownership.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 15,
+        "source": "scripts/verify_architecture_manifest.py",
+        "target": "app/architecture/__init__.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 110,
+        "source": "scripts/verify_daily_publish_workflow.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 111,
+        "source": "scripts/verify_daily_publish_workflow.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 124,
+        "source": "scripts/verify_daily_publish_workflow.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "python_import",
+        "line": 16,
+        "source": "scripts/verify_incremental_verification_plan.py",
+        "target": "app/architecture/__init__.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 15,
+        "source": "scripts/verify_scheduler_ownership.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "python_import",
+        "line": 11,
+        "source": "tests/test_architecture_control_plane.py",
+        "target": "app/architecture/control_plane.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "tests/test_architecture_control_plane.py",
+        "target": "config/architecture_control_plane.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "tests/test_architecture_control_plane.py",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 42,
+        "source": "tests/test_architecture_control_plane.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "python_import",
+        "line": 10,
+        "source": "tests/test_daily_publish_workflow_status_history.py",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 45,
+        "source": "tests/test_environment_contract.py",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 55,
+        "source": "tests/test_environment_contract.py",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "tests/test_environment_contract.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 47,
+        "source": "tests/test_environment_contract.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "python_import",
+        "line": 7,
+        "source": "tests/test_incremental_impact_planner.py",
+        "target": "app/architecture/impact.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 48,
+        "source": "tests/test_incremental_impact_planner.py",
+        "target": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 82,
+        "source": "tests/test_incremental_impact_planner.py",
+        "target": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "tests/test_incremental_impact_planner.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 58,
+        "source": "tests/test_incremental_impact_planner.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 90,
+        "source": "tests/test_incremental_impact_planner.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 25,
+        "source": "tests/test_scheduler_ownership.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": "tests/test_scheduler_ownership.py",
+        "target": "scripts/run_daily.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 42,
+        "source": "tests/test_scheduler_ownership.py",
+        "target": "scripts/setup_cron.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 54,
+        "source": "tests/test_scheduler_ownership.py",
+        "target": "scripts/setup_cron.sh"
+      },
+      {
+        "kind": "python_import",
+        "line": 11,
+        "source": "tests/test_scheduler_ownership.py",
+        "target": "scripts/verify_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 67,
+        "source": "tests/test_scheduler_ownership.py",
+        "target": "scripts/verify_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 82,
+        "source": "tests/test_script_reference_audit.py",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 84,
+        "source": "tests/test_script_reference_audit.py",
+        "target": "config/script_lifecycle.yaml"
+      }
+    ],
+    "files": [
+      ".ai/codex_task_daily_v2_real_shadow.md",
+      ".work/ARCH-UPGRADE-01/brief.md",
+      ".work/ARCH-UPGRADE-01/context_manifest.md",
+      ".work/ARCH-UPGRADE-01/result.md",
+      ".work/ARCH-UPGRADE-02/brief.md",
+      ".work/ARCH-UPGRADE-02/result.md",
+      ".work/CLEANUP-19/evidence/orphan-triage.json",
+      ".work/CLEANUP-20/evidence/orphan-triage.json",
+      ".work/CLEANUP-21/evidence/verification.txt",
+      ".work/CLEANUP-21/result.md",
+      ".work/CLEANUP-22/evidence/verification.txt",
+      ".work/CLEANUP-26/evidence/verification.txt",
+      ".work/CLEANUP-27/evidence/parity.json",
+      ".work/CLEANUP-28/evidence/parity.json",
+      ".work/CLEANUP-29/evidence/parity.json",
+      ".work/CLEANUP-30/evidence/parity.json",
+      ".work/CLEANUP-30/status.md",
+      ".work/CLEANUP-31/evidence/parity.json",
+      ".work/CLEANUP-31/status.md",
+      ".work/CLEANUP-32/evidence/parity.json",
+      ".work/CLEANUP-32/result.md",
+      ".work/CLEANUP-32/status.md",
+      ".work/CLEANUP-33/evidence/parity.json",
+      ".work/CLEANUP-33/result.md",
+      ".work/CLEANUP-33/status.md",
+      ".work/CLEANUP-34/result.md",
+      ".work/CLEANUP-35-F1/evidence/verification.md",
+      ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+      ".work/CLEANUP-35-R1/evidence/verification.md",
+      ".work/CLEANUP-35/result.md",
+      ".work/REFACTOR-05/evidence/verification.txt",
+      ".work/current/context_manifest.md",
+      ".work/current/status.md",
+      "CHANGELOG.md",
+      "DEVELOPMENT.md",
+      "QUICKSTART.md",
+      "README.md",
+      "app/architecture/__init__.py",
+      "app/architecture/control_plane.py",
+      "app/architecture/impact.py",
+      "config/architecture_control_plane.yaml",
+      "config/script_lifecycle.yaml",
+      "docs/AUTOMATION.md",
+      "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+      "docs/architecture/SCRIPT_LIFECYCLE.md",
+      "docs/architecture/top10_harness_team.md",
+      "docs/architecture/top10_integration_manifest.md",
+      "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+      "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+      "docs/tasks/2026-05-16_UQ-04_fundamental_shadow_rerun.md",
+      "docs/tasks/2026-05-16_UQ-05_ranking_integration_gate.md",
+      "docs/tasks/2026-05-16_UQ-06_remove_dummy_fundamental_fallback.md",
+      "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md",
+      "docs/tasks/2026-05-16_UQ-08_restore_latest_lgbm_model.md",
+      "docs/tasks/2026-05-16_UQ-09_twse_history_source_repair.md",
+      "docs/tasks/2026-05-16_UQ-10_enforce_fundamental_ranking_gate.md",
+      "docs/tasks/2026-05-16_UQ-11_enforce_fundamental_model_gate.md",
+      "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md",
+      "docs/tasks/2026-05-18_REVIEW-M13-07_industry_momentum_monitor_automation.md",
+      "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+      "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+      "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+      "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+      "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+      "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md",
+      "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+      "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+      "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+      "docs/tasks/2026-05-27_REVIEW-DAILY-PROD-05_pipeline_window_override.md",
+      "docs/tasks/2026-05-28_MARKET-CONTEXT-01_external_dashboard_research.md",
+      "docs/tasks/2026-05-28_MARKET-CONTEXT-02_tw_context_handoff.md",
+      "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+      "docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md",
+      "docs/tasks/2026-06-09_DAILY-PUBLISH-REVIEW-01_status_question_guard.md",
+      "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+      "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+      "docs/tasks/2026-06-10_PRODUCTION-TACTICS-07_daily_report_dry_run_review_loop.md",
+      "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md",
+      "docs/tasks/2026-06-12_REVIEW_research_map_v2_and_daily_publish_boundary.md",
+      "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
+      "docs/tasks/2026-07-13_CLEANUP-11_legacy-regex-retirement.md",
+      "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+      "docs/tasks/2026-07-13_CLEANUP-21_delete-three-proven-orphans.md",
+      "docs/tasks/2026-07-13_CLEANUP-22_register-retained-survivor-builder.md",
+      "docs/tasks/2026-07-13_CLEANUP-26_delete-four-proven-orphans.md",
+      "docs/tasks/2026-07-13_CLEANUP-27_odd-lot-decision-builder-suite.md",
+      "docs/tasks/2026-07-13_CLEANUP-28_odd-lot-research-verifier-suite.md",
+      "docs/tasks/2026-07-13_CLEANUP-29_regime-conditional-builder-suite.md",
+      "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+      "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+      "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+      "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.result.md",
+      "docs/tasks/2026-07-13_OPS-13_daily-status-history.md",
+      "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
+      "docs/tasks/2026-07-13_REFACTOR-02_research-worker-state.md",
+      "docs/tasks/2026-07-13_REFACTOR-05_exit-rule-validation-suite.md",
+      "docs/tasks/2026-07-13_REFACTOR-05_fog-map-module-boundary.md",
+      "docs/tasks/2026-07-13_REFACTOR-06_automation-pipeline-policy.md",
+      "docs/tasks/2026-07-13_REFACTOR-12_automation-status-contract.md",
+      "docs/tasks/2026-07-13_REFACTOR-14_clawd-payload-boundary.md",
+      "docs/tasks/2026-07-13_TEST-09_daily-publish-wrapper-fixture.md",
+      "docs/tasks/2026-07-14_CLEANUP-31_training-candidate-risk-verifier-suite.md",
+      "docs/tasks/2026-07-14_CLEANUP-32_training-candidate-risk-builder-suite.md",
+      "docs/tasks/2026-07-14_CLEANUP-33_operational-rule-builder-suite.md",
+      "docs/tasks/2026-07-14_CLEANUP-34_weekend-readiness-audit-suite.md",
+      "docs/tasks/2026-07-14_CLEANUP-35-F1_repair-parity-harness.md",
+      "docs/tasks/2026-07-14_CLEANUP-35-R1_shadow-campaign-review.md",
+      "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md",
+      "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
+      "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md",
+      "scripts/build_architecture_manifest.py",
+      "scripts/plan_incremental_verification.py",
+      "scripts/probe_universe_rebuild.py",
+      "scripts/run_daily.sh",
+      "scripts/setup_cron.sh",
+      "scripts/verify_architecture_manifest.py",
+      "scripts/verify_daily_publish_workflow.py",
+      "scripts/verify_incremental_verification_plan.py",
+      "scripts/verify_scheduler_ownership.py",
+      "tests/test_architecture_control_plane.py",
+      "tests/test_daily_publish_workflow_status_history.py",
+      "tests/test_environment_contract.py",
+      "tests/test_incremental_impact_planner.py",
+      "tests/test_scheduler_ownership.py",
+      "tests/test_script_reference_audit.py"
+    ],
+    "workflows": [
+      "daily"
+    ]
+  },
+  "request": {
+    "changed_files": [
+      "scripts/run_daily.sh"
+    ],
+    "mode": "files"
+  },
+  "required_verification": [
+    "architecture_contract",
+    "daily_contract",
+    "scheduler_ownership"
+  ],
+  "risk": {
+    "level": "critical",
+    "missing_production_verification": false,
+    "needs_review": true,
+    "production_touched": true
+  },
+  "schema_version": "top10.incremental-verification-plan.v1",
+  "source": {
+    "architecture_manifest_digest": "343abbabd27b1817d5571a226173199629d5c71c9f3eccff60e9aabe2e05b293",
+    "git_sha": "3d83d6300796bbc9c8b23002bf31d10140c92b82"
+  },
+  "unknown_edges": [
+    {
+      "kind": "python_dynamic_import",
+      "line": 28,
+      "reason": "dynamic import target cannot be resolved statically",
+      "source": "app/pipeline/__init__.py"
+    }
+  ],
+  "verification_commands": {
+    "architecture_contract": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "unittest",
+      "tests.test_architecture_control_plane",
+      "tests.test_incremental_impact_planner"
+    ],
+    "daily_contract": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "unittest",
+      "tests.test_automation_status_contract",
+      "tests.test_daily_publish_wrapper_guards",
+      "tests.test_daily_workflow_v2"
+    ],
+    "scheduler_ownership": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "unittest",
+      "tests.test_scheduler_ownership"
+    ]
+  }
+}

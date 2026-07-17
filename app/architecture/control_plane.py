@@ -49,6 +49,20 @@ def _git_sha(repo_root: Path) -> str:
     return completed.stdout.strip()
 
 
+def _require_source_ancestor(repo_root: Path, source_sha: str) -> None:
+    if not source_sha:
+        raise ArchitectureControlPlaneError("manifest 缺少 source Git SHA")
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", source_sha, "HEAD"],
+        cwd=repo_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise ArchitectureControlPlaneError(f"manifest source Git SHA 不是目前 HEAD ancestor：{source_sha}")
+
+
 def _require_mapping(payload: dict[str, Any], key: str) -> dict[str, Any]:
     value = payload.get(key)
     if not isinstance(value, dict) or not value:
@@ -128,6 +142,12 @@ def validate_control_plane_config(
     artifact_ids = set(artifacts)
     verification_ids = set(verification)
     domain_ids = set(domains)
+
+    for domain_id, domain in domains.items():
+        required = domain.get("required_verification", [])
+        if not isinstance(required, list):
+            raise ArchitectureControlPlaneError(f"domain {domain_id} required_verification 無效")
+        _require_refs(required, verification_ids, f"domain {domain_id} verification")
 
     verification_paths: list[str] = []
     for verification_id, spec in verification.items():
@@ -235,11 +255,14 @@ def verify_architecture_manifest(
 
     if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION:
         raise ArchitectureControlPlaneError("不支援的 architecture manifest schema")
+    source_sha = str((manifest.get("source") or {}).get("git_sha", ""))
+    _require_source_ancestor(repo_root.resolve(), source_sha)
     expected = build_architecture_manifest(
         repo_root,
         config_path=config_path,
         lifecycle_path=lifecycle_path,
     )
+    expected["source"]["git_sha"] = source_sha
     if manifest != expected:
         actual_digest = hashlib.sha256(
             json.dumps(manifest, ensure_ascii=False, sort_keys=True).encode("utf-8")
