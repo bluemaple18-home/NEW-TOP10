@@ -1,7 +1,7 @@
 ---
 card_id: REVIEW-TSKG-01
 title: Review Taiwan Stock Knowledge Graph v1.1 executable spec
-status: REVIEW_NO_GO
+status: REVIEW_GO
 owner: Codex 主線
 assignee: 獨立規格 Reviewer
 thickness: strict
@@ -55,12 +55,13 @@ evidence_path: docs/evidence/REVIEW-TSKG-01/
 
 ## Result
 
-- Review status：`REVIEW_NO_GO`
-- Verdict：`NO_GO`
-- Reviewed candidate：`fad395589c90254ffbf4f0e7292a36920d019298`
-- Base：`2855510f740334b2636dfd0c391d93d7e4675706`
-- Candidate scope：4 個 docs 檔案；review card commit `117d506428812fc674ede836e52e436d6126a0c1` 僅作指示，未納入 candidate。
-- Findings：4 個 P1、3 個 P2；Spec axis `NO_GO`，Standards axis `NO_GO`。
-- Blocking summary：relationship canonicalization、conflict/resolution lineage、valid-time round-trip 與 verification false-positive 尚未達 executable contract。
-- Evidence：`docs/evidence/REVIEW-TSKG-01/review.md`。
-- Review artifact commit：完整 SHA 由 reviewer 回報提供，避免 commit 自參照。
+- Initial review：`REVIEW_NO_GO`；review commit `7ddb092b449af801a4c86fb051a7c98561b1a29b`，reviewed candidate `fad395589c90254ffbf4f0e7292a36920d019298`。
+- Re-review Round 1：`REVIEW_GO`；machine verdict `GO`，human disposition `GO_WITH_NOTES`。
+- Reviewed successor：`1d464d70eabb3139936999a31917979c5e7c20e9`；parent Repair card commit `fecc175e9afd8fa2516a5e774ebd7b6d70359021`。
+- Resolved：F-01、F-02、F-03、F-04、F-05。
+- Unresolved non-blocking：F-06（baseline digest pending）、F-07（benchmark exact response-size feasibility）；兩者均不影響 current frontier SLC-01。
+- Axis：Spec `GO`；Standards `GO_WITH_NOTES`。
+- Acceptance boundary：不得宣稱 F-06 resolved／independent baseline coverage complete；不得宣稱 SLC-07 performance、SC-07 或 p95 SLO PASS。
+- Validation：successor ancestry、5-file Repair allowlist、`git diff --check`、internal SRS 31/31 set equality 與 source locator read-back 均已驗證；未跑 runtime/API/database/benchmark，未修改 successor。
+- Evidence：`docs/evidence/REVIEW-TSKG-01/review.md` 的 `Re-review Round 1`。
+- Round 1 review artifact commit：完整 SHA 由 reviewer 回報提供，避免 commit 自參照。

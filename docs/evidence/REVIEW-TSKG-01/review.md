@@ -1,13 +1,17 @@
 ---
 id: REVIEW-TSKG-01-review
 card: REVIEW-TSKG-01
-status: REVIEW_NO_GO
-verdict: NO_GO
+status: REVIEW_GO
+verdict: GO
 base_sha: 2855510f740334b2636dfd0c391d93d7e4675706
 reviewed_candidate_sha: fad395589c90254ffbf4f0e7292a36920d019298
+initial_review_commit: 7ddb092b449af801a4c86fb051a7c98561b1a29b
+repair_card_commit: fecc175e9afd8fa2516a5e774ebd7b6d70359021
+reviewed_successor_sha: 1d464d70eabb3139936999a31917979c5e7c20e9
+re_review_round: 1
 review_card_commit: 117d506428812fc674ede836e52e436d6126a0c1
 source_baseline_thread: 019f708e-2c20-7262-8102-6144674d54ce
-reviewed_at: 2026-07-17
+reviewed_at: 2026-07-18
 ---
 
 # Findings
@@ -123,8 +127,80 @@ F-04 顯示 verification 對核心語意做出 false-positive `PASS`；F-06 與 
 - Spec 與 trace matrix 的 unique SRS set：31/31 且集合相等。
 - 原 v1.0 baseline：已從 source thread `019f708e-2c20-7262-8102-6144674d54ce` 完整核對 Goal、Scope、Architecture、Entity/Relationship、Sources、ETL、API、Top10、Daily Update、Future v2、Non-Goals 與 Success Criteria；未存取外部網站。
 
-# Final verdict
+# Initial review verdict（historical）
 
 `NO_GO`
 
 需要 Repair 卡先修復 P1 契約與 verification，再對同一 candidate successor 做獨立 re-review；本 review 不修改 candidate。
+
+# Re-review Round 1
+
+## Inputs 與結論
+
+- Original candidate：`fad395589c90254ffbf4f0e7292a36920d019298`
+- Initial review commit：`7ddb092b449af801a4c86fb051a7c98561b1a29b`
+- Repair card commit：`fecc175e9afd8fa2516a5e774ebd7b6d70359021`
+- Reviewed successor：`1d464d70eabb3139936999a31917979c5e7c20e9`
+- Machine verdict：`GO`
+- Human disposition：`GO_WITH_NOTES`
+
+## Finding dispositions
+
+| Finding | Round 1 status | Successor evidence | Reviewer decision |
+|---|---|---|---|
+| F-01 P1 | `RESOLVED` | `docs/specs/TSKG_v1.1.md:256`、`:266`、`:268` | `SUPPLIES_TO(supplier,customer)` 已成唯一 canonical predicate；legacy/inverse labels 只能 normalization/query view，並有 fact/API dedup invariant。 |
+| F-02 P1 | `RESOLVED` | `docs/specs/TSKG_v1.1.md:196`、`:199`、`:207`、`:208`、`:210` | stable fact、assertion/version、claim、ConflictSet、ResolutionDecision 與 immutable state/known_at lineage 已分離且具 negative/golden case。 |
+| F-03 P1 | `RESOLVED` | `docs/specs/TSKG_v1.1.md:222`、`:228`、`:234`、`:236`、`:238` | KNOWN/UNKNOWN/UNBOUNDED wire shape、business/system current 與非法/empty interval 已唯一化並有 round-trip matrix。 |
+| F-04 P1 | `RESOLVED` | `docs/evidence/TSKG-01/verification.md:29`、`:41`、`:58` | verification 已逐 finding 引用 invariant/case，並把未執行行為標為 `RUNTIME_NOT_RUN`；不再用章節或 ID count 冒充 runtime PASS。 |
+| F-05 P2 | `RESOLVED` | `docs/specs/TSKG_v1.1.md:365`、`:389`、`:391` | public confidence truth filter 已禁止；null/mixed extractor、reviewed claim 與 conflict 的處理邊界已定義。 |
+| F-06 P2 | `UNRESOLVED_NON_BLOCKING` | `docs/evidence/TSKG-01/requirements_traceability.md:25`、`:29`、`:30`、`:33` | locator/canonicalization/section mapping 已補，但 authoritative digest 仍是 `PENDING_REPRODUCIBLE_CAPTURE`。 |
+| F-07 P2 | `UNRESOLVED_NON_BLOCKING` | `docs/specs/TSKG_v1.1.md:422`、`:426`、`:431` | SLO false-positive 已被 blocker 隔離，但 generator/query selection 尚未保證 prescribed exact response sizes 可生成。 |
+
+## [P2][UNRESOLVED] F-06：Authoritative baseline digest 仍未 capture
+
+- Axis：Standards
+- Category：traceability / reproducibility
+- Path：`docs/evidence/TSKG-01/requirements_traceability.md:30`
+- Evidence：successor 已固定 source task `019f708e-2c20-7262-8102-6144674d54ce`、turn `019f708e-3fb9-7673-a504-457b8ea06374`、user item `item-1`、content prefix 與 NFC/LF/UTF-8 canonicalization；本 reviewer 已重新讀取 source thread，locator 與 prefix 相符。但 `baseline_sha256` 仍是 `PENDING_REPRODUCIBLE_CAPTURE`，candidate 也正確標示 `PARTIAL/BLOCKED`。
+- Trigger：另一環境、未來 repair 或 cross-machine reviewer 要證明取得的 baseline bytes 與本輪相同。
+- Risk：沒有 digest 就不能完成 independent baseline identity/coverage closure；thread locator 可定位內容，但不能單獨證明 canonical bytes 未改變或擷取一致。
+- Suggested fix：停損解除且有合規 SHA-256 tooling 後，依既定 canonicalization capture digest、替換 pending 值並由獨立環境重算比對。
+- Validation gap：缺少兩個獨立環境對同一 source item 產生相同 canonical SHA-256 的證據。
+- Confidence：high
+- Acceptance effect：不阻擋本 executable spec 或 SLC-01；仍阻擋「F-06 resolved」與「independent baseline coverage complete」聲明。
+
+## [P2][UNRESOLVED] F-07：固定 query selection 未保證 exact response sizes 可生成
+
+- Axis：Standards
+- Category：performance / test-contract feasibility
+- Path：`docs/specs/TSKG_v1.1.md:426`
+- Evidence：line 422 以 endpoint hash 生成 topology，line 426 又以獨立 hash 排序選定 roots，卻要求每個 company response 精確具有 `20/12/20/20/8/8/8/12` section items。契約沒有讓 root selection 依 degree/section eligibility 篩選，也沒有讓 generator 保證每個被選 root 具該 exact fan-out；materialized generator/dataset/expected-response digest 亦尚未存在。
+- Trigger：依 `tskg-benchgen-v1` 生成 graph 並對 hash 選出的 100 company IDs 建立 expected-response manifest。
+- Risk：benchmark preflight 可能因 selected roots 不足 prescribed section counts 而永遠無法成立，或實作者必須私自改 generator/query selection 才能通過，破壞可重現性。
+- Suggested fix：讓 query selection deterministic 地選擇符合明確 degree/section predicate 的 roots並定義不足時行為，或由 materialized fixed dataset 產生 immutable expected item/byte/hash manifest，不預先要求 generator 未保證的 exact counts。
+- Validation gap：缺少實際 generator artifact、dataset hash 與 250 個固定 queries 全部符合 expected item/byte/hash manifest 的 preflight 證據。
+- Confidence：high
+- Acceptance effect：不阻擋本 executable spec 或 SLC-01；successor 已正確使 OQ-PERF-01 阻擋 SLC-07 performance acceptance、SC-07 與 p95 SLO PASS。
+
+## Axis verdicts — Round 1
+
+- Spec axis：`GO`。F-01、F-02、F-03、F-05 的原 correctness 阻塞均已消除，未發現新的 P0/P1。
+- Standards axis：`GO_WITH_NOTES`。F-04 已修復；F-06/F-07 為明確隔離且不影響 SLC-01 的 P2，後續不得誤報 resolved 或完成對應 acceptance。
+
+依 Review 卡規則，僅剩 P2 且不影響下一張 SLC-01，可回 machine verdict `GO`。這不代表 runtime、baseline digest 或 performance SLO 已通過。
+
+## Re-review validation evidence
+
+- Successor parent：`1d464d70eabb3139936999a31917979c5e7c20e9^` = `fecc175e9afd8fa2516a5e774ebd7b6d70359021`；base candidate `fad395589c90254ffbf4f0e7292a36920d019298` 是 ancestor。
+- Parent range：精確 5 個 Repair allowlist 檔案；Repair 卡只變更 status／Result，未修改 reviewer evidence、原 TSKG 卡或 runtime。
+- `git diff --check fecc175e9afd8fa2516a5e774ebd7b6d70359021 1d464d70eabb3139936999a31917979c5e7c20e9`：PASS。
+- Internal SRS set：Spec/trace 31/31 且集合相等；只視為 internal trace coverage。
+- Baseline locator：由 source thread read-back 確認 task/turn/item/prefix 相符；digest 仍未 capture。
+- 本 re-review 未執行、修改或宣稱通過 runtime/API/database/benchmark；successor candidate 未被修改。
+
+## Re-review Round 1 verdict
+
+`GO`（`GO_WITH_NOTES`）
+
+- Resolved：F-01、F-02、F-03、F-04、F-05。
+- Unresolved non-blocking：F-06、F-07。
