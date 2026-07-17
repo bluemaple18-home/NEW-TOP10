@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +51,10 @@ RUNNER_SPECS = {
     }
 }
 BASELINE_RANKINGS_DIR = "artifacts/backtest/historical_rankings_current_model"
+CONTROLLED_RERUN_POLICIES = {
+    "confirmed_for_next_replay": {"max_run_count": 2, "cooldown_hours": 24},
+    "partial_needs_followup": {"max_run_count": 3, "cooldown_hours": 24},
+}
 
 
 @dataclass(frozen=True)
@@ -136,8 +140,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execute", action="store_true", help="實際執行 baseline/candidate strategy matrix 與 comparison")
     parser.add_argument("--execute-topic-count", type=int, default=1, help="單次 execute 最多執行幾個題目")
     parser.add_argument("--from-queue", action="store_true", help="從 manager queue 選下一批題目，而不是只用 --topic-index")
-    parser.add_argument("--rerun", action="store_true", help="允許重跑已執行過的同題目")
-    parser.add_argument("--include-rejected", action="store_true", help="佇列選題時允許 rejected topic 重新進入")
+    parser.add_argument("--rerun", action="store_true", help="相容舊入口；不得繞過 manager 受控重跑政策")
+    parser.add_argument("--include-rejected", action="store_true", help="相容舊入口；rejected topic 仍不得重跑")
     parser.add_argument("--no-manager-update", action="store_true", help="只產生本次 run artifact，不更新管理層狀態")
     return parser.parse_args()
 
@@ -483,14 +487,58 @@ def queued_topic_ids() -> set[str]:
     return {str(item.get("topic_id")) for item in load_next_action_queue() if item.get("topic_id")}
 
 
-def topic_allowed_by_manager(topic: ResearchTopic, registry: dict[str, dict[str, Any]], args: argparse.Namespace) -> bool:
+def parse_utc_timestamp(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def load_last_run_at_by_topic() -> dict[str, str]:
+    latest: dict[str, tuple[datetime, str]] = {}
+    for row in load_list_payload(manager_paths()["history"], "runs"):
+        raw_time = str(row.get("generated_at") or "")
+        run_at = parse_utc_timestamp(raw_time)
+        if run_at is None:
+            continue
+        topic_ids = row.get("selected_topic_ids") or []
+        if not topic_ids and row.get("selected_topic_id"):
+            topic_ids = [row.get("selected_topic_id")]
+        for topic_id in topic_ids:
+            key = str(topic_id or "")
+            if key and (key not in latest or run_at > latest[key][0]):
+                latest[key] = (run_at, raw_time)
+    return {topic_id: value for topic_id, (_, value) in latest.items()}
+
+
+def topic_allowed_by_manager(
+    topic: ResearchTopic,
+    registry: dict[str, dict[str, Any]],
+    args: argparse.Namespace,
+    *,
+    last_run_at_by_topic: dict[str, str] | None = None,
+    now: datetime | None = None,
+) -> bool:
     current = registry.get(topic.topic_id, {})
     status = str(current.get("manager_status") or "candidate")
-    if status == "rejected" and not args.include_rejected:
+    run_count = int(current.get("run_count") or 0)
+    if run_count == 0:
+        return status in {"candidate", "confirmed_for_next_replay", "partial_needs_followup", "blocked_missing_evidence"}
+    policy = CONTROLLED_RERUN_POLICIES.get(status)
+    if policy is None or run_count >= policy["max_run_count"]:
         return False
-    if int(current.get("run_count") or 0) > 0 and not args.rerun:
+    last_run_at = parse_utc_timestamp(current.get("last_run_at"))
+    if last_run_at is None and last_run_at_by_topic is not None:
+        last_run_at = parse_utc_timestamp(last_run_at_by_topic.get(topic.topic_id))
+    if last_run_at is None:
         return False
-    return status in {"candidate", "confirmed_for_next_replay", "partial_needs_followup", "blocked_missing_evidence", "rejected"}
+    current_time = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return current_time - last_run_at >= timedelta(hours=policy["cooldown_hours"])
 
 
 def select_topics_for_run(topics: list[ResearchTopic], args: argparse.Namespace) -> list[ResearchTopic]:
@@ -498,6 +546,7 @@ def select_topics_for_run(topics: list[ResearchTopic], args: argparse.Namespace)
         return []
     count = max(1, int(args.execute_topic_count or 1))
     registry = load_topic_registry()
+    last_run_at_by_topic = load_last_run_at_by_topic()
     if args.from_queue:
         by_topic_id = {topic.topic_id: topic for topic in topics}
         selected: list[ResearchTopic] = []
@@ -509,7 +558,7 @@ def select_topics_for_run(topics: list[ResearchTopic], args: argparse.Namespace)
             topic = by_topic_id.get(topic_id)
             if topic is None:
                 continue
-            if not topic_allowed_by_manager(topic, registry, args):
+            if not topic_allowed_by_manager(topic, registry, args, last_run_at_by_topic=last_run_at_by_topic):
                 continue
             selected.append(topic)
             seen.add(topic_id)
@@ -517,13 +566,21 @@ def select_topics_for_run(topics: list[ResearchTopic], args: argparse.Namespace)
                 break
         return selected
     if count > 1:
-        selected = [topic for topic in topics if topic_allowed_by_manager(topic, registry, args)]
+        selected = [
+            topic
+            for topic in topics
+            if topic_allowed_by_manager(topic, registry, args, last_run_at_by_topic=last_run_at_by_topic)
+        ]
         return selected[:count]
     topic = selected_topic(topics, args.topic_index)
     if topic is None:
         return []
-    if args.execute and not args.rerun and not topic_allowed_by_manager(topic, registry, args):
-        fallback = [item for item in topics if topic_allowed_by_manager(item, registry, args)]
+    if args.execute and not topic_allowed_by_manager(topic, registry, args, last_run_at_by_topic=last_run_at_by_topic):
+        fallback = [
+            item
+            for item in topics
+            if topic_allowed_by_manager(item, registry, args, last_run_at_by_topic=last_run_at_by_topic)
+        ]
         return fallback[:1]
     return [topic]
 
@@ -716,6 +773,9 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
             "next_action": next_action_for_status(manager_status, topic),
             "last_seen_at": now,
             "last_run_output": repo_path(run_output) if topic_id in selected_ids else current.get("last_run_output"),
+            "last_run_at": now
+            if topic_id in selected_ids and payload["inputs"].get("execute")
+            else current.get("last_run_at"),
             "last_decision": (run_outcome or {}).get("decision") if topic_id in selected_ids else current.get("last_decision"),
             "run_count": int(current.get("run_count") or 0) + (1 if topic_id in selected_ids and payload["inputs"].get("execute") else 0),
         }
@@ -784,6 +844,7 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
             "research_only": True,
             "manager_does_not_promote": True,
             "production_promotion_allowed": False,
+            "controlled_rerun_policies": CONTROLLED_RERUN_POLICIES,
         },
     }
     write_text_atomic(
@@ -939,6 +1000,7 @@ def build_payload(
             "does_not_change_risk_adjusted_score": True,
             "does_not_change_production_ranking": True,
             "production_promotion_allowed": False,
+            "controlled_rerun_policies": CONTROLLED_RERUN_POLICIES,
         },
         "inputs": {
             "execute": args.execute,

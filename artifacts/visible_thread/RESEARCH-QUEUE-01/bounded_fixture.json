@@ -1,0 +1,15 @@
+{
+  "task_id": "RESEARCH-QUEUE-01",
+  "fixture": "controlled-rerun-policy",
+  "as_of": "2026-07-17T12:00:00+00:00",
+  "cases": {
+    "confirmed_ready": true,
+    "partial_ready": true,
+    "partial_cooling": false,
+    "confirmed_exhausted": false,
+    "partial_exhausted": false,
+    "rejected": false
+  },
+  "global_flags_cannot_override": true,
+  "production_promotion_allowed": false
+}
