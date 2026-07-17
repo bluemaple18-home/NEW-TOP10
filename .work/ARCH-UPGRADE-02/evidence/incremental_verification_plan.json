@@ -1,14 +1,85 @@
 {
   "changed_files": [
+    ".work/ARCH-UPGRADE-00/brief.md",
+    ".work/ARCH-UPGRADE-00/context_manifest.md",
+    ".work/ARCH-UPGRADE-00/result.md",
+    ".work/ARCH-UPGRADE-00/status.md",
+    ".work/ARCH-UPGRADE-01/brief.md",
+    ".work/ARCH-UPGRADE-01/context_manifest.md",
+    ".work/ARCH-UPGRADE-01/evidence/architecture_manifest.json",
+    ".work/ARCH-UPGRADE-01/evidence/script_lifecycle.json",
+    ".work/ARCH-UPGRADE-01/result.md",
+    ".work/ARCH-UPGRADE-01/status.md",
+    ".work/ARCH-UPGRADE-02/brief.md",
+    ".work/ARCH-UPGRADE-02/context_manifest.md",
+    ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+    ".work/ARCH-UPGRADE-02/result.md",
+    ".work/ARCH-UPGRADE-02/status.md",
+    ".work/ARCH-UPGRADE-03/brief.md",
+    ".work/ARCH-UPGRADE-03/context_manifest.md",
+    ".work/ARCH-UPGRADE-03/evidence/bundle/comparison_2026-07-09.json",
+    ".work/ARCH-UPGRADE-03/evidence/bundle/comparison_2026-07-16.json",
+    ".work/ARCH-UPGRADE-03/evidence/bundle/production_2026-07-09.json",
+    ".work/ARCH-UPGRADE-03/evidence/bundle/production_2026-07-16.json",
+    ".work/ARCH-UPGRADE-03/evidence/bundle/real_shadow_2026-07-09.json",
+    ".work/ARCH-UPGRADE-03/evidence/bundle/real_shadow_2026-07-16.json",
+    ".work/ARCH-UPGRADE-03/evidence/bundle/workflow_2026-07-09.json",
+    ".work/ARCH-UPGRADE-03/evidence/bundle/workflow_2026-07-16.json",
+    ".work/ARCH-UPGRADE-03/evidence/daily_v2_parity.json",
+    ".work/ARCH-UPGRADE-03/evidence/daily_v2_parity_2026-07-09.json",
+    ".work/ARCH-UPGRADE-03/result.md",
+    ".work/ARCH-UPGRADE-03/status.md",
+    ".work/ARCH-UPGRADE-04/evidence/verification.json",
+    ".work/ARCH-UPGRADE-05/evidence/convergence_decisions.json",
+    ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
+    ".work/ARCH-UPGRADE-05/evidence/script_references.json",
+    ".work/ARCH-UPGRADE-06/evidence/promotion_decision.json",
+    "app/architecture/__init__.py",
+    "app/architecture/control_plane.py",
     "app/architecture/impact.py",
+    "app/architecture/script_governance.py",
     "app/automation/daily_contract.py",
+    "app/automation/daily_orchestrator.py",
+    "app/automation/execution.py",
     "app/contracts/daily_v2_comparison.py",
     "app/workflows/daily_v2_parity.py",
     "app/workflows/daily_v2_promotion.py",
     "app/workflows/daily_v2_real_shadow.py",
+    "config/architecture_control_plane.yaml",
+    "config/script_lifecycle.yaml",
+    "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+    "docs/architecture/DAILY_AUTOMATION_MODULARIZATION.md",
+    "docs/architecture/DAILY_V2_PARITY.md",
+    "docs/architecture/SCRIPT_LIFECYCLE.md",
+    "docs/tasks/2026-07-17_ARCH-UPGRADE-00_full-architecture-modernization.md",
+    "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
+    "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md",
+    "docs/tasks/2026-07-17_ARCH-UPGRADE-03_daily-parity-harness.md",
+    "docs/tasks/2026-07-17_ARCH-UPGRADE-04_orchestration-modularization.md",
+    "docs/tasks/2026-07-17_ARCH-UPGRADE-05_script-convergence.md",
+    "docs/tasks/2026-07-17_ARCH-UPGRADE-06_production-promotion-gate.md",
+    "docs/tasks/2026-07-17_ARCH-UPGRADE-07_independent-review-acceptance.md",
+    "scripts/audit_script_references.py",
+    "scripts/build_architecture_manifest.py",
+    "scripts/build_daily_v2_promotion_decision.py",
+    "scripts/build_script_governance.py",
+    "scripts/plan_incremental_verification.py",
+    "scripts/run_automation.py",
+    "scripts/run_daily_v2_parity.py",
+    "scripts/verify_architecture_manifest.py",
+    "scripts/verify_daily_v2_parity.py",
+    "scripts/verify_daily_v2_promotion_decision.py",
+    "scripts/verify_incremental_verification_plan.py",
+    "scripts/verify_script_governance.py",
+    "tests/test_architecture_control_plane.py",
+    "tests/test_automation_execution.py",
+    "tests/test_daily_automation_orchestrator.py",
     "tests/test_daily_v2_parity.py",
     "tests/test_daily_v2_promotion.py",
-    "tests/test_incremental_impact_planner.py"
+    "tests/test_incremental_impact_planner.py",
+    "tests/test_script_governance.py",
+    "tests/test_script_lifecycle_audit.py",
+    "tests/test_script_reference_audit.py"
   ],
   "impact": {
     "artifacts": [
@@ -16,16 +87,24 @@
       "daily_report",
       "events",
       "features",
+      "model_candidate",
+      "model_health",
       "production_model",
       "publish_payload",
       "ranking",
+      "reference_dataset",
+      "reference_probe",
+      "sealed_oos_report",
       "universe"
     ],
     "domains": [
       "architecture",
       "automation"
     ],
-    "entrypoints": [],
+    "entrypoints": [
+      "scripts/daily_retrain.sh",
+      "scripts/run_automation.py"
+    ],
     "evidence": [
       {
         "kind": "tracked_path_reference",
@@ -56,6 +135,18 @@
         "line": 28,
         "source": ".ai/codex_task_daily_v2_real_shadow.md",
         "target": "tests/test_daily_v2_real_shadow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/ARCH-UPGRADE-00/brief.md",
+        "target": "docs/tasks/2026-07-17_ARCH-UPGRADE-00_full-architecture-modernization.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/ARCH-UPGRADE-00/context_manifest.md",
+        "target": "docs/tasks/2026-07-17_ARCH-UPGRADE-00_full-architecture-modernization.md"
       },
       {
         "kind": "tracked_path_reference",
@@ -95,9 +186,99 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 20,
+        "source": ".work/ARCH-UPGRADE-05/evidence/convergence_decisions.json",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 84,
+        "source": ".work/CLEANUP-18/evidence/orphan-triage.json",
+        "target": "scripts/build_portfolio_overlay_promotion_review.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 5,
         "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 407,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-10_big_bull_ranking_replay_extension.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 408,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-10_big_bull_ranking_replay_extension.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 39,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 64,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 88,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 109,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 130,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 381,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 190,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 196,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 238,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 261,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "scripts/verify_daily_publish_workflow.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -167,9 +348,39 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 101,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 55,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "scripts/build_portfolio_overlay_promotion_review.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 101,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 12,
         "source": ".work/CLEANUP-21/evidence/verification.txt",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 34,
+        "source": ".work/CLEANUP-21/evidence/verification.txt",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -197,6 +408,12 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 14,
+        "source": ".work/CLEANUP-22/evidence/verification.txt",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 18,
         "source": ".work/CLEANUP-22/evidence/verification.txt",
         "target": "tests/test_script_lifecycle_audit.py"
@@ -209,15 +426,39 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 60,
+        "source": ".work/CLEANUP-24/evidence/retirement-plan.json",
+        "target": "scripts/build_portfolio_overlay_promotion_review.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 334,
+        "source": ".work/CLEANUP-24/evidence/retirement-plan.json",
+        "target": "scripts/build_portfolio_overlay_promotion_review.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 28,
         "source": ".work/CLEANUP-26/evidence/verification.txt",
         "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
+        "line": 20,
+        "source": ".work/CLEANUP-26/evidence/verification.txt",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 103,
         "source": ".work/CLEANUP-30/evidence/parity.json",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 14,
+        "source": ".work/CLEANUP-30/result.md",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -233,9 +474,21 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 15,
+        "source": ".work/CLEANUP-31/result.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 22,
         "source": ".work/CLEANUP-31/status.md",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 167,
+        "source": ".work/CLEANUP-32/evidence/parity.json",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -245,15 +498,225 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 175,
+        "source": ".work/CLEANUP-33/evidence/parity.json",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 18,
         "source": ".work/CLEANUP-33/status.md",
         "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
+        "line": 15,
+        "source": ".work/CLEANUP-35-F1/evidence/verification.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 31,
         "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 26,
+        "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": ".work/CLEANUP-35-R1/evidence/verification.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": ".work/PREP-20260531-auto-training-readiness/brief.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": ".work/PREP-20260531-auto-training-readiness/context_manifest.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 4,
+        "source": ".work/PREP-20260531-auto-training-readiness/context_manifest.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 42,
+        "source": ".work/PREP-20260531-auto-training-readiness/result.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 43,
+        "source": ".work/PREP-20260531-auto-training-readiness/result.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 38,
+        "source": ".work/PREP-20260531-auto-training-readiness/result.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": ".work/PREP-20260531-auto-training-readiness/result.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 39,
+        "source": ".work/PREP-20260531-auto-training-readiness/result.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 26,
+        "source": ".work/REVIEW-20260529-production-write-guard/brief.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": ".work/REVIEW-20260529-production-write-guard/context_manifest.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 16,
+        "source": ".work/REVIEW-20260529-production-write-guard/evidence/result.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/REVIEW-20260529-production-write-guard/result.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 15,
+        "source": ".work/REVIEW-20260531-half-year-no-hindsight/brief.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 28,
+        "source": ".work/REVIEW-20260531-half-year-no-hindsight/brief.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 6,
+        "source": ".work/REVIEW-20260531-half-year-no-hindsight/context_manifest.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/REVIEW-20260531-half-year-no-hindsight/result.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 16,
+        "source": ".work/REVIEW-20260531-half-year-no-hindsight/result.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": ".work/REVIEW-20260531-half-year-no-hindsight/result.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 10,
+        "source": ".work/REVIEW-20260531-half-year-no-hindsight/status.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 11,
+        "source": ".work/REVIEW-20260531-half-year-no-hindsight/status.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 4,
+        "source": ".work/REVIEW-20260601-model-gov-full/context_manifest.md",
+        "target": "docs/tasks/2026-05-31_MODEL-GOV-FULL_implementation_card.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": ".work/REVIEW-20260601-model-gov-full/result.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": ".work/current/context_manifest.md",
+        "target": "docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": ".work/current/context_manifest.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 10,
+        "source": ".work/current/status.md",
+        "target": "docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 136,
+        "source": "CHANGELOG.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 132,
+        "source": "CHANGELOG.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 137,
+        "source": "README.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 125,
+        "source": "README.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 128,
+        "source": "README.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 131,
+        "source": "README.md",
+        "target": "scripts/daily_retrain.sh"
       },
       {
         "kind": "python_import",
@@ -266,6 +729,12 @@
         "line": 10,
         "source": "app/architecture/__init__.py",
         "target": "app/architecture/impact.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 17,
+        "source": "app/architecture/__init__.py",
+        "target": "app/architecture/script_governance.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -281,9 +750,27 @@
       },
       {
         "kind": "python_import",
-        "line": 14,
+        "line": 18,
         "source": "app/architecture/impact.py",
         "target": "app/architecture/control_plane.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 295,
+        "source": "app/architecture/impact.py",
+        "target": "config/architecture_control_plane.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 296,
+        "source": "app/architecture/impact.py",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 160,
+        "source": "app/architecture/script_governance.py",
+        "target": "tests/test_script_governance.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -317,9 +804,93 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 58,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 121,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 130,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 10,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 66,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 91,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 121,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 130,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 145,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 187,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/verify_script_governance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 188,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "scripts/verify_script_governance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 184,
         "source": "config/architecture_control_plane.yaml",
         "target": "tests/test_architecture_control_plane.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 192,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_automation_execution.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 192,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_automation_status_contract.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 192,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_daily_automation_orchestrator.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -359,9 +930,105 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 212,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 184,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_script_governance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 188,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_script_governance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 78,
+        "source": "config/script_lifecycle.yaml",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 100,
+        "source": "config/script_lifecycle.yaml",
+        "target": "scripts/build_portfolio_overlay_promotion_review.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "config/script_lifecycle.yaml",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 11,
+        "source": "config/script_lifecycle.yaml",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 68,
         "source": "config/script_lifecycle.yaml",
         "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 36,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 39,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 42,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 256,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 273,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 56,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 238,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 434,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 442,
+        "source": "docs/AUTOMATION.md",
+        "target": "scripts/verify_training_automation_readiness.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -401,6 +1068,18 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 3,
+        "source": "docs/architecture/DAILY_AUTOMATION_MODULARIZATION.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": "docs/architecture/DAILY_AUTOMATION_MODULARIZATION.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 35,
         "source": "docs/architecture/DAILY_V2_PARITY.md",
         "target": "scripts/build_daily_v2_promotion_decision.py"
@@ -434,6 +1113,1344 @@
         "line": 52,
         "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 42,
+        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 39,
+        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+        "target": "scripts/build_script_governance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 46,
+        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+        "target": "scripts/build_script_governance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 47,
+        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+        "target": "scripts/verify_script_governance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 45,
+        "source": "docs/architecture/top10_integration_manifest.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 115,
+        "source": "docs/architecture/top10_integration_manifest.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 36,
+        "source": "docs/handoff/2026-05-12_model_foundation_review.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 118,
+        "source": "docs/handoff/2026-05-12_model_foundation_review.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 89,
+        "source": "docs/handoff/2026-05-12_review_round2_monitoring.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 139,
+        "source": "docs/handoff/2026-05-12_review_round2_monitoring.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 80,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 36,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 64,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 50,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 75,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 88,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 121,
+        "source": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 49,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 84,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 64,
+        "source": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-04_fundamental_shadow_rerun.md",
+        "target": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-05_ranking_integration_gate.md",
+        "target": "docs/tasks/2026-05-16_UQ-04_fundamental_shadow_rerun.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 38,
+        "source": "docs/tasks/2026-05-16_UQ-06_remove_dummy_fundamental_fallback.md",
+        "target": "scripts/probe_universe_rebuild.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md",
+        "target": "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md",
+        "target": "docs/tasks/2026-05-16_UQ-06_remove_dummy_fundamental_fallback.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-08_restore_latest_lgbm_model.md",
+        "target": "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-09_twse_history_source_repair.md",
+        "target": "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-10_enforce_fundamental_ranking_gate.md",
+        "target": "docs/tasks/2026-05-16_UQ-05_ranking_integration_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-11_enforce_fundamental_model_gate.md",
+        "target": "docs/tasks/2026-05-16_UQ-04_fundamental_shadow_rerun.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-16_UQ-11_enforce_fundamental_model_gate.md",
+        "target": "docs/tasks/2026-05-16_UQ-05_ranking_integration_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 8,
+        "source": "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 8,
+        "source": "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 40,
+        "source": "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-05-18_REVIEW-M13-07_industry_momentum_monitor_automation.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 6,
+        "source": "docs/tasks/2026-05-18_REVIEW-M13-07_industry_momentum_monitor_automation.md",
+        "target": "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 8,
+        "source": "docs/tasks/2026-05-18_REVIEW-M13-07_industry_momentum_monitor_automation.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-05-18_REVIEW-M13-07_industry_momentum_monitor_automation.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 86,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 38,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 46,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 86,
+        "source": "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-05-22_DAILY-03_daily_postcheck_acceptance.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/tasks/2026-05-22_DAILY-03_daily_postcheck_acceptance.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 61,
+        "source": "docs/tasks/2026-05-22_DAILY-03_daily_postcheck_acceptance.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 34,
+        "source": "docs/tasks/2026-05-22_MOM-01_weekly_candidate_snapshot_contract.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 52,
+        "source": "docs/tasks/2026-05-22_MOM-01_weekly_candidate_snapshot_contract.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 61,
+        "source": "docs/tasks/2026-05-22_MOM-01_weekly_candidate_snapshot_contract.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-05-25_CLAWD-02_daily_payload_automation.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 34,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 38,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 39,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 40,
+        "source": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 36,
+        "source": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+        "target": "scripts/verify_model_health_report.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+        "target": "scripts/verify_model_health_report.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 34,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+        "target": "scripts/verify_model_health_report.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+        "target": "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 41,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+        "target": "scripts/verify_model_health_report.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 36,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 39,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+        "target": "scripts/verify_model_health_report.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 47,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+        "target": "scripts/verify_model_health_report.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 38,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-04_sealed_oos_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 26,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-04_sealed_oos_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 40,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-04_sealed_oos_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 42,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-04_sealed_oos_gate.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-04_sealed_oos_gate.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 40,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-04_sealed_oos_gate.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 41,
+        "source": "docs/tasks/2026-05-26_MODEL-OPS-04_sealed_oos_gate.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md",
+        "target": "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 8,
+        "source": "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 28,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-05-26_REVIEW-DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DAILY-PROD-04_latest_market_coverage_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "scripts/verify_daily_market_coverage_gate.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 15,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-MODEL-OPS-03-FIX_model_bound_psi_baseline.md",
+        "target": "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-MODEL-OPS-04_sealed_oos_gate.md",
+        "target": "docs/tasks/2026-05-26_MODEL-OPS-04_sealed_oos_gate.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-26_REVIEW-MODEL-OPS-04_sealed_oos_gate.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/verify_daily_pipeline_window_override.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 44,
+        "source": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/verify_daily_pipeline_window_override.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-27_MODEL-PROD-05_formal_sealed_model.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 44,
+        "source": "docs/tasks/2026-05-27_MODEL-PROD-05_formal_sealed_model.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 55,
+        "source": "docs/tasks/2026-05-27_MODEL-PROD-05_formal_sealed_model.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-27_MODEL-PROD-05_formal_sealed_model.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-27_MODEL-PROD-05_formal_sealed_model.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-05-27_MODEL-PROD-05_formal_sealed_model.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 56,
+        "source": "docs/tasks/2026-05-27_MODEL-PROD-05_formal_sealed_model.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-27_REVIEW-DAILY-PROD-05_pipeline_window_override.md",
+        "target": "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-05-27_REVIEW-DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-27_REVIEW-DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/verify_daily_pipeline_window_override.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-05-27_REVIEW-DAILY-PROD-05_pipeline_window_override.md",
+        "target": "scripts/verify_daily_pipeline_window_override.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 169,
+        "source": "docs/tasks/2026-05-28_MARKET-CONTEXT-01_external_dashboard_research.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 205,
+        "source": "docs/tasks/2026-05-28_MARKET-CONTEXT-02_tw_context_handoff.md",
+        "target": "docs/tasks/2026-05-28_MARKET-CONTEXT-01_external_dashboard_research.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 206,
+        "source": "docs/tasks/2026-05-28_MARKET-CONTEXT-02_tw_context_handoff.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 43,
+        "source": "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 52,
+        "source": "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 39,
+        "source": "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+        "target": "scripts/verify_resource_guard.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 59,
+        "source": "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+        "target": "scripts/verify_resource_guard.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-28_PERSIST-01_candidate_persistence.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 10,
+        "source": "docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md",
+        "target": "docs/tasks/2026-05-28_MARKET-CONTEXT-02_tw_context_handoff.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-05-31_MODEL-GOV-08_promotion_review_contract.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 45,
+        "source": "docs/tasks/2026-05-31_MODEL-GOV-08_promotion_review_contract.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 47,
+        "source": "docs/tasks/2026-05-31_MODEL-GOV-08_promotion_review_contract.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 48,
+        "source": "docs/tasks/2026-05-31_MODEL-GOV-08_promotion_review_contract.md",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-05-31_MODEL-GOV-FULL_implementation_card.md",
+        "target": "docs/tasks/2026-05-31_MODEL-GOV-08_promotion_review_contract.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 15,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-01_model_gov_review_close.md",
+        "target": "docs/tasks/2026-05-31_MODEL-GOV-FULL_implementation_card.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 41,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-01_model_gov_review_close.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-04_revenue_or_technical_lane.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 47,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-04_revenue_or_technical_lane.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 15,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-06_final_small_review.md",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-04_revenue_or_technical_lane.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-06_final_small_review.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 64,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-06_final_small_review.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 274,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-07_regime_mass_training_matrix.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 105,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-08_global_bigbull_blended_training.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 68,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-09_high_choppy_context_overlay.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 140,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-10_big_bull_ranking_replay_extension.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 29,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-11_big_bull_family_only_sealed_rollback_prep.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 126,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-11_big_bull_family_only_sealed_rollback_prep.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 72,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-12_big_bull_blocker_resolution.md",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 74,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-12_big_bull_blocker_resolution.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 94,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-13_sealed_split_policy_ranking_only_decision.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 25,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-14B_big_bull_shadow_monitor.md",
+        "target": "docs/tasks/2026-06-01_AUTO-TRAINING-14_big_bull_ranking_only_shadow_dry_run.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 87,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-14B_big_bull_shadow_monitor.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 131,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-14_big_bull_ranking_only_shadow_dry_run.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 379,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 380,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 184,
+        "source": "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 459,
+        "source": "docs/tasks/2026-06-03_CAPITAL_EXIT_RULE_FRAMEWORK.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 97,
+        "source": "docs/tasks/2026-06-08_RESEARCH-TOOLING-SPLIT-PLAN.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 109,
+        "source": "docs/tasks/2026-06-08_RESEARCH-TOOLING-SPLIT-PLAN.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 114,
+        "source": "docs/tasks/2026-06-08_RESEARCH-TOOLING-SPLIT-PLAN.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": "docs/tasks/2026-06-08_RESEARCH-TOOLING-SPLIT-PLAN.md",
+        "target": "scripts/verify_research_tooling_merge_slices.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 180,
+        "source": "docs/tasks/2026-06-08_RESEARCH-TOOLING-SPLIT-PLAN.md",
+        "target": "scripts/verify_research_tooling_merge_slices.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 181,
+        "source": "docs/tasks/2026-06-08_RESEARCH-TOOLING-SPLIT-PLAN.md",
+        "target": "scripts/verify_research_tooling_merge_slices.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 62,
+        "source": "docs/tasks/2026-06-08_REVIEW-research-tooling-merge-risk.md",
+        "target": "docs/tasks/2026-06-08_RESEARCH-TOOLING-SPLIT-PLAN.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 34,
+        "source": "docs/tasks/2026-06-08_REVIEW-research-tooling-merge-risk.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 104,
+        "source": "docs/tasks/2026-06-08_REVIEW-research-tooling-merge-risk.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 61,
+        "source": "docs/tasks/2026-06-08_REVIEW-research-tooling-merge-risk.md",
+        "target": "scripts/verify_research_tooling_merge_slices.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 11,
+        "source": "docs/tasks/2026-06-09_DAILY-PUBLISH-REVIEW-01_status_question_guard.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 26,
+        "source": "docs/tasks/2026-06-09_DAILY-PUBLISH-REVIEW-01_status_question_guard.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 74,
+        "source": "docs/tasks/2026-06-09_DAILY-PUBLISH-REVIEW-01_status_question_guard.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-01_exit_capital_warning_replay.md",
+        "target": "docs/tasks/2026-06-03_CAPITAL_EXIT_RULE_FRAMEWORK.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 28,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-01_exit_capital_warning_replay.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-01_exit_capital_warning_replay.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 23,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-07_daily_report_dry_run_review_loop.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-07_daily_report_dry_run_review_loop.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-01_exit_capital_warning_replay.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md",
+        "target": "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "docs/tasks/2026-06-12_REVIEW_research_map_v2_and_daily_publish_boundary.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": "docs/tasks/2026-06-12_REVIEW_research_map_v2_and_daily_publish_boundary.md",
+        "target": "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-06-12_REVIEW_research_map_v2_and_daily_publish_boundary.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -485,6 +2502,24 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 19,
+        "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 50,
+        "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 14,
+        "source": "docs/tasks/2026-07-13_CLEANUP-18_orphan-triage-runtime-b.md",
+        "target": "scripts/build_portfolio_overlay_promotion_review.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 16,
         "source": "docs/tasks/2026-07-13_CLEANUP-21_delete-three-proven-orphans.md",
         "target": "config/script_lifecycle.yaml"
@@ -500,6 +2535,12 @@
         "line": 13,
         "source": "docs/tasks/2026-07-13_CLEANUP-22_register-retained-survivor-builder.md",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 28,
+        "source": "docs/tasks/2026-07-13_CLEANUP-24_retirement-plan-research-builders.md",
+        "target": "scripts/build_portfolio_overlay_promotion_review.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -539,6 +2580,90 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 44,
+        "source": "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 47,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 48,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "tests/test_environment_contract.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 48,
+        "source": "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+        "target": "tests/test_environment_contract.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 23,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+        "target": "scripts/setup_cron.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+        "target": "tests/test_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 7,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.result.md",
+        "target": "scripts/setup_cron.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 5,
+        "source": "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.result.md",
+        "target": "tests/test_scheduler_ownership.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_OPS-13_daily-status-history.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-07-13_OPS-13_daily-status-history.md",
+        "target": "scripts/verify_daily_publish_workflow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 29,
         "source": "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
         "target": "scripts/run_daily_v2.py"
@@ -560,6 +2685,60 @@
         "line": 24,
         "source": "docs/tasks/2026-07-13_REFACTOR-05_exit-rule-validation-suite.md",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "docs/tasks/2026-07-13_REFACTOR-05_fog-map-module-boundary.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 10,
+        "source": "docs/tasks/2026-07-13_REFACTOR-06_automation-pipeline-policy.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_REFACTOR-06_automation-pipeline-policy.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 23,
+        "source": "docs/tasks/2026-07-13_REFACTOR-06_automation-pipeline-policy.md",
+        "target": "scripts/verify_daily_pipeline_window_override.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": "docs/tasks/2026-07-13_REFACTOR-06_automation-pipeline-policy.md",
+        "target": "scripts/verify_resource_guard.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-07-13_REFACTOR-12_automation-status-contract.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-07-13_REFACTOR-12_automation-status-contract.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-07-13_REFACTOR-12_automation-status-contract.md",
+        "target": "tests/test_automation_status_contract.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 23,
+        "source": "docs/tasks/2026-07-13_REFACTOR-12_automation-status-contract.md",
+        "target": "tests/test_automation_status_contract_unit.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -724,6 +2903,18 @@
         "target": "tests/test_daily_v2_parity.py"
       },
       {
+        "kind": "tracked_path_reference",
+        "line": 16,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-04_orchestration-modularization.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-04_orchestration-modularization.md",
+        "target": "scripts/run_automation.py"
+      },
+      {
         "kind": "python_import",
         "line": 17,
         "source": "scripts/build_architecture_manifest.py",
@@ -736,10 +2927,46 @@
         "target": "app/workflows/daily_v2_promotion.py"
       },
       {
+        "kind": "tracked_path_reference",
+        "line": 115,
+        "source": "scripts/build_portfolio_overlay_promotion_review.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 18,
+        "source": "scripts/build_script_governance.py",
+        "target": "app/architecture/script_governance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 103,
+        "source": "scripts/daily_retrain.sh",
+        "target": "scripts/verify_training_automation_readiness.py"
+      },
+      {
         "kind": "python_import",
         "line": 18,
         "source": "scripts/plan_incremental_verification.py",
         "target": "app/architecture/__init__.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 73,
+        "source": "scripts/probe_universe_rebuild.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 24,
+        "source": "scripts/run_automation.py",
+        "target": "app/automation/daily_orchestrator.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 25,
+        "source": "scripts/run_automation.py",
+        "target": "app/automation/execution.py"
       },
       {
         "kind": "python_import",
@@ -754,10 +2981,34 @@
         "target": "app/workflows/daily_v2_parity.py"
       },
       {
+        "kind": "tracked_path_reference",
+        "line": 36,
+        "source": "scripts/setup_cron.sh",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
         "kind": "python_import",
         "line": 15,
         "source": "scripts/verify_architecture_manifest.py",
         "target": "app/architecture/__init__.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 16,
+        "source": "scripts/verify_daily_market_coverage_gate.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 16,
+        "source": "scripts/verify_daily_pipeline_window_override.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 143,
+        "source": "scripts/verify_daily_publish_workflow.py",
+        "target": "scripts/run_automation.py"
       },
       {
         "kind": "python_import",
@@ -778,6 +3029,90 @@
         "target": "app/architecture/__init__.py"
       },
       {
+        "kind": "tracked_path_reference",
+        "line": 36,
+        "source": "scripts/verify_model_group_acceptance.py",
+        "target": "scripts/verify_model_health_report.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "scripts/verify_model_group_acceptance.py",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 23,
+        "source": "scripts/verify_model_health_report.py",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 24,
+        "source": "scripts/verify_model_health_report.py",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 45,
+        "source": "scripts/verify_research_tooling_merge_slices.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 122,
+        "source": "scripts/verify_resource_guard.py",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
+        "kind": "python_import",
+        "line": 22,
+        "source": "scripts/verify_resource_guard.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 22,
+        "source": "scripts/verify_retrain_rollback.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 23,
+        "source": "scripts/verify_retrain_sealed_oos_capacity_preflight.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 16,
+        "source": "scripts/verify_script_governance.py",
+        "target": "app/architecture/script_governance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "scripts/verify_training_automation_readiness.py",
+        "target": "scripts/verify_model_group_acceptance.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": "scripts/verify_training_automation_readiness.py",
+        "target": "scripts/verify_resource_guard.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 34,
+        "source": "scripts/verify_training_automation_readiness.py",
+        "target": "scripts/verify_retrain_rollback.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": "scripts/verify_training_automation_readiness.py",
+        "target": "scripts/verify_retrain_sealed_oos_capacity_preflight.py"
+      },
+      {
         "kind": "python_import",
         "line": 11,
         "source": "tests/test_architecture_control_plane.py",
@@ -794,6 +3129,36 @@
         "line": 21,
         "source": "tests/test_architecture_control_plane.py",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "python_import",
+        "line": 7,
+        "source": "tests/test_automation_execution.py",
+        "target": "app/automation/execution.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 8,
+        "source": "tests/test_automation_status_contract.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 7,
+        "source": "tests/test_automation_status_contract_unit.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 5,
+        "source": "tests/test_daily_automation_orchestrator.py",
+        "target": "app/automation/daily_orchestrator.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 10,
+        "source": "tests/test_daily_publish_workflow_status_history.py",
+        "target": "scripts/verify_daily_publish_workflow.py"
       },
       {
         "kind": "python_import",
@@ -838,6 +3203,24 @@
         "target": "scripts/run_daily_v2.py"
       },
       {
+        "kind": "tracked_path_reference",
+        "line": 45,
+        "source": "tests/test_environment_contract.py",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 55,
+        "source": "tests/test_environment_contract.py",
+        "target": "docs/AUTOMATION.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 46,
+        "source": "tests/test_environment_contract.py",
+        "target": "scripts/daily_retrain.sh"
+      },
+      {
         "kind": "python_import",
         "line": 8,
         "source": "tests/test_incremental_impact_planner.py",
@@ -860,6 +3243,30 @@
         "line": 93,
         "source": "tests/test_incremental_impact_planner.py",
         "target": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 28,
+        "source": "tests/test_incremental_impact_planner.py",
+        "target": "scripts/run_automation.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 42,
+        "source": "tests/test_scheduler_ownership.py",
+        "target": "scripts/setup_cron.sh"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 54,
+        "source": "tests/test_scheduler_ownership.py",
+        "target": "scripts/setup_cron.sh"
+      },
+      {
+        "kind": "python_import",
+        "line": 6,
+        "source": "tests/test_script_governance.py",
+        "target": "app/architecture/script_governance.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -896,54 +3303,193 @@
         "line": 102,
         "source": "tests/test_script_reference_audit.py",
         "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "python_import",
+        "line": 10,
+        "source": "tests/test_script_reference_audit.py",
+        "target": "scripts/audit_script_references.py"
       }
     ],
     "files": [
       ".ai/codex_task_daily_v2_comparator_compat.md",
       ".ai/codex_task_daily_v2_real_shadow.md",
+      ".work/ARCH-UPGRADE-00/brief.md",
+      ".work/ARCH-UPGRADE-00/context_manifest.md",
+      ".work/ARCH-UPGRADE-00/result.md",
+      ".work/ARCH-UPGRADE-00/status.md",
       ".work/ARCH-UPGRADE-01/brief.md",
       ".work/ARCH-UPGRADE-01/context_manifest.md",
+      ".work/ARCH-UPGRADE-01/evidence/architecture_manifest.json",
+      ".work/ARCH-UPGRADE-01/evidence/script_lifecycle.json",
       ".work/ARCH-UPGRADE-01/result.md",
+      ".work/ARCH-UPGRADE-01/status.md",
       ".work/ARCH-UPGRADE-02/brief.md",
+      ".work/ARCH-UPGRADE-02/context_manifest.md",
+      ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+      ".work/ARCH-UPGRADE-02/result.md",
+      ".work/ARCH-UPGRADE-02/status.md",
       ".work/ARCH-UPGRADE-03/brief.md",
+      ".work/ARCH-UPGRADE-03/context_manifest.md",
+      ".work/ARCH-UPGRADE-03/evidence/bundle/comparison_2026-07-09.json",
+      ".work/ARCH-UPGRADE-03/evidence/bundle/comparison_2026-07-16.json",
+      ".work/ARCH-UPGRADE-03/evidence/bundle/production_2026-07-09.json",
+      ".work/ARCH-UPGRADE-03/evidence/bundle/production_2026-07-16.json",
+      ".work/ARCH-UPGRADE-03/evidence/bundle/real_shadow_2026-07-09.json",
+      ".work/ARCH-UPGRADE-03/evidence/bundle/real_shadow_2026-07-16.json",
+      ".work/ARCH-UPGRADE-03/evidence/bundle/workflow_2026-07-09.json",
+      ".work/ARCH-UPGRADE-03/evidence/bundle/workflow_2026-07-16.json",
+      ".work/ARCH-UPGRADE-03/evidence/daily_v2_parity.json",
+      ".work/ARCH-UPGRADE-03/evidence/daily_v2_parity_2026-07-09.json",
+      ".work/ARCH-UPGRADE-03/result.md",
+      ".work/ARCH-UPGRADE-03/status.md",
+      ".work/ARCH-UPGRADE-04/evidence/verification.json",
+      ".work/ARCH-UPGRADE-05/evidence/convergence_decisions.json",
+      ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
+      ".work/ARCH-UPGRADE-05/evidence/script_references.json",
+      ".work/ARCH-UPGRADE-06/evidence/promotion_decision.json",
+      ".work/CLEANUP-18/evidence/orphan-triage.json",
       ".work/CLEANUP-19/evidence/orphan-triage.json",
       ".work/CLEANUP-20/evidence/orphan-triage.json",
       ".work/CLEANUP-21/evidence/verification.txt",
       ".work/CLEANUP-21/result.md",
       ".work/CLEANUP-22/evidence/verification.txt",
+      ".work/CLEANUP-24/evidence/retirement-plan.json",
       ".work/CLEANUP-26/evidence/verification.txt",
       ".work/CLEANUP-30/evidence/parity.json",
+      ".work/CLEANUP-30/result.md",
       ".work/CLEANUP-30/status.md",
       ".work/CLEANUP-31/evidence/parity.json",
+      ".work/CLEANUP-31/result.md",
       ".work/CLEANUP-31/status.md",
+      ".work/CLEANUP-32/evidence/parity.json",
       ".work/CLEANUP-32/status.md",
+      ".work/CLEANUP-33/evidence/parity.json",
       ".work/CLEANUP-33/status.md",
+      ".work/CLEANUP-35-F1/evidence/verification.md",
       ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+      ".work/CLEANUP-35-R1/evidence/verification.md",
+      ".work/PREP-20260531-auto-training-readiness/brief.md",
+      ".work/PREP-20260531-auto-training-readiness/context_manifest.md",
+      ".work/PREP-20260531-auto-training-readiness/result.md",
+      ".work/REVIEW-20260529-production-write-guard/brief.md",
+      ".work/REVIEW-20260529-production-write-guard/context_manifest.md",
+      ".work/REVIEW-20260529-production-write-guard/evidence/result.md",
+      ".work/REVIEW-20260529-production-write-guard/result.md",
+      ".work/REVIEW-20260531-half-year-no-hindsight/brief.md",
+      ".work/REVIEW-20260531-half-year-no-hindsight/context_manifest.md",
+      ".work/REVIEW-20260531-half-year-no-hindsight/result.md",
+      ".work/REVIEW-20260531-half-year-no-hindsight/status.md",
+      ".work/REVIEW-20260601-model-gov-full/context_manifest.md",
+      ".work/REVIEW-20260601-model-gov-full/result.md",
+      ".work/current/context_manifest.md",
+      ".work/current/status.md",
+      "CHANGELOG.md",
+      "README.md",
       "app/architecture/__init__.py",
       "app/architecture/control_plane.py",
       "app/architecture/impact.py",
+      "app/architecture/script_governance.py",
       "app/automation/daily_contract.py",
+      "app/automation/daily_orchestrator.py",
+      "app/automation/execution.py",
       "app/contracts/daily_v2_comparison.py",
       "app/workflows/daily_v2_parity.py",
       "app/workflows/daily_v2_promotion.py",
       "app/workflows/daily_v2_real_shadow.py",
       "config/architecture_control_plane.yaml",
       "config/script_lifecycle.yaml",
+      "docs/AUTOMATION.md",
       "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+      "docs/architecture/DAILY_AUTOMATION_MODULARIZATION.md",
       "docs/architecture/DAILY_V2_PARITY.md",
       "docs/architecture/SCRIPT_LIFECYCLE.md",
+      "docs/architecture/top10_integration_manifest.md",
+      "docs/handoff/2026-05-12_model_foundation_review.md",
+      "docs/handoff/2026-05-12_review_round2_monitoring.md",
+      "docs/operations/incidents/2026-06-12_daily_publish_missed_push.md",
+      "docs/tasks/2026-05-16_UQ-03_feature_universe_rebuild_plan.md",
+      "docs/tasks/2026-05-16_UQ-04_fundamental_shadow_rerun.md",
+      "docs/tasks/2026-05-16_UQ-05_ranking_integration_gate.md",
+      "docs/tasks/2026-05-16_UQ-06_remove_dummy_fundamental_fallback.md",
+      "docs/tasks/2026-05-16_UQ-07_staged_real_universe_rebuild.md",
+      "docs/tasks/2026-05-16_UQ-08_restore_latest_lgbm_model.md",
+      "docs/tasks/2026-05-16_UQ-09_twse_history_source_repair.md",
+      "docs/tasks/2026-05-16_UQ-10_enforce_fundamental_ranking_gate.md",
+      "docs/tasks/2026-05-16_UQ-11_enforce_fundamental_model_gate.md",
+      "docs/tasks/2026-05-18_M13-07_industry_momentum_monitor_automation.md",
+      "docs/tasks/2026-05-18_REVIEW-M13-07_industry_momentum_monitor_automation.md",
+      "docs/tasks/2026-05-20_DAILY-01_daily_run_contract.md",
+      "docs/tasks/2026-05-22_DAILY-03_daily_postcheck_acceptance.md",
+      "docs/tasks/2026-05-22_MOM-01_weekly_candidate_snapshot_contract.md",
+      "docs/tasks/2026-05-25_CLAWD-02_daily_payload_automation.md",
+      "docs/tasks/2026-05-25_RETRAIN-01_retrain_acceptance_gate.md",
+      "docs/tasks/2026-05-26_DAILY-PROD-04_latest_market_coverage_gate.md",
+      "docs/tasks/2026-05-26_DATA-SEAL-01_data_pipeline_validate_gate.md",
+      "docs/tasks/2026-05-26_MODEL-OPS-01_model_health_report.md",
+      "docs/tasks/2026-05-26_MODEL-OPS-02_model_group_acceptance.md",
+      "docs/tasks/2026-05-26_MODEL-OPS-03_model_bound_psi_baseline.md",
+      "docs/tasks/2026-05-26_MODEL-OPS-04_sealed_oos_gate.md",
+      "docs/tasks/2026-05-26_RETRAIN-02_formal_manual_retrain_acceptance.md",
+      "docs/tasks/2026-05-26_RETRAIN-03_auto_retrain_promotion_gate.md",
+      "docs/tasks/2026-05-26_REVIEW-DAILY-PROD-04_latest_market_coverage_gate.md",
+      "docs/tasks/2026-05-26_REVIEW-DATA-SEAL-01_data_sealed_gate.md",
+      "docs/tasks/2026-05-26_REVIEW-MODEL-OPS-03-FIX_model_bound_psi_baseline.md",
+      "docs/tasks/2026-05-26_REVIEW-MODEL-OPS-04_sealed_oos_gate.md",
+      "docs/tasks/2026-05-27_DAILY-PROD-05_pipeline_window_override.md",
+      "docs/tasks/2026-05-27_MODEL-PROD-05_formal_sealed_model.md",
+      "docs/tasks/2026-05-27_REVIEW-DAILY-PROD-05_pipeline_window_override.md",
+      "docs/tasks/2026-05-28_MARKET-CONTEXT-01_external_dashboard_research.md",
+      "docs/tasks/2026-05-28_MARKET-CONTEXT-02_tw_context_handoff.md",
+      "docs/tasks/2026-05-28_OPS-RESOURCE-01_local_safe_resource_guard.md",
+      "docs/tasks/2026-05-28_PERSIST-01_candidate_persistence.md",
+      "docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md",
+      "docs/tasks/2026-05-31_MODEL-GOV-08_promotion_review_contract.md",
+      "docs/tasks/2026-05-31_MODEL-GOV-FULL_implementation_card.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-01_model_gov_review_close.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-04_revenue_or_technical_lane.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-06_final_small_review.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-07_regime_mass_training_matrix.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-08_global_bigbull_blended_training.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-09_high_choppy_context_overlay.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-10_big_bull_ranking_replay_extension.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-11_big_bull_family_only_sealed_rollback_prep.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-12_big_bull_blocker_resolution.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-13_sealed_split_policy_ranking_only_decision.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-14B_big_bull_shadow_monitor.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-14_big_bull_ranking_only_shadow_dry_run.md",
+      "docs/tasks/2026-06-01_AUTO-TRAINING-BATCH-01_mass_candidate_training_and_evaluation.md",
+      "docs/tasks/2026-06-03_CAPITAL_EXIT_RULE_FRAMEWORK.md",
+      "docs/tasks/2026-06-08_RESEARCH-TOOLING-SPLIT-PLAN.md",
+      "docs/tasks/2026-06-08_REVIEW-research-tooling-merge-risk.md",
+      "docs/tasks/2026-06-09_DAILY-PUBLISH-REVIEW-01_status_question_guard.md",
+      "docs/tasks/2026-06-10_PRODUCTION-TACTICS-01_exit_capital_warning_replay.md",
+      "docs/tasks/2026-06-10_PRODUCTION-TACTICS-02_trail10_shadow_rollout.md",
+      "docs/tasks/2026-06-10_PRODUCTION-TACTICS-06_daily_report_dry_run.md",
+      "docs/tasks/2026-06-10_PRODUCTION-TACTICS-07_daily_report_dry_run_review_loop.md",
+      "docs/tasks/2026-06-10_PRODUCTION-TACTICS-BATCH-03_05_trail10_shadow_review_to_readiness.md",
+      "docs/tasks/2026-06-12_REVIEW_research_map_v2_and_daily_publish_boundary.md",
       "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
       "docs/tasks/2026-07-13_CLEANUP-11_legacy-regex-retirement.md",
       "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+      "docs/tasks/2026-07-13_CLEANUP-18_orphan-triage-runtime-b.md",
       "docs/tasks/2026-07-13_CLEANUP-21_delete-three-proven-orphans.md",
       "docs/tasks/2026-07-13_CLEANUP-22_register-retained-survivor-builder.md",
+      "docs/tasks/2026-07-13_CLEANUP-24_retirement-plan-research-builders.md",
       "docs/tasks/2026-07-13_CLEANUP-26_delete-four-proven-orphans.md",
       "docs/tasks/2026-07-13_CLEANUP-27_odd-lot-decision-builder-suite.md",
       "docs/tasks/2026-07-13_CLEANUP-28_odd-lot-research-verifier-suite.md",
       "docs/tasks/2026-07-13_CLEANUP-29_regime-conditional-builder-suite.md",
       "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+      "docs/tasks/2026-07-13_DOC-16_automation-command-consistency.md",
+      "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.md",
+      "docs/tasks/2026-07-13_OPS-08_scheduler-single-owner.result.md",
+      "docs/tasks/2026-07-13_OPS-13_daily-status-history.md",
       "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
       "docs/tasks/2026-07-13_REFACTOR-05_exit-rule-validation-suite.md",
+      "docs/tasks/2026-07-13_REFACTOR-05_fog-map-module-boundary.md",
+      "docs/tasks/2026-07-13_REFACTOR-06_automation-pipeline-policy.md",
+      "docs/tasks/2026-07-13_REFACTOR-12_automation-status-contract.md",
       "docs/tasks/2026-07-14_CLEANUP-31_training-candidate-risk-verifier-suite.md",
       "docs/tasks/2026-07-14_CLEANUP-32_training-candidate-risk-builder-suite.md",
       "docs/tasks/2026-07-14_CLEANUP-33_operational-rule-builder-suite.md",
@@ -951,24 +3497,55 @@
       "docs/tasks/2026-07-14_CLEANUP-35-F1_repair-parity-harness.md",
       "docs/tasks/2026-07-14_CLEANUP-35-R1_shadow-campaign-review.md",
       "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md",
+      "docs/tasks/2026-07-17_ARCH-UPGRADE-00_full-architecture-modernization.md",
       "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
       "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md",
       "docs/tasks/2026-07-17_ARCH-UPGRADE-03_daily-parity-harness.md",
+      "docs/tasks/2026-07-17_ARCH-UPGRADE-04_orchestration-modularization.md",
+      "docs/tasks/2026-07-17_ARCH-UPGRADE-05_script-convergence.md",
+      "docs/tasks/2026-07-17_ARCH-UPGRADE-06_production-promotion-gate.md",
+      "docs/tasks/2026-07-17_ARCH-UPGRADE-07_independent-review-acceptance.md",
+      "scripts/audit_script_references.py",
       "scripts/build_architecture_manifest.py",
       "scripts/build_daily_v2_promotion_decision.py",
+      "scripts/build_portfolio_overlay_promotion_review.py",
+      "scripts/build_script_governance.py",
+      "scripts/daily_retrain.sh",
       "scripts/plan_incremental_verification.py",
+      "scripts/probe_universe_rebuild.py",
+      "scripts/run_automation.py",
       "scripts/run_daily_v2.py",
       "scripts/run_daily_v2_parity.py",
+      "scripts/setup_cron.sh",
       "scripts/verify_architecture_manifest.py",
+      "scripts/verify_daily_market_coverage_gate.py",
+      "scripts/verify_daily_pipeline_window_override.py",
+      "scripts/verify_daily_publish_workflow.py",
       "scripts/verify_daily_v2_parity.py",
       "scripts/verify_daily_v2_promotion_decision.py",
       "scripts/verify_incremental_verification_plan.py",
+      "scripts/verify_model_group_acceptance.py",
+      "scripts/verify_model_health_report.py",
+      "scripts/verify_research_tooling_merge_slices.py",
+      "scripts/verify_resource_guard.py",
+      "scripts/verify_retrain_rollback.py",
+      "scripts/verify_retrain_sealed_oos_capacity_preflight.py",
+      "scripts/verify_script_governance.py",
+      "scripts/verify_training_automation_readiness.py",
       "tests/test_architecture_control_plane.py",
+      "tests/test_automation_execution.py",
+      "tests/test_automation_status_contract.py",
+      "tests/test_automation_status_contract_unit.py",
+      "tests/test_daily_automation_orchestrator.py",
+      "tests/test_daily_publish_workflow_status_history.py",
       "tests/test_daily_v2_parity.py",
       "tests/test_daily_v2_promotion.py",
       "tests/test_daily_v2_real_shadow.py",
       "tests/test_daily_workflow_v2.py",
+      "tests/test_environment_contract.py",
       "tests/test_incremental_impact_planner.py",
+      "tests/test_scheduler_ownership.py",
+      "tests/test_script_governance.py",
       "tests/test_script_lifecycle_audit.py",
       "tests/test_script_reference_audit.py"
     ],
@@ -982,18 +3559,9 @@
     ]
   },
   "request": {
-    "changed_files": [
-      "app/architecture/impact.py",
-      "app/automation/daily_contract.py",
-      "app/contracts/daily_v2_comparison.py",
-      "app/workflows/daily_v2_parity.py",
-      "app/workflows/daily_v2_promotion.py",
-      "app/workflows/daily_v2_real_shadow.py",
-      "tests/test_daily_v2_parity.py",
-      "tests/test_daily_v2_promotion.py",
-      "tests/test_incremental_impact_planner.py"
-    ],
-    "mode": "files"
+    "base": "2ca23b2d6157e3336ae69babe81cb0cefb6800bd",
+    "head": "d4f4beedc37e584986c5c88225472fc9eaa5e518",
+    "mode": "git_diff"
   },
   "required_verification": [
     "architecture_contract",
@@ -1003,6 +3571,7 @@
     "reference_contract",
     "retrain_contract",
     "scheduler_ownership",
+    "script_governance_contract",
     "web_health"
   ],
   "risk": {
@@ -1015,9 +3584,9 @@
   "schema_version": "top10.incremental-verification-plan.v1",
   "source": {
     "architecture_manifest_digest": "7d1422e8b312d6eaa8723409c7904faac8a5cf926e576f6f4e177f72215b76f1",
-    "git_sha": "dcc7c21776edc5cd26284d0093406208d30df0ce",
-    "tracked_tree_digest": "2d23a792623f65dcaa05d73edcabdfe2af59199305a2a3798efa500c7f5afad1",
-    "tree_mode": "tracked_working_tree"
+    "git_sha": "d4f4beedc37e584986c5c88225472fc9eaa5e518",
+    "tracked_tree_digest": "bd124fa0c07249ddf097da23d39f22877b83e38c951f7d7af822a60f805b3a5b",
+    "tree_mode": "git_commit_tree"
   },
   "unknown_edges": [
     {
@@ -1093,6 +3662,12 @@
       "-m",
       "unittest",
       "tests.test_scheduler_ownership"
+    ],
+    "script_governance_contract": [
+      "uv",
+      "run",
+      "python",
+      "scripts/verify_script_governance.py"
     ],
     "web_health": [
       "bash",
