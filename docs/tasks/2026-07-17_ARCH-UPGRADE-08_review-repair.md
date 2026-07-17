@@ -1,10 +1,11 @@
 ---
 id: ARCH-UPGRADE-08
-status: in_progress
+status: ready_for_review
 type: repair
 parent: ARCH-UPGRADE-07
 source_review: ARCH-UPGRADE-07A,ARCH-UPGRADE-07C
 priority: P0
+code_candidate_sha: 82a6054333c62ec72b4972054a8c04fc708b46c8
 ---
 
 # Review Repair-2
@@ -20,3 +21,10 @@ priority: P0
 - portable paths 統一相對 repo root，不依賴 cwd。
 
 每日報牌、launchd、通知、ranking、model 與 production switch 維持原狀。
+
+## 驗證
+
+- targeted contract tests：23 passed。
+- full suite：324 passed、28 subtests passed。
+- promotion evidence：file-backed 重算通過，決策維持 `NO-GO / retain_current_production`。
+- `git diff --check`：通過。

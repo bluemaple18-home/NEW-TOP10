@@ -1,0 +1,32 @@
+{
+  "schema_version": "top10.arch-upgrade.repair-verification.v1",
+  "code_candidate_sha": "82a6054333c62ec72b4972054a8c04fc708b46c8",
+  "base_sha": "2ca23b2d6157e3336ae69babe81cb0cefb6800bd",
+  "production_switch": {
+    "authorized": false,
+    "executed": false,
+    "decision": "retain_current_production"
+  },
+  "verification": [
+    {
+      "command": [".venv/bin/python", "-m", "pytest", "tests/test_daily_v2_promotion.py", "tests/test_daily_v2_parity.py", "-q"],
+      "exit_code": 0,
+      "result": "23 passed"
+    },
+    {
+      "command": [".venv/bin/python", "-m", "pytest", "-q"],
+      "exit_code": 0,
+      "result": "324 passed, 28 subtests passed"
+    },
+    {
+      "command": [".venv/bin/python", "scripts/verify_daily_v2_promotion_decision.py", "--base-sha", "2ca23b2d6157e3336ae69babe81cb0cefb6800bd", "--candidate-sha", "82a6054333c62ec72b4972054a8c04fc708b46c8"],
+      "exit_code": 0,
+      "result": "decision NO-GO verified"
+    },
+    {
+      "command": ["git", "diff", "--check"],
+      "exit_code": 0,
+      "result": "clean"
+    }
+  ]
+}

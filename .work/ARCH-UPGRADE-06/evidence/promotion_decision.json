@@ -1,4 +1,5 @@
 {
+  "base_sha": "2ca23b2d6157e3336ae69babe81cb0cefb6800bd",
   "blockers": [
     {
       "code": "parity_no_go",
@@ -33,6 +34,7 @@
       "message": "缺少固定 SHA 的獨立 review"
     }
   ],
+  "candidate_sha": "82a6054333c62ec72b4972054a8c04fc708b46c8",
   "decision": "retain_current_production",
   "parity_dates": [
     "2026-07-09",
@@ -41,7 +43,7 @@
   "production_equivalent_dates": [],
   "production_switch": {
     "authorized": false,
-    "daily_entrypoint_modified": false,
+    "daily_entrypoint_modified": true,
     "executed": false,
     "live_notification_modified": false
   },
