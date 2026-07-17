@@ -1,0 +1,59 @@
+{
+  "blockers": [
+    {
+      "code": "parity_no_go",
+      "evidence": [
+        "2026-07-09"
+      ],
+      "message": "所有代表日期 parity 必須為 GO"
+    },
+    {
+      "code": "production_equivalent_parity_dates",
+      "evidence": {
+        "actual_dates": [],
+        "required": 2
+      },
+      "message": "至少需要兩個不同日期的 production-equivalent parity GO"
+    },
+    {
+      "code": "promotion_acceptance_missing",
+      "evidence": null,
+      "message": "缺少 failure/resume/rollback acceptance evidence"
+    },
+    {
+      "code": "independent_review_missing",
+      "evidence": null,
+      "message": "缺少固定 SHA 的獨立 review"
+    }
+  ],
+  "decision": "retain_current_production",
+  "parity_dates": [
+    "2026-07-09",
+    "2026-07-16"
+  ],
+  "production_equivalent_dates": [],
+  "production_switch": {
+    "authorized": false,
+    "daily_entrypoint_modified": false,
+    "executed": false,
+    "live_notification_modified": false
+  },
+  "schema_version": "top10.daily-v2.promotion-decision.v1",
+  "source_files": {
+    "parity_reports": [
+      {
+        "path": "/Users/mattkuo/TOP10new/.work/ARCH-UPGRADE-03/evidence/daily_v2_parity.json",
+        "sha256": "50929f6230af637688f8f9a4894eb5d71707481cb67b05700263f5c2c2b2c94d"
+      },
+      {
+        "path": "/Users/mattkuo/TOP10new/.work/ARCH-UPGRADE-03/evidence/daily_v2_parity_2026-07-09.json",
+        "sha256": "545daf3a5595cecdb6384e386784f0e54fa730ce64bca906bfeaa371d18f43ec"
+      }
+    ],
+    "script_governance": {
+      "path": "/Users/mattkuo/TOP10new/.work/ARCH-UPGRADE-05/evidence/script_governance.json",
+      "sha256": "f26b976bdf3ce343684231aa5f6245c3dd56e0fe9b3e4d931e44986ba3342a7b"
+    }
+  },
+  "status": "NO-GO"
+}

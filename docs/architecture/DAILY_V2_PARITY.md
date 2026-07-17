@@ -17,6 +17,27 @@ uv run python scripts/run_daily_v2_parity.py \
   --workflow-profile fixture
 
 uv run python scripts/verify_daily_v2_parity.py
+
+## Production promotion
+
+Parity `GO` 不等於 production switch `GO`。正式 promotion decision 另要求：
+
+- 至少兩個不同日期的 production-equivalent parity GO。
+- timeout、partial output、stale input failure injection 全部通過。
+- persistent resume 與所有副作用 idempotency 有證據。
+- wrapper／launchd rollback 已實際演練。
+- script governance 無 production contract gap 與未處理 dynamic import edge。
+- 固定 base/candidate SHA 的獨立 review 為 GO。
+
+決策 builder 只輸出 `promote` 或 `retain_current_production`，永不執行切換：
+
+```bash
+uv run python scripts/build_daily_v2_promotion_decision.py \
+  --parity .work/ARCH-UPGRADE-03/evidence/daily_v2_parity.json \
+  --parity .work/ARCH-UPGRADE-03/evidence/daily_v2_parity_2026-07-09.json \
+  --script-governance .work/ARCH-UPGRADE-05/evidence/script_governance.json
+uv run python scripts/verify_daily_v2_promotion_decision.py
+```
 ```
 
 ## 判定邊界

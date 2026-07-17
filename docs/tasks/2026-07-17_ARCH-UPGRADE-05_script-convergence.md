@@ -39,8 +39,8 @@ model_reason: 涵蓋 398 支 scripts、production reachability 與共用邏輯�
 
 `.work/ARCH-UPGRADE-05/evidence/`
 
-- 439/439 tracked scripts 已覆蓋（133 builder、95 maintenance、11 production entrypoint、28 research、172 verifier）。
+- 441/441 tracked scripts 已覆蓋（134 builder、95 maintenance、11 production entrypoint、28 research、173 verifier）。
 - 94 支可由 production roots 靜態觸達；owner、workflow、artifact 與 verification contract 缺漏皆為 0。
 - `unclassified=[]`、reference strict-new PASS、suspected orphan 0；因此本卡未做無證據刪檔。
-- 保留 1 筆 `app/pipeline/__init__.py` dynamic import unknown edge，明確列入 evidence，不宣稱 heuristic 已解析。
+- `app/pipeline/__init__.py` 的 literal module map 已由 AST 明確解析；dynamic import unknown edges 降為 0。
 - governance 與架構相關測試 24 passed、2 subtests passed。

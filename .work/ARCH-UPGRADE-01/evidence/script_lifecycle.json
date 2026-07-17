@@ -451,6 +451,14 @@
       "candidate_action": "review"
     },
     {
+      "path": "scripts/build_daily_v2_promotion_decision.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
       "path": "scripts/build_decision_quality.py",
       "category": "builder",
       "entrypoint": false,
@@ -2627,6 +2635,14 @@
       "candidate_action": "review"
     },
     {
+      "path": "scripts/verify_daily_v2_promotion_decision.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
       "path": "scripts/verify_data_contracts.py",
       "category": "verifier",
       "entrypoint": false,
@@ -3516,13 +3532,13 @@
     }
   ],
   "summary": {
-    "tracked_script_count": 439,
+    "tracked_script_count": 441,
     "category_counts": {
-      "builder": 133,
+      "builder": 134,
       "maintenance": 95,
       "production_entrypoint": 11,
       "research": 28,
-      "verifier": 172
+      "verifier": 173
     },
     "review_candidates": [
       "scripts/build_5913_combo_effectiveness_review.py",
@@ -3573,6 +3589,7 @@
       "scripts/build_daily_recommendation_pm_validation.py",
       "scripts/build_daily_recommendation_shadow_monitor.py",
       "scripts/build_daily_shadow_status_report.py",
+      "scripts/build_daily_v2_promotion_decision.py",
       "scripts/build_decision_quality.py",
       "scripts/build_exit_rule_validation_suite.py",
       "scripts/build_external_review_packet.py",
@@ -3748,6 +3765,7 @@
       "scripts/verify_daily_shadow_status_report.py",
       "scripts/verify_daily_tape_and_rr_guard.py",
       "scripts/verify_daily_v2_parity.py",
+      "scripts/verify_daily_v2_promotion_decision.py",
       "scripts/verify_data_contracts.py",
       "scripts/verify_decision_quality.py",
       "scripts/verify_discord_channel_routing.py",

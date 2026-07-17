@@ -1,16 +1,27 @@
 {
   "changed_files": [
-    "app/architecture/__init__.py",
-    "app/architecture/script_governance.py",
+    "app/workflows/daily_v2_promotion.py",
     "config/architecture_control_plane.yaml",
-    "scripts/build_script_governance.py",
-    "scripts/verify_script_governance.py",
-    "tests/test_script_governance.py"
+    "scripts/audit_script_references.py",
+    "scripts/build_daily_v2_promotion_decision.py",
+    "scripts/verify_daily_v2_promotion_decision.py",
+    "tests/test_daily_v2_promotion.py",
+    "tests/test_script_reference_audit.py"
   ],
   "impact": {
-    "artifacts": [],
+    "artifacts": [
+      "automation_status",
+      "daily_report",
+      "events",
+      "features",
+      "production_model",
+      "publish_payload",
+      "ranking",
+      "universe"
+    ],
     "domains": [
-      "architecture"
+      "architecture",
+      "automation"
     ],
     "entrypoints": [],
     "evidence": [
@@ -46,2109 +57,507 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 110,
+        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 327,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
         "target": "scripts/build_architecture_manifest.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 4406,
+        "line": 2079,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "scripts/build_script_governance.py"
+        "target": "scripts/build_daily_v2_promotion_decision.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 6454,
+        "line": 6509,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
         "target": "scripts/plan_incremental_verification.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 10262,
+        "line": 10330,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
         "target": "scripts/verify_architecture_manifest.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 12740,
+        "line": 12127,
+        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
+        "target": "scripts/verify_daily_v2_promotion_decision.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 12842,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
         "target": "scripts/verify_incremental_verification_plan.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14992,
+        "line": 746,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "scripts/verify_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 29,
+        "line": 861,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 60,
+        "line": 993,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 91,
+        "line": 1063,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 122,
+        "line": 1691,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 153,
+        "line": 1854,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 184,
+        "line": 1924,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 215,
+        "line": 2056,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 246,
+        "line": 2157,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 277,
+        "line": 2472,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 308,
+        "line": 2542,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 339,
+        "line": 2612,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 370,
+        "line": 3637,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 401,
+        "line": 3973,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 432,
+        "line": 4122,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 463,
+        "line": 4575,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 494,
+        "line": 4871,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 525,
+        "line": 5248,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 556,
+        "line": 5371,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 587,
+        "line": 5975,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 618,
+        "line": 6045,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 649,
+        "line": 6177,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 680,
+        "line": 6385,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 894,
+        "line": 6455,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 925,
+        "line": 6614,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 1094,
+        "line": 6685,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 1125,
+        "line": 6835,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 1156,
+        "line": 6950,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 1187,
+        "line": 7499,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 1218,
+        "line": 8090,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 1249,
+        "line": 8160,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 1280,
+        "line": 8261,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 1311,
+        "line": 8566,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 1342,
+        "line": 8635,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1373,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1404,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1435,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1466,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1497,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1528,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1559,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1590,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1621,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1721,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1752,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1783,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1952,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1983,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2152,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2183,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2214,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2245,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2366,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2604,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2680,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2711,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2742,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2773,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2804,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2835,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2866,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2897,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2928,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2959,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2990,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3021,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3052,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3218,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3249,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3280,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3311,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3342,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3373,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3404,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3435,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3466,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3497,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3528,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3628,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3659,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3690,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3721,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3752,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3783,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3814,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3845,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3876,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3962,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3993,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4024,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4110,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4141,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4172,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4203,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4279,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4310,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4387,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4418,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4563,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4640,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4671,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4702,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4733,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4764,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4903,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4934,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4965,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4996,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5027,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5103,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5134,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5234,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5265,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5355,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5386,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5417,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5448,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5656,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5732,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5763,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5794,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5825,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5856,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6028,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6059,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6159,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6190,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6221,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6435,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6466,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6497,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6663,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6694,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6725,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6926,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6957,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6988,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7019,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7050,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7081,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7112,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7143,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7174,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7205,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7236,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7267,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7343,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7374,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7474,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7505,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7536,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7567,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7598,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7809,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7840,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7871,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7902,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7933,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7964,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8133,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8233,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8264,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8295,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8326,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8357,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8388,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8419,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8450,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8651,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8682,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8713,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8744,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8775,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8806,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8927,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8958,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8989,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9065,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9096,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9127,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9158,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9189,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9260,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9291,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9436,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
         "line": 9467,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 9498,
+        "line": 9996,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 9529,
+        "line": 10060,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 9560,
+        "line": 11755,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 9591,
+        "line": 11918,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 9622,
+        "line": 12588,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 9653,
+        "line": 14489,
         "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "target": "tests/test_daily_v2_promotion.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 9684,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9761,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9792,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9823,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10026,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10057,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10088,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10119,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10150,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10181,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10212,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10243,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10274,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10305,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10336,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10367,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10398,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10429,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10460,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10491,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10522,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10553,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10584,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10615,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10646,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10677,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10708,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10739,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10770,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10846,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10877,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10908,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10939,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10970,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11001,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11032,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11063,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11094,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11125,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11156,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11187,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11218,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11249,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11280,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11311,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11342,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11373,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11404,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11435,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11466,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11497,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11528,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11559,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11590,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11621,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11721,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11752,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11783,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11883,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11914,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11945,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11976,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12007,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12038,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12114,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12145,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12176,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12207,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12238,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12269,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12300,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12376,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12521,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12552,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12583,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12614,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12645,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12721,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12752,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12783,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12814,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12845,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12876,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12907,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12938,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12969,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13000,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13031,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13062,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13093,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13124,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13155,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13501,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13532,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13563,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13594,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 5,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 13625,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13656,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13687,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13718,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13749,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13780,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13811,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13842,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13873,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13904,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13935,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13966,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 13997,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14028,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14059,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14090,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14121,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14152,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14183,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14214,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14245,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14276,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14421,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14452,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 5,
+        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14483,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 13,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14514,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 24,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14545,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 90,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14576,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 112,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14607,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 123,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14638,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 145,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14669,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 156,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14700,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 167,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14731,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 178,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14762,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 189,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14973,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 211,
+        "source": ".work/CLEANUP-20/evidence/orphan-triage.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15004,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 12,
+        "source": ".work/CLEANUP-21/evidence/verification.txt",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15125,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 34,
+        "source": ".work/CLEANUP-21/evidence/verification.txt",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15156,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 18,
+        "source": ".work/CLEANUP-21/evidence/verification.txt",
+        "target": "tests/test_script_reference_audit.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15187,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 9,
+        "source": ".work/CLEANUP-21/result.md",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15218,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 10,
+        "source": ".work/CLEANUP-22/evidence/verification.txt",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15249,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 14,
+        "source": ".work/CLEANUP-22/evidence/verification.txt",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15280,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 18,
+        "source": ".work/CLEANUP-22/evidence/verification.txt",
+        "target": "tests/test_script_reference_audit.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15311,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 28,
+        "source": ".work/CLEANUP-26/evidence/verification.txt",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15387,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 20,
+        "source": ".work/CLEANUP-26/evidence/verification.txt",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15418,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 103,
+        "source": ".work/CLEANUP-30/evidence/parity.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15449,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 14,
+        "source": ".work/CLEANUP-30/result.md",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15480,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 22,
+        "source": ".work/CLEANUP-30/status.md",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15511,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 30,
+        "source": ".work/CLEANUP-31/evidence/parity.json",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15542,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 15,
+        "source": ".work/CLEANUP-31/result.md",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15573,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 22,
+        "source": ".work/CLEANUP-31/status.md",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15604,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 167,
+        "source": ".work/CLEANUP-32/evidence/parity.json",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15635,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 18,
+        "source": ".work/CLEANUP-32/status.md",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15666,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 175,
+        "source": ".work/CLEANUP-33/evidence/parity.json",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15697,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 18,
+        "source": ".work/CLEANUP-33/status.md",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15728,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 15,
+        "source": ".work/CLEANUP-35-F1/evidence/verification.md",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15759,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 31,
+        "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15790,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 26,
+        "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15821,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_script_governance.py"
+        "line": 24,
+        "source": ".work/CLEANUP-35-R1/evidence/verification.md",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "python_import",
@@ -2163,16 +572,16 @@
         "target": "app/architecture/impact.py"
       },
       {
-        "kind": "python_import",
-        "line": 17,
-        "source": "app/architecture/__init__.py",
-        "target": "app/architecture/script_governance.py"
-      },
-      {
         "kind": "tracked_path_reference",
         "line": 223,
         "source": "app/architecture/control_plane.py",
         "target": "config/architecture_control_plane.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 224,
+        "source": "app/architecture/control_plane.py",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "python_import",
@@ -2182,21 +591,9 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 160,
-        "source": "app/architecture/script_governance.py",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 187,
+        "line": 6,
         "source": "config/architecture_control_plane.yaml",
-        "target": "scripts/verify_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 188,
-        "source": "config/architecture_control_plane.yaml",
-        "target": "scripts/verify_script_governance.py"
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
@@ -2206,27 +603,33 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 196,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_daily_v2_promotion.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 184,
         "source": "config/architecture_control_plane.yaml",
         "target": "tests/test_incremental_impact_planner.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 184,
-        "source": "config/architecture_control_plane.yaml",
-        "target": "tests/test_script_governance.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 188,
-        "source": "config/architecture_control_plane.yaml",
-        "target": "tests/test_script_governance.py"
+        "line": 78,
+        "source": "config/script_lifecycle.yaml",
+        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
         "line": 3,
         "source": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
         "target": "config/architecture_control_plane.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 3,
+        "source": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
@@ -2254,21 +657,45 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/architecture/DAILY_V2_PARITY.md",
+        "target": "scripts/build_daily_v2_promotion_decision.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 39,
-        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
-        "target": "scripts/build_script_governance.py"
+        "source": "docs/architecture/DAILY_V2_PARITY.md",
+        "target": "scripts/verify_daily_v2_promotion_decision.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 46,
+        "line": 17,
         "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
-        "target": "scripts/build_script_governance.py"
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 47,
+        "line": 52,
         "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
-        "target": "scripts/verify_script_governance.py"
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 37,
+        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 42,
+        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
@@ -2284,9 +711,189 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 14,
+        "source": "docs/tasks/2026-07-13_CLEANUP-11_legacy-regex-retirement.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_CLEANUP-11_legacy-regex-retirement.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 21,
         "source": "docs/tasks/2026-07-13_CLEANUP-11_legacy-regex-retirement.md",
         "target": "docs/architecture/SCRIPT_LIFECYCLE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 50,
+        "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 16,
+        "source": "docs/tasks/2026-07-13_CLEANUP-21_delete-three-proven-orphans.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-07-13_CLEANUP-21_delete-three-proven-orphans.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": "docs/tasks/2026-07-13_CLEANUP-22_register-retained-survivor-builder.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-07-13_CLEANUP-26_delete-four-proven-orphans.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-07-13_CLEANUP-27_odd-lot-decision-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-07-13_CLEANUP-28_odd-lot-research-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 16,
+        "source": "docs/tasks/2026-07-13_CLEANUP-29_regime-conditional-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 14,
+        "source": "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 44,
+        "source": "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+        "target": "scripts/audit_script_references.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 24,
+        "source": "docs/tasks/2026-07-13_REFACTOR-05_exit-rule-validation-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": "docs/tasks/2026-07-14_CLEANUP-31_training-candidate-risk-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-14_CLEANUP-31_training-candidate-risk-verifier-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 13,
+        "source": "docs/tasks/2026-07-14_CLEANUP-32_training-candidate-risk-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 20,
+        "source": "docs/tasks/2026-07-14_CLEANUP-32_training-candidate-risk-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 12,
+        "source": "docs/tasks/2026-07-14_CLEANUP-33_operational-rule-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": "docs/tasks/2026-07-14_CLEANUP-33_operational-rule-builder-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-07-14_CLEANUP-34_weekend-readiness-audit-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 27,
+        "source": "docs/tasks/2026-07-14_CLEANUP-34_weekend-readiness-audit-suite.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35-F1_repair-parity-harness.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35-F1_repair-parity-harness.md",
+        "target": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 9,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35-R1_shadow-campaign-review.md",
+        "target": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 17,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35-R1_shadow-campaign-review.md",
+        "target": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 14,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md",
+        "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
@@ -2357,8 +964,8 @@
       {
         "kind": "python_import",
         "line": 18,
-        "source": "scripts/build_script_governance.py",
-        "target": "app/architecture/script_governance.py"
+        "source": "scripts/build_daily_v2_promotion_decision.py",
+        "target": "app/workflows/daily_v2_promotion.py"
       },
       {
         "kind": "python_import",
@@ -2375,14 +982,14 @@
       {
         "kind": "python_import",
         "line": 16,
-        "source": "scripts/verify_incremental_verification_plan.py",
-        "target": "app/architecture/__init__.py"
+        "source": "scripts/verify_daily_v2_promotion_decision.py",
+        "target": "app/workflows/daily_v2_promotion.py"
       },
       {
         "kind": "python_import",
         "line": 16,
-        "source": "scripts/verify_script_governance.py",
-        "target": "app/architecture/script_governance.py"
+        "source": "scripts/verify_incremental_verification_plan.py",
+        "target": "app/architecture/__init__.py"
       },
       {
         "kind": "python_import",
@@ -2395,6 +1002,18 @@
         "line": 20,
         "source": "tests/test_architecture_control_plane.py",
         "target": "config/architecture_control_plane.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 21,
+        "source": "tests/test_architecture_control_plane.py",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "python_import",
+        "line": 5,
+        "source": "tests/test_daily_v2_promotion.py",
+        "target": "app/workflows/daily_v2_promotion.py"
       },
       {
         "kind": "python_import",
@@ -2415,10 +1034,22 @@
         "target": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md"
       },
       {
+        "kind": "tracked_path_reference",
+        "line": 100,
+        "source": "tests/test_script_reference_audit.py",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 102,
+        "source": "tests/test_script_reference_audit.py",
+        "target": "config/script_lifecycle.yaml"
+      },
+      {
         "kind": "python_import",
-        "line": 6,
-        "source": "tests/test_script_governance.py",
-        "target": "app/architecture/script_governance.py"
+        "line": 10,
+        "source": "tests/test_script_reference_audit.py",
+        "target": "scripts/audit_script_references.py"
       }
     ],
     "files": [
@@ -2427,54 +1058,99 @@
       ".work/ARCH-UPGRADE-01/result.md",
       ".work/ARCH-UPGRADE-02/brief.md",
       ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
+      ".work/CLEANUP-19/evidence/orphan-triage.json",
+      ".work/CLEANUP-20/evidence/orphan-triage.json",
+      ".work/CLEANUP-21/evidence/verification.txt",
+      ".work/CLEANUP-21/result.md",
+      ".work/CLEANUP-22/evidence/verification.txt",
+      ".work/CLEANUP-26/evidence/verification.txt",
+      ".work/CLEANUP-30/evidence/parity.json",
+      ".work/CLEANUP-30/result.md",
+      ".work/CLEANUP-30/status.md",
+      ".work/CLEANUP-31/evidence/parity.json",
+      ".work/CLEANUP-31/result.md",
+      ".work/CLEANUP-31/status.md",
+      ".work/CLEANUP-32/evidence/parity.json",
+      ".work/CLEANUP-32/status.md",
+      ".work/CLEANUP-33/evidence/parity.json",
+      ".work/CLEANUP-33/status.md",
+      ".work/CLEANUP-35-F1/evidence/verification.md",
+      ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
+      ".work/CLEANUP-35-R1/evidence/verification.md",
       "app/architecture/__init__.py",
       "app/architecture/control_plane.py",
       "app/architecture/impact.py",
-      "app/architecture/script_governance.py",
+      "app/workflows/daily_v2_promotion.py",
       "config/architecture_control_plane.yaml",
+      "config/script_lifecycle.yaml",
       "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
+      "docs/architecture/DAILY_V2_PARITY.md",
       "docs/architecture/SCRIPT_LIFECYCLE.md",
       "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
       "docs/tasks/2026-07-13_CLEANUP-11_legacy-regex-retirement.md",
+      "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
+      "docs/tasks/2026-07-13_CLEANUP-21_delete-three-proven-orphans.md",
+      "docs/tasks/2026-07-13_CLEANUP-22_register-retained-survivor-builder.md",
+      "docs/tasks/2026-07-13_CLEANUP-26_delete-four-proven-orphans.md",
+      "docs/tasks/2026-07-13_CLEANUP-27_odd-lot-decision-builder-suite.md",
+      "docs/tasks/2026-07-13_CLEANUP-28_odd-lot-research-verifier-suite.md",
+      "docs/tasks/2026-07-13_CLEANUP-29_regime-conditional-builder-suite.md",
+      "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+      "docs/tasks/2026-07-13_REFACTOR-05_exit-rule-validation-suite.md",
+      "docs/tasks/2026-07-14_CLEANUP-31_training-candidate-risk-verifier-suite.md",
+      "docs/tasks/2026-07-14_CLEANUP-32_training-candidate-risk-builder-suite.md",
+      "docs/tasks/2026-07-14_CLEANUP-33_operational-rule-builder-suite.md",
+      "docs/tasks/2026-07-14_CLEANUP-34_weekend-readiness-audit-suite.md",
+      "docs/tasks/2026-07-14_CLEANUP-35-F1_repair-parity-harness.md",
+      "docs/tasks/2026-07-14_CLEANUP-35-R1_shadow-campaign-review.md",
+      "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md",
       "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
       "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md",
+      "scripts/audit_script_references.py",
       "scripts/build_architecture_manifest.py",
-      "scripts/build_script_governance.py",
+      "scripts/build_daily_v2_promotion_decision.py",
       "scripts/plan_incremental_verification.py",
       "scripts/verify_architecture_manifest.py",
+      "scripts/verify_daily_v2_promotion_decision.py",
       "scripts/verify_incremental_verification_plan.py",
-      "scripts/verify_script_governance.py",
       "tests/test_architecture_control_plane.py",
+      "tests/test_daily_v2_promotion.py",
       "tests/test_incremental_impact_planner.py",
-      "tests/test_script_governance.py"
+      "tests/test_script_reference_audit.py"
     ],
-    "workflows": []
+    "workflows": [
+      "daily"
+    ]
   },
   "request": {
     "changed_files": [
-      "app/architecture/__init__.py",
-      "app/architecture/script_governance.py",
+      "app/workflows/daily_v2_promotion.py",
       "config/architecture_control_plane.yaml",
-      "scripts/build_script_governance.py",
-      "scripts/verify_script_governance.py",
-      "tests/test_script_governance.py"
+      "scripts/audit_script_references.py",
+      "scripts/build_daily_v2_promotion_decision.py",
+      "scripts/verify_daily_v2_promotion_decision.py",
+      "tests/test_daily_v2_promotion.py",
+      "tests/test_script_reference_audit.py"
     ],
     "mode": "files"
   },
   "required_verification": [
     "architecture_contract",
-    "script_governance_contract"
+    "daily_contract",
+    "daily_parity_contract",
+    "reference_contract",
+    "retrain_contract"
   ],
   "risk": {
-    "level": "standard",
+    "level": "critical",
     "missing_production_verification": false,
     "needs_review": true,
-    "production_touched": false
+    "production_touched": true
   },
   "schema_version": "top10.incremental-verification-plan.v1",
   "source": {
-    "architecture_manifest_digest": "e30070ff4e00579997f996ba8886fb34a2638198d55dbcc3ed5da262919f1e2f",
-    "git_sha": "72463a95dc17cd7c23b56b1a827d581909b2e280"
+    "architecture_manifest_digest": "7d1422e8b312d6eaa8723409c7904faac8a5cf926e576f6f4e177f72215b76f1",
+    "git_sha": "db1430a569986535c431034edf2ae95a05b55cee"
   },
   "unknown_edges": [
     {
@@ -2495,11 +1171,44 @@
       "tests.test_incremental_impact_planner",
       "tests.test_script_governance"
     ],
-    "script_governance_contract": [
+    "daily_contract": [
       "uv",
       "run",
       "python",
-      "scripts/verify_script_governance.py"
+      "-m",
+      "unittest",
+      "tests.test_automation_execution",
+      "tests.test_automation_status_contract",
+      "tests.test_daily_automation_orchestrator",
+      "tests.test_daily_publish_wrapper_guards",
+      "tests.test_daily_workflow_v2"
+    ],
+    "daily_parity_contract": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "unittest",
+      "tests.test_daily_v2_parity",
+      "tests.test_daily_v2_promotion",
+      "tests.test_daily_v2_real_shadow",
+      "tests.test_daily_workflow_v2"
+    ],
+    "reference_contract": [
+      "uv",
+      "run",
+      "python",
+      "scripts/verify_reference_sources.py",
+      "--help"
+    ],
+    "retrain_contract": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "unittest",
+      "tests.test_model_runtime_promotion",
+      "tests.test_model_runtime_migration"
     ]
   }
 }

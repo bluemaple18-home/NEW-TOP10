@@ -1,6 +1,6 @@
 ---
 id: ARCH-UPGRADE-06
-status: blocked
+status: completed
 type: acceptance
 priority: P0
 thickness: strict
@@ -37,3 +37,9 @@ model_reason: production daily 切換或 NO-GO 判定，涉及正式排程、報
 ## Evidence
 
 `.work/ARCH-UPGRADE-06/evidence/`
+
+- promotion decision：`NO-GO / retain_current_production`，可由來源 digest 重算。
+- blockers：2026-07-09 代表日期 parity NO-GO、production-equivalent 日期 0/2、缺 persistent resume/failure/rollback acceptance、缺獨立 review。
+- script governance：441/441 covered、94 production-reachable、0 contract gaps、0 unknown dynamic edges。
+- promotion gate tests：36 passed；涵蓋 hypothetical GO、fixture relabel、單日期不足與任一代表日 NO-GO。
+- production switch 未授權且未執行；daily entrypoint、live notification、ranking、model 均未修改。

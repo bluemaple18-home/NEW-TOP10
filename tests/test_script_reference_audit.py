@@ -66,6 +66,24 @@ class ScriptReferenceAuditTest(unittest.TestCase):
         self.assertEqual(inventory["summary"]["unknown_reference_count"], 1)
         self.assertEqual(inventory["unknown_references"][0]["source"], "scripts/loader.py")
 
+    def test_dynamic_import_from_literal_module_map_is_resolved_without_false_unknown(self) -> None:
+        scripts = ["scripts/loader.py", "scripts/worker.py"]
+        references, unknown = audit.collect_references(
+            {
+                "scripts/loader.py": (
+                    "from importlib import import_module\n"
+                    "_EXPORTS = {'worker': 'scripts.worker', 'pipeline': 'app.pipeline.orchestrator'}\n"
+                    "def load(name):\n"
+                    "    return import_module(_EXPORTS[name])\n"
+                )
+            },
+            scripts,
+        )
+        inventory = audit.build_inventory(self.load_fixture_policy(), scripts, references, unknown)
+        worker = next(entry for entry in inventory["entries"] if entry["path"] == "scripts/worker.py")
+        self.assertEqual(worker["reference_count"], 1)
+        self.assertEqual(inventory["summary"]["unknown_reference_count"], 0)
+
     def test_protected_scripts_and_allowlisted_baseline(self) -> None:
         scripts = ["scripts/run_daily.py", "scripts/existing_baseline.py", "scripts/new_script.py"]
         inventory = audit.build_inventory(self.load_fixture_policy(), scripts, [], [])

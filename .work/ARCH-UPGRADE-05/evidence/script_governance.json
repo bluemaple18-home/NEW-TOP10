@@ -743,6 +743,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -857,6 +858,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -988,6 +990,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -1057,6 +1060,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -1684,6 +1688,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -1846,6 +1851,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -1915,6 +1921,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -2046,12 +2053,44 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
           "tests/test_model_runtime_promotion.py"
         ],
         "status": "bound"
+      }
+    },
+    {
+      "artifact_contract": {
+        "artifacts": [],
+        "status": "not_applicable_until_production_promotion"
+      },
+      "candidate_action": "review",
+      "category": "builder",
+      "owner_contract": {
+        "domains": [],
+        "owners": [
+          "artifact.builders"
+        ],
+        "status": "lifecycle-owned"
+      },
+      "path": "scripts/build_daily_v2_promotion_decision.py",
+      "production_reachability": {
+        "reachable": false,
+        "roots": [],
+        "workflows": []
+      },
+      "reference_status": "referenced",
+      "verification_contract": {
+        "ids": [
+          "script_governance_contract"
+        ],
+        "paths": [
+          "tests/test_script_governance.py"
+        ],
+        "status": "lifecycle_gate"
       }
     },
     {
@@ -2115,6 +2154,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -2429,6 +2469,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -2498,6 +2539,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -2567,6 +2609,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -3591,6 +3634,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -3926,6 +3970,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_scheduler_ownership.py"
@@ -4074,6 +4119,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_scheduler_ownership.py"
@@ -4526,6 +4572,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -4821,6 +4868,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_scheduler_ownership.py"
@@ -5197,6 +5245,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -5319,6 +5368,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_scheduler_ownership.py"
@@ -5922,6 +5972,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -5991,6 +6042,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -6122,6 +6174,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -6329,6 +6382,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -6398,6 +6452,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -6556,6 +6611,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -6626,6 +6682,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -6775,6 +6832,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_scheduler_ownership.py"
@@ -6889,6 +6947,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -7437,6 +7496,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -8027,6 +8087,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -8096,6 +8157,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -8196,6 +8258,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -8500,6 +8563,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_scheduler_ownership.py"
@@ -8568,6 +8632,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -9399,6 +9464,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -9927,6 +9993,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -9990,6 +10057,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_scheduler_ownership.py"
@@ -11684,6 +11752,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -11846,6 +11915,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -12024,6 +12094,37 @@
         "status": "lifecycle-owned"
       },
       "path": "scripts/verify_daily_v2_parity.py",
+      "production_reachability": {
+        "reachable": false,
+        "roots": [],
+        "workflows": []
+      },
+      "reference_status": "referenced",
+      "verification_contract": {
+        "ids": [
+          "script_governance_contract"
+        ],
+        "paths": [
+          "tests/test_script_governance.py"
+        ],
+        "status": "lifecycle_gate"
+      }
+    },
+    {
+      "artifact_contract": {
+        "artifacts": [],
+        "status": "not_applicable_until_production_promotion"
+      },
+      "candidate_action": "review",
+      "category": "verifier",
+      "owner_contract": {
+        "domains": [],
+        "owners": [
+          "verification"
+        ],
+        "status": "lifecycle-owned"
+      },
+      "path": "scripts/verify_daily_v2_promotion_decision.py",
       "production_reachability": {
         "reachable": false,
         "roots": [],
@@ -12484,6 +12585,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -14384,6 +14486,7 @@
           "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_promotion.py",
           "tests/test_daily_v2_real_shadow.py",
           "tests/test_daily_workflow_v2.py",
           "tests/test_model_runtime_migration.py",
@@ -15836,23 +15939,16 @@
   },
   "summary": {
     "category_counts": {
-      "builder": 133,
+      "builder": 134,
       "maintenance": 95,
       "production_entrypoint": 11,
       "research": 28,
-      "verifier": 172
+      "verifier": 173
     },
     "production_contract_gaps": [],
     "production_reachable_count": 94,
-    "tracked_script_count": 439,
+    "tracked_script_count": 441,
     "unclassified": []
   },
-  "unknown_references": [
-    {
-      "kind": "python_dynamic_import",
-      "line": 28,
-      "reason": "dynamic Python import target cannot be resolved statically",
-      "source": "app/pipeline/__init__.py"
-    }
-  ]
+  "unknown_references": []
 }

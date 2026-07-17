@@ -134,6 +134,24 @@ def extract_references(
         tree = ast.parse(text, filename=source)
     except SyntaxError:
         return references, unknown
+    literal_module_maps: dict[str, tuple[str, ...]] = {}
+    for statement in tree.body:
+        if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        value = statement.value
+        if not isinstance(value, ast.Dict):
+            continue
+        module_values = tuple(
+            item.value
+            for item in value.values
+            if isinstance(item, ast.Constant) and isinstance(item.value, str)
+        )
+        if len(module_values) != len(value.values):
+            continue
+        for target_node in targets:
+            if isinstance(target_node, ast.Name):
+                literal_module_maps[target_node.id] = module_values
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -162,6 +180,15 @@ def extract_references(
                 target = module_to_script(first_arg.value, known_scripts)
                 if target and target != source:
                     references.append(reference(source, target, "python_dynamic_literal", node.lineno))
+            elif (
+                isinstance(first_arg, ast.Subscript)
+                and isinstance(first_arg.value, ast.Name)
+                and first_arg.value.id in literal_module_maps
+            ):
+                for module_name in literal_module_maps[first_arg.value.id]:
+                    target = module_to_script(module_name, known_scripts)
+                    if target and target != source:
+                        references.append(reference(source, target, "python_dynamic_literal_map", node.lineno))
             else:
                 unknown.append(
                     {

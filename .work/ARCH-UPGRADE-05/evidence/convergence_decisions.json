@@ -1,7 +1,7 @@
 {
   "schema_version": "top10.script-convergence-decisions.v1",
   "status": "GO",
-  "tracked_script_count": 439,
+  "tracked_script_count": 441,
   "production_reachable_count": 94,
   "deleted_scripts": [],
   "moved_scripts": [],
@@ -25,11 +25,12 @@
       "reason": "各 wrapper 具有不同 lock、resource profile、catch-up publish 與 failure reporting 契約；在 promotion gate 前不合併 production shell bootstrap。"
     }
   ],
-  "unknown_edges": [
+  "unknown_edges": [],
+  "resolved_edges": [
     {
       "source": "app/pipeline/__init__.py",
-      "kind": "python_dynamic_import",
-      "decision": "needs_review"
+      "kind": "python_dynamic_literal_map",
+      "decision": "literal mapping values are statically inspected; all targets are app.pipeline modules"
     }
   ]
 }
