@@ -129,6 +129,25 @@ class DailyV2ParityTest(unittest.TestCase):
         self.assertIn("production_equivalent_workflow", report["production_switch"]["blockers"])
         self.assertTrue(all(item["type"] == "expected_difference" for item in report["mismatches"]))
 
+    def test_fixture_cannot_be_relabelled_production_equivalent_by_argument(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = build_daily_v2_parity_report(
+                production_status=production_status(),
+                workflow_manifest=workflow_manifest(root),
+                real_shadow_manifest=real_shadow_manifest(root),
+                ranking_comparison=ranking_comparison(),
+                shadow_root=root,
+                workflow_profile="production-equivalent",
+            )
+
+        self.assertEqual(report["status"], "NO-GO")
+        self.assertIn(
+            "production_equivalence_attestation_missing",
+            {item["code"] for item in report["mismatches"] if item["blocking"]},
+        )
+        self.assertEqual(report["production_switch"]["status"], "NO-GO")
+
     def test_stale_ranking_date_is_data_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

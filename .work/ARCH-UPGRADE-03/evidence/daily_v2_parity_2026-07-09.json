@@ -10,6 +10,7 @@
     ],
     "live_send_allowed": false,
     "shadow_root": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2",
+    "version": "top10.daily-core-contract.v1",
     "workflow_profile": "fixture"
   },
   "data_parity": {

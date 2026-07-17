@@ -184,8 +184,8 @@ verification:
     paths: [tests/test_architecture_control_plane.py, tests/test_incremental_impact_planner.py]
   daily_contract:
     kind: test
-    command: [uv, run, python, -m, unittest, tests.test_automation_status_contract, tests.test_daily_publish_wrapper_guards, tests.test_daily_workflow_v2]
-    paths: [tests/test_automation_status_contract.py, tests/test_daily_publish_wrapper_guards.py, tests/test_daily_workflow_v2.py]
+    command: [uv, run, python, -m, unittest, tests.test_automation_execution, tests.test_automation_status_contract, tests.test_daily_automation_orchestrator, tests.test_daily_publish_wrapper_guards, tests.test_daily_workflow_v2]
+    paths: [tests/test_automation_execution.py, tests/test_automation_status_contract.py, tests/test_daily_automation_orchestrator.py, tests/test_daily_publish_wrapper_guards.py, tests/test_daily_workflow_v2.py]
   daily_parity_contract:
     kind: test
     command: [uv, run, python, -m, unittest, tests.test_daily_v2_parity, tests.test_daily_v2_real_shadow, tests.test_daily_workflow_v2]

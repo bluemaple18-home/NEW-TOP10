@@ -12,7 +12,6 @@ import json
 import os
 import pickle
 import shutil
-import subprocess
 import sys
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
@@ -22,6 +21,8 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
+from app.automation.daily_orchestrator import run_daily, run_daily_final_artifacts
+from app.automation.execution import execute_command, normalize_command
 from app.automation.pipeline_policy import (
     ResourceProfilePolicy,
     apply_daily_default_pipeline_window,
@@ -42,6 +43,98 @@ from app.automation.status_contract import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATUS_PATH = PROJECT_ROOT / "artifacts" / "automation_status.json"
+
+
+class _DailyActions:
+    """把既有 domain methods 接到純順序 orchestrator。"""
+
+    def __init__(self, runner: "AutomationRunner") -> None:
+        self.runner = runner
+
+    def should_skip_non_trading_day(self, config: dict[str, Any]) -> bool:
+        return self.runner._should_skip_non_trading_day(config)
+
+    def skip(self, step_name: str, reason: str) -> None:
+        self.runner._skip(step_name, reason)
+
+    def non_trading_day_reason(self) -> str:
+        return f"non_trading_day weekday={self.runner._today_local().weekday()}"
+
+    def guard_resource_profile(self) -> None:
+        self.runner._guard_daily_resource_profile()
+
+    def preflight(self) -> None:
+        self.runner._daily_preflight()
+
+    def run_etl(self) -> None:
+        self.runner._run_command("etl", self.runner._pipeline_run_command())
+
+    def validate_data(self) -> None:
+        self.runner._run_command("data.validate", ["python", "-m", "app.pipeline_cli", "validate"])
+
+    def record_data_freshness(self) -> None:
+        self.runner._record_data_freshness("data.freshness.after_etl")
+
+    def run_ranking(self) -> None:
+        self.runner._run_command("ranking", ["python", "-m", "app.agent_b_ranking"])
+
+    def record_ranking(self) -> None:
+        self.runner._record_latest_ranking("ranking.artifact")
+
+    def expected_ranking_path(self) -> Path:
+        return self.runner._expected_ranking_path()
+
+    def run_candidate_persistence(self, config: dict[str, Any], ranking_path: Path) -> None:
+        self.runner._run_candidate_persistence(config, ranking_path)
+
+    def run_weekly_snapshot(self, config: dict[str, Any], ranking_path: Path) -> None:
+        self.runner._run_weekly_snapshot(config, ranking_path)
+
+    def run_market_context(self, config: dict[str, Any]) -> None:
+        self.runner._run_market_context(config)
+
+    def run_daily_recommendation_performance(self, config: dict[str, Any]) -> None:
+        self.runner._run_daily_recommendation_performance(config)
+
+    def run_decision_quality(self, config: dict[str, Any], ranking_path: Path) -> None:
+        self.runner._run_decision_quality(config, ranking_path)
+
+    def run_daily_performance_review(self, config: dict[str, Any]) -> None:
+        self.runner._run_daily_performance_review(config)
+
+    def run_gross55_shadow_monitor(self, config: dict[str, Any], ranking_path: Path) -> None:
+        self.runner._run_gross55_shadow_monitor(config, ranking_path)
+
+    def run_capital_entry_quality_shadow_monitor(self, config: dict[str, Any], ranking_path: Path) -> None:
+        self.runner._run_capital_entry_quality_shadow_monitor(config, ranking_path)
+
+    def run_candidate_trail10_shadow_monitor(self, config: dict[str, Any], ranking_path: Path) -> None:
+        self.runner._run_candidate_trail10_shadow_monitor(config, ranking_path)
+
+    def run_overlap_first_recommendation_shadow(self, config: dict[str, Any], ranking_path: Path) -> None:
+        self.runner._run_overlap_first_recommendation_shadow(config, ranking_path)
+
+    def run_shadow_historical_evidence_report(self, config: dict[str, Any]) -> None:
+        self.runner._run_shadow_historical_evidence_report(config)
+
+    def run_daily_shadow_status_report(self, config: dict[str, Any]) -> None:
+        self.runner._run_daily_shadow_status_report(config)
+
+    def record_api_cache_clear_skipped(self) -> None:
+        self.runner._record_step(
+            "api.cache.clear",
+            "SKIPPED",
+            message="如 API 常駐，請由服務自行呼叫 POST /api/cache/clear",
+        )
+
+    def run_postcheck(self, config: dict[str, Any]) -> None:
+        self.runner._run_daily_postcheck(config)
+
+    def run_daily_report(self, config: dict[str, Any], ranking_path: Path) -> Path | None:
+        return self.runner._run_daily_report(config, ranking_path)
+
+    def run_clawd_payload(self, config: dict[str, Any], report_path: Path | None) -> None:
+        self.runner._run_clawd_payload(config, report_path)
 
 
 class AutomationRunner:
@@ -110,42 +203,11 @@ class AutomationRunner:
 
     def _run_daily(self) -> None:
         daily_config = self.config.get("daily", {})
-        if not daily_config.get("enabled", True):
-            self._skip("daily.disabled", "config daily.enabled=false")
-            return
-
-        if self._should_skip_non_trading_day(daily_config):
-            self._skip("daily.trading_day_gate", f"non_trading_day weekday={self._today_local().weekday()}")
-            return
-
-        self._guard_daily_resource_profile()
-        self._daily_preflight()
-        self._run_command("etl", self._pipeline_run_command())
-        self._run_command("data.validate", ["python", "-m", "app.pipeline_cli", "validate"])
-        self._record_data_freshness("data.freshness.after_etl")
-        self._run_command("ranking", ["python", "-m", "app.agent_b_ranking"])
-        self._record_latest_ranking("ranking.artifact")
-        ranking_path = self._expected_ranking_path()
-        self._run_candidate_persistence(daily_config, ranking_path)
-        self._run_weekly_snapshot(daily_config, ranking_path)
-        self._run_market_context(daily_config)
-        self._run_daily_recommendation_performance(daily_config)
-        self._run_decision_quality(daily_config, ranking_path)
-        self._run_daily_performance_review(daily_config)
-        self._run_gross55_shadow_monitor(daily_config, ranking_path)
-        self._run_capital_entry_quality_shadow_monitor(daily_config, ranking_path)
-        self._run_candidate_trail10_shadow_monitor(daily_config, ranking_path)
-        self._run_overlap_first_recommendation_shadow(daily_config, ranking_path)
-        self._run_shadow_historical_evidence_report(daily_config)
-        self._run_daily_shadow_status_report(daily_config)
-        self._record_step("api.cache.clear", "SKIPPED", message="如 API 常駐，請由服務自行呼叫 POST /api/cache/clear")
-        self._run_daily_postcheck(daily_config)
+        run_daily(_DailyActions(self), daily_config)
 
     def _run_daily_final_artifacts(self) -> None:
         daily_config = self.config.get("daily", {})
-        ranking_path = self._expected_ranking_path()
-        report_path = self._run_daily_report(daily_config, ranking_path)
-        self._run_clawd_payload(daily_config, report_path)
+        run_daily_final_artifacts(_DailyActions(self), daily_config)
 
     def _run_monitor(self) -> None:
         if not self.config.get("monitor", {}).get("enabled", True):
@@ -1360,31 +1422,28 @@ class AutomationRunner:
         )
 
     def _run_command(self, name: str, command: list[str], allow_failure: bool = False) -> None:
-        started_at = self._now()
-        command = self._normalize_command(command)
-        if self.dry_run:
-            self.status.steps.append(
-                StepResult(name=name, status="DRY_RUN", command=command, started_at=started_at, finished_at=self._now())
-            )
-            return
-
-        completed = subprocess.run(command, cwd=PROJECT_ROOT, env=self._subprocess_env())
+        outcome = execute_command(
+            command,
+            python_executable=sys.executable,
+            dry_run=self.dry_run,
+            cwd=PROJECT_ROOT,
+            env=self._subprocess_env(),
+            now=self._now,
+        )
         result = StepResult(
             name=name,
-            status="OK" if completed.returncode == 0 else "FAILED",
-            command=command,
-            started_at=started_at,
-            finished_at=self._now(),
-            exit_code=completed.returncode,
+            status=outcome.status,
+            command=outcome.command,
+            started_at=outcome.started_at,
+            finished_at=outcome.finished_at,
+            exit_code=outcome.exit_code,
         )
         self.status.steps.append(result)
-        if completed.returncode != 0 and not allow_failure:
-            raise RuntimeError(f"{name} 失敗，exit_code={completed.returncode}")
+        if outcome.exit_code not in (None, 0) and not allow_failure:
+            raise RuntimeError(f"{name} 失敗，exit_code={outcome.exit_code}")
 
     def _normalize_command(self, command: list[str]) -> list[str]:
-        if command and command[0] == "python":
-            return [sys.executable, *command[1:]]
-        return command
+        return normalize_command(command, python_executable=sys.executable)
 
     def _record_step(self, name: str, status: str, message: str | None = None) -> None:
         self.status.steps.append(

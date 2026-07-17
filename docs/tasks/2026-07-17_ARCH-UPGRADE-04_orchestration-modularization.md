@@ -1,6 +1,6 @@
 ---
 id: ARCH-UPGRADE-04
-status: blocked
+status: completed
 type: implementation
 priority: P0
 thickness: strict
@@ -41,3 +41,8 @@ model_reason: 拆解 production orchestration 共享邏輯，需維持 CLI、sta
 ## Evidence
 
 `.work/ARCH-UPGRADE-04/evidence/`
+
+- 70 affected tests、15 subtests 通過；僅 3 個既有 SHAP colormap deprecation warnings。
+- parity 2026-07-16 重算為 `GO`，production switch 維持 `NO-GO`。
+- 2026-07-09 缺少完整 step evidence 的歷史樣本維持 `NO-GO`。
+- 未修改 production model、ranking、publish、launchd 或 shell entrypoint。

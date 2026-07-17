@@ -382,13 +382,17 @@
           "python",
           "-m",
           "unittest",
+          "tests.test_automation_execution",
           "tests.test_automation_status_contract",
+          "tests.test_daily_automation_orchestrator",
           "tests.test_daily_publish_wrapper_guards",
           "tests.test_daily_workflow_v2"
         ],
         "kind": "test",
         "paths": [
+          "tests/test_automation_execution.py",
           "tests/test_automation_status_contract.py",
+          "tests/test_daily_automation_orchestrator.py",
           "tests/test_daily_publish_wrapper_guards.py",
           "tests/test_daily_workflow_v2.py"
         ]
@@ -711,9 +715,9 @@
   },
   "schema_version": "top10.architecture-manifest.v1",
   "source": {
-    "git_sha": "a74f931731a970631fdec90dc473f0b834bcca07",
+    "git_sha": "77c6e4498541a5a5c1bfd90efc54fcdf387ab4ad",
     "inputs": {
-      "config/architecture_control_plane.yaml": "2685a86fd379d98b7befd6eca726621a3103c1441f013b3f480658bece35d554",
+      "config/architecture_control_plane.yaml": "a749c8ba380a5dd469cea3a528aa686bd2ecf0dd181c9e36ad48fc03ada909aa",
       "config/script_lifecycle.yaml": "805d8a2b82570a8947401fd15d162f840c962390d551430167921041a8e19ccd"
     }
   }

@@ -1,0 +1,24 @@
+{
+  "schema_version": "top10.arch-upgrade.verification.v1",
+  "card_id": "ARCH-UPGRADE-04",
+  "status": "GO",
+  "tests": {
+    "passed": 70,
+    "subtests_passed": 15,
+    "warnings": 3,
+    "warning_scope": "existing shap colormap pending deprecations"
+  },
+  "contracts": {
+    "daily_core": "top10.daily-core-contract.v1",
+    "production_order_preserved": true,
+    "failure_policy_preserved": true,
+    "fixture_relabel_blocked": true
+  },
+  "production": {
+    "switch_executed": false,
+    "model_modified": false,
+    "ranking_modified": false,
+    "publish_modified": false,
+    "scheduler_modified": false
+  }
+}

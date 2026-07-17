@@ -7,13 +7,20 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from app.automation.daily_contract import (
+    DAILY_CORE_CONTRACT_VERSION,
+    DAILY_CORE_STEPS,
+    PRODUCTION_CORE_STEP_MAP,
+    PRODUCTION_EQUIVALENT_PROFILE,
+    has_production_equivalent_attestation,
+)
 
 PARITY_REPORT_SCHEMA_VERSION = "top10.daily-v2.parity-report.v1"
 PRODUCTION_STATUS_SCHEMA_VERSION = "daily-run-status.v1"
 WORKFLOW_MANIFEST_SCHEMA_VERSION = "top10.daily-workflow-v2.run-manifest.v1"
 REAL_SHADOW_MANIFEST_SCHEMA_VERSION = "top10.daily-v2.real-shadow-manifest.v1"
 RANKING_COMPARISON_SCHEMA_VERSION = "top10.daily-v2.ranking-comparison.v1"
-WORKFLOW_PROFILES = frozenset({"fixture", "production-equivalent"})
+WORKFLOW_PROFILES = frozenset({"fixture", PRODUCTION_EQUIVALENT_PROFILE})
 MISMATCH_TYPES = frozenset(
     {
         "expected_difference",
@@ -24,14 +31,8 @@ MISMATCH_TYPES = frozenset(
         "unsafe_side_effect",
     }
 )
-CORE_STEP_MAP = {
-    "etl": "etl",
-    "data.validate": "validate",
-    "ranking": "rank",
-    "daily.report": "report",
-    "clawd.payload": "publish-ready",
-}
-CORE_STEPS = tuple(CORE_STEP_MAP.values())
+CORE_STEP_MAP = PRODUCTION_CORE_STEP_MAP
+CORE_STEPS = DAILY_CORE_STEPS
 
 
 class DailyV2ParityError(ValueError):
@@ -159,6 +160,16 @@ def build_daily_v2_parity_report(
 
     shadow_root = Path(shadow_root).expanduser().resolve()
     mismatches: list[dict[str, Any]] = []
+    if workflow_profile == PRODUCTION_EQUIVALENT_PROFILE and not has_production_equivalent_attestation(workflow_manifest):
+        mismatches.append(
+            _mismatch(
+                "contract_gap",
+                "production_equivalence_attestation_missing",
+                "production-equivalent 必須由 workflow manifest 綁定共用核心契約，不接受 CLI 人工改標",
+                blocking=True,
+                evidence={"required_contract_version": DAILY_CORE_CONTRACT_VERSION},
+            )
+        )
     run_dates = {
         "production": production_status.get("run_date"),
         "workflow": workflow_manifest.get("run_date"),
@@ -366,6 +377,7 @@ def build_daily_v2_parity_report(
         "execution_outcome": execution_outcome,
         "run_date": run_dates["production"],
         "contract": {
+            "version": DAILY_CORE_CONTRACT_VERSION,
             "core_steps": list(CORE_STEPS),
             "workflow_profile": workflow_profile,
             "shadow_root": str(shadow_root),
