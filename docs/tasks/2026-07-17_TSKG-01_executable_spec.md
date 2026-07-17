@@ -1,7 +1,7 @@
 ---
 card_id: TSKG-01
 title: Taiwan Stock Knowledge Graph v1.1 可執行規格
-status: CARD_DRAFTED
+status: DELIVERED_CANDIDATE
 owner: Codex 主線
 assignee: TSKG 規格任務
 thickness: strict
@@ -101,4 +101,13 @@ evidence_path: docs/evidence/TSKG-01/
 
 ## Result
 
-待執行線填寫候選 commit、changed files、驗證結果、未解問題與 evidence 連結。
+- Delivery status：`DELIVERED_CANDIDATE`（不代表 ACCEPTED／INTEGRATED／COMPLETED）。
+- Candidate commit：本次 docs candidate commit；完整 SHA 由交付回報提供，避免 commit 自參照。
+- Changed files：
+  - `docs/specs/TSKG_v1.1.md`
+  - `docs/evidence/TSKG-01/requirements_traceability.md`
+  - `docs/evidence/TSKG-01/verification.md`
+  - `docs/tasks/2026-07-17_TSKG-01_executable_spec.md`（僅 status／Result）
+- Verification：requirements trace 31/31、baseline disposition 14/14、acceptance scenarios 12/12、slice frontier/dependency check、changed-file allowlist 與 `git diff --check` 均通過；post-commit range 結果以交付回報為準。
+- Evidence：`docs/evidence/TSKG-01/requirements_traceability.md`、`docs/evidence/TSKG-01/verification.md`。
+- Open Questions／downstream blockers：見 `docs/specs/TSKG_v1.1.md` §15；來源治理與 universe authority 阻擋對應 runtime slices，但不阻擋 SLC-01 或本 docs candidate。
