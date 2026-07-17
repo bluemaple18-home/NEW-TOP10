@@ -393,6 +393,24 @@
           "tests/test_daily_workflow_v2.py"
         ]
       },
+      "daily_parity_contract": {
+        "command": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_daily_v2_parity",
+          "tests.test_daily_v2_real_shadow",
+          "tests.test_daily_workflow_v2"
+        ],
+        "kind": "test",
+        "paths": [
+          "tests/test_daily_v2_parity.py",
+          "tests/test_daily_v2_real_shadow.py",
+          "tests/test_daily_workflow_v2.py"
+        ]
+      },
       "publish_guard": {
         "command": [
           "uv",
@@ -474,7 +492,8 @@
         "owner_domain": "automation",
         "production": true,
         "required_verification": [
-          "daily_contract"
+          "daily_contract",
+          "daily_parity_contract"
         ],
         "steps": [
           {
@@ -692,9 +711,9 @@
   },
   "schema_version": "top10.architecture-manifest.v1",
   "source": {
-    "git_sha": "3d83d6300796bbc9c8b23002bf31d10140c92b82",
+    "git_sha": "a74f931731a970631fdec90dc473f0b834bcca07",
     "inputs": {
-      "config/architecture_control_plane.yaml": "626613e48f631c5ea9d4f41968a5a21cad91b4094c4ace9058971d522e2e6569",
+      "config/architecture_control_plane.yaml": "2685a86fd379d98b7befd6eca726621a3103c1441f013b3f480658bece35d554",
       "config/script_lifecycle.yaml": "805d8a2b82570a8947401fd15d162f840c962390d551430167921041a8e19ccd"
     }
   }

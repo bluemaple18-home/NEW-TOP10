@@ -1827,6 +1827,14 @@
       "candidate_action": "review"
     },
     {
+      "path": "scripts/run_daily_v2_parity.py",
+      "category": "maintenance",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: maintenance:run_",
+      "reason": "檔名符合 maintenance 分類前綴 run_。",
+      "candidate_action": "retain"
+    },
+    {
       "path": "scripts/run_external_review_host_runner.py",
       "category": "maintenance",
       "entrypoint": false,
@@ -2596,6 +2604,14 @@
     },
     {
       "path": "scripts/verify_daily_tape_and_rr_guard.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
+      "path": "scripts/verify_daily_v2_parity.py",
       "category": "verifier",
       "entrypoint": false,
       "reference_evidence": "prefix rule: verifier:verify_",
@@ -3484,13 +3500,13 @@
     }
   ],
   "summary": {
-    "tracked_script_count": 435,
+    "tracked_script_count": 437,
     "category_counts": {
       "builder": 132,
-      "maintenance": 94,
+      "maintenance": 95,
       "production_entrypoint": 11,
       "research": 28,
-      "verifier": 170
+      "verifier": 171
     },
     "review_candidates": [
       "scripts/build_5913_combo_effectiveness_review.py",
@@ -3714,6 +3730,7 @@
       "scripts/verify_daily_research_quota.py",
       "scripts/verify_daily_shadow_status_report.py",
       "scripts/verify_daily_tape_and_rr_guard.py",
+      "scripts/verify_daily_v2_parity.py",
       "scripts/verify_data_contracts.py",
       "scripts/verify_decision_quality.py",
       "scripts/verify_discord_channel_routing.py",

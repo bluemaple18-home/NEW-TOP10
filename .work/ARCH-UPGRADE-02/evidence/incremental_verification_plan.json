@@ -484,7 +484,7 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 204,
+        "line": 208,
         "source": "config/architecture_control_plane.yaml",
         "target": "tests/test_scheduler_ownership.py"
       },
@@ -1859,6 +1859,7 @@
   "required_verification": [
     "architecture_contract",
     "daily_contract",
+    "daily_parity_contract",
     "scheduler_ownership"
   ],
   "risk": {
@@ -1869,8 +1870,8 @@
   },
   "schema_version": "top10.incremental-verification-plan.v1",
   "source": {
-    "architecture_manifest_digest": "343abbabd27b1817d5571a226173199629d5c71c9f3eccff60e9aabe2e05b293",
-    "git_sha": "3d83d6300796bbc9c8b23002bf31d10140c92b82"
+    "architecture_manifest_digest": "59371d05da0b2ca39f43255a63f4ff1faefcacc5b7c07b014bbae1dfeacaaeb9",
+    "git_sha": "a74f931731a970631fdec90dc473f0b834bcca07"
   },
   "unknown_edges": [
     {
@@ -1898,6 +1899,16 @@
       "unittest",
       "tests.test_automation_status_contract",
       "tests.test_daily_publish_wrapper_guards",
+      "tests.test_daily_workflow_v2"
+    ],
+    "daily_parity_contract": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "unittest",
+      "tests.test_daily_v2_parity",
+      "tests.test_daily_v2_real_shadow",
       "tests.test_daily_workflow_v2"
     ],
     "scheduler_ownership": [

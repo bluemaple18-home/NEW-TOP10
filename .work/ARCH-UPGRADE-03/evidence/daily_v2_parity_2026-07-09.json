@@ -1,0 +1,152 @@
+{
+  "contract": {
+    "automatic_full_fallback_allowed": false,
+    "core_steps": [
+      "etl",
+      "validate",
+      "rank",
+      "report",
+      "publish-ready"
+    ],
+    "live_send_allowed": false,
+    "shadow_root": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2",
+    "workflow_profile": "fixture"
+  },
+  "data_parity": {
+    "ranking_comparison": "GO",
+    "ranking_production_switch": "GO",
+    "real_shadow": "GO"
+  },
+  "execution_outcome": "succeeded",
+  "mismatches": [
+    {
+      "blocking": true,
+      "code": "missing_core_step:etl",
+      "evidence": {
+        "production": null,
+        "workflow": "succeeded"
+      },
+      "message": "canonical step etl 在 production 或 workflow 缺漏",
+      "type": "contract_gap"
+    },
+    {
+      "blocking": true,
+      "code": "missing_core_step:validate",
+      "evidence": {
+        "production": null,
+        "workflow": "succeeded"
+      },
+      "message": "canonical step validate 在 production 或 workflow 缺漏",
+      "type": "contract_gap"
+    },
+    {
+      "blocking": true,
+      "code": "missing_core_step:rank",
+      "evidence": {
+        "production": null,
+        "workflow": "succeeded"
+      },
+      "message": "canonical step rank 在 production 或 workflow 缺漏",
+      "type": "contract_gap"
+    },
+    {
+      "blocking": true,
+      "code": "missing_core_step:report",
+      "evidence": {
+        "production": null,
+        "workflow": "succeeded"
+      },
+      "message": "canonical step report 在 production 或 workflow 缺漏",
+      "type": "contract_gap"
+    },
+    {
+      "blocking": true,
+      "code": "missing_core_step:publish-ready",
+      "evidence": {
+        "production": null,
+        "workflow": "succeeded"
+      },
+      "message": "canonical step publish-ready 在 production 或 workflow 缺漏",
+      "type": "contract_gap"
+    },
+    {
+      "blocking": true,
+      "code": "production_core_order",
+      "evidence": {
+        "actual": [],
+        "expected": [
+          "etl",
+          "validate",
+          "rank",
+          "report",
+          "publish-ready"
+        ]
+      },
+      "message": "production canonical steps 順序不符",
+      "type": "contract_gap"
+    },
+    {
+      "blocking": false,
+      "code": "fixture_workflow_profile",
+      "evidence": {},
+      "message": "fixture 只能證明 control-flow contract，不能授權 production switch",
+      "type": "expected_difference"
+    }
+  ],
+  "production_switch": {
+    "blockers": [
+      "parity_no_go",
+      "production_equivalent_workflow"
+    ],
+    "executed": false,
+    "status": "NO-GO"
+  },
+  "resume": {
+    "completed_outputs_preserved": true,
+    "resume_count": 0
+  },
+  "run_date": "2026-07-09",
+  "schema_version": "top10.daily-v2.parity-report.v1",
+  "source_files": {
+    "production_status": {
+      "path": "/Users/mattkuo/TOP10new/artifacts/daily_run_summary_2026-07-09.json",
+      "sha256": "0e8003449acc4272d8f2cddeeea25117ead2e566f3902bab3415cb8a07df9d4f"
+    },
+    "ranking_comparison": {
+      "path": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2/daily-v2-20260709-post-promotion-v4/comparison.json",
+      "sha256": "ad2399b0e27946d5a2bd71a735c556839f7010da53dbfdec8bd77c0e4116c768"
+    },
+    "real_shadow_manifest": {
+      "path": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2/daily-v2-20260709-post-promotion-v4/manifest.json",
+      "sha256": "13278fd2ce2afe5332cc3cbce32491af7d28b51cd4aac5fddeba172a41fde04a"
+    },
+    "workflow_manifest": {
+      "path": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2/arch-upgrade-03-fixture/manifest.json",
+      "sha256": "76554126c314377189d432912547de0d18aa8ecd2a9f0965ee2598e118bfe834"
+    }
+  },
+  "status": "NO-GO",
+  "step_parity": {
+    "production": {},
+    "production_first_failed": null,
+    "workflow": {
+      "etl": "succeeded",
+      "publish-ready": "succeeded",
+      "rank": "succeeded",
+      "report": "succeeded",
+      "validate": "succeeded"
+    },
+    "workflow_first_failed": null
+  },
+  "summary": {
+    "blocking_count": 6,
+    "mismatch_type_counts": {
+      "contract_gap": 6,
+      "data_mismatch": 0,
+      "expected_difference": 1,
+      "failure_semantics": 0,
+      "status_mismatch": 0,
+      "unsafe_side_effect": 0
+    }
+  }
+}

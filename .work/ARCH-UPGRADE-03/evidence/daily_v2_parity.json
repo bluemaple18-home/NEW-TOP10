@@ -1,0 +1,131 @@
+{
+  "contract": {
+    "automatic_full_fallback_allowed": false,
+    "core_steps": [
+      "etl",
+      "validate",
+      "rank",
+      "report",
+      "publish-ready"
+    ],
+    "live_send_allowed": false,
+    "shadow_root": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2",
+    "workflow_profile": "fixture"
+  },
+  "data_parity": {
+    "ranking_comparison": "GO",
+    "ranking_production_switch": "GO",
+    "real_shadow": "GO"
+  },
+  "execution_outcome": "succeeded",
+  "mismatches": [
+    {
+      "blocking": false,
+      "code": "production_auxiliary_steps",
+      "evidence": {
+        "steps": [
+          "preflight.project_root",
+          "daily.schema",
+          "daily.run_date",
+          "model.exists",
+          "data.freshness.preflight",
+          "data.freshness.after_etl",
+          "ranking.artifact",
+          "candidate.persistence",
+          "weekly.snapshot",
+          "market.context",
+          "market.context.artifact",
+          "daily_recommendation.performance",
+          "daily_recommendation.performance.artifact",
+          "daily_recommendation.performance.verify",
+          "decision.quality",
+          "decision.quality.artifact",
+          "daily_performance.review",
+          "daily_performance.review.artifact",
+          "daily_performance.review.verify",
+          "gross55.shadow_monitor",
+          "capital_entry_quality.shadow_monitor",
+          "candidate_trail10.shadow_monitor",
+          "overlap_first.recommendation_shadow",
+          "shadow_historical.evidence_report",
+          "daily_shadow.status_report",
+          "api.cache.clear",
+          "daily.postcheck",
+          "daily.report.artifact",
+          "clawd.payload.llm_rewrite",
+          "clawd.payload.artifact"
+        ]
+      },
+      "message": "production 保留 V2 core 之外的輔助／研究步驟",
+      "type": "expected_difference"
+    },
+    {
+      "blocking": false,
+      "code": "fixture_workflow_profile",
+      "evidence": {},
+      "message": "fixture 只能證明 control-flow contract，不能授權 production switch",
+      "type": "expected_difference"
+    }
+  ],
+  "production_switch": {
+    "blockers": [
+      "production_equivalent_workflow"
+    ],
+    "executed": false,
+    "status": "NO-GO"
+  },
+  "resume": {
+    "completed_outputs_preserved": true,
+    "resume_count": 0
+  },
+  "run_date": "2026-07-16",
+  "schema_version": "top10.daily-v2.parity-report.v1",
+  "source_files": {
+    "production_status": {
+      "path": "/Users/mattkuo/TOP10new/artifacts/automation_status.json",
+      "sha256": "b2626bd35092e55aeb855babf12237990be6f9ab8112f9723629904ab0c5fdca"
+    },
+    "ranking_comparison": {
+      "path": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2/arch-upgrade-03-real-20260716/comparison.json",
+      "sha256": "fad9e7f0766abe3823f211cd5510c711c726d1d886b6a09f4008cee7a8a9f823"
+    },
+    "real_shadow_manifest": {
+      "path": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2/arch-upgrade-03-real-20260716/manifest.json",
+      "sha256": "7910bee1b6156fd116d08d2b866cd082717e2fd6f9455483c3f678f09ffc5fc0"
+    },
+    "workflow_manifest": {
+      "path": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2/arch-upgrade-03-fixture-20260716/manifest.json",
+      "sha256": "bf13fb790902bd8e552fcd86bce652e0424a62d555dd41e5ff4d3d0491d8331a"
+    }
+  },
+  "status": "GO",
+  "step_parity": {
+    "production": {
+      "etl": "succeeded",
+      "publish-ready": "succeeded",
+      "rank": "succeeded",
+      "report": "succeeded",
+      "validate": "succeeded"
+    },
+    "production_first_failed": null,
+    "workflow": {
+      "etl": "succeeded",
+      "publish-ready": "succeeded",
+      "rank": "succeeded",
+      "report": "succeeded",
+      "validate": "succeeded"
+    },
+    "workflow_first_failed": null
+  },
+  "summary": {
+    "blocking_count": 0,
+    "mismatch_type_counts": {
+      "contract_gap": 0,
+      "data_mismatch": 0,
+      "expected_difference": 2,
+      "failure_semantics": 0,
+      "status_mismatch": 0,
+      "unsafe_side_effect": 0
+    }
+  }
+}
