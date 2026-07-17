@@ -5,7 +5,7 @@ type: repair
 parent: ARCH-UPGRADE-07
 source_review: ARCH-UPGRADE-07A,ARCH-UPGRADE-07C
 priority: P0
-code_candidate_sha: 82a6054333c62ec72b4972054a8c04fc708b46c8
+code_candidate_sha: 3613dc0f71fbf5cb29d94c55bc7df68a3d7a2d25
 ---
 
 # Review Repair-2
@@ -27,4 +27,5 @@ code_candidate_sha: 82a6054333c62ec72b4972054a8c04fc708b46c8
 - targeted contract tests：23 passed。
 - full suite：324 passed、28 subtests passed。
 - promotion evidence：file-backed 重算通過，決策維持 `NO-GO / retain_current_production`。
+- repo root 外重算 parity/promotion：通過。
 - `git diff --check`：通過。

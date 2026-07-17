@@ -34,7 +34,7 @@
       "message": "缺少固定 SHA 的獨立 review"
     }
   ],
-  "candidate_sha": "82a6054333c62ec72b4972054a8c04fc708b46c8",
+  "candidate_sha": "3613dc0f71fbf5cb29d94c55bc7df68a3d7a2d25",
   "decision": "retain_current_production",
   "parity_dates": [
     "2026-07-09",

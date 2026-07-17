@@ -1,9 +1,10 @@
 ---
 id: ARCH-UPGRADE-08B
-status: queued
+status: in_review
 type: review
 parent: ARCH-UPGRADE-08
-code_candidate_sha: 82a6054333c62ec72b4972054a8c04fc708b46c8
+code_candidate_sha: 3613dc0f71fbf5cb29d94c55bc7df68a3d7a2d25
+thread_id: 019f6f70-2789-7b10-8811-44960e25d90f
 ---
 
 # Fresh-checkout evidence and impact re-review
