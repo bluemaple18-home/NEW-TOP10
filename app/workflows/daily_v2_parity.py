@@ -123,7 +123,7 @@ def _first_failed(steps: Mapping[str, str]) -> str | None:
 
 def _is_within(path: str | Path, parent: str | Path) -> bool:
     try:
-        Path(path).expanduser().resolve().relative_to(Path(parent).expanduser().resolve())
+        _resolve_portable_path(path).relative_to(_resolve_portable_path(parent))
     except ValueError:
         return False
     return True

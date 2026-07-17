@@ -378,6 +378,9 @@ class DailyV2ParityTest(unittest.TestCase):
                 "real_shadow_manifest": real_shadow_manifest(root),
                 "ranking_comparison": ranking_comparison(),
             }
+            relative_run_dir = root.resolve().relative_to(Path.cwd().resolve()).as_posix()
+            payloads["workflow_manifest"]["run_dir"] = relative_run_dir
+            payloads["real_shadow_manifest"]["run_dir"] = relative_run_dir
             paths = {}
             for label, payload in payloads.items():
                 path = root / f"{label}.json"
