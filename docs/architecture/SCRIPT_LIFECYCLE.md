@@ -36,10 +36,15 @@ git diff --check
 
 `scripts/audit_script_references.py` 掃描 Git tracked 的 UTF-8 text files，辨識 Python import、shell／Python 路徑、plist、YAML 與 Markdown 的靜態引用。它只產出 `script-reference-audit.v1` JSON，不執行、搬移或刪除任何 script。
 
+`scripts/build_script_governance.py` 再把 lifecycle、reference audit 與 architecture manifest 合併成 `top10.script-governance.v1`。每支 script 都會得到 owner、production reachability roots/workflows、artifact contract、verification contract 與 candidate action。production 可觸達路徑若缺 owner、artifact 或 verification，strict gate 會 fail closed；非 production script 的空 artifact 集合會明確標記為「promotion 前不適用」，不會被誤當成已驗證或可刪除。
+
 ```bash
 uv run python scripts/audit_script_references.py \
   --output .work/CLEANUP-15/evidence/script-reference-audit.json \
   --strict-new
+
+uv run python scripts/build_script_governance.py
+uv run python scripts/verify_script_governance.py
 ```
 
 報告依路徑排序，每支 script 都有 `reason`、`reference_count` 與引用證據。production entrypoint 由既有 exact allowlist 標示為 `protected`，即使引用數為零也不會列入 suspected orphan。無法靜態解析的 Python dynamic import 會放在 `unknown_references`；它們不構成可刪除結論。

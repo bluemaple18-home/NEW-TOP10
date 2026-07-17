@@ -180,8 +180,12 @@ artifacts:
 verification:
   architecture_contract:
     kind: test
-    command: [uv, run, python, -m, unittest, tests.test_architecture_control_plane, tests.test_incremental_impact_planner]
-    paths: [tests/test_architecture_control_plane.py, tests/test_incremental_impact_planner.py]
+    command: [uv, run, python, -m, unittest, tests.test_architecture_control_plane, tests.test_incremental_impact_planner, tests.test_script_governance]
+    paths: [tests/test_architecture_control_plane.py, tests/test_incremental_impact_planner.py, tests/test_script_governance.py]
+  script_governance_contract:
+    kind: gate
+    command: [uv, run, python, scripts/verify_script_governance.py]
+    paths: [tests/test_script_governance.py, scripts/verify_script_governance.py]
   daily_contract:
     kind: test
     command: [uv, run, python, -m, unittest, tests.test_automation_execution, tests.test_automation_status_contract, tests.test_daily_automation_orchestrator, tests.test_daily_publish_wrapper_guards, tests.test_daily_workflow_v2]

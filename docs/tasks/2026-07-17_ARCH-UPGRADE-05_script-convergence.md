@@ -1,6 +1,6 @@
 ---
 id: ARCH-UPGRADE-05
-status: blocked
+status: completed
 type: implementation
 priority: P1
 thickness: strict
@@ -29,7 +29,7 @@ model_reason: 涵蓋 398 支 scripts、production reachability 與共用邏輯�
 
 ## 完整驗收
 
-- 398/398 tracked Python scripts 均被清冊覆蓋。
+- 當前全部 tracked scripts（Python、shell、plist）均被清冊覆蓋；數量由 evidence 動態計算，不固定寫死 398。
 - `unclassified=[]`；production reachable path 的 `owner/contract/tests` 不得缺漏。
 - 共用 path/schema/subprocess/manifest 邏輯不在多支 production scripts 各自漂移。
 - 刪除或搬移只能在 reference audit、impact plan、tests 與 rollback 證據完整時進行。
@@ -38,3 +38,9 @@ model_reason: 涵蓋 398 支 scripts、production reachability 與共用邏輯�
 ## Evidence
 
 `.work/ARCH-UPGRADE-05/evidence/`
+
+- 439/439 tracked scripts 已覆蓋（133 builder、95 maintenance、11 production entrypoint、28 research、172 verifier）。
+- 94 支可由 production roots 靜態觸達；owner、workflow、artifact 與 verification contract 缺漏皆為 0。
+- `unclassified=[]`、reference strict-new PASS、suspected orphan 0；因此本卡未做無證據刪檔。
+- 保留 1 筆 `app/pipeline/__init__.py` dynamic import unknown edge，明確列入 evidence，不宣稱 heuristic 已解析。
+- governance 與架構相關測試 24 passed、2 subtests passed。

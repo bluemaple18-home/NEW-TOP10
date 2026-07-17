@@ -963,6 +963,14 @@
       "candidate_action": "review"
     },
     {
+      "path": "scripts/build_script_governance.py",
+      "category": "builder",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: builder:build_",
+      "reason": "檔名符合 builder 分類前綴 build_。",
+      "candidate_action": "review"
+    },
+    {
       "path": "scripts/build_shadow_feature_experiment.py",
       "category": "builder",
       "entrypoint": false,
@@ -3299,6 +3307,14 @@
       "candidate_action": "review"
     },
     {
+      "path": "scripts/verify_script_governance.py",
+      "category": "verifier",
+      "entrypoint": false,
+      "reference_evidence": "prefix rule: verifier:verify_",
+      "reason": "檔名符合 verifier 分類前綴 verify_。",
+      "candidate_action": "review"
+    },
+    {
       "path": "scripts/verify_sealed_oos_gate.py",
       "category": "verifier",
       "entrypoint": false,
@@ -3500,13 +3516,13 @@
     }
   ],
   "summary": {
-    "tracked_script_count": 437,
+    "tracked_script_count": 439,
     "category_counts": {
-      "builder": 132,
+      "builder": 133,
       "maintenance": 95,
       "production_entrypoint": 11,
       "research": 28,
-      "verifier": 171
+      "verifier": 172
     },
     "review_candidates": [
       "scripts/build_5913_combo_effectiveness_review.py",
@@ -3621,6 +3637,7 @@
       "scripts/build_research_component_ledger.py",
       "scripts/build_research_decision_brief.py",
       "scripts/build_research_fog_map.py",
+      "scripts/build_script_governance.py",
       "scripts/build_shadow_feature_experiment.py",
       "scripts/build_shadow_historical_evidence_report.py",
       "scripts/build_stock_industry_map_from_concepts.py",
@@ -3816,6 +3833,7 @@
       "scripts/verify_retrain_sealed_oos_capacity_preflight.py",
       "scripts/verify_review_fixes.py",
       "scripts/verify_scheduler_ownership.py",
+      "scripts/verify_script_governance.py",
       "scripts/verify_sealed_oos_gate.py",
       "scripts/verify_shadow_feature_experiment.py",
       "scripts/verify_shadow_historical_evidence_report.py",

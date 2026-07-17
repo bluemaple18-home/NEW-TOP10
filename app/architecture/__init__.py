@@ -14,6 +14,12 @@ from app.architecture.impact import (
     changed_files_from_git,
     verify_incremental_verification_plan,
 )
+from app.architecture.script_governance import (
+    SCRIPT_GOVERNANCE_SCHEMA_VERSION,
+    ScriptGovernanceError,
+    build_script_governance,
+    verify_script_governance,
+)
 
 __all__ = [
     "CONTROL_PLANE_SCHEMA_VERSION",
@@ -26,4 +32,8 @@ __all__ = [
     "build_incremental_verification_plan",
     "changed_files_from_git",
     "verify_incremental_verification_plan",
+    "SCRIPT_GOVERNANCE_SCHEMA_VERSION",
+    "ScriptGovernanceError",
+    "build_script_governance",
+    "verify_script_governance",
 ]

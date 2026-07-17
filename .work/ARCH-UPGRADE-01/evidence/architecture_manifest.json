@@ -367,12 +367,14 @@
           "-m",
           "unittest",
           "tests.test_architecture_control_plane",
-          "tests.test_incremental_impact_planner"
+          "tests.test_incremental_impact_planner",
+          "tests.test_script_governance"
         ],
         "kind": "test",
         "paths": [
           "tests/test_architecture_control_plane.py",
-          "tests/test_incremental_impact_planner.py"
+          "tests/test_incremental_impact_planner.py",
+          "tests/test_script_governance.py"
         ]
       },
       "daily_contract": {
@@ -472,6 +474,19 @@
         "kind": "test",
         "paths": [
           "tests/test_scheduler_ownership.py"
+        ]
+      },
+      "script_governance_contract": {
+        "command": [
+          "uv",
+          "run",
+          "python",
+          "scripts/verify_script_governance.py"
+        ],
+        "kind": "gate",
+        "paths": [
+          "tests/test_script_governance.py",
+          "scripts/verify_script_governance.py"
         ]
       },
       "web_health": {
@@ -715,9 +730,9 @@
   },
   "schema_version": "top10.architecture-manifest.v1",
   "source": {
-    "git_sha": "77c6e4498541a5a5c1bfd90efc54fcdf387ab4ad",
+    "git_sha": "72463a95dc17cd7c23b56b1a827d581909b2e280",
     "inputs": {
-      "config/architecture_control_plane.yaml": "a749c8ba380a5dd469cea3a528aa686bd2ecf0dd181c9e36ad48fc03ada909aa",
+      "config/architecture_control_plane.yaml": "46ff897d1af7b48ba059da3f15ae365ef2442c397d8ab1c74534cdcd8dab7ba8",
       "config/script_lifecycle.yaml": "805d8a2b82570a8947401fd15d162f840c962390d551430167921041a8e19ccd"
     }
   }

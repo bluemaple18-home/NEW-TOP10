@@ -1,0 +1,35 @@
+{
+  "schema_version": "top10.script-convergence-decisions.v1",
+  "status": "GO",
+  "tracked_script_count": 439,
+  "production_reachable_count": 94,
+  "deleted_scripts": [],
+  "moved_scripts": [],
+  "converged_boundaries": [
+    "app.automation.daily_contract",
+    "app.automation.daily_orchestrator",
+    "app.automation.execution",
+    "app.automation.pipeline_policy",
+    "app.automation.status_contract",
+    "app.architecture.script_governance"
+  ],
+  "intentional_composition_boundaries": [
+    {
+      "paths": [
+        "scripts/run_daily.sh",
+        "scripts/daily_retrain.sh",
+        "scripts/run_reference_update.sh",
+        "scripts/run_daily_publish.sh"
+      ],
+      "decision": "retain",
+      "reason": "各 wrapper 具有不同 lock、resource profile、catch-up publish 與 failure reporting 契約；在 promotion gate 前不合併 production shell bootstrap。"
+    }
+  ],
+  "unknown_edges": [
+    {
+      "source": "app/pipeline/__init__.py",
+      "kind": "python_dynamic_import",
+      "decision": "needs_review"
+    }
+  ]
+}
