@@ -84,7 +84,7 @@ class IncrementalImpactPlannerTest(unittest.TestCase):
         )
         plan["source"]["git_sha"] = "0" * 40
 
-        with self.assertRaisesRegex(ImpactPlanError, "必須等於目前 HEAD"):
+        with self.assertRaisesRegex(ImpactPlanError, "不是目前 HEAD 可驗證 ancestor"):
             verify_incremental_verification_plan(plan, PROJECT_ROOT)
 
     def test_tracked_working_tree_digest_tamper_is_rejected(self) -> None:

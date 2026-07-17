@@ -8,10 +8,14 @@ import json
 import re
 import subprocess
 from collections import defaultdict, deque
+from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping
 
-from app.architecture.control_plane import build_architecture_manifest
+import yaml
+
+from app.architecture.control_plane import MANIFEST_SCHEMA_VERSION, validate_control_plane_config
 
 
 IMPACT_PLAN_SCHEMA_VERSION = "top10.incremental-verification-plan.v1"
@@ -54,6 +58,20 @@ def _git_sha(repo_root: Path) -> str:
 
 def _tracked_paths(repo_root: Path) -> list[str]:
     return sorted(part.decode("utf-8") for part in _git(repo_root, "ls-files", "-z").split(b"\0") if part)
+
+
+@lru_cache(maxsize=16)
+def _tracked_paths_at(repo_root: Path, source_sha: str) -> tuple[str, ...]:
+    return tuple(sorted(
+        part.decode("utf-8")
+        for part in _git(repo_root, "ls-tree", "-r", "--name-only", "-z", source_sha).split(b"\0")
+        if part
+    ))
+
+
+@lru_cache(maxsize=8192)
+def _blob_at(repo_root: Path, source_sha: str, path: str) -> bytes:
+    return _git(repo_root, "show", f"{source_sha}:{path}")
 
 
 def _normalize_changed_files(changed_files: Iterable[str], *, allow_empty: bool = False) -> list[str]:
@@ -180,16 +198,17 @@ def _python_edges(
     return edges, unknown
 
 
-def _dependency_graph(repo_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    tracked = _tracked_paths(repo_root)
+def _dependency_graph(
+    repo_root: Path, source_sha: str | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    tracked = _tracked_paths_at(repo_root, source_sha) if source_sha else _tracked_paths(repo_root)
     tracked_set = frozenset(tracked)
     modules = {module: path for path in tracked if (module := _module_name(path))}
     edges: list[dict[str, Any]] = []
     unknown: list[dict[str, Any]] = []
     for source in tracked:
-        path = repo_root / source
         try:
-            content = path.read_bytes()
+            content = _blob_at(repo_root, source_sha, source) if source_sha else (repo_root / source).read_bytes()
             if b"\0" in content:
                 continue
             text = content.decode("utf-8")
@@ -245,35 +264,57 @@ def _require_source_ancestor(repo_root: Path, source_sha: str) -> None:
     if not source_sha:
         raise ImpactPlanError("impact plan 缺少 source Git SHA")
     completed = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
+        ["git", "merge-base", "--is-ancestor", source_sha, "HEAD"],
         cwd=repo_root,
-        capture_output=True,
-        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         check=False,
     )
-    if completed.returncode != 0 or completed.stdout.strip() != source_sha:
-        raise ImpactPlanError(f"impact plan source Git SHA 必須等於目前 HEAD：{source_sha}")
+    if completed.returncode != 0:
+        raise ImpactPlanError(f"impact plan source Git SHA 不是目前 HEAD 可驗證 ancestor：{source_sha}")
 
 
-def _source_tree_digest(repo_root: Path) -> str:
-    """綁定實際 tracked working tree，避免 dirty content 冒充 HEAD tree。"""
+def _source_tree_digest(repo_root: Path, source_sha: str) -> str:
+    """綁定指定 commit 的 tracked blobs，不讀 dirty working tree。"""
 
-    completed = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=repo_root, check=True, capture_output=True
-    )
     digest = hashlib.sha256()
-    for raw_path in sorted(item for item in completed.stdout.split(b"\0") if item):
-        path_text = raw_path.decode("utf-8")
-        path = repo_root / path_text
-        if path.is_file() and path.suffix == ".json":
+    for path_text in _tracked_paths_at(repo_root, source_sha):
+        content = _blob_at(repo_root, source_sha, path_text)
+        if path_text.endswith(".json"):
             try:
-                if _is_generated_evidence(path_text, path.read_text(encoding="utf-8")):
+                if _is_generated_evidence(path_text, content.decode("utf-8")):
                     continue
-            except (OSError, UnicodeDecodeError):
+            except UnicodeDecodeError:
                 pass
         digest.update(path_text.encode("utf-8") + b"\0")
-        digest.update(hashlib.sha256(path.read_bytes()).digest() if path.is_file() else b"MISSING")
+        digest.update(hashlib.sha256(content).digest())
     return digest.hexdigest()
+
+
+def _architecture_manifest_at(repo_root: Path, source_sha: str) -> dict[str, Any]:
+    config_path = "config/architecture_control_plane.yaml"
+    lifecycle_path = "config/script_lifecycle.yaml"
+    config_bytes = _blob_at(repo_root, source_sha, config_path)
+    lifecycle_bytes = _blob_at(repo_root, source_sha, lifecycle_path)
+    config = yaml.safe_load(config_bytes.decode("utf-8"))
+    lifecycle = yaml.safe_load(lifecycle_bytes.decode("utf-8"))
+    validate_control_plane_config(config, lifecycle, repo_root)
+    return {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "source": {
+            "git_sha": source_sha,
+            "inputs": {
+                config_path: hashlib.sha256(config_bytes).hexdigest(),
+                lifecycle_path: hashlib.sha256(lifecycle_bytes).hexdigest(),
+            },
+        },
+        "lifecycle_contract": {
+            "step_statuses": ["pending", "running", "succeeded", "failed", "skipped"],
+            "automatic_full_fallback_allowed": False,
+            "resume_requires_persistent_manifest": True,
+        },
+        "control_plane": deepcopy(config),
+    }
 
 
 def build_incremental_verification_plan(
@@ -281,14 +322,17 @@ def build_incremental_verification_plan(
     *,
     changed_files: Iterable[str],
     request: dict[str, Any] | None = None,
+    source_sha: str | None = None,
 ) -> dict[str, Any]:
     """建立 changed files 的 reverse-impact 與 required verification plan。"""
 
     repo_root = repo_root.resolve()
     changed = _normalize_changed_files(changed_files, allow_empty=True)
-    architecture_manifest = build_architecture_manifest(repo_root)
+    source_sha = source_sha or _git_sha(repo_root)
+    _require_source_ancestor(repo_root, source_sha)
+    architecture_manifest = _architecture_manifest_at(repo_root, source_sha)
     control_plane = architecture_manifest["control_plane"]
-    edges, unknown_edges = _dependency_graph(repo_root)
+    edges, unknown_edges = _dependency_graph(repo_root, source_sha)
     impacted_files, impact_evidence = _reverse_impact(changed, edges)
     impacted_set = set(impacted_files)
 
@@ -352,9 +396,9 @@ def build_incremental_verification_plan(
     return {
         "schema_version": IMPACT_PLAN_SCHEMA_VERSION,
         "source": {
-            "git_sha": _git_sha(repo_root),
-            "tree_mode": "tracked_working_tree",
-            "tracked_tree_digest": _source_tree_digest(repo_root),
+            "git_sha": source_sha,
+            "tree_mode": "git_commit_tree",
+            "tracked_tree_digest": _source_tree_digest(repo_root, source_sha),
             "architecture_manifest_digest": _manifest_digest(architecture_manifest),
         },
         "request": normalized_request,
@@ -400,7 +444,11 @@ def verify_incremental_verification_plan(plan: dict[str, Any], repo_root: Path) 
         changed = changed_files_from_git(repo_root, str(request.get("base")), str(request.get("head", "HEAD")))
     else:
         raise ImpactPlanError(f"不支援的 impact request mode：{mode}")
-    expected = build_incremental_verification_plan(repo_root, changed_files=changed, request=request)
-    expected["source"]["git_sha"] = source_sha
+    expected = build_incremental_verification_plan(
+        repo_root,
+        changed_files=changed,
+        request=request,
+        source_sha=source_sha,
+    )
     if plan != expected:
         raise ImpactPlanError("incremental verification plan 與 repo source 不一致")
