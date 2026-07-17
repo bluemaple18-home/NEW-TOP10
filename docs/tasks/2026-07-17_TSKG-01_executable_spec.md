@@ -1,7 +1,7 @@
 ---
 card_id: TSKG-01
 title: Taiwan Stock Knowledge Graph v1.1 可執行規格
-status: DELIVERED_CANDIDATE
+status: INTEGRATED
 owner: Codex 主線
 assignee: TSKG 規格任務
 thickness: strict
@@ -101,13 +101,10 @@ evidence_path: docs/evidence/TSKG-01/
 
 ## Result
 
-- Delivery status：`DELIVERED_CANDIDATE`（不代表 ACCEPTED／INTEGRATED／COMPLETED）。
-- Candidate commit：本次 docs candidate commit；完整 SHA 由交付回報提供，避免 commit 自參照。
-- Changed files：
-  - `docs/specs/TSKG_v1.1.md`
-  - `docs/evidence/TSKG-01/requirements_traceability.md`
-  - `docs/evidence/TSKG-01/verification.md`
-  - `docs/tasks/2026-07-17_TSKG-01_executable_spec.md`（僅 status／Result）
-- Verification：requirements trace 31/31、baseline disposition 14/14、acceptance scenarios 12/12、slice frontier/dependency check、changed-file allowlist 與 `git diff --check` 均通過；post-commit range 結果以交付回報為準。
-- Evidence：`docs/evidence/TSKG-01/requirements_traceability.md`、`docs/evidence/TSKG-01/verification.md`。
-- Open Questions／downstream blockers：見 `docs/specs/TSKG_v1.1.md` §15；來源治理與 universe authority 阻擋對應 runtime slices，但不阻擋 SLC-01 或本 docs candidate。
+- Mainline status：`INTEGRATED`；integration commits through `2b6bf97e4a0fad1052a48b1a239c60850a59c6f6`。
+- Accepted successor：`1d464d70eabb3139936999a31917979c5e7c20e9`。
+- Independent re-review：`REVIEW_GO / GO_WITH_NOTES`；review artifact commit `2b7dbdc1a230f7fdb8e693d32c1778e1531a3ceb`。
+- Resolved findings：F-01～F-05。
+- Unresolved non-blocking：F-06 baseline digest capture、F-07 benchmark exact response-size feasibility；不得宣稱兩者已完成。
+- Current frontier：SLC-01；未授權或完成任何 runtime、crawler、database、API、benchmark 或外部來源存取。
+- Mainline acceptance evidence：`docs/evidence/TSKG-01/acceptance.md`。
