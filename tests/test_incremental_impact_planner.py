@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from copy import deepcopy
 from pathlib import Path
+from unittest import mock
 
 from app.architecture.impact import (
     ImpactPlanError,
@@ -83,8 +84,30 @@ class IncrementalImpactPlannerTest(unittest.TestCase):
         )
         plan["source"]["git_sha"] = "0" * 40
 
-        with self.assertRaisesRegex(ImpactPlanError, "不是目前 HEAD ancestor"):
+        with self.assertRaisesRegex(ImpactPlanError, "必須等於目前 HEAD"):
             verify_incremental_verification_plan(plan, PROJECT_ROOT)
+
+    def test_tracked_working_tree_digest_tamper_is_rejected(self) -> None:
+        plan = build_incremental_verification_plan(
+            PROJECT_ROOT,
+            changed_files=["docs/architecture/ARCHITECTURE_CONTROL_PLANE.md"],
+        )
+        plan["source"]["tracked_tree_digest"] = "0" * 64
+        with self.assertRaisesRegex(ImpactPlanError, "repo source 不一致"):
+            verify_incremental_verification_plan(plan, PROJECT_ROOT)
+
+    def test_unknown_dynamic_edges_force_full_production_verification(self) -> None:
+        unknown = [{"source": "scripts/run_daily.sh", "kind": "python_dynamic_import", "line": 1}]
+        with mock.patch("app.architecture.impact._dependency_graph", return_value=([], unknown)):
+            plan = build_incremental_verification_plan(
+                PROJECT_ROOT,
+                changed_files=["config/automation.yaml"],
+            )
+        self.assertTrue(plan["risk"]["unknown_edges_fail_closed"])
+        self.assertEqual(plan["risk"]["level"], "critical")
+        self.assertIn("daily_contract", plan["required_verification"])
+        self.assertIn("publish_guard", plan["required_verification"])
+        self.assertIn("scheduler_ownership", plan["required_verification"])
 
     def test_generated_evidence_is_not_a_dependency_source(self) -> None:
         payload = '{"schema_version":"top10.incremental-verification-plan.v1","changed_files":["scripts/run_daily.sh"]}'

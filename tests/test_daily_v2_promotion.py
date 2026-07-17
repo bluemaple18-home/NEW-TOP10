@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import unittest
+import hashlib
+from pathlib import Path
+import subprocess
 
 from app.workflows.daily_v2_promotion import build_daily_v2_promotion_decision
 
@@ -25,8 +28,15 @@ def governance(*, unknown: bool = False) -> dict:
 
 
 def acceptance() -> dict:
+    evidence_path = Path(__file__).resolve()
+    candidate = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    base = subprocess.run(["git", "rev-parse", "HEAD~1"], capture_output=True, text=True, check=True).stdout.strip()
     return {
         "schema_version": "top10.daily-v2.promotion-acceptance.v1",
+        "base_sha": base,
+        "candidate_sha": candidate,
+        "runner": {"id": "pytest", "version": "test"},
+        "evidence": [{"path": str(evidence_path), "sha256": hashlib.sha256(evidence_path.read_bytes()).hexdigest()}],
         "failure_injection": {
             "status": "GO",
             "scenarios": ["timeout", "partial_output", "stale_input"],
@@ -41,7 +51,17 @@ def acceptance() -> dict:
 
 
 def review() -> dict:
-    return {"schema_version": "top10.architecture-independent-review.v1", "verdict": "GO"}
+    evidence_path = Path(__file__).resolve()
+    candidate = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    base = subprocess.run(["git", "rev-parse", "HEAD~1"], capture_output=True, text=True, check=True).stdout.strip()
+    return {
+        "schema_version": "top10.architecture-independent-review.v1",
+        "verdict": "GO",
+        "base_sha": base,
+        "candidate_sha": candidate,
+        "reviewer": {"id": "independent-test-reviewer", "independent": True},
+        "evidence": [{"path": str(evidence_path), "sha256": hashlib.sha256(evidence_path.read_bytes()).hexdigest()}],
+    }
 
 
 class DailyV2PromotionTest(unittest.TestCase):
@@ -89,6 +109,21 @@ class DailyV2PromotionTest(unittest.TestCase):
             independent_review=review(),
         )
         self.assertIn("parity_no_go", {item["code"] for item in decision["blockers"]})
+
+    def test_unbound_boolean_acceptance_and_review_are_rejected(self) -> None:
+        unbound_acceptance = acceptance()
+        unbound_acceptance.pop("evidence")
+        unbound_review = review()
+        unbound_review["candidate_sha"] = "wrong"
+        decision = build_daily_v2_promotion_decision(
+            parity_reports=[parity("2026-07-16"), parity("2026-07-17")],
+            script_governance=governance(),
+            acceptance=unbound_acceptance,
+            independent_review=unbound_review,
+        )
+        codes = {item["code"] for item in decision["blockers"]}
+        self.assertIn("promotion_acceptance_unbound", codes)
+        self.assertIn("independent_review_unbound", codes)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,1 @@
+{"schema_version":"daily-run-status.v1","mode":"daily","status":"OK","run_date":"2026-07-16","dry_run":false,"steps":[{"name":"etl","status":"OK"},{"name":"data.validate","status":"OK"},{"name":"ranking","status":"OK"},{"name":"daily.report","status":"OK"},{"name":"clawd.payload","status":"OK"}]}

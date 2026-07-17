@@ -112,6 +112,28 @@ def ranking_comparison() -> dict:
 
 
 class DailyV2ParityTest(unittest.TestCase):
+    def test_matching_skipped_runs_are_not_successful_execution_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            production = production_status(status="SKIPPED")
+            for step in production["steps"]:
+                step["status"] = "SKIPPED"
+            workflow = workflow_manifest(root, status="skipped")
+            for step in workflow["steps"]:
+                step["status"] = "skipped"
+                step["outputs"] = []
+            report = build_daily_v2_parity_report(
+                production_status=production,
+                workflow_manifest=workflow,
+                real_shadow_manifest=real_shadow_manifest(root),
+                ranking_comparison=ranking_comparison(),
+                shadow_root=root,
+                workflow_profile="fixture",
+            )
+
+        self.assertEqual(report["execution_outcome"], "not_succeeded")
+        self.assertIn("successful_execution_evidence", report["production_switch"]["blockers"])
+
     def test_success_fixture_is_parity_go_but_not_production_switch_go(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -147,6 +169,11 @@ class DailyV2ParityTest(unittest.TestCase):
             {item["code"] for item in report["mismatches"] if item["blocking"]},
         )
         self.assertEqual(report["production_switch"]["status"], "NO-GO")
+        blocking_codes = {item["code"] for item in report["mismatches"] if item["blocking"]}
+        self.assertIn("physical_output_digest_mismatch", blocking_codes)
+        self.assertIn("ranking_comparison_run_date", blocking_codes)
+        self.assertIn("physical_input_lineage_invalid", blocking_codes)
+        self.assertIn("ranking_output_lineage", blocking_codes)
 
     def test_stale_ranking_date_is_data_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -298,6 +325,31 @@ class DailyV2ParityTest(unittest.TestCase):
             paths["production_status"].write_text("{}", encoding="utf-8")
             with self.assertRaisesRegex(DailyV2ParityError, "digest 不一致"):
                 verify_daily_v2_parity_report_from_files(report)
+
+    def test_repo_sources_are_recorded_as_portable_relative_paths(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path.cwd()) as tmp:
+            root = Path(tmp)
+            payloads = {
+                "production_status": production_status(),
+                "workflow_manifest": workflow_manifest(root),
+                "real_shadow_manifest": real_shadow_manifest(root),
+                "ranking_comparison": ranking_comparison(),
+            }
+            paths = {}
+            for label, payload in payloads.items():
+                path = root / f"{label}.json"
+                path.write_text(json.dumps(payload), encoding="utf-8")
+                paths[label] = path
+            report = build_daily_v2_parity_report_from_files(
+                production_status_path=paths["production_status"],
+                workflow_manifest_path=paths["workflow_manifest"],
+                real_shadow_manifest_path=paths["real_shadow_manifest"],
+                ranking_comparison_path=paths["ranking_comparison"],
+                shadow_root=root,
+                workflow_profile="fixture",
+            )
+            self.assertTrue(all(not Path(item["path"]).is_absolute() for item in report["source_files"].values()))
+            verify_daily_v2_parity_report_from_files(report)
 
 
 if __name__ == "__main__":

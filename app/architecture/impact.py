@@ -21,6 +21,9 @@ GENERATED_EVIDENCE_SCHEMAS = frozenset(
         IMPACT_PLAN_SCHEMA_VERSION,
         "script-lifecycle.v1",
         "script-reference-audit.v1",
+        "top10.script-governance.v1",
+        "top10.daily-v2.parity-report.v1",
+        "top10.daily-v2.promotion-decision.v1",
     }
 )
 PATH_REFERENCE_RE = re.compile(
@@ -242,14 +245,35 @@ def _require_source_ancestor(repo_root: Path, source_sha: str) -> None:
     if not source_sha:
         raise ImpactPlanError("impact plan 缺少 source Git SHA")
     completed = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", source_sha, "HEAD"],
+        ["git", "rev-parse", "HEAD"],
         cwd=repo_root,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
+        text=True,
         check=False,
     )
-    if completed.returncode != 0:
-        raise ImpactPlanError(f"impact plan source Git SHA 不是目前 HEAD ancestor：{source_sha}")
+    if completed.returncode != 0 or completed.stdout.strip() != source_sha:
+        raise ImpactPlanError(f"impact plan source Git SHA 必須等於目前 HEAD：{source_sha}")
+
+
+def _source_tree_digest(repo_root: Path) -> str:
+    """綁定實際 tracked working tree，避免 dirty content 冒充 HEAD tree。"""
+
+    completed = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=repo_root, check=True, capture_output=True
+    )
+    digest = hashlib.sha256()
+    for raw_path in sorted(item for item in completed.stdout.split(b"\0") if item):
+        path_text = raw_path.decode("utf-8")
+        path = repo_root / path_text
+        if path.is_file() and path.suffix == ".json":
+            try:
+                if _is_generated_evidence(path_text, path.read_text(encoding="utf-8")):
+                    continue
+            except (OSError, UnicodeDecodeError):
+                pass
+        digest.update(path_text.encode("utf-8") + b"\0")
+        digest.update(hashlib.sha256(path.read_bytes()).digest() if path.is_file() else b"MISSING")
+    return digest.hexdigest()
 
 
 def build_incremental_verification_plan(
@@ -303,6 +327,22 @@ def build_incremental_verification_plan(
     }
     production_touched = bool(entrypoints or production_workflows)
     docs_only = all(path.startswith("docs/") for path in changed)
+    unknown_fail_closed = bool(unknown_edges and not docs_only)
+    if unknown_fail_closed:
+        production_touched = True
+        production_workflows.update(
+            workflow_id
+            for workflow_id, spec in control_plane["workflows"].items()
+            if spec.get("production")
+        )
+        workflows.update(production_workflows)
+        for workflow_id in production_workflows:
+            required_verification.update(control_plane["workflows"][workflow_id]["required_verification"])
+        required_verification.update(
+            verification_id
+            for verification_id in ("scheduler_ownership", "publish_guard")
+            if verification_id in control_plane["verification"]
+        )
     risk_level = "none" if not changed else "critical" if production_touched else "low" if docs_only else "standard"
     missing_production_verification = production_touched and not required_verification
     if missing_production_verification:
@@ -313,6 +353,8 @@ def build_incremental_verification_plan(
         "schema_version": IMPACT_PLAN_SCHEMA_VERSION,
         "source": {
             "git_sha": _git_sha(repo_root),
+            "tree_mode": "tracked_working_tree",
+            "tracked_tree_digest": _source_tree_digest(repo_root),
             "architecture_manifest_digest": _manifest_digest(architecture_manifest),
         },
         "request": normalized_request,
@@ -336,6 +378,7 @@ def build_incremental_verification_plan(
             "production_touched": production_touched,
             "missing_production_verification": missing_production_verification,
             "needs_review": bool(unknown_edges and not docs_only),
+            "unknown_edges_fail_closed": unknown_fail_closed,
         },
     }
 

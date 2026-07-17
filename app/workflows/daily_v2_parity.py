@@ -138,6 +138,25 @@ def _outputs_preserved(workflow_manifest: Mapping[str, Any]) -> bool:
     return True
 
 
+def _snapshot_matches_file(snapshot: Any) -> bool:
+    if not isinstance(snapshot, Mapping) or snapshot.get("exists") is not True:
+        return False
+    path = Path(str(snapshot.get("path") or "")).expanduser()
+    if not path.is_file():
+        return False
+    return hashlib.sha256(path.read_bytes()).hexdigest() == snapshot.get("sha256")
+
+
+def _physical_outputs_preserved(workflow_manifest: Mapping[str, Any]) -> bool:
+    for step in workflow_manifest.get("steps") or []:
+        if _normalize_workflow_status(step.get("status")) != "succeeded":
+            continue
+        outputs = step.get("outputs")
+        if not isinstance(outputs, list) or not outputs or not all(_snapshot_matches_file(item) for item in outputs):
+            return False
+    return True
+
+
 def build_daily_v2_parity_report(
     *,
     production_status: dict[str, Any],
@@ -216,7 +235,15 @@ def build_daily_v2_parity_report(
     workflow_failed = _first_failed(workflow_steps)
     production_outcome = _normalize_production_status(production_status.get("status"))
     workflow_outcome = _normalize_workflow_status(workflow_manifest.get("status"))
-    execution_outcome = "failed" if "failed" in {production_outcome, workflow_outcome} else "succeeded"
+    all_core_succeeded = all(
+        production_steps.get(name) == "succeeded" and workflow_steps.get(name) == "succeeded"
+        for name in CORE_STEPS
+    )
+    execution_outcome = (
+        "succeeded"
+        if production_outcome == workflow_outcome == "succeeded" and all_core_succeeded
+        else "failed" if "failed" in {production_outcome, workflow_outcome} else "not_succeeded"
+    )
 
     if production_failed != workflow_failed:
         mismatches.append(
@@ -300,6 +327,64 @@ def build_daily_v2_parity_report(
             )
         )
 
+    if workflow_profile == PRODUCTION_EQUIVALENT_PROFILE:
+        if not _physical_outputs_preserved(workflow_manifest):
+            mismatches.append(
+                _mismatch(
+                    "contract_gap",
+                    "physical_output_digest_mismatch",
+                    "production-equivalent completed outputs 必須在磁碟存在且 SHA256 相符",
+                    blocking=True,
+                )
+            )
+        comparison_run_date = ranking_comparison.get("run_date")
+        comparison_inputs = ranking_comparison.get("inputs")
+        if comparison_run_date != run_dates["production"]:
+            mismatches.append(
+                _mismatch(
+                    "data_mismatch",
+                    "ranking_comparison_run_date",
+                    "ranking comparison run_date 必須與 parity 日期一致",
+                    blocking=True,
+                    evidence={"comparison": comparison_run_date, "expected": run_dates["production"]},
+                )
+            )
+        if comparison_inputs != real_shadow_manifest.get("inputs_before"):
+            mismatches.append(
+                _mismatch(
+                    "data_mismatch",
+                    "ranking_input_lineage",
+                    "ranking comparison inputs 必須與 real-shadow input snapshots 完全一致",
+                    blocking=True,
+                )
+            )
+        before = real_shadow_manifest.get("inputs_before")
+        after = real_shadow_manifest.get("inputs_after")
+        if not isinstance(before, Mapping) or before != after or not all(
+            isinstance(snapshot, Mapping)
+            and (not snapshot.get("required", True) or _snapshot_matches_file(snapshot))
+            for snapshot in before.values()
+        ):
+            mismatches.append(
+                _mismatch(
+                    "unsafe_side_effect",
+                    "physical_input_lineage_invalid",
+                    "production-equivalent inputs before/after 與實體 SHA256 必須一致",
+                    blocking=True,
+                )
+            )
+        comparison_outputs = ranking_comparison.get("outputs") or {}
+        real_ranking = (real_shadow_manifest.get("outputs") or {}).get("ranking")
+        if comparison_outputs.get("shadow") != real_ranking or not _snapshot_matches_file(real_ranking):
+            mismatches.append(
+                _mismatch(
+                    "data_mismatch",
+                    "ranking_output_lineage",
+                    "comparison shadow output 必須與 real-shadow ranking snapshot 相同且可驗證",
+                    blocking=True,
+                )
+            )
+
     if real_shadow_manifest.get("shadow_only") is not True:
         mismatches.append(_mismatch("unsafe_side_effect", "shadow_only_false", "real-shadow 必須標記 shadow_only=true", blocking=True))
     if real_shadow_manifest.get("live_send_enabled") is not False:
@@ -380,7 +465,7 @@ def build_daily_v2_parity_report(
             "version": DAILY_CORE_CONTRACT_VERSION,
             "core_steps": list(CORE_STEPS),
             "workflow_profile": workflow_profile,
-            "shadow_root": str(shadow_root),
+            "shadow_root": _portable_path(shadow_root),
             "live_send_allowed": False,
             "automatic_full_fallback_allowed": False,
         },
@@ -450,6 +535,14 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _portable_path(path: Path) -> str:
+    resolved = path.expanduser().resolve()
+    try:
+        return resolved.relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
 def build_daily_v2_parity_report_from_files(
     *,
     production_status_path: Path,
@@ -479,7 +572,7 @@ def build_daily_v2_parity_report_from_files(
         workflow_profile=workflow_profile,
     )
     report["source_files"] = {
-        label: {"path": str(path), "sha256": _sha256(path)} for label, path in paths.items()
+        label: {"path": _portable_path(path), "sha256": _sha256(path)} for label, path in paths.items()
     }
     return report
 

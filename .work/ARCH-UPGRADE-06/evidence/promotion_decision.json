@@ -8,6 +8,13 @@
       "message": "所有代表日期 parity 必須為 GO"
     },
     {
+      "code": "unsuccessful_execution",
+      "evidence": [
+        "2026-07-09"
+      ],
+      "message": "promotion 只接受成功執行 evidence"
+    },
+    {
       "code": "production_equivalent_parity_dates",
       "evidence": {
         "actual_dates": [],
@@ -42,16 +49,16 @@
   "source_files": {
     "parity_reports": [
       {
-        "path": "/Users/mattkuo/TOP10new/.work/ARCH-UPGRADE-03/evidence/daily_v2_parity.json",
-        "sha256": "50929f6230af637688f8f9a4894eb5d71707481cb67b05700263f5c2c2b2c94d"
+        "path": ".work/ARCH-UPGRADE-03/evidence/daily_v2_parity.json",
+        "sha256": "682421aee9a17d9e924407a2672472b84512bd7cc9bc8b35e042c103de6796b9"
       },
       {
-        "path": "/Users/mattkuo/TOP10new/.work/ARCH-UPGRADE-03/evidence/daily_v2_parity_2026-07-09.json",
-        "sha256": "545daf3a5595cecdb6384e386784f0e54fa730ce64bca906bfeaa371d18f43ec"
+        "path": ".work/ARCH-UPGRADE-03/evidence/daily_v2_parity_2026-07-09.json",
+        "sha256": "40480fd88c6f76987e4637999dd1f194cf670ef23bbd0ef55e0aed34d29042d7"
       }
     ],
     "script_governance": {
-      "path": "/Users/mattkuo/TOP10new/.work/ARCH-UPGRADE-05/evidence/script_governance.json",
+      "path": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
       "sha256": "f26b976bdf3ce343684231aa5f6245c3dd56e0fe9b3e4d931e44986ba3342a7b"
     }
   },

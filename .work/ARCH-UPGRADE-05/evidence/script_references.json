@@ -220,8 +220,140 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": false,
-      "reference_count": 19,
+      "reference_count": 41,
       "references": [
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 5
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 62
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 356
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 434
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 458
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 476
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 488
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 506
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 518
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 530
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 542
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 554
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 560
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 620
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 686
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 692
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 740
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 746
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 806
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 1052
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 1109
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/audit_script_references.py",
+          "kind": "path",
+          "line": 1129
+        },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
           "target": "scripts/audit_script_references.py",
@@ -655,43 +787,43 @@
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/build_architecture_manifest.py",
           "kind": "path",
-          "line": 33
+          "line": 44
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/build_architecture_manifest.py",
           "kind": "path",
-          "line": 51
+          "line": 68
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/build_architecture_manifest.py",
           "kind": "path",
-          "line": 2235
+          "line": 638
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/build_architecture_manifest.py",
           "kind": "path",
-          "line": 2301
+          "line": 908
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/build_architecture_manifest.py",
           "kind": "path",
-          "line": 2307
+          "line": 914
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/build_architecture_manifest.py",
           "kind": "path",
-          "line": 2354
+          "line": 961
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/build_architecture_manifest.py",
           "kind": "path",
-          "line": 2441
+          "line": 1110
         },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
@@ -2395,8 +2527,44 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": false,
-      "reference_count": 2,
+      "reference_count": 8,
       "references": [
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/build_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 6
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/build_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 74
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/build_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 662
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/build_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 967
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/build_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 1111
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/build_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 1130
+        },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
           "target": "scripts/build_daily_v2_promotion_decision.py",
@@ -5818,50 +5986,8 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": false,
-      "reference_count": 10,
+      "reference_count": 3,
       "references": [
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/build_script_governance.py",
-          "kind": "path",
-          "line": 6
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/build_script_governance.py",
-          "kind": "path",
-          "line": 57
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/build_script_governance.py",
-          "kind": "path",
-          "line": 2259
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/build_script_governance.py",
-          "kind": "path",
-          "line": 2265
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/build_script_governance.py",
-          "kind": "path",
-          "line": 2360
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/build_script_governance.py",
-          "kind": "path",
-          "line": 2442
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/build_script_governance.py",
-          "kind": "path",
-          "line": 2458
-        },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
           "target": "scripts/build_script_governance.py",
@@ -9541,31 +9667,31 @@
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/plan_incremental_verification.py",
           "kind": "path",
-          "line": 63
+          "line": 80
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/plan_incremental_verification.py",
           "kind": "path",
-          "line": 2241
+          "line": 644
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/plan_incremental_verification.py",
           "kind": "path",
-          "line": 2337
+          "line": 944
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/plan_incremental_verification.py",
           "kind": "path",
-          "line": 2366
+          "line": 973
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/plan_incremental_verification.py",
           "kind": "path",
-          "line": 2443
+          "line": 1112
         },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
@@ -12685,7 +12811,7 @@
           "source": "tests/test_incremental_impact_planner.py",
           "target": "scripts/run_automation.py",
           "kind": "path",
-          "line": 27
+          "line": 28
         }
       ]
     },
@@ -13492,7 +13618,7 @@
       "status": "protected",
       "reason": "正式 production entrypoint allowlist；即使靜態引用為 0 也不得視為可刪。",
       "baseline_approved": false,
-      "reference_count": 121,
+      "reference_count": 122,
       "references": [
         {
           "source": ".ai/codex_task_daily_v2_real_shadow.md",
@@ -14170,19 +14296,25 @@
           "source": "tests/test_incremental_impact_planner.py",
           "target": "scripts/run_daily.sh",
           "kind": "path",
-          "line": 37
+          "line": 38
         },
         {
           "source": "tests/test_incremental_impact_planner.py",
           "target": "scripts/run_daily.sh",
           "kind": "path",
-          "line": 58
+          "line": 59
         },
         {
           "source": "tests/test_incremental_impact_planner.py",
           "target": "scripts/run_daily.sh",
           "kind": "path",
-          "line": 90
+          "line": 100
+        },
+        {
+          "source": "tests/test_incremental_impact_planner.py",
+          "target": "scripts/run_daily.sh",
+          "kind": "path",
+          "line": 113
         },
         {
           "source": "tests/test_scheduler_ownership.py",
@@ -14944,7 +15076,7 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": false,
-      "reference_count": 13,
+      "reference_count": 14,
       "references": [
         {
           "source": ".ai/codex_task_daily_v2_real_shadow.md",
@@ -14963,6 +15095,12 @@
           "target": "scripts/run_daily_v2.py",
           "kind": "path",
           "line": 8735
+        },
+        {
+          "source": "app/automation/daily_contract.py",
+          "target": "scripts/run_daily_v2.py",
+          "kind": "path",
+          "line": 32
         },
         {
           "source": "config/script_lifecycle.yaml",
@@ -17545,43 +17683,43 @@
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_architecture_manifest.py",
           "kind": "path",
-          "line": 39
+          "line": 50
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_architecture_manifest.py",
           "kind": "path",
-          "line": 69
+          "line": 86
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_architecture_manifest.py",
           "kind": "path",
-          "line": 2247
+          "line": 650
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_architecture_manifest.py",
           "kind": "path",
-          "line": 2313
+          "line": 920
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_architecture_manifest.py",
           "kind": "path",
-          "line": 2319
+          "line": 926
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_architecture_manifest.py",
           "kind": "path",
-          "line": 2372
+          "line": 979
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_architecture_manifest.py",
           "kind": "path",
-          "line": 2444
+          "line": 1113
         },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
@@ -19486,8 +19624,44 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": false,
-      "reference_count": 2,
+      "reference_count": 8,
       "references": [
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/verify_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 7
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/verify_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 92
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/verify_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 668
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/verify_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 985
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/verify_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 1114
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/verify_daily_v2_promotion_decision.py",
+          "kind": "path",
+          "line": 1131
+        },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
           "target": "scripts/verify_daily_v2_promotion_decision.py",
@@ -20956,31 +21130,31 @@
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_incremental_verification_plan.py",
           "kind": "path",
-          "line": 75
+          "line": 98
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_incremental_verification_plan.py",
           "kind": "path",
-          "line": 2253
+          "line": 656
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_incremental_verification_plan.py",
           "kind": "path",
-          "line": 2343
+          "line": 950
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_incremental_verification_plan.py",
           "kind": "path",
-          "line": 2378
+          "line": 991
         },
         {
           "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
           "target": "scripts/verify_incremental_verification_plan.py",
           "kind": "path",
-          "line": 2445
+          "line": 1115
         },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
@@ -23686,7 +23860,7 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": true,
-      "reference_count": 42,
+      "reference_count": 43,
       "references": [
         {
           "source": ".work/ARCH-UPGRADE-01/evidence/architecture_manifest.json",
@@ -23699,6 +23873,12 @@
           "target": "scripts/verify_reference_sources.py",
           "kind": "path",
           "line": 448
+        },
+        {
+          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
+          "target": "scripts/verify_reference_sources.py",
+          "kind": "path",
+          "line": 1201
         },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
@@ -24880,7 +25060,7 @@
       "status": "referenced",
       "reason": "找到 tracked 靜態引用。",
       "baseline_approved": false,
-      "reference_count": 15,
+      "reference_count": 6,
       "references": [
         {
           "source": ".work/ARCH-UPGRADE-01/evidence/architecture_manifest.json",
@@ -24893,60 +25073,6 @@
           "target": "scripts/verify_script_governance.py",
           "kind": "path",
           "line": 491
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/verify_script_governance.py",
-          "kind": "path",
-          "line": 7
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/verify_script_governance.py",
-          "kind": "path",
-          "line": 81
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/verify_script_governance.py",
-          "kind": "path",
-          "line": 2193
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/verify_script_governance.py",
-          "kind": "path",
-          "line": 2199
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/verify_script_governance.py",
-          "kind": "path",
-          "line": 2271
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/verify_script_governance.py",
-          "kind": "path",
-          "line": 2384
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/verify_script_governance.py",
-          "kind": "path",
-          "line": 2446
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/verify_script_governance.py",
-          "kind": "path",
-          "line": 2459
-        },
-        {
-          "source": ".work/ARCH-UPGRADE-02/evidence/incremental_verification_plan.json",
-          "target": "scripts/verify_script_governance.py",
-          "kind": "path",
-          "line": 2502
         },
         {
           "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",

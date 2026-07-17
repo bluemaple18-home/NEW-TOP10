@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+import subprocess
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -26,6 +28,41 @@ class DailyV2PromotionError(ValueError):
 
 def _blocker(code: str, message: str, evidence: Any = None) -> dict[str, Any]:
     return {"code": code, "message": message, "evidence": evidence}
+
+
+def _bound_evidence_valid(payload: Mapping[str, Any], *, kind: str) -> bool:
+    if not re.fullmatch(r"[0-9a-f]{40}", str(payload.get("base_sha") or "")):
+        return False
+    if not re.fullmatch(r"[0-9a-f]{40}", str(payload.get("candidate_sha") or "")):
+        return False
+    records = payload.get("evidence")
+    if not isinstance(records, list) or not records:
+        return False
+    for record in records:
+        if not isinstance(record, Mapping):
+            return False
+        path = Path(str(record.get("path") or "")).expanduser()
+        if not path.is_file() or _sha256(path) != record.get("sha256"):
+            return False
+    base_sha = str(payload["base_sha"])
+    candidate_sha = str(payload["candidate_sha"])
+    ancestry = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", base_sha, candidate_sha],
+        cwd=Path.cwd(),
+        capture_output=True,
+        check=False,
+    )
+    if ancestry.returncode != 0:
+        return False
+    if kind == "acceptance":
+        runner = payload.get("runner")
+        if not isinstance(runner, Mapping) or not runner.get("id") or not runner.get("version"):
+            return False
+    elif kind == "review":
+        reviewer = payload.get("reviewer")
+        if not isinstance(reviewer, Mapping) or reviewer.get("independent") is not True or not reviewer.get("id"):
+            return False
+    return True
 
 
 def build_daily_v2_promotion_decision(
@@ -86,6 +123,8 @@ def build_daily_v2_promotion_decision(
     else:
         if acceptance.get("schema_version") != PROMOTION_ACCEPTANCE_SCHEMA_VERSION:
             raise DailyV2PromotionError("promotion acceptance schema 不支援")
+        if not _bound_evidence_valid(acceptance, kind="acceptance"):
+            blockers.append(_blocker("promotion_acceptance_unbound", "acceptance 必須綁定 base/candidate SHA 與原始 evidence digest"))
         failure = acceptance.get("failure_injection") or {}
         scenarios = set(map(str, failure.get("scenarios") or []))
         if failure.get("status") != "GO" or not REQUIRED_FAILURE_SCENARIOS.issubset(scenarios):
@@ -106,6 +145,8 @@ def build_daily_v2_promotion_decision(
     else:
         if independent_review.get("schema_version") != INDEPENDENT_REVIEW_SCHEMA_VERSION:
             raise DailyV2PromotionError("independent review schema 不支援")
+        if not _bound_evidence_valid(independent_review, kind="review"):
+            blockers.append(_blocker("independent_review_unbound", "independent review 必須綁定 base/candidate SHA 與 review evidence digest"))
         if independent_review.get("verdict") != "GO":
             blockers.append(_blocker("independent_review_no_go", "獨立 review verdict 必須為 GO"))
 
@@ -137,6 +178,13 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _portable_path(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return str(path.resolve())
+
+
 def build_daily_v2_promotion_decision_from_files(
     *,
     parity_paths: Iterable[Path],
@@ -163,10 +211,10 @@ def build_daily_v2_promotion_decision_from_files(
         independent_review=_read_json(optional["independent_review"]) if optional["independent_review"] else None,
     )
     decision["source_files"] = {
-        "parity_reports": [{"path": str(path), "sha256": _sha256(path)} for path in paths],
-        "script_governance": {"path": str(governance_path), "sha256": _sha256(governance_path)},
+        "parity_reports": [{"path": _portable_path(path), "sha256": _sha256(path)} for path in paths],
+        "script_governance": {"path": _portable_path(governance_path), "sha256": _sha256(governance_path)},
         **{
-            label: {"path": str(path), "sha256": _sha256(path)}
+            label: {"path": _portable_path(path), "sha256": _sha256(path)}
             for label, path in optional.items()
             if path is not None
         },

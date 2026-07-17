@@ -1,0 +1,1 @@
+{"schema_version":"top10.daily-v2.real-shadow-manifest.v1","run_id":"bundle-shadow-20260716","run_date":"2026-07-16","run_dir":".work/ARCH-UPGRADE-03/evidence/bundle/shadow/real-20260716","status":"finished","shadow_only":true,"live_send_enabled":false,"inputs_unchanged":true,"comparison_status":"GO","production_switch":{"status":"GO","executed":false},"outputs":{}}

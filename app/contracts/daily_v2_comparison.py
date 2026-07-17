@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import math
 from pathlib import Path
 from typing import Any
@@ -55,6 +56,7 @@ def build_ranking_comparison(
     numeric_tolerance: float = 1e-9,
     runtime_versions: dict[str, str] | None = None,
     model_compatibility: dict[str, Any] | None = None,
+    run_date: str | None = None,
 ) -> dict[str, Any]:
     """比較 baseline 與 shadow Top10，回傳可序列化的 deterministic 證據。"""
 
@@ -105,8 +107,13 @@ def build_ranking_comparison(
 
     return {
         "schema_version": RANKING_COMPARISON_SCHEMA_VERSION,
+        "run_date": run_date,
         "status": status,
         "inputs": input_snapshots,
+        "outputs": {
+            "baseline": _file_snapshot(baseline_path),
+            "shadow": _file_snapshot(shadow_path),
+        },
         "runtime_versions": dict(runtime_versions or {}),
         "model_compatibility": compatibility,
         "schema": {
@@ -141,6 +148,16 @@ def build_ranking_comparison(
             "executed": False,
             "reasons": production_reasons,
         },
+    }
+
+
+def _file_snapshot(path: Path) -> dict[str, Any]:
+    path = Path(path).expanduser().resolve()
+    return {
+        "path": str(path),
+        "exists": path.is_file(),
+        "size_bytes": path.stat().st_size,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
     }
 
 

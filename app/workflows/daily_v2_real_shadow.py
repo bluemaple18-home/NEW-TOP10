@@ -161,6 +161,7 @@ def run_real_shadow(
             numeric_tolerance=numeric_tolerance,
             runtime_versions=runtime_versions,
             model_compatibility=model_compatibility,
+            run_date=run_date,
         )
         _write_json(comparison_path, comparison)
         manifest.update(

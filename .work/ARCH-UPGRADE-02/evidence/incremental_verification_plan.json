@@ -1,12 +1,14 @@
 {
   "changed_files": [
+    "app/architecture/impact.py",
+    "app/automation/daily_contract.py",
+    "app/contracts/daily_v2_comparison.py",
+    "app/workflows/daily_v2_parity.py",
     "app/workflows/daily_v2_promotion.py",
-    "config/architecture_control_plane.yaml",
-    "scripts/audit_script_references.py",
-    "scripts/build_daily_v2_promotion_decision.py",
-    "scripts/verify_daily_v2_promotion_decision.py",
+    "app/workflows/daily_v2_real_shadow.py",
+    "tests/test_daily_v2_parity.py",
     "tests/test_daily_v2_promotion.py",
-    "tests/test_script_reference_audit.py"
+    "tests/test_incremental_impact_planner.py"
   ],
   "impact": {
     "artifacts": [
@@ -25,6 +27,36 @@
     ],
     "entrypoints": [],
     "evidence": [
+      {
+        "kind": "tracked_path_reference",
+        "line": 31,
+        "source": ".ai/codex_task_daily_v2_comparator_compat.md",
+        "target": "app/contracts/daily_v2_comparison.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 32,
+        "source": ".ai/codex_task_daily_v2_comparator_compat.md",
+        "target": "tests/test_daily_v2_real_shadow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 27,
+        "source": ".ai/codex_task_daily_v2_real_shadow.md",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 47,
+        "source": ".ai/codex_task_daily_v2_real_shadow.md",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 28,
+        "source": ".ai/codex_task_daily_v2_real_shadow.md",
+        "target": "tests/test_daily_v2_real_shadow.py"
+      },
       {
         "kind": "tracked_path_reference",
         "line": 9,
@@ -57,303 +89,15 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 110,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "scripts/audit_script_references.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 327,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "scripts/build_architecture_manifest.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2079,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "scripts/build_daily_v2_promotion_decision.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6509,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "scripts/plan_incremental_verification.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10330,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "scripts/verify_architecture_manifest.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12127,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "scripts/verify_daily_v2_promotion_decision.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12842,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "scripts/verify_incremental_verification_plan.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 746,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 861,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 993,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1063,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1691,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1854,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 1924,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2056,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2157,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2472,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2542,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 2612,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3637,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 3973,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4122,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4575,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 4871,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5248,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5371,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5975,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6045,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6177,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6385,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6455,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6614,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6685,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6835,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 6950,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 7499,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8090,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8160,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8261,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8566,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 8635,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9467,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 9996,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 10060,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11755,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 11918,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 12588,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14489,
-        "source": ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
-        "target": "tests/test_daily_v2_promotion.py"
+        "line": 9,
+        "source": ".work/ARCH-UPGRADE-03/brief.md",
+        "target": "docs/tasks/2026-07-17_ARCH-UPGRADE-03_daily-parity-harness.md"
       },
       {
         "kind": "tracked_path_reference",
         "line": 5,
         "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
         "target": "config/script_lifecycle.yaml"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 5,
-        "source": ".work/CLEANUP-19/evidence/orphan-triage.json",
-        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -429,9 +173,9 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 34,
+        "line": 18,
         "source": ".work/CLEANUP-21/evidence/verification.txt",
-        "target": "scripts/audit_script_references.py"
+        "target": "tests/test_script_lifecycle_audit.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -453,9 +197,9 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 14,
+        "line": 18,
         "source": ".work/CLEANUP-22/evidence/verification.txt",
-        "target": "scripts/audit_script_references.py"
+        "target": "tests/test_script_lifecycle_audit.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -471,21 +215,9 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 20,
-        "source": ".work/CLEANUP-26/evidence/verification.txt",
-        "target": "scripts/audit_script_references.py"
-      },
-      {
-        "kind": "tracked_path_reference",
         "line": 103,
         "source": ".work/CLEANUP-30/evidence/parity.json",
         "target": "config/script_lifecycle.yaml"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 14,
-        "source": ".work/CLEANUP-30/result.md",
-        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -501,21 +233,9 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15,
-        "source": ".work/CLEANUP-31/result.md",
-        "target": "scripts/audit_script_references.py"
-      },
-      {
-        "kind": "tracked_path_reference",
         "line": 22,
         "source": ".work/CLEANUP-31/status.md",
         "target": "config/script_lifecycle.yaml"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 167,
-        "source": ".work/CLEANUP-32/evidence/parity.json",
-        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -525,39 +245,15 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 175,
-        "source": ".work/CLEANUP-33/evidence/parity.json",
-        "target": "scripts/audit_script_references.py"
-      },
-      {
-        "kind": "tracked_path_reference",
         "line": 18,
         "source": ".work/CLEANUP-33/status.md",
         "target": "config/script_lifecycle.yaml"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 15,
-        "source": ".work/CLEANUP-35-F1/evidence/verification.md",
-        "target": "scripts/audit_script_references.py"
-      },
-      {
-        "kind": "tracked_path_reference",
         "line": 31,
         "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
         "target": "config/script_lifecycle.yaml"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 26,
-        "source": ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
-        "target": "scripts/audit_script_references.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 24,
-        "source": ".work/CLEANUP-35-R1/evidence/verification.md",
-        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "python_import",
@@ -591,6 +287,30 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 32,
+        "source": "app/automation/daily_contract.py",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 10,
+        "source": "app/workflows/daily_v2_parity.py",
+        "target": "app/automation/daily_contract.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 12,
+        "source": "app/workflows/daily_v2_promotion.py",
+        "target": "app/workflows/daily_v2_parity.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 18,
+        "source": "app/workflows/daily_v2_real_shadow.py",
+        "target": "app/contracts/daily_v2_comparison.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 6,
         "source": "config/architecture_control_plane.yaml",
         "target": "config/script_lifecycle.yaml"
@@ -605,7 +325,31 @@
         "kind": "tracked_path_reference",
         "line": 196,
         "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_daily_v2_parity.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 196,
+        "source": "config/architecture_control_plane.yaml",
         "target": "tests/test_daily_v2_promotion.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 196,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_daily_v2_real_shadow.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 192,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_daily_workflow_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 196,
+        "source": "config/architecture_control_plane.yaml",
+        "target": "tests/test_daily_workflow_v2.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -615,9 +359,9 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 78,
+        "line": 68,
         "source": "config/script_lifecycle.yaml",
-        "target": "scripts/audit_script_references.py"
+        "target": "scripts/run_daily_v2.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -663,6 +407,18 @@
       },
       {
         "kind": "tracked_path_reference",
+        "line": 11,
+        "source": "docs/architecture/DAILY_V2_PARITY.md",
+        "target": "scripts/run_daily_v2_parity.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 19,
+        "source": "docs/architecture/DAILY_V2_PARITY.md",
+        "target": "scripts/verify_daily_v2_parity.py"
+      },
+      {
+        "kind": "tracked_path_reference",
         "line": 39,
         "source": "docs/architecture/DAILY_V2_PARITY.md",
         "target": "scripts/verify_daily_v2_promotion_decision.py"
@@ -681,18 +437,6 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 37,
-        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
-        "target": "scripts/audit_script_references.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 42,
-        "source": "docs/architecture/SCRIPT_LIFECYCLE.md",
-        "target": "scripts/audit_script_references.py"
-      },
-      {
-        "kind": "tracked_path_reference",
         "line": 20,
         "source": "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
         "target": "config/script_lifecycle.yaml"
@@ -708,6 +452,12 @@
         "line": 57,
         "source": "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
         "target": "docs/architecture/SCRIPT_LIFECYCLE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 22,
+        "source": "docs/tasks/2026-07-13_CLEANUP-07_script-lifecycle-inventory.md",
+        "target": "tests/test_script_lifecycle_audit.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -732,18 +482,6 @@
         "line": 20,
         "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
         "target": "config/script_lifecycle.yaml"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 19,
-        "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
-        "target": "scripts/audit_script_references.py"
-      },
-      {
-        "kind": "tracked_path_reference",
-        "line": 50,
-        "source": "docs/tasks/2026-07-13_CLEANUP-15_script-reference-audit.md",
-        "target": "scripts/audit_script_references.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -801,9 +539,21 @@
       },
       {
         "kind": "tracked_path_reference",
-        "line": 44,
-        "source": "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
-        "target": "scripts/audit_script_references.py"
+        "line": 29,
+        "source": "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 63,
+        "source": "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 30,
+        "source": "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
+        "target": "tests/test_daily_workflow_v2.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -956,6 +706,24 @@
         "target": "tests/test_incremental_impact_planner.py"
       },
       {
+        "kind": "tracked_path_reference",
+        "line": 33,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-03_daily-parity-harness.md",
+        "target": "scripts/run_daily_v2_parity.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 34,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-03_daily-parity-harness.md",
+        "target": "scripts/verify_daily_v2_parity.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 35,
+        "source": "docs/tasks/2026-07-17_ARCH-UPGRADE-03_daily-parity-harness.md",
+        "target": "tests/test_daily_v2_parity.py"
+      },
+      {
         "kind": "python_import",
         "line": 17,
         "source": "scripts/build_architecture_manifest.py",
@@ -975,9 +743,27 @@
       },
       {
         "kind": "python_import",
+        "line": 21,
+        "source": "scripts/run_daily_v2.py",
+        "target": "app/workflows/daily_v2_real_shadow.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 18,
+        "source": "scripts/run_daily_v2_parity.py",
+        "target": "app/workflows/daily_v2_parity.py"
+      },
+      {
+        "kind": "python_import",
         "line": 15,
         "source": "scripts/verify_architecture_manifest.py",
         "target": "app/architecture/__init__.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 16,
+        "source": "scripts/verify_daily_v2_parity.py",
+        "target": "app/workflows/daily_v2_parity.py"
       },
       {
         "kind": "python_import",
@@ -1011,27 +797,93 @@
       },
       {
         "kind": "python_import",
-        "line": 5,
+        "line": 9,
+        "source": "tests/test_daily_v2_parity.py",
+        "target": "app/workflows/daily_v2_parity.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 8,
         "source": "tests/test_daily_v2_promotion.py",
         "target": "app/workflows/daily_v2_promotion.py"
       },
       {
         "kind": "python_import",
-        "line": 7,
+        "line": 14,
+        "source": "tests/test_daily_v2_real_shadow.py",
+        "target": "app/contracts/daily_v2_comparison.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 15,
+        "source": "tests/test_daily_v2_real_shadow.py",
+        "target": "app/workflows/daily_v2_real_shadow.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 16,
+        "source": "tests/test_daily_v2_real_shadow.py",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 476,
+        "source": "tests/test_daily_v2_real_shadow.py",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 229,
+        "source": "tests/test_daily_workflow_v2.py",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "python_import",
+        "line": 8,
         "source": "tests/test_incremental_impact_planner.py",
         "target": "app/architecture/impact.py"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 48,
+        "line": 49,
         "source": "tests/test_incremental_impact_planner.py",
         "target": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md"
       },
       {
         "kind": "tracked_path_reference",
-        "line": 82,
+        "line": 83,
         "source": "tests/test_incremental_impact_planner.py",
         "target": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 93,
+        "source": "tests/test_incremental_impact_planner.py",
+        "target": "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 23,
+        "source": "tests/test_script_lifecycle_audit.py",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 49,
+        "source": "tests/test_script_lifecycle_audit.py",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 60,
+        "source": "tests/test_script_lifecycle_audit.py",
+        "target": "scripts/run_daily_v2.py"
+      },
+      {
+        "kind": "tracked_path_reference",
+        "line": 61,
+        "source": "tests/test_script_lifecycle_audit.py",
+        "target": "scripts/run_daily_v2.py"
       },
       {
         "kind": "tracked_path_reference",
@@ -1044,20 +896,16 @@
         "line": 102,
         "source": "tests/test_script_reference_audit.py",
         "target": "config/script_lifecycle.yaml"
-      },
-      {
-        "kind": "python_import",
-        "line": 10,
-        "source": "tests/test_script_reference_audit.py",
-        "target": "scripts/audit_script_references.py"
       }
     ],
     "files": [
+      ".ai/codex_task_daily_v2_comparator_compat.md",
+      ".ai/codex_task_daily_v2_real_shadow.md",
       ".work/ARCH-UPGRADE-01/brief.md",
       ".work/ARCH-UPGRADE-01/context_manifest.md",
       ".work/ARCH-UPGRADE-01/result.md",
       ".work/ARCH-UPGRADE-02/brief.md",
-      ".work/ARCH-UPGRADE-05/evidence/script_governance.json",
+      ".work/ARCH-UPGRADE-03/brief.md",
       ".work/CLEANUP-19/evidence/orphan-triage.json",
       ".work/CLEANUP-20/evidence/orphan-triage.json",
       ".work/CLEANUP-21/evidence/verification.txt",
@@ -1065,22 +913,20 @@
       ".work/CLEANUP-22/evidence/verification.txt",
       ".work/CLEANUP-26/evidence/verification.txt",
       ".work/CLEANUP-30/evidence/parity.json",
-      ".work/CLEANUP-30/result.md",
       ".work/CLEANUP-30/status.md",
       ".work/CLEANUP-31/evidence/parity.json",
-      ".work/CLEANUP-31/result.md",
       ".work/CLEANUP-31/status.md",
-      ".work/CLEANUP-32/evidence/parity.json",
       ".work/CLEANUP-32/status.md",
-      ".work/CLEANUP-33/evidence/parity.json",
       ".work/CLEANUP-33/status.md",
-      ".work/CLEANUP-35-F1/evidence/verification.md",
       ".work/CLEANUP-35-R1/evidence/re-review-ef0f7c3.md",
-      ".work/CLEANUP-35-R1/evidence/verification.md",
       "app/architecture/__init__.py",
       "app/architecture/control_plane.py",
       "app/architecture/impact.py",
+      "app/automation/daily_contract.py",
+      "app/contracts/daily_v2_comparison.py",
+      "app/workflows/daily_v2_parity.py",
       "app/workflows/daily_v2_promotion.py",
+      "app/workflows/daily_v2_real_shadow.py",
       "config/architecture_control_plane.yaml",
       "config/script_lifecycle.yaml",
       "docs/architecture/ARCHITECTURE_CONTROL_PLANE.md",
@@ -1096,6 +942,7 @@
       "docs/tasks/2026-07-13_CLEANUP-28_odd-lot-research-verifier-suite.md",
       "docs/tasks/2026-07-13_CLEANUP-29_regime-conditional-builder-suite.md",
       "docs/tasks/2026-07-13_CLEANUP-30_regime-conditional-verifier-suite.md",
+      "docs/tasks/2026-07-13_REFACTOR-01_daily-v2-contract.md",
       "docs/tasks/2026-07-13_REFACTOR-05_exit-rule-validation-suite.md",
       "docs/tasks/2026-07-14_CLEANUP-31_training-candidate-risk-verifier-suite.md",
       "docs/tasks/2026-07-14_CLEANUP-32_training-candidate-risk-builder-suite.md",
@@ -1106,31 +953,45 @@
       "docs/tasks/2026-07-14_CLEANUP-35_shadow-research-campaign.md",
       "docs/tasks/2026-07-17_ARCH-UPGRADE-01_canonical-control-plane.md",
       "docs/tasks/2026-07-17_ARCH-UPGRADE-02_incremental-impact-planner.md",
-      "scripts/audit_script_references.py",
+      "docs/tasks/2026-07-17_ARCH-UPGRADE-03_daily-parity-harness.md",
       "scripts/build_architecture_manifest.py",
       "scripts/build_daily_v2_promotion_decision.py",
       "scripts/plan_incremental_verification.py",
+      "scripts/run_daily_v2.py",
+      "scripts/run_daily_v2_parity.py",
       "scripts/verify_architecture_manifest.py",
+      "scripts/verify_daily_v2_parity.py",
       "scripts/verify_daily_v2_promotion_decision.py",
       "scripts/verify_incremental_verification_plan.py",
       "tests/test_architecture_control_plane.py",
+      "tests/test_daily_v2_parity.py",
       "tests/test_daily_v2_promotion.py",
+      "tests/test_daily_v2_real_shadow.py",
+      "tests/test_daily_workflow_v2.py",
       "tests/test_incremental_impact_planner.py",
+      "tests/test_script_lifecycle_audit.py",
       "tests/test_script_reference_audit.py"
     ],
     "workflows": [
-      "daily"
+      "daily",
+      "daily_publish",
+      "monitor",
+      "reference",
+      "retrain",
+      "webui"
     ]
   },
   "request": {
     "changed_files": [
+      "app/architecture/impact.py",
+      "app/automation/daily_contract.py",
+      "app/contracts/daily_v2_comparison.py",
+      "app/workflows/daily_v2_parity.py",
       "app/workflows/daily_v2_promotion.py",
-      "config/architecture_control_plane.yaml",
-      "scripts/audit_script_references.py",
-      "scripts/build_daily_v2_promotion_decision.py",
-      "scripts/verify_daily_v2_promotion_decision.py",
+      "app/workflows/daily_v2_real_shadow.py",
+      "tests/test_daily_v2_parity.py",
       "tests/test_daily_v2_promotion.py",
-      "tests/test_script_reference_audit.py"
+      "tests/test_incremental_impact_planner.py"
     ],
     "mode": "files"
   },
@@ -1138,19 +999,25 @@
     "architecture_contract",
     "daily_contract",
     "daily_parity_contract",
+    "publish_guard",
     "reference_contract",
-    "retrain_contract"
+    "retrain_contract",
+    "scheduler_ownership",
+    "web_health"
   ],
   "risk": {
     "level": "critical",
     "missing_production_verification": false,
     "needs_review": true,
-    "production_touched": true
+    "production_touched": true,
+    "unknown_edges_fail_closed": true
   },
   "schema_version": "top10.incremental-verification-plan.v1",
   "source": {
     "architecture_manifest_digest": "7d1422e8b312d6eaa8723409c7904faac8a5cf926e576f6f4e177f72215b76f1",
-    "git_sha": "db1430a569986535c431034edf2ae95a05b55cee"
+    "git_sha": "dcc7c21776edc5cd26284d0093406208d30df0ce",
+    "tracked_tree_digest": "2d23a792623f65dcaa05d73edcabdfe2af59199305a2a3798efa500c7f5afad1",
+    "tree_mode": "tracked_working_tree"
   },
   "unknown_edges": [
     {
@@ -1194,6 +1061,15 @@
       "tests.test_daily_v2_real_shadow",
       "tests.test_daily_workflow_v2"
     ],
+    "publish_guard": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "unittest",
+      "tests.test_daily_publish_wrapper_guards",
+      "tests.test_clawd_publish_payload_boundary"
+    ],
     "reference_contract": [
       "uv",
       "run",
@@ -1209,6 +1085,18 @@
       "unittest",
       "tests.test_model_runtime_promotion",
       "tests.test_model_runtime_migration"
+    ],
+    "scheduler_ownership": [
+      "uv",
+      "run",
+      "python",
+      "-m",
+      "unittest",
+      "tests.test_scheduler_ownership"
+    ],
+    "web_health": [
+      "bash",
+      "scripts/verify_local_dev_health.sh"
     ]
   }
 }

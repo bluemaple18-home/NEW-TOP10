@@ -9,7 +9,7 @@
       "publish-ready"
     ],
     "live_send_allowed": false,
-    "shadow_root": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2",
+    "shadow_root": ".work/ARCH-UPGRADE-03/evidence/bundle/shadow",
     "version": "top10.daily-core-contract.v1",
     "workflow_profile": "fixture"
   },
@@ -18,7 +18,7 @@
     "ranking_production_switch": "GO",
     "real_shadow": "GO"
   },
-  "execution_outcome": "succeeded",
+  "execution_outcome": "not_succeeded",
   "mismatches": [
     {
       "blocking": true,
@@ -97,6 +97,7 @@
   "production_switch": {
     "blockers": [
       "parity_no_go",
+      "successful_execution_evidence",
       "production_equivalent_workflow"
     ],
     "executed": false,
@@ -110,20 +111,20 @@
   "schema_version": "top10.daily-v2.parity-report.v1",
   "source_files": {
     "production_status": {
-      "path": "/Users/mattkuo/TOP10new/artifacts/daily_run_summary_2026-07-09.json",
-      "sha256": "0e8003449acc4272d8f2cddeeea25117ead2e566f3902bab3415cb8a07df9d4f"
+      "path": ".work/ARCH-UPGRADE-03/evidence/bundle/production_2026-07-09.json",
+      "sha256": "43b9222d993d2aa3a7f521741d076bdecddd47b9f0853e3a549f6c70dd43f794"
     },
     "ranking_comparison": {
-      "path": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2/daily-v2-20260709-post-promotion-v4/comparison.json",
-      "sha256": "ad2399b0e27946d5a2bd71a735c556839f7010da53dbfdec8bd77c0e4116c768"
+      "path": ".work/ARCH-UPGRADE-03/evidence/bundle/comparison_2026-07-09.json",
+      "sha256": "70be957b844ac9a225dd0302bbeb8a27f6a7d7328e3e39890f7c3e8f9a7e08da"
     },
     "real_shadow_manifest": {
-      "path": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2/daily-v2-20260709-post-promotion-v4/manifest.json",
-      "sha256": "13278fd2ce2afe5332cc3cbce32491af7d28b51cd4aac5fddeba172a41fde04a"
+      "path": ".work/ARCH-UPGRADE-03/evidence/bundle/real_shadow_2026-07-09.json",
+      "sha256": "e4c01e0c263809f995435f2097b533b8abe157d3c0b1781f1c503354b33bf64f"
     },
     "workflow_manifest": {
-      "path": "/Users/mattkuo/TOP10new/artifacts/shadow/daily_v2/arch-upgrade-03-fixture/manifest.json",
-      "sha256": "76554126c314377189d432912547de0d18aa8ecd2a9f0965ee2598e118bfe834"
+      "path": ".work/ARCH-UPGRADE-03/evidence/bundle/workflow_2026-07-09.json",
+      "sha256": "b3a476fa41a88c04eb7f989314e39c5406ac2bc70930238858f23f9e42b696f1"
     }
   },
   "status": "NO-GO",
