@@ -44,6 +44,12 @@ def _bound_evidence_valid(
     expected_base_sha: str,
     expected_candidate_sha: str,
 ) -> bool:
+    """驗證 evidence 語意，但在外部信任根完成前永不授權。
+
+    JSON schema、digest、Git SHA 與 exit code 都可由同一個本機作者自行產生，
+    只能作為診斷資料，不能證明獨立 runner/reviewer 實際執行。未來必須以
+    repo 外的可信簽發器與固定公鑰新增另一版 schema，不能用布林開關放行。
+    """
     if not re.fullmatch(r"[0-9a-f]{40}", str(payload.get("base_sha") or "")):
         return False
     if not re.fullmatch(r"[0-9a-f]{40}", str(payload.get("candidate_sha") or "")):
@@ -133,7 +139,8 @@ def _bound_evidence_valid(
             and all(isinstance(item, Mapping) and item.get("exit_code") == 0 for item in review["verification"])
         ):
             return False
-    return True
+    # 所有本機語意檢查通過仍不等於具有獨立信任根；目前刻意 fail closed。
+    return False
 
 
 def _build_daily_v2_promotion_decision(
@@ -214,7 +221,12 @@ def _build_daily_v2_promotion_decision(
             expected_base_sha=expected_base_sha,
             expected_candidate_sha=expected_candidate_sha,
         ):
-            blockers.append(_blocker("promotion_acceptance_unbound", "acceptance 必須綁定 base/candidate SHA 與原始 evidence digest"))
+            blockers.append(
+                _blocker(
+                    "promotion_acceptance_unbound",
+                    "acceptance 必須綁定固定 SHA、原始 evidence 與 repo 外可信簽發器；目前信任根尚未建立",
+                )
+            )
 
     if independent_review is None:
         blockers.append(_blocker("independent_review_missing", "缺少固定 SHA 的獨立 review"))
@@ -227,7 +239,12 @@ def _build_daily_v2_promotion_decision(
             expected_base_sha=expected_base_sha,
             expected_candidate_sha=expected_candidate_sha,
         ):
-            blockers.append(_blocker("independent_review_unbound", "independent review 必須綁定 base/candidate SHA 與 review evidence digest"))
+            blockers.append(
+                _blocker(
+                    "independent_review_unbound",
+                    "independent review 必須綁定固定 SHA、review evidence 與 repo 外可信簽發器；目前信任根尚未建立",
+                )
+            )
         if independent_review.get("verdict") != "GO":
             blockers.append(_blocker("independent_review_no_go", "獨立 review verdict 必須為 GO"))
 

@@ -32,6 +32,7 @@ Parity `GO` 不等於 production switch `GO`。正式 promotion decision 另要�
 - file-backed verifier 可由 repo root 以外的位置重算所有來源。
 - ranking comparison 由實體 baseline/shadow CSV 重算，不能只驗 comparison JSON digest。
 - manifest 內嵌的自簽 attestation 不構成 production-equivalent 信任根。
+- repo 內自製的 acceptance/review JSON，即使 schema、digest、固定 SHA 與 exit code 完整，也不構成獨立信任根。
 
 決策 builder 只輸出 `promote` 或 `retain_current_production`，永不執行切換：
 
@@ -52,6 +53,6 @@ uv run python scripts/verify_daily_v2_promotion_decision.py \
 - mismatch 固定分類為 `expected_difference`、`contract_gap`、`data_mismatch`、`status_mismatch`、`failure_semantics`、`unsafe_side_effect`。
 - `parity.status=GO` 只代表所提供 evidence 行為一致。
 - `workflow_profile=fixture` 永遠保留 `production_equivalent_workflow` blocker，不得授權 production switch。
-- 目前沒有外部信任根可簽發 production-equivalent attestation，因此 production promotion 維持 fail-closed。
+- 目前沒有 repo 外信任根可簽發 production-equivalent、acceptance 與 independent review，因此 production promotion 維持 fail-closed。
 - timeout/failure 兩邊一致時可以是 parity GO，但因缺少成功執行證據，production switch 仍是 NO-GO。
 - live send、source mutation、run directory 逃出 shadow root 或 evidence 宣稱已切 production，全部 fail closed。

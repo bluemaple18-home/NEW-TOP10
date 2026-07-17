@@ -164,7 +164,10 @@ class DailyV2PromotionTest(unittest.TestCase):
         self.assertEqual(decision["status"], "NO-GO")
         self.assertFalse(decision["production_switch"]["authorized"])
         self.assertFalse(decision["production_switch"]["executed"])
-        self.assertIn("unverified_evidence_sources", {item["code"] for item in decision["blockers"]})
+        codes = {item["code"] for item in decision["blockers"]}
+        self.assertIn("unverified_evidence_sources", codes)
+        self.assertIn("promotion_acceptance_unbound", codes)
+        self.assertIn("independent_review_unbound", codes)
 
     def test_fixture_and_missing_evidence_retain_current_production(self) -> None:
         decision = build_daily_v2_promotion_decision(
@@ -340,6 +343,8 @@ class DailyV2PromotionTest(unittest.TestCase):
             **self._sha_args(),
         )
         self.assertNotIn("unverified_evidence_sources", {item["code"] for item in decision["blockers"]})
+        self.assertIn("promotion_acceptance_unbound", {item["code"] for item in decision["blockers"]})
+        self.assertIn("independent_review_unbound", {item["code"] for item in decision["blockers"]})
         original_cwd = Path.cwd()
         try:
             os.chdir(tempfile.gettempdir())
