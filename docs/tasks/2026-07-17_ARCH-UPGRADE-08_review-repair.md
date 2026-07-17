@@ -5,7 +5,7 @@ type: repair
 parent: ARCH-UPGRADE-07
 source_review: ARCH-UPGRADE-07A,ARCH-UPGRADE-07C
 priority: P0
-code_candidate_sha: 3613dc0f71fbf5cb29d94c55bc7df68a3d7a2d25
+code_candidate_sha: e7106800e6ecc7eb0daae4da17066bdf3234b350
 ---
 
 # Review Repair-2
@@ -17,6 +17,7 @@ code_candidate_sha: 3613dc0f71fbf5cb29d94c55bc7df68a3d7a2d25
 - 記憶體 payload 不得直接授權；正式 promotion 只接受 file-backed 重算。
 - ranking comparison 必須由實體 baseline/shadow CSV 完整重算。
 - manifest 自簽 attestation 不具 production-equivalent 授權力；未建立外部信任根前 fail closed。
+- acceptance/review 即使具本機 schema、digest、固定 SHA 與 exit code，未經 repo 外可信簽發仍不得授權。
 - `daily_entrypoint_modified` 由固定 SHA Git diff 推導。
 - portable paths 統一相對 repo root，不依賴 cwd。
 
