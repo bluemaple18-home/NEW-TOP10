@@ -1,3 +1,24 @@
+---
+card_id: REPAIR-RESEARCH-QUEUE-01-R1
+status: INTEGRATED
+ownership: repair
+parent_card: RESEARCH-QUEUE-01
+review_card: REVIEW-RESEARCH-QUEUE-01
+chain_id: RESEARCH-QUEUE-01
+repair_generation: 1
+thickness: standard
+risk: medium
+model: gpt-5.4
+reasoning: medium
+model_reason: Findings 已具體定位，修復邊界清楚；由較經濟實作模型處理，主線負責最終驗收。
+base_sha: fea9307224d3dccef28428773d09cf061491c5e0
+review_commit: dddfbe3caf90f56aed37a41d7c93e10a38aa1d8a
+candidate_sha: 325dd4715e3113f3fbfd46cf0b4b6d490848e7ad
+integrated_sha: 16335c9
+integration_basis: mainline_pre_merge_validation
+evidence_path: artifacts/visible_thread/REPAIR-RESEARCH-QUEUE-01-R1/
+---
+
 # REPAIR-RESEARCH-QUEUE-01-R1
 
 ## 任務
@@ -23,3 +44,10 @@
 - 不改模型、排名、promotion。
 - 不刪除或覆寫既有 artifact。
 - 不 merge、push、deploy。
+
+## 主線整合
+
+- 19 個受影響測試通過。
+- `scripts/verify_autonomous_research.py` 回報 `AUTONOMOUS_RESEARCH_OK`。
+- Python 編譯與 `git diff --check` 通過。
+- 修復候選已由主線整合為 `16335c9`；本卡未宣稱另有獨立 re-review 結果。

@@ -1,10 +1,16 @@
 ---
 id: RESEARCH-QUEUE-01
-status: DELIVERED_CANDIDATE
+status: INTEGRATED
 type: implementation
+ownership: implementation
 risk: medium
 card_thickness: standard
+model: gpt-5.5
 reasoning: medium
+model_reason: 跨研究 manager、queue selection 與 Fog worker，但介面與失敗模式已定位且可回退。
+candidate_sha: fea9307224d3dccef28428773d09cf061491c5e0
+integrated_sha: d4389cf
+evidence_path: artifacts/visible_thread/RESEARCH-QUEUE-01/
 ---
 
 # RESEARCH-QUEUE-01：受控重跑政策
@@ -50,4 +56,4 @@ reasoning: medium
 
 ## 交付邊界
 
-本卡最高狀態為 `DELIVERED_CANDIDATE`；`ACCEPTED`、`INTEGRATED`、`CLOSED` 由主線決定。
+本卡已由主線驗收並整合為 `d4389cf`。
