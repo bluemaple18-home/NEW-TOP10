@@ -125,6 +125,8 @@ evidence_path: docs/evidence/TSKG-SRC-01/
 - Candidate parent：`4f0470e133b763d5d5c5a232acddf3ab2bc94de8`
 - Integrated SLC-01 base：`300571e11d7d9cfe00c7ff297feeef768697ca1a`
 - Public-contract TDD：RED 如預期；GREEN `14/14`；SLC-01 regression `22/22`
+- Repair successor：focused RED `3 tests / 9 failures`；GREEN `17` SRC + `22` SLC
+  = `39/39`；reviewer-equivalent probes `51/51`
 - Registry checksum：
   `0ea9bfca08d343f796aa093d162d4c9153b6a7fd8c94064d870a9d89b8a07b4d`
 - Reader ordering：synthetic approved `1` call；blocked/expired/unknown/invalid `0`

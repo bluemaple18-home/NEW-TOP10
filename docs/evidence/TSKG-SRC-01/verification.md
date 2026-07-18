@@ -117,6 +117,21 @@ API、SLC-01 fixture、Top10 runtime 或交易／模型程式。
 `git diff --check`：exit `0`。Post-commit changed-file 與 clean 證據於 candidate
 commit 建立後再次驗證。
 
+## REPAIR-TSKG-SRC-01 successor verification
+
+Review `31715802f794f411986abdebb6f368ce31b35834` 指出的 F-01～F-03 已由
+successor candidate 進行限定修復並交回原 reviewer re-review；此段不改寫原 candidate
+的歷史 RED/GREEN evidence，也不宣稱 Review GO。
+
+- Repair parent：`717e1c6dffedf254661a12ab41b1092bfae948d9`。
+- Repair TDD：focused RED `3 tests / 9 failures`；focused GREEN `3/3`。
+- Full regression：`17` SRC + `22` SLC = `39/39`。
+- Reviewer-equivalent probes：`51/51`；F-01/F-02 exploits `3/3 BLOCKED`。
+- Denied reader proof：10 個 denied requests 合計 `0` call。
+- Strict loader boundary：raw JSON duplicates 只由 `from_file` 在 mapping construction
+  前偵測；`from_mapping` 無法回溯已 collapse 的 raw duplicate provenance。
+- Repair evidence：`docs/evidence/REPAIR-TSKG-SRC-01/repair.md`。
+
 ## Remaining blockers
 
 - OQ-SRC-01 仍未解：P1～P5 的 terms/legal basis、robots、allowed method/path、

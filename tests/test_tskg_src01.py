@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import tempfile
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -26,10 +27,12 @@ class ReaderSpy:
 
     def __init__(self, result: Any = None) -> None:
         self.calls = 0
+        self.paths: list[str] = []
         self.result = {"synthetic": True} if result is None else result
 
-    def __call__(self) -> Any:
+    def __call__(self, path: str) -> Any:
         self.calls += 1
+        self.paths.append(path)
         return self.result
 
 
@@ -47,7 +50,7 @@ def _approved_policy(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _run(
     registry: SourcePolicyRegistry,
-    reader: Callable[[], Any],
+    reader: Callable[[str], Any],
     **overrides: Any,
 ) -> dict[str, Any]:
     request = {
@@ -181,6 +184,52 @@ class TskgSrc01PublicBehaviorTests(unittest.TestCase):
                 with self.assertRaises(SourcePolicyContractError):
                     SourcePolicyRegistry.from_mapping(malformed)
 
+    def test_generic_mapping_cannot_grant_public_approval(self) -> None:
+        payload = _fixture()
+        policy = _approved_policy(payload)
+        policy.update(
+            policy_id="policy-public-manufactured-v1",
+            source_id="source-public-manufactured",
+            source_class="PUBLIC",
+        )
+        spy = ReaderSpy()
+
+        with self.assertRaises(SourcePolicyContractError):
+            SourcePolicyRegistry.from_mapping(payload)
+
+        self.assertEqual(spy.calls, 0)
+
+    def test_file_loader_rejects_duplicate_json_members_recursively(self) -> None:
+        fixture_text = FIXTURE_PATH.read_text(encoding="utf-8")
+        duplicate_documents = {
+            "registry": fixture_text.replace(
+                '  "schema_version": "tskg-source-policy-v1",',
+                '  "schema_version": "shadowed",\n'
+                '  "schema_version": "tskg-source-policy-v1",',
+                1,
+            ),
+            "policy": fixture_text.replace(
+                '      "source_class": "SYNTHETIC",',
+                '      "source_class": "PUBLIC",\n'
+                '      "source_class": "SYNTHETIC",',
+                1,
+            ),
+            "nested_object": fixture_text.replace(
+                '      "authentication_constraints": "OFFLINE_CALLBACK_ONLY",',
+                '      "authentication_constraints": '
+                '{"mode": "PUBLIC", "mode": "OFFLINE_CALLBACK_ONLY"},',
+                1,
+            ),
+        }
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            for case_name, document in duplicate_documents.items():
+                with self.subTest(case_name=case_name):
+                    duplicate_path = Path(temporary_directory) / f"{case_name}.json"
+                    duplicate_path.write_text(document, encoding="utf-8")
+                    with self.assertRaises(SourcePolicyContractError):
+                        SourcePolicyRegistry.from_file(duplicate_path)
+
     def test_checksum_is_deterministic_after_input_reordering(self) -> None:
         payload = _fixture()
         reordered = deepcopy(payload)
@@ -209,6 +258,8 @@ class TskgSrc01PublicBehaviorTests(unittest.TestCase):
         self.assertTrue(first["ok"])
         self.assertEqual(first_spy.calls, 1)
         self.assertEqual(second_spy.calls, 1)
+        self.assertEqual(first_spy.paths, ["/synthetic/v1/records/item-1"])
+        self.assertEqual(second_spy.paths, ["/synthetic/v1/records/item-1"])
         self.assertEqual(first["reader_result"], {"batch": "synthetic-1"})
         self.assertEqual(first["receipt"], second["receipt"])
         self.assertEqual(
@@ -315,6 +366,31 @@ class TskgSrc01PublicBehaviorTests(unittest.TestCase):
                     result["error"]["code"],
                     {"INVALID_REQUEST", "PATH_NOT_ALLOWED"},
                 )
+                self.assertEqual(spy.calls, 0)
+
+    def test_unicode_compatibility_and_control_paths_fail_closed(self) -> None:
+        unsafe_paths = (
+            "/synthetic/v1/records/．．／secret",
+            "/synthetic/v1/records/\uff0esecret",
+            "/synthetic/v1/records/secret\uff0fchild",
+            "/synthetic/v1/records/secret\u0000child",
+            "/synthetic/v1/records/secret\u001fchild",
+            "/synthetic/v1/records/secret\u007fchild",
+            "/synthetic/v1/records/%2Fsecret",
+            "/synthetic/v1/records/%2fsecret",
+            "/synthetic/v1/records/%252e%252e/secret",
+            "https://example.invalid/synthetic/v1/records/item-1",
+            "/synthetic/v1/records/item-1#fragment",
+            "/synthetic/v1/records/item-1\\child",
+        )
+        for path in unsafe_paths:
+            with self.subTest(path=path):
+                spy = ReaderSpy()
+
+                result = _run(self.registry, spy, path=path)
+
+                self.assertFalse(result["ok"])
+                self.assertEqual(result["error"]["code"], "INVALID_REQUEST")
                 self.assertEqual(spy.calls, 0)
 
     def test_public_contract_is_exported_without_runtime_side_effects(self) -> None:

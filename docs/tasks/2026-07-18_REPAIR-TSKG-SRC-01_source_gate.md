@@ -2,7 +2,7 @@
 card_id: REPAIR-TSKG-SRC-01
 chain_id: TSKG-SRC
 title: Repair Source Gate fail-open findings F-01 to F-03
-status: REPAIR_READY
+status: DELIVERED_CANDIDATE
 type: repair
 owner: Codex 主線
 assignee: independent repair thread
@@ -87,4 +87,14 @@ evidence_path: docs/evidence/REPAIR-TSKG-SRC-01/repair.md
 
 ## Result
 
-`PENDING_REPAIR`
+`DELIVERED_CANDIDATE`
+
+- Fixed base candidate：`bcbf773f8dbee51e84488b1ea3c11fabbad7a28a`。
+- Review：`31715802f794f411986abdebb6f368ce31b35834`。
+- Successor parent：`717e1c6dffedf254661a12ab41b1092bfae948d9`。
+- TDD：focused RED `3 tests / 9 failures`；focused GREEN `3/3`。
+- Regression：`17` SRC + `22` SLC = `39/39`；compile PASS。
+- Probes：`51/51`；F-01/F-02 exploits `3/3 BLOCKED`；10 denied requests
+  reader `0` call。
+- Evidence：`docs/evidence/REPAIR-TSKG-SRC-01/repair.md`。
+- Blocker：OQ-SRC-01 未解除，沒有 public source approved，SLC-02 仍 blocked。

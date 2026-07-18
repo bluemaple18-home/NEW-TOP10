@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -89,10 +90,17 @@ class SourcePolicyRegistry:
     @classmethod
     def from_file(cls, path: Path) -> "SourcePolicyRegistry":
         with path.open("r", encoding="utf-8") as policy_file:
-            return cls(json.load(policy_file))
+            return cls(
+                json.load(
+                    policy_file,
+                    object_pairs_hook=_reject_duplicate_json_members,
+                )
+            )
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> "SourcePolicyRegistry":
+        """從既有 mapping 建立 registry；raw JSON duplicates 只能由 from_file 偵測。"""
+
         return cls(payload)
 
     @property
@@ -162,7 +170,7 @@ def preflight_source(
     path: str,
     media_type: str,
     as_of: datetime | str,
-    reader: Callable[[], Any],
+    reader: Callable[[str], Any],
     requested_rate: int = 1,
     requested_concurrency: int = 1,
 ) -> dict[str, Any]:
@@ -190,7 +198,8 @@ def preflight_source(
         )
     if not isinstance(method, str) or not _METHOD_PATTERN.fullmatch(method):
         return _error(registry, source_id, None, "INVALID_REQUEST", "invalid method")
-    if not _is_safe_request_path(path):
+    canonical_path = _canonical_request_path(path)
+    if canonical_path is None:
         return _error(registry, source_id, None, "INVALID_REQUEST", "invalid path")
     if not isinstance(media_type, str) or not _MEDIA_TYPE_PATTERN.fullmatch(media_type):
         return _error(
@@ -250,7 +259,10 @@ def preflight_source(
             "METHOD_NOT_ALLOWED",
             "method is outside policy",
         )
-    if not any(_path_matches(path, allowed) for allowed in policy["allowed_paths"]):
+    if not any(
+        _path_matches(canonical_path, allowed)
+        for allowed in policy["allowed_paths"]
+    ):
         return _error(
             registry,
             source_id,
@@ -288,14 +300,14 @@ def preflight_source(
         "policy_checksum": registry.checksum,
         "source_id": source_id,
         "method": method,
-        "path": path,
+        "path": canonical_path,
         "media_type": media_type,
         "as_of": _canonical_timestamp(instant),
         "requested_rate": requested_rate,
         "requested_concurrency": requested_concurrency,
     }
     receipt["receipt_id"] = _checksum(receipt)
-    reader_result = reader()
+    reader_result = reader(canonical_path)
     return {"ok": True, "receipt": receipt, "reader_result": reader_result}
 
 
@@ -316,6 +328,13 @@ def _validate_policy(value: Any) -> dict[str, Any]:
     for field, allowed in enum_contracts.items():
         if policy[field] not in allowed:
             raise SourcePolicyContractError(f"unsupported {field}")
+    if (
+        policy["source_class"] == "PUBLIC"
+        and policy["decision_status"] == "APPROVED"
+    ):
+        raise SourcePolicyContractError(
+            "PUBLIC policies cannot be APPROVED while OQ-SRC-01 is unresolved"
+        )
 
     for field in _LIST_FIELDS:
         items = policy[field]
@@ -384,18 +403,28 @@ def _is_bounded_int(value: Any, *, maximum: int) -> bool:
     return _is_positive_int(value) and value <= maximum
 
 
-def _is_safe_request_path(path: Any) -> bool:
+def _canonical_request_path(path: Any) -> str | None:
     if not isinstance(path, str) or not path.startswith("/") or path.startswith("//"):
-        return False
+        return None
+    if unicodedata.normalize("NFKC", path) != path:
+        return None
+    if any(unicodedata.category(character).startswith("C") for character in path):
+        return None
     if any(token in path for token in ("?", "#", "\\", "%", "//")):
-        return False
-    return all(segment not in {".", ".."} for segment in path.split("/"))
+        return None
+    if any(segment in {"", ".", ".."} for segment in path.split("/")[1:]):
+        return None
+    return path
+
+
+def _is_safe_request_path(path: Any) -> bool:
+    return _canonical_request_path(path) is not None
 
 
 def _is_safe_policy_path(path: Any) -> bool:
     if not isinstance(path, str):
         return False
-    concrete = path[:-1] if path.endswith("/*") else path
+    concrete = path[:-2] if path.endswith("/*") else path
     if "*" in concrete or not _is_safe_request_path(concrete):
         return False
     return not path.endswith("/") and path != "/*"
@@ -406,6 +435,17 @@ def _path_matches(requested: str, allowed: str) -> bool:
         prefix = allowed[:-1]
         return requested.startswith(prefix) and len(requested) > len(prefix)
     return requested == allowed
+
+
+def _reject_duplicate_json_members(
+    members: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    parsed: dict[str, Any] = {}
+    for key, value in members:
+        if key in parsed:
+            raise SourcePolicyContractError(f"duplicate JSON member: {key}")
+        parsed[key] = value
+    return parsed
 
 
 def _governance_allows_access(policy: Mapping[str, Any]) -> bool:
