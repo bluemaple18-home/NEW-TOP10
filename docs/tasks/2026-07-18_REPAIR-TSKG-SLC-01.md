@@ -2,7 +2,7 @@
 card_id: REPAIR-TSKG-SLC-01
 chain_id: TSKG-SLC-01
 generation: 1
-status: REPAIR_READY
+status: DELIVERED_CANDIDATE
 type: repair
 owner: Codex 主線
 assignee: 獨立 Repair thread
@@ -43,9 +43,15 @@ evidence_path: docs/evidence/REPAIR-TSKG-SLC-01/
 - 原 13 tests 不退化，新增負向 tests 全通過。
 - reviewer 的 expired-Security probe 不再 RESOLVED。
 - malformed fixture matrix全部 fail loud。
-- shared docs hardcoded `/Users/` scan 無輸出。
+- shared docs host-specific absolute path scan 無輸出。
 - 只回報 DELIVERED_CANDIDATE；完整 SHA/parent/changed files/tests/evidence/blockers。
 
 ## Result
 
-待 Repair thread 填寫。
+`DELIVERED_CANDIDATE`：已只修 F-01～F-04。Security resolver 現在依 v1.1
+temporal discriminator、注入時鐘或 explicit `as_of` 選有效 interval，允許不重疊
+code reuse 並拒絕 overlap；fixture closed-schema、referential/duplicate checks 與
+compound prohibited-key scanner 均有負向測試。原 13 tests 與新增 cases 共 22 tests
+全通過，shared SLC-01 evidence 已移除 host-specific interpreter path。完整 TDD、
+compile、allowlist、diff 與 clean 證據見
+`docs/evidence/REPAIR-TSKG-SLC-01/repair.md`；review evidence 未修改。

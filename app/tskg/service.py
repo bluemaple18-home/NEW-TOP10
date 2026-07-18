@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Protocol
+from datetime import datetime
+from typing import Any, Callable, Protocol
 
-from app.tskg.identity import ResolutionStatus
+from app.tskg.identity import ResolutionStatus, parse_utc_instant
 
 
 RELATION_SECTIONS = (
@@ -25,7 +26,7 @@ _MARKET_PATTERN = re.compile(r"^[A-Z0-9]{2,12}$")
 class CompanyRepository(Protocol):
     """Company service 所需的 fixture repository 邊界。"""
 
-    def create_resolver(self): ...
+    def create_resolver(self, *, clock: Callable[[], datetime] | None = None): ...
 
     def get_entity(self, entity_id: str) -> dict[str, Any] | None: ...
 
@@ -58,9 +59,14 @@ class AmbiguousEntityError(CompanyQueryError):
 class CompanyService:
     """由 Security.issuer_id 導向 Organization，不依名稱猜測 issuer。"""
 
-    def __init__(self, repository: CompanyRepository) -> None:
+    def __init__(
+        self,
+        repository: CompanyRepository,
+        *,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         self._repository = repository
-        self._resolver = repository.create_resolver()
+        self._resolver = repository.create_resolver(clock=clock)
 
     def get_company(
         self,
@@ -68,12 +74,21 @@ class CompanyService:
         *,
         request_id: str,
         market: str | None = None,
+        as_of: str | None = None,
     ) -> dict[str, Any]:
         normalized_stock_id = self._validate_stock_id(stock_id)
         normalized_market = self._validate_market(market)
+        try:
+            effective_at = parse_utc_instant(as_of) if as_of is not None else None
+        except ValueError as error:
+            raise InvalidArgumentError(
+                "as_of must be an RFC 3339 UTC timestamp",
+                details={"argument": "as_of"},
+            ) from error
         resolved = self._resolver.resolve_security(
             normalized_stock_id,
             market=normalized_market,
+            effective_at=effective_at,
         )
         if resolved.status == ResolutionStatus.NOT_FOUND:
             raise EntityNotFoundError(

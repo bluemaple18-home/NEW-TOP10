@@ -64,7 +64,7 @@ directly, with no resolver, sync, install, or network access.
 
 Portable environment semantic: `<repo-root>/.venv/bin/python` from the main
 workspace. Local-only resolved interpreter evidence:
-`/Users/matt/TOP10new/.venv/bin/python` (`Python 3.11.14`).
+`<main-workspace>/.venv/bin/python` (`Python 3.11.14`).
 
 ```text
 <repo-root>/.venv/bin/python -m unittest tests.test_tskg_slc01 -v

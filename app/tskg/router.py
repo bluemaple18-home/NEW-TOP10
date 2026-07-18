@@ -38,12 +38,14 @@ def create_tskg_router(
     def get_company(
         stock_id: str,
         market: str | None = Query(default=None),
+        as_of: str | None = Query(default=None),
     ):
         request_id = make_request_id()
         try:
             return company_service.get_company(
                 stock_id,
                 market=market,
+                as_of=as_of,
                 request_id=request_id,
             )
         except CompanyQueryError as error:
