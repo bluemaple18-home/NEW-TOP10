@@ -2,7 +2,7 @@
 card_id: TSKG-SRC-01
 chain_id: TSKG-SRC
 title: Fail-closed source governance gate
-status: DELIVERED_CANDIDATE
+status: INTEGRATED
 type: implementation
 owner: Codex 主線
 assignee: TSKG-SRC-01 implementation thread
@@ -120,7 +120,7 @@ evidence_path: docs/evidence/TSKG-SRC-01/
 
 ## Result
 
-`DELIVERED_CANDIDATE`
+`INTEGRATED / REVIEW_GO`
 
 - Candidate parent：`4f0470e133b763d5d5c5a232acddf3ab2bc94de8`
 - Integrated SLC-01 base：`300571e11d7d9cfe00c7ff297feeef768697ca1a`
@@ -132,4 +132,9 @@ evidence_path: docs/evidence/TSKG-SRC-01/
 - Reader ordering：synthetic approved `1` call；blocked/expired/unknown/invalid `0`
   calls
 - Evidence：`docs/evidence/TSKG-SRC-01/verification.md`
+- Initial review：`REVIEW_NO_GO`，F-01～F-03 均為 P1；Repair successor
+  `2d81414185446e83a34df28c37f54989515d7f76` 經同一 reviewer 複審後全部
+  `RESOLVED`，最終 review commit
+  `0dc53cb4cec9fe8cac7d3a0305d68cdf887ff725`
+- Mainline acceptance：`docs/evidence/TSKG-SRC-01/acceptance.md`
 - Blocker：OQ-SRC-01 未解除，public source 仍無 `APPROVED`，SLC-02 仍 blocked
