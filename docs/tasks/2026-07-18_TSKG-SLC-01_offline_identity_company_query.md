@@ -2,7 +2,7 @@
 card_id: TSKG-SLC-01
 chain_id: TSKG
 title: Offline identity-to-company query
-status: DELIVERED_CANDIDATE
+status: INTEGRATED
 type: implementation
 owner: Codex 主線
 assignee: SLC-01 implementation thread
@@ -148,10 +148,13 @@ git diff --check
 
 ## Result
 
-`DELIVERED_CANDIDATE`：已建立純 synthetic/offline fixture、deterministic exact
-identity resolver、可注入 company service、standalone FastAPI router 與 13 個
-public behavior tests。`app/api/main.py`、requirements 與既有 runtime 均未修改；
-router 未掛入 production API。完整 RED/GREEN、checksum、allowlist 與環境限制見
-`docs/evidence/TSKG-SLC-01/verification.md`。原卡 `--with-requirements` 指令因新
-worktree 選到 Python 3.14 且既有 `lxml==4.9.4` 不相容，狀態為
-`BLOCKED_BY_PYTHON_3_14_LXML`；既有 Python 3.11 env 的直接離線驗證通過。
+`INTEGRATED`：已建立純 synthetic/offline fixture、具 temporal contract 的
+deterministic identity resolver、可注入 company service、standalone FastAPI
+router 與 22 個 public behavior tests。初審 F-01～F-04 經 Repair 後，由同一
+reviewer 複審判定全部 `RESOLVED`，Spec／Standards 皆 `REVIEW_GO`。
+`app/api/main.py`、requirements 與既有 production runtime 均未修改；router
+仍未掛入 production API。完整驗證與主線接受證據見
+`docs/evidence/TSKG-SLC-01/verification.md`、
+`docs/evidence/REPAIR-TSKG-SLC-01/repair.md`、
+`docs/evidence/REVIEW-TSKG-SLC-01/review.md` 與
+`docs/evidence/TSKG-SLC-01/acceptance.md`。
