@@ -2,7 +2,7 @@
 card_id: TSKG-MFO-SRC-01
 chain_id: TSKG-MFO
 title: TWSE daily institutional flow source-governance dossier
-status: IN_PROGRESS
+status: DELIVERED_CANDIDATE
 type: research
 owner: Codex 主線
 assignee: current task
@@ -35,9 +35,9 @@ operation_level: read_only
 connection_status: public pages only; no login/OAuth
 schema_checked: search/open only; data endpoint schema is research target, not execution permission
 confirmation_required: false
-execution_status: pending
-evidence: source tracker in dossier
-remaining_risk: dataset identity/license/path/rate/retention unknown before research
+execution_status: completed; 10 retrieved（含 1 retrieved_limited）/ 2 failed / 0 data endpoint calls / 0 remote writes
+evidence: docs/research/TSKG-MFO-SRC-01_twse_institutional_flow_source.md §4
+remaining_risk: 免費 T86 distribution 的明示程式存取授權、rate、retention、correction、deletion 與 review contract 仍缺；付費 Data E-Shop 需另行採購及契約審查
 ```
 
 ## Official-source boundary
@@ -110,4 +110,6 @@ remaining_risk: dataset identity/license/path/rate/retention unknown before rese
 
 ## Result
 
-`IN_PROGRESS`
+`DELIVERED_CANDIDATE / KEEP_BLOCKED`
+
+官方證據確認同型資料存在於 TWSE 人工查詢報表與 Data E-Shop 付費商品，但未確認可供 TSKG 每日自動 ingestion 的 T86 OpenAPI／政府開放資料 distribution。一般網站條款限制未經同意的自動化下載；Data E-Shop 又是需訂購、限制使用與再散布的獨立通道。因此本卡不修改任何 SourcePolicy，不解除 OQ-SRC-01、SLC-02 或 MFO 後續 blocker。
