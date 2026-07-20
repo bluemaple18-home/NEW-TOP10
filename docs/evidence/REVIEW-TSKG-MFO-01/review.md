@@ -1,10 +1,12 @@
 ---
 card_id: REVIEW-TSKG-MFO-01
-status: REVIEWED_NO_GO
+status: REVIEWED_GO
 reviewed_on: 2026-07-20
 reviewed_candidate: 11c68e9c32812a394788c95bc69a8763a92a8929
 reviewed_base: 13349cc9ee038a2577d763f4f0c0390c182d734f
-verdict: NO_GO
+re_review_round: 1
+reviewed_repair_candidate: 69871f34adaf6ab475ae859718095fe581eee794
+verdict: GO
 ---
 
 # REVIEW-TSKG-MFO-01 independent review
@@ -78,6 +80,50 @@ OK
   - `app/tskg/flow_observation.py`
   - `tests/test_tskg_mfo01.py`
 
-## Machine verdict
+## Initial machine verdict
 
 `NO_GO`
+
+## Re-review Round 1
+
+### Lineage 與範圍
+
+- Repair parent／card：`b40fe8992be4471f0939d485c5e520ea4a03519b`。
+- Reviewed repair candidate：`69871f34adaf6ab475ae859718095fe581eee794`；唯一 parent 為上述 repair card。
+- Repair lineage 完整包含原 reviewer commit `24657766a3484d77f3383b5ee8237df0e0614926` 與 original candidate `11c68e9c32812a394788c95bc69a8763a92a8929`。
+- Repair 相對 card 精確修改四檔：`app/tskg/flow_observation.py`、`tests/test_tskg_mfo01.py`、Repair card、Repair evidence。
+- 原 Review evidence/card、fixture、`app/tskg/__init__.py` 與其他 candidate scope 均無 repair diff；`git diff --check` 通過。
+- Re-review 只判定原兩個 P2，未擴張 review scope。
+
+### Finding closure
+
+1. `[P2 CLOSED]` RFC 3339 string gate：`app/tskg/flow_observation.py:262` 在解析前要求 `observed_at`／`retrieved_at` 為 `str`。獨立 probe 注入兩個 aware UTC `datetime`，兩案均得到 `FlowObservationContractError`。
+2. `[P2 CLOSED]` Invalid JSON error envelope：`app/tskg/flow_observation.py:88` 只捕捉 `json.JSONDecodeError`，轉譯為 `FlowObservationContractError` 並保留 exception chaining。獨立 probe 確認 `__cause__` 是 `JSONDecodeError`；generic `OSError` 與真實 missing path 的 `FileNotFoundError` 均原樣 passthrough。
+
+原兩個 P2 均已關閉；本輪限定範圍內未發現未解阻塞 finding。
+
+### Independent verification
+
+```text
+<main-worktree>/.venv/bin/python -m unittest \
+  tests.test_tskg_mfo01 tests.test_tskg_slc01 tests.test_tskg_src01
+Ran 49 tests in 0.685s
+OK
+```
+
+- Malformed table-driven probes：`112/112 PASS`；全部由 `FlowObservationContractError` 拒絕，無 leak、無意外接受。
+- Datetime gate：`2/2 PASS`。
+- Invalid JSON：`FlowObservationContractError`，cause=`JSONDecodeError`。
+- I/O passthrough：generic `OSError` 與 `FileNotFoundError` 均 `PASS`。
+- 執行器為專案既有 `.venv` 的 Python 3.11.14；cwd 與 imported implementation 均解析到本獨立 reviewer worktree。未安裝依賴、未連外。
+
+### Re-review axis verdict
+
+- Spec axis：`GO`。RFC 3339 timestamp closed-schema type gate 已成立，原 Spec finding 關閉。
+- Standards axis：`GO`。Malformed JSON 使用契約例外且保留 decode cause，I/O exceptions 不被誤吞；49-test regression 與 112 probes 通過。
+- Python 3.13：`NOT_RUN` caveat 保留；本輪 GO 不宣稱 Python 3.13 runtime acceptance。
+- 邊界不變：GO 只表示 MFO-01 raw observation repair candidate 可交由主線驗收整合，不批准 Theme、衍生公式、外部來源、API、UI 或 Top10。
+
+## Final machine verdict
+
+`GO`

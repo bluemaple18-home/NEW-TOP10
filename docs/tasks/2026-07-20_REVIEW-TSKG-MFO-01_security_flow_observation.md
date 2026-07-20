@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-MFO-01
 chain_id: TSKG-MFO
 title: Independent SecurityFlowObservation contract review
-status: REVIEWED_NO_GO
+status: REVIEWED_GO
 type: review
 owner: Codex 主線
 assignee: independent visible review task
@@ -96,10 +96,13 @@ Reviewer 唯一可寫：
 
 ## Result
 
-`NO_GO`
+`GO`
 
-- Reviewed candidate：`11c68e9c32812a394788c95bc69a8763a92a8929`。
-- Spec axis：`NO_GO`；RFC 3339 timestamp 欄位仍接受非字串 `datetime`。
-- Standards axis：`NO_GO`；invalid JSON syntax 仍漏出 `JSONDecodeError`。
-- Regression：Python 3.11.14 `46/46 PASS`；Python 3.13 `NOT_RUN` caveat 保留。
+- Initial reviewed candidate：`11c68e9c32812a394788c95bc69a8763a92a8929`；initial verdict `NO_GO`。
+- Re-review Round 1 candidate：`69871f34adaf6ab475ae859718095fe581eee794`。
+- Finding closure：原兩個 P2 均 `CLOSED`。
+- Spec axis：`GO`；RFC 3339 timestamp string gate 已拒絕 `datetime`。
+- Standards axis：`GO`；invalid JSON 已轉譯為契約例外並保留 `JSONDecodeError` cause，I/O exceptions passthrough。
+- Regression／probes：Python 3.11.14 `49/49 PASS`、malformed `112/112 PASS`。
+- Python 3.13：`NOT_RUN` caveat 保留。
 - Evidence：`docs/evidence/REVIEW-TSKG-MFO-01/review.md`。
