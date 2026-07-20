@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-INT-01
 chain_id: TSKG-INT
 title: Independently review TSKG integration candidate
-status: PENDING
+status: REVIEW_GO
 type: review
 owner: Codex 主線
 assignee: REVIEW-TSKG-INT-01 visible reviewer thread
@@ -12,7 +12,7 @@ model: gpt-5.6-sol
 reasoning: high
 model_reason: 需獨立驗證大型歷史分支 merge candidate、兩軸契約、production isolation、source governance 與 baseline regression 證據
 source_kind: commit
-source_sha: <candidate-sha-from-TSKG-INT-01>
+source_sha: 2a1e5d2493975fda32bb5f9ecdff5dbc5aa018ff
 mainline_dispatcher: TSKG root thread
 previous_card: TSKG-INT-01
 worktree_mode: platform-managed-independent-worktree
@@ -64,4 +64,4 @@ git show --no-patch --format='%H%n%P' <candidate-sha>
 
 ## Result
 
-`PENDING_CANDIDATE`
+`REVIEW_GO` — fixed reviewed commit `2a1e5d2493975fda32bb5f9ecdff5dbc5aa018ff`；Spec／Standards 雙軸皆 GO，P0–P3 findings 皆為 0。Focused suite 39 passed／154 subtests；full suite 367 passed／1 baseline failure／182 subtests，唯一 ledger failure 已在 fixed first parent 獨立重現。完整證據見 `docs/evidence/REVIEW-TSKG-INT-01/review.md`。
