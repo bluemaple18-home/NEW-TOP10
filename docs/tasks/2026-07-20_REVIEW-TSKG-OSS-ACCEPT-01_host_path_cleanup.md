@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-OSS-ACCEPT-01
 chain_id: TSKG-OSS
 title: Independent review of shared-card host-path cleanup
-status: CARD_DRAFTED
+status: REVIEW_GO
 type: review
 owner: Codex 主線
 assignee: independent-visible-review-thread
@@ -76,6 +76,14 @@ turn_status: pending
 gate_1_card_contract: drafted
 gate_2_visible_thread: pending
 gate_3_candidate_delivery: complete
-gate_4_independent_review: pending
-gate_5_mainline_acceptance: blocked pending review
+gate_4_independent_review: REVIEW_GO
+gate_5_mainline_acceptance: ready for mainline disposition
 ```
+
+## Review result
+
+- Review verdict: `REVIEW_GO`
+- Machine verdict: `GO`
+- Reviewed candidate: `6dc908a52b79a5db85648343eb6696ab69baa733`
+- Reviewed parent: `f723b64ebc13733bbcefc93feb460558246f018a`
+- Review evidence: `docs/evidence/REVIEW-TSKG-OSS-ACCEPT-01/review.md`
