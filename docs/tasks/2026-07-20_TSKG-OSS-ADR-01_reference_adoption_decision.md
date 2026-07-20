@@ -2,7 +2,7 @@
 card_id: TSKG-OSS-ADR-01
 chain_id: TSKG-OSS
 title: Decide reference adoption and next TSKG implementation frontier
-status: CARD_DRAFTED
+status: PROPOSED_CANDIDATE
 type: architecture-decision
 owner: Codex 主線
 assignee: independent-visible-thread
@@ -132,16 +132,16 @@ source_sha: 59917dd87dda448e77f5fc50ccfb3c1d05775aca
 provisioning_branch: codex/tskg-mfo-src-01
 previous_acceptance_card_id: TSKG-OSS-ACCEPT-02
 previous_reviewer_thread_id: 019f7e7a-241e-7412-86f6-9e69538c7e28
-source_worktree_clean: pending post-card commit
-git_metadata_writable: pending preflight
-index_lock: clear at card drafting
-unrelated_dirty_paths: [] in source worktree
-thread_id: pending
-worktree_path: pending
-turn_status: pending
-gate_1_card_contract: drafted
-gate_2_visible_thread: pending
-gate_3_candidate_delivery: pending
+source_worktree_clean: true before ADR edits
+git_metadata_writable: true by host-level preflight
+index_lock: clear at ADR preflight
+unrelated_dirty_paths: [] at ADR preflight
+thread_id: <current-visible-thread>
+worktree_path: <local-only-worktree verified in preflight>
+turn_status: PROPOSED_CANDIDATE
+gate_1_card_contract: passed
+gate_2_visible_thread: passed by current delegated task context
+gate_3_candidate_delivery: final SHA bound by external final receipt
 gate_4_independent_review: pending
 gate_5_mainline_acceptance: pending
 ```
