@@ -1,0 +1,64 @@
+{
+  "as_of": "2026-07-20",
+  "cases": [
+    {
+      "adoption_mode": "REQUIRED_NOW",
+      "blocking_reasons": [
+        "conflict_not_evaluated",
+        "identity_not_evaluated",
+        "source_not_evaluated",
+        "temporal_scope_not_evaluated"
+      ],
+      "conflict_assessment": {"conflict_refs": [], "status": "NOT_EVALUATED"},
+      "decision": "NEEDS_EVIDENCE",
+      "evidence_refs": [
+        "artifacts/model_experiments/candidate_trail10_retention_diagnostics_2026-06-10.json",
+        "artifacts/model_experiments/long_candidate_validation_report_2026-06-10.json"
+      ],
+      "hard_block": false,
+      "identity_assessment": {"entity_refs": [], "resolver_version": null, "status": "NOT_EVALUATED"},
+      "research_id": "research:candidate_ranking",
+      "schema_version": "research-evidence-tskg-adoption.v1",
+      "source_assessment": {"policy_receipt_refs": [], "source_refs": [], "status": "NOT_EVALUATED"},
+      "temporal_scope": {"as_of": null, "status": "NOT_EVALUATED", "valid_from": null, "valid_to": null},
+      "usage_intent": "RESEARCH_ONLY"
+    },
+    {
+      "adoption_mode": "CHECK_ON_REUSE",
+      "blocking_reasons": [
+        "conflict_not_evaluated",
+        "identity_not_evaluated",
+        "source_not_evaluated",
+        "temporal_scope_not_evaluated"
+      ],
+      "conflict_assessment": {"conflict_refs": [], "status": "NOT_EVALUATED"},
+      "decision": "BLOCKED",
+      "evidence_refs": ["app/trading/market_regime.py", "app/trading/ranking_policy.py"],
+      "hard_block": true,
+      "identity_assessment": {"entity_refs": [], "resolver_version": null, "status": "NOT_EVALUATED"},
+      "research_id": "runtime:base_regime_risk_multiplier",
+      "schema_version": "research-evidence-tskg-adoption.v1",
+      "source_assessment": {"policy_receipt_refs": [], "source_refs": [], "status": "NOT_EVALUATED"},
+      "temporal_scope": {"as_of": null, "status": "NOT_EVALUATED", "valid_from": null, "valid_to": null},
+      "usage_intent": "REUSE"
+    },
+    {
+      "adoption_mode": "GRANDFATHERED",
+      "blocking_reasons": [],
+      "conflict_assessment": {"conflict_refs": [], "status": "NOT_EVALUATED"},
+      "decision": "GRANDFATHERED",
+      "evidence_refs": [
+        "artifacts/model_experiments/overlap_first_recommendation_performance_recent_100_2026-06-10.json",
+        "artifacts/model_experiments/overlap_first_recommendation_performance_recent_6m_2026-06-10.json"
+      ],
+      "hard_block": false,
+      "identity_assessment": {"entity_refs": [], "resolver_version": null, "status": "NOT_EVALUATED"},
+      "research_id": "research:overlap_first",
+      "schema_version": "research-evidence-tskg-adoption.v1",
+      "source_assessment": {"policy_receipt_refs": [], "source_refs": [], "status": "NOT_EVALUATED"},
+      "temporal_scope": {"as_of": null, "status": "NOT_EVALUATED", "valid_from": null, "valid_to": null},
+      "usage_intent": "ARCHIVE_ONLY"
+    }
+  ],
+  "schema_version": "tskg-research-adoption-pilot.v1"
+}

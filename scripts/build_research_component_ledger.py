@@ -20,6 +20,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.build_strategy_component_registry import build_payload as build_strategy_registry_payload  # noqa: E402
+from app.research.tskg_evidence_contract import (  # noqa: E402
+    build_evidence_envelope,
+    compact_adoption_summary,
+)
 
 
 SCHEMA_VERSION = "research-component-ledger.v1"
@@ -87,8 +91,9 @@ def research_row(row: dict[str, Any], run_date: str) -> dict[str, Any]:
     status = str(row.get("status", "NEEDS_TEST"))
     verification_commands = format_commands(DEFAULT_VERIFICATION_COMMANDS["research_registry"], run_date)
     verification_commands.extend(EXTRA_VERIFICATION_COMMANDS.get(component_id, []))
+    ledger_id = f"research:{component_id}"
     return {
-        "ledger_id": f"research:{component_id}",
+        "ledger_id": ledger_id,
         "component_family": "research_registry",
         "component_id": component_id,
         "category": row.get("category"),
@@ -107,6 +112,11 @@ def research_row(row: dict[str, Any], run_date: str) -> dict[str, Any]:
         "production_baseline": False,
         "promotion_ready": False,
         "next_action": next_action_for_research(status),
+        "tskg_adoption": tskg_adoption_summary(
+            ledger_id=ledger_id,
+            component_family="research_registry",
+            lifecycle_status=lifecycle_for_research_status(status),
+        ),
     }
 
 
@@ -115,8 +125,9 @@ def runtime_row(row: dict[str, Any], run_date: str) -> dict[str, Any]:
     verification_commands = format_commands(DEFAULT_VERIFICATION_COMMANDS["runtime_contract"], run_date)
     verification_commands.extend(EXTRA_VERIFICATION_COMMANDS.get(component_id, []))
     runtime_status = str(row.get("runtime_status", "off"))
+    ledger_id = f"runtime:{component_id}"
     return {
-        "ledger_id": f"runtime:{component_id}",
+        "ledger_id": ledger_id,
         "component_family": "runtime_contract",
         "component_id": component_id,
         "label": row.get("label", ""),
@@ -138,7 +149,34 @@ def runtime_row(row: dict[str, Any], run_date: str) -> dict[str, Any]:
         "production_baseline": runtime_status == "production",
         "promotion_ready": False,
         "next_action": next_action_for_runtime(runtime_status),
+        "tskg_adoption": tskg_adoption_summary(
+            ledger_id=ledger_id,
+            component_family="runtime_contract",
+            lifecycle_status=runtime_status,
+        ),
     }
+
+
+def tskg_adoption_summary(
+    *, ledger_id: str, component_family: str, lifecycle_status: str
+) -> dict[str, Any]:
+    if lifecycle_status in {"rejected", "off"}:
+        mode, intent = "GRANDFATHERED", "ARCHIVE_ONLY"
+    elif lifecycle_status == "shadow":
+        mode = "REQUIRED_NOW"
+        intent = "PROMOTION" if component_family == "runtime_contract" else "RESEARCH_ONLY"
+    elif lifecycle_status == "blocked":
+        mode, intent = "REQUIRED_NOW", "RESEARCH_ONLY"
+    elif lifecycle_status == "production":
+        mode, intent = "CHECK_ON_REUSE", "REUSE"
+    else:
+        mode, intent = "CHECK_ON_REUSE", "ARCHIVE_ONLY"
+    envelope = build_evidence_envelope(
+        research_id=ledger_id,
+        usage_intent=intent,
+        adoption_mode=mode,
+    )
+    return compact_adoption_summary(envelope)
 
 
 def next_action_for_research(status: str) -> str:

@@ -1,0 +1,591 @@
+{
+  "as_of": "2026-07-20",
+  "contract": {
+    "changes_promotion": false,
+    "changes_verdict": false,
+    "read_only": true,
+    "reruns_research": false,
+    "uses_committed_or_injected_inputs_only": true
+  },
+  "items": [
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "artifacts/model_experiments/candidate_trail10_retention_diagnostics_2026-06-10.json",
+        "artifacts/model_experiments/long_candidate_validation_report_2026-06-10.json"
+      ],
+      "checkpoint_decision": "NEEDS_EVIDENCE",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "shadow",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": true,
+      "research_id": "research:candidate_ranking",
+      "reuse_intent": "RESEARCH_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:shadow",
+        "promotion_or_model_reuse_path"
+      ]
+    },
+    {
+      "adoption_class": "CHECK_ON_REUSE",
+      "artifact_refs": [
+        "artifacts/model_experiments/chip_flow_readiness_report_2026-06-08.json",
+        "artifacts/model_experiments/chip_warning_replay_aggregate_2026-06-08.json"
+      ],
+      "checkpoint_decision": "DEFERRED",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "diagnostic",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "VERIFY_AT_REUSE_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "research:chip_flow",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:diagnostic"
+      ]
+    },
+    {
+      "adoption_class": "CHECK_ON_REUSE",
+      "artifact_refs": [
+        "data/reference/stock_concept_membership.csv"
+      ],
+      "checkpoint_decision": "DEFERRED",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "reference",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "VERIFY_AT_REUSE_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "research:concept_membership",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:reference"
+      ]
+    },
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "data/clean/features.parquet"
+      ],
+      "checkpoint_decision": "NEEDS_EVIDENCE",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "blocked",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "research:fundamental_revenue",
+      "reuse_intent": "RESEARCH_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:blocked"
+      ]
+    },
+    {
+      "adoption_class": "CHECK_ON_REUSE",
+      "artifact_refs": [
+        "data/reference/stock_industry_map.csv"
+      ],
+      "checkpoint_decision": "DEFERRED",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "reference",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "VERIFY_AT_REUSE_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "research:industry_map",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:reference"
+      ]
+    },
+    {
+      "adoption_class": "CHECK_ON_REUSE",
+      "artifact_refs": [
+        "artifacts/market_context_2026-06-09.json"
+      ],
+      "checkpoint_decision": "DEFERRED",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "diagnostic",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "VERIFY_AT_REUSE_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "research:market_context",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:diagnostic"
+      ]
+    },
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "artifacts/market_regime_history_2026-06-01.json",
+        "artifacts/model_experiments/market_regime_history_2023-11-21_2026-05-15.json"
+      ],
+      "checkpoint_decision": "NEEDS_EVIDENCE",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "blocked",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "research:market_regime_history",
+      "reuse_intent": "RESEARCH_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:blocked"
+      ]
+    },
+    {
+      "adoption_class": "CHECK_ON_REUSE",
+      "artifact_refs": [
+        "config/notification_industry_buckets.csv"
+      ],
+      "checkpoint_decision": "DEFERRED",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "report_only",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "VERIFY_AT_REUSE_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "research:notification_bucket",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:report_only"
+      ]
+    },
+    {
+      "adoption_class": "GRANDFATHERED",
+      "artifact_refs": [
+        "artifacts/model_experiments/overlap_first_recommendation_performance_recent_100_2026-06-10.json",
+        "artifacts/model_experiments/overlap_first_recommendation_performance_recent_6m_2026-06-10.json"
+      ],
+      "checkpoint_decision": "GRANDFATHERED",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "rejected",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "NO_RERUN",
+      "promotion_or_model_path": false,
+      "research_id": "research:overlap_first",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:rejected"
+      ]
+    },
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "artifacts/model_experiments/candidate_trail10_retention_diagnostics_2026-06-10.json",
+        "artifacts/model_experiments/long_candidate_validation_report_2026-06-10.json"
+      ],
+      "checkpoint_decision": "NEEDS_EVIDENCE",
+      "component_family": "research_registry",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "shadow",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": true,
+      "research_id": "research:trail10",
+      "reuse_intent": "RESEARCH_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:shadow",
+        "promotion_or_model_reuse_path"
+      ]
+    },
+    {
+      "adoption_class": "CHECK_ON_REUSE",
+      "artifact_refs": [
+        "app/trading/market_regime.py",
+        "app/trading/ranking_policy.py"
+      ],
+      "checkpoint_decision": "BLOCKED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "production",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "VERIFY_AT_REUSE_CHECKPOINT",
+      "promotion_or_model_path": true,
+      "research_id": "runtime:base_regime_risk_multiplier",
+      "reuse_intent": "REUSE",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:production",
+        "production_ranking_boundary",
+        "promotion_or_model_reuse_path"
+      ]
+    },
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "scripts/build_long_candidate_validation_report.py"
+      ],
+      "checkpoint_decision": "BLOCKED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "shadow",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": true,
+      "research_id": "runtime:candidate_ranking_source",
+      "reuse_intent": "PROMOTION",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:shadow",
+        "promotion_or_model_reuse_path"
+      ]
+    },
+    {
+      "adoption_class": "GRANDFATHERED",
+      "artifact_refs": [
+        "scripts/build_chip_warning_shadow_report.py"
+      ],
+      "checkpoint_decision": "GRANDFATHERED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "off",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "NO_RERUN",
+      "promotion_or_model_path": false,
+      "research_id": "runtime:chip_warning_overlay",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:off"
+      ]
+    },
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "app/trading/portfolio_policy.py",
+        "app/trading/portfolio_risk_overlay.py"
+      ],
+      "checkpoint_decision": "BLOCKED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "shadow",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": true,
+      "research_id": "runtime:concentration_control",
+      "reuse_intent": "PROMOTION",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:shadow",
+        "promotion_or_model_reuse_path"
+      ]
+    },
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "app/agent_b_ranking.py",
+        "config/signals.yaml"
+      ],
+      "checkpoint_decision": "BLOCKED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "shadow",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": true,
+      "research_id": "runtime:feature_group_k9_shadow_fill",
+      "reuse_intent": "PROMOTION",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:shadow",
+        "promotion_or_model_reuse_path"
+      ]
+    },
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "scripts/build_strategy_archetype_evidence_map.py"
+      ],
+      "checkpoint_decision": "BLOCKED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "shadow",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": true,
+      "research_id": "runtime:high_entry_chase_protection",
+      "reuse_intent": "PROMOTION",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:shadow",
+        "promotion_or_model_reuse_path"
+      ]
+    },
+    {
+      "adoption_class": "CHECK_ON_REUSE",
+      "artifact_refs": [
+        "data/reference/stock_concept_membership.csv",
+        "data/reference/stock_industry_map.csv"
+      ],
+      "checkpoint_decision": "DEFERRED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "report_only",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "VERIFY_AT_REUSE_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "runtime:industry_theme_context",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:report_only"
+      ]
+    },
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "app/trading/portfolio_risk_overlay.py",
+        "scripts/build_strategy_archetype_evidence_map.py"
+      ],
+      "checkpoint_decision": "BLOCKED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "shadow",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": true,
+      "research_id": "runtime:selloff_protection",
+      "reuse_intent": "PROMOTION",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:shadow",
+        "promotion_or_model_reuse_path"
+      ]
+    },
+    {
+      "adoption_class": "CHECK_ON_REUSE",
+      "artifact_refs": [
+        "app/reports/logic/daily_brief.py",
+        "app/trading/trade_plan.py"
+      ],
+      "checkpoint_decision": "DEFERRED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "report_only",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "VERIFY_AT_REUSE_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "runtime:strong_trend_hold",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:report_only"
+      ]
+    },
+    {
+      "adoption_class": "CHECK_ON_REUSE",
+      "artifact_refs": [
+        "scripts/build_long_candidate_validation_report.py"
+      ],
+      "checkpoint_decision": "DEFERRED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "report_only",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "VERIFY_AT_REUSE_CHECKPOINT",
+      "promotion_or_model_path": false,
+      "research_id": "runtime:trail10_exit_rule",
+      "reuse_intent": "ARCHIVE_ONLY",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:report_only"
+      ]
+    },
+    {
+      "adoption_class": "REQUIRED_NOW",
+      "artifact_refs": [
+        "scripts/materialize_vwap_regime_gated_rankings.py",
+        "scripts/research_vwap_regime_gated_entry_quality.py"
+      ],
+      "checkpoint_decision": "BLOCKED",
+      "component_family": "runtime_contract",
+      "conflict_risk": "NOT_EVALUATED",
+      "current_status": "shadow",
+      "identity_risk": "NOT_EVALUATED",
+      "missing_dimensions": [
+        "identity",
+        "source",
+        "temporal",
+        "conflict"
+      ],
+      "next_action": "ADD_EVIDENCE_ENVELOPE_AT_NEXT_CHECKPOINT",
+      "promotion_or_model_path": true,
+      "research_id": "runtime:vwap_regime_gated_entry",
+      "reuse_intent": "PROMOTION",
+      "source_risk": "NOT_EVALUATED",
+      "temporal_risk": "NOT_EVALUATED",
+      "trigger_reasons": [
+        "lifecycle:shadow",
+        "promotion_or_model_reuse_path"
+      ]
+    }
+  ],
+  "schema_version": "tskg-research-adoption-inventory.v1",
+  "source_schema_version": "research-component-ledger.v1",
+  "summary": {
+    "adoption_class_counts": {
+      "CHECK_ON_REUSE": 9,
+      "GRANDFATHERED": 2,
+      "REQUIRED_NOW": 10
+    },
+    "item_count": 21,
+    "manual_review_count": 0
+  }
+}

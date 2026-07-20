@@ -2,7 +2,7 @@
 card_id: TSKG-RSCH-03
 chain_id: TSKG-RSCH
 title: Bounded TSKG concept adoption pilot
-status: PENDING
+status: DELIVERED_CANDIDATE
 type: pilot
 owner: Codex 主線
 assignee: TSKG-RSCH-03 pilot execution line
@@ -12,7 +12,7 @@ model: gpt-5.5
 reasoning: medium
 model_reason: 需依 inventory 與 accepted contract 選擇最多三項代表研究，驗證概念導入成本與誤阻擋風險，但不做正式 workflow mutation
 source_kind: commit
-source_sha: <accepted-sha-from-TSKG-RSCH-02>
+source_sha: 0650006548520b2df0f7e2446be3cfa539189786
 mainline_dispatcher: TSKG root thread
 previous_card: REVIEW-TSKG-RSCH-02
 worktree_mode: independent-clean-worktree
@@ -59,4 +59,4 @@ evidence_path: docs/evidence/TSKG-RSCH-03/
 
 ## Result
 
-`PENDING_CONTRACT_REVIEW`
+`DELIVERED_CANDIDATE`：三案例試行結果為 `ADOPT` additive evidence layer；不採用 runtime gate。

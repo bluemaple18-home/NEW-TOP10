@@ -94,6 +94,19 @@ class PMApprovedWorkQueueTests(unittest.TestCase):
             self.assertEqual(research_cards[0]["project_domain"], "TOP10_STOCK")
             self.assertTrue(research_cards[0]["contract"]["research_only"])
             self.assertIn("blocked_conditions", research_cards[0])
+            self.assertEqual(
+                research_cards[0]["tskg_adoption"]["adoption_mode"],
+                "REQUIRED_NOW",
+            )
+            self.assertEqual(
+                research_cards[0]["tskg_adoption"]["usage_intent"],
+                "RESEARCH_ONLY",
+            )
+            self.assertEqual(
+                research_cards[0]["tskg_adoption"]["decision"],
+                "NEEDS_EVIDENCE",
+            )
+            self.assertFalse(research_cards[0]["tskg_adoption"]["hard_block"])
 
     def test_missing_project_domain_is_skipped(self):
         with tempfile.TemporaryDirectory() as tmp:

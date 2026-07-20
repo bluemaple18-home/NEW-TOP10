@@ -9,12 +9,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.research.tskg_evidence_contract import (  # noqa: E402
+    build_evidence_envelope,
+    compact_adoption_summary,
+)
+
+
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 SCHEMA_VERSION = "top10-pm-approved-work-queue.v1"
 RESEARCH_CARD_SCHEMA_VERSION = "top10-research-card.v1"
@@ -100,9 +110,17 @@ def build_work_item(card: dict[str, Any]) -> dict[str, Any]:
 
 
 def research_card_for_item(item: dict[str, Any], date_text: str) -> dict[str, Any]:
+    task_id = f"PM-APPROVED-{date_text}-{item['card_id']}"
+    tskg_adoption = compact_adoption_summary(
+        build_evidence_envelope(
+            research_id=task_id,
+            usage_intent="RESEARCH_ONLY",
+            adoption_mode="REQUIRED_NOW",
+        )
+    )
     return {
         "schema_version": RESEARCH_CARD_SCHEMA_VERSION,
-        "task_id": f"PM-APPROVED-{date_text}-{item['card_id']}",
+        "task_id": task_id,
         "source_pm_card_id": item["card_id"],
         "project_domain": PROJECT_DOMAIN,
         "title": item["title"],
@@ -123,6 +141,7 @@ def research_card_for_item(item: dict[str, Any], date_text: str) -> dict[str, An
             "research_only": True,
             "production_promotion_allowed": False,
         },
+        "tskg_adoption": tskg_adoption,
     }
 
 

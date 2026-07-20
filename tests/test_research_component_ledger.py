@@ -22,7 +22,19 @@ class ResearchComponentLedgerTest(unittest.TestCase):
         rows = {row["ledger_id"]: row for row in payload["components"]}
         self.assertEqual(rows["research:overlap_first"]["lifecycle_status"], "rejected")
         self.assertFalse(rows["research:overlap_first"]["changes_production_ranking"])
+        self.assertEqual(
+            rows["research:overlap_first"]["tskg_adoption"]["adoption_mode"],
+            "GRANDFATHERED",
+        )
         self.assertEqual(rows["runtime:vwap_regime_gated_entry"]["lifecycle_status"], "shadow")
+        self.assertEqual(
+            rows["runtime:vwap_regime_gated_entry"]["tskg_adoption"]["adoption_mode"],
+            "REQUIRED_NOW",
+        )
+        self.assertEqual(
+            rows["runtime:vwap_regime_gated_entry"]["tskg_adoption"]["decision"],
+            "BLOCKED",
+        )
         self.assertTrue(
             any(
                 "verify_vwap_cost_basis_features.py" in command
@@ -31,6 +43,10 @@ class ResearchComponentLedgerTest(unittest.TestCase):
         )
         self.assertTrue(rows["runtime:base_regime_risk_multiplier"]["changes_production_ranking"])
         self.assertTrue(rows["runtime:base_regime_risk_multiplier"]["production_baseline"])
+        self.assertEqual(
+            rows["runtime:base_regime_risk_multiplier"]["tskg_adoption"]["adoption_mode"],
+            "CHECK_ON_REUSE",
+        )
 
     def test_verifier_accepts_generated_ledger(self) -> None:
         payload = build_payload(argparse.Namespace(date="2026-07-13", output=None))

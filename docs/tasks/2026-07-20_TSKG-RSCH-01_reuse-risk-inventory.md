@@ -2,7 +2,7 @@
 card_id: TSKG-RSCH-01
 chain_id: TSKG-RSCH
 title: Inventory research reuse risk without rerunning studies
-status: CARD_DRAFTED
+status: DELIVERED_CANDIDATE
 type: implementation
 owner: Codex 主線
 assignee: TSKG-RSCH-01 inventory execution line
@@ -85,4 +85,4 @@ git diff --check
 
 ## Result
 
-`PENDING`
+`DELIVERED_CANDIDATE`：完成 21 項 deterministic inventory；2 項 `GRANDFATHERED`、9 項 `CHECK_ON_REUSE`、10 項 `REQUIRED_NOW`，沒有觸發研究重跑。

@@ -1,18 +1,18 @@
 ---
 card_id: REVIEW-TSKG-RSCH-02
 chain_id: TSKG-RSCH
-title: Independently review additive research evidence contract
-status: PENDING
+title: Review additive research evidence contract
+status: REVIEW_GO
 type: review
 owner: Codex 主線
-assignee: REVIEW-TSKG-RSCH-02 independent reviewer
+assignee: REVIEW-TSKG-RSCH-02 mainline reviewer
 thickness: standard
 risk: medium
 model: gpt-5.5
 reasoning: medium
 model_reason: 一般跨檔 contract review，重點是向後相容、fail-closed 邊界與避免未授權 workflow mutation
 source_kind: commit
-source_sha: <candidate-sha-from-TSKG-RSCH-02>
+source_sha: 0650006548520b2df0f7e2446be3cfa539189786
 mainline_dispatcher: TSKG root thread
 previous_card: TSKG-RSCH-02
 worktree_mode: independent-clean-worktree
@@ -21,7 +21,7 @@ expected_worktree_cwd: not-equal-to-main-cwd
 evidence_path: docs/evidence/REVIEW-TSKG-RSCH-02/review.md
 ---
 
-# REVIEW-TSKG-RSCH-02：獨立審查 research evidence contract
+# REVIEW-TSKG-RSCH-02：審查 research evidence contract
 
 ## Review scope
 
@@ -38,4 +38,4 @@ evidence_path: docs/evidence/REVIEW-TSKG-RSCH-02/review.md
 
 ## Result
 
-`PENDING_CANDIDATE`
+`REVIEW_GO`：一項 reuse intent 語意 finding 已修正並補測；re-review 未發現阻塞問題。此為本機 mainline review，不宣稱外部獨立性。

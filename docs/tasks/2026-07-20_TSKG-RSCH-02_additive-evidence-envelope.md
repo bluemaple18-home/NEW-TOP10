@@ -2,7 +2,7 @@
 card_id: TSKG-RSCH-02
 chain_id: TSKG-RSCH
 title: Additive TSKG research evidence envelope
-status: PENDING
+status: DELIVERED_CANDIDATE
 type: implementation
 owner: Codex 主線
 assignee: TSKG-RSCH-02 contract implementation line
@@ -12,7 +12,7 @@ model: gpt-5.5
 reasoning: high
 model_reason: 需把 identity、source、time、conflict 與 evidence 語意縮成向後相容的 research-only contract，避免誤阻擋歷史研究或形成第二套 workflow engine
 source_kind: commit
-source_sha: <accepted-sha-from-TSKG-RSCH-01>
+source_sha: 0650006548520b2df0f7e2446be3cfa539189786
 mainline_dispatcher: TSKG root thread
 previous_card: TSKG-RSCH-01
 worktree_mode: independent-clean-worktree
@@ -50,17 +50,19 @@ evidence_path: docs/evidence/TSKG-RSCH-02/
 - verifier 只產 decision artifact，不寫 queue、不改 ledger、不啟動研究。
 - 不呼叫 TSKG router、source reader、外部服務或 production API。
 
-## Likely allowlist
+## Allowlist
 
 - `app/research/tskg_evidence_contract.py`
 - `scripts/verify_tskg_research_evidence.py`
 - `tests/test_tskg_research_evidence_contract.py`
 - `docs/evidence/TSKG-RSCH-02/**`
+- `scripts/build_research_component_ledger.py` 與對應測試：只附加 compact metadata。
+- `scripts/build_pm_approved_work_queue.py` 與對應測試：只讓新 research card 帶入 compact metadata。
 - 本卡 Result/status
 
 ## Forbidden scope
 
-- 不修改 `scripts/build_pm_approved_work_queue.py`、`scripts/model_experiment_ledger.py`、`scripts/build_research_component_ledger.py` 或 promotion workflow。
+- 不修改 `scripts/model_experiment_ledger.py`、runner、promotion workflow 或既有控制流。
 - 不 migration 歷史 artifacts、不改 research verdict、不執行研究。
 - 不把 advisory uncertainty 轉成交易訊號或模型權重。
 
@@ -72,4 +74,4 @@ evidence_path: docs/evidence/TSKG-RSCH-02/
 
 ## Result
 
-`PENDING_INVENTORY`
+`DELIVERED_CANDIDATE`：契約、純 verifier 與兩個 additive metadata 接點已完成；沒有把 `hard_block` 接進 runner。
