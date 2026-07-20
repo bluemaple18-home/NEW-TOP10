@@ -2,7 +2,7 @@
 card_id: REPAIR-TSKG-OSS-ACCEPT-02
 chain_id: TSKG-OSS
 title: Correct non-self-referential candidate lineage evidence
-status: CARD_DRAFTED
+status: REPAIR_READY
 type: repair
 owner: Codex 主線
 assignee: independent-visible-repair-thread
