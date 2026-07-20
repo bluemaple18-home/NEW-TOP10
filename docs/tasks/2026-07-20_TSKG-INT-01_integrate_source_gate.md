@@ -2,7 +2,7 @@
 card_id: TSKG-INT-01
 chain_id: TSKG-INT
 title: Integrate accepted TSKG source gate branch
-status: CARD_DRAFTED
+status: DELIVERED_CANDIDATE
 type: integration
 owner: Codex 主線
 assignee: TSKG-INT-01 visible implementation thread
@@ -93,4 +93,4 @@ Full suite 若仍只有 `tests/test_research_component_ledger.py::ResearchCompon
 
 ## Result
 
-`PENDING`
+`DELIVERED_CANDIDATE` — 固定 target 已無衝突合併；focused suite 為 39 passed / 154 subtests passed，full suite 為 367 passed / 1 baseline failure / 182 subtests passed，且該 ledger failure 已在固定 first parent 重現。完整證據見 `docs/evidence/TSKG-INT-01/integration.md`。

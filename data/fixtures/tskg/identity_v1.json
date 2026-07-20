@@ -1,0 +1,233 @@
+{
+  "fixture_version": "identity-v1",
+  "schema_version": "tskg-identity-fixture-v1",
+  "normalizer_version": "nfkc-casefold-v1",
+  "provenance": {
+    "source_id": "source-synthetic-identity-v1",
+    "source_type": "SYNTHETIC_FIXTURE",
+    "description": "Offline synthetic identity fixture; not real company, supply-chain, or trading data"
+  },
+  "identity_evidence": [
+    {
+      "evidence_id": "evidence-synthetic-identity-v1",
+      "source_id": "source-synthetic-identity-v1",
+      "locator": "identity_v1.json",
+      "evidence_type": "SYNTHETIC_IDENTITY_FIXTURE"
+    }
+  ],
+  "entities": [
+    {
+      "entity_id": "org-fixture-nvidia",
+      "entity_type": "Organization",
+      "canonical_name": "NVIDIA Synthetic Identity",
+      "organization_kind": "COMPANY",
+      "jurisdiction": "US-FIXTURE",
+      "status": "ACTIVE"
+    },
+    {
+      "entity_id": "org-fixture-tesla",
+      "entity_type": "Organization",
+      "canonical_name": "Tesla Synthetic Identity",
+      "organization_kind": "COMPANY",
+      "jurisdiction": "US-FIXTURE",
+      "status": "ACTIVE"
+    },
+    {
+      "entity_id": "org-fixture-meta",
+      "entity_type": "Organization",
+      "canonical_name": "Meta Synthetic Identity",
+      "organization_kind": "COMPANY",
+      "jurisdiction": "US-FIXTURE",
+      "status": "ACTIVE"
+    },
+    {
+      "entity_id": "org-fixture-global-us",
+      "entity_type": "Organization",
+      "canonical_name": "Global Labs US Synthetic",
+      "organization_kind": "COMPANY",
+      "jurisdiction": "US-FIXTURE",
+      "status": "ACTIVE"
+    },
+    {
+      "entity_id": "org-fixture-global-ca",
+      "entity_type": "Organization",
+      "canonical_name": "Global Labs CA Synthetic",
+      "organization_kind": "COMPANY",
+      "jurisdiction": "CA-FIXTURE",
+      "status": "ACTIVE"
+    },
+    {
+      "entity_id": "org-fixture-3017-issuer",
+      "entity_type": "Organization",
+      "canonical_name": "Synthetic Fixture 3017 Issuer",
+      "organization_kind": "COMPANY",
+      "jurisdiction": "TW-FIXTURE",
+      "status": "ACTIVE"
+    },
+    {
+      "entity_id": "org-fixture-7777-xtai-issuer",
+      "entity_type": "Organization",
+      "canonical_name": "Synthetic Fixture XTAI 7777 Issuer",
+      "organization_kind": "COMPANY",
+      "jurisdiction": "TW-FIXTURE-A",
+      "status": "ACTIVE"
+    },
+    {
+      "entity_id": "org-fixture-7777-xotc-issuer",
+      "entity_type": "Organization",
+      "canonical_name": "Synthetic Fixture XOTC 7777 Issuer",
+      "organization_kind": "COMPANY",
+      "jurisdiction": "TW-FIXTURE-B",
+      "status": "ACTIVE"
+    },
+    {
+      "entity_id": "org-fixture-extra",
+      "entity_type": "Organization",
+      "canonical_name": "Additional Synthetic Organization",
+      "organization_kind": "COMPANY",
+      "jurisdiction": "ZZ-FIXTURE",
+      "status": "ACTIVE"
+    },
+    {
+      "entity_id": "sec-fixture-3017-xtai",
+      "entity_type": "Security",
+      "security_type": "EQUITY",
+      "market": "XTAI",
+      "code": "3017",
+      "issuer_id": "org-fixture-3017-issuer",
+      "valid_time": {
+        "start": {"kind": "UNBOUNDED"},
+        "end": {"kind": "UNBOUNDED"}
+      }
+    },
+    {
+      "entity_id": "sec-fixture-0123-xtai",
+      "entity_type": "Security",
+      "security_type": "EQUITY",
+      "market": "XTAI",
+      "code": "0123",
+      "issuer_id": "org-fixture-extra",
+      "valid_time": {
+        "start": {"kind": "UNBOUNDED"},
+        "end": {"kind": "UNBOUNDED"}
+      }
+    },
+    {
+      "entity_id": "sec-fixture-7777-xtai",
+      "entity_type": "Security",
+      "security_type": "EQUITY",
+      "market": "XTAI",
+      "code": "7777",
+      "issuer_id": "org-fixture-7777-xtai-issuer",
+      "valid_time": {
+        "start": {"kind": "UNBOUNDED"},
+        "end": {"kind": "UNBOUNDED"}
+      }
+    },
+    {
+      "entity_id": "sec-fixture-7777-xotc",
+      "entity_type": "Security",
+      "security_type": "EQUITY",
+      "market": "XOTC",
+      "code": "7777",
+      "issuer_id": "org-fixture-7777-xotc-issuer",
+      "valid_time": {
+        "start": {"kind": "UNBOUNDED"},
+        "end": {"kind": "UNBOUNDED"}
+      }
+    }
+  ],
+  "aliases": [
+    {
+      "entity_id": "org-fixture-nvidia",
+      "raw_alias": "NVIDIA",
+      "normalized_alias": "nvidia",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    },
+    {
+      "entity_id": "org-fixture-nvidia",
+      "raw_alias": "NVDA",
+      "normalized_alias": "nvda",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    },
+    {
+      "entity_id": "org-fixture-nvidia",
+      "raw_alias": "Nvidia",
+      "normalized_alias": "nvidia",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    },
+    {
+      "entity_id": "org-fixture-tesla",
+      "raw_alias": "Tesla",
+      "normalized_alias": "tesla",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    },
+    {
+      "entity_id": "org-fixture-tesla",
+      "raw_alias": "TESLA",
+      "normalized_alias": "tesla",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    },
+    {
+      "entity_id": "org-fixture-meta",
+      "raw_alias": "Meta",
+      "normalized_alias": "meta",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    },
+    {
+      "entity_id": "org-fixture-meta",
+      "raw_alias": "Facebook",
+      "normalized_alias": "facebook",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    },
+    {
+      "entity_id": "org-fixture-global-us",
+      "raw_alias": "Global Labs",
+      "normalized_alias": "global labs",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    },
+    {
+      "entity_id": "org-fixture-global-ca",
+      "raw_alias": "Global Labs",
+      "normalized_alias": "global labs",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    },
+    {
+      "entity_id": "org-fixture-extra",
+      "raw_alias": "Additional Synthetic Organization",
+      "normalized_alias": "additional synthetic organization",
+      "language": "en",
+      "script": "Latn",
+      "source_id": "source-synthetic-identity-v1",
+      "evidence_id": "evidence-synthetic-identity-v1"
+    }
+  ],
+  "relationship_claims": []
+}
