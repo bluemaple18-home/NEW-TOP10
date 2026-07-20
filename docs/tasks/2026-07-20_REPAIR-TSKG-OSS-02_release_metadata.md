@@ -2,7 +2,7 @@
 card_id: REPAIR-TSKG-OSS-02
 chain_id: TSKG-OSS
 title: Correct TWSEMCPServer release metadata evidence
-status: CARD_DRAFTED
+status: REPAIR_READY
 type: repair
 owner: Codex 主線
 assignee: independent-visible-repair-thread
@@ -85,10 +85,10 @@ index_lock: clear at card drafting
 unrelated_dirty_paths: [] in repair-base worktree
 thread_id: pending
 worktree_path: pending
-turn_status: pending
+turn_status: REPAIR_READY
 gate_1_card_contract: drafted
 gate_2_visible_thread: pending
-gate_3_candidate_delivery: pending
+gate_3_candidate_delivery: completed
 gate_4_same_reviewer_re_review: pending
 gate_5_mainline_acceptance: pending
 ```

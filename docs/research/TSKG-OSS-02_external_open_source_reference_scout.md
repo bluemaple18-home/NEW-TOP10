@@ -31,7 +31,7 @@ decision: REFERENCE_SCOUT_ONLY
 | 3 | twstocks-crawler | https://pypi.org/project/twstocks-crawler/ | `NOT_RELEVANT` | PyPI 最新 `0.0.7` 於 `2022-06-27` 發布，之後未見新版本 | PyPI 標示 `MIT` | 只證明有一個薄封裝 package 名稱存在 | 幾乎沒有專案描述；原始碼首頁未在本輪成功取回；與 `T86` 無直接證據 |
 | 4 | tsec | https://github.com/Asoul/tsec | `ADJACENT` | GitHub latest release `1.0.1` 於 `2016-03-27`；repo README 自述最後更新 `2017/02/15` | `LICENSE 未見` | 批次日資料 crawler、post-process、TWSE/TPEX 歷史資料檔案化流程 | 維護停滯；授權不明；不能直接複用 code |
 | 5 | tsrtc | https://github.com/Asoul/tsrtc | `ADJACENT` | GitHub latest release `1.0.2` 於 `2017-02-15`；README 自述最後更新 `2017/02/15` | `LICENSE 未見` | 即時 TWSE API 分析、欄位拆解、資料完整率與清洗腳本思路 | 維護停滯；授權不明；屬即時盤，不是 `T86` |
-| 6 | TWSEMCPServer | https://github.com/twjackysu/TWSEMCPServer | `DIRECT` | GitHub latest release `v1.3.0` 於 `2026-05-22`；repo 176 commits、3 open issues | `MIT` | `history/institutional (T86)`、`/exchangeReport` vs `/rwd/zh/...` 路徑分層、歷史查詢模組化 | 是 MCP server，不是單純 parser；需抽象出資料層而不是整套架構照搬 |
+| 6 | TWSEMCPServer | https://github.com/twjackysu/TWSEMCPServer | `DIRECT` | GitHub repo 首頁 sidebar 顯示 latest release `v1.8.0` 於 `2026-07-19`；repo 176 commits、3 open issues | `MIT` | `history/institutional (T86)`、`/exchangeReport` vs `/rwd/zh/...` 路徑分層、歷史查詢模組化 | 是 MCP server，不是單純 parser；需抽象出資料層而不是整套架構照搬；release 頁主列表仍殘留 `v1.7.0 Latest` 呈現，需以 evidence 記錄 cross-page 不一致 |
 | 7 | python-and-Taiwan-stock-market issue #76 | https://github.com/arleigh418/python-and-Taiwan-stock-market/issues/76 | `DIRECT` | issue opened `2025-05-22`，2025-07 仍有追問 | Repo license 本輪未核；issue 本身無獨立 license | `T86` 路徑漂移與教學碼失效風險的直接現場證據 | 只是 discussion，不是可直接引用的 crawler 實作 |
 
 ## 3. 候選細節
@@ -148,7 +148,8 @@ decision: REFERENCE_SCOUT_ONLY
   - 將 `exchangeReport` 與 `rwd/zh/...` 端點分開處理的架構思路。
   - 歷史查詢與本地過濾責任切分。
 - 維護跡象：
-  - repo page 顯示 latest release `v1.3.0` 於 `2026-05-22`。
+  - 2026-07-20 查閱 canonical repo 首頁 sidebar，顯示 `Releases 9`，其中 latest release 為 `v1.8.0`、日期 `2026-07-19`。
+  - 同日查閱 `https://github.com/twjackysu/TWSEMCPServer/releases`，主列表仍把 `v1.7.0` 標成 `Latest`，日期 `2026-07-18`；本報告將此視為 GitHub cross-page 呈現不一致，已記錄於 verification evidence。
   - repo page 顯示 `176 commits`、`3 issues`。
 - License / boundary：
   - repo page 與 `LICENSE` 導覽都顯示 `MIT license`。
@@ -192,7 +193,7 @@ Access date 均為 `2026-07-20`。
 | S06 | `retrieved` | https://github.com/Asoul/tsec | 歷史 crawler、release、license 未見、README 最後更新 |
 | S07 | `retrieved` | https://github.com/Asoul/tsec/issues/6 | 站方改版導致 crawler 要重寫的直接證據 |
 | S08 | `retrieved` | https://github.com/Asoul/tsrtc | 即時 API 分析、release、license 未見、README 最後更新 |
-| S09 | `retrieved` | https://github.com/twjackysu/TWSEMCPServer | repo、MIT、release、commit 數量 |
+| S09 | `retrieved` | https://github.com/twjackysu/TWSEMCPServer | repo、MIT、repo sidebar latest release `v1.8.0 / 2026-07-19`、commit 數量 |
 | S10 | `retrieved` | https://github.com/twjackysu/TWSEMCPServer/blob/main/CLAUDE.md | `/rwd/zh/fund/T86` 與 `history/institutional (T86)` 明文證據 |
 | S11 | `retrieved` | https://github.com/arleigh418/python-and-Taiwan-stock-market/issues/76 | `T86` 路徑漂移 / 教學碼脆弱性證據 |
 | S12 | `failed` | PyPI `twstocks-crawler` project link homepage click-through | 本輪未成功解析成可讀 repo 正文，因此未用來支持任何結論 |
