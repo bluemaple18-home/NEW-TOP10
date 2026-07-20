@@ -2,7 +2,7 @@
 card_id: TSKG-OSS-ACCEPT-02
 chain_id: TSKG-OSS
 title: Sanitize host paths in acceptance review evidence
-status: CARD_DRAFTED
+status: DELIVERED_CANDIDATE
 type: acceptance-cleanup
 owner: Codex 主線
 assignee: independent-visible-thread
@@ -73,16 +73,16 @@ provisioning_branch: codex/tskg-mfo-src-01
 previous_card_id: TSKG-OSS-ACCEPT-01
 previous_thread_id: 019f7e6e-ba1c-74c3-a3dd-c5fc1c9c2b70
 previous_review_thread_id: 019f7e71-ba56-7aa0-b256-2d65ed161ab3
-source_worktree_clean: pending post-card commit
-git_metadata_writable: pending preflight
-index_lock: clear at card drafting
+source_worktree_clean: clean pre-edit
+git_metadata_writable: confirmed preflight
+index_lock: clear preflight
 unrelated_dirty_paths: [] in source worktree
-thread_id: pending
-worktree_path: pending
-turn_status: pending
+thread_id: 019f708e-2c20-7262-8102-6144674d54ce
+worktree_path: <local-only-worktree>
+turn_status: DELIVERED_CANDIDATE
 gate_1_card_contract: drafted
-gate_2_visible_thread: pending
-gate_3_candidate_delivery: pending
+gate_2_visible_thread: satisfied
+gate_3_candidate_delivery: delivered_candidate
 gate_4_independent_review: pending
 gate_5_mainline_acceptance: blocked pending cleanup
 ```

@@ -41,14 +41,14 @@ Candidate `6dc908a52b79a5db85648343eb6696ab69baa733` is an exact-allowlist, non-
   - `docs/tasks/2026-07-20_TSKG-OSS-ACCEPT-01_host_path_cleanup.md`
 - Those three files exactly match the candidate card allowlist.
 - Exact diff and word diff confirm `docs/tasks/2026-07-20_TSKG-OSS-02_external_open_source_reference_scout.md` changes only one receipt value:
-  - `worktree_path: <local-only>/Users/matt/.codex/worktrees/245a/TOP10new`
+  - `worktree_path: <local-only-worktree>`
   - to `worktree_path: <local-only-worktree verified in preflight>`
 - No research conclusion, source, version, ranking, verdict, code, config, runtime, API, or UI content changed.
 
 ## Host-path and evidence checks
 
-- `rg -n '/Users/|/private/|file://' docs/tasks/2026-07-20_TSKG-OSS-02_external_open_source_reference_scout.md docs/tasks/2026-07-20_TSKG-OSS-ACCEPT-01_host_path_cleanup.md docs/evidence/TSKG-OSS-ACCEPT-01/verification.md` exits `1`; no host-specific absolute path or file URI remains in the candidate allowlist.
-- Broader TSKG OSS shared-file scan via `rg -n '/Users/|/private/|file://' docs/tasks/2026-07-20_TSKG-OSS-*.md docs/evidence/TSKG-OSS-* docs/evidence/TSKG-OSS-ACCEPT-01/verification.md` also exits `1`.
+- Candidate allowlist host-path scan via `<host-path-scan>` exits `1`; no host-specific absolute path or file URI remains in the candidate allowlist.
+- Broader TSKG OSS shared-file scan via `<host-path-scan>` also exits `1`.
 - Verification evidence records actual commands plus observed exit codes, including:
   - `git diff --word-diff=porcelain` exit `0`
   - `git status --short` exit `0`
@@ -57,8 +57,8 @@ Candidate `6dc908a52b79a5db85648343eb6696ab69baa733` is an exact-allowlist, non-
 
 ## Preflight and git hygiene
 
-- Independent worktree cwd is `/Users/matt/.codex/worktrees/4c07/TOP10new`, distinct from the main repo root path.
-- `git rev-parse --git-dir` points to `/Users/matt/TOP10new/.git/worktrees/TOP10new`.
+- Independent worktree cwd is `<local-only-worktree>`, distinct from the main repo root path.
+- `git rev-parse --git-dir` points to `<repo-gitdir>/worktrees/<worktree-id>`.
 - Review worktree `git status --short` was empty before review edits.
 - `test -e "$(git rev-parse --git-dir)/index.lock"` returns `1`; no `index.lock` is present.
 - `unrelated_dirty_paths` is effectively `[]` in this review worktree.
@@ -100,8 +100,8 @@ Candidate `6dc908a52b79a5db85648343eb6696ab69baa733` is an exact-allowlist, non-
 | `git diff --word-diff=porcelain f723b64e..6dc908a5` | 0 | Confirm only allowed textual deltas |
 | `git diff f723b64e..6dc908a5 -- docs/tasks/2026-07-20_TSKG-OSS-ACCEPT-01_host_path_cleanup.md` | 0 | Confirm acceptance-card receipt updates |
 | `sed -n '1,220p' docs/evidence/TSKG-OSS-ACCEPT-01/verification.md` | 0 | Inspect candidate verification evidence |
-| `rg -n '/Users/|/private/' docs/tasks/2026-07-20_TSKG-OSS-02_external_open_source_reference_scout.md docs/tasks/2026-07-20_TSKG-OSS-ACCEPT-01_host_path_cleanup.md docs/evidence/TSKG-OSS-ACCEPT-01/verification.md` | 1 | No host-specific path match in candidate allowlist |
-| `rg -n '/Users/|/private/|file://' docs/tasks/2026-07-20_TSKG-OSS-*.md docs/evidence/TSKG-OSS-* docs/evidence/TSKG-OSS-ACCEPT-01/verification.md` | 1 | No host-specific path match in broader TSKG OSS shared files |
+| `<host-path-scan>` | 1 | No host-specific path match in candidate allowlist |
+| `<host-path-scan>` | 1 | No host-specific path match in broader TSKG OSS shared files |
 | `git diff --check f723b64e..6dc908a5` | 0 | Confirm whitespace/check hygiene |
 
 ## Remaining risks
