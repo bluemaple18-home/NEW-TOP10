@@ -2,7 +2,7 @@
 card_id: TSKG-OSS-01
 chain_id: TSKG-OSS
 title: TSKG existing FinMind and T86 asset reuse audit
-status: CARD_DRAFTED
+status: DELIVERED_CANDIDATE
 type: research
 owner: Codex 主線
 assignee: visible-thread
@@ -82,16 +82,25 @@ TOP10 repo 目前已有哪些 FinMind、TWSE T86、三大法人資料元件；�
 card_path: docs/tasks/2026-07-20_TSKG-OSS-01_existing_asset_reuse_audit.md
 provisioning_source_sha: da0d0b20bb1838ef8dc9dffcb926fca72562a419
 provisioning_branch: codex/tskg-mfo-src-01
-source_worktree_clean: pending post-card commit
-git_metadata_writable: pending preflight
-index_lock: clear at card drafting
-unrelated_dirty_paths: [] in source worktree
-thread_id: pending
-worktree_path: pending
-turn_status: pending
+source_worktree_clean: true at candidate preflight
+git_metadata_writable: true for candidate commit via platform-approved git write
+index_lock: clear at card drafting and candidate preflight
+unrelated_dirty_paths: []
+thread_id: 019f7e58-df0f-7eb1-808d-369fa5c02206
+worktree_path: <local-only-worktree verified in preflight>
+turn_status: DELIVERED_CANDIDATE
 gate_1_card_contract: drafted
-gate_2_visible_thread: pending
-gate_3_candidate_delivery: pending
+gate_2_visible_thread: receipt confirmed
+gate_3_candidate_delivery: candidate commit pending until final SHA recorded
 gate_4_independent_review: pending
 gate_5_mainline_acceptance: pending
 ```
+
+## Candidate result
+
+本卡完成 repo-first 唯讀盤點，未呼叫 FinMind、TWSE、TPEx 或其他外部金融資料服務，未修改 app、scripts、tests、config、requirements、runtime、API、UI 或 TSKG contract。
+
+- Research deliverable：`docs/research/TSKG-OSS-01_existing_asset_reuse_audit.md`
+- Verification evidence：`docs/evidence/TSKG-OSS-01/verification.md`
+- 主要結論：現有 FinMind 個股籌碼路徑可作 `REFERENCE_ONLY`，但不得直接作 TSKG ingestion；TWSE `T86` market context parser 有 caller、synthetic verifier 與 artifact 消費端，可參考其 parser/status 形狀，但 target source governance 仍由 `TSKG-MFO-SRC-01` 保持 `KEEP_BLOCKED`。
+- 後續 synthesis 卡仍需決定 source approval、單位換算、逐股欄位語意、raw retention、late correction 與 TSKG `SecurityFlowObservation` adapter 邊界。
