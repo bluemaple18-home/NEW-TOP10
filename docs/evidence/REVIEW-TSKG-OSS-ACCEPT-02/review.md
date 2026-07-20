@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-OSS-ACCEPT-02
 status: REVIEW_NO_GO
 reviewed_on: 2026-07-20
-reviewer_thread_id: 019f708e-2c20-7262-8102-6144674d54ce
+reviewer_thread_id: 019f7e7a-241e-7412-86f6-9e69538c7e28
 operation_level: independent_read_only_review
 reviewed_candidate: e0bfe6712dc1af1e3558e124f10a7d03632471de
 reviewed_parent: ab4595be037bebf28e201010440dc9bc0aa3f84e
@@ -94,3 +94,16 @@ Candidate `e0bfe6712dc1af1e3558e124f10a7d03632471de` stays within the candidate 
 - This review did not modify the candidate, so acceptance remains blocked until a new candidate corrects the verification artifact.
 - Once the candidate verification metadata is fixed, the same host-path and diff-hygiene gates should be re-run because any new review output becomes part of the shared-file surface.
 - This verdict is limited to acceptance evidence integrity and does not re-open the already-sanitized semantics of `REVIEW-TSKG-OSS-ACCEPT-01`.
+
+## Clarification
+
+The original `P1` was based on an implementability assumption that the candidate verification artifact itself should carry the final delivered candidate SHA. That assumption is too strict for a Git commit artifact because writing the final commit SHA into the file content would change the commit object and create a self-reference loop.
+
+Repair acceptance is therefore available under the following contract without modifying the current candidate:
+
+- The candidate verification artifact may omit self-referential `candidate_head: pending` and may avoid ambiguous `source_candidate` wording.
+- The candidate verification artifact should instead record immutable input lineage only, such as the acceptance source commit, the repair/card commit, and the delivered candidate parent.
+- The final delivered candidate SHA may be fixed outside the candidate artifact by the task final receipt plus independent review evidence, where the reviewer records the actual reviewed repair SHA and parent.
+- Under that contract, the evidence becomes reproducible and non-self-referential while still preserving a verifiable chain from source input to reviewed candidate.
+
+If a follow-up candidate adopts that contract cleanly and still passes the same allowlist, host-path, and diff-hygiene gates, this review's `P1` can be considered repaired. No requirement remains to embed the candidate's own final SHA inside the same candidate commit content.
