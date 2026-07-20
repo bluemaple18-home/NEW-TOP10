@@ -2,7 +2,7 @@
 card_id: TSKG-MFO-01
 chain_id: TSKG-MFO
 title: SecurityFlowObservation raw contract
-status: VALIDATION_BLOCKED
+status: DELIVERED_CANDIDATE
 type: implementation
 owner: Codex 主線
 assignee: current task
@@ -113,11 +113,10 @@ Observation closed schema：
 
 ## Result
 
-`VALIDATION_BLOCKED`
+`DELIVERED_CANDIDATE`
 
 - Focused MFO-01 contract：`7/7 PASS`。
-- Combined TSKG run：共執行 46 tests；MFO-01 與 Source Gate／大部分 SLC-01 通過，唯一 error 為測試環境缺少 `pandas`，不是 assertion failure。
-- 後續完整 requirements 與 Python 3.13 環境建立分別被 `lxml 4.9.4`／Python 3.14 不相容及 uv cache sandbox 權限阻擋。
-- 同一 validation-environment blocker 累計三次，依停損規則停止，不做第 4 次重試。
+- Combined TSKG regression：專案現成 `.venv` 執行 `46/46 PASS`。
+- Python 3.13 runtime 尚未在本機成功 provision；本次 clean regression 使用 Python 3.11.14。此 caveat 不影響已驗證的純 Python 行為，但在正式 3.13 acceptance 前不得宣稱版本矩陣完整。
 - Candidate 尚未整合主線；Theme、衍生公式、外部來源、API、UI 與 Top10 runtime 仍未授權。
 - Evidence：`docs/evidence/TSKG-MFO-01/verification.md`。
