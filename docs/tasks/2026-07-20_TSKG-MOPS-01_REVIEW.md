@@ -2,7 +2,7 @@
 card_id: TSKG-MOPS-01-REVIEW
 chain_id: TSKG-SRC
 title: MOPS source-governance dossier independent review
-status: CARD_DRAFTED
+status: REVIEW_GO
 type: review
 owner: Codex 主線
 assignee: independent review thread
@@ -53,4 +53,13 @@ source_parent: 744bf934cd988b75322cb674c218691de6615b97
 
 ## Result
 
-`PENDING_REVIEW`
+`GO`
+
+- Reviewed candidate：`d5e9f4660e082b6879490768a56a4385d064c3c5`。
+- Candidate parent：`744bf934cd988b75322cb674c218691de6615b97`。
+- Spec axis：`GO`；Standards axis：`GO`。
+- Findings：未發現 P0–P3 finding。
+- Source trace：`11 retrieved`（其中 `9 substantive`、`2 limited landing`）／`3 failed`，與 candidate tracker 一致。
+- Verdict 邊界：本 `GO` 只表示研究文件可整合；不核准 MOPS，不解除 OQ-SRC-01 或 SLC-02，三個 access channel 全部維持 `KEEP_BLOCKED`。
+- Evidence：`docs/evidence/TSKG-MOPS-01/review.md`。
+- Review commit：完整 SHA 由 reviewer 最終回報，避免 commit 自參照。
