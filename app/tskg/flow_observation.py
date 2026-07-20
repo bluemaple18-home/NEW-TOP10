@@ -85,7 +85,13 @@ class SecurityFlowObservationFixture:
     @classmethod
     def from_file(cls, path: Path) -> "SecurityFlowObservationFixture":
         with path.open("r", encoding="utf-8") as fixture_file:
-            return cls(json.load(fixture_file))
+            try:
+                fixture = json.load(fixture_file)
+            except json.JSONDecodeError as error:
+                raise FlowObservationContractError(
+                    "fixture must contain valid JSON"
+                ) from error
+        return cls(fixture)
 
     @classmethod
     def from_mapping(
@@ -253,6 +259,11 @@ class SecurityFlowObservationFixture:
             raise FlowObservationContractError(
                 "observation references unknown evidence"
             )
+        for field in ("observed_at", "retrieved_at"):
+            if not isinstance(observation[field], str):
+                raise FlowObservationContractError(
+                    f"{field} must be an RFC3339 UTC string"
+                )
         try:
             observed_at = parse_utc_instant(observation["observed_at"])
             retrieved_at = parse_utc_instant(observation["retrieved_at"])

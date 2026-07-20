@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -223,6 +225,32 @@ class TskgMfo01ContractTests(unittest.TestCase):
             ),
         }
         self._assert_mutations_rejected(mutations)
+
+    def test_timestamp_fields_require_rfc3339_utc_strings(self) -> None:
+        for field in ("observed_at", "retrieved_at"):
+            with self.subTest(field=field):
+                malformed = deepcopy(self.fixture)
+                malformed["observations"][0][field] = datetime(
+                    2026, 7, 17, 13, 30, tzinfo=timezone.utc
+                )
+                with self.assertRaises(FlowObservationContractError):
+                    SecurityFlowObservationFixture.from_mapping(malformed)
+
+    def test_invalid_json_is_wrapped_with_decode_error_cause(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixture_path = Path(temporary_directory) / "invalid.json"
+            fixture_path.write_text("{", encoding="utf-8")
+
+            with self.assertRaises(FlowObservationContractError) as raised:
+                SecurityFlowObservationFixture.from_file(fixture_path)
+
+        self.assertIsInstance(raised.exception.__cause__, json.JSONDecodeError)
+
+    def test_from_file_does_not_swallow_os_error(self) -> None:
+        missing_path = PROJECT_ROOT / "does-not-exist-mfo01.json"
+
+        with self.assertRaises(FileNotFoundError):
+            SecurityFlowObservationFixture.from_file(missing_path)
 
     def test_prohibited_trading_field_fails_loud(self) -> None:
         for prohibited_field in sorted(DERIVED_OR_TRADING_FIELDS):

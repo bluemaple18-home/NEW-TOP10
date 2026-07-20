@@ -2,7 +2,7 @@
 card_id: REPAIR-TSKG-MFO-01-1
 chain_id: TSKG-MFO
 title: Repair MFO-01 RFC3339 and invalid JSON error gates
-status: CARD_DRAFTED
+status: DELIVERED_CANDIDATE
 type: repair
 repair_generation: 1
 owner: Codex 主線
@@ -78,4 +78,10 @@ evidence_path: docs/evidence/REPAIR-TSKG-MFO-01/repair-1.md
 
 ## Result
 
-`PENDING_REPAIR`
+`REPAIR_DELIVERED`：只修復兩個 P2。`observed_at`／`retrieved_at` 現在必須先通過
+RFC 3339 UTC 字串型別 gate，aware UTC `datetime` 亦會拒絕；`from_file()` 只把
+`json.JSONDecodeError` 轉譯成 `FlowObservationContractError` 並保留 chaining，
+`FileNotFoundError`／`OSError` 不被吞掉。RED、GREEN、原 46-test regression、
+112 組等價 malformed probes 與 scope gates 見
+`docs/evidence/REPAIR-TSKG-MFO-01/repair-1.md`；是否關閉 finding 仍由原 reviewer
+re-review 決定。
