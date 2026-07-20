@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-OSS-ACCEPT-02
 chain_id: TSKG-OSS
 title: Independent review of acceptance evidence path sanitization
-status: CARD_DRAFTED
+status: REVIEW_NO_GO
 type: review
 owner: Codex 主線
 assignee: independent-visible-review-thread
@@ -70,16 +70,47 @@ source_kind: commit
 source_sha: e0bfe6712dc1af1e3558e124f10a7d03632471de
 candidate_parent: ab4595be037bebf28e201010440dc9bc0aa3f84e
 provisioning_branch: codex/tskg-oss-accept02-review
-source_worktree_clean: pending post-card commit
-git_metadata_writable: pending preflight
-index_lock: clear at card drafting
+source_worktree_clean: clean pre-review
+git_metadata_writable: confirmed preflight
+index_lock: clear preflight
 unrelated_dirty_paths: [] in review-base worktree
-thread_id: pending
-worktree_path: pending
-turn_status: pending
+thread_id: 019f708e-2c20-7262-8102-6144674d54ce
+worktree_path: <local-only-worktree>
+turn_status: REVIEW_NO_GO
 gate_1_card_contract: drafted
-gate_2_visible_thread: pending
+gate_2_visible_thread: satisfied
 gate_3_candidate_delivery: complete
-gate_4_independent_review: pending
-gate_5_mainline_acceptance: blocked pending review
+gate_4_independent_review: REVIEW_NO_GO
+gate_5_mainline_acceptance: blocked by candidate verification mismatch
 ```
+
+## Review result
+
+`NO_GO`
+
+Candidate `e0bfe6712dc1af1e3558e124f10a7d03632471de` preserves the intended placeholder cleanup in its edited review evidence and stays within the candidate card allowlist, but its own verification artifact does not record the actual delivered candidate SHA/parent. Because the review contract explicitly requires candidate verification to reflect actual results, this is an evidence-integrity miss and blocks acceptance.
+
+## Findings
+
+- `P1` candidate verification metadata does not match the delivered candidate: `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md:5`, `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md:6`, `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md:7`, `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md:23`, `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md:24`
+  The artifact still says `source_candidate: 938f583`, `candidate_head: pending single candidate commit`, and `candidate_parent: 938f583`, while the reviewed candidate is `e0bfe6712dc1af1e3558e124f10a7d03632471de` with parent `ab4595be037bebf28e201010440dc9bc0aa3f84e`. The preflight table also records the pre-edit ancestry instead of the delivered candidate ancestry. This fails the card requirement that candidate verification capture actual SHA/parent/verification results.
+
+## Spec axis
+
+`NO_GO`
+
+- Candidate parent, changed files, exact diff, word diff, host-path gate, and `git diff --check` all satisfy the cleanup scope.
+- The candidate does not satisfy Required review item 5 because its verification evidence does not record the actual delivered candidate lineage.
+
+## Standards axis
+
+`NO_GO`
+
+- Evidence integrity is part of the acceptance contract for this docs-only cleanup.
+- Placeholder sanitization is correct, but a verification artifact that leaves final candidate identity pending is not a trustworthy acceptance record.
+
+## Required acceptance fix
+
+- Update `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md` so the delivered candidate SHA and parent match `e0bfe6712dc1af1e3558e124f10a7d03632471de` and `ab4595be037bebf28e201010440dc9bc0aa3f84e`.
+- Replace the pre-edit ancestry rows with the actual delivered-candidate lineage or clearly separate pre-edit checks from final delivered-candidate checks.
+- Re-run the same allowlist diff, broader host-path gate, and `git diff --check`, then record the observed exit codes.
