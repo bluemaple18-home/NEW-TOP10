@@ -2,7 +2,7 @@
 card_id: TSKG-MOPS-01
 chain_id: TSKG-SRC
 title: MOPS read-only source governance dossier
-status: DELIVERED_CANDIDATE
+status: INTEGRATED
 type: research
 owner: Codex 主線
 assignee: TSKG-MOPS-01 research thread
@@ -136,9 +136,11 @@ Dossier 最後必須給逐通道建議，而不是把整個 MOPS 混成單一結
 
 ## Result
 
-`DELIVERED_CANDIDATE`
+`INTEGRATED`
 
 - Dossier：`docs/research/TSKG-MOPS-01_source_dossier.md`
 - Verification：`docs/evidence/TSKG-MOPS-01/verification.md`
+- Independent Review：`docs/evidence/TSKG-MOPS-01/review.md`（`GO`）
+- Acceptance：`docs/evidence/TSKG-MOPS-01/acceptance.md`
 - 逐通道建議：`interactive_web=KEEP_BLOCKED`、`official_api_or_open_data=KEEP_BLOCKED`、`manual_file_download=KEEP_BLOCKED`
 - 本結果不是 source-owner／法律核准，不修改 Source Gate，不解除 OQ-SRC-01 或 SLC-02。
