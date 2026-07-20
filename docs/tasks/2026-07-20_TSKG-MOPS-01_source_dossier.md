@@ -2,7 +2,7 @@
 card_id: TSKG-MOPS-01
 chain_id: TSKG-SRC
 title: MOPS read-only source governance dossier
-status: CARD_DRAFTED
+status: DELIVERED_CANDIDATE
 type: research
 owner: Codex 主線
 assignee: TSKG-MOPS-01 research thread
@@ -12,7 +12,7 @@ model: gpt-5.5
 reasoning: high
 model_reason: 來源條款、robots、介面、保存與再散布需多份官方證據交叉驗證；結論影響後續外部存取，但本卡保持唯讀且不做法律核准
 source_kind: commit
-source_sha: 7f472be548c79a0b8d9758dcb3a4cfaca83751ff
+source_sha: 744bf934cd988b75322cb674c218691de6615b97
 source_branch: codex/tskg-mops-01
 mainline_dispatcher: TSKG root thread
 previous_card: TSKG-SRC-01
@@ -136,4 +136,9 @@ Dossier 最後必須給逐通道建議，而不是把整個 MOPS 混成單一結
 
 ## Result
 
-`PENDING_RESEARCH`
+`DELIVERED_CANDIDATE`
+
+- Dossier：`docs/research/TSKG-MOPS-01_source_dossier.md`
+- Verification：`docs/evidence/TSKG-MOPS-01/verification.md`
+- 逐通道建議：`interactive_web=KEEP_BLOCKED`、`official_api_or_open_data=KEEP_BLOCKED`、`manual_file_download=KEEP_BLOCKED`
+- 本結果不是 source-owner／法律核准，不修改 Source Gate，不解除 OQ-SRC-01 或 SLC-02。
