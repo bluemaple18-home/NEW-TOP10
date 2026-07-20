@@ -2,7 +2,7 @@
 card_id: TSKG-INT-01
 chain_id: TSKG-INT
 title: Integrate accepted TSKG source gate branch
-status: DELIVERED_CANDIDATE
+status: INTEGRATED
 type: integration
 owner: Codex 主線
 assignee: TSKG-INT-01 visible implementation thread
@@ -12,10 +12,13 @@ model: gpt-5.6-sol
 reasoning: high
 model_reason: 需把落後共同祖先 205 個 main commits 的 20-commit TSKG 稽核鏈整合成單一候選 merge commit，並辨識基線測試失敗與真實 regression
 source_kind: branch
-source_branch: codex/tskg-integration-cards
-source_sha: bc452e75cf2c847df40c9f6c3bdb6e52e0a77184
+source_branch: main
+source_sha: a9758aa91e95985b16ce154a65521d10df6544d1
 target_branch: origin/codex/tskg-source-gate
 target_sha: 7f472be548c79a0b8d9758dcb3a4cfaca83751ff
+candidate_sha: 2a1e5d2493975fda32bb5f9ecdff5dbc5aa018ff
+review_evidence_commit: 3f73877eba078041515888eeab8b250c19cb20d2
+integrated_commit: 3f73877eba078041515888eeab8b250c19cb20d2
 mainline_dispatcher: TSKG root thread
 worktree_mode: platform-managed-independent-worktree
 main_cwd: <repo-root>
@@ -93,4 +96,4 @@ Full suite 若仍只有 `tests/test_research_component_ledger.py::ResearchCompon
 
 ## Result
 
-`DELIVERED_CANDIDATE` — 固定 target 已無衝突合併；focused suite 為 39 passed / 154 subtests passed，full suite 為 367 passed / 1 baseline failure / 182 subtests passed，且該 ledger failure 已在固定 first parent 重現。完整證據見 `docs/evidence/TSKG-INT-01/integration.md`。
+`INTEGRATED / REVIEW_GO` — candidate `2a1e5d2493975fda32bb5f9ecdff5dbc5aa018ff` 已由獨立 Reviewer 判定 P0–P3 findings 全為 0，Review evidence commit `3f73877eba078041515888eeab8b250c19cb20d2` 已 fast-forward 整合至本機 `main`。Focused suite 為 39 passed / 154 subtests passed；full suite 為 367 passed / 1 baseline failure / 182 subtests passed，且該 ledger failure 已在固定 first parent 重現。完整證據見 `docs/evidence/TSKG-INT-01/integration.md`、`docs/evidence/REVIEW-TSKG-INT-01/review.md` 與 `docs/evidence/TSKG-INT-01/acceptance.md`。

@@ -2,7 +2,7 @@
 card_id: REPAIR-TSKG-INT-01
 chain_id: TSKG-INT
 title: Conditionally repair reviewed TSKG integration findings
-status: PENDING
+status: NOT_NEEDED
 type: repair
 owner: Codex 主線
 assignee: REPAIR-TSKG-INT-01 visible repair thread
@@ -12,7 +12,7 @@ model: gpt-5.5
 reasoning: medium
 model_reason: 只有獨立 Review 產生具體 bounded findings 時才執行；範圍由 findings 鎖定，不承擔重新設計或架構決策
 source_kind: commit
-source_sha: <reviewed-candidate-sha>
+source_sha: 2a1e5d2493975fda32bb5f9ecdff5dbc5aa018ff
 mainline_dispatcher: TSKG root thread
 previous_card: REVIEW-TSKG-INT-01
 worktree_mode: platform-managed-independent-worktree
@@ -52,4 +52,4 @@ evidence_path: docs/evidence/REPAIR-TSKG-INT-01/repair.md
 
 ## Result
 
-`PENDING_REVIEW_VERDICT`
+`NOT_NEEDED` — `REVIEW-TSKG-INT-01` 對固定 candidate `2a1e5d2493975fda32bb5f9ecdff5dbc5aa018ff` 回 `REVIEW_GO`，P0–P3 findings 全為 0，因此未建立 Repair thread、未消耗 Repair generation。
