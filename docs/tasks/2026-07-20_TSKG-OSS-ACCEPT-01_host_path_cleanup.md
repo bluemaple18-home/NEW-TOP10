@@ -2,7 +2,7 @@
 card_id: TSKG-OSS-ACCEPT-01
 chain_id: TSKG-OSS
 title: Remove host-specific worktree path from shared OSS card
-status: CARD_DRAFTED
+status: DELIVERED_CANDIDATE
 type: acceptance-cleanup
 owner: Codex 主線
 assignee: independent-visible-thread
@@ -73,16 +73,16 @@ source_sha: 64e5bb2
 provisioning_branch: codex/tskg-mfo-src-01
 previous_repair_thread_id: 019f7e66-00fd-7583-86bf-2f56944ea70b
 previous_reviewer_thread_id: 019f7e60-0da2-71d1-b9cb-76f794312ee6
-source_worktree_clean: pending post-card commit
-git_metadata_writable: pending preflight
+source_worktree_clean: verified clean in preflight
+git_metadata_writable: verified writable in preflight
 index_lock: clear at card drafting
 unrelated_dirty_paths: [] in source worktree
-thread_id: pending
-worktree_path: pending
-turn_status: pending
+thread_id: 019f708e-2c20-7262-8102-6144674d54ce
+worktree_path: <local-only-worktree verified in preflight>
+turn_status: DELIVERED_CANDIDATE
 gate_1_card_contract: drafted
-gate_2_visible_thread: pending
-gate_3_candidate_delivery: pending
+gate_2_visible_thread: satisfied
+gate_3_candidate_delivery: satisfied
 gate_4_independent_review: pending
-gate_5_mainline_acceptance: blocked pending cleanup
+gate_5_mainline_acceptance: pending
 ```

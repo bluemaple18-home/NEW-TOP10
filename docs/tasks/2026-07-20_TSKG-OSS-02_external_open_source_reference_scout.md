@@ -89,7 +89,7 @@ git_metadata_writable: pending preflight
 index_lock: clear at card drafting
 unrelated_dirty_paths: [] in source worktree
 thread_id: 019f7e58-df13-7d60-80c9-885af3e23f0f
-worktree_path: <local-only>/Users/matt/.codex/worktrees/245a/TOP10new
+worktree_path: <local-only-worktree verified in preflight>
 turn_status: DELIVERED_CANDIDATE
 gate_1_card_contract: drafted
 gate_2_visible_thread: satisfied
