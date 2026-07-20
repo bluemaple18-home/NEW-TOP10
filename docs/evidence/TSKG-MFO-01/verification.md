@@ -88,6 +88,25 @@ OK
 
 結果：MFO-01 7 tests、SLC-01 22 tests、SRC-01 17 tests，共 `46/46 PASS`。執行器為 Python 3.11.14；Python 3.13 尚未成功 provision，故版本矩陣保持 caveat，不把 3.11 行為 PASS 冒充 3.13 runtime acceptance。
 
+## Mainline self-review
+
+本輪依 code-review-gate 分開檢查 Spec axis 與 Standards axis；這是目前 task 內 self-review，不是獨立 reviewer。
+
+- Finding：`P2`。malformed JSON 若把 `investor_type`、`freshness` 或 `evidence_id` 送成 list，set membership 會漏出 Python `TypeError`，不符合 fail-loud `FlowObservationContractError` 契約。
+- RED：新增 3 個 non-string negative subcases 後，focused suite 出現 3 個 error，均重現 unhashable list。
+- Fix：membership 前先驗證 `str`，所有錯誤重新收斂為 `FlowObservationContractError`。
+- GREEN／regression：
+
+```text
+<repo-root>/.venv/bin/python -m unittest \
+  tests.test_tskg_mfo01 tests.test_tskg_slc01 tests.test_tskg_src01
+Ran 46 tests in 0.751s
+OK
+```
+
+- Spec axis：`GO_WITH_CAVEAT`；raw-only schema 與禁區符合卡片，Python 3.13 尚未執行。
+- Standards axis：`GO_WITH_CAVEAT`；P2 已修復，沒有未解 P0–P2 finding，但尚缺獨立 Review。
+
 ## Remaining boundaries
 
 - MFO-01 focused contract：`PASS`。

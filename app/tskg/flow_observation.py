@@ -233,7 +233,10 @@ class SecurityFlowObservationFixture:
             date.fromisoformat(trade_date)
         except ValueError as error:
             raise FlowObservationContractError("trade_date is invalid") from error
-        if observation["investor_type"] not in _INVESTOR_TYPES:
+        if (
+            not isinstance(observation["investor_type"], str)
+            or observation["investor_type"] not in _INVESTOR_TYPES
+        ):
             raise FlowObservationContractError("investor_type is unsupported")
         if observation["currency"] != "TWD":
             raise FlowObservationContractError("currency must equal TWD")
@@ -243,7 +246,10 @@ class SecurityFlowObservationFixture:
             )
         if observation["source_id"] != source_id:
             raise FlowObservationContractError("observation references unknown source")
-        if observation["evidence_id"] not in evidence_ids:
+        if (
+            not isinstance(observation["evidence_id"], str)
+            or observation["evidence_id"] not in evidence_ids
+        ):
             raise FlowObservationContractError(
                 "observation references unknown evidence"
             )
@@ -257,7 +263,7 @@ class SecurityFlowObservationFixture:
                 "retrieved_at must not be before observed_at"
             )
         freshness = observation["freshness"]
-        if freshness not in _FRESHNESS_STATES:
+        if not isinstance(freshness, str) or freshness not in _FRESHNESS_STATES:
             raise FlowObservationContractError("freshness is unsupported")
         if type(observation["is_stale"]) is not bool:
             raise FlowObservationContractError("is_stale must be boolean")

@@ -182,6 +182,9 @@ class TskgMfo01ContractTests(unittest.TestCase):
             "invalid investor type": lambda value: value["observations"][0].update(
                 {"investor_type": "RETAIL"}
             ),
+            "non-string investor type": lambda value: value["observations"][0].update(
+                {"investor_type": ["FOREIGN"]}
+            ),
             "wrong currency": lambda value: value["observations"][0].update(
                 {"currency": "USD"}
             ),
@@ -202,6 +205,12 @@ class TskgMfo01ContractTests(unittest.TestCase):
             ),
             "invalid freshness": lambda value: value["observations"][0].update(
                 {"freshness": "UNKNOWN"}
+            ),
+            "non-string freshness": lambda value: value["observations"][0].update(
+                {"freshness": ["FRESH"]}
+            ),
+            "non-string evidence ID": lambda value: value["observations"][0].update(
+                {"evidence_id": ["evidence-synthetic-security-flow-v1"]}
             ),
             "fresh marked stale": lambda value: value["observations"][0].update(
                 {"freshness": "FRESH", "is_stale": True}

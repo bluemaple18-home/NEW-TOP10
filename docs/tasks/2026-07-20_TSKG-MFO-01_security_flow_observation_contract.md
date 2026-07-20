@@ -117,6 +117,7 @@ Observation closed schema：
 
 - Focused MFO-01 contract：`7/7 PASS`。
 - Combined TSKG regression：專案現成 `.venv` 執行 `46/46 PASS`。
+- Mainline self-review：發現並修復 1 個 P2 malformed-JSON error-envelope finding；修復後 `46/46 PASS`。這不是獨立 Review。
 - Python 3.13 runtime 尚未在本機成功 provision；本次 clean regression 使用 Python 3.11.14。此 caveat 不影響已驗證的純 Python 行為，但在正式 3.13 acceptance 前不得宣稱版本矩陣完整。
 - Candidate 尚未整合主線；Theme、衍生公式、外部來源、API、UI 與 Top10 runtime 仍未授權。
 - Evidence：`docs/evidence/TSKG-MFO-01/verification.md`。
