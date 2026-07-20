@@ -1,109 +1,119 @@
 ---
 card_id: REVIEW-TSKG-OSS-ACCEPT-02
-status: REVIEW_NO_GO
+status: REVIEW_GO
 reviewed_on: 2026-07-20
 reviewer_thread_id: 019f7e7a-241e-7412-86f6-9e69538c7e28
 operation_level: independent_read_only_review
-reviewed_candidate: e0bfe6712dc1af1e3558e124f10a7d03632471de
-reviewed_parent: ab4595be037bebf28e201010440dc9bc0aa3f84e
-verdict: NO_GO
+reviewed_candidate: 7630b710d88262f691b0b8039b9b2a7d19492ba8
+reviewed_parent: a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3
+verdict: GO
 ---
 
 # REVIEW-TSKG-OSS-ACCEPT-02 review
 
 ## Verdict
 
-`NO_GO`
+`GO`
 
-Candidate `e0bfe6712dc1af1e3558e124f10a7d03632471de` stays within the candidate card allowlist and the placeholder cleanup in `docs/evidence/REVIEW-TSKG-OSS-ACCEPT-01/review.md` is non-semantic. However, `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md` does not record the actual delivered candidate SHA/parent and therefore does not satisfy the review contract's evidence-integrity requirement.
+Re-review candidate `7630b710d88262f691b0b8039b9b2a7d19492ba8` over parent `a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3` resolves the original evidence-integrity `P1` without introducing self-reference. The repair stays within the two-file repair allowlist, preserves the original placeholder cleanup semantics, and uses immutable input lineage plus final receipt and same-reviewer evidence to bind the final repair SHA.
 
 ## Reviewed SHA and parent
 
 | Item | SHA | Result |
 |---|---|---|
-| Review card HEAD | `644afde12469bcdaf1cefd84cef7e75f3a46ce8c` | matches review card commit |
-| Candidate | `e0bfe6712dc1af1e3558e124f10a7d03632471de` | commit object present |
-| Candidate parent | `ab4595be037bebf28e201010440dc9bc0aa3f84e` | exact parent confirmed |
+| Original NO_GO review commit | `82a68f9c7fef94cbc17ec10bf49d5b9345e05459` | recorded |
+| Review clarification commit | `ca85f678670254908744ab7848952b68fd253bf4` | recorded |
+| Repair candidate | `7630b710d88262f691b0b8039b9b2a7d19492ba8` | commit object present |
+| Repair candidate parent | `a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3` | exact parent confirmed |
 
 ## Findings
 
 - P0: none
-- P1: candidate verification does not record the delivered candidate lineage in `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md:5-7` and `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md:23-24`
+- P1: none
 - P2: none
 - P3: none
 
-## Scope and diff checks
+## Re-review scope and diff checks
 
-- `git rev-list --parents -n 1 e0bfe6712dc1af1e3558e124f10a7d03632471de` confirms the sole parent is `ab4595be037bebf28e201010440dc9bc0aa3f84e`.
-- `git diff --name-only ab4595be..e0bfe671` shows exactly three changed files:
-  - `docs/evidence/REVIEW-TSKG-OSS-ACCEPT-01/review.md`
+- `git rev-list --parents -n 1 7630b710d88262f691b0b8039b9b2a7d19492ba8` confirms the sole parent is `a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3`.
+- `git diff --name-only a6e7b9dd..7630b710` shows exactly two changed files:
   - `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md`
-  - `docs/tasks/2026-07-20_TSKG-OSS-ACCEPT-02_review_evidence_path_cleanup.md`
-- Those three files exactly match the candidate card allowlist.
-- Exact diff and word diff confirm the existing review evidence only replaces local worktree/git metadata values and host-path scan literals with placeholders, while the acceptance card only updates delivery receipt fields and the new verification file.
-- No original GO verdict, reviewed SHA, findings, Spec/Standards axes, exit-code meaning, or remaining-risk meaning changed inside `docs/evidence/REVIEW-TSKG-OSS-ACCEPT-01/review.md`.
+  - `docs/tasks/2026-07-20_REPAIR-TSKG-OSS-ACCEPT-02_lineage_evidence.md`
+- Those two files exactly match the repair card allowlist.
+- Exact diff and word diff confirm the repair removes `candidate_head: pending` and ambiguous `source_candidate`, replaces them with immutable lineage fields, renames the original changed-files section to keep the original cleanup context explicit, and marks the repair card `REPAIR_READY`.
+- `docs/evidence/TSKG-OSS-ACCEPT-02/verification.md` now records:
+  - acceptance source SHA `938f583eeb361692976c123b12bf5bd134f42848`
+  - original cleanup card commit `ab4595be037bebf28e201010440dc9bc0aa3f84e`
+  - original candidate `e0bfe6712dc1af1e3558e124f10a7d03632471de` and parent
+  - repair card commit `a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3`
+  - expected repair candidate parent `a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3`
+  - external final-SHA binding text: `final receipt and same-reviewer re-review evidence`
+- No placeholder-cleanup verdict, original reviewed SHA set, findings, exit-code meaning, or host-path conclusion was changed. The repair is limited to lineage metadata and repair-card delivery status.
 
 ## Host-path and evidence checks
 
-- Candidate allowlist host-path scan via `<host-path-scan>` exits `1`.
-- Broader TSKG OSS shared-file scan, including this review card and this review evidence, via `<host-path-scan>` exits `1`.
-- `git diff --check ab4595be037bebf28e201010440dc9bc0aa3f84e e0bfe6712dc1af1e3558e124f10a7d03632471de` exits `0`.
-- The blocking issue is evidence integrity, not host-path leakage or diff hygiene.
+- Broader TSKG OSS shared-file scan for the repair candidate via `<host-path-scan>` exits `1`.
+- Broader TSKG OSS shared-file scan including this updated review card and review evidence via `<host-path-scan>` exits `1`.
+- `git diff --check a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3 7630b710d88262f691b0b8039b9b2a7d19492ba8` exits `0`.
+- The original evidence-integrity issue is resolved and no new host-path or diff-hygiene issue was introduced.
 
 ## Preflight and git hygiene
 
 - Independent worktree cwd was verified in preflight and kept out of shared artifacts as `<local-only-worktree>`.
 - `git rev-parse --git-dir` resolved to a worktree gitdir and is represented in shared artifacts as `<repo-gitdir>/worktrees/<worktree-id>`.
-- Review worktree `git status --porcelain` was empty before review edits.
+- Review worktree `git status --porcelain` was empty before re-review edits.
 - `test -e "$(git rev-parse --git-dir)/index.lock"` observed exit `1`; no `index.lock` was present.
 - `unrelated_dirty_paths` remained effectively `[]`.
 
 ## Spec axis
 
-`NO_GO`
+`GO`
 
-- Required review items 1-4 and 6 passed: parent, allowlist, placeholder-only diff behavior, broader host-path gate, and `git diff --check` all matched the review contract.
-- Required review item 5 failed because the candidate verification artifact does not record the actual delivered candidate SHA/parent.
+- The repair satisfies the clarified contract from `ca85f678670254908744ab7848952b68fd253bf4`: the candidate artifact no longer attempts self-reference and instead records immutable lineage plus an explicit external final-SHA binding.
+- The repair candidate parent, changed-file set, exact and word diff behavior, host-path gate, and `git diff --check` all match the repair card requirements.
+- Final repair SHA binding is now reproducible through task final receipt plus this same-reviewer evidence, which records the actual reviewed repair SHA and parent.
 
 ## Standards axis
 
-`NO_GO`
+`GO`
 
-- The repo's evidence-first review standard requires verification artifacts to be materially trustworthy.
-- Leaving `candidate_head` pending and `candidate_parent` tied to an older SHA makes the artifact ambiguous enough to block acceptance even though the content cleanup itself is narrowly scoped.
+- The repaired verification artifact is materially trustworthy without requiring an impossible self-referential Git flow.
+- The candidate remains docs-only, does not widen scope, and preserves the original placeholder cleanup semantics.
+- Evidence, lineage, and final-SHA binding now align with the repo's evidence-first standard.
 
 ## Commands and exit codes
 
 | Command | Exit | Purpose |
 |---|---:|---|
-| `git rev-parse HEAD` | 0 | Confirm review card HEAD |
+| `git rev-parse HEAD` | 0 | Confirm current reviewer commit before re-review update |
 | `git status --porcelain` | 0 | Confirm clean preflight state |
 | `git rev-parse --git-dir` | 0 | Confirm worktree git metadata path |
 | `test -e "$(git rev-parse --git-dir)/index.lock"` | 1 | Confirm no index lock present |
-| `git rev-list --parents -n 1 e0bfe6712dc1af1e3558e124f10a7d03632471de` | 0 | Confirm exact candidate parent |
-| `git diff --name-only ab4595be037bebf28e201010440dc9bc0aa3f84e e0bfe6712dc1af1e3558e124f10a7d03632471de` | 0 | Confirm changed file set |
-| `git diff --stat ab4595be037bebf28e201010440dc9bc0aa3f84e e0bfe6712dc1af1e3558e124f10a7d03632471de` | 0 | Confirm diff scope summary |
-| `git diff --unified=3 ab4595be037bebf28e201010440dc9bc0aa3f84e e0bfe6712dc1af1e3558e124f10a7d03632471de -- docs/evidence/REVIEW-TSKG-OSS-ACCEPT-01/review.md docs/evidence/TSKG-OSS-ACCEPT-02/verification.md docs/tasks/2026-07-20_TSKG-OSS-ACCEPT-02_review_evidence_path_cleanup.md` | 0 | Inspect exact candidate diff |
-| `git diff --word-diff=porcelain ab4595be037bebf28e201010440dc9bc0aa3f84e e0bfe6712dc1af1e3558e124f10a7d03632471de -- docs/evidence/REVIEW-TSKG-OSS-ACCEPT-01/review.md docs/evidence/TSKG-OSS-ACCEPT-02/verification.md docs/tasks/2026-07-20_TSKG-OSS-ACCEPT-02_review_evidence_path_cleanup.md` | 0 | Confirm placeholder-only textual changes plus new evidence |
-| `sed -n '1,220p' docs/evidence/TSKG-OSS-ACCEPT-02/verification.md` | 0 | Inspect candidate verification artifact |
-| `<host-path-scan>` | 1 | No host-specific path match in broader TSKG OSS shared files including reviewer outputs |
-| `git diff --check ab4595be037bebf28e201010440dc9bc0aa3f84e e0bfe6712dc1af1e3558e124f10a7d03632471de` | 0 | Confirm whitespace/check hygiene |
+| `git rev-list --parents -n 1 7630b710d88262f691b0b8039b9b2a7d19492ba8` | 0 | Confirm exact repair candidate parent |
+| `git diff --name-only a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3 7630b710d88262f691b0b8039b9b2a7d19492ba8` | 0 | Confirm repair changed file set |
+| `git diff --stat a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3 7630b710d88262f691b0b8039b9b2a7d19492ba8` | 0 | Confirm repair diff scope summary |
+| `git diff --unified=3 a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3 7630b710d88262f691b0b8039b9b2a7d19492ba8 -- docs/evidence/TSKG-OSS-ACCEPT-02/verification.md docs/tasks/2026-07-20_REPAIR-TSKG-OSS-ACCEPT-02_lineage_evidence.md` | 0 | Inspect exact repair diff |
+| `git diff --word-diff=porcelain a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3 7630b710d88262f691b0b8039b9b2a7d19492ba8 -- docs/evidence/TSKG-OSS-ACCEPT-02/verification.md docs/tasks/2026-07-20_REPAIR-TSKG-OSS-ACCEPT-02_lineage_evidence.md` | 0 | Confirm lineage-only textual changes plus repair-card status update |
+| `git show 7630b710d88262f691b0b8039b9b2a7d19492ba8:docs/evidence/TSKG-OSS-ACCEPT-02/verification.md` | 0 | Inspect repaired verification artifact |
+| `git show 7630b710d88262f691b0b8039b9b2a7d19492ba8:docs/tasks/2026-07-20_REPAIR-TSKG-OSS-ACCEPT-02_lineage_evidence.md` | 0 | Inspect repair card content |
+| `<host-path-scan>` | 1 | No host-specific path match in broader TSKG OSS shared files for the repair candidate |
+| `<host-path-scan>` | 1 | No host-specific path match in broader TSKG OSS shared files including updated reviewer outputs |
+| `git diff --check a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3 7630b710d88262f691b0b8039b9b2a7d19492ba8` | 0 | Confirm repair diff whitespace/check hygiene |
 
 ## Remaining risks
 
-- This review did not modify the candidate, so acceptance remains blocked until a new candidate corrects the verification artifact.
-- Once the candidate verification metadata is fixed, the same host-path and diff-hygiene gates should be re-run because any new review output becomes part of the shared-file surface.
-- This verdict is limited to acceptance evidence integrity and does not re-open the already-sanitized semantics of `REVIEW-TSKG-OSS-ACCEPT-01`.
+- This review remains limited to the repaired acceptance-lineage evidence and does not widen into broader OSS research re-approval.
+- Future changes must preserve the same external final-SHA binding model; reintroducing self-reference or ambiguous lineage fields would reopen the evidence-integrity risk.
 
-## Clarification
+## Integrable chain
 
-The original `P1` was based on an implementability assumption that the candidate verification artifact itself should carry the final delivered candidate SHA. That assumption is too strict for a Git commit artifact because writing the final commit SHA into the file content would change the commit object and create a self-reference loop.
+The final chain now suitable for mainline acceptance is:
 
-Repair acceptance is therefore available under the following contract without modifying the current candidate:
-
-- The candidate verification artifact may omit self-referential `candidate_head: pending` and may avoid ambiguous `source_candidate` wording.
-- The candidate verification artifact should instead record immutable input lineage only, such as the acceptance source commit, the repair/card commit, and the delivered candidate parent.
-- The final delivered candidate SHA may be fixed outside the candidate artifact by the task final receipt plus independent review evidence, where the reviewer records the actual reviewed repair SHA and parent.
-- Under that contract, the evidence becomes reproducible and non-self-referential while still preserving a verifiable chain from source input to reviewed candidate.
-
-If a follow-up candidate adopts that contract cleanly and still passes the same allowlist, host-path, and diff-hygiene gates, this review's `P1` can be considered repaired. No requirement remains to embed the candidate's own final SHA inside the same candidate commit content.
+- acceptance source `938f583eeb361692976c123b12bf5bd134f42848`
+- original cleanup card commit `ab4595be037bebf28e201010440dc9bc0aa3f84e`
+- original candidate `e0bfe6712dc1af1e3558e124f10a7d03632471de`
+- original NO_GO review `82a68f9c7fef94cbc17ec10bf49d5b9345e05459`
+- review clarification `ca85f678670254908744ab7848952b68fd253bf4`
+- repair card commit `a6e7b9dd4c34d3cb6aba6203d5e4724e8bb3ddc3`
+- repaired candidate `7630b710d88262f691b0b8039b9b2a7d19492ba8`
+- same-reviewer re-review `GO` in this evidence
