@@ -1,0 +1,132 @@
+{
+  "fixture_version": "security-flow-v1",
+  "schema_version": "tskg-security-flow-observation-v1",
+  "formula_version": "raw-only-v1",
+  "provenance": {
+    "source_id": "source-synthetic-security-flow-v1",
+    "source_type": "SYNTHETIC_FIXTURE",
+    "description": "TSKG-MFO-01 離線法人資金觀測契約測試資料；不代表真實市場數值。"
+  },
+  "evidence": [
+    {
+      "evidence_id": "evidence-synthetic-security-flow-v1",
+      "source_id": "source-synthetic-security-flow-v1",
+      "locator": "fixture://tskg/security-flow-observations-v1",
+      "evidence_type": "SYNTHETIC_SECURITY_FLOW_FIXTURE"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "flow-3017-20260717-foreign",
+      "security_id": "security-3017-xtai",
+      "trade_date": "2026-07-17",
+      "investor_type": "FOREIGN",
+      "currency": "TWD",
+      "net_buy_value_1d": 125000000,
+      "source_id": "source-synthetic-security-flow-v1",
+      "evidence_id": "evidence-synthetic-security-flow-v1",
+      "observed_at": "2026-07-17T13:30:00Z",
+      "retrieved_at": "2026-07-17T13:31:00Z",
+      "freshness": "FRESH",
+      "is_stale": false
+    },
+    {
+      "observation_id": "flow-3017-20260717-trust",
+      "security_id": "security-3017-xtai",
+      "trade_date": "2026-07-17",
+      "investor_type": "INVESTMENT_TRUST",
+      "currency": "TWD",
+      "net_buy_value_1d": 18000000,
+      "source_id": "source-synthetic-security-flow-v1",
+      "evidence_id": "evidence-synthetic-security-flow-v1",
+      "observed_at": "2026-07-17T13:30:00Z",
+      "retrieved_at": "2026-07-17T13:31:00Z",
+      "freshness": "FRESH",
+      "is_stale": false
+    },
+    {
+      "observation_id": "flow-3017-20260717-dealer",
+      "security_id": "security-3017-xtai",
+      "trade_date": "2026-07-17",
+      "investor_type": "DEALER",
+      "currency": "TWD",
+      "net_buy_value_1d": -9000000,
+      "source_id": "source-synthetic-security-flow-v1",
+      "evidence_id": "evidence-synthetic-security-flow-v1",
+      "observed_at": "2026-07-17T13:30:00Z",
+      "retrieved_at": "2026-07-17T13:31:00Z",
+      "freshness": "FRESH",
+      "is_stale": false
+    },
+    {
+      "observation_id": "flow-3017-20260717-all",
+      "security_id": "security-3017-xtai",
+      "trade_date": "2026-07-17",
+      "investor_type": "ALL_INSTITUTIONAL",
+      "currency": "TWD",
+      "net_buy_value_1d": 134000000,
+      "source_id": "source-synthetic-security-flow-v1",
+      "evidence_id": "evidence-synthetic-security-flow-v1",
+      "observed_at": "2026-07-17T13:30:00Z",
+      "retrieved_at": "2026-07-18T01:00:00Z",
+      "freshness": "STALE",
+      "is_stale": true
+    },
+    {
+      "observation_id": "flow-2330-20260717-foreign",
+      "security_id": "security-2330-xtai",
+      "trade_date": "2026-07-17",
+      "investor_type": "FOREIGN",
+      "currency": "TWD",
+      "net_buy_value_1d": -240000000,
+      "source_id": "source-synthetic-security-flow-v1",
+      "evidence_id": "evidence-synthetic-security-flow-v1",
+      "observed_at": "2026-07-17T13:30:00Z",
+      "retrieved_at": "2026-07-17T13:31:00Z",
+      "freshness": "FRESH",
+      "is_stale": false
+    },
+    {
+      "observation_id": "flow-2330-20260717-trust",
+      "security_id": "security-2330-xtai",
+      "trade_date": "2026-07-17",
+      "investor_type": "INVESTMENT_TRUST",
+      "currency": "TWD",
+      "net_buy_value_1d": 31000000,
+      "source_id": "source-synthetic-security-flow-v1",
+      "evidence_id": "evidence-synthetic-security-flow-v1",
+      "observed_at": "2026-07-17T13:30:00Z",
+      "retrieved_at": "2026-07-17T13:31:00Z",
+      "freshness": "FRESH",
+      "is_stale": false
+    },
+    {
+      "observation_id": "flow-2330-20260717-dealer",
+      "security_id": "security-2330-xtai",
+      "trade_date": "2026-07-17",
+      "investor_type": "DEALER",
+      "currency": "TWD",
+      "net_buy_value_1d": 6000000,
+      "source_id": "source-synthetic-security-flow-v1",
+      "evidence_id": "evidence-synthetic-security-flow-v1",
+      "observed_at": "2026-07-17T13:30:00Z",
+      "retrieved_at": "2026-07-17T13:31:00Z",
+      "freshness": "FRESH",
+      "is_stale": false
+    },
+    {
+      "observation_id": "flow-2330-20260717-all",
+      "security_id": "security-2330-xtai",
+      "trade_date": "2026-07-17",
+      "investor_type": "ALL_INSTITUTIONAL",
+      "currency": "TWD",
+      "net_buy_value_1d": -203000000,
+      "source_id": "source-synthetic-security-flow-v1",
+      "evidence_id": "evidence-synthetic-security-flow-v1",
+      "observed_at": "2026-07-17T13:30:00Z",
+      "retrieved_at": "2026-07-18T01:00:00Z",
+      "freshness": "STALE",
+      "is_stale": true
+    }
+  ]
+}
