@@ -17,6 +17,8 @@ from typing import Any
 
 import requests
 
+from app.tskg.twse_t86 import load_t86_snapshot, market_aggregate
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "market-context.tw.v1"
@@ -48,6 +50,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="generate Taiwan market context artifact")
     parser.add_argument("--date", default=datetime.now().strftime("%Y-%m-%d"))
     parser.add_argument("--output", default=None)
+    parser.add_argument(
+        "--twse-t86-input",
+        default=None,
+        help="已驗證的 TSKG T86 snapshot；提供後不重複呼叫 T86 endpoint",
+    )
     return parser.parse_args()
 
 
@@ -218,7 +225,13 @@ def parse_twse_institutional(payload: Any) -> tuple[dict[str, Any], list[str]]:
     found = {"foreign": False, "trust": False, "dealer": False}
     for row in rows:
         foreign_value = number(
-            row_value(row, "外資及陸資買賣超股數", "外資及陸資(不含外資自營商)買賣超股數", "foreign_net")
+            row_value(
+                row,
+                "外陸資買賣超股數(不含外資自營商)",
+                "外資及陸資買賣超股數",
+                "外資及陸資(不含外資自營商)買賣超股數",
+                "foreign_net",
+            )
         )
         trust_value = number(row_value(row, "投信買賣超股數", "trust_net"))
         dealer_value = number(row_value(row, "自營商買賣超股數", "dealer_net"))
@@ -378,7 +391,11 @@ def update_summary(payload: dict[str, Any]) -> None:
     }
 
 
-def build_market_context(trade_date: str) -> dict[str, Any]:
+def build_market_context(
+    trade_date: str,
+    *,
+    twse_t86_snapshot: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     payload = empty_payload(trade_date)
     date_param = ymd(trade_date)
 
@@ -396,11 +413,17 @@ def build_market_context(trade_date: str) -> dict[str, Any]:
         twse_warnings.append(f"TWSE quotes fetch failed: {exc}")
 
     try:
-        institutional = fetch_json(
-            "https://www.twse.com.tw/rwd/zh/fund/T86",
-            {"date": date_param, "selectType": "ALLBUT0999", "response": "json"},
-        )
-        institutional_values, warnings = parse_twse_institutional(institutional)
+        if twse_t86_snapshot is None:
+            institutional = fetch_json(
+                "https://www.twse.com.tw/rwd/zh/fund/T86",
+                {"date": date_param, "selectType": "ALLBUT0999", "response": "json"},
+            )
+            institutional_values, warnings = parse_twse_institutional(institutional)
+        else:
+            if twse_t86_snapshot.get("trade_date") != trade_date:
+                raise ValueError("T86 snapshot trade_date differs from market-context date")
+            institutional_values = market_aggregate(twse_t86_snapshot)
+            warnings = []
         payload["institutional"].update(institutional_values)
         twse_warnings.extend(warnings)
     except Exception as exc:
@@ -466,7 +489,12 @@ def write_payload(payload: dict[str, Any], output: str | None) -> Path:
 
 def main() -> int:
     args = parse_args()
-    payload = build_market_context(args.date)
+    t86_snapshot = (
+        load_t86_snapshot(Path(args.twse_t86_input).expanduser())
+        if args.twse_t86_input
+        else None
+    )
+    payload = build_market_context(args.date, twse_t86_snapshot=t86_snapshot)
     output_path = write_payload(payload, args.output)
     print(json.dumps({"status": "OK", "output": str(output_path)}, ensure_ascii=False))
     return 0

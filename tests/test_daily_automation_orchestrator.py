@@ -9,6 +9,7 @@ class RecordingActions:
     def __init__(self, *, non_trading_day: bool = False) -> None:
         self.calls: list[str] = []
         self.non_trading_day = non_trading_day
+        self.market_context_t86_path: str | None = None
 
     def __getattr__(self, name: str):
         def record(*args, **kwargs):
@@ -28,6 +29,14 @@ class RecordingActions:
     def non_trading_day_reason(self) -> str:
         self.calls.append("non_trading_day_reason")
         return "non_trading_day weekday=6"
+
+    def run_tskg_t86(self, config) -> str:
+        self.calls.append("run_tskg_t86")
+        return "t86.json"
+
+    def run_market_context(self, config, t86_path) -> None:
+        self.calls.append("run_market_context")
+        self.market_context_t86_path = t86_path
 
 
 class DailyAutomationOrchestratorTest(unittest.TestCase):
@@ -49,6 +58,7 @@ class DailyAutomationOrchestratorTest(unittest.TestCase):
                 "expected_ranking_path",
                 "run_candidate_persistence",
                 "run_weekly_snapshot",
+                "run_tskg_t86",
                 "run_market_context",
                 "run_daily_recommendation_performance",
                 "run_decision_quality",
@@ -63,6 +73,7 @@ class DailyAutomationOrchestratorTest(unittest.TestCase):
                 "run_postcheck",
             ],
         )
+        self.assertEqual(actions.market_context_t86_path, "t86.json")
 
     def test_disabled_flow_stops_before_trading_day_check(self) -> None:
         actions = RecordingActions()

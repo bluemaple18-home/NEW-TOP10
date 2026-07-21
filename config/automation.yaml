@@ -28,6 +28,7 @@ daily:
   daily_performance_review_enabled: true # 將後驗數字轉成操盤復盤評論與研究派工候選；不自動改排名或送出
   daily_performance_review_verify_enabled: true # 驗證復盤評論只產 research candidates，不越過 production 邊界
   daily_report_enabled: true    # DAILY-02：ranking 後產出 PM/使用者可讀的每日決策日報
+  tskg_t86_enabled: true       # TSKG-MFO-T86-01：同一交易日只抓一次逐證券法人股數 snapshot，供 market-context 重用
   market_context_enabled: true  # MARKET-CONTEXT-02：daily decision quality 前產生同日台灣市場背景 artifact
   decision_quality_enabled: true # DECISION-QUALITY-01：彙整入榜天數、replay、portfolio risk、market context；不改 ranking score
   gross55_shadow_monitor_enabled: false # 只產營運 shadow monitor，不改 Top10 / score / Clawd message；預設手動開啟

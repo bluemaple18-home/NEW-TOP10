@@ -39,6 +39,7 @@ from app.automation.status_contract import (
     daily_status_snapshot_path,
     status_output_path,
 )
+from app.tskg.twse_t86 import load_t86_snapshot
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -90,8 +91,11 @@ class _DailyActions:
     def run_weekly_snapshot(self, config: dict[str, Any], ranking_path: Path) -> None:
         self.runner._run_weekly_snapshot(config, ranking_path)
 
-    def run_market_context(self, config: dict[str, Any]) -> None:
-        self.runner._run_market_context(config)
+    def run_tskg_t86(self, config: dict[str, Any]) -> Path | None:
+        return self.runner._run_tskg_t86(config)
+
+    def run_market_context(self, config: dict[str, Any], t86_path: Path | None) -> None:
+        self.runner._run_market_context(config, t86_path)
 
     def run_daily_recommendation_performance(self, config: dict[str, Any]) -> None:
         self.runner._run_daily_recommendation_performance(config)
@@ -428,7 +432,62 @@ class AutomationRunner:
             self._record_step("daily.report.artifact", "OK", message=str(report_path))
         return report_path
 
-    def _run_market_context(self, daily_config: dict[str, Any]) -> Path | None:
+    def _run_tskg_t86(self, daily_config: dict[str, Any]) -> Path | None:
+        trade_date = self._latest_feature_date()
+        output_path = PROJECT_ROOT / "artifacts" / "tskg" / "t86" / f"twse_t86_{trade_date}.json"
+        self.status.metadata["expected_tskg_t86_artifact"] = str(output_path)
+        if not daily_config.get("tskg_t86_enabled", True):
+            self._record_step("tskg.t86", "SKIPPED", message="config daily.tskg_t86_enabled=false")
+            return None
+
+        command = [
+            "python",
+            "scripts/fetch_tskg_t86.py",
+            "--date",
+            trade_date,
+            "--output",
+            str(output_path),
+        ]
+        self._run_command("tskg.t86", command, allow_failure=True)
+        if self.dry_run:
+            return output_path
+
+        step = self.status.steps[-1]
+        if output_path.exists():
+            try:
+                snapshot = load_t86_snapshot(output_path)
+                if snapshot["trade_date"] != trade_date:
+                    raise ValueError("T86 snapshot trade_date differs from automation date")
+            except (OSError, ValueError) as exc:
+                self._record_step(
+                    "tskg.t86.artifact",
+                    "FAILED",
+                    message=f"invalid T86 snapshot: {output_path}: {exc}",
+                )
+                return None
+            if step.status == "OK":
+                self.status.metadata["tskg_t86_artifact"] = str(output_path)
+                self._record_step("tskg.t86.artifact", "OK", message=str(output_path))
+            else:
+                self._record_step(
+                    "tskg.t86.artifact",
+                    "WARN",
+                    message=f"fetch failed; reusing verified local snapshot: {output_path}",
+                )
+            return output_path
+
+        self._record_step(
+            "tskg.t86.artifact",
+            "FAILED",
+            message=f"missing expected T86 snapshot: {output_path}",
+        )
+        return None
+
+    def _run_market_context(
+        self,
+        daily_config: dict[str, Any],
+        t86_path: Path | None = None,
+    ) -> Path | None:
         output_path = PROJECT_ROOT / "artifacts" / f"market_context_{self._latest_feature_date()}.json"
         self.status.metadata["expected_market_context_artifact"] = str(output_path)
         if not daily_config.get("market_context_enabled", True):
@@ -436,6 +495,8 @@ class AutomationRunner:
             return None
 
         command = ["python", "-m", "app.market_context_fetcher", "--date", self._latest_feature_date()]
+        if t86_path is not None and (self.dry_run or t86_path.exists()):
+            command.extend(["--twse-t86-input", str(t86_path)])
         self._run_command("market.context", command)
         if not self.dry_run:
             if not output_path.exists():

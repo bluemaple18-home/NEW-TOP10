@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app import market_context_fetcher as fetcher
+from app.tskg.twse_t86 import build_t86_snapshot
 
 ARTIFACT_PATH = PROJECT_ROOT / "artifacts" / "market_context_fetcher_verification_latest.json"
 TRADE_DATE = "2026-05-29"
@@ -43,11 +44,44 @@ def fake_twse_quotes() -> dict[str, Any]:
 
 def fake_twse_institutional() -> dict[str, Any]:
     return {
-        "fields": ["證券代號", "外資及陸資買賣超股數", "投信買賣超股數", "自營商買賣超股數"],
-        "data": [
-            ["1111", "1,000", "200", "-50"],
-            ["2222", "-300", "100", "20"],
+        "stat": "OK",
+        "date": "20260529",
+        "title": "115年05月29日 三大法人買賣超日報",
+        "hints": "單位：股",
+        "fields": [
+            "證券代號",
+            "證券名稱",
+            "外陸資買進股數(不含外資自營商)",
+            "外陸資賣出股數(不含外資自營商)",
+            "外陸資買賣超股數(不含外資自營商)",
+            "外資自營商買進股數",
+            "外資自營商賣出股數",
+            "外資自營商買賣超股數",
+            "投信買進股數",
+            "投信賣出股數",
+            "投信買賣超股數",
+            "自營商買賣超股數",
+            "自營商買進股數(自行買賣)",
+            "自營商賣出股數(自行買賣)",
+            "自營商買賣超股數(自行買賣)",
+            "自營商買進股數(避險)",
+            "自營商賣出股數(避險)",
+            "自營商買賣超股數(避險)",
+            "三大法人買賣超股數",
         ],
+        "data": [
+            [
+                "1111", "測試一", "1,000", "0", "1,000", "0", "0", "0",
+                "200", "0", "200", "-50", "0", "50", "-50", "0", "0", "0", "1,150",
+            ],
+            [
+                "2222", "測試二", "0", "300", "-300", "0", "0", "0",
+                "100", "0", "100", "20", "20", "0", "20", "0", "0", "0", "-180",
+            ],
+        ],
+        "selectType": "ALLBUT0999",
+        "notes": [],
+        "total": 2,
     }
 
 
@@ -125,11 +159,18 @@ def assert_no_nan(value: Any) -> bool:
     return True
 
 
-def build_with_fetch(fake_fetch) -> dict[str, Any]:
+def build_with_fetch(
+    fake_fetch,
+    *,
+    twse_t86_snapshot: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     original_fetch = fetcher.fetch_json
     fetcher.fetch_json = fake_fetch
     try:
-        return fetcher.build_market_context(TRADE_DATE)
+        return fetcher.build_market_context(
+            TRADE_DATE,
+            twse_t86_snapshot=twse_t86_snapshot,
+        )
     finally:
         fetcher.fetch_json = original_fetch
 
@@ -137,6 +178,21 @@ def build_with_fetch(fake_fetch) -> dict[str, Any]:
 def main() -> int:
     payload = build_with_fetch(fake_fetch_json)
     failed_payload = build_with_fetch(fake_fetch_with_tpex_failure)
+    t86_snapshot = build_t86_snapshot(
+        fake_twse_institutional(),
+        requested_trade_date=TRADE_DATE,
+        retrieved_at="2026-05-29T10:00:00Z",
+    )
+
+    def fake_fetch_without_t86(url: str, params: dict[str, Any] | None = None) -> Any:
+        if "T86" in url:
+            raise AssertionError("T86 endpoint must not be called when snapshot is provided")
+        return fake_fetch_json(url, params)
+
+    reused_payload = build_with_fetch(
+        fake_fetch_without_t86,
+        twse_t86_snapshot=t86_snapshot,
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         output_path = Path(tmpdir) / "market_context.json"
@@ -151,6 +207,8 @@ def main() -> int:
         "taiex_close_parsed": payload["taiex"]["close"] == 20000.0,
         "breadth_ratio_parsed": payload["breadth"]["advance_ratio"] == 0.333333,
         "institutional_parsed": payload["institutional"]["foreign_net"] == 700.0,
+        "t86_snapshot_reused_without_refetch": reused_payload["institutional"]
+        == {"foreign_net": 700, "trust_net": 300, "dealer_net": -30},
         "taifex_parsed": payload["futures"]["tx_close"] == 20050.0 and payload["options"]["pcr"] == 110.5,
         "summary_not_unknown": payload["summary"]["domestic_context_label"] != "UNKNOWN",
         "single_source_failure_warn": failed_payload["source_status"]["tpex"]["status"] == "warn",
