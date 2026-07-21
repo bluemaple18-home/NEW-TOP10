@@ -8,6 +8,8 @@
 - `docs/architecture/TRADING_DECISION_LAYER.md`：decision quality / reference annotation 邊界。
 - `docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md`：market context 實作卡。
 - `docs/tasks/2026-05-29_FEATURE-EXP-01_shadow_feature_promotion_gate.md`：shadow feature gate。
+- `docs/tasks/2026-07-21_REVIEW-REGIME-RESEARCH-01_boundary-review.md`：本次 review 卡。
+- `docs/evidence/REVIEW-REGIME-RESEARCH-01/review.md`：findings、裁決與重跑證據。
 
 ## 主線程式
 
@@ -20,7 +22,7 @@
 - `scripts/run_automation.py`
 - `config/automation.yaml`
 
-## 目前要 review 的研究線
+## 已完成 review 的研究線
 
 - `scripts/build_market_regime_history.py`
 - `scripts/research_regime_shadow_ranking.py`
@@ -33,3 +35,5 @@
 - `artifacts/` 是 runtime evidence，預設不進 git。
 - reference annotation 只讀 `data/reference`，不改 model / ranking score。
 - regime / market context / persistence / portfolio risk 目前都只能走 shadow 或 read-only evidence。
+- shadow ranking 輸出只能位於 `artifacts/backtest/` 子目錄，且不得與來源 ranking 目錄相同。
+- production promotion 仍為 `NO_GO`。

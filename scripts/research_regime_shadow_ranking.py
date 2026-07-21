@@ -28,6 +28,7 @@ from scripts.research_feature_group_ablation_by_regime import attach_industry_fa
 
 
 SCHEMA_VERSION = "regime-shadow-ranking.v1"
+RESEARCH_OUTPUT_ROOT = PROJECT_ROOT / "artifacts" / "backtest"
 OUT_COLS = [
     "stock_id",
     "stock_name",
@@ -83,6 +84,22 @@ def repo_path(path: Path) -> str:
         return str(path.resolve().relative_to(PROJECT_ROOT))
     except ValueError:
         return str(path)
+
+
+def validate_research_output_dir(source_dir: Path, output_dir: Path) -> Path:
+    """限制 shadow ranking 只能寫入研究區，避免覆寫正式 ranking。"""
+    resolved_source = source_dir.resolve()
+    resolved_output = output_dir.resolve()
+    resolved_root = RESEARCH_OUTPUT_ROOT.resolve()
+    try:
+        relative_output = resolved_output.relative_to(resolved_root)
+    except ValueError as exc:
+        raise ValueError(f"--output-dir 必須位於研究區 {resolved_root}：{resolved_output}") from exc
+    if relative_output == Path("."):
+        raise ValueError("--output-dir 不可直接使用 artifacts/backtest 根目錄")
+    if resolved_output == resolved_source:
+        raise ValueError("--output-dir 不可與 --dates-from-dir 相同，以免覆寫來源 ranking")
+    return output_dir
 
 
 def ranking_dates(path: Path, limit: int | None) -> list[str]:
@@ -290,7 +307,7 @@ def write_ranking(path: Path, frame: pd.DataFrame) -> None:
 
 def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
     source_dir = resolve_path(args.dates_from_dir)
-    output_dir = resolve_path(args.output_dir)
+    output_dir = validate_research_output_dir(source_dir, resolve_path(args.output_dir))
     regime_path = resolve_path(args.market_regime_history)
     industry_path = resolve_path(args.industry_map)
     dates = ranking_dates(source_dir, args.limit)
