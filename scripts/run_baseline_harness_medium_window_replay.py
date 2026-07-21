@@ -121,6 +121,8 @@ def build_harness_args(args: argparse.Namespace, staging_dir: Path, start_date: 
         date=f"{args.date}-medium-window",
         start_date=start_date,
         end_date=end_date,
+        # medium-window replay 的 staging ranking 固定產出 Top10，供 baseline contract 驗證。
+        top_n=10,
         data_dir="data/clean",
         model_dir="models",
         config="config/signals.yaml",

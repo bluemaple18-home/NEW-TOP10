@@ -163,8 +163,9 @@ write_probe_js() {
   const composer = composerSelectors.map((selector) => document.querySelector(selector)).find(visible);
   const sendButton = sendSelectors.map((selector) => document.querySelector(selector)).find(visible);
   return JSON.stringify({
-    ok: true,
+    ok: Boolean(composer),
     mode: "probe",
+    readiness: composer ? "input_ready" : "composer_missing",
     title: document.title,
     url: location.href,
     hasComposer: Boolean(composer),

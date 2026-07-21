@@ -2,7 +2,7 @@
 card_id: RESEARCH-AUDITOR-01R1
 parent_card: RESEARCH-AUDITOR-01
 title: Repair Research Auditor date contract and candidate evidence
-status: REVIEW_GO
+status: ACCEPTED
 ownership: mainline
 thickness: standard
 risk: medium
@@ -53,5 +53,5 @@ thread_status: local-card-only
 - Candidate commit：`22fe86d`。
 - Candidate scope：`app/research_auditor.py`、`tests/test_research_auditor.py`、兩張任務卡。
 - 下一狀態：回 parent reviewer re-review。
-- Re-review evidence：`.work/RESEARCH-AUDITOR-01/review/re-review_result.md`。
+- Re-review evidence：`artifacts/visible_thread/RESEARCH-AUDITOR-01/re-review_result.md`。
 - Review verdict：`GO`。

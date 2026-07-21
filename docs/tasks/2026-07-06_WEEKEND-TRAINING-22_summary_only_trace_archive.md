@@ -28,6 +28,10 @@
 
 宣告該 artifact 是主線 summary artifact。
 
+日常 controlled-grid runner 會在同一次 inventory 分類期間，額外輸出最多 144 筆
+`BOUNDED_REPRESENTATIVES` frontier queue。這個小 queue 是 replay drain 的執行入口，
+不等同於完整 records 追溯檔，也不得因 `records_inline=false` 而跳過。
+
 ## 追溯契約
 
 只有需要人工查歷史單筆 combo/topic 時，才使用完整 records artifact：
@@ -71,4 +75,3 @@
 - `controlled_grid_drain_gates_<date>.json` 可從 summary inventory 產生。
 - 大型 full JSON 可壓縮封存，且封存後 `verify_research_fog_map.py` 仍為 OK。
 - 需要查單筆時，用 `trace_weekend_training_artifact.py` 從封存檔串流追溯。
-

@@ -199,8 +199,9 @@ write_probe_js() {
   const sendButton = sendSelectors.map((selector) => document.querySelector(selector)).find(visible)
     || Array.from(document.querySelectorAll("button")).find((button) => visible(button) && /send|傳送|送出/i.test(`${button.getAttribute("aria-label") || ""} ${button.innerText || ""}`));
   return JSON.stringify({
-    ok: guardFailures.length === 0,
+    ok: guardFailures.length === 0 && Boolean(composer),
     mode: "probe",
+    readiness: composer ? "input_ready" : "composer_missing",
     reason: guardFailures.length ? "guard_failed" : null,
     guard_failures: guardFailures,
     expected_title: expectedTitle,

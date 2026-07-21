@@ -36,6 +36,24 @@ def build_payload(date: str, artifact: Path, inventory_path: Path) -> dict[str, 
     inventory = read_json(inventory_path)
     items = queue.get("items") if isinstance(queue.get("items"), list) else []
     records = inventory.get("records") if isinstance(inventory.get("records"), list) else []
+    queue_summary = queue.get("summary") if isinstance(queue.get("summary"), dict) else {}
+    inventory_summary = inventory.get("summary") if isinstance(inventory.get("summary"), dict) else {}
+    queue_contract = queue.get("contract") if isinstance(queue.get("contract"), dict) else {}
+    bounded = queue_contract.get("materialization_mode") == "BOUNDED_REPRESENTATIVES"
+    if bounded:
+        max_representatives = int((queue.get("policy") or {}).get("max_representatives") or 0)
+        representative_required = int(inventory_summary.get("representative_required_count") or 0)
+        expected_queue_count = min(representative_required, max_representatives)
+        queue_count_ok = (
+            queue_summary.get("inventory_count") == inventory_summary.get("full_universe_total")
+            and queue_summary.get("representative_required_count") == inventory_summary.get("representative_required_count")
+            and queue_summary.get("queue_count") == len(items)
+            and queue_summary.get("representative_replay_count") == len(items)
+            and len(items) == expected_queue_count
+            and all(row.get("queue_type") == "REPRESENTATIVE_REPLAY" for row in items)
+        )
+    else:
+        queue_count_ok = len(items) == len(records)
     missing_representatives = [
         row.get("combo_id")
         for row in items
@@ -46,7 +64,17 @@ def build_payload(date: str, artifact: Path, inventory_path: Path) -> dict[str, 
     checks = [
         {"name": "artifact_exists", "ok": artifact.exists(), "value": repo_path(artifact)},
         {"name": "schema", "ok": queue.get("schema_version") == "weekend-frontier-queue.v1", "value": queue.get("schema_version")},
-        {"name": "queue_count_matches_inventory", "ok": len(items) == len(records), "value": {"queue": len(items), "inventory": len(records)}},
+        {
+            "name": "queue_count_matches_inventory_contract",
+            "ok": queue_count_ok,
+            "value": {
+                "mode": queue_contract.get("materialization_mode"),
+                "queue_items": len(items),
+                "inventory_records": len(records),
+                "inventory_total": inventory_summary.get("full_universe_total"),
+                "expected_queue_items": expected_queue_count if bounded else len(records),
+            },
+        },
         {"name": "valid_queue_types", "ok": all(row.get("queue_type") in VALID_QUEUE_TYPES for row in items), "value": sorted({str(row.get("queue_type")) for row in items})},
         {"name": "representative_batch_bounded", "ok": sum(row.get("queue_type") == "REPRESENTATIVE_REPLAY" for row in items) <= int((queue.get("policy") or {}).get("max_representatives") or 0), "value": (queue.get("summary") or {}).get("representative_replay_count")},
         {"name": "inherit_points_to_representative", "ok": not missing_representatives, "value": missing_representatives[:20]},

@@ -19,6 +19,7 @@ from weekend_training_common import (
     current_status_from_record,
     equivalence_key,
     inventory_paths,
+    queue_paths,
     is_default_coordinate,
     load_history,
     load_map,
@@ -48,6 +49,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="輸出完整 records 陣列；大型 v2 universe 會產生數 GB JSON，預設關閉。",
     )
+    parser.add_argument(
+        "--write-bounded-frontier-queue",
+        action="store_true",
+        help="沿用記憶體中的分類結果，另寫最多 144 筆的可執行 frontier queue。",
+    )
+    parser.add_argument("--max-frontier-representatives", type=int, default=144)
     return parser.parse_args()
 
 
@@ -151,7 +158,7 @@ def normalize_unsupported_details(rows: list[dict[str, Any]]) -> None:
         row["unblock_requirement"] = info["unblock_requirement"]
 
 
-def build_payload(date: str, include_records: bool = False) -> dict[str, Any]:
+def build_payload_and_rows(date: str, include_records: bool = False) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     rows, fog_map = build_initial_rows(date)
     assign_equivalence(rows)
     normalize_unsupported_details(rows)
@@ -202,6 +209,11 @@ def build_payload(date: str, include_records: bool = False) -> dict[str, Any]:
     }
     if include_records:
         payload["records"] = rows
+    return payload, rows
+
+
+def build_payload(date: str, include_records: bool = False) -> dict[str, Any]:
+    payload, _ = build_payload_and_rows(date, include_records=include_records)
     return payload
 
 
@@ -238,10 +250,24 @@ def render_markdown(payload: dict[str, Any]) -> str:
 
 def main() -> int:
     args = parse_args()
-    payload = build_payload(args.date, include_records=args.include_records)
+    payload, rows = build_payload_and_rows(args.date, include_records=args.include_records)
     json_path, md_path = inventory_paths(args.date)
     write_json(json_path, payload, compact=True)
     write_text(md_path, render_markdown(payload))
+    if args.write_bounded_frontier_queue:
+        from build_weekend_frontier_queue import build_bounded_payload, render_markdown as render_frontier_markdown
+
+        summary = payload["summary"]
+        frontier = build_bounded_payload(
+            args.date,
+            rows,
+            inventory_count=int(summary["full_universe_total"]),
+            representative_required_count=int(summary["representative_required_count"]),
+            max_representatives=args.max_frontier_representatives,
+        )
+        queue_json, queue_md = queue_paths(args.date)
+        write_json(queue_json, frontier, compact=True)
+        write_text(queue_md, render_frontier_markdown(frontier))
     print(json.dumps({"status": payload["status"], "output": repo_path(json_path), "total": payload["summary"]["full_universe_total"]}, ensure_ascii=False))
     return 0
 

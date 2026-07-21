@@ -55,6 +55,71 @@ def queue_type(row: dict[str, Any], selected_representatives: set[str]) -> str:
     return "UNSUPPORTED"
 
 
+def queue_item(row: dict[str, Any], item_type: str) -> dict[str, Any]:
+    item = {
+        "combo_id": row.get("combo_id"),
+        "topic_id": row.get("topic_id"),
+        "candidate_dir": row.get("candidate_dir"),
+        "dimensions": row.get("dimensions"),
+        "queue_type": item_type,
+        "current_status": row.get("current_status"),
+        "burn_down_status": row.get("burn_down_status"),
+        "equivalence_key": row.get("equivalence_key"),
+        "representative_combo_id": row.get("representative_combo_id") or row.get("combo_id"),
+        "priority_score": row.get("priority_score"),
+        "rule_id": row.get("prune_reason") if item_type == "RULE_PRUNE" else None,
+        "unsupported_reason": row.get("unsupported_reason") if item_type == "UNSUPPORTED" else None,
+        "source_artifact": row.get("source_artifact"),
+        "production_impact": PRODUCTION_IMPACT,
+    }
+    if item_type == "EQUIVALENCE_INHERIT" and not item.get("source_artifact"):
+        item["inherit_reason"] = "same_equivalence_key_as_representative"
+    elif item_type == "EQUIVALENCE_INHERIT":
+        item["inherit_reason"] = "already_has_verifiable_status_or_same_equivalence_key"
+    if item_type == "DEFERRED_LOW_PRIORITY":
+        item["defer_reason"] = "bounded_representative_batch"
+    return item
+
+
+def build_bounded_payload(
+    date: str,
+    rows: list[dict[str, Any]],
+    *,
+    inventory_count: int,
+    representative_required_count: int,
+    max_representatives: int = DEFAULT_MAX_REPRESENTATIVES,
+) -> dict[str, Any]:
+    required = [row for row in rows if row.get("burn_down_status") == "REPRESENTATIVE_REPLAY_REQUIRED"]
+    required.sort(key=lambda row: (-int(row.get("priority_score") or 0), str(row.get("combo_id") or "")))
+    selected = required[: max(0, max_representatives)]
+    items = [queue_item(row, "REPRESENTATIVE_REPLAY") for row in selected]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": now_utc(),
+        "date": date,
+        "status": "OK",
+        "production_impact": PRODUCTION_IMPACT,
+        "contract": {
+            "materialization_mode": "BOUNDED_REPRESENTATIVES",
+            "full_records_written": False,
+        },
+        "policy": {
+            "max_representatives": max_representatives,
+            "representative_sort": "priority_score desc, combo_id asc",
+            "no_unexecuted_combo_marked_executed": True,
+        },
+        "summary": {
+            "inventory_count": inventory_count,
+            "queue_count": len(items),
+            "representative_required_count": representative_required_count,
+            "representative_replay_count": len(items),
+            "deferred_low_priority_count": max(0, representative_required_count - len(items)),
+            "queue_type_counts": {"REPRESENTATIVE_REPLAY": len(items)} if items else {},
+        },
+        "items": items,
+    }
+
+
 def build_payload(date: str, inventory_path: Path, max_representatives: int) -> dict[str, Any]:
     inventory = read_json(inventory_path)
     records = inventory.get("records") if isinstance(inventory.get("records"), list) else []
@@ -64,29 +129,7 @@ def build_payload(date: str, inventory_path: Path, max_representatives: int) -> 
     items: list[dict[str, Any]] = []
     for row in records:
         item_type = queue_type(row, selected)
-        item = {
-            "combo_id": row.get("combo_id"),
-            "topic_id": row.get("topic_id"),
-            "candidate_dir": row.get("candidate_dir"),
-            "dimensions": row.get("dimensions"),
-            "queue_type": item_type,
-            "current_status": row.get("current_status"),
-            "burn_down_status": row.get("burn_down_status"),
-            "equivalence_key": row.get("equivalence_key"),
-            "representative_combo_id": row.get("representative_combo_id") or row.get("combo_id"),
-            "priority_score": row.get("priority_score"),
-            "rule_id": row.get("prune_reason") if item_type == "RULE_PRUNE" else None,
-            "unsupported_reason": row.get("unsupported_reason") if item_type == "UNSUPPORTED" else None,
-            "source_artifact": row.get("source_artifact"),
-            "production_impact": PRODUCTION_IMPACT,
-        }
-        if item_type == "EQUIVALENCE_INHERIT" and not item.get("source_artifact"):
-            item["inherit_reason"] = "same_equivalence_key_as_representative"
-        elif item_type == "EQUIVALENCE_INHERIT":
-            item["inherit_reason"] = "already_has_verifiable_status_or_same_equivalence_key"
-        if item_type == "DEFERRED_LOW_PRIORITY":
-            item["defer_reason"] = "bounded_representative_batch"
-        items.append(item)
+        items.append(queue_item(row, item_type))
 
     counts = dict(sorted(Counter(str(row["queue_type"]) for row in items).items()))
     return {
@@ -96,6 +139,10 @@ def build_payload(date: str, inventory_path: Path, max_representatives: int) -> 
         "status": "OK",
         "production_impact": PRODUCTION_IMPACT,
         "source": {"inventory": repo_path(inventory_path)},
+        "contract": {
+            "materialization_mode": "FULL_RECORDS",
+            "full_records_written": True,
+        },
         "policy": {
             "max_representatives": max_representatives,
             "representative_sort": "priority_score desc, combo_id asc",

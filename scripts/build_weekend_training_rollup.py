@@ -164,6 +164,20 @@ def artifact_blocker_summary(date: str, unsupported_reason_top_counts: dict[str,
     }
 
 
+def pending_equivalence_inherited_count(
+    queue_counts: dict[str, Any],
+    burn_counts: dict[str, Any],
+    *,
+    processed_before: int,
+    materialization_mode: str | None,
+) -> int:
+    if materialization_mode == "BOUNDED_REPRESENTATIVES":
+        return int(burn_counts.get("EQUIVALENCE_INHERITED", 0) or 0)
+    if queue_counts:
+        return max(0, int(queue_counts.get("EQUIVALENCE_INHERIT", 0) or 0) - processed_before)
+    return int(burn_counts.get("EQUIVALENCE_INHERITED", 0) or 0)
+
+
 def build_payload(date: str) -> dict[str, Any]:
     inventory_path, _ = inventory_paths(date)
     queue_path, _ = queue_paths(date)
@@ -176,6 +190,7 @@ def build_payload(date: str) -> dict[str, Any]:
     map_payload = read_json(MAP_PATH)
     inv_summary = inventory.get("summary") if isinstance(inventory.get("summary"), dict) else {}
     queue_summary = queue.get("summary") if isinstance(queue.get("summary"), dict) else {}
+    queue_contract = queue.get("contract") if isinstance(queue.get("contract"), dict) else {}
     queue_counts = queue_summary.get("queue_type_counts") if isinstance(queue_summary.get("queue_type_counts"), dict) else {}
     current_counts = inv_summary.get("current_status_counts") if isinstance(inv_summary.get("current_status_counts"), dict) else {}
     burn_counts = inv_summary.get("burn_down_status_counts") if isinstance(inv_summary.get("burn_down_status_counts"), dict) else {}
@@ -213,10 +228,12 @@ def build_payload(date: str) -> dict[str, Any]:
         for row in survivor_rows
         if row.get("decision") == "MONITOR_ONLY"
     ][:20]
-    if queue_counts:
-        pending_equivalence_inherited = max(0, int(queue_counts.get("EQUIVALENCE_INHERIT", 0) or 0) - processed_before)
-    else:
-        pending_equivalence_inherited = int(burn_counts.get("EQUIVALENCE_INHERITED", 0) or 0)
+    pending_equivalence_inherited = pending_equivalence_inherited_count(
+        queue_counts,
+        burn_counts,
+        processed_before=processed_before,
+        materialization_mode=queue_contract.get("materialization_mode"),
+    )
     active_representative_queue = int(queue_counts.get("REPRESENTATIVE_REPLAY", 0) or 0)
     representative_pending = int(inv_summary.get("representative_required_count") or 0)
     deferred_low_priority = max(0, representative_pending - active_representative_queue)

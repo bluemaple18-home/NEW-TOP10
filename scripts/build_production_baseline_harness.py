@@ -62,6 +62,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--max-dates", type=int, default=None)
+    parser.add_argument("--top-n", type=int, choices=[10], default=10)
     parser.add_argument("--legacy-per-date-load", action="store_true")
     return parser.parse_args()
 
@@ -191,6 +192,7 @@ def build_internal_args(args: argparse.Namespace, output_dir: Path, manifest_pat
         output_dir=str(output_dir),
         stride=args.stride,
         max_dates=args.max_dates,
+        top_n=getattr(args, "top_n", 10),
         legacy_per_date_load=args.legacy_per_date_load,
         manifest=str(manifest_path),
     )
@@ -216,6 +218,8 @@ def build_generator_command(args: argparse.Namespace, output_dir: Path) -> list[
         repo_path(output_dir) or str(output_dir),
         "--stride",
         str(args.stride),
+        "--top-n",
+        str(getattr(args, "top_n", 10)),
     ]
     if args.max_dates is not None:
         command.extend(["--max-dates", str(args.max_dates)])

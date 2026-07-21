@@ -62,21 +62,6 @@ def run_step(name: str, command: list[str]) -> dict[str, Any]:
     }
 
 
-def skipped_step(name: str, reason: str) -> dict[str, Any]:
-    timestamp = now_utc()
-    return {
-        "name": name,
-        "command": [],
-        "started_at": timestamp,
-        "finished_at": timestamp,
-        "returncode": 0,
-        "stdout_tail": "",
-        "stderr_tail": reason,
-        "status": "SKIPPED",
-        "skip_reason": reason,
-    }
-
-
 def inventory_path(date: str) -> Path:
     return PROJECT_ROOT / "artifacts" / "weekend_training" / f"weekend_universe_inventory_{date}.json"
 
@@ -151,8 +136,12 @@ def main() -> int:
     date = args.date
     steps: list[dict[str, Any]] = []
     inventory_commands = [
-        ("build_inventory", [py, "scripts/build_weekend_universe_inventory.py", "--date", date]),
+        (
+            "build_inventory_and_bounded_frontier_queue",
+            [py, "scripts/build_weekend_universe_inventory.py", "--date", date, "--write-bounded-frontier-queue"],
+        ),
         ("verify_inventory", [py, "scripts/verify_weekend_universe_inventory.py", "--date", date]),
+        ("verify_frontier_queue", [py, "scripts/verify_weekend_frontier_queue.py", "--date", date]),
     ]
     for name, command in inventory_commands:
         step = run_step(name, command)
@@ -160,25 +149,6 @@ def main() -> int:
         if step["returncode"] != 0:
             gates = build_gates(date, "FAILED", steps)
             return write_status(date, "FAILED", steps, gates)
-
-    inventory = read_json(inventory_path(date))
-    contract = inventory.get("contract") if isinstance(inventory.get("contract"), dict) else {}
-    records_inline = bool(contract.get("records_inline"))
-    if records_inline:
-        queue_commands = [
-            ("build_frontier_queue", [py, "scripts/build_weekend_frontier_queue.py", "--date", date]),
-            ("verify_frontier_queue", [py, "scripts/verify_weekend_frontier_queue.py", "--date", date]),
-        ]
-        for name, command in queue_commands:
-            step = run_step(name, command)
-            steps.append(step)
-            if step["returncode"] != 0:
-                gates = build_gates(date, "FAILED", steps)
-                return write_status(date, "FAILED", steps, gates)
-    else:
-        reason = "summary-only inventory; gates are derived from inventory summary without materializing frontier queue records"
-        steps.append(skipped_step("build_frontier_queue", reason))
-        steps.append(skipped_step("verify_frontier_queue", reason))
 
     gates = build_gates(date, "OK", steps)
     followup_commands = [
