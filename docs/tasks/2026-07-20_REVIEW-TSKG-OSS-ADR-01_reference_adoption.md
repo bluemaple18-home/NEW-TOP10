@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-OSS-ADR-01
 chain_id: TSKG-OSS
 title: Independent review of TSKG reference adoption ADR
-status: CARD_DRAFTED
+status: REVIEW_GO
 type: review
 owner: Codex 主線
 assignee: independent-visible-review-thread
@@ -105,6 +105,15 @@ turn_status: pending
 gate_1_card_contract: drafted
 gate_2_visible_thread: pending
 gate_3_candidate_delivery: complete
-gate_4_independent_review: pending
-gate_5_mainline_acceptance: pending
+gate_4_independent_review: REVIEW_GO at 659ff161ffe0be7b8f9840f8f012716b833eab0b
+gate_5_mainline_acceptance: accepted by docs/evidence/TSKG-OSS-ADR-01/acceptance.md
 ```
+
+## Result
+
+`REVIEW_GO`
+
+- Reviewed candidate：`dfade37ba0c030d764f1f3b7181cead17a6b3756`
+- Review commit：`659ff161ffe0be7b8f9840f8f012716b833eab0b`
+- Findings：無 P0–P2；一項非阻塞 P3 已保留於 review evidence。
+- Evidence：`docs/evidence/REVIEW-TSKG-OSS-ADR-01/review.md`

@@ -2,7 +2,7 @@
 card_id: TSKG-OSS-02
 chain_id: TSKG-OSS
 title: TSKG external open-source reference scout
-status: DELIVERED_CANDIDATE
+status: INTEGRATED
 type: research
 owner: Codex 主線
 assignee: visible-thread
@@ -90,10 +90,10 @@ index_lock: clear at card drafting
 unrelated_dirty_paths: [] in source worktree
 thread_id: 019f7e58-df13-7d60-80c9-885af3e23f0f
 worktree_path: <local-only-worktree verified in preflight>
-turn_status: DELIVERED_CANDIDATE
+turn_status: INTEGRATED
 gate_1_card_contract: drafted
 gate_2_visible_thread: satisfied
 gate_3_candidate_delivery: satisfied
-gate_4_independent_review: pending
-gate_5_mainline_acceptance: pending
+gate_4_independent_review: REVIEW_GO
+gate_5_mainline_acceptance: accepted by docs/evidence/TSKG-OSS-ADR-01/acceptance.md
 ```

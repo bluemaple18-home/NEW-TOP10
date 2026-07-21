@@ -1,7 +1,7 @@
 ---
 adr_id: ADR-TSKG-OSS-01
 card_id: TSKG-OSS-ADR-01
-status: PROPOSED_CANDIDATE
+status: INTEGRATED
 decided_on: 2026-07-20
 source_sha: 59917dd87dda448e77f5fc50ccfb3c1d05775aca
 primary_decision: ADAPTER_FIRST_INTERNAL_PATTERNS
@@ -12,7 +12,7 @@ next_implementation_card: TSKG-MFO-RM-01
 
 ## Status
 
-`PROPOSED_CANDIDATE`。本 ADR 尚待獨立 review 與主線接受；它不批准 ingestion、endpoint、SourcePolicy、production runtime 或下一張卡的建立。
+`INTEGRATED`。獨立 Review 與主線接受已通過；本 ADR 仍不批准 ingestion、endpoint、SourcePolicy、production runtime，亦不因整合而授權下一張卡的實作或上線。
 
 ## Context
 

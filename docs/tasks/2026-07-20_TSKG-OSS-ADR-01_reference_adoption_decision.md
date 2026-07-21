@@ -2,7 +2,7 @@
 card_id: TSKG-OSS-ADR-01
 chain_id: TSKG-OSS
 title: Decide reference adoption and next TSKG implementation frontier
-status: PROPOSED_CANDIDATE
+status: INTEGRATED
 type: architecture-decision
 owner: Codex 主線
 assignee: independent-visible-thread
@@ -138,10 +138,10 @@ index_lock: clear at ADR preflight
 unrelated_dirty_paths: [] at ADR preflight
 thread_id: <current-visible-thread>
 worktree_path: <local-only-worktree verified in preflight>
-turn_status: PROPOSED_CANDIDATE
+turn_status: INTEGRATED
 gate_1_card_contract: passed
 gate_2_visible_thread: passed by current delegated task context
 gate_3_candidate_delivery: final SHA bound by external final receipt
-gate_4_independent_review: pending
-gate_5_mainline_acceptance: pending
+gate_4_independent_review: REVIEW_GO at 659ff161ffe0be7b8f9840f8f012716b833eab0b
+gate_5_mainline_acceptance: accepted by docs/evidence/TSKG-OSS-ADR-01/acceptance.md
 ```

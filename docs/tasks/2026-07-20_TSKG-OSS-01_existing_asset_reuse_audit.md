@@ -2,7 +2,7 @@
 card_id: TSKG-OSS-01
 chain_id: TSKG-OSS
 title: TSKG existing FinMind and T86 asset reuse audit
-status: DELIVERED_CANDIDATE
+status: INTEGRATED
 type: research
 owner: Codex 主線
 assignee: visible-thread
@@ -88,12 +88,12 @@ index_lock: clear at card drafting and candidate preflight
 unrelated_dirty_paths: []
 thread_id: 019f7e58-df0f-7eb1-808d-369fa5c02206
 worktree_path: <local-only-worktree verified in preflight>
-turn_status: DELIVERED_CANDIDATE
+turn_status: INTEGRATED
 gate_1_card_contract: drafted
 gate_2_visible_thread: receipt confirmed
-gate_3_candidate_delivery: candidate commit pending until final SHA recorded
-gate_4_independent_review: pending
-gate_5_mainline_acceptance: pending
+gate_3_candidate_delivery: complete
+gate_4_independent_review: REVIEW_GO
+gate_5_mainline_acceptance: accepted by docs/evidence/TSKG-OSS-ADR-01/acceptance.md
 ```
 
 ## Candidate result

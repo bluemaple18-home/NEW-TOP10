@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-OSS-01-02
 chain_id: TSKG-OSS
 title: Independent review of local asset and external OSS research
-status: CARD_DRAFTED
+status: REVIEW_GO
 type: review
 owner: Codex 主線
 assignee: independent-visible-review-thread
@@ -100,6 +100,6 @@ turn_status: pending
 gate_1_card_contract: drafted
 gate_2_visible_thread: pending
 gate_3_candidate_delivery: complete for both fixed candidates
-gate_4_independent_review: pending
-gate_5_mainline_acceptance: pending
+gate_4_independent_review: REVIEW_GO
+gate_5_mainline_acceptance: accepted by docs/evidence/TSKG-OSS-ADR-01/acceptance.md
 ```
