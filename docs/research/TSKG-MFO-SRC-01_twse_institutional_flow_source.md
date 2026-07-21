@@ -151,7 +151,6 @@ S04、S06 對 dataset identity、產製時間、欄位與用途最完整，但�
 - `TSKG-MFO-SRC-02B`：若接受付費來源，研究 Data E-Shop 採購方案對 TSKG、Top10、LLM 及 API 下游的契約相容性，不登入、不購買，直到取得明確商務授權。
 
 在其中一條通道完成 owner review 前，Source Gate 必須 fail closed。
-
 ## 10. Post-dossier technical access probe
 
 ### 10.1 Probe result

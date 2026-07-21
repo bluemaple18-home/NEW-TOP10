@@ -98,7 +98,6 @@ docs/tasks/2026-07-20_TSKG-MFO-SRC-01_twse_institutional_flow_source.md
 ```
 
 本卡為唯讀研究文件；TDD 不適用。候選交付必須通過 exact allowlist、host-specific path scan、`git diff --check`、candidate commit 與 post-commit clean。
-
 ## 7. Post-card T86 technical access evidence
 
 ### Evidence snapshot
