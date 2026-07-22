@@ -58,7 +58,7 @@ TPEx 網站條款仍禁止未獲同意的網站自動擷取；本決策沒有繞
 - canonical 排序與 SHA-256 integrity；寫檔採同目錄 atomic replace。
 - 不呼叫互動式網站、不接受日期參數去推測歷史 endpoint、不自動重試、不碰付費來源。
 
-2026-07-22 live smoke receipt：906 records；canonical SHA-256 `b913b2b019fd70e50c0f4e709b9c5514279368fd874684c539b4872017fc6005`。真實 payload 僅寫到本機暫存，未提交 Git。
+2026-07-22 Repair-schema live smoke receipt：906 records；data-providing organization 為金融監督管理委員會證券期貨局；canonical SHA-256 `bdfc2fcaee414d6dd3b4a553e8caf00a55783a8cca8aa3d05f8ae50a6875a2fa`。真實 payload 僅寫到本機暫存，未提交 Git。
 
 ## 5. 未被本決策解除的範圍
 

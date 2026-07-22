@@ -23,7 +23,8 @@
 ```text
 trade_date=2026-07-22
 row_count=906
-canonical_sha256=b913b2b019fd70e50c0f4e709b9c5514279368fd874684c539b4872017fc6005
+canonical_sha256=bdfc2fcaee414d6dd3b4a553e8caf00a55783a8cca8aa3d05f8ae50a6875a2fa
+data_providing_organization=金融監督管理委員會證券期貨局
 foreign_ex_dealer_net_shares=-89434575
 investment_trust_net_shares=-2417243
 dealer_total_net_shares=24687606
@@ -34,7 +35,7 @@ all_institutional_net_shares=-67164212
 
 ## Verification receipts
 
-- TPEx/source/promotion focused：`25 passed`。
+- TPEx/source/promotion focused：Repair 後 `27 passed`。
 - TPEx + source + MFO + Theme + Graph + Radar + industry promotion：Repair 後 `70 passed`。
 - Repair SHA repo full suite：`464 passed, 1 baseline failure`。唯一失敗是 fresh worktree 缺少 Git 忽略的歷史 research artifacts／`features.parquet`，使既有 `research_component_ledger` 的 `evidence_exists` 檢查失敗；同一失敗已在既有主線整合證據記為固定 baseline，且本 candidate 未修改 ledger builder／verifier／registry。
 - `scripts/verify_industry_promotion_decision.py`：先驗 committed replay SHA／production ranking manifest，再重算 `NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`。
