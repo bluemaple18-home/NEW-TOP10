@@ -23,12 +23,16 @@ from scripts.build_feature_promotion_decision import (  # noqa: E402
     REVIEW_BASE_SHA,
     REVIEW_CANDIDATE_SHA,
     SCHEMA_VERSION,
+    DATE_PATTERN,
+    FRESHNESS_CONTRACT,
+    freshness_error,
+    strict_date,
 )
 
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}\Z")
 TOP_LEVEL = {
-    "schema_version", "evidence_schema_version", "decision", "base_sha", "candidate_sha",
+    "schema_version", "decision_as_of", "decision_as_of_sha256", "evidence_schema_version", "decision", "base_sha", "candidate_sha",
     "data_manifest_sha256", "evidence", "missing_required_evidence", "attribution_and_risk",
     "contract", "reproducible_commands",
 }
@@ -74,7 +78,7 @@ def repo_regular_file(relative: object) -> tuple[Path | None, str | None]:
     return candidate, None
 
 
-def valid_evidence_file(path: Path, row_id: str, errors: list[str]) -> tuple[tuple[str, str, str, str, str] | None, bool]:
+def valid_evidence_file(path: Path, row_id: str, errors: list[str], decision_as_of: dt.date) -> tuple[tuple[str, str, str, str, str] | None, bool]:
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
@@ -104,14 +108,9 @@ def valid_evidence_file(path: Path, row_id: str, errors: list[str]) -> tuple[tup
     if not isinstance(freshness, dict) or set(freshness) != {"as_of", "max_age_days"}:
         error(errors, f"evidence_freshness:{row_id}")
     else:
-        as_of = freshness["as_of"]
-        max_age = freshness["max_age_days"]
-        try:
-            age = (dt.date.today() - dt.date.fromisoformat(as_of)).days
-            if not isinstance(as_of, str) or not DATE.fullmatch(as_of) or not isinstance(max_age, int) or max_age < 0 or age < 0 or age > max_age:
-                raise ValueError
-        except (TypeError, ValueError):
-            error(errors, f"evidence_freshness:{row_id}")
+        freshness_reason = freshness_error(document, row_id, decision_as_of)
+        if freshness_reason:
+            error(errors, f"evidence_{freshness_reason}:{row_id}")
     identity = (document["universe_id"], document["date_start"], document["date_end"], document["cost_model"])
     return identity, True
 
@@ -126,6 +125,13 @@ def verify(payload: object) -> list[str]:
         error(errors, "base_sha_binding")
     if payload["candidate_sha"] != REVIEW_CANDIDATE_SHA:
         error(errors, "candidate_sha_binding")
+    decision_as_of = strict_date(payload["decision_as_of"])
+    if decision_as_of is None or decision_as_of > dt.datetime.now(dt.timezone.utc).date():
+        error(errors, "decision_as_of")
+    if not isinstance(payload["decision_as_of_sha256"], str) or payload["decision_as_of_sha256"] != hashlib.sha256(payload["decision_as_of"].encode()).hexdigest():
+        error(errors, "decision_as_of_hash")
+    if decision_as_of is None:
+        decision_as_of = dt.date.min
     rows = payload["evidence"]
     expected = {item[0]: item for item in REQUIRED}
     if not isinstance(rows, list) or len(rows) != len(REQUIRED) or any(not isinstance(row, dict) for row in rows):
@@ -159,7 +165,7 @@ def verify(payload: object) -> list[str]:
                 error(errors, f"pattern:{row_id}")
             if not isinstance(item["sha256"], str) or not HEX64.fullmatch(item["sha256"]) or sha256(path) != item["sha256"]:
                 error(errors, f"source_hash:{row_id}")
-            identity, valid = valid_evidence_file(path, row_id, errors)
+            identity, valid = valid_evidence_file(path, row_id, errors, decision_as_of)
             if valid and identity:
                 identities.add(identity)
             source_files.append({"path": relative, "sha256": item["sha256"]})

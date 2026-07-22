@@ -1,0 +1,135 @@
+{
+  "attribution_and_risk": {
+    "graph_residual_tolerance_gt_1": {
+      "attribution": "tolerance > 1 can suppress diffusion; must remain a promotion blocker/risk until bounded by contract",
+      "source": "docs/evidence/REVIEW-TSKG-MFO-GRAPH-01/re-review-status.json",
+      "status": "RISK"
+    },
+    "tpex": {
+      "attribution": "TWSE-only evidence; TPEx source/automation permission is not approved",
+      "source": "docs/evidence/TSKG-MFO-THEME-01/verification.md",
+      "status": "KEEP_BLOCKED"
+    }
+  },
+  "base_sha": "b5a5e6394fa1bdb4f82124ffa5e1694844605f28",
+  "candidate_sha": "e057ff9e5256091c7825251c7a9e7e43ed324ebe",
+  "contract": {
+    "checkpoint_pass_is_not_promotion": true,
+    "deploy_config_mutation_allowed": false,
+    "fail_closed": true,
+    "model_weight_mutation_allowed": false,
+    "production_mutation_allowed": false,
+    "ranking_policy_mutation_allowed": false,
+    "reviewer_must_recompute": true
+  },
+  "data_manifest_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "decision": "NO_GO",
+  "decision_as_of": "2026-07-22",
+  "decision_as_of_sha256": "3a1dc5bfe2d5f802b64198f88a6a43ad56aa123a30cf67582d753c2d77cd7c22",
+  "evidence": [
+    {
+      "files": [],
+      "id": "sealed_oos",
+      "label": "sealed OOS report",
+      "pattern": "artifacts/sealed_oos_report_latest.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "time_split_walk_forward",
+      "label": "time-split/walk-forward result",
+      "pattern": "artifacts/model_experiments/half_year_walkforward_validation_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "same_universe_date_cost",
+      "label": "baseline/candidate same universe-date-cost comparison",
+      "pattern": "artifacts/model_experiments/feature_promotion_comparison_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "leakage",
+      "label": "candidate leakage verification",
+      "pattern": "artifacts/model_experiments/feature_leakage_verification_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "stability",
+      "label": "candidate stability evidence",
+      "pattern": "artifacts/model_experiments/feature_stability_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "turnover",
+      "label": "candidate turnover evidence",
+      "pattern": "artifacts/model_experiments/feature_turnover_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "drawdown",
+      "label": "candidate drawdown evidence",
+      "pattern": "artifacts/model_experiments/feature_drawdown_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "concentration",
+      "label": "candidate concentration evidence",
+      "pattern": "artifacts/model_experiments/feature_concentration_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "late_data",
+      "label": "late-data behavior evidence",
+      "pattern": "artifacts/model_experiments/feature_late_data_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "data_manifest",
+      "label": "data manifest",
+      "pattern": "artifacts/model_experiments/feature_data_manifest_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "candidate_manifest",
+      "label": "candidate manifest with code/data SHA",
+      "pattern": "artifacts/model_experiments/feature_candidate_manifest_*.json",
+      "present": false
+    },
+    {
+      "files": [],
+      "id": "formal_code_review",
+      "label": "formal feature promotion code review",
+      "pattern": "docs/evidence/FEATURE-PROMOTE-02/review*.json",
+      "present": false
+    }
+  ],
+  "evidence_schema_version": "feature-promotion-evidence.v1",
+  "missing_required_evidence": [
+    "sealed_oos",
+    "time_split_walk_forward",
+    "same_universe_date_cost",
+    "leakage",
+    "stability",
+    "turnover",
+    "drawdown",
+    "concentration",
+    "late_data",
+    "data_manifest",
+    "candidate_manifest",
+    "formal_code_review"
+  ],
+  "reproducible_commands": [
+    "<repo-root>/.venv/bin/python scripts/build_feature_promotion_decision.py --help",
+    "<repo-root>/.venv/bin/python scripts/verify_feature_promotion_decision.py --help"
+  ],
+  "schema_version": "feature-promotion-decision.v1"
+}
