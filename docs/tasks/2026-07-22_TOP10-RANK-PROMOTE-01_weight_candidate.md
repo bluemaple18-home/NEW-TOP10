@@ -1,7 +1,7 @@
 ---
 card_id: TOP10-RANK-PROMOTE-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: BLOCKED_PENDING_PROMOTION_GO
+status: CLOSED_REJECTED_BY_EMPIRICAL_GATE
 type: conditional-production-candidate
 owner: receiving Mini
 model: receiving Mini
@@ -44,3 +44,7 @@ FEATURE-PROMOTE-02 不是 GO、reviewed SHA 不一致、資料 manifest 漂移�
 ## Verification
 
 執行受影響 ranking tests、sealed replay、production parity/rollback verifier、完整 targeted suite 與 git diff --check。Acceptance 必須記錄 baseline/candidate/integrated SHA。
+
+## 2026-07-22 final disposition
+
+產業 overlay 以 516,134 rows、1,967 stocks、271 trade days 重跑後，return uplift `-0.0005`、hit-rate uplift `-0.0081`；決策為 `REJECT`。本卡不是待做 blocker，而是已完成且禁止 production mutation。固定證據與 verifier：`docs/evidence/INDUSTRY-PROMOTION-20260722/`、`scripts/verify_industry_promotion_decision.py`。

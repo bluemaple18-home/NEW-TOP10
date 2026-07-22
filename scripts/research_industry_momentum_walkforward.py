@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -28,16 +30,21 @@ SECTOR_MIN_MEMBERS = 20
 TOP_N = 10
 
 
-def main() -> int:
+def main(*, features_path: Path | None = None) -> int:
     artifacts_dir = PROJECT_ROOT / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    frame = _load_shadow_frame()
+    source_path = features_path or PROJECT_ROOT / "data" / "clean" / "features.parquet"
+    frame = _load_shadow_frame(source_path)
     scored = _score_shadow(frame)
     report = {
         "status": "OK",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "horizon_days": HORIZON_DAYS,
+        "input": {
+            "features_sha256": _file_sha256(source_path),
+            "features_size_bytes": source_path.stat().st_size,
+        },
         "method": {
             "industry_factor": "leave-one-out / ex-self",
             "industry_min_members": INDUSTRY_MIN_MEMBERS,
@@ -60,8 +67,8 @@ def main() -> int:
     return 0
 
 
-def _load_shadow_frame() -> pd.DataFrame:
-    features = pd.read_parquet(PROJECT_ROOT / "data" / "clean" / "features.parquet")
+def _load_shadow_frame(features_path: Path) -> pd.DataFrame:
+    features = pd.read_parquet(features_path)
     features["date"] = pd.to_datetime(features["date"]).dt.normalize()
     features["trade_date"] = features["date"]
     features["stock_id"] = features["stock_id"].astype(str).str.strip()
@@ -397,5 +404,24 @@ def _round_or_none(value: Any, digits: int = 4) -> float | None:
     return round(float(value), digits)
 
 
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="run industry momentum walk-forward research")
+    parser.add_argument(
+        "--features",
+        type=Path,
+        help="features parquet；預設為 repo data/clean/features.parquet",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    args = _parse_args()
+    raise SystemExit(main(features_path=args.features))

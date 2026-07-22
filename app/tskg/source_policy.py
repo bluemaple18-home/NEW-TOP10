@@ -68,6 +68,12 @@ _METHOD_PATTERN = re.compile(r"^[A-Z]+$")
 _MEDIA_TYPE_PATTERN = re.compile(
     r"^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$"
 )
+_GOVERNED_LOAD_TOKEN = object()
+_GOVERNED_POLICY_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "config"
+    / "tskg_source_policy_governed_v1.json"
+)
 
 
 class SourcePolicyContractError(ValueError):
@@ -77,10 +83,18 @@ class SourcePolicyContractError(ValueError):
 class SourcePolicyRegistry:
     """驗證並持有 deterministic、完全離線的來源政策 registry。"""
 
-    def __init__(self, payload: Mapping[str, Any]) -> None:
+    def __init__(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        _governed_load_token: object | None = None,
+    ) -> None:
         if not isinstance(payload, Mapping):
             raise SourcePolicyContractError("registry must be an object")
-        canonical = self._validate_and_canonicalize(deepcopy(dict(payload)))
+        canonical = self._validate_and_canonicalize(
+            deepcopy(dict(payload)),
+            allow_approved_public=_governed_load_token is _GOVERNED_LOAD_TOKEN,
+        )
         self._payload = canonical
         self._policies_by_source = {
             policy["source_id"]: policy for policy in canonical["policies"]
@@ -102,6 +116,26 @@ class SourcePolicyRegistry:
         """從既有 mapping 建立 registry；raw JSON duplicates 只能由 from_file 偵測。"""
 
         return cls(payload)
+
+    @classmethod
+    def from_governed_file(cls, path: Path) -> "SourcePolicyRegistry":
+        """載入經 code review 版控的正式來源政策；不接受 runtime mapping 提權。"""
+
+        governed_path = Path(path).resolve()
+        if governed_path != _GOVERNED_POLICY_PATH.resolve():
+            raise SourcePolicyContractError(
+                "governed policy must use the pinned repository path"
+            )
+        with governed_path.open("r", encoding="utf-8") as policy_file:
+            payload = json.load(
+                policy_file,
+                object_pairs_hook=_reject_duplicate_json_members,
+            )
+        if payload.get("registry_version") != "source-policy-governed-v1":
+            raise SourcePolicyContractError(
+                "governed registry_version must equal source-policy-governed-v1"
+            )
+        return cls(payload, _governed_load_token=_GOVERNED_LOAD_TOKEN)
 
     @property
     def checksum(self) -> str:
@@ -130,7 +164,11 @@ class SourcePolicyRegistry:
         }
 
     @staticmethod
-    def _validate_and_canonicalize(payload: dict[str, Any]) -> dict[str, Any]:
+    def _validate_and_canonicalize(
+        payload: dict[str, Any],
+        *,
+        allow_approved_public: bool,
+    ) -> dict[str, Any]:
         _require_closed_shape(payload, _TOP_LEVEL_FIELDS, "registry")
         if payload.get("schema_version") != "tskg-source-policy-v1":
             raise SourcePolicyContractError(
@@ -146,7 +184,10 @@ class SourcePolicyRegistry:
         source_ids: set[str] = set()
         canonical_policies: list[dict[str, Any]] = []
         for policy in policies:
-            canonical = _validate_policy(policy)
+            canonical = _validate_policy(
+                policy,
+                allow_approved_public=allow_approved_public,
+            )
             if canonical["policy_id"] in policy_ids:
                 raise SourcePolicyContractError("duplicate policy_id")
             if canonical["source_id"] in source_ids:
@@ -311,7 +352,11 @@ def preflight_source(
     return {"ok": True, "receipt": receipt, "reader_result": reader_result}
 
 
-def _validate_policy(value: Any) -> dict[str, Any]:
+def _validate_policy(
+    value: Any,
+    *,
+    allow_approved_public: bool,
+) -> dict[str, Any]:
     _require_closed_shape(value, _POLICY_FIELDS, "policy")
     policy = deepcopy(value)
     for field in _STRING_FIELDS:
@@ -331,11 +376,11 @@ def _validate_policy(value: Any) -> dict[str, Any]:
     if (
         policy["source_class"] == "PUBLIC"
         and policy["decision_status"] == "APPROVED"
+        and not allow_approved_public
     ):
         raise SourcePolicyContractError(
-            "PUBLIC policies cannot be APPROVED while OQ-SRC-01 is unresolved"
+            "PUBLIC approval requires a versioned governed registry"
         )
-
     for field in _LIST_FIELDS:
         items = policy[field]
         if (

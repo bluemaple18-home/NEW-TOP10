@@ -1,7 +1,7 @@
 ---
 card_id: TSKG-MFO-TPEX-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: CARD_DRAFTED
+status: READY_FOR_REVIEW_V2
 type: source-governance-and-conditional-implementation
 owner: receiving Mini
 model: receiving Mini
@@ -47,3 +47,7 @@ git diff --check
 ```
 
 若 glob 無對應檔，改列實際檔案；不得讓 shell 的空 glob 掩蓋測試。
+
+## 2026-07-22 source correction
+
+政府資料開放平臺 dataset `11856` 已證明 target dataset identity、每日更新與 OGL 1.0 授權；原 `KEEP_BLOCKED` 負面證據因此被更正。實作只開放 current-day 官方 OpenAPI，歷史網站／CSV crawler、paid S35 與 raw public redistribution 仍 blocked。驗證見 `docs/evidence/TSKG-MFO-TPEX-01/verification_v2.md`。

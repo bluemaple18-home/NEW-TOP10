@@ -1,0 +1,43 @@
+{
+  "schema_version": "industry-promotion-decision-v1",
+  "candidate": "industry-shadow-overlay-0.12-v1",
+  "evaluated_at": "2026-07-22T14:00:03.667661+00:00",
+  "input": {
+    "features_sha256": "34751b381bd3aac36f52e6bc683ff006801ab44eae5d269e9c2107b0d13cb1c4",
+    "features_size_bytes": 136308941,
+    "research_artifact_sha256": "7bcdc6ce3a22df1bd8ea5346a8147088d073f148eb4602253cd59914963f3500"
+  },
+  "sample": {
+    "rows": 516134,
+    "stocks": 1967,
+    "trade_days": 271,
+    "latest_labeled_trade_date": "2026-07-07",
+    "horizon_trading_days": 10
+  },
+  "method": {
+    "self_leakage_control": "leave-one-out/ex-self",
+    "top_n": 10,
+    "shadow_overlay_weight": 0.12,
+    "same_universe_dates_cost": true,
+    "production_score_mutated": false
+  },
+  "metrics": {
+    "production_mean_return": 0.0121,
+    "shadow_mean_return": 0.0115,
+    "return_uplift": -0.0005,
+    "production_hit_rate": 0.4506,
+    "shadow_hit_rate": 0.4424,
+    "hit_rate_uplift": -0.0081,
+    "production_downside": -0.0419,
+    "shadow_downside": -0.0402,
+    "production_top_industry_concentration": 0.6539,
+    "shadow_top_industry_concentration": 0.5893
+  },
+  "gate": {
+    "minimum_return_uplift": 0.005,
+    "minimum_hit_rate_uplift": 0.0,
+    "maximum_concentration_increase": 0.1
+  },
+  "decision": "REJECT",
+  "production_action": "NO_RANKING_OR_WEIGHT_CHANGE"
+}

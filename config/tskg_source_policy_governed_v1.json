@@ -1,0 +1,38 @@
+{
+  "schema_version": "tskg-source-policy-v1",
+  "registry_version": "source-policy-governed-v1",
+  "policies": [
+    {
+      "policy_id": "policy-tpex-openapi-3insti-v1",
+      "source_id": "tpex-openapi-3insti-daily",
+      "source_class": "PUBLIC",
+      "publisher": "Taipei Exchange",
+      "owner": "TOP10new source governance",
+      "decision_status": "APPROVED",
+      "terms_decision": "APPROVED",
+      "legal_basis": "APPROVED",
+      "robots_decision": "ALLOW",
+      "allowed_methods": ["GET"],
+      "allowed_paths": ["/openapi/v1/tpex_3insti_daily_trading"],
+      "allowed_media_types": ["application/json"],
+      "authentication_constraints": "NONE; public government OpenAPI",
+      "rate_limit": 1,
+      "concurrency_limit": 1,
+      "user_agent": "TOP10new-TSKG/1.0 (scheduled-local-research)",
+      "contact": "data.gov.tw dataset 11856 / TPEx",
+      "raw_retention": "LOCAL_INTERNAL_CACHE_30_DAYS",
+      "snippet_retention": "NONE",
+      "metadata_retention": "PERMANENT_PROVENANCE",
+      "redaction_policy": "NO_PERSONAL_DATA_EXPECTED",
+      "deletion_policy": "DELETE_RAW_CACHE_AFTER_30_DAYS",
+      "redistribution_policy": "OGL-1.0 attribution required; no raw public redistribution by TOP10new",
+      "reviewed_at": "2026-07-22T00:00:00Z",
+      "expires_at": "2027-07-22T00:00:00Z",
+      "decision_evidence": [
+        "https://data.nat.gov.tw/dataset/11856",
+        "https://www.tpex.org.tw/openapi/swagger.json",
+        "https://data.gov.tw/license"
+      ]
+    }
+  ]
+}
