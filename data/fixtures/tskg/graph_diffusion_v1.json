@@ -1,0 +1,21 @@
+{
+  "fixture_version": "graph-diffusion-v1",
+  "schema_version": "tskg-graph-diffusion-shadow-v1",
+  "algorithm_version": "bounded-mass-conserving-v1",
+  "as_of_date": "2026-07-17",
+  "source": "source-synthetic-graph-diffusion-v1",
+  "version": "graph-diffusion-fixture-2026-07-17-v1",
+  "evidence_locator": "fixture://tskg/graph-diffusion-v1",
+  "nodes": [
+    {"node_id": "security-a", "node_type": "Security", "source_observation_id": "obs-a", "evidence_id": "evidence-a", "observed_at": "2026-07-17", "coverage": {"venue": "TWSE", "status": "AVAILABLE"}},
+    {"node_id": "security-b", "node_type": "Security", "source_observation_id": "obs-b", "evidence_id": "evidence-b", "observed_at": "2026-07-17", "coverage": {"venue": "TWSE", "status": "AVAILABLE"}},
+    {"node_id": "security-c", "node_type": "Security", "source_observation_id": "obs-c", "evidence_id": "evidence-c", "observed_at": "2026-07-16", "coverage": {"venue": "TWSE", "status": "AVAILABLE"}},
+    {"node_id": "security-d", "node_type": "Security", "source_observation_id": "obs-d", "evidence_id": "evidence-d", "observed_at": "2026-07-15", "coverage": {"venue": "TWSE", "status": "AVAILABLE"}}
+  ],
+  "edges": [
+    {"edge_id": "edge-a-b", "source_id": "security-a", "target_id": "security-b", "weight": 2, "weight_version": "fixture-weight-v1", "valid_from": "2026-07-01", "valid_to": "2026-07-31", "source_observation_id": "edge-obs-a-b", "evidence_id": "edge-evidence-a-b", "coverage": {"venue": "TWSE", "status": "AVAILABLE"}},
+    {"edge_id": "edge-a-c", "source_id": "security-a", "target_id": "security-c", "weight": 1, "weight_version": "fixture-weight-v1", "valid_from": "2026-07-01", "valid_to": "2026-07-31", "source_observation_id": "edge-obs-a-c", "evidence_id": "edge-evidence-a-c", "coverage": {"venue": "TWSE", "status": "AVAILABLE"}},
+    {"edge_id": "edge-b-c", "source_id": "security-b", "target_id": "security-c", "weight": 1, "weight_version": "fixture-weight-v1", "valid_from": "2026-07-01", "valid_to": "2026-07-31", "source_observation_id": "edge-obs-b-c", "evidence_id": "edge-evidence-b-c", "coverage": {"venue": "TWSE", "status": "AVAILABLE"}},
+    {"edge_id": "edge-c-a", "source_id": "security-c", "target_id": "security-a", "weight": 1, "weight_version": "fixture-weight-v1", "valid_from": "2026-07-01", "valid_to": "2026-07-31", "source_observation_id": "edge-obs-c-a", "evidence_id": "edge-evidence-c-a", "coverage": {"venue": "TWSE", "status": "AVAILABLE"}}
+  ]
+}
