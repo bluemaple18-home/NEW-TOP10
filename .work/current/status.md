@@ -1,29 +1,27 @@
 # Current Status
 
-狀態：`MINI-REMAINING-01 / CLOSED`
+狀態：`INDUSTRY-COMPLETION-20260722 / CLOSED`
 
-## SHADOW-RUN-01
+## TPEx current-day institutional source
 
-- candidate：`19a2d12`
-- review：`REVIEW_GO`／`08caf5d`
-- accepted mainline：`2aadec4`
-- verification：py_compile、research shadow verifier、feature gate verifier、diff check 全部 PASS
-- production ranking／score／promotion：未修改、未授權
+- source decision：`GO_CURRENT_DAY_OPENAPI_ONLY`
+- functional integrated SHA：`c081e36a569f1505716b983550ddd7533cddd316`
+- independent review：`REVIEW_GO`
+- review evidence commit：`06dcbee2c831f083117ff39f6b2df3cfc22489ef`
+- live receipt：2026-07-22、906 rows、Repair-schema SHA `bdfc2fcaee414d6dd3b4a553e8caf00a55783a8cca8aa3d05f8ae50a6875a2fa`
+- boundary：只允許 OGL current-day OpenAPI；歷史網站 crawler、paid S35、raw public redistribution 仍 blocked
 
-## YUANTA-WIN-AUTOMATION-01
+## Industry promotion
 
-- original candidate：`d765cb5`
-- initial review：`REVIEW_NO_GO`／`f9b7503`（3 P1）
-- repair candidate：`6c2d0ce`
-- re-review：`REVIEW_GO`／`5505a7e`
-- accepted mainline：`2480364`
-- static／synthetic verification：PASS
-- Windows parser／UIA／screenshot live：NOT_RUN
-- 真實登入／憑證匯入／外部交易：NOT_RUN，需 Windows、本地資料與使用者當次明確授權
+- decision：`NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`
+- evidence：40 份 production ranking manifest；26 個成熟日期；低於 60 日 promotion floor
+- observed：return uplift `-0.0075`、hit-rate uplift `-0.0231`
+- production action：`NO_RANKING_OR_WEIGHT_CHANGE`
+- Theme／Graph／Radar：既有 accepted shadow/read-only contract 回歸通過；未偽裝為 production feature
 
-## Cleanup receipt
+## Acceptance
 
-- 接收端本輪 worktrees：已移除；只剩 main worktree。
-- 接收端本輪 local／remote branches：已移除。
-- 正式 tasks：SHADOW Review、Yuanta Review、Yuanta Repair 均已 archive。
-- 交接端原 10 個本機檔案：未進 Git、未由接收端刪除；其中 prototype 曾含可用登入資料，建議輪替祕密並在來源主機安全清除。
+- targeted：70 passed
+- full suite：465 passed
+- py_compile／promotion verifier／git diff check：PASS
+- mainline：integrated，待本文件 commit push receipt

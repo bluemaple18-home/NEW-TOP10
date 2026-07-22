@@ -2,40 +2,32 @@
 
 state：`CLOSED`
 
-## SHADOW-RUN-01
+## Integrated outcome
 
-- base：`406b8119b543bdb100d23463c7379cd8dabf8d10`
-- candidate：`19a2d12`
-- reviewed SHA／verdict：`19a2d12`／`REVIEW_GO`
-- review commit：`08caf5d`
-- integrated／acceptance SHA：`2aadec4`
-- tests：py_compile、`verify_research_shadow_runs.py`、`verify_feature_experiment_gate.py`、`git diff --check` 全部 PASS
+- base：`5a75824c0daaaa2ddcc71af5bb5a2569e3faf624`
+- initial candidate：`4f27deef82b14f161936796ba46d564ba5364248`
+- initial independent verdict：`REVIEW_NO_GO`
+- repair：`78134f4`
+- final functional candidate：`c081e36a569f1505716b983550ddd7533cddd316`
+- final independent verdict：`REVIEW_GO`
+- review evidence：`06dcbee2c831f083117ff39f6b2df3cfc22489ef`
 
-## YUANTA-WIN-AUTOMATION-01
+## Product decisions
 
-- base：`2aadec4`
-- original candidate：`d765cb5`
-- initial review：`REVIEW_NO_GO`／`f9b7503`
-- repair candidate／reviewed SHA：`6c2d0ceaed976701d2c4b0da0a6b619926d0cb01`
-- final verdict／review commit：`REVIEW_GO`／`5505a7e`
-- integrated／experimental acceptance SHA：`2480364`
-- tests：py_compile、`verify_yuanta_windows_helpers.py`、secret/binary scan、`git diff --check` 全部 PASS
-- Windows live：`NOT_RUN_REQUIRES_WINDOWS_CREDENTIALS_AND_EXPLICIT_AUTHORIZATION`
+1. TPEx 上櫃逐證券三大法人：官方 dataset 11856／OGL 1.0／current-day OpenAPI 已接入，日期、schema、算術、provider、checksum 與 source policy 均 fail closed。
+2. 產業 overlay：使用真實 production ranking artifacts 重跑後，只有 26 個成熟日期且績效偏負；正式結論為 `NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`。
+3. Ranking／model／weights：未修改。這是已完成的 NO_GO，不是待做 blocker。
+4. Theme／Graph／Radar：既有 shadow/read-only contract 保持通過；TPEx source GO 不被誇大為完整 TWD ThemeFlow 或 production feature GO。
 
-## Safety
+## Verification
 
-- Git 中沒有登入值、PFX/P12、installer、ZIP、runtime log 或 screenshot。
-- 未執行真實登入、憑證匯入、截圖或交易。
-- 原交接主機的含敏感資料 prototype 未進 Git；建議使用者輪替該登入祕密並在來源主機安全清除。
-- 後續 secure package 比對已完成：封包與 manifest PASS，六個 legacy prototype 的必要行為均由已接受的安全 helpers 覆蓋，沒有新增 repo-side finding；Windows live 邊界仍如實為 NOT_RUN。
+- focused TPEx/source/promotion：27 passed
+- cross-component TPEx/MFO/Theme/Graph/Radar/promotion：70 passed
+- mainline full suite：465 passed
+- promotion verifier：`INDUSTRY_PROMOTION_DECISION_OK decision=NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`
+- Repair-schema live smoke：906 rows、SHA `bdfc2fcaee414d6dd3b4a553e8caf00a55783a8cca8aa3d05f8ae50a6875a2fa`
+- py_compile、`git diff --check`：PASS
 
-## Cleanup receipt
+## Remaining repository action items
 
-- functional mainline：`2480364`
-- closeout state commit：`25a136c`
-- 接收端本輪 related worktrees remaining：`0`
-- 接收端本輪 related local branches remaining：`0`
-- 接收端本輪 related remote branches remaining：`0`
-- archived tasks：`019f88c6-47e3-7891-8a61-770f7d882baf`、`019f88d0-f4e8-7b61-840e-81bb717af1a4`、`019f88d4-3fac-7251-8d3f-ba01b842e5c4`
-- final receipt：本文件所在 commit；推送後以 `git rev-parse origin/main` 驗證
-- repository action items：`0`
+`0`。若未來 production ranking artifacts 累積到至少 60 個成熟日期，可依 committed v2 replay contract 開新 promotion 評估；這是新的觸發條件，不是本輪漏做。
