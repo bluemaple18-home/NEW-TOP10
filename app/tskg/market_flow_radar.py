@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+from typing import Literal
 from pathlib import Path
-from typing import Any
+
+from pydantic import BaseModel, ConfigDict
 
 from app.tskg.flow_observation import SecurityFlowObservationFixture
 from app.tskg.theme_membership import ThemeMembershipSnapshot, aggregate_theme_institutional_flow
@@ -15,6 +17,75 @@ THEME_LABELS = {
     "theme-ai": "AI 應用",
     "theme-semiconductor": "半導體",
 }
+
+
+class RadarSourceResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    source_id: str
+    source_type: str
+    description: str
+
+
+class RadarMembershipSnapshotResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    version: str
+    content_hash: str
+
+
+class RadarResearchBoundaryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    graph_status: str
+    graph_drilldown: str
+    ranking_impact: str
+    message: str
+
+
+class RadarVenueCoverageResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    TWSE: str
+    TPEX: str
+
+
+class RadarItemResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    rank: int
+    theme_id: str
+    theme_name: str
+    security_count: int
+    observed_security_count: int
+    missing_count: int
+    coverage: float
+    institutional_buy_value: int | float
+    institutional_sell_value: int | float
+    institutional_net_value: int | float
+    stale_observation_count: int
+    freshness: Literal["FRESH", "STALE"]
+    status: Literal["COMPLETE", "PARTIAL", "ZERO_COVERAGE"]
+    flow_direction: Literal["INFLOW", "OUTFLOW", "FLAT"]
+    research_only: bool
+
+
+class MarketFlowRadarResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    schema_version: str
+    view_version: str
+    as_of_date: str
+    freshness: Literal["FRESH", "STALE"]
+    coverage: float
+    coverage_status: Literal["COMPLETE", "PARTIAL"]
+    source: RadarSourceResponse
+    evidence: list[str]
+    venue_coverage: RadarVenueCoverageResponse
+    allocation_policy: str
+    membership_snapshot: RadarMembershipSnapshotResponse
+    research_boundary: RadarResearchBoundaryResponse
+    items: list[RadarItemResponse]
 
 
 def build_market_flow_radar_response(project_root: Path, *, as_of_date: str = "2026-07-17") -> dict[str, Any]:
@@ -62,7 +133,7 @@ def build_market_flow_radar_response(project_root: Path, *, as_of_date: str = "2
             "graph_status": "ACCEPTED_SHADOW_ONLY",
             "graph_drilldown": "RESEARCH_ONLY",
             "ranking_impact": "NONE",
-            "message": "Theme flow 與關聯圖僅供研究，不會改寫 Top10 recommendation。",
+            "message": "Theme flow 與關聯圖僅供研究，不會讀取或改寫既有 Top10 決策層。",
         },
         "items": items,
     }

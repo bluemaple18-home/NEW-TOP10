@@ -1,0 +1,24 @@
+REPAIR-UI-MFR-01-01 runtime API probe
+worktree: this Repair worktree; API 127.0.0.1:8001
+
+RED reproduction (old listener in another worktree):
+  GET /api/v1/market-flow/radar?as_of_date=2026-99-99 -> 500 plain Internal Server Error
+
+GREEN:
+  GET /api/v1/market-flow/radar?as_of_date=2026-07-17
+    -> 200; schema_version=market-flow-radar-read-model-v1; closed response model
+    -> source=SYNTHETIC_FIXTURE; ranking_impact=NONE; read-only fixture path
+  GET /api/v1/market-flow/radar?as_of_date=2026-99-99
+    -> 422; schema_version=market-flow-radar-error-v1; code=INVALID_AS_OF_DATE
+    -> Access-Control-Allow-Origin: http://127.0.0.1:5173
+  GET /api/v1/market-flow/radar?as_of_date=not-a-date
+    -> 422; same versioned INVALID_AS_OF_DATE envelope and CORS header
+  GET /api/v1/market-flow/radar?as_of_date=2026-01-01
+    -> 422; schema_version=market-flow-radar-error-v1; code=DATE_OUT_OF_RANGE; CORS header
+  POST /api/v1/market-flow/radar
+    -> 405; Allow: GET; CORS header
+  GET /openapi.json
+    -> 200 response schema references #/components/schemas/MarketFlowRadarResponse
+    -> MarketFlowRadarResponse and nested response schemas set additionalProperties=false
+
+No radar writer, ranking/model mutation, network client, or production path is called.

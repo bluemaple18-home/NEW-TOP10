@@ -1,0 +1,35 @@
+REPAIR-UI-MFR-01-01 CDP browser acceptance
+Chrome: /Applications/Google Chrome.app, headless CDP 127.0.0.1:9222
+Target: http://127.0.0.1:5173/
+Listeners: Runtime.enable, Page.enable, Network.enable, and console/pageerror/requestfailed
+hooks registered before Page.navigate.
+
+Desktop:
+  keyboard focus text=市場雷達; Enter switched active view=市場雷達
+  title=Theme 資金雷達; radar GET returned 200
+  screenshots: desktop-weekly.png, desktop-radar-live.png, desktop-loading.png,
+    desktop-empty.png, desktop-error.png, desktop-stale.png, desktop-partial.png
+
+Mobile 390x844:
+  scrollWidth=390, clientWidth=390, overflow=false
+  screenshot: mobile-radar-live.png
+
+Console/pageerror/network:
+  no radar console error/warning, pageerror, or requestfailed event
+  React DevTools informational message only
+  existing baseline weekly-candidates requestfailed with net::ERR_FAILED; separately
+    identified as weekly fixture failure and not a radar request
+
+Visual acceptance:
+  existing dense analytical shell retained; desktop and mobile show focused radar
+  route, state control, status/coverage/source, contained mobile table, and isolated
+  non-recommendation Top10 decision-layer wording.
+
+Evidence paths:
+  screenshots/*.png in this directory
+
+root question: Can the read-only fixture radar be safely surfaced for research?
+blocker: fixed P1 invalid-date boundary and closed response model; no radar blocker observed.
+fork: weekly baseline remains independently failing and is outside Repair allowlist.
+current state: runtime Repair path GREEN; ready for independent review, not merge/deploy.
+limits: no production mutation or external live source exercised by design.

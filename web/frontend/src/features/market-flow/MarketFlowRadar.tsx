@@ -79,7 +79,7 @@ export function MarketFlowRadar() {
           </div>
           <div className="radar-footnote">證據：{data.evidence.join(' · ')} · allocation：{data.allocation_policy}</div>
           <div className="radar-boundary"><b>研究關聯層</b><span>{data.research_boundary.message}</span><em>Graph: {data.research_boundary.graph_drilldown}</em></div>
-          <div className="radar-boundary radar-boundary--separated"><b>Top10 recommendation</b><span>維持既有模型候補與決策層；本頁不提供買進建議，也不改寫排名。</span><em>impact: {data.research_boundary.ranking_impact}</em></div>
+          <div className="radar-boundary radar-boundary--separated"><b>既有 Top10 決策層（隔離）</b><span>本雷達不讀取、不改寫既有模型候補與決策層；本頁不提供買進建議。</span><em>impact: {data.research_boundary.ranking_impact}</em></div>
         </>
       ) : null}
       {error && state === 'live' ? <p className="radar-inline-error">{error}</p> : null}
