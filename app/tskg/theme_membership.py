@@ -78,6 +78,7 @@ class ThemeMembershipSnapshot:
         if not isinstance(rows, list):
             raise ThemeMembershipContractError("memberships must be a list")
         seen: set[tuple[str, str, str, str]] = set()
+        intervals_by_pair: dict[tuple[str, str], list[tuple[date, date]]] = {}
         for row in rows:
             if not isinstance(row, Mapping) or set(row) != _MEMBERSHIP_FIELDS:
                 raise ThemeMembershipContractError("invalid membership row")
@@ -90,6 +91,20 @@ class ThemeMembershipSnapshot:
             if key in seen:
                 raise ThemeMembershipContractError("duplicate membership")
             seen.add(key)
+            intervals_by_pair.setdefault((row["security_id"], row["theme_id"]), []).append((start, end))
+        for pair, intervals in intervals_by_pair.items():
+            ordered = sorted(intervals)
+            if any(start <= previous_end for (_, previous_end), (start, _) in zip(ordered, ordered[1:])):
+                raise ThemeMembershipContractError(
+                    f"overlapping membership interval for {pair[0]}/{pair[1]}"
+                )
+        data["memberships"] = sorted(
+            rows,
+            key=lambda row: (
+                row["security_id"], row["theme_id"],
+                row["effective_from"], row["effective_to"],
+            ),
+        )
         hash_input = {
             field: data[field]
             for field in ("as_of_date", "effective_interval", "memberships", "source", "version")

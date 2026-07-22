@@ -1,0 +1,20 @@
+{
+  "card_id": "REPAIR-TSKG-MFO-THEME-01-01",
+  "status": "DELIVERED_CANDIDATE",
+  "base": "1c719ffe61041c38ffc6c61b1ab74ad2983705e9",
+  "review_target": "019f8948-465d-73e1-8bca-c5d1f7493441",
+  "scope": [
+    "overlapping active membership fail closed",
+    "semantic-order canonical membership hash",
+    "mass conservation regression"
+  ],
+  "verification": {
+    "tests": "23 passed",
+    "verifier": "OK",
+    "py_compile": "PASS",
+    "diff_check": "PASS",
+    "offline": true,
+    "network": false,
+    "privacy": "PASS"
+  }
+}
