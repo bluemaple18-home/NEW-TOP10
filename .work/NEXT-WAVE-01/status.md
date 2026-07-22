@@ -9,11 +9,12 @@
 - state：RUNNING
 - base_sha：558a04f82a9ff164ae6a95a126f8a354bd33ebab
 - cards：1 dispatcher + 6 executable cards
-- current frontier：CP-NEXT-WAVE-A
+- current frontier：FEATURE-PROMOTE-02
 - TSKG-MFO-TPEX-01：`ACCEPTED_KEEP_BLOCKED`；TPEx venue coverage 不可使用
 - TSKG-MFO-THEME-01：`ACCEPTED`；Repair `71c02aa8` 經原 Reviewer re-review `GO`
 - TSKG-MFO-GRAPH-01：`ACCEPTED_SHADOW_ONLY`；Repair `6115a3c` 經原 Reviewer re-review `GO`
-- implementation：checkpoint 待執行；Graph 不得直接進 production promotion
+- CP-NEXT-WAVE-A：`PASS`；96 TSKG tests 與 research/source、Theme、Graph verifiers 通過
+- implementation：formal feature promotion decision 待開始；Graph 不得直接進 production promotion
 
 ## Blocker
 
