@@ -1,6 +1,6 @@
 # NEXT-WAVE-01 Result
 
-state：ACCEPTED_PENDING_CLEANUP
+state：CLOSED
 
 ## Delivery ledger
 
@@ -10,7 +10,7 @@ state：ACCEPTED_PENDING_CLEANUP
 - `CP-NEXT-WAVE-A`：mainline checkpoint `b5a5e63`；96 TSKG tests、research/source、Theme、Graph verifiers 全部 PASS。
 - `FEATURE-PROMOTE-02`：decision candidate `e057ff9`；Repair 1 `0079370`；Repair 2 `1a08f385`；final review GO `6f925200`；mainline acceptance `cdd4c42`。Decision contract 驗收通過，但實際 promotion 結果為 `NO_GO`，12 項必要證據仍缺失。
 - `TOP10-RANK-PROMOTE-01`：`BLOCKED_BY_PROMOTION_NO_GO`；沒有 candidate、沒有修改 ranking/weight，這是 hard gate 的預期結案。
-- `UI-MFR-01`：candidate `a8d11a2`；Repair 1 `5de19a8`；Repair 2 fixed candidate `88d6125f82193d35328a4d34352020a4e21b839f`；final review GO `8b324275ba5a1544486c6d11b1a387d85a75c872`；mainline acceptance commit 待本次提交建立。
+- `UI-MFR-01`：candidate `a8d11a2`；Repair 1 `5de19a8`；Repair 2 fixed candidate `88d6125f82193d35328a4d34352020a4e21b839f`；final review GO `8b324275ba5a1544486c6d11b1a387d85a75c872`；mainline acceptance `e3b00e0`。
 
 ## Final UI acceptance
 
@@ -28,4 +28,13 @@ state：ACCEPTED_PENDING_CLEANUP
 - Ranking/weight mutation：保持 blocked，零修改。
 - Yuanta 機敏 Windows prototype／憑證封包：本執行鏈未解密、未讀取、未提交 Git；不影響以上 repo-side acceptance。
 
-Cleanup receipt 於 branch/worktree/task 清理後補登。
+## Cleanup receipt
+
+- Feature/UI 正式 tasks：8 個均已 archive。
+- 手動 Feature/UI/dispatcher/integration worktrees：9 個均於 clean 驗證後移除。
+- task worktrees：archive 後已移除；最終 `git worktree list` 只剩主工作區。
+- 本機 candidate branches：2 個已刪除。
+- 遠端 package/candidate/review/repair branches：9 個已刪除並 `fetch --prune`。
+- 相關 branch pattern（`feature-promote-02`、`ui-mfr-01`、`top10-next-wave`）：本機與遠端均為 0。
+- 測試服務 ports 8001、5173、5174：無 listener。
+- 主工作區：clean，`main` 與 `origin/main` 同步於 `e3b00e0`；本 cleanup receipt 所在提交將作為最終 closeout SHA。

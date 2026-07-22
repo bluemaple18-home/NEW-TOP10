@@ -6,10 +6,10 @@
 
 ## Current state
 
-- state：ACCEPTED_PENDING_CLEANUP
+- state：CLOSED
 - base_sha：558a04f82a9ff164ae6a95a126f8a354bd33ebab
 - cards：1 dispatcher + 6 executable cards
-- current frontier：final cleanup
+- current frontier：none
 - TSKG-MFO-TPEX-01：`ACCEPTED_KEEP_BLOCKED`；TPEx venue coverage 不可使用
 - TSKG-MFO-THEME-01：`ACCEPTED`；Repair `71c02aa8` 經原 Reviewer re-review `GO`
 - TSKG-MFO-GRAPH-01：`ACCEPTED_SHADOW_ONLY`；Repair `6115a3c` 經原 Reviewer re-review `GO`
@@ -18,6 +18,8 @@
 - TOP10-RANK-PROMOTE-01：`BLOCKED_BY_PROMOTION_NO_GO`；未修改 ranking/weight
 - UI-MFR-01：Repair 2 candidate `88d6125f82193d35328a4d34352020a4e21b839f` 已由原 Reviewer final re-review `GO`；review evidence `8b324275ba5a1544486c6d11b1a387d85a75c872`
 - UI-MFR-01 mainline gates：32 affected tests、Python compilation、frontend production build、`git diff --check` 全數 PASS；browser acceptance 採用 fixed-candidate final re-review 證據
+- UI-MFR-01 accepted mainline：`e3b00e0`
+- cleanup：Feature/UI implementation、review、repair、integration worktrees/branches 已移除；正式 tasks 已封存
 
 ## Blocker
 

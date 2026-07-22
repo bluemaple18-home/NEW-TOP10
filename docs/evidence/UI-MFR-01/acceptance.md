@@ -1,6 +1,6 @@
 # UI-MFR-01 Acceptance
 
-Status: `ACCEPTED_PENDING_CLEANUP`
+Status: `ACCEPTED`
 
 ## Scope
 
@@ -58,3 +58,4 @@ anti_patterns_to_avoid: marketing hero、紫藍漸層、card-in-card、recommend
 - Frontend production build: PASS.
 - `git diff --check`: PASS.
 - Browser evidence is the independent final re-review evidence for the identical fixed-candidate tree.
+- Accepted mainline commit: `e3b00e0`.
