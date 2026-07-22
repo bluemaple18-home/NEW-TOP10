@@ -1,0 +1,75 @@
+{
+  "schema_version": "industry-overlay-quick-multiwindow-diagnostic-v1",
+  "generated_date": "2026-07-23",
+  "candidate": "industry-shadow-overlay-0.12-v1",
+  "contract": {
+    "research_only": true,
+    "current_model_historical_replay": true,
+    "time_split_oos": false,
+    "may_change_production_decision": false,
+    "changes_ranking_or_weights": false
+  },
+  "features_sha256": "34751b381bd3aac36f52e6bc683ff006801ab44eae5d269e9c2107b0d13cb1c4",
+  "evaluation": {
+    "horizon_trading_days": 10,
+    "candidate_pool_per_day": 10,
+    "evaluation_top_n": 5,
+    "cost_assumption": "NO_TRANSACTION_COST_APPLIED_TO_EITHER_ARM"
+  },
+  "windows": [
+    {
+      "source": "artifacts/research_rankings/current_model_sealed_2026-02-06_2026-05-15",
+      "source_contract": "CURRENT_MODEL_SEALED_RESEARCH_ONLY",
+      "source_file_count": 60,
+      "source_manifest_sha256": "a3f32ae7f87b079332d48f6fc025552820e5389f0f686d204d23fef4c0c75a14",
+      "eligible_days": 59,
+      "excluded_days": 1,
+      "return_uplift": 0.0034,
+      "hit_rate_uplift": 0.0102,
+      "production_concentration": 0.3356,
+      "shadow_concentration": 0.3525
+    },
+    {
+      "source": "artifacts/backtest/production_subset_rankings_recent_100_2025-12-10_2026-05-15",
+      "source_contract": "CURRENT_MODEL_HISTORICAL_RESEARCH_ONLY",
+      "source_file_count": 100,
+      "source_manifest_sha256": "1c410c1418a82a3f810264e4a2c8d3514b1325b6585aaf18122eb3f232f67399",
+      "eligible_days": 99,
+      "excluded_days": 1,
+      "return_uplift": -0.0004,
+      "hit_rate_uplift": -0.0263,
+      "production_concentration": 0.3152,
+      "shadow_concentration": 0.3273
+    },
+    {
+      "source": "artifacts/backtest/production_subset_rankings_recent_6m_2025-11-12_2026-05-15",
+      "source_contract": "CURRENT_MODEL_HISTORICAL_RESEARCH_ONLY",
+      "source_file_count": 120,
+      "source_manifest_sha256": "893c263f29aba5b73b64b95f5dd5850c32b7b43c0b890de9b9f413e249ff33a2",
+      "eligible_days": 119,
+      "excluded_days": 1,
+      "return_uplift": -0.0017,
+      "hit_rate_uplift": -0.0269,
+      "production_concentration": 0.3109,
+      "shadow_concentration": 0.3261
+    },
+    {
+      "source": "artifacts/model_experiments/strategy_composition_isolation_work_2026-06-10/production_all_rankings",
+      "source_contract": "CURRENT_MODEL_HISTORICAL_RESEARCH_ONLY",
+      "source_file_count": 599,
+      "source_manifest_sha256": "9789557fedf9bcb4577e74cd5354654668afe8dfd5aa3960c88ed21cd53a8db3",
+      "eligible_days": 234,
+      "excluded_days": 365,
+      "return_uplift": -0.001,
+      "hit_rate_uplift": -0.0145,
+      "production_concentration": 0.3145,
+      "shadow_concentration": 0.3308
+    }
+  ],
+  "interpretation": {
+    "tested_candidate": "REJECT_CURRENT_OVERLAY",
+    "industry_feature_family": "UNRESOLVED_RESEARCH_CANDIDATE",
+    "reason": "59-day window is weakly positive but below the promotion uplift floor and increases concentration; 99, 119 and 234-day windows are negative.",
+    "next_research": "Test materially different industry formulations with time-split/walk-forward and sealed OOS; do not passively wait to retest the same 0.12 overlay."
+  }
+}

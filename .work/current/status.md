@@ -13,9 +13,12 @@
 
 ## Industry promotion
 
-- decision：`NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`
+- formal production decision：`NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`
+- tested overlay disposition：`REJECT_CURRENT_OVERLAY`
+- industry feature family：`UNRESOLVED_RESEARCH_CANDIDATE`
 - evidence：40 份 production ranking manifest；26 個成熟日期；低於 60 日 promotion floor
 - observed：return uplift `-0.0075`、hit-rate uplift `-0.0231`
+- quick multi-window：59 日弱正但未達門檻；99／119／234 日皆負，四窗集中度均惡化
 - production action：`NO_RANKING_OR_WEIGHT_CHANGE`
 - Theme／Graph／Radar：既有 accepted shadow/read-only contract 回歸通過；未偽裝為 production feature
 
@@ -24,4 +27,4 @@
 - targeted：70 passed
 - full suite：465 passed
 - py_compile／promotion verifier／git diff check：PASS
-- mainline：integrated，待本文件 commit push receipt
+- mainline：integrated；2026-07-23 quick diagnostic addendum 待 push receipt

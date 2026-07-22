@@ -15,9 +15,10 @@ state：`CLOSED`
 ## Product decisions
 
 1. TPEx 上櫃逐證券三大法人：官方 dataset 11856／OGL 1.0／current-day OpenAPI 已接入，日期、schema、算術、provider、checksum 與 source policy 均 fail closed。
-2. 產業 overlay：使用真實 production ranking artifacts 重跑後，只有 26 個成熟日期且績效偏負；正式結論為 `NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`。
+2. 產業 overlay：正式 production evidence 為 `NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`；補充 59／99／119／234 日 quick diagnostic 後，現行 `0.12` candidate 為 `REJECT_CURRENT_OVERLAY`。
 3. Ranking／model／weights：未修改。這是已完成的 NO_GO，不是待做 blocker。
 4. Theme／Graph／Radar：既有 shadow/read-only contract 保持通過；TPEx source GO 不被誇大為完整 TWD ThemeFlow 或 production feature GO。
+5. 產業 feature family：`UNRESOLVED_RESEARCH_CANDIDATE`；不得把單一 overlay 的失敗擴張成所有產業因子永久無效。
 
 ## Verification
 
@@ -30,4 +31,4 @@ state：`CLOSED`
 
 ## Remaining repository action items
 
-`0`。若未來 production ranking artifacts 累積到至少 60 個成熟日期，可依 committed v2 replay contract 開新 promotion 評估；這是新的觸發條件，不是本輪漏做。
+`0`。現行 overlay 不需被動等待更多日期。若提出 materially different 的產業 formulation，才另開 candidate，並以 time-split／walk-forward、sealed OOS 與成本後證據重新驗證。

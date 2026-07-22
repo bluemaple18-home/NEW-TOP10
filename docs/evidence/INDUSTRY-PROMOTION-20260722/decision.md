@@ -23,3 +23,7 @@ Committed evidence：
 ```
 
 這是已完成的 NO_GO，不是未執行。要重開 promotion，必須累積至少 60 個成熟 production ranking dates 後，以同一 v2 contract 重跑。
+
+## 2026-07-23 quick multi-window addendum
+
+另以 59、99、119、234 個有效日期執行 current-model historical diagnostic。只有 59 日窗口小幅正向 `+0.0034`，未達 promotion floor 且集中度惡化；其餘三窗 return uplift 為 `-0.0004`、`-0.0017`、`-0.0010`。因此目前 `0.12` overlay 可標為 `REJECT_CURRENT_OVERLAY`，不必被動等待同一方案；但整個產業 feature family 仍是 `UNRESOLVED_RESEARCH_CANDIDATE`。完整邊界與 hashes 見 `quick_multiwindow_diagnostic.json`／`.md`。

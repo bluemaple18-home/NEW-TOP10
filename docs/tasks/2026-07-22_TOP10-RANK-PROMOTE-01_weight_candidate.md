@@ -48,3 +48,5 @@ FEATURE-PROMOTE-02 不是 GO、reviewed SHA 不一致、資料 manifest 漂移�
 ## 2026-07-22 final disposition
 
 第一版 proxy baseline 經獨立 Review 否決後，已改用 40 份真實 production ranking artifacts。26 個成熟可配對日期的 Top5 replay 為 return uplift `-0.0075`、hit-rate uplift `-0.0231`，且未達 60 日 promotion floor；決策為 `NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`。本卡不是待執行 blocker，而是已完成且禁止 production mutation。固定 replay、input manifest、decision 與 verifier 均在 `docs/evidence/INDUSTRY-PROMOTION-20260722/`。
+
+2026-07-23 補充 quick diagnostic：現行 `0.12` overlay 在 59／99／119／234 日窗口中只有最短窗弱正，長窗皆負且集中度均惡化，因此現行 candidate 結案為 `REJECT_CURRENT_OVERLAY`。這不等於產業 feature family 永久無效；family 狀態為 `UNRESOLVED_RESEARCH_CANDIDATE`，未來須以不同 formulation 另開 candidate。
