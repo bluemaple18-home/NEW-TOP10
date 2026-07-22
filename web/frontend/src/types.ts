@@ -40,6 +40,45 @@ export type LatestRankingResponse = {
   reference_summary?: RankingReferenceSummary | null
 }
 
+export type MarketFlowRadarItem = {
+  rank: number
+  theme_id: string
+  theme_name: string
+  security_count: number
+  observed_security_count: number
+  missing_count: number
+  coverage: number
+  institutional_buy_value: number
+  institutional_sell_value: number
+  institutional_net_value: number
+  stale_observation_count: number
+  freshness: 'FRESH' | 'STALE'
+  status: 'COMPLETE' | 'PARTIAL' | 'ZERO_COVERAGE'
+  flow_direction: 'INFLOW' | 'OUTFLOW' | 'FLAT'
+  research_only: boolean
+}
+
+export type MarketFlowRadarResponse = {
+  schema_version: string
+  view_version: string
+  as_of_date: string
+  freshness: 'FRESH' | 'STALE'
+  coverage: number
+  coverage_status: 'COMPLETE' | 'PARTIAL'
+  source: { source_id: string; source_type: string; description: string }
+  evidence: string[]
+  venue_coverage: { TWSE: string; TPEX: string }
+  allocation_policy: string
+  membership_snapshot: { version: string; content_hash: string }
+  research_boundary: {
+    graph_status: string
+    graph_drilldown: string
+    ranking_impact: string
+    message: string
+  }
+  items: MarketFlowRadarItem[]
+}
+
 export type ExposureBreakdownItem = {
   name: string
   weight: number

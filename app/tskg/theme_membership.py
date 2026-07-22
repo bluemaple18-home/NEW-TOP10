@@ -127,6 +127,10 @@ class ThemeMembershipSnapshot:
     def as_dict(self) -> dict[str, Any]:
         return deepcopy(self._payload)
 
+    @classmethod
+    def from_file(cls, path: Path) -> "ThemeMembershipSnapshot":
+        return cls(json.loads(path.read_text(encoding="utf-8")))
+
 
 def aggregate_theme_institutional_flow(
     snapshot: ThemeMembershipSnapshot,

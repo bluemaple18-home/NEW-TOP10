@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routers.backtesting import create_backtesting_router
 from app.api.routers.fundamentals import create_fundamentals_router
 from app.api.routers.market import create_market_router
+from app.api.routers.market_flow import create_market_flow_router
 from app.api.routers.monitoring import create_monitoring_router
 from app.api.routers.stock_detail import create_stock_detail_router
 from app.api.routers.trading import create_trading_router
@@ -48,6 +49,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(create_market_router(market_service))
+app.include_router(create_market_flow_router(PROJECT_ROOT))
 app.include_router(create_backtesting_router(backtest_service))
 app.include_router(create_trading_router(market_service))
 app.include_router(create_fundamentals_router(fundamental_service))

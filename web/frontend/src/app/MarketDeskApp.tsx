@@ -1,13 +1,14 @@
 import { useEffect, useState, useTransition } from 'react'
 import { fetchStockDetail, fetchWeeklyCandidates } from '../api'
 import { MarketSnapshotPanel } from '../features/market'
+import { MarketFlowRadar } from '../features/market-flow'
 import { GlobalSettingsPanel } from '../features/settings'
 import { StockDetailPanel } from '../features/stock-detail'
 import { defaultInvestmentSettings, WeeklyCandidatesPanel, type GlobalInvestmentSettings } from '../features/weekly-candidates'
 import type { RankingItem, StockDetailResponse, WeeklyCandidatesResponse } from '../types'
 import { AppShell } from './AppShell'
 
-type DeskView = 'weekly' | 'stock'
+type DeskView = 'weekly' | 'radar' | 'stock'
 
 export function MarketDeskApp() {
   const [rankings, setRankings] = useState<RankingItem[]>([])
@@ -90,6 +91,14 @@ export function MarketDeskApp() {
     >
       <nav className="desk-tabs" aria-label="工作台頁面">
         <button
+          aria-pressed={activeView === 'radar'}
+          className={activeView === 'radar' ? 'desk-tab desk-tab--active' : 'desk-tab'}
+          onClick={() => setActiveView('radar')}
+          type="button"
+        >
+          市場雷達
+        </button>
+        <button
           aria-pressed={activeView === 'weekly'}
           className={activeView === 'weekly' ? 'desk-tab desk-tab--active' : 'desk-tab'}
           onClick={() => setActiveView('weekly')}
@@ -108,7 +117,7 @@ export function MarketDeskApp() {
         </button>
       </nav>
 
-      {activeView === 'weekly' ? (
+      {activeView === 'radar' ? <MarketFlowRadar /> : activeView === 'weekly' ? (
         <section className="weekly-page">
           <div className="weekly-page__settings">
             <GlobalSettingsPanel settings={settings} onChange={setSettings} />

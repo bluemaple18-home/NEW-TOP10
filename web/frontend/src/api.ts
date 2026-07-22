@@ -2,6 +2,7 @@ import type {
   BacktestSummaryResponse,
   GlobalInvestmentSettings,
   LatestRankingResponse,
+  MarketFlowRadarResponse,
   StockDetailResponse,
   StockOhlcvResponse,
   WeeklyCandidatesResponse,
@@ -43,4 +44,8 @@ export function fetchStockDetail(stockId: string, limit = 1200): Promise<StockDe
 
 export function fetchBacktestSummary(): Promise<BacktestSummaryResponse> {
   return fetchJson<BacktestSummaryResponse>('/api/backtests/summary')
+}
+
+export function fetchMarketFlowRadar(asOfDate = '2026-07-17'): Promise<MarketFlowRadarResponse> {
+  return fetchJson<MarketFlowRadarResponse>(`/api/v1/market-flow/radar?as_of_date=${asOfDate}`)
 }
