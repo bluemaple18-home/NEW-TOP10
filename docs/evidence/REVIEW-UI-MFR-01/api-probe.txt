@@ -1,0 +1,32 @@
+UI-MFR-01 independent API probes
+candidate: a8d11a26d4378992a4749bae2707f6961a8de8ff
+base: cdd4c42
+
+GET /api/v1/market-flow/radar?as_of_date=2026-07-17
+  200; Access-Control-Allow-Origin: http://127.0.0.1:5173
+  schema_version=market-flow-radar-read-model-v1
+  source_type=SYNTHETIC_FIXTURE; TWSE=AVAILABLE; TPEX=BLOCKED
+  graph_drilldown=RESEARCH_ONLY; ranking_impact=NONE
+
+GET /api/v1/market-flow/radar?as_of_date=2026-07-18
+  200; coverage=0.0; coverage_status=PARTIAL; no external source access observed
+
+GET /api/v1/market-flow/radar?as_of_date=not-a-date
+  422; FastAPI validation envelope; CORS header present
+
+GET /api/v1/market-flow/radar?as_of_date=2026-99-99
+  500; no JSON error envelope and no CORS header
+  traceback: ThemeMembershipContractError: as_of_date must be YYYY-MM-DD
+  root: app/tskg/theme_membership.py:33-39,117; endpoint does not translate domain validation to 4xx
+
+POST /api/v1/market-flow/radar
+  405 Method Not Allowed
+
+Determinism/no mutation
+  build_market_flow_radar_response(ROOT) called twice: equal payloads
+  implementation reads only data/fixtures/tskg JSON files; no network client/import or writer path in radar slice
+  ranking/prod feature paths are not called by radar endpoint
+
+Closed schema
+  route has no FastAPI response_model; /openapi.json exposes no closed response contract.
+  The returned dict is not runtime-validated against the frontend/API response shape.

@@ -1,0 +1,35 @@
+UI-MFR-01 independent CDP acceptance
+Chrome: /Applications/Google Chrome.app, isolated headless CDP
+Target: http://127.0.0.1:5173/
+Listeners: Runtime.consoleAPICalled, Runtime.exceptionThrown, Network.loadingFailed,
+Network.responseReceived registered before Page.navigate.
+
+Desktop 1440-class run
+  Radar loaded through keyboard activation; active tab: 市場雷達; title: Theme 資金雷達
+  radar GET /api/v1/market-flow/radar?as_of_date=2026-07-17: 200 OK
+  screenshots: desktop-weekly.png, desktop-radar-live.png,
+    desktop-loading.png, desktop-empty.png, desktop-error.png,
+    desktop-stale.png, desktop-partial.png
+
+Mobile 390x844 run
+  active radar view; document scrollWidth=390, clientWidth=390, overflow=false
+  screenshot: mobile-radar-live.png
+
+Keyboard
+  focused button text=市場雷達; native Enter event switched active view to 市場雷達.
+
+Console/page errors
+  no console error/warning, no Runtime.exceptionThrown/pageerror.
+  React DevTools informational message only.
+
+Network separation
+  requestfailed: GET http://127.0.0.1:8001/api/weekly-candidates?... (existing baseline)
+  API server traceback: FileNotFoundError for data/clean/features.parquet.
+  This is not the new radar endpoint; radar remained 200 and rendered.
+  No radar requestfailed or HTTP >=400 response in the radar browser path.
+
+Visual critique
+  dense analytical shell is retained; status/freshness/coverage/source and research boundary are visible.
+  mobile table is contained by an inner horizontal scroller; no page overflow or overlap observed.
+  P2 wording concern: visible label “Top10 recommendation” is recommendation vocabulary
+  inside a research-only page, despite the adjacent no-buy/no-ranking-impact boundary.
