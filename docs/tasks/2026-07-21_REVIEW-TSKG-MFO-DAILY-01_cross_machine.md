@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-MFO-DAILY-01
 chain_id: TSKG-MFO-DAILY-01
 title: Cross-machine independent review of daily T86 market-flow pipeline
-status: CLOSED
+status: ACCEPTED_MAINLINE_SOURCE_HOST_CLEANUP_PENDING
 type: review
 owner: Codex 主線
 assignee: independent-cross-machine-review-thread
@@ -136,12 +136,12 @@ gate_5_mainline_acceptance: complete
 - Acceptance evidence：`docs/evidence/TSKG-MFO-DAILY-01/acceptance.md`。
 - Cleanup：指定 implementation/review branches 與本次 isolated worktree 於 acceptance push 後移除；原 thread 在 reviewer host 不存在，記錄為無可封存實體。
 
-## Closure
+## Cross-machine closure status
 
-- Canonical host：目前主線 checkout `<repo-root>`。
-- Canonical main：`07ddbf6694ae8fdf1d697bcf00fac2f579de4cbb` 起已包含 Review、acceptance 與 cleanup receipt；後續 closure commit 只更新狀態文件。
-- Implementation／review／integration local 與 remote branches：已移除。
-- Related worktree：已移除；權威主機只剩 main worktree。
-- Review thread receipt 在權威主機沒有可操作實體，視為 absent cleanup，不再列 blocker 或待辦。
-- 另一台曾回報的 dirty checkout 不屬於目前 canonical workspace，且未出現在本機；不得覆蓋本機 clean evidence。
-- Chain status：`CLOSED`；本鏈無剩餘 action item。
+- Shared main：`406b8119b543bdb100d23463c7379cd8dabf8d10` 已包含 Review、acceptance 與 reviewer-host cleanup receipt。
+- Reviewer host：main clean/synced，相關 implementation／review／integration branches 與 isolated worktree 已移除。
+- Source host：使用者回報仍停在 `1943e82`，本機 `origin/main` cache 為 `09e7c27`，另有 10 個 dirty files、2 個 prunable worktrees、1 個 review detached worktree，以及舊 MFO local branches。
+- Review thread：`019f839f-5faf-72a3-9ea3-5b847cfeb709`，source host 狀態 `notLoaded`；Reviewer host 查無實體。
+- Implementation thread：`019f708e-2c20-7262-8102-6144674d54ce`，source host 狀態 `notLoaded`。
+- Chain status：`MAINLINE_ACCEPTED / SOURCE_HOST_CLEANUP_PENDING`。
+- Source host 必須先 `fetch --prune`、盤點並保存或分流 dirty files，確認 shared main 已含 candidate，再清 worktree／branches、同步 main、封存兩個 threads。不得未判定就刪除 dirty files。

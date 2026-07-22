@@ -1,6 +1,6 @@
 # Result
 
-state：`CLEANUP_PENDING`
+state：`CLOSED`
 
 ## SHADOW-RUN-01
 
@@ -30,4 +30,11 @@ state：`CLEANUP_PENDING`
 
 ## Cleanup receipt
 
-待最終 closeout commit 推上 `main` 後補：接收端 branch/worktree 移除、正式 tasks archive、最終 `origin/main` SHA。
+- functional mainline：`2480364`
+- closeout state commit：`25a136c`
+- 接收端本輪 related worktrees remaining：`0`
+- 接收端本輪 related local branches remaining：`0`
+- 接收端本輪 related remote branches remaining：`0`
+- archived tasks：`019f88c6-47e3-7891-8a61-770f7d882baf`、`019f88d0-f4e8-7b61-840e-81bb717af1a4`、`019f88d4-3fac-7251-8d3f-ba01b842e5c4`
+- final receipt：本文件所在 commit；推送後以 `git rev-parse origin/main` 驗證
+- repository action items：`0`

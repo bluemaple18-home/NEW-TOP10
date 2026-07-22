@@ -1,6 +1,6 @@
 # Current Status
 
-狀態：`MINI-REMAINING-01 / CLEANUP_PENDING`
+狀態：`MINI-REMAINING-01 / CLOSED`
 
 ## SHADOW-RUN-01
 
@@ -21,8 +21,9 @@
 - Windows parser／UIA／screenshot live：NOT_RUN
 - 真實登入／憑證匯入／外部交易：NOT_RUN，需 Windows、本地資料與使用者當次明確授權
 
-## Cleanup
+## Cleanup receipt
 
-- 接收端 branches／worktrees：待確認 main 已含等價內容後移除。
-- 正式 tasks：完成後 archive，不刪除。
+- 接收端本輪 worktrees：已移除；只剩 main worktree。
+- 接收端本輪 local／remote branches：已移除。
+- 正式 tasks：SHADOW Review、Yuanta Review、Yuanta Repair 均已 archive。
 - 交接端原 10 個本機檔案：未進 Git、未由接收端刪除；其中 prototype 曾含可用登入資料，建議輪替祕密並在來源主機安全清除。

@@ -3,7 +3,7 @@
 ## Status
 
 ```text
-status: CLOSED_GO
+status: GO_SOURCE_HOST_CLEANUP_PENDING
 candidate: dfc30dc4a8466b914c642c1b38ea206dd388aa7c
 independent_review: REVIEW_GO
 review_commit: cc7355c
@@ -50,19 +50,20 @@ git diff --check: PASS
 
 - Acceptance push 成功後移除 isolated review worktree。
 - 僅刪除本任務的 `codex/tskg-mfo-daily-01`、`codex/top10new-review-tskg-mfo-daily-01-20260721-153932` 與 `codex/tskg-mfo-mainline-integration` local/remote refs。
-- Thread receipt `019f839f-5faf-72a3-9ea3-5b847cfeb709` 在權威主機查無可操作實體；cleanup 結果記為 `ABSENT_ON_CANONICAL_HOST`，不再保留為 blocker。
+- Review thread `019f839f-5faf-72a3-9ea3-5b847cfeb709` 只在 source host 可見；reviewer host 查無實體不等於已封存。
 
 ## Final closure
 
 ```text
-chain_status: CLOSED
-canonical_workspace_clean: true
-canonical_main_synced: true
-related_local_branches_remaining: 0
-related_remote_branches_remaining: 0
-related_worktrees_remaining: 0
-review_thread_cleanup: ABSENT_ON_CANONICAL_HOST
-remaining_actions: 0
+chain_status: MAINLINE_ACCEPTED_SOURCE_HOST_CLEANUP_PENDING
+shared_main_synced_on_reviewer_host: true
+reviewer_host_related_branches_remaining: 0
+reviewer_host_related_worktrees_remaining: 0
+source_host_dirty_files_reported: 10
+source_host_prunable_worktrees_reported: 2
+source_host_detached_review_worktrees_reported: 1
+review_thread_cleanup: PENDING_ON_SOURCE_HOST
+implementation_thread_cleanup: PENDING_ON_SOURCE_HOST
 ```
 
-另一台電腦曾回報的 10 個 dirty files 與 `/Users/matt/...` checkout 在權威主機不存在，因此不是 canonical unresolved state，不得繼續列為本鏈待辦。
+Mainline acceptance 本身仍為 `GO`；未完成的是 source-host local cleanup。dirty files 必須先分類為提交、另開分支保存或明確捨棄，不能因 shared main 已完成就直接刪除。

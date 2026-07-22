@@ -14,4 +14,4 @@
 
 ## 本輪 cleanup
 
-接收端只刪除已證明整合的任務 branches／worktrees，並 archive 正式 Review／Repair tasks。來源主機未進 Git 的 10 個檔案不在接收端控制範圍；含敏感資料 prototype 不可再跨機搬運，應在來源主機輪替祕密後安全處理。
+接收端已刪除經證明整合的本輪任務 branches／worktrees，並 archive 三個正式 Review／Repair tasks。來源主機未進 Git 的 10 個檔案不在接收端控制範圍；含敏感資料 prototype 不可再跨機搬運，應在來源主機輪替祕密後安全處理。
