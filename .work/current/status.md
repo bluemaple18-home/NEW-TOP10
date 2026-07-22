@@ -1,6 +1,6 @@
 # Current Status
 
-狀態：`TSKG-MFO-DAILY-01` 正式獨立 Review 與 mainline acceptance 已完成。
+狀態：`TSKG-MFO-DAILY-01` 已 `CLOSED`；Review、acceptance、push、branch/worktree cleanup 均完成。
 
 已確認完成：
 
@@ -44,4 +44,4 @@
 - `run_weekend_research_matrix.py --skip-heavy` 只可證明 audit／compare，不代表 strategy matrix 已重跑。
 - TSKG T86 仍僅限 `SHARE` 本機 artifact；TPEx、redistribution、ThemeFlow、graph/ranking feature 未授權。
 
-下一步：若要開 candidate，只能走 sealed OOS／成熟樣本／replay／portfolio risk 的獨立 shadow 實驗卡；目前沒有可直接升 production 的項目。
+下一步：本鏈無待辦。若要開新 candidate，只能走 sealed OOS／成熟樣本／replay／portfolio risk 的獨立 shadow 實驗卡。

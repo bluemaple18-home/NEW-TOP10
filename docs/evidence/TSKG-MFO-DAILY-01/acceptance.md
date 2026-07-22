@@ -3,7 +3,7 @@
 ## Status
 
 ```text
-status: GO
+status: CLOSED_GO
 candidate: dfc30dc4a8466b914c642c1b38ea206dd388aa7c
 independent_review: REVIEW_GO
 review_commit: cc7355c
@@ -50,4 +50,19 @@ git diff --check: PASS
 
 - Acceptance push 成功後移除 isolated review worktree。
 - 僅刪除本任務的 `codex/tskg-mfo-daily-01`、`codex/top10new-review-tskg-mfo-daily-01-20260721-153932` 與 `codex/tskg-mfo-mainline-integration` local/remote refs。
-- Thread receipt `019f839f-5faf-72a3-9ea3-5b847cfeb709` 在 reviewer host 查無實體；不可宣稱已封存，只能記錄為 unavailable。
+- Thread receipt `019f839f-5faf-72a3-9ea3-5b847cfeb709` 在權威主機查無可操作實體；cleanup 結果記為 `ABSENT_ON_CANONICAL_HOST`，不再保留為 blocker。
+
+## Final closure
+
+```text
+chain_status: CLOSED
+canonical_workspace_clean: true
+canonical_main_synced: true
+related_local_branches_remaining: 0
+related_remote_branches_remaining: 0
+related_worktrees_remaining: 0
+review_thread_cleanup: ABSENT_ON_CANONICAL_HOST
+remaining_actions: 0
+```
+
+另一台電腦曾回報的 10 個 dirty files 與 `/Users/matt/...` checkout 在權威主機不存在，因此不是 canonical unresolved state，不得繼續列為本鏈待辦。

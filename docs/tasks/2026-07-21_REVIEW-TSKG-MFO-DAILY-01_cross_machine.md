@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-MFO-DAILY-01
 chain_id: TSKG-MFO-DAILY-01
 title: Cross-machine independent review of daily T86 market-flow pipeline
-status: ACCEPTED_MAINLINE
+status: CLOSED
 type: review
 owner: Codex 主線
 assignee: independent-cross-machine-review-thread
@@ -135,3 +135,13 @@ gate_5_mainline_acceptance: complete
 - Review card/evidence 已以 commits `2bfbb4a`、`2ab556c` 帶入 `main`。
 - Acceptance evidence：`docs/evidence/TSKG-MFO-DAILY-01/acceptance.md`。
 - Cleanup：指定 implementation/review branches 與本次 isolated worktree 於 acceptance push 後移除；原 thread 在 reviewer host 不存在，記錄為無可封存實體。
+
+## Closure
+
+- Canonical host：目前主線 checkout `<repo-root>`。
+- Canonical main：`07ddbf6694ae8fdf1d697bcf00fac2f579de4cbb` 起已包含 Review、acceptance 與 cleanup receipt；後續 closure commit 只更新狀態文件。
+- Implementation／review／integration local 與 remote branches：已移除。
+- Related worktree：已移除；權威主機只剩 main worktree。
+- Review thread receipt 在權威主機沒有可操作實體，視為 absent cleanup，不再列 blocker 或待辦。
+- 另一台曾回報的 dirty checkout 不屬於目前 canonical workspace，且未出現在本機；不得覆蓋本機 clean evidence。
+- Chain status：`CLOSED`；本鏈無剩餘 action item。

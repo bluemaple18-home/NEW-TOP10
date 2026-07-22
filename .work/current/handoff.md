@@ -22,7 +22,7 @@ TOP10new 下一步要怎麼讓模型越來越準，同時避免把未驗證的�
 
 ## Blocker
 
-目前沒有 TSKG daily integration blocker；production ranking/model promotion 仍明確未獲准。
+目前沒有 TSKG daily integration blocker或 cleanup 待辦；production ranking/model promotion 仍明確未獲准。
 
 已修復原本可把 shadow ranking 輸出指向 production artifact 的邊界缺口。`BROAD_RISK_ON`、`CHOPPY_RANGE` 仍只有 generic fallback，不算獨立 candidate。
 
@@ -50,11 +50,13 @@ TOP10new 下一步要怎麼讓模型越來越準，同時避免把未驗證的�
 
 ## 下一步
 
-若要繼續改善，只能針對單一 candidate 另開 sealed OOS shadow experiment；先鎖樣本、replay、portfolio risk 與 promotion contract，不直接改 production。
+本鏈已關閉，無等待條件。若要繼續改善，只能針對單一 candidate 另開 sealed OOS shadow experiment；先鎖樣本、replay、portfolio risk 與 promotion contract，不直接改 production。
 
 審查證據：`docs/evidence/REVIEW-REGIME-RESEARCH-01/review.md`。
 
 TSKG evidence：`docs/evidence/REVIEW-TSKG-MFO-DAILY-01/review.md`、`docs/evidence/TSKG-MFO-DAILY-01/acceptance.md`。
+
+Canonical cleanup：本機 main clean/synced，相關 branches/worktree 皆為 0；舊 thread 在權威主機無實體，按 absent cleanup 收尾。
 
 ## 限制
 
