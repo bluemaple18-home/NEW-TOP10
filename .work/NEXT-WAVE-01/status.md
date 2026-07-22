@@ -6,21 +6,22 @@
 
 ## Current state
 
-- state：RUNNING
+- state：ACCEPTED_PENDING_CLEANUP
 - base_sha：558a04f82a9ff164ae6a95a126f8a354bd33ebab
 - cards：1 dispatcher + 6 executable cards
-- current frontier：UI-MFR-01
+- current frontier：final cleanup
 - TSKG-MFO-TPEX-01：`ACCEPTED_KEEP_BLOCKED`；TPEx venue coverage 不可使用
 - TSKG-MFO-THEME-01：`ACCEPTED`；Repair `71c02aa8` 經原 Reviewer re-review `GO`
 - TSKG-MFO-GRAPH-01：`ACCEPTED_SHADOW_ONLY`；Repair `6115a3c` 經原 Reviewer re-review `GO`
 - CP-NEXT-WAVE-A：`PASS`；96 TSKG tests 與 research/source、Theme、Graph verifiers 通過
 - FEATURE-PROMOTE-02：`ACCEPTED_NO_GO`；Repair 2 `1a08f385` 經原 Reviewer final re-review `GO`
 - TOP10-RANK-PROMOTE-01：`BLOCKED_BY_PROMOTION_NO_GO`；未修改 ranking/weight
-- implementation：UI-MFR-01 read-only radar 待開始
+- UI-MFR-01：Repair 2 candidate `88d6125f82193d35328a4d34352020a4e21b839f` 已由原 Reviewer final re-review `GO`；review evidence `8b324275ba5a1544486c6d11b1a387d85a75c872`
+- UI-MFR-01 mainline gates：32 affected tests、Python compilation、frontend production build、`git diff --check` 全數 PASS；browser acceptance 採用 fixed-candidate final re-review 證據
 
 ## Blocker
 
-沒有 card packaging blocker。Promotion decision 為 `NO_GO`，因此 ranking mutation 依硬閘門保持 blocked；這是正確結案，不得改寫成 GO。
+沒有 execution blocker。Promotion decision 為 `NO_GO`，因此 ranking mutation 依硬閘門保持 blocked；這是正確結案，不得改寫成 GO。TPEx source decision 仍為 `KEEP_BLOCKED`。
 
 ## Fork
 

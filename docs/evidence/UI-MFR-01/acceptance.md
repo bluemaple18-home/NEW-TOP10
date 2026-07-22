@@ -1,6 +1,6 @@
 # UI-MFR-01 Acceptance
 
-Status: `CANDIDATE / BROWSER-NO-GO`
+Status: `ACCEPTED_PENDING_CLEANUP`
 
 ## Scope
 
@@ -37,13 +37,24 @@ anti_patterns_to_avoid: marketing hero、紫藍漸層、card-in-card、recommend
 - Response: `market-flow-radar-read-model-v1`, `ui-mfr-01-fixture-2026-07-17-v1`, TWSE available / TPEx blocked, Graph `ACCEPTED_SHADOW_ONLY`, ranking impact `NONE`.
 - `git diff --check`: pass.
 
-## Browser evidence
+## Independent review result
 
-`NO-GO`: local API started successfully, but Playwright could not start because its Chromium executable is absent. Installing browsers/dependencies was explicitly out of scope. Therefore no desktop/mobile screenshot or runtime UI console claim is made.
-
-Listeners were registered before the attempted navigation in the browser script; navigation did not execute because browser launch failed.
+- Fixed candidate: `88d6125f82193d35328a4d34352020a4e21b839f`.
+- Final review evidence: `8b324275ba5a1544486c6d11b1a387d85a75c872`.
+- Verdict: `GO`; P1/P2 findings: 0; Repair 2/2 complete; Repair 3 prohibited and unnecessary.
+- Fresh gates: 32 affected tests, 51/51 date boundary matrix, strict nested schema/runtime checks, CORS/versioned 422, POST 405/read-only, determinism/non-mutation, Python compilation and frontend build all passed.
+- Browser: desktop/mobile/keyboard/live/five-state acceptance passed; radar network clean. The weekly `features.parquet` 500 is an independent pre-existing baseline and is separated from the radar route.
 
 ## Known limits
 
-- `pnpm --dir web/frontend build` is blocked by missing `web/frontend/node_modules` (`tsc: command not found`); no dependency download was performed.
-- Desktop/mobile layout, keyboard path, loading/empty/error/stale/partial screenshots, and browser console/network clean state remain pending a machine with existing frontend dependencies and Chromium.
+- TPEx venue coverage remains blocked by the accepted source decision.
+- Theme/Graph inputs remain research/shadow-only and have no ranking impact.
+- The existing weekly route still needs its local `data/clean/features.parquet`; this is not a radar regression.
+
+## Mainline acceptance rerun
+
+- 32 affected Python tests: PASS.
+- Python compilation: PASS.
+- Frontend production build: PASS.
+- `git diff --check`: PASS.
+- Browser evidence is the independent final re-review evidence for the identical fixed-candidate tree.
