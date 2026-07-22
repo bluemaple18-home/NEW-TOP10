@@ -1,0 +1,35 @@
+{
+  "verdict": "GO",
+  "promotion_decision": "NO_GO",
+  "fixed_candidate_sha": "1a08f38550a73dfbf680de7ff441e5b6f82baa89",
+  "repair_2_card_sha": "b3f7b6b7d3584df6bf96993341531db25d62f353",
+  "previous_re_review_sha": "76b066bfd02ff1e1cd88d55da1553562f29adece",
+  "repair_3": "prohibited",
+  "actual_repository": {
+    "missing_required_evidence_count": 12,
+    "graph_residual_tolerance_gt_1": "RISK",
+    "tpex": "KEEP_BLOCKED",
+    "verifier": "OK"
+  },
+  "freshness_contract": {
+    "max_age_days": 1,
+    "max_window_days": 365,
+    "decision_as_of": "2026-07-22",
+    "utc_date_semantics": true,
+    "decision_as_of_sha_bound": true
+  },
+  "probes": {
+    "original_adversarial": "all_pass",
+    "previous_fresh": "all_pass",
+    "final_fresh": "all_pass",
+    "synthetic_go_scope": "temporary_only"
+  },
+  "tests": {
+    "feature_promotion": "8 passed",
+    "relevant_promotion_suite": "27 passed",
+    "py_compile": "passed",
+    "git_diff_check": "passed",
+    "allowlist_privacy_non_mutation": "passed"
+  },
+  "findings": []
+}
