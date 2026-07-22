@@ -1,0 +1,17 @@
+{
+  "fixture_version": "theme-membership-v1",
+  "schema_version": "tskg-theme-membership-snapshot-v1",
+  "formula_version": "theme-institutional-flow-v1",
+  "as_of_date": "2026-07-17",
+  "source": "source-synthetic-theme-membership-v1",
+  "version": "theme-membership-fixture-2026-07-17-v1",
+  "content_hash": "9cbce741c7ad811dbfa07b9f9d3781a0026744af245d5183b9d72d79265dd3f5",
+  "effective_interval": {"from": "2026-07-01", "to": "2026-07-31"},
+  "evidence_locator": "fixture://tskg/theme-membership-v1",
+  "venue_coverage": {"TWSE": "AVAILABLE", "TPEX": "BLOCKED"},
+  "memberships": [
+    {"security_id": "security-2330-xtai", "theme_id": "theme-semiconductor", "effective_from": "2026-07-01", "effective_to": "2026-07-31"},
+    {"security_id": "security-3017-xtai", "theme_id": "theme-ai", "effective_from": "2026-07-01", "effective_to": "2026-07-31"},
+    {"security_id": "security-3017-xtai", "theme_id": "theme-semiconductor", "effective_from": "2026-07-01", "effective_to": "2026-07-31"}
+  ]
+}
