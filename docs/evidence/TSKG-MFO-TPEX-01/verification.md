@@ -2,8 +2,9 @@
 
 ## Result
 
-- candidate base: `ecac54440d0eae95ee7aefb830f06da3107e2aac`
-- requested base ancestor: `558a04f82a9ff164ae6a95a126f8a354bd33ebab`
+- candidate: `5a436b1062a8ef6a7ba4908cd6a79f8446dce2c9`
+- candidate parent / package commit: `ecac54440d0eae95ee7aefb830f06da3107e2aac`
+- canonical main ancestor before package: `558a04f82a9ff164ae6a95a126f8a354bd33ebab`
 - access date: `2026-07-22` (Asia/Taipei)
 - source gate: `KEEP_BLOCKED`
 - adapter: not implemented; live fetch remains disabled by absence of approved source policy

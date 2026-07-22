@@ -6,11 +6,12 @@
 
 ## Current state
 
-- state：CARD_DRAFTED / PACKAGING
+- state：RUNNING
 - base_sha：558a04f82a9ff164ae6a95a126f8a354bd33ebab
 - cards：1 dispatcher + 6 executable cards
-- current frontier：TSKG-MFO-TPEX-01
-- implementation：尚未開始
+- current frontier：TSKG-MFO-THEME-01
+- TSKG-MFO-TPEX-01：`ACCEPTED_KEEP_BLOCKED`；TPEx venue coverage 不可使用
+- implementation：Theme 尚未開始
 
 ## Blocker
 

@@ -1,6 +1,6 @@
 # TSKG-MFO-TPEX-01 Status
 
-- state: `DELIVERED_CANDIDATE`
+- state: `ACCEPTED_KEEP_BLOCKED`
 - verdict: `KEEP_BLOCKED`
 - base_sha: `558a04f82a9ff164ae6a95a126f8a354bd33ebab`
 - candidate_base_head: `ecac54440d0eae95ee7aefb830f06da3107e2aac`
@@ -11,3 +11,5 @@
 - blocker: missing explicit automated-use permission and required operational/legal fields
 - safety: no registration, purchase, terms acceptance, data endpoint call, download, rate/load test, credential access, or repo-external write
 - downstream: Theme/Graph/feature/ranking work remains blocked for TPEx venue coverage
+- review: `REVIEW_GO` on candidate `5a436b1062a8ef6a7ba4908cd6a79f8446dce2c9`; review commit `6398e63340123871bc184e80fcfac73eb1806f38`
+- acceptance: source-governance card complete; TPEx adapter and TPEx venue coverage remain blocked
