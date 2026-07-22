@@ -1,0 +1,28 @@
+UI-MFR-01 final independent CDP browser smoke
+Chrome: /Applications/Google Chrome.app, isolated headless CDP 127.0.0.1:9222
+Target: http://127.0.0.1:5173/
+Listeners: Runtime/Page/Network enable and console/pageerror/requestfailed hooks
+registered before Page.navigate.
+
+Desktop/mobile/keyboard
+- focused 市場雷達; native Enter switched active view to 市場雷達.
+- title Theme 資金雷達; radar GET /api/v1/market-flow/radar?as_of_date=2026-07-17 -> 200.
+- 390px mobile: scrollWidth=390, clientWidth=390, overflow=false.
+- screenshots: final-re-review-screenshots/desktop-weekly.png,
+  desktop-radar-live.png, desktop-loading.png, desktop-empty.png,
+  desktop-error.png, desktop-stale.png, desktop-partial.png,
+  mobile-radar-live.png.
+
+Console/pageerror/network
+- no radar console error/warning, pageerror, requestfailed, or HTTP error.
+- React DevTools informational message only.
+- weekly-candidates requestfailed with net::ERR_FAILED and server
+  FileNotFoundError for data/clean/features.parquet is an existing weekly
+  baseline; it is not the radar endpoint and does not block radar render.
+
+Visual/reduced motion
+- dense analytical shell, status/freshness/coverage/source, research-only
+  boundary and isolated Top10 decision-layer wording are visible.
+- no observed desktop/mobile overlap or page overflow; mobile table remains
+  contained by its inner scroller.
+- existing prefers-reduced-motion CSS remains active; radar adds no animation.

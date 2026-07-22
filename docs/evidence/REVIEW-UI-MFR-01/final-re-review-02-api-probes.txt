@@ -1,0 +1,25 @@
+UI-MFR-01 final independent re-review API probes
+fixed candidate: 88d6125f82193d35328a4d34352020a4e21b839f
+repair2 card: e31df1075d5762548fbaff03c65f15c0f881520e
+previous re-review evidence: cfb5aa5c869528488ddb22de5a275cf75bf21683
+
+Boundary matrix: 51/51
+- 40 invalid lexical/date inputs, including compact, ISO-week, signed,
+  leading/trailing whitespace, Unicode/full-width digits, datetime, timezone,
+  slash, single-digit month/day, control/NUL, and long input: all 422,
+  schema_version=market-flow-radar-error-v1, allowed-origin CORS.
+- 2026-01-01 and 2026-08-01: 422 DATE_OUT_OF_RANGE with CORS.
+- 2026-07-17: 200, market-flow-radar-read-model-v1, allowed-origin CORS.
+- closed schema, nested schema, unknown-field rejection, determinism, and
+  research-only/non-mutation checks: pass.
+
+Fresh direct probes
+- POST /api/v1/market-flow/radar -> 405, Allow=GET, CORS present.
+- Nested Pydantic drift: source extra, item missing, item wrong type, and
+  research-boundary missing field: all rejected.
+- FastAPI runtime response validation: top-level extra, missing items, and
+  wrong nested type: all ResponseValidationError.
+- OpenAPI 200 response references MarketFlowRadarResponse; top-level and nested
+  source/item/research-boundary models have additionalProperties=false.
+- Five repeated valid fixture builds are equal; no writer, ranking/model,
+  production mutation, external source, or network client is in radar path.
