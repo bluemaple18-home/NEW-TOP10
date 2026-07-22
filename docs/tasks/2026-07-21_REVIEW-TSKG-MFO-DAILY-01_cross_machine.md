@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-MFO-DAILY-01
 chain_id: TSKG-MFO-DAILY-01
 title: Cross-machine independent review of daily T86 market-flow pipeline
-status: CARD_DRAFTED
+status: REVIEW_GO
 type: review
 owner: Codex 主線
 assignee: independent-cross-machine-review-thread
@@ -109,12 +109,21 @@ source_branch: codex/tskg-mfo-daily-01
 review_branch: codex/top10new-review-tskg-mfo-daily-01-20260721-153932
 source_worktree_clean: true at card drafting
 unrelated_dirty_paths: []
-thread_id: pending
-worktree_path: pending platform assignment
-turn_status: pending
-gate_1_card_contract: drafted
-gate_2_visible_thread: pending
+thread_id: 019f839f-5faf-72a3-9ea3-5b847cfeb709
+worktree_path: local-only isolated Codex worktree; remove after acceptance
+turn_status: cross-machine review completed on 2026-07-22
+gate_1_card_contract: complete
+gate_2_visible_thread: receipt supplied by source machine; thread unavailable on reviewer host
 gate_3_candidate_delivery: complete
-gate_4_independent_review: pending
+gate_4_independent_review: REVIEW_GO
 gate_5_mainline_acceptance: pending
 ```
+
+## Review result
+
+- Verdict：`REVIEW_GO`
+- Reviewed SHA：`dfc30dc4a8466b914c642c1b38ea206dd388aa7c`
+- Parent：`c84120be3ca0fb9efa6ed367ddac70e3b1a801b8`
+- Blocking findings：無 P0–P2。
+- Non-blocking finding：1 個 P3，詳見 `docs/evidence/REVIEW-TSKG-MFO-DAILY-01/review.md`。
+- Mainline acceptance 尚須由主線 checkout 完成；本 review branch 不 merge、不改 candidate。
