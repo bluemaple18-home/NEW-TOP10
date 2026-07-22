@@ -49,5 +49,5 @@ git diff --check: PASS
 ## Cleanup contract
 
 - Acceptance push 成功後移除 isolated review worktree。
-- 僅刪除 `codex/tskg-mfo-daily-01` 與 `codex/top10new-review-tskg-mfo-daily-01-20260721-153932` 的 local/remote refs。
+- 僅刪除本任務的 `codex/tskg-mfo-daily-01`、`codex/top10new-review-tskg-mfo-daily-01-20260721-153932` 與 `codex/tskg-mfo-mainline-integration` local/remote refs。
 - Thread receipt `019f839f-5faf-72a3-9ea3-5b847cfeb709` 在 reviewer host 查無實體；不可宣稱已封存，只能記錄為 unavailable。
