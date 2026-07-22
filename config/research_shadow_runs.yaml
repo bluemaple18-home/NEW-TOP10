@@ -42,3 +42,15 @@ outputs:
   window_stability: "artifacts/backtest/replay_window_stability_2026-04-08_2026-05-13.json"
   decision_report: "artifacts/backtest/weekend_research_decision_report_2026-04-08_2026-05-13.json"
   manifest: "artifacts/backtest/research_shadow_run_manifest_2026-04-08_2026-05-13.json"
+
+feature_experiments:
+  feature_gate: "artifacts/feature_experiment_gate_2026-05-29.json"
+  output_prefix: "artifacts/shadow_feature_experiment"
+  run_output_prefix: "artifacts/research_shadow_run"
+  include_candidates:
+    - "candidate_persistence"
+    - "portfolio_risk_overlay"
+    - "regime_feature_group_ablation"
+    - "weekend_research_matrix"
+  excluded_candidates:
+    market_context: "SHADOW-01 keeps market_context BLOCKED; do not run market-context shadow experiment in this batch."
