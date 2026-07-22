@@ -1,0 +1,42 @@
+{
+  "reviewed_range": "4dece38211968ee3d4f68937d2968940520ce145..1c6a760a0d655f370e9056131d9fcba53851b97b",
+  "interpreter": "<repo-root>/.venv/bin/python (existing verified interpreter)",
+  "required": {
+    "pytest": "18 passed",
+    "verifier": {
+      "status": "OK",
+      "canonical_hash": "82e734cb7779808ae25afa64bbbcdd5b60bff3caa00c48fa543c324585f510d9",
+      "rejected_future_stale_missing": 3,
+      "max_hop": 2
+    },
+    "git_diff_check": "PASS"
+  },
+  "reviewer_owned": {
+    "weight_nan": "ACCEPTED by GraphDiffusionSnapshot",
+    "weight_positive_infinity": "ACCEPTED by GraphDiffusionSnapshot",
+    "weight_1e308": "ACCEPTED by GraphDiffusionSnapshot",
+    "tolerance_nan": "not rejected as GraphDiffusionContractError; fails later with JSON ValueError",
+    "tolerance_positive_infinity": "not rejected as GraphDiffusionContractError; fails later with JSON ValueError",
+    "decay_nan": "REJECTED",
+    "duplicate_edge_same_endpoints": "ACCEPTED",
+    "self_loop": "ACCEPTED and excluded during traversal",
+    "ambiguous_datetime_as_of": "REJECTED",
+    "path_growth_complete_dag_9_nodes_8_hops": {
+      "values": 12870,
+      "seconds": 0.121,
+      "mass": 1.0,
+      "note": "No edge/path-count or total-state bound exists; max_hops alone does not bound branching work."
+    }
+  },
+  "recomputed": {
+    "artifact_hash": "82e734cb7779808ae25afa64bbbcdd5b60bff3caa00c48fa543c324585f510d9",
+    "values": 6,
+    "mass": 1.0,
+    "shadow_values": {
+      "security-a": 0.0625,
+      "security-b": 0.25,
+      "security-c": 0.6875,
+      "security-d": 0.0
+    }
+  }
+}
