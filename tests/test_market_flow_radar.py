@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 from app.api.routers.market_flow import create_market_flow_router
 from app.api.main import app as main_app
@@ -54,6 +55,20 @@ def test_radar_api_returns_versioned_envelope_for_invalid_calendar_date() -> Non
     app = FastAPI()
     app.include_router(create_market_flow_router(ROOT))
     response = TestClient(app).get("/api/v1/market-flow/radar?as_of_date=2026-99-99")
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "schema_version": "market-flow-radar-error-v1",
+        "error": {"code": "INVALID_AS_OF_DATE", "message": "as_of_date 必須是有效的 YYYY-MM-DD 日期"},
+    }
+
+
+@pytest.mark.parametrize("as_of_date", ["20260717", "2026-W29-5"])
+def test_radar_api_rejects_alternate_iso_date_forms(as_of_date: str) -> None:
+    app = FastAPI()
+    app.include_router(create_market_flow_router(ROOT))
+
+    response = TestClient(app).get("/api/v1/market-flow/radar", params={"as_of_date": as_of_date})
 
     assert response.status_code == 422
     assert response.json() == {

@@ -1,0 +1,15 @@
+REPAIR-UI-MFR-01-02 API probes
+
+RED reproduced before repair:
+- GET radar?as_of_date=20260717 -> 200; echoed as_of_date=20260717.
+- GET radar?as_of_date=2026-W29-5 -> 200; echoed as_of_date=2026-W29-5.
+
+GREEN after repair:
+- GET radar?as_of_date=20260717 -> 422 INVALID_AS_OF_DATE; versioned error envelope.
+- GET radar?as_of_date=2026-W29-5 -> 422 INVALID_AS_OF_DATE; versioned error envelope.
+- GET radar?as_of_date=2026-07-17 -> 200; read-model v1.
+- 51/51 boundary cases pass, including whitespace, Unicode/full-width digits,
+  datetime/timezone, slash, single-digit, signed, control/NUL, and long input.
+- Closed response model, OpenAPI reference, GET-only/POST 405, and CORS pass.
+
+No production, ranking, model, writer, or external network path was exercised.

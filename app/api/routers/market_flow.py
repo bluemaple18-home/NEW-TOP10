@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from datetime import date
 
@@ -29,6 +30,8 @@ def create_market_flow_router(project_root: Path) -> APIRouter:
 
     @router.get("/radar", response_model=MarketFlowRadarResponse)
     def market_flow_radar(as_of_date: str = Query("2026-07-17")):
+        if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", as_of_date) is None:
+            return _error_response("INVALID_AS_OF_DATE", "as_of_date 必須是有效的 YYYY-MM-DD 日期")
         try:
             date.fromisoformat(as_of_date)
         except ValueError:

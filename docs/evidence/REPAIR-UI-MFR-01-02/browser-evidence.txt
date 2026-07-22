@@ -1,0 +1,12 @@
+REPAIR-UI-MFR-01-02 browser radar smoke
+
+Browser: temporary headless Chrome/CDP; listeners registered before navigation.
+Target: local frontend at http://127.0.0.1:5173/
+
+- Clicked 市場雷達 and observed the read-only radar view.
+- Radar request: GET /api/v1/market-flow/radar?as_of_date=2026-07-17 -> 200.
+- Rendered fixture date 2026-07-17, STALE freshness, COMPLETE coverage,
+  SYNTHETIC_FIXTURE provenance, and research-only Top10 boundary wording.
+- No radar pageerror, radar request failure, or radar HTTP error observed.
+- Existing weekly-candidates CORS failure remained an independent baseline;
+  it did not block the radar request or radar render.
