@@ -1,14 +1,33 @@
 # Result
 
-主線已完成三個基礎層：
+state：`CLEANUP_PENDING`
 
-- `MARKET-CONTEXT-02-TW`：輸出 `artifacts/market_context_YYYY-MM-DD.json`，單一資料源失敗時 warn/null，不阻塞 ranking。
-- `DECISION-QUALITY-01`：輸出 `artifacts/decision_quality_YYYY-MM-DD.json`，彙整入榜天數、歷史 replay、portfolio risk、market context 與 read-only reference annotation。
-- `FEATURE-EXP-01`：輸出 `artifacts/feature_experiment_gate_YYYY-MM-DD.json`，只允許 shadow experiment，不允許 production score / model promotion。
-- `REVIEW-REGIME-RESEARCH-01`：完成五支 regime／weekend research 腳本審查，修復 shadow ranking output isolation，裁決 `GO_SHADOW_ONLY`。
-- `REVIEW-TSKG-MFO-DAILY-01`：Candidate `dfc30dc` 獨立 Review `GO`；mainline acceptance 已完成，正式 evidence 已納入主線。
-- `TSKG-MFO-DAILY-01` cleanup：implementation／review／integration branches 與 isolated worktree 已移除；權威主機無對應舊 thread 實體，chain 已 `CLOSED`。
+## SHADOW-RUN-01
 
-已推進到遠端 `main`。
+- base：`406b8119b543bdb100d23463c7379cd8dabf8d10`
+- candidate：`19a2d12`
+- reviewed SHA／verdict：`19a2d12`／`REVIEW_GO`
+- review commit：`08caf5d`
+- integrated／acceptance SHA：`2aadec4`
+- tests：py_compile、`verify_research_shadow_runs.py`、`verify_feature_experiment_gate.py`、`git diff --check` 全部 PASS
 
-結論：TSKG T86 本機逐日唯讀 snapshot／market-context reuse 已接受並完成收尾，本鏈剩餘 action item 為 0。沒有任何項目因此取得 ranking/model production promotion 資格。
+## YUANTA-WIN-AUTOMATION-01
+
+- base：`2aadec4`
+- original candidate：`d765cb5`
+- initial review：`REVIEW_NO_GO`／`f9b7503`
+- repair candidate／reviewed SHA：`6c2d0ceaed976701d2c4b0da0a6b619926d0cb01`
+- final verdict／review commit：`REVIEW_GO`／`5505a7e`
+- integrated／experimental acceptance SHA：`2480364`
+- tests：py_compile、`verify_yuanta_windows_helpers.py`、secret/binary scan、`git diff --check` 全部 PASS
+- Windows live：`NOT_RUN_REQUIRES_WINDOWS_CREDENTIALS_AND_EXPLICIT_AUTHORIZATION`
+
+## Safety
+
+- Git 中沒有登入值、PFX/P12、installer、ZIP、runtime log 或 screenshot。
+- 未執行真實登入、憑證匯入、截圖或交易。
+- 原交接主機的含敏感資料 prototype 未進 Git；建議使用者輪替該登入祕密並在來源主機安全清除。
+
+## Cleanup receipt
+
+待最終 closeout commit 推上 `main` 後補：接收端 branch/worktree 移除、正式 tasks archive、最終 `origin/main` SHA。

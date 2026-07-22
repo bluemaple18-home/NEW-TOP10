@@ -1,16 +1,10 @@
 # Current Brief
 
-任務：`TSKG-MFO-DAILY-01` 已完成獨立 Review、mainline acceptance 與 cleanup，chain `CLOSED`。
+任務：`MINI-REMAINING-01` 已完成兩張子卡的實作、獨立 Review、必要 Repair、mainline acceptance 與 push；狀態進入 `CLEANUP_PENDING`。
 
-已完成：
+- `SHADOW-RUN-01`：candidate `19a2d12`，獨立 Review `REVIEW_GO`，整合／acceptance `2aadec4`。
+- `YUANTA-WIN-AUTOMATION-01`：candidate `d765cb5` 初審 NO_GO；Repair `6c2d0ce` 經原 Reviewer re-review GO，整合／experimental acceptance `2480364`。
+- 遠端 `main` 已包含兩條完整 evidence chain。
+- 元大 Windows live、真實登入與憑證匯入均未執行；工具維持 `EXPERIMENTAL`。
 
-- `MARKET-CONTEXT-02-TW`：台灣國內 market context artifact。
-- `DECISION-QUALITY-01`：每日 Top10 決策品質摘要。
-- `FEATURE-EXP-01`：shadow feature promotion gate。
-- `REVIEW-REGIME-RESEARCH-01`：五支研究腳本邊界審查與 shadow output guard。
-- `REVIEW-TSKG-MFO-DAILY-01`：跨機獨立 Review，裁決 `REVIEW_GO`。
-- `TSKG-MFO-DAILY-01`：mainline acceptance `GO`；T86 只作本機 read-only artifact／market-context reuse。
-
-目前主線：TSKG T86 daily 能力已接受並收尾；此 acceptance 不代表 ranking/model promotion。
-
-下一步：本鏈無剩餘工作；新需求須另開卡，且不得直接改 ranking 權重。
+下一步只剩本機已整合 branches／worktrees 與三個正式 Review／Repair tasks 的安全 cleanup；原交接主機未進 Git 的含敏感資料 prototype 仍須由使用者在該主機安全處理並輪替登入祕密。

@@ -1,46 +1,37 @@
 # Context Manifest
 
-## 必讀
+## Dispatcher
 
-- `AGENTS.md`：專案規範。
-- `.work/current/status.md`：目前狀態。
-- `.work/current/handoff.md`：接手摘要。
-- `docs/architecture/TRADING_DECISION_LAYER.md`：decision quality / reference annotation 邊界。
-- `docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md`：market context 實作卡。
-- `docs/tasks/2026-05-29_FEATURE-EXP-01_shadow_feature_promotion_gate.md`：shadow feature gate。
-- `docs/tasks/2026-07-21_REVIEW-REGIME-RESEARCH-01_boundary-review.md`：本次 review 卡。
-- `docs/evidence/REVIEW-REGIME-RESEARCH-01/review.md`：findings、裁決與重跑證據。
-- `docs/tasks/2026-07-21_REVIEW-TSKG-MFO-DAILY-01_cross_machine.md`：T86 正式 Review 卡與 acceptance receipt。
-- `docs/evidence/REVIEW-TSKG-MFO-DAILY-01/review.md`：獨立 Review evidence。
-- `docs/evidence/TSKG-MFO-DAILY-01/acceptance.md`：mainline acceptance 與 cleanup contract。
+- `docs/tasks/2026-07-22_MINI-REMAINING-01_cross_machine_executor.md`
+- `.work/MINI-REMAINING-01/evidence/research_candidate_preflight.md`
+- `.work/MINI-REMAINING-01/evidence/yuanta_local_prototype_redacted.md`
 
-## 主線程式
+## SHADOW-RUN-01
 
-- `app/market_context_fetcher.py`
-- `scripts/verify_market_context_fetcher.py`
-- `scripts/build_decision_quality.py`
-- `scripts/verify_decision_quality.py`
-- `scripts/build_feature_experiment_gate.py`
-- `scripts/verify_feature_experiment_gate.py`
-- `scripts/run_automation.py`
-- `config/automation.yaml`
-- `app/tskg/twse_t86.py`
-- `app/tskg/flow_read_model.py`
-- `scripts/fetch_tskg_t86.py`
+- `docs/tasks/2026-07-22_SHADOW-RUN-01_shadow_feature_experiments.md`
+- `docs/tasks/2026-07-22_REVIEW-SHADOW-RUN-01.md`
+- `docs/evidence/SHADOW-RUN-01/verification.md`
+- `docs/evidence/SHADOW-RUN-01/acceptance.md`
+- `docs/evidence/REVIEW-SHADOW-RUN-01/review.md`
+- `config/research_shadow_runs.yaml`
+- `scripts/run_research_shadow_runs.py`
+- `scripts/verify_research_shadow_runs.py`
 
-## 已完成 review 的研究線
+## YUANTA-WIN-AUTOMATION-01
 
-- `scripts/build_market_regime_history.py`
-- `scripts/research_regime_shadow_ranking.py`
-- `scripts/research_feature_group_ablation_by_regime.py`
-- `scripts/run_weekend_research_matrix.py`
-- `scripts/audit_research_dataset_coverage.py`
+- `docs/tasks/2026-07-22_YUANTA-WIN-AUTOMATION-01_secure_windows_helpers.md`
+- `docs/tasks/2026-07-22_REVIEW-YUANTA-WIN-AUTOMATION-01.md`
+- `docs/tasks/2026-07-22_REPAIR-YUANTA-WIN-AUTOMATION-01-01.md`
+- `docs/evidence/YUANTA-WIN-AUTOMATION-01/verification.md`
+- `docs/evidence/YUANTA-WIN-AUTOMATION-01/acceptance.md`
+- `docs/evidence/REVIEW-YUANTA-WIN-AUTOMATION-01/review.md`
+- `docs/evidence/REVIEW-YUANTA-WIN-AUTOMATION-01/re-review-01.md`
+- `docs/evidence/REPAIR-YUANTA-WIN-AUTOMATION-01-01/repair.md`
+- `tools/yuanta_windows/`
+- `scripts/verify_yuanta_windows_helpers.py`
 
-## 邊界
+## Boundary
 
-- `artifacts/` 是 runtime evidence，預設不進 git。
-- reference annotation 只讀 `data/reference`，不改 model / ranking score。
-- regime / market context / persistence / portfolio risk 目前都只能走 shadow 或 read-only evidence。
-- shadow ranking 輸出只能位於 `artifacts/backtest/` 子目錄，且不得與來源 ranking 目錄相同。
-- production promotion 仍為 `NO_GO`。
-- T86 daily local read-only integration 已 `GO`，但 TPEx、redistribution、ThemeFlow 與 ranking feature 仍 blocked。
+- Runtime `artifacts/` 預設不進 Git。
+- Production promotion 仍為 `NO_GO`。
+- Yuanta Windows live verification 未完成，且任何真實 external write 都需要新授權。

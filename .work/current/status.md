@@ -1,47 +1,28 @@
 # Current Status
 
-狀態：`TSKG-MFO-DAILY-01` 已 `CLOSED`；Review、acceptance、push、branch/worktree cleanup 均完成。
+狀態：`MINI-REMAINING-01 / CLEANUP_PENDING`
 
-已確認完成：
+## SHADOW-RUN-01
 
-- `MARKET-CONTEXT-02-TW`
-  - `app/market_context_fetcher.py`
-  - `scripts/verify_market_context_fetcher.py`
-  - `docs/tasks/2026-05-29_MARKET-CONTEXT-02-TW_fetcher.md`
-- `DECISION-QUALITY-01`
-  - `scripts/build_decision_quality.py`
-  - `scripts/verify_decision_quality.py`
-  - `docs/architecture/TRADING_DECISION_LAYER.md`
-- `FEATURE-EXP-01`
-  - `scripts/build_feature_experiment_gate.py`
-  - `scripts/verify_feature_experiment_gate.py`
-- `REVIEW-REGIME-RESEARCH-01`
-  - 五支 regime／weekend research 腳本與直接 caller 完成 production-boundary review。
-  - `research_regime_shadow_ranking.py` 已限制只能寫入 `artifacts/backtest/` 子目錄。
-  - `tests/test_regime_research_boundaries.py` 已補 production output 隔離與 command graph 回歸。
-- `REVIEW-TSKG-MFO-DAILY-01`
-  - Candidate `dfc30dc4a8466b914c642c1b38ea206dd388aa7c`：`REVIEW_GO`。
-  - Mainline integration：`66b26f8`；merge：`02ab4a9`。
-  - Evidence：`docs/evidence/REVIEW-TSKG-MFO-DAILY-01/review.md`、`docs/evidence/TSKG-MFO-DAILY-01/acceptance.md`。
+- candidate：`19a2d12`
+- review：`REVIEW_GO`／`08caf5d`
+- accepted mainline：`2aadec4`
+- verification：py_compile、research shadow verifier、feature gate verifier、diff check 全部 PASS
+- production ranking／score／promotion：未修改、未授權
 
-最新驗證：
+## YUANTA-WIN-AUTOMATION-01
 
-- `scripts/verify_market_context_fetcher.py` 通過。
-- `scripts/verify_decision_quality.py` 通過。
-- `scripts/verify_feature_experiment_gate.py` 通過。
-- regime research 相關測試共 25 項通過。
-- `scripts/verify_feature_group_ablation_by_regime.py` 通過。
-- TSKG mandatory review：62 tests、4 個 verifier 全通過。
-- TSKG mainline acceptance：63 targeted tests、414 full tests、246 subtests、script strict gate 全通過。
+- original candidate：`d765cb5`
+- initial review：`REVIEW_NO_GO`／`f9b7503`（3 P1）
+- repair candidate：`6c2d0ce`
+- re-review：`REVIEW_GO`／`5505a7e`
+- accepted mainline：`2480364`
+- static／synthetic verification：PASS
+- Windows parser／UIA／screenshot live：NOT_RUN
+- 真實登入／憑證匯入／外部交易：NOT_RUN，需 Windows、本地資料與使用者當次明確授權
 
-目前限制：
+## Cleanup
 
-- 不直接改 `RankingPolicy`。
-- 不直接改 `risk_adjusted_score`。
-- 不把 shadow / research 結果直接升 production。
-- runtime artifacts 在 `artifacts/`，預設不進 git。
-- `BROAD_RISK_ON`、`CHOPPY_RANGE` 目前只有 generic fallback，不得宣稱為專屬 regime candidate。
-- `run_weekend_research_matrix.py --skip-heavy` 只可證明 audit／compare，不代表 strategy matrix 已重跑。
-- TSKG T86 仍僅限 `SHARE` 本機 artifact；TPEx、redistribution、ThemeFlow、graph/ranking feature 未授權。
-
-下一步：本鏈無待辦。若要開新 candidate，只能走 sealed OOS／成熟樣本／replay／portfolio risk 的獨立 shadow 實驗卡。
+- 接收端 branches／worktrees：待確認 main 已含等價內容後移除。
+- 正式 tasks：完成後 archive，不刪除。
+- 交接端原 10 個本機檔案：未進 Git、未由接收端刪除；其中 prototype 曾含可用登入資料，建議輪替祕密並在來源主機安全清除。
