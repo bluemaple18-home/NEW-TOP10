@@ -10,6 +10,9 @@
 - `docs/tasks/2026-05-29_FEATURE-EXP-01_shadow_feature_promotion_gate.md`：shadow feature gate。
 - `docs/tasks/2026-07-21_REVIEW-REGIME-RESEARCH-01_boundary-review.md`：本次 review 卡。
 - `docs/evidence/REVIEW-REGIME-RESEARCH-01/review.md`：findings、裁決與重跑證據。
+- `docs/tasks/2026-07-21_REVIEW-TSKG-MFO-DAILY-01_cross_machine.md`：T86 正式 Review 卡與 acceptance receipt。
+- `docs/evidence/REVIEW-TSKG-MFO-DAILY-01/review.md`：獨立 Review evidence。
+- `docs/evidence/TSKG-MFO-DAILY-01/acceptance.md`：mainline acceptance 與 cleanup contract。
 
 ## 主線程式
 
@@ -21,6 +24,9 @@
 - `scripts/verify_feature_experiment_gate.py`
 - `scripts/run_automation.py`
 - `config/automation.yaml`
+- `app/tskg/twse_t86.py`
+- `app/tskg/flow_read_model.py`
+- `scripts/fetch_tskg_t86.py`
 
 ## 已完成 review 的研究線
 
@@ -37,3 +43,4 @@
 - regime / market context / persistence / portfolio risk 目前都只能走 shadow 或 read-only evidence。
 - shadow ranking 輸出只能位於 `artifacts/backtest/` 子目錄，且不得與來源 ranking 目錄相同。
 - production promotion 仍為 `NO_GO`。
+- T86 daily local read-only integration 已 `GO`，但 TPEx、redistribution、ThemeFlow 與 ranking feature 仍 blocked。

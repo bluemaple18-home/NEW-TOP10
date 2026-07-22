@@ -2,7 +2,7 @@
 card_id: REVIEW-TSKG-MFO-DAILY-01
 chain_id: TSKG-MFO-DAILY-01
 title: Cross-machine independent review of daily T86 market-flow pipeline
-status: REVIEW_GO
+status: ACCEPTED_MAINLINE
 type: review
 owner: Codex 主線
 assignee: independent-cross-machine-review-thread
@@ -116,7 +116,7 @@ gate_1_card_contract: complete
 gate_2_visible_thread: receipt supplied by source machine; thread unavailable on reviewer host
 gate_3_candidate_delivery: complete
 gate_4_independent_review: REVIEW_GO
-gate_5_mainline_acceptance: pending
+gate_5_mainline_acceptance: complete
 ```
 
 ## Review result
@@ -126,4 +126,12 @@ gate_5_mainline_acceptance: pending
 - Parent：`c84120be3ca0fb9efa6ed367ddac70e3b1a801b8`
 - Blocking findings：無 P0–P2。
 - Non-blocking finding：1 個 P3，詳見 `docs/evidence/REVIEW-TSKG-MFO-DAILY-01/review.md`。
-- Mainline acceptance 尚須由主線 checkout 完成；本 review branch 不 merge、不改 candidate。
+- Mainline acceptance 已完成；candidate 能力以 `66b26f8` 適配當時較新的 daily orchestrator，並由 `02ab4a9` 合入主線。
+
+## Mainline acceptance
+
+- 正式 Review：`REVIEW_GO`，review commit `cc7355c`。
+- Candidate implementation 沒有直接 merge；主線以 integration commit `66b26f8` 保留同一 T86／read-model 契約，並維持較新的 automation 架構。
+- Review card/evidence 已以 commits `2bfbb4a`、`2ab556c` 帶入 `main`。
+- Acceptance evidence：`docs/evidence/TSKG-MFO-DAILY-01/acceptance.md`。
+- Cleanup：指定 implementation/review branches 與本次 isolated worktree 於 acceptance push 後移除；原 thread 在 reviewer host 不存在，記錄為無可封存實體。

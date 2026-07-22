@@ -12,6 +12,7 @@ TOP10new 下一步要怎麼讓模型越來越準，同時避免把未驗證的�
 - `DECISION-QUALITY-01`：每日 Top10 決策品質 artifact。
 - `FEATURE-EXP-01`：shadow feature promotion gate。
 - `REVIEW-REGIME-RESEARCH-01`：regime／weekend research production-boundary review，裁決 `GO_SHADOW_ONLY`。
+- `REVIEW-TSKG-MFO-DAILY-01`：獨立 Review `REVIEW_GO`；`TSKG-MFO-DAILY-01` mainline acceptance `GO`。
 
 遠端也已合入：
 
@@ -21,7 +22,7 @@ TOP10new 下一步要怎麼讓模型越來越準，同時避免把未驗證的�
 
 ## Blocker
 
-目前沒有 research tooling 實作 blocker；production promotion 則明確未獲准，因為尚無 sealed OOS candidate evidence。
+目前沒有 TSKG daily integration blocker；production ranking/model promotion 仍明確未獲准。
 
 已修復原本可把 shadow ranking 輸出指向 production artifact 的邊界缺口。`BROAD_RISK_ON`、`CHOPPY_RANGE` 仍只有 generic fallback，不算獨立 candidate。
 
@@ -52,6 +53,8 @@ TOP10new 下一步要怎麼讓模型越來越準，同時避免把未驗證的�
 若要繼續改善，只能針對單一 candidate 另開 sealed OOS shadow experiment；先鎖樣本、replay、portfolio risk 與 promotion contract，不直接改 production。
 
 審查證據：`docs/evidence/REVIEW-REGIME-RESEARCH-01/review.md`。
+
+TSKG evidence：`docs/evidence/REVIEW-TSKG-MFO-DAILY-01/review.md`、`docs/evidence/TSKG-MFO-DAILY-01/acceptance.md`。
 
 ## 限制
 

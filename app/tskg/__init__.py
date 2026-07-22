@@ -9,10 +9,6 @@ from app.tskg.flow_read_model import (
     query_security_flow_read_model,
 )
 from app.tskg.identity import IdentityResolver, ResolutionResult, ResolutionStatus
-from app.tskg.flow_observation import (
-    FlowObservationContractError,
-    SecurityFlowObservationFixture,
-)
 from app.tskg.repository import FixtureRepository
 from app.tskg.router import create_tskg_router
 from app.tskg.service import CompanyService
