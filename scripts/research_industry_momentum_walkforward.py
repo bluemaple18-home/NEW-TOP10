@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -27,44 +28,158 @@ from app.trading import MarketRegimeService, RankingPolicy
 HORIZON_DAYS = 10
 INDUSTRY_MIN_MEMBERS = 5
 SECTOR_MIN_MEMBERS = 20
-TOP_N = 10
+RESEARCH_TOP_N = 10
+PRODUCTION_EVALUATION_TOP_N = 5
+MIN_PRODUCTION_REPLAY_DAYS = 60
 
 
-def main(*, features_path: Path | None = None) -> int:
+def main(
+    *,
+    features_path: Path | None = None,
+    production_rankings_dir: Path | None = None,
+    output: Path | None = None,
+) -> int:
     artifacts_dir = PROJECT_ROOT / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     source_path = features_path or PROJECT_ROOT / "data" / "clean" / "features.parquet"
     frame = _load_shadow_frame(source_path)
-    scored = _score_shadow(frame)
+    if production_rankings_dir is not None:
+        scored = _score_production_artifact_overlay(frame, production_rankings_dir)
+        baseline_kind = "committed-production-ranking-artifacts"
+    else:
+        scored = _score_shadow(frame)
+        baseline_kind = "research-proxy-not-for-promotion"
+    ranking_manifest = (
+        _ranking_manifest(production_rankings_dir)
+        if production_rankings_dir is not None
+        else None
+    )
     report = {
+        "schema_version": (
+            "industry-momentum-production-replay-v1"
+            if production_rankings_dir is not None
+            else "industry-momentum-proxy-research-v1"
+        ),
         "status": "OK",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "horizon_days": HORIZON_DAYS,
         "input": {
             "features_sha256": _file_sha256(source_path),
             "features_size_bytes": source_path.stat().st_size,
+            "production_ranking_manifest": ranking_manifest,
+            "excluded_production_rankings": scored.attrs.get(
+                "excluded_production_rankings", []
+            ),
         },
         "method": {
+            "baseline_kind": baseline_kind,
             "industry_factor": "leave-one-out / ex-self",
             "industry_min_members": INDUSTRY_MIN_MEMBERS,
             "sector_min_members": SECTOR_MIN_MEMBERS,
             "production_score_unchanged": True,
             "writes_production_ranking": False,
+            "cost_assumption": "NO_TRANSACTION_COST_APPLIED_TO_EITHER_ARM",
+            "evaluation_top_n": scored.attrs["evaluation_top_n"],
         },
         "summary": _summary(scored),
         "factor_quality": _factor_quality(scored),
         "walkforward": _walkforward(scored),
         "latest_shadow_top": _latest_top(scored),
-        "recommendation": _recommendation(scored),
+        "recommendation": _recommendation(
+            scored,
+            production_baseline=production_rankings_dir is not None,
+        ),
     }
 
-    json_path = artifacts_dir / "industry_momentum_walkforward_shadow.json"
-    md_path = artifacts_dir / "industry_momentum_walkforward_shadow.md"
+    json_path = output or artifacts_dir / "industry_momentum_walkforward_shadow.json"
+    md_path = json_path.with_suffix(".md")
+    json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     md_path.write_text(_markdown(report), encoding="utf-8")
     print(f"INDUSTRY_MOMENTUM_WALKFORWARD_OK json={json_path} md={md_path}")
     return 0
+
+
+def _score_production_artifact_overlay(
+    frame: pd.DataFrame,
+    rankings_dir: Path,
+) -> pd.DataFrame:
+    daily_frames: list[pd.DataFrame] = []
+    excluded: list[dict[str, str]] = []
+    for path in sorted(rankings_dir.glob("ranking_????-??-??.csv")):
+        match = re.fullmatch(r"ranking_(\d{4}-\d{2}-\d{2})\.csv", path.name)
+        if match is None:
+            continue
+        trade_date = pd.Timestamp(match.group(1))
+        factors = frame[frame["trade_date"] == trade_date]
+        if factors.empty:
+            excluded.append({"name": path.name, "reason": "NO_MATURE_LABEL_DATE"})
+            continue
+        ranking = pd.read_csv(path, dtype={"stock_id": str})
+        required = {"stock_id", "risk_adjusted_score"}
+        if not required.issubset(ranking) or len(ranking) < 10:
+            raise ValueError(f"production ranking contract mismatch: {path.name}")
+        ranking["stock_id"] = ranking["stock_id"].astype(str).str.strip()
+        if ranking["stock_id"].duplicated().any():
+            raise ValueError(f"production ranking contains duplicate stock_id: {path.name}")
+        production = ranking.head(10).copy()
+        production["production_rank"] = range(1, len(production) + 1)
+        factor_columns = [
+            "stock_id", "industry_name", "sector_name", "future_return",
+            "industry_momentum_20d_ex_self", "industry_breadth_ma20_ex_self",
+            "sector_rotation_score_20d_ex_self",
+            "industry_member_count", "sector_member_count",
+            "industry_momentum_20d_ex_self_valid_peers",
+            "industry_breadth_ma20_ex_self_valid_peers",
+            "sector_rotation_score_20d_ex_self_valid_peers",
+        ]
+        merged = production.merge(
+            factors[factor_columns],
+            on="stock_id",
+            how="left",
+            validate="one_to_one",
+        )
+        if merged["future_return"].isna().any():
+            excluded.append(
+                {"name": path.name, "reason": "TOP10_HAS_UNMATCHED_MATURE_LABEL"}
+            )
+            continue
+        merged["trade_date"] = trade_date
+        merged["risk_adjusted_score"] = pd.to_numeric(
+            merged["risk_adjusted_score"], errors="raise"
+        )
+        merged["industry_shadow_score"] = _industry_shadow_score(merged)
+        merged["shadow_risk_adjusted_score"] = (
+            merged["risk_adjusted_score"]
+            + merged["industry_shadow_score"] * 0.12
+        ).clip(lower=0)
+        merged["shadow_rank"] = merged["shadow_risk_adjusted_score"].rank(
+            ascending=False,
+            method="first",
+        )
+        daily_frames.append(merged)
+    if not daily_frames:
+        raise ValueError("沒有成熟且可配對的 production ranking artifacts")
+    result = pd.concat(daily_frames, ignore_index=True)
+    result.attrs["excluded_production_rankings"] = excluded
+    result.attrs["evaluation_top_n"] = PRODUCTION_EVALUATION_TOP_N
+    return result
+
+
+def _ranking_manifest(path: Path) -> dict[str, Any]:
+    files = sorted(path.glob("ranking_????-??-??.csv"))
+    records = [
+        {"name": item.name, "sha256": _file_sha256(item)}
+        for item in files
+    ]
+    return {
+        "file_count": len(records),
+        "files": records,
+        "canonical_sha256": hashlib.sha256(
+            json.dumps(records, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+    }
 
 
 def _load_shadow_frame(features_path: Path) -> pd.DataFrame:
@@ -173,7 +288,9 @@ def _score_shadow(frame: pd.DataFrame) -> pd.DataFrame:
         daily_frames.append(ranked)
     if not daily_frames:
         raise ValueError("沒有足夠資料可做 shadow ranking")
-    return pd.concat(daily_frames, ignore_index=True)
+    result = pd.concat(daily_frames, ignore_index=True)
+    result.attrs["evaluation_top_n"] = RESEARCH_TOP_N
+    return result
 
 
 def _rule_score_proxy(df: pd.DataFrame) -> pd.Series:
@@ -267,12 +384,13 @@ def _valid_peer_col_for(factor: str) -> str:
 
 
 def _walkforward(scored: pd.DataFrame) -> dict[str, Any]:
+    top_n = int(scored.attrs.get("evaluation_top_n", RESEARCH_TOP_N))
     daily_rows = []
     for trade_date, group in scored.groupby("trade_date"):
-        if len(group) < TOP_N:
+        if len(group) < top_n:
             continue
-        production_top = group.nsmallest(TOP_N, "production_rank")
-        shadow_top = group.nsmallest(TOP_N, "shadow_rank")
+        production_top = group.nsmallest(top_n, "production_rank")
+        shadow_top = group.nsmallest(top_n, "shadow_rank")
         daily_rows.append(
             {
                 "trade_date": str(trade_date.date()),
@@ -303,6 +421,7 @@ def _walkforward(scored: pd.DataFrame) -> dict[str, Any]:
         "production_top_industry_concentration": _round_or_none(daily["production_top_industry_concentration"].mean()),
         "shadow_top_industry_concentration": _round_or_none(daily["shadow_top_industry_concentration"].mean()),
         "average_overlap_count": _round_or_none(daily["overlap_count"].mean()),
+        "daily": daily_rows,
     }
 
 
@@ -313,7 +432,8 @@ def _top_industry_concentration(top: pd.DataFrame) -> float:
 
 
 def _latest_top(scored: pd.DataFrame) -> list[dict[str, Any]]:
-    latest = scored[scored["trade_date"] == scored["trade_date"].max()].nsmallest(TOP_N, "shadow_rank")
+    top_n = int(scored.attrs.get("evaluation_top_n", RESEARCH_TOP_N))
+    latest = scored[scored["trade_date"] == scored["trade_date"].max()].nsmallest(top_n, "shadow_rank")
     columns = [
         "stock_id",
         "stock_name",
@@ -329,8 +449,20 @@ def _latest_top(scored: pd.DataFrame) -> list[dict[str, Any]]:
     return latest[[column for column in columns if column in latest.columns]].to_dict(orient="records")
 
 
-def _recommendation(scored: pd.DataFrame) -> dict[str, str]:
+def _recommendation(
+    scored: pd.DataFrame,
+    *,
+    production_baseline: bool,
+) -> dict[str, str]:
     walkforward = _walkforward(scored)
+    if production_baseline and walkforward["days"] < MIN_PRODUCTION_REPLAY_DAYS:
+        return {
+            "decision": "no_go_insufficient_production_history",
+            "reason": (
+                f"只有 {walkforward['days']} 個成熟 production ranking dates，"
+                f"低於 {MIN_PRODUCTION_REPLAY_DAYS} 日 promotion floor；不得改 production。"
+            ),
+        }
     return_uplift = walkforward["return_uplift"] or 0
     hit_rate_uplift = walkforward["hit_rate_uplift"] or 0
     concentration_delta = (walkforward["shadow_top_industry_concentration"] or 0) - (
@@ -372,7 +504,8 @@ def _markdown(report: dict[str, Any]) -> str:
         lines.append(f"- `{key}`：{value}")
     lines.extend(["", "## Walkforward", ""])
     for key, value in report["walkforward"].items():
-        lines.append(f"- `{key}`：{value}")
+        if key != "daily":
+            lines.append(f"- `{key}`：{value}")
     lines.extend(["", "## Factor Quality", ""])
     for factor, payload in report["factor_quality"].items():
         lines.append(f"- `{factor}`：{payload}")
@@ -419,9 +552,25 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         help="features parquet；預設為 repo data/clean/features.parquet",
     )
+    parser.add_argument(
+        "--production-rankings-dir",
+        type=Path,
+        help="正式 ranking artifact 目錄；指定後才可作 promotion baseline",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="JSON output；Markdown 會寫到同 stem .md",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse_args()
-    raise SystemExit(main(features_path=args.features))
+    raise SystemExit(
+        main(
+            features_path=args.features,
+            production_rankings_dir=args.production_rankings_dir,
+            output=args.output,
+        )
+    )

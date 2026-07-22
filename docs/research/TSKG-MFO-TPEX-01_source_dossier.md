@@ -12,7 +12,7 @@ decision_authority: versioned_source_governance
 
 ## 1. 更正與結論
 
-前一版 `KEEP_BLOCKED` 建立在「未找到對應政府開放資料 dataset」的負面證據上；重新核對後，這項判斷不正確。政府資料開放平臺已有 dataset `11856`「上櫃股票三大法人買賣明細資訊」，資料提供機關為櫃買中心、更新頻率每日、授權為政府資料開放授權條款第 1 版。TPEx 官方 Swagger 同時固定 `GET /tpex_3insti_daily_trading`，實際 API 位址為 `https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading`。
+前一版 `KEEP_BLOCKED` 建立在「未找到對應政府開放資料 dataset」的負面證據上；重新核對後，這項判斷不正確。政府資料開放平臺已有 dataset `11856`「上櫃股票三大法人買賣明細資訊」，資料提供機關為金融監督管理委員會證券期貨局、更新頻率每日、授權為政府資料開放授權條款第 1 版；資料介接由 TPEx 官方 OpenAPI 提供。TPEx 官方 Swagger 同時固定 `GET /tpex_3insti_daily_trading`，實際 API 位址為 `https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading`。
 
 因此來源決策改為 `GO_CURRENT_DAY_OPENAPI_ONLY`：只允許上述 OGL dataset 對應的官方 JSON endpoint，單次 GET、concurrency 1，供本機內部研究與 daily snapshot 使用。互動式歷史網站、CSV 頁、付費 S35、任何 crawler、批次回補與 raw 對外再散布均不在本次核准範圍。
 
@@ -22,7 +22,7 @@ TPEx 網站條款仍禁止未獲同意的網站自動擷取；本決策沒有繞
 
 | ID | Official locator | 已驗證事實 | 判定 |
 |---|---|---|---|
-| P01 | https://data.nat.gov.tw/dataset/11856 | dataset 名稱「上櫃股票三大法人買賣明細資訊」、提供機關櫃買中心、每日更新、OGL 1.0 | target dataset identity 與授權 `FOUND` |
+| P01 | https://data.nat.gov.tw/dataset/11856 | dataset 名稱「上櫃股票三大法人買賣明細資訊」、資料提供機關金融監督管理委員會證券期貨局、每日更新、OGL 1.0 | target dataset identity、正確顯名與授權 `FOUND` |
 | P02 | https://www.tpex.org.tw/openapi/swagger.json | OAS3 固定 operation `/tpex_3insti_daily_trading`，response 為 JSON array、schema 欄位固定 | method/path/media contract `FOUND` |
 | P03 | https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading | 2026-07-22 bounded smoke test 回傳 906 筆、單一民國日期 `1150722` | current-day machine source `VERIFIED` |
 | P04 | https://data.gov.tw/license | OGL 1.0 允許使用、重製、散布及衍生利用，須顯名並注意來源停止提供風險 | legal basis `FOUND`；本專案另採更保守的 no-raw-public-redistribution |
@@ -46,7 +46,7 @@ TPEx 網站條款仍禁止未獲同意的網站自動擷取；本決策沒有繞
 | redistribution | OGL 需顯名；本專案政策額外禁止 raw snapshot 公開再散布 |
 | review/expiry | reviewed `2026-07-22T00:00:00Z`；expires `2027-07-22T00:00:00Z` |
 
-`SourcePolicyRegistry.from_mapping()` 與一般 `from_file()` 仍禁止把 PUBLIC 動態提權成 APPROVED；只有固定 registry version 的 `from_governed_file()` 可載入正式 public policy。這避免 runtime mapping 或測試 fixture 繞過治理。
+`SourcePolicyRegistry.from_mapping()` 與一般 `from_file()` 仍禁止把 PUBLIC 動態提權成 APPROVED；`from_governed_file()` 同時鎖定 repo path、registry version 與 reviewed canonical checksum。即使呼叫端取得 Python module private token，任意變更 source/path/policy 都會因 checksum 不符而拒絕。
 
 ## 4. Adapter contract
 
@@ -54,7 +54,7 @@ TPEx 網站條款仍禁止未獲同意的網站自動擷取；本決策沒有繞
 
 - 先做 governed source preflight，通過後才發出一次 GET。
 - 封閉驗證官方 20 欄 schema、單一交易日、stock id uniqueness 與所有 buy-sell-net arithmetic。
-- 將數值正規化為整數股數，明確標示 `unit=SHARE`、source endpoint、dataset id、OGL 與 response date。
+- 將數值正規化為整數股數，明確標示 `unit=SHARE`、TPEx endpoint publisher、正確 OGL data-providing organization、dataset id、license 與 response date。
 - canonical 排序與 SHA-256 integrity；寫檔採同目錄 atomic replace。
 - 不呼叫互動式網站、不接受日期參數去推測歷史 endpoint、不自動重試、不碰付費來源。
 

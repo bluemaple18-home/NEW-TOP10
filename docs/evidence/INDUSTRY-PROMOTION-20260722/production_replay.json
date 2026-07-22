@@ -1,0 +1,685 @@
+{
+  "schema_version": "industry-momentum-production-replay-v1",
+  "status": "OK",
+  "generated_at": "2026-07-22T14:25:36.515988+00:00",
+  "horizon_days": 10,
+  "input": {
+    "features_sha256": "34751b381bd3aac36f52e6bc683ff006801ab44eae5d269e9c2107b0d13cb1c4",
+    "features_size_bytes": 136308941,
+    "production_ranking_manifest": {
+      "file_count": 40,
+      "files": [
+        {
+          "name": "ranking_2026-05-26.csv",
+          "sha256": "6d1c02a6a552a5d8df7cbd68ddf2b6dc9bb9be5e63a51d20bf127e2a9053dfd5"
+        },
+        {
+          "name": "ranking_2026-05-27.csv",
+          "sha256": "216e95734937e37def53f72be1989990f52eabe7bc2f04ad73d56f3af95cf9a8"
+        },
+        {
+          "name": "ranking_2026-05-28.csv",
+          "sha256": "6d824180a332ebded8a29ffd06d0f7703e1b2b8abc025b3ec8cd7812abe755ea"
+        },
+        {
+          "name": "ranking_2026-05-29.csv",
+          "sha256": "95cf3c6089b12709d007fa6beb71127d9fceeff489a029f8156660c28d649a66"
+        },
+        {
+          "name": "ranking_2026-06-01.csv",
+          "sha256": "2040100017dbd3ce1106f458dbdee4def734fd59a6713e213a739b9405c45c00"
+        },
+        {
+          "name": "ranking_2026-06-02.csv",
+          "sha256": "7f0a8d8eac7e345e722442af0f1bb77e38d62ad321fd01f43d394a5ebcafd58a"
+        },
+        {
+          "name": "ranking_2026-06-03.csv",
+          "sha256": "18e017d3d94c9c83e443019f0dd1a2fb01cdff1af9a4364ec6108c80230edd76"
+        },
+        {
+          "name": "ranking_2026-06-04.csv",
+          "sha256": "f13429555ab893a9dda95615840d833283491f27c9669f4a7a83e0c062240def"
+        },
+        {
+          "name": "ranking_2026-06-05.csv",
+          "sha256": "9bd93d51183cee3de7477b29c8b27d365bb3aae6bddbe5b4913a2a52ae106455"
+        },
+        {
+          "name": "ranking_2026-06-08.csv",
+          "sha256": "87a2e746d3229252ccbe11d379ed8051711c2f8df48d8056248e62c7d12a02ab"
+        },
+        {
+          "name": "ranking_2026-06-09.csv",
+          "sha256": "df6c14d839b4da3882082ced21dfbd6684fdcf38aadde87e28413e48c4288ef1"
+        },
+        {
+          "name": "ranking_2026-06-10.csv",
+          "sha256": "501242fde9dd619218d4835e55da120839ae242a1fcaf4d43b08d0889cdf90f7"
+        },
+        {
+          "name": "ranking_2026-06-11.csv",
+          "sha256": "1071698d897bdb3a6e1282110160a42e2e691ebbe3c4035c026871d6af71656d"
+        },
+        {
+          "name": "ranking_2026-06-12.csv",
+          "sha256": "15e4056c5aa3c700e5b1ed06a13bf74126140b070c56584b6e0d6847676420b3"
+        },
+        {
+          "name": "ranking_2026-06-15.csv",
+          "sha256": "8f5eb8e41cd320538e80712a4f310629519fda942d9607aff97be9dc699903e3"
+        },
+        {
+          "name": "ranking_2026-06-16.csv",
+          "sha256": "923340175acd16559c01d3b3607b3208060b9cc8ec354b9f311fd7e5d69f8050"
+        },
+        {
+          "name": "ranking_2026-06-17.csv",
+          "sha256": "9dbbc0154b68e0c095578738e593f6dfd355b3827376c45fc9dadb618aacc04e"
+        },
+        {
+          "name": "ranking_2026-06-18.csv",
+          "sha256": "7d800c0a1a4d3e26d6c99fa17dea6022f20eb7344a9f82fab7d1dcdfae7c6a2e"
+        },
+        {
+          "name": "ranking_2026-06-22.csv",
+          "sha256": "1be0f26959afed214d967591b7aafdb245733474d7d377f11353e150336062d0"
+        },
+        {
+          "name": "ranking_2026-06-23.csv",
+          "sha256": "82efbcb7c01a0da5f6051772c2f9130b307e2cc6c08f9ba6126172badfa7b074"
+        },
+        {
+          "name": "ranking_2026-06-24.csv",
+          "sha256": "1589b333ba80aff1ff4d8def3a68ff51ae9b8bd8fce29b3c35e1533214155c51"
+        },
+        {
+          "name": "ranking_2026-06-25.csv",
+          "sha256": "c716c438f58080228ded21a766925151df6a683833da6abd7945b8786195a1bd"
+        },
+        {
+          "name": "ranking_2026-06-26.csv",
+          "sha256": "e0f91583e4e3407c1020effa9f284b5d3d70f20133b305e98e09ff02fe1d718b"
+        },
+        {
+          "name": "ranking_2026-06-29.csv",
+          "sha256": "ab9ff9f6e4a272779c993b3a032042da5ca25cd93fe91f456dfaae7230be4cfa"
+        },
+        {
+          "name": "ranking_2026-06-30.csv",
+          "sha256": "8f1ee69b96c48ca99c24d808966c183056e26b121346815ca1bc0c2e335aeaa6"
+        },
+        {
+          "name": "ranking_2026-07-01.csv",
+          "sha256": "2a17821c0552184eadf89c95b6d85d40033859ab06eecb26c33bc551a2430682"
+        },
+        {
+          "name": "ranking_2026-07-02.csv",
+          "sha256": "8dbf9dd0115adcf07b34f7e1b52f5a6e4b795d1e2796897d5ba722091954fa58"
+        },
+        {
+          "name": "ranking_2026-07-03.csv",
+          "sha256": "44c91ae4b0696f2b269cd2ff676f5ea95563fc1ba1cfedc3b92063b4740ca5a6"
+        },
+        {
+          "name": "ranking_2026-07-06.csv",
+          "sha256": "b1638931f785a78322d64f1b45623ed2920be3f6177b9fda9e10614f92ccee04"
+        },
+        {
+          "name": "ranking_2026-07-07.csv",
+          "sha256": "a096d83d3b427e4e2c73cfb85a157c41f81fd3e6522c652350f8e22988027269"
+        },
+        {
+          "name": "ranking_2026-07-08.csv",
+          "sha256": "deea017d2ff27f2fd306bf3e693320b2d93498dce81673ce83e45a6e2e9d054a"
+        },
+        {
+          "name": "ranking_2026-07-09.csv",
+          "sha256": "98678608e7184680457260b28e1d5f5435085bb178bd7b6d98bb7f72d2deadaf"
+        },
+        {
+          "name": "ranking_2026-07-13.csv",
+          "sha256": "b2b3dad9e5b45333cf84445095bd0ddb885e4a899fec89d79097c251b5b27315"
+        },
+        {
+          "name": "ranking_2026-07-14.csv",
+          "sha256": "1bdedaa8a06f2e9d166de9fc4e9540d31b86bb41c9ae389c204562fa1a2ce8c7"
+        },
+        {
+          "name": "ranking_2026-07-15.csv",
+          "sha256": "4cf70125be386adceef1f61b2d3874336e4c48a82f92c0f640ddfffe53a315c2"
+        },
+        {
+          "name": "ranking_2026-07-16.csv",
+          "sha256": "07e2f6a154c87d29040fca691253f433b8d75c691ef17b7974ee2b758d3af519"
+        },
+        {
+          "name": "ranking_2026-07-17.csv",
+          "sha256": "5c6e527fcaf13d44f49c3965b35de79eb1f59e658991849022056d6e7db1e121"
+        },
+        {
+          "name": "ranking_2026-07-20.csv",
+          "sha256": "3f38eebc7ca4c213488f7a57ffc2ca429c7f988feda94e2a1225ee845c7872f8"
+        },
+        {
+          "name": "ranking_2026-07-21.csv",
+          "sha256": "a4933410bbc97bb03207a2317cc19856a2e807b9f58d5c78461bf687c1cb0fe3"
+        },
+        {
+          "name": "ranking_2026-07-22.csv",
+          "sha256": "0a695e3441b8cd15b1475d3ef411cc183a2ca3c09f95fa887fcdda068738b1a7"
+        }
+      ],
+      "canonical_sha256": "196ccc91073622b2974649d6a0eedd3559a892a7c458dcf284173b3d702a5169"
+    },
+    "excluded_production_rankings": [
+      {
+        "name": "ranking_2026-05-29.csv",
+        "reason": "TOP10_HAS_UNMATCHED_MATURE_LABEL"
+      },
+      {
+        "name": "ranking_2026-06-01.csv",
+        "reason": "TOP10_HAS_UNMATCHED_MATURE_LABEL"
+      },
+      {
+        "name": "ranking_2026-06-02.csv",
+        "reason": "TOP10_HAS_UNMATCHED_MATURE_LABEL"
+      },
+      {
+        "name": "ranking_2026-06-08.csv",
+        "reason": "TOP10_HAS_UNMATCHED_MATURE_LABEL"
+      },
+      {
+        "name": "ranking_2026-07-08.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      },
+      {
+        "name": "ranking_2026-07-09.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      },
+      {
+        "name": "ranking_2026-07-13.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      },
+      {
+        "name": "ranking_2026-07-14.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      },
+      {
+        "name": "ranking_2026-07-15.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      },
+      {
+        "name": "ranking_2026-07-16.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      },
+      {
+        "name": "ranking_2026-07-17.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      },
+      {
+        "name": "ranking_2026-07-20.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      },
+      {
+        "name": "ranking_2026-07-21.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      },
+      {
+        "name": "ranking_2026-07-22.csv",
+        "reason": "NO_MATURE_LABEL_DATE"
+      }
+    ]
+  },
+  "method": {
+    "baseline_kind": "committed-production-ranking-artifacts",
+    "industry_factor": "leave-one-out / ex-self",
+    "industry_min_members": 5,
+    "sector_min_members": 20,
+    "production_score_unchanged": true,
+    "writes_production_ranking": false,
+    "cost_assumption": "NO_TRANSACTION_COST_APPLIED_TO_EITHER_ARM",
+    "evaluation_top_n": 5
+  },
+  "summary": {
+    "rows": 260,
+    "stocks": 196,
+    "trade_days": 26,
+    "latest_trade_date": "2026-07-07",
+    "production_score_columns_present": [
+      "risk_adjusted_score",
+      "shadow_risk_adjusted_score"
+    ],
+    "shadow_only_columns": [
+      "industry_shadow_score",
+      "shadow_risk_adjusted_score",
+      "shadow_rank"
+    ]
+  },
+  "factor_quality": {
+    "industry_momentum_20d_ex_self": {
+      "coverage": 1.0,
+      "latest_coverage": 1.0,
+      "member_count_min": 6,
+      "valid_peer_count_min": 5,
+      "valid_peer_count_p10": 27.0,
+      "rows_with_lt_2_valid_peers": 0,
+      "rows_with_lt_3_valid_peers": 0,
+      "rows_with_lt_5_valid_peers": 0
+    },
+    "industry_breadth_ma20_ex_self": {
+      "coverage": 1.0,
+      "latest_coverage": 1.0,
+      "member_count_min": 6,
+      "valid_peer_count_min": 5,
+      "valid_peer_count_p10": 27.0,
+      "rows_with_lt_2_valid_peers": 0,
+      "rows_with_lt_3_valid_peers": 0,
+      "rows_with_lt_5_valid_peers": 0
+    },
+    "sector_rotation_score_20d_ex_self": {
+      "coverage": 1.0,
+      "latest_coverage": 1.0,
+      "member_count_min": 28,
+      "valid_peer_count_min": 27,
+      "valid_peer_count_p10": 128.0,
+      "rows_with_lt_2_valid_peers": 0,
+      "rows_with_lt_3_valid_peers": 0,
+      "rows_with_lt_5_valid_peers": 0
+    }
+  },
+  "walkforward": {
+    "days": 26,
+    "production_mean_return": -0.0138,
+    "shadow_mean_return": -0.0213,
+    "return_uplift": -0.0075,
+    "production_hit_rate": 0.3692,
+    "shadow_hit_rate": 0.3462,
+    "hit_rate_uplift": -0.0231,
+    "production_downside": -0.0815,
+    "shadow_downside": -0.0819,
+    "production_top_industry_concentration": 0.6615,
+    "shadow_top_industry_concentration": 0.6308,
+    "average_overlap_count": 4.0769,
+    "daily": [
+      {
+        "trade_date": "2026-05-26",
+        "production_mean_return": -0.06656241818844436,
+        "shadow_mean_return": -0.08826279684759311,
+        "production_hit_rate": 0.2,
+        "shadow_hit_rate": 0.2,
+        "production_downside": -0.07252572094073792,
+        "shadow_downside": -0.09019828071856086,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 3
+      },
+      {
+        "trade_date": "2026-05-27",
+        "production_mean_return": -0.10049913282589636,
+        "shadow_mean_return": -0.12026143076399384,
+        "production_hit_rate": 0.0,
+        "shadow_hit_rate": 0.0,
+        "production_downside": -0.10049913282589636,
+        "shadow_downside": -0.12026143076399384,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.8,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-05-28",
+        "production_mean_return": 0.08243749693327704,
+        "shadow_mean_return": 0.04019018807440629,
+        "production_hit_rate": 0.6,
+        "shadow_hit_rate": 0.4,
+        "production_downside": -0.10619390252948593,
+        "shadow_downside": -0.1322131412129181,
+        "production_top_industry_concentration": 0.8,
+        "shadow_top_industry_concentration": 1.0,
+        "overlap_count": 3
+      },
+      {
+        "trade_date": "2026-06-03",
+        "production_mean_return": -0.05337092594412494,
+        "shadow_mean_return": 0.012795197126107712,
+        "production_hit_rate": 0.2,
+        "shadow_hit_rate": 0.4,
+        "production_downside": -0.0775088569786077,
+        "shadow_downside": -0.03265171412146485,
+        "production_top_industry_concentration": 0.4,
+        "shadow_top_industry_concentration": 0.4,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-04",
+        "production_mean_return": 0.03388751277431239,
+        "shadow_mean_return": 0.02331499112856437,
+        "production_hit_rate": 0.6,
+        "shadow_hit_rate": 0.6,
+        "production_downside": -0.04935697594501719,
+        "shadow_downside": -0.04935697594501719,
+        "production_top_industry_concentration": 0.4,
+        "shadow_top_industry_concentration": 0.4,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-05",
+        "production_mean_return": 0.18411656350756206,
+        "shadow_mean_return": 0.18411656350756206,
+        "production_hit_rate": 1.0,
+        "shadow_hit_rate": 1.0,
+        "production_downside": 0.0,
+        "shadow_downside": 0.0,
+        "production_top_industry_concentration": 0.8,
+        "shadow_top_industry_concentration": 0.8,
+        "overlap_count": 5
+      },
+      {
+        "trade_date": "2026-06-09",
+        "production_mean_return": 0.1919988045798551,
+        "shadow_mean_return": 0.1919988045798551,
+        "production_hit_rate": 0.8,
+        "shadow_hit_rate": 0.8,
+        "production_downside": -0.02,
+        "shadow_downside": -0.02,
+        "production_top_industry_concentration": 0.8,
+        "shadow_top_industry_concentration": 0.8,
+        "overlap_count": 5
+      },
+      {
+        "trade_date": "2026-06-10",
+        "production_mean_return": -0.02502255787378227,
+        "shadow_mean_return": -0.0457901419716416,
+        "production_hit_rate": 0.4,
+        "shadow_hit_rate": 0.2,
+        "production_downside": -0.05527523588260397,
+        "shadow_downside": -0.05637615331379662,
+        "production_top_industry_concentration": 0.8,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-11",
+        "production_mean_return": 0.02435387313074463,
+        "shadow_mean_return": -0.03100884495924618,
+        "production_hit_rate": 0.4,
+        "shadow_hit_rate": 0.2,
+        "production_downside": -0.024008699968670562,
+        "shadow_downside": -0.04714919583643916,
+        "production_top_industry_concentration": 0.8,
+        "shadow_top_industry_concentration": 0.8,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-12",
+        "production_mean_return": 0.0323015988304157,
+        "shadow_mean_return": -0.009466172474329395,
+        "production_hit_rate": 0.4,
+        "shadow_hit_rate": 0.2,
+        "production_downside": -0.059884782622163235,
+        "shadow_downside": -0.08020408596033451,
+        "production_top_industry_concentration": 0.4,
+        "shadow_top_industry_concentration": 0.4,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-15",
+        "production_mean_return": 0.04020519455438727,
+        "shadow_mean_return": 0.05990557194164756,
+        "production_hit_rate": 0.6,
+        "shadow_hit_rate": 0.6,
+        "production_downside": -0.010664961636828644,
+        "shadow_downside": -0.010664961636828644,
+        "production_top_industry_concentration": 1.0,
+        "shadow_top_industry_concentration": 0.8,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-16",
+        "production_mean_return": 0.02297815220341504,
+        "shadow_mean_return": 0.03743318100270613,
+        "production_hit_rate": 0.6,
+        "shadow_hit_rate": 0.6,
+        "production_downside": -0.04564102564102564,
+        "shadow_downside": -0.04564102564102564,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-17",
+        "production_mean_return": -0.03259322563835335,
+        "shadow_mean_return": -0.12995951777318476,
+        "production_hit_rate": 0.2,
+        "shadow_hit_rate": 0.0,
+        "production_downside": -0.10299322563835331,
+        "shadow_downside": -0.12995951777318476,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-18",
+        "production_mean_return": -0.09141263880201023,
+        "shadow_mean_return": -0.09141263880201023,
+        "production_hit_rate": 0.4,
+        "shadow_hit_rate": 0.4,
+        "production_downside": -0.10352539568605743,
+        "shadow_downside": -0.10352539568605743,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 5
+      },
+      {
+        "trade_date": "2026-06-22",
+        "production_mean_return": 0.15615012747929174,
+        "shadow_mean_return": 0.1419709294843043,
+        "production_hit_rate": 0.8,
+        "shadow_hit_rate": 0.8,
+        "production_downside": -0.02917181705809644,
+        "shadow_downside": -0.02917181705809644,
+        "production_top_industry_concentration": 0.8,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-23",
+        "production_mean_return": -0.048817253249518675,
+        "shadow_mean_return": -0.048817253249518675,
+        "production_hit_rate": 0.2,
+        "shadow_hit_rate": 0.2,
+        "production_downside": -0.05596011039237585,
+        "shadow_downside": -0.05596011039237585,
+        "production_top_industry_concentration": 0.8,
+        "shadow_top_industry_concentration": 0.8,
+        "overlap_count": 5
+      },
+      {
+        "trade_date": "2026-06-24",
+        "production_mean_return": 0.13483534750154164,
+        "shadow_mean_return": 0.13148928180253477,
+        "production_hit_rate": 0.6,
+        "shadow_hit_rate": 0.6,
+        "production_downside": -0.04400489659171445,
+        "shadow_downside": -0.04735096229072133,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.4,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-25",
+        "production_mean_return": -0.034556695246504524,
+        "shadow_mean_return": -0.028061734440233514,
+        "production_hit_rate": 0.2,
+        "shadow_hit_rate": 0.2,
+        "production_downside": -0.045216593723661894,
+        "shadow_downside": -0.03872163291739088,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.8,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-26",
+        "production_mean_return": -0.047412285557682995,
+        "shadow_mean_return": -0.033554410099807544,
+        "production_hit_rate": 0.4,
+        "shadow_hit_rate": 0.4,
+        "production_downside": -0.10913762838468721,
+        "shadow_downside": -0.09527975292681176,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-29",
+        "production_mean_return": -0.10749557092353286,
+        "shadow_mean_return": -0.11187211517330824,
+        "production_hit_rate": 0.0,
+        "shadow_hit_rate": 0.0,
+        "production_downside": -0.10749557092353286,
+        "shadow_downside": -0.11187211517330824,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-06-30",
+        "production_mean_return": 0.031946196098849564,
+        "shadow_mean_return": -0.08383483917371112,
+        "production_hit_rate": 0.4,
+        "shadow_hit_rate": 0.2,
+        "production_downside": -0.13002038642308816,
+        "shadow_downside": -0.14128164768434942,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.4,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-07-01",
+        "production_mean_return": 0.05921323659251312,
+        "shadow_mean_return": 0.1273181472088046,
+        "production_hit_rate": 0.4,
+        "shadow_hit_rate": 0.8,
+        "production_downside": -0.02266869588744589,
+        "shadow_downside": -0.009523809523809523,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 2
+      },
+      {
+        "trade_date": "2026-07-02",
+        "production_mean_return": -0.2291136739840391,
+        "shadow_mean_return": -0.2291136739840391,
+        "production_hit_rate": 0.0,
+        "shadow_hit_rate": 0.0,
+        "production_downside": -0.2291136739840391,
+        "shadow_downside": -0.2291136739840391,
+        "production_top_industry_concentration": 0.8,
+        "shadow_top_industry_concentration": 0.8,
+        "overlap_count": 5
+      },
+      {
+        "trade_date": "2026-07-03",
+        "production_mean_return": -0.2804375224967842,
+        "shadow_mean_return": -0.22447912103665266,
+        "production_hit_rate": 0.0,
+        "shadow_hit_rate": 0.0,
+        "production_downside": -0.2804375224967842,
+        "shadow_downside": -0.22447912103665266,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.4,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-07-06",
+        "production_mean_return": -0.16691128972107042,
+        "shadow_mean_return": -0.15816416990540222,
+        "production_hit_rate": 0.0,
+        "shadow_hit_rate": 0.0,
+        "production_downside": -0.16691128972107042,
+        "shadow_downside": -0.15816416990540222,
+        "production_top_industry_concentration": 0.8,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 4
+      },
+      {
+        "trade_date": "2026-07-07",
+        "production_mean_return": -0.06949704229682944,
+        "shadow_mean_return": -0.06949704229682944,
+        "production_hit_rate": 0.2,
+        "shadow_hit_rate": 0.2,
+        "production_downside": -0.07131522411501126,
+        "shadow_downside": -0.07131522411501126,
+        "production_top_industry_concentration": 0.6,
+        "shadow_top_industry_concentration": 0.6,
+        "overlap_count": 5
+      }
+    ]
+  },
+  "latest_shadow_top": [
+    {
+      "stock_id": "2883",
+      "stock_name": "凱基金",
+      "industry_name": "金融保險",
+      "sector_name": "金融",
+      "risk_adjusted_score": 2.283356643356643,
+      "industry_shadow_score": 0.9833333333333334,
+      "shadow_risk_adjusted_score": 2.401356643356643,
+      "production_rank": 1,
+      "shadow_rank": 1.0,
+      "future_return": -0.014563106796116483
+    },
+    {
+      "stock_id": "3046",
+      "stock_name": "建碁",
+      "industry_name": "電子工業",
+      "sector_name": "科技",
+      "risk_adjusted_score": 2.2538965439349448,
+      "industry_shadow_score": 0.5666666666666668,
+      "shadow_risk_adjusted_score": 2.321896543934945,
+      "production_rank": 2,
+      "shadow_rank": 2.0,
+      "future_return": 0.00909090909090909
+    },
+    {
+      "stock_id": "6442",
+      "stock_name": "光聖",
+      "industry_name": "未分類",
+      "sector_name": "未分類",
+      "risk_adjusted_score": 2.2185314685314683,
+      "industry_shadow_score": 0.7333333333333334,
+      "shadow_risk_adjusted_score": 2.3065314685314684,
+      "production_rank": 3,
+      "shadow_rank": 3.0,
+      "future_return": -0.1289308176100629
+    },
+    {
+      "stock_id": "7799",
+      "stock_name": "禾榮科",
+      "industry_name": "未分類",
+      "sector_name": "未分類",
+      "risk_adjusted_score": 2.194588020674977,
+      "industry_shadow_score": 0.4166666666666667,
+      "shadow_risk_adjusted_score": 2.2445880206749766,
+      "production_rank": 4,
+      "shadow_rank": 4.0,
+      "future_return": -0.1331923890063425
+    },
+    {
+      "stock_id": "6579",
+      "stock_name": "研揚",
+      "industry_name": "未分類",
+      "sector_name": "未分類",
+      "risk_adjusted_score": 2.184401296103424,
+      "industry_shadow_score": 0.48333333333333334,
+      "shadow_risk_adjusted_score": 2.2424012961034236,
+      "production_rank": 5,
+      "shadow_rank": 5.0,
+      "future_return": -0.07988980716253444
+    }
+  ],
+  "recommendation": {
+    "decision": "no_go_insufficient_production_history",
+    "reason": "只有 26 個成熟 production ranking dates，低於 60 日 promotion floor；不得改 production。"
+  }
+}

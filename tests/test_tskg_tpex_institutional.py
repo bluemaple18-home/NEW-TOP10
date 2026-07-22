@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+import app.tskg.source_policy as source_policy_module
 
 from app.tskg.tpex_institutional import (
     ENDPOINT,
@@ -63,6 +64,7 @@ def test_builds_closed_deterministic_snapshot() -> None:
     snapshot = _snapshot([_row("6488"), _row("3105")])
     assert snapshot["trade_date"] == "2026-07-22"
     assert snapshot["source"]["dataset_id"] == "data.gov.tw-dataset-11856"
+    assert snapshot["source"]["data_providing_organization"] == "金融監督管理委員會證券期貨局"
     assert [row["stock_id"] for row in snapshot["records"]] == ["3105", "6488"]
     assert snapshot["records"][0]["all_institutional_net_shares"] == 1050
     assert market_aggregate(snapshot)["all_institutional_net_shares"] == 2100
@@ -101,6 +103,10 @@ def test_fetch_is_one_bounded_get_and_write_reload_round_trip(tmp_path: Path) ->
     def fake_get(*args, **kwargs):
         calls.append((args, kwargs))
         return Response()
+
+    with pytest.raises(TypeError):
+        fetch_tpex_institutional_snapshot(http_get=fake_get)  # type: ignore[call-arg]
+    assert calls == []
 
     snapshot = fetch_tpex_institutional_snapshot(
         expected_trade_date="2026-07-22",
@@ -163,3 +169,12 @@ def test_public_approval_cannot_be_loaded_from_an_arbitrary_file(tmp_path: Path)
     payload = json.loads(GOVERNED_POLICY.read_text(encoding="utf-8"))
     with pytest.raises(SourcePolicyContractError, match="versioned governed registry"):
         SourcePolicyRegistry(payload, _governed_load_token=object())
+
+    payload["policies"][0]["policy_id"] = "attacker-runtime-policy"
+    payload["policies"][0]["source_id"] = "attacker-runtime-source"
+    payload["policies"][0]["allowed_paths"] = ["/attacker"]
+    with pytest.raises(SourcePolicyContractError, match="reviewed checksum"):
+        SourcePolicyRegistry(
+            payload,
+            _governed_load_token=source_policy_module._GOVERNED_LOAD_TOKEN,
+        )

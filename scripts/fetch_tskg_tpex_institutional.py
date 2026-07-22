@@ -18,7 +18,11 @@ from app.tskg.tpex_institutional import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="fetch latest TPEx institutional snapshot")
-    parser.add_argument("--expect-date", help="optional YYYY-MM-DD fail-closed date assertion")
+    parser.add_argument(
+        "--expect-date",
+        required=True,
+        help="required YYYY-MM-DD fail-closed business-date assertion",
+    )
     parser.add_argument("--output", help="output path; default derives from response date")
     return parser.parse_args()
 

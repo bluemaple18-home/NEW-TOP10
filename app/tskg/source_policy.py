@@ -69,6 +69,7 @@ _MEDIA_TYPE_PATTERN = re.compile(
     r"^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$"
 )
 _GOVERNED_LOAD_TOKEN = object()
+_GOVERNED_REGISTRY_CHECKSUM = "c914d8ba5f179819bfd7f8237ae7b9dc2a2221f1746ed3691fabffec2923018f"
 _GOVERNED_POLICY_PATH = (
     Path(__file__).resolve().parents[2]
     / "config"
@@ -95,11 +96,19 @@ class SourcePolicyRegistry:
             deepcopy(dict(payload)),
             allow_approved_public=_governed_load_token is _GOVERNED_LOAD_TOKEN,
         )
+        checksum = _checksum(canonical)
+        if (
+            _governed_load_token is _GOVERNED_LOAD_TOKEN
+            and checksum != _GOVERNED_REGISTRY_CHECKSUM
+        ):
+            raise SourcePolicyContractError(
+                "governed registry content does not match reviewed checksum"
+            )
         self._payload = canonical
         self._policies_by_source = {
             policy["source_id"]: policy for policy in canonical["policies"]
         }
-        self._checksum = _checksum(canonical)
+        self._checksum = checksum
 
     @classmethod
     def from_file(cls, path: Path) -> "SourcePolicyRegistry":

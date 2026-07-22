@@ -55,7 +55,10 @@ TOP_LEVEL_FIELDS = {
     "schema_version", "source_id", "trade_date", "retrieved_at", "unit",
     "source", "integrity", "records",
 }
-SOURCE_FIELDS = {"publisher", "endpoint", "dataset_id", "license", "response_date"}
+SOURCE_FIELDS = {
+    "publisher", "data_providing_organization", "endpoint", "dataset_id",
+    "license", "response_date",
+}
 INTEGRITY_FIELDS = {"row_count", "field_count", "canonical_sha256"}
 STOCK_ID_PATTERN = re.compile(r"^[A-Za-z0-9]{1,16}$")
 INTEGER_PATTERN = re.compile(r"^[+-]?\d+$")
@@ -114,6 +117,7 @@ def build_tpex_institutional_snapshot(
 
     source = {
         "publisher": "Taipei Exchange",
+        "data_providing_organization": "金融監督管理委員會證券期貨局",
         "endpoint": ENDPOINT,
         "dataset_id": "data.gov.tw-dataset-11856",
         "license": "Open Government Data License 1.0",
@@ -141,7 +145,7 @@ def build_tpex_institutional_snapshot(
 
 def fetch_tpex_institutional_snapshot(
     *,
-    expected_trade_date: str | None = None,
+    expected_trade_date: str,
     http_get: Callable[..., Any] = requests.get,
     retrieved_at: str | None = None,
     timeout: int = 20,
@@ -224,6 +228,7 @@ def _validate_snapshot(snapshot: Mapping[str, Any]) -> dict[str, Any]:
         raise TPExInstitutionalContractError("snapshot source shape mismatch")
     expected_source = {
         "publisher": "Taipei Exchange",
+        "data_providing_organization": "金融監督管理委員會證券期貨局",
         "endpoint": ENDPOINT,
         "dataset_id": "data.gov.tw-dataset-11856",
         "license": "Open Government Data License 1.0",

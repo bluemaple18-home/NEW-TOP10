@@ -1,19 +1,25 @@
 # Industry feature promotion decision — 2026-07-22
 
-結論：`REJECT`，正式動作為 `NO_RANKING_OR_WEIGHT_CHANGE`。
+結論：`NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`；正式動作為 `NO_RANKING_OR_WEIGHT_CHANGE`。
 
-以 SHA-256 `34751b381bd3aac36f52e6bc683ff006801ab44eae5d269e9c2107b0d13cb1c4` 的 `features.parquet` 重跑 10 交易日 horizon、leave-one-out/ex-self 產業 overlay。樣本為 516,134 rows、1,967 stocks、271 trade days；baseline 與 shadow 使用相同 universe、dates 與 cost assumptions。
+第一版以 proxy score 冒充 production baseline，獨立 Review 判定 P1 後已廢棄。v2 只讀 40 份實際 `artifacts/ranking_YYYY-MM-DD.csv`，將已成熟且 Top10 全部可配對標籤的 26 日納入，同一批 production Top10 內比較原 `risk_adjusted_score` 與產業 overlay 後的 Top5。未對任一 arm 套用交易成本，證據明記為 no-cost comparison，不宣稱成本後績效。
 
-結果：平均報酬 `0.0121 → 0.0115`（uplift `-0.0005`），命中率 `0.4506 → 0.4424`（uplift `-0.0081`），產業集中度 `0.6539 → 0.5893`。集中度雖改善，但報酬與命中率同時惡化，未通過最低 return uplift `> 0.005` 與 hit-rate uplift `>= 0` 的共同門檻。
+實際結果：production mean return `-0.0138`、shadow `-0.0213`（uplift `-0.0075`）；hit-rate uplift `-0.0231`；產業集中度 `0.6615 → 0.6308`。結果本身偏負，且 26 個成熟日期低於 promotion floor 60 日，因此不得修改 production ranking／weights。
+
+Committed evidence：
+
+- `production_replay.json`：完整 input hashes、40 份 production ranking manifest、14 份排除原因、method、sample、metrics 與 recommendation。
+- `decision.json`：只保存 replay path/hash、固定 gate 與 derived decision。
+- `scripts/verify_industry_promotion_decision.py`：先驗 replay SHA-256，再驗 production baseline identity／ranking manifest，最後從 replay 重算 decision。
 
 可重現命令：
 
 ```bash
 <repo-root>/.venv/bin/python scripts/research_industry_momentum_walkforward.py \
-  --features <repo-root>/data/clean/features.parquet
+  --features <repo-root>/data/clean/features.parquet \
+  --production-rankings-dir <repo-root>/artifacts \
+  --output docs/evidence/INDUSTRY-PROMOTION-20260722/production_replay.json
 <repo-root>/.venv/bin/python scripts/verify_industry_promotion_decision.py
 ```
 
-研究 artifact JSON SHA-256：`7bcdc6ce3a22df1bd8ea5346a8147088d073f148eb4602253cd59914963f3500`。artifact 本身依 repo 政策留在本機、未進 Git；固定摘要與 fail-closed decision contract 位於同目錄 `decision.json`。
-
-這是已完成的 NO_GO，而非待補證據 blocker。依專案 Boris Standard，不得為了完成字面狀態而修改 `RankingPolicy`、`risk_adjusted_score` 或正式權重。
+這是已完成的 NO_GO，不是未執行。要重開 promotion，必須累積至少 60 個成熟 production ranking dates 後，以同一 v2 contract 重跑。
