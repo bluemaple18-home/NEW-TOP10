@@ -1,0 +1,25 @@
+{
+  "reviewed_sha": "04f1380d7390609bea854afd354f7f0859f1d3e0",
+  "probes": [
+    {
+      "id": "membership-input-order",
+      "mutation": "reverse memberships list; keep all row content unchanged",
+      "observed": "ThemeMembershipContractError: content_hash does not match snapshot content",
+      "expected": "same semantic snapshot accepted with identical canonical content hash"
+    },
+    {
+      "id": "overlapping-active-interval",
+      "mutation": "add a non-identical overlapping row for security-3017-xtai/theme-ai active on 2026-07-17; recompute fixture hash",
+      "observed": {
+        "source_net_for_security_3017": -69000000,
+        "allocated_theme_total": -113666666.66666669,
+        "mass_conservation_delta": -44666666.66666669,
+        "theme_nets": {
+          "theme-ai": 44666666.666666664,
+          "theme-semiconductor": -158333333.33333334
+        }
+      },
+      "expected": "allocated total equals source net exactly"
+    }
+  ]
+}
