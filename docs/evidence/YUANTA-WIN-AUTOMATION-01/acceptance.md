@@ -25,3 +25,11 @@
 - 真實憑證匯入、登入、外部交易：`NOT_RUN_REQUIRES_WINDOWS_CREDENTIALS_AND_EXPLICIT_AUTHORIZATION`
 
 因此本次只接受安全化、可攜、dry-run-first 的 experimental helpers 進主線，不宣稱 Windows live acceptance。真實使用前仍需在隔離 Windows 環境依 README 驗證，且每次外部 write 需使用者明確授權。
+
+## Secure package post-acceptance comparison
+
+- Encrypted package and internal manifest integrity: PASS.
+- Six legacy prototypes were compared by redacted behavior only; no secret value was displayed or copied.
+- Required behavior is fully mapped to the four accepted safe helpers; no repo-side implementation gap was found.
+- Fresh static verifier: PASS.
+- Detailed evidence: `docs/evidence/YUANTA-WIN-AUTOMATION-01/secure-package-comparison.md`.

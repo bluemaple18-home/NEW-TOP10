@@ -27,6 +27,7 @@ state：`CLOSED`
 - Git 中沒有登入值、PFX/P12、installer、ZIP、runtime log 或 screenshot。
 - 未執行真實登入、憑證匯入、截圖或交易。
 - 原交接主機的含敏感資料 prototype 未進 Git；建議使用者輪替該登入祕密並在來源主機安全清除。
+- 後續 secure package 比對已完成：封包與 manifest PASS，六個 legacy prototype 的必要行為均由已接受的安全 helpers 覆蓋，沒有新增 repo-side finding；Windows live 邊界仍如實為 NOT_RUN。
 
 ## Cleanup receipt
 

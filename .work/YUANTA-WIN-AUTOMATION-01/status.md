@@ -9,3 +9,5 @@
 - repair candidate：`6c2d0ce`
 - re-review：`REVIEW_GO` (`5505a7e`)
 - integrated content SHA：`af2c108`
+- secure package comparison：`PASS`；legacy behavior 已完整映射到安全 helpers，沒有新增 repo-side finding
+- decrypted package handling：只在隔離暫存區唯讀檢查，未匯入憑證、未執行 installer／登入／截圖
