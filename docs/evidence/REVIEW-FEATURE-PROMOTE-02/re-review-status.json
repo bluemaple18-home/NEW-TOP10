@@ -1,0 +1,28 @@
+{
+  "verdict": "NO_GO",
+  "fixed_candidate_sha": "0079370cf4e6d46fe718579de4a78fb3c5c3ac73",
+  "repair_parent_sha": "1499b0eaeebc9ca997feee627fa0dc85df35a21f",
+  "original_no_go_evidence": "86ec0e2",
+  "original_p1_closed": true,
+  "new_p1": {
+    "id": "builder_future_freshness_go",
+    "path": "scripts/build_feature_promotion_decision.py:69-96",
+    "observed": "build_payload returned GO when evidence freshness.as_of was 2999-01-01",
+    "impact": "builder can emit a promotion GO from invalid future-dated evidence"
+  },
+  "actual_repository": {
+    "decision": "NO_GO",
+    "missing_required_evidence_count": 12,
+    "graph_residual_tolerance_gt_1": "RISK",
+    "tpex": "KEEP_BLOCKED",
+    "verifier": "OK"
+  },
+  "tests": {
+    "pytest": "23 passed",
+    "repair_recorded_subtests": "4 passed",
+    "original_adversarial_probe": "all_pass",
+    "fresh_probe": "all_pass_except_expected_builder_future_freshness_finding",
+    "py_compile": "passed",
+    "git_diff_check": "passed"
+  }
+}
