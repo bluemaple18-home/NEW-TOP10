@@ -1,0 +1,18 @@
+{
+  "review": "REVIEW-UI-MFR-01",
+  "kind": "independent-re-review",
+  "candidate": "5de19a8725b2c03775abf00d756c7a3cf75d33d3",
+  "repair_card": "25c3d58b37b01113cb21fae3ae4dfd15193d81c7",
+  "original_review_evidence": "97ae5b74676dfc479fa3b7b8572bd14457dc9ec1",
+  "verdict": "NO_GO",
+  "original_p1s_closed": true,
+  "new_p1": "strict YYYY-MM-DD input accepts compact and ISO-week date forms",
+  "tests": "30 passed",
+  "browser": "pass with baseline weekly fixture failure separately identified",
+  "build": "pass",
+  "py_compile": "pass",
+  "candidate_diff_check": "pass",
+  "allowlist_privacy_ranking_non_mutation": "pass",
+  "screenshots": "desktop/mobile live plus loading/empty/error/stale/partial",
+  "next_step": "repair strict date-shape validation, add regression cases for 20260717 and 2026-W29-5, then re-review"
+}

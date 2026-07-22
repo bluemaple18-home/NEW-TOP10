@@ -1,0 +1,32 @@
+UI-MFR-01 independent re-review API probes
+fixed candidate: 5de19a8725b2c03775abf00d756c7a3cf75d33d3
+repair card: 25c3d58b37b01113cb21fae3ae4dfd15193d81c7
+
+GREEN cases
+- GET radar?as_of_date=2026-07-17 -> 200, market-flow-radar-read-model-v1,
+  COMPLETE, Access-Control-Allow-Origin=http://127.0.0.1:5173.
+- GET radar?as_of_date=2026-99-99 -> 422, market-flow-radar-error-v1,
+  INVALID_AS_OF_DATE, allowed-origin CORS.
+- GET radar?as_of_date=not-a-date -> 422, same versioned INVALID_AS_OF_DATE envelope, CORS.
+- GET radar?as_of_date=2026-01-01 -> 422, DATE_OUT_OF_RANGE, CORS.
+- GET radar?as_of_date=2026-08-01 -> 422, DATE_OUT_OF_RANGE, CORS.
+- POST radar -> 405, Allow=GET, allowed-origin CORS.
+- OpenAPI 200 response references #/components/schemas/MarketFlowRadarResponse;
+  top-level and nested source/item/research-boundary schemas have additionalProperties=false.
+- Runtime response validation rejects injected top-level extra, nested extra, missing item,
+  wrong item rank type, and missing nested research-boundary field with ResponseValidationError.
+- Direct Pydantic model validation rejects the same unknown/missing/type drift cases.
+- Five repeated valid builds are byte-equivalent; fixture source is local JSON only.
+- No radar writer, ranking/model mutation, production path, network client, or external source
+  is called by the radar implementation.
+
+NEW RED boundary
+- GET radar?as_of_date=20260717 -> 200, as_of_date=20260717.
+- GET radar?as_of_date=2026-W29-5 -> 200, as_of_date=2026-W29-5.
+- These are accepted by date.fromisoformat() but violate the declared YYYY-MM-DD input
+  contract. They should be stable 422 INVALID_AS_OF_DATE with CORS, not valid 200 responses.
+
+Bounded matrix
+- Original focused suite: 30 passed.
+- 51-case API/schema matrix: stopped at first strict-format failure; 49 checks passed before
+  the compact-date case, with the compact and ISO-week inputs independently reproduced above.

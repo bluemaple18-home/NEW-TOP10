@@ -1,0 +1,31 @@
+UI-MFR-01 independent re-review CDP acceptance
+Chrome: /Applications/Google Chrome.app, isolated headless CDP 127.0.0.1:9222
+Target: http://127.0.0.1:5173/
+Listeners: Runtime.enable, Page.enable, Network.enable, console/pageerror/requestfailed
+hooks installed before Page.navigate.
+
+Desktop
+- focused button text=市場雷達; native Enter switched active view=市場雷達.
+- title=Theme 資金雷達; radar GET returned 200.
+- fresh screenshots: re-review-01-screenshots/desktop-weekly.png,
+  desktop-radar-live.png, desktop-loading.png, desktop-empty.png,
+  desktop-error.png, desktop-stale.png, desktop-partial.png.
+
+Mobile 390x844
+- scrollWidth=390, clientWidth=390, overflow=false.
+- fresh screenshot: re-review-01-screenshots/mobile-radar-live.png.
+
+Console/pageerror/network
+- no radar console error/warning, pageerror, or requestfailed event.
+- React DevTools informational message only.
+- existing baseline weekly-candidates requestfailed with net::ERR_FAILED because
+  data/clean/features.parquet is absent; API server traceback identifies weekly baseline.
+- no radar requestfailed or radar HTTP >=400 response; baseline does not prevent radar render.
+
+States and visual
+- live, loading, empty, error, stale, and partial screenshots captured.
+- dense analytical shell retained; mobile table is contained by an inner scroller and has no
+  page overflow/overlap observed.
+- repaired boundary wording is visible as “既有 Top10 決策層（隔離）” and explicitly says
+  the radar does not read or rewrite the existing decision layer.
+- reduced-motion CSS path remains present; radar slice adds no animation or motion claim.
