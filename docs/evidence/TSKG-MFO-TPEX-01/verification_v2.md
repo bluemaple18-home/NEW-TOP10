@@ -36,7 +36,7 @@ all_institutional_net_shares=-67164212
 
 - TPEx/source/promotion focused：`25 passed`。
 - TPEx + source + MFO + Theme + Graph + Radar + industry promotion：Repair 後 `70 passed`。
-- repo full suite：`462 passed, 1 baseline failure`。唯一失敗是 fresh worktree 缺少 Git 忽略的歷史 research artifacts／`features.parquet`，使既有 `research_component_ledger` 的 `evidence_exists` 檢查失敗；同一失敗已在既有主線整合證據記為固定 baseline，且本 candidate 未修改 ledger builder／verifier／registry。
+- Repair SHA repo full suite：`464 passed, 1 baseline failure`。唯一失敗是 fresh worktree 缺少 Git 忽略的歷史 research artifacts／`features.parquet`，使既有 `research_component_ledger` 的 `evidence_exists` 檢查失敗；同一失敗已在既有主線整合證據記為固定 baseline，且本 candidate 未修改 ledger builder／verifier／registry。
 - `scripts/verify_industry_promotion_decision.py`：先驗 committed replay SHA／production ranking manifest，再重算 `NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`。
 - py_compile：PASS。
 - `git diff --check`：PASS。
