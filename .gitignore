@@ -105,3 +105,12 @@ test_agent_a.py
 test_report_gen.py
 test_simple.py
 verify_agent_b.py
+# Yuanta Windows local-only inputs and runtime outputs
+tools/yuanta_windows/workspace/
+tools/yuanta_windows/*.pfx
+tools/yuanta_windows/*.p12
+tools/yuanta_windows/*.exe
+tools/yuanta_windows/*.msi
+tools/yuanta_windows/*.zip
+tools/yuanta_windows/*.png
+tools/yuanta_windows/*.log
