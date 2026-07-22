@@ -40,3 +40,16 @@ def test_only_real_uplift_can_produce_go() -> None:
     positive["decision"] = "GO"
     positive["production_action"] = "CREATE_MINIMAL_PRODUCTION_CANDIDATE"
     assert validate_decision(positive) == "GO"
+
+    small = deepcopy(_payload())
+    small["metrics"]["return_uplift"] = 0.001
+    small["metrics"]["hit_rate_uplift"] = 0.001
+    small["decision"] = "MONITOR_ONLY"
+    assert validate_decision(small) == "MONITOR_ONLY"
+
+
+def test_nested_unknown_field_fails_closed() -> None:
+    malformed = deepcopy(_payload())
+    malformed["metrics"]["unreviewed_metric"] = 1.0
+    with pytest.raises(IndustryPromotionDecisionError, match="metrics shape mismatch"):
+        validate_decision(malformed)
