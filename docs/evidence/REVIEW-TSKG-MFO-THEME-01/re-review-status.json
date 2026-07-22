@@ -1,0 +1,20 @@
+{
+  "card_id": "REVIEW-TSKG-MFO-THEME-01",
+  "review_type": "repair-1-re-review",
+  "verdict": "REVIEW_GO",
+  "reviewed_sha": "71c02aa8a4f9106364e97da97ffefb887db0833e",
+  "branch": "codex/tskg-mfo-theme-01-repair-1",
+  "parent": "1c719ffe61041c38ffc6c61b1ab74ad2983705e9",
+  "original_no_go": "69282b53763b61c7f44e6685ec25ac6845b7d524",
+  "tests": "23 passed",
+  "verifier": "OK",
+  "py_compile": "PASS",
+  "diff_check": "PASS",
+  "allowlist_privacy_scope": "PASS",
+  "probes": {
+    "overlap_fail_closed": true,
+    "distinct_theme_mass_conservation": true,
+    "input_order_canonical_hash": true,
+    "tpex_blocked": true
+  }
+}
