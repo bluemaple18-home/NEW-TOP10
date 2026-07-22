@@ -1,0 +1,26 @@
+{
+  "reviewer_owned_probe_summary": {
+    "all_required_fail_closed": false,
+    "accepted_bypass_cases": [
+      "wrong_candidate_sha",
+      "wrong_base_sha",
+      "wrong_candidate_data_identity",
+      "no_go_review_file_is_accepted",
+      "stale_manifest_is_accepted",
+      "duplicate_id",
+      "out_of_repo_absolute_path",
+      "symlink_out_of_repo"
+    ],
+    "rejected_cases": [
+      "empty_json",
+      "placeholder_json",
+      "unknown_id",
+      "missing_id",
+      "wrong_type_files (uncaught AttributeError)",
+      "tampered_source_hash",
+      "tampered_decision_flip"
+    ]
+  },
+  "command": "<repo-root>/.venv/bin/python .work/REVIEW-FEATURE-PROMOTE-02/adversarial_probes.py",
+  "evidence": "Accepted bypass cases returned verify(payload) == [] for a forged GO payload whose every evidence row pointed to a placeholder/task file. Empty and placeholder JSON exited 1; hash and decision tampering exited/reported failure."
+}
