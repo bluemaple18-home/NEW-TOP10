@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from copy import deepcopy
 from datetime import date
 from typing import Any, Iterable, Mapping
@@ -34,6 +35,13 @@ _PROHIBITED = {
     "rank", "score", "prediction", "recommendation", "risk_adjusted_score",
     "buy_signal", "sell_signal", "target_price", "expected_return", "weighting",
 }
+
+# 這些是 research-only shadow contract 的固定 deterministic work budgets。
+MAX_NODES = 256
+MAX_EDGES = 2048
+MAX_OUT_DEGREE = 32
+MAX_PATH_STATES = 1024
+MAX_EDGE_WEIGHT = 1e300
 
 
 class GraphDiffusionContractError(ValueError):
@@ -65,6 +73,31 @@ def _canonical_hash(value: Mapping[str, Any]) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _finite_float(value: Any, field: str, *, maximum: float | None = None) -> float:
+    """將數值轉成 finite float，避免 NaN、Infinity 與轉換溢位穿過契約。"""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise GraphDiffusionContractError(f"{field} must be numeric and finite")
+    try:
+        converted = float(value)
+    except (OverflowError, ValueError) as error:
+        raise GraphDiffusionContractError(f"{field} must be numeric and finite") from error
+    if not math.isfinite(converted) or (maximum is not None and converted > maximum):
+        raise GraphDiffusionContractError(f"{field} must be finite and within contract bounds")
+    return converted
+
+
+def _assert_finite(value: Any, field: str = "artifact") -> None:
+    """遞迴確認 hash 前的 artifact 不含任何非 finite 浮點數。"""
+    if isinstance(value, float) and not math.isfinite(value):
+        raise GraphDiffusionContractError(f"{field} contains a non-finite value")
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            _assert_finite(child, f"{field}.{key}")
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _assert_finite(child, f"{field}[{index}]")
+
+
 def _contains_prohibited(value: Any) -> bool:
     if isinstance(value, Mapping):
         return any(key in _PROHIBITED or _contains_prohibited(child)
@@ -93,6 +126,10 @@ class GraphDiffusionSnapshot:
                 raise GraphDiffusionContractError(f"{field} must be non-empty")
         if not isinstance(data["nodes"], list) or not isinstance(data["edges"], list):
             raise GraphDiffusionContractError("nodes and edges must be lists")
+        if len(data["nodes"]) > MAX_NODES:
+            raise GraphDiffusionContractError(f"node budget exceeded: maximum is {MAX_NODES}")
+        if len(data["edges"]) > MAX_EDGES:
+            raise GraphDiffusionContractError(f"edge budget exceeded: maximum is {MAX_EDGES}")
         nodes: dict[str, dict[str, Any]] = {}
         for node in data["nodes"]:
             if not isinstance(node, Mapping) or set(node) != _NODE_FIELDS:
@@ -122,7 +159,8 @@ class GraphDiffusionSnapshot:
             edge_ids.add(edge_id)
             if edge["source_id"] not in nodes or edge["target_id"] not in nodes:
                 raise GraphDiffusionContractError("missing edge endpoint is rejected")
-            if isinstance(edge["weight"], bool) or not isinstance(edge["weight"], (int, float)) or edge["weight"] <= 0:
+            weight = _finite_float(edge["weight"], "edge weight", maximum=MAX_EDGE_WEIGHT)
+            if weight <= 0:
                 raise GraphDiffusionContractError("edge weight must be positive")
             if not isinstance(edge["weight_version"], str) or not edge["weight_version"]:
                 raise GraphDiffusionContractError("edge weight version is required")
@@ -138,6 +176,14 @@ class GraphDiffusionSnapshot:
             edges.append(dict(edge))
         data["nodes"] = sorted(nodes.values(), key=lambda row: row["node_id"])
         data["edges"] = sorted(edges, key=lambda row: (row["source_id"], row["target_id"], row["edge_id"]))
+        out_degree: dict[str, int] = {}
+        for edge in data["edges"]:
+            source_id = edge["source_id"]
+            out_degree[source_id] = out_degree.get(source_id, 0) + 1
+            if out_degree[source_id] > MAX_OUT_DEGREE:
+                raise GraphDiffusionContractError(
+                    f"out-degree budget exceeded for {source_id}: maximum is {MAX_OUT_DEGREE}"
+                )
         self._payload = data
 
     def as_dict(self) -> dict[str, Any]:
@@ -161,8 +207,10 @@ def build_graph_diffusion_shadow(
         raise TypeError("snapshot must be a GraphDiffusionSnapshot")
     if isinstance(max_hops, bool) or not isinstance(max_hops, int) or not 0 <= max_hops <= 8:
         raise GraphDiffusionContractError("max_hops must be an integer in [0, 8]")
-    if isinstance(decay, bool) or not isinstance(decay, (int, float)) or not 0 < decay <= 1:
+    decay = _finite_float(decay, "decay")
+    if not 0 < decay <= 1:
         raise GraphDiffusionContractError("decay must be in (0, 1]")
+    tolerance = _finite_float(tolerance, "tolerance")
     if tolerance <= 0:
         raise GraphDiffusionContractError("tolerance must be positive")
     data = snapshot.as_dict()
@@ -187,17 +235,36 @@ def build_graph_diffusion_shadow(
         for hop in range(1, max_hops + 1):
             next_states: list[tuple[str, float, tuple[dict[str, Any], ...], frozenset[str]]] = []
             for node_id, mass, path, visited in states:
+                if not math.isfinite(mass):
+                    raise GraphDiffusionContractError("diffused mass must be finite")
                 edges = [edge for edge in outgoing.get(node_id, []) if edge["target_id"] not in visited]
                 if not edges or mass <= tolerance:
                     next_states.append((node_id, mass, path, visited))
+                    if len(next_states) > MAX_PATH_STATES:
+                        raise GraphDiffusionContractError(
+                            f"path-state budget exceeded: maximum is {MAX_PATH_STATES}"
+                        )
                     continue
-                total_weight = sum(float(edge["weight"]) for edge in edges)
+                try:
+                    total_weight = math.fsum(float(edge["weight"]) for edge in edges)
+                except (OverflowError, ValueError) as error:
+                    raise GraphDiffusionContractError("edge weight total must be finite") from error
+                if not math.isfinite(total_weight) or total_weight <= 0:
+                    raise GraphDiffusionContractError("edge weight total must be finite and positive")
                 propagated = mass * float(decay)
                 retained = mass - propagated
+                if not math.isfinite(propagated) or not math.isfinite(retained):
+                    raise GraphDiffusionContractError("diffused mass must be finite")
                 if retained > tolerance:
                     next_states.append((node_id, retained, path, visited))
+                    if len(next_states) > MAX_PATH_STATES:
+                        raise GraphDiffusionContractError(
+                            f"path-state budget exceeded: maximum is {MAX_PATH_STATES}"
+                        )
                 for edge in edges:
                     share = propagated * float(edge["weight"]) / total_weight
+                    if not math.isfinite(share):
+                        raise GraphDiffusionContractError("diffused share must be finite")
                     edge_trace = {
                         "edge_id": edge["edge_id"], "weight": edge["weight"],
                         "weight_version": edge["weight_version"], "hop": hop,
@@ -205,8 +272,14 @@ def build_graph_diffusion_shadow(
                         "evidence_id": edge["evidence_id"], "coverage": deepcopy(edge["coverage"]),
                     }
                     next_states.append((edge["target_id"], share, path + (edge_trace,), visited | {edge["target_id"]}))
+                    if len(next_states) > MAX_PATH_STATES:
+                        raise GraphDiffusionContractError(
+                            f"path-state budget exceeded: maximum is {MAX_PATH_STATES}"
+                        )
             states = next_states
-        total = sum(mass for _, mass, _, _ in states)
+        total = math.fsum(mass for _, mass, _, _ in states)
+        if not math.isfinite(total):
+            raise GraphDiffusionContractError("mass total must be finite")
         if abs(total - 1.0) > tolerance:
             raise GraphDiffusionContractError(f"mass conservation failed for seed {seed}")
         conservation.append({"seed_id": seed, "input_mass": 1.0, "output_mass": total, "within_tolerance": True})
@@ -230,4 +303,5 @@ def build_graph_diffusion_shadow(
         "values": values, "mass_conservation": conservation,
         "production_impact": "NONE_SHADOW_ONLY",
     }
+    _assert_finite(core)
     return {**core, "canonical_hash": _canonical_hash(core)}
