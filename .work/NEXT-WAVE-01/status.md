@@ -9,9 +9,10 @@
 - state：RUNNING
 - base_sha：558a04f82a9ff164ae6a95a126f8a354bd33ebab
 - cards：1 dispatcher + 6 executable cards
-- current frontier：TSKG-MFO-THEME-01
+- current frontier：TSKG-MFO-GRAPH-01
 - TSKG-MFO-TPEX-01：`ACCEPTED_KEEP_BLOCKED`；TPEx venue coverage 不可使用
-- implementation：Theme 尚未開始
+- TSKG-MFO-THEME-01：`ACCEPTED`；Repair `71c02aa8` 經原 Reviewer re-review `GO`
+- implementation：Graph 待開始
 
 ## Blocker
 
