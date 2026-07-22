@@ -1,0 +1,50 @@
+{
+  "review_id": "REVIEW-TSKG-MFO-GRAPH-01",
+  "review_type": "formal-independent-re-review",
+  "candidate_sha": "6115a3c578e878682dbac79b7903c0f6e0a033d9",
+  "original_candidate_sha": "1c6a760a0d655f370e9056131d9fcba53851b97b",
+  "repair_card_sha": "b2412f8a5275bb4e921480aa11bba5bf37d47872",
+  "original_review_local_sha": "501afe1",
+  "original_review_branch_sha": "b904a22a97de91096733d2c089a0d6889a0862fe",
+  "ancestry": {
+    "original_candidate": true,
+    "repair_card": true,
+    "original_review_branch_evidence": true,
+    "note": "The fixed candidate contains b904a22, the formal branch commit corresponding to the amended local 501afe1 evidence commit."
+  },
+  "verdict": {
+    "spec": "GO",
+    "standards": "GO",
+    "overall": "GO"
+  },
+  "verification": {
+    "pytest": "25 passed",
+    "verifier": "OK",
+    "py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "artifact_hash": "82e734cb7779808ae25afa64bbbcdd5b60bff3caa00c48fa543c324585f510d9",
+    "mass": 1.0,
+    "max_hop": 2,
+    "future_stale_missing_rejected": 3
+  },
+  "budgets": {
+    "MAX_NODES": 256,
+    "MAX_EDGES": 2048,
+    "MAX_OUT_DEGREE": 32,
+    "MAX_PATH_STATES": 1024,
+    "MAX_EDGE_WEIGHT": 1e300,
+    "boundary": "node/edge/out-degree exact limits accepted; each over-limit rejected with GraphDiffusionContractError; path-state exact boundary passed and over-limit rejected deterministically"
+  },
+  "fresh_probes": {
+    "nan_positive_negative_infinity_weight": "all rejected as GraphDiffusionContractError",
+    "overflow_prone_weight_1e308": "rejected as GraphDiffusionContractError",
+    "overflow_sum_after_validation_mutation": "rejected as GraphDiffusionContractError",
+    "post_diffusion_max_weight_json_finite": "PASS",
+    "nine_node_complete_dag": "deterministic path-state budget rejection on repeated runs",
+    "cycle_bounded_hop_mass_provenance_determinism": "PASS",
+    "tolerance_nonfinite": "rejected as GraphDiffusionContractError"
+  },
+  "allowlist_privacy_non_mutation": "PASS",
+  "new_p1": false,
+  "nonblocking_residual": "tolerance values greater than 1 are accepted and suppress diffusion because initial mass is <= tolerance; add an upper-bound contract/test in a future hardening pass."
+}
