@@ -1,0 +1,130 @@
+{
+  "schema_version": "overlay-historical-robustness-replay.v1",
+  "status": "OK",
+  "contract": {
+    "paired_daily_delta": true,
+    "bootstrap": "fold-stratified-circular-moving-block",
+    "block_length": 10,
+    "repetitions": 10000,
+    "seed": 20260723,
+    "confidence_interval": 0.95,
+    "prospective_acceptance_replacement": false,
+    "promotion_allowed": false
+  },
+  "candidates": [
+    {
+      "label": "chip_overlay_0.10",
+      "variant": "chip_0.10",
+      "source": "artifacts/model_experiments/chip_point_in_time_portfolio_replay_2026-07-23.json",
+      "source_sha256": "898963a5912d46b9b0100b12f179f2d617ed6b26cd1c56c9ea8eb33aa7795735",
+      "date_count": 114,
+      "date_start": "2025-12-09",
+      "date_end": "2026-07-07",
+      "observed_mean_return_delta": 0.002740175438596492,
+      "positive_day_rate": 0.49122807017543857,
+      "moving_block_bootstrap": {
+        "block_length": 10,
+        "repetitions": 10000,
+        "seed": 20260723,
+        "ci_95": [
+          -0.0012514442982456142,
+          0.0063713642543859654
+        ],
+        "probability_mean_positive": 0.9115
+      },
+      "leave_one_fold_out": [
+        {
+          "excluded_fold": 1,
+          "date_count": 94,
+          "mean_return_delta": 0.0026816808510638306
+        },
+        {
+          "excluded_fold": 2,
+          "date_count": 86,
+          "mean_return_delta": 0.0022916627906976756
+        },
+        {
+          "excluded_fold": 3,
+          "date_count": 96,
+          "mean_return_delta": 0.003907260416666667
+        },
+        {
+          "excluded_fold": 4,
+          "date_count": 87,
+          "mean_return_delta": 0.0010452068965517247
+        },
+        {
+          "excluded_fold": 5,
+          "date_count": 93,
+          "mean_return_delta": 0.003594935483870968
+        }
+      ],
+      "positive_leave_one_fold_out_count": 5,
+      "original_comparison": {
+        "return_delta": 0.00274,
+        "turnover_delta": 0.073451,
+        "avg_max_group_exposure_delta": -0.011404,
+        "positive_fold_count": 3
+      },
+      "decision": "HISTORICAL_SUPPORT_UNCERTAIN",
+      "promotion_allowed": false
+    },
+    {
+      "label": "event_constrained_overlay_0.10",
+      "variant": "event_0.10",
+      "source": "artifacts/model_experiments/event_constrained_portfolio_replay_2026-07-23.json",
+      "source_sha256": "af18e76d18d095bd9284565dcd007ce5736f3ed3aa9d1cf4aa7e41759e8808b9",
+      "date_count": 55,
+      "date_start": "2025-12-09",
+      "date_end": "2026-07-07",
+      "observed_mean_return_delta": 0.0058188909090909095,
+      "positive_day_rate": 0.41818181818181815,
+      "moving_block_bootstrap": {
+        "block_length": 10,
+        "repetitions": 10000,
+        "seed": 20260723,
+        "ci_95": [
+          0.0027154204545454547,
+          0.00895795409090909
+        ],
+        "probability_mean_positive": 1.0
+      },
+      "leave_one_fold_out": [
+        {
+          "excluded_fold": 1,
+          "date_count": 44,
+          "mean_return_delta": 0.007456022727272727
+        },
+        {
+          "excluded_fold": 2,
+          "date_count": 51,
+          "mean_return_delta": 0.006275274509803922
+        },
+        {
+          "excluded_fold": 3,
+          "date_count": 48,
+          "mean_return_delta": 0.0057320625
+        },
+        {
+          "excluded_fold": 4,
+          "date_count": 40,
+          "mean_return_delta": 0.0030638499999999995
+        },
+        {
+          "excluded_fold": 5,
+          "date_count": 37,
+          "mean_return_delta": 0.006334027027027028
+        }
+      ],
+      "positive_leave_one_fold_out_count": 5,
+      "original_comparison": {
+        "return_delta": 0.005819,
+        "turnover_delta": 0.068519,
+        "avg_max_group_exposure_delta": -0.005454,
+        "positive_fold_count": 3
+      },
+      "decision": "ROBUST_HISTORICAL_SUPPORT",
+      "promotion_allowed": false
+    }
+  ]
+}
