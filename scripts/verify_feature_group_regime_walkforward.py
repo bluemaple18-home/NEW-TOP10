@@ -31,6 +31,8 @@ def main() -> int:
         "clean_group_contract_removes_availability_and_price_level": _clean_group_contract_removes_availability_and_price_level(),
         "unavailable_chip_source_is_masked": _unavailable_chip_source_is_masked(),
         "constant_daily_feature_is_skipped": _constant_daily_feature_is_skipped(),
+        "point_in_time_universe_reranks_each_day": _point_in_time_universe_reranks_each_day(),
+        "partial_ic_detects_incremental_signal": _partial_ic_detects_incremental_signal(),
     }
     status = "OK" if all(checks.values()) else "FAILED"
     ARTIFACT.parent.mkdir(parents=True, exist_ok=True)
@@ -204,6 +206,47 @@ def _constant_daily_feature_is_skipped() -> bool:
         0.70,
     )
     return bool(len(daily) == 1 and daily["signal"].notna().all() and daily["constant"].isna().all())
+
+
+def _point_in_time_universe_reranks_each_day() -> bool:
+    frame = pd.DataFrame(
+        {
+            "trade_date": [pd.Timestamp("2026-01-01")] * 3 + [pd.Timestamp("2026-01-02")] * 3,
+            "stock_id": ["0001", "0002", "0003"] * 2,
+            "avg_value_20d": [30.0, 20.0, 10.0, 10.0, 20.0, 30.0],
+            "institutional_available": [True] * 6,
+        }
+    )
+    selected, receipt = walkforward.apply_research_universe(
+        frame,
+        mode="point-in-time-liquidity",
+        liquidity_top_n=2,
+    )
+    by_date = {
+        str(date.date()): set(group["stock_id"])
+        for date, group in selected.groupby("trade_date")
+    }
+    return (
+        by_date["2026-01-01"] == {"0001", "0002"}
+        and by_date["2026-01-02"] == {"0002", "0003"}
+        and receipt["daily_selected_min"] == 2
+        and receipt["daily_selected_max"] == 2
+    )
+
+
+def _partial_ic_detects_incremental_signal() -> bool:
+    control = pd.Series(range(40), dtype=float)
+    independent = pd.Series([value % 7 for value in range(40)], dtype=float)
+    primary = control * 0.4 + independent
+    target = control * 0.4 + independent * 2
+    ic, rows = walkforward.partial_spearman_ic(
+        primary,
+        control,
+        target,
+        min_rows=30,
+        min_coverage=0.70,
+    )
+    return rows == 40 and ic is not None and ic > 0.80
 
 
 if __name__ == "__main__":

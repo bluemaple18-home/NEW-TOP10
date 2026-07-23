@@ -17,6 +17,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 
@@ -65,6 +66,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-daily-coverage", type=float, default=0.70)
     parser.add_argument("--top-features-per-group", type=int, default=3)
     parser.add_argument("--min-train-abs-ic", type=float, default=0.02)
+    parser.add_argument(
+        "--universe-mode",
+        choices=["all", "point-in-time-liquidity"],
+        default="all",
+    )
+    parser.add_argument("--liquidity-top-n", type=int, default=200)
     parser.add_argument("--output", default="artifacts/model_experiments/feature_group_regime_walkforward_2026-07-23.json")
     return parser.parse_args()
 
@@ -213,14 +220,10 @@ def score_group_day(
     min_daily_coverage: float,
 ) -> tuple[float | None, float | None, int]:
     """依訓練期決定的方向合成單日 group score 並評估 OOS。"""
-    if not selected_features:
+    score = build_group_score(daily, selected_features)
+    if score.isna().all():
         return None, None, 0
-    oriented = []
-    for item in selected_features:
-        values = pd.to_numeric(daily[item["feature"]], errors="coerce")
-        percentile = values.rank(pct=True)
-        oriented.append(percentile if item["direction"] > 0 else 1 - percentile)
-    score = pd.concat(oriented, axis=1).mean(axis=1, skipna=True)
+
     future_return = pd.to_numeric(daily[target], errors="coerce")
     valid = pd.DataFrame(
         {
@@ -238,6 +241,125 @@ def score_group_day(
     spreads = daily_top_bottom_spreads(valid)
     spread = float(spreads.iloc[0]) if len(spreads) == 1 else None
     return float(ic) if pd.notna(ic) else None, spread, int(len(valid))
+
+
+def build_group_score(daily: pd.DataFrame, selected_features: list[dict[str, Any]]) -> pd.Series:
+    """依 train-only selection 產生單日橫斷面 group score。"""
+    if not selected_features:
+        return pd.Series(float("nan"), index=daily.index, dtype=float)
+    oriented = []
+    for item in selected_features:
+        values = pd.to_numeric(daily[item["feature"]], errors="coerce")
+        percentile = values.rank(pct=True)
+        oriented.append(percentile if item["direction"] > 0 else 1 - percentile)
+    return pd.concat(oriented, axis=1).mean(axis=1, skipna=True)
+
+
+def partial_spearman_ic(
+    primary: pd.Series,
+    control: pd.Series,
+    target: pd.Series,
+    *,
+    min_rows: int,
+    min_coverage: float,
+) -> tuple[float | None, int]:
+    """計算控制單一 baseline rank 後的逐日 partial Spearman IC。"""
+    numeric_target = pd.to_numeric(target, errors="coerce")
+    valid = pd.DataFrame(
+        {
+            "primary": pd.to_numeric(primary, errors="coerce"),
+            "control": pd.to_numeric(control, errors="coerce"),
+            "target": numeric_target,
+        }
+    ).dropna()
+    required = max(min_rows, math.ceil(int(numeric_target.notna().sum()) * min_coverage))
+    if len(valid) < required:
+        return None, int(len(valid))
+    ranks = valid.rank(pct=True)
+    if ranks["primary"].nunique() < 3 or ranks["control"].nunique() < 3 or ranks["target"].nunique() < 3:
+        return None, int(len(valid))
+    design = np.column_stack([np.ones(len(ranks)), ranks["control"].to_numpy(dtype=float)])
+    primary_residual = ranks["primary"].to_numpy(dtype=float) - design @ np.linalg.lstsq(
+        design,
+        ranks["primary"].to_numpy(dtype=float),
+        rcond=None,
+    )[0]
+    target_residual = ranks["target"].to_numpy(dtype=float) - design @ np.linalg.lstsq(
+        design,
+        ranks["target"].to_numpy(dtype=float),
+        rcond=None,
+    )[0]
+    if np.std(primary_residual) == 0 or np.std(target_residual) == 0:
+        return None, int(len(valid))
+    return float(np.corrcoef(primary_residual, target_residual)[0, 1]), int(len(valid))
+
+
+def evaluate_incremental_fold(
+    frame: pd.DataFrame,
+    fold: Fold,
+    selected: dict[str, dict[str, list[dict[str, Any]]]],
+    target: str,
+    min_daily_stocks: int,
+    min_daily_coverage: float,
+    *,
+    primary_group: str,
+    control_group: str,
+) -> list[dict[str, Any]]:
+    test = frame[frame["trade_date"].between(fold.test_start, fold.test_end)]
+    observations: dict[str, list[float]] = {}
+    row_counts: dict[str, int] = {}
+    for _, daily in test.groupby("trade_date", sort=True):
+        regime = str(daily["regime_label"].iloc[0])
+        primary = build_group_score(daily, selected.get(regime, {}).get(primary_group, []))
+        control = build_group_score(daily, selected.get(regime, {}).get(control_group, []))
+        ic, rows = partial_spearman_ic(
+            primary,
+            control,
+            daily[target],
+            min_rows=min_daily_stocks,
+            min_coverage=min_daily_coverage,
+        )
+        if ic is None:
+            continue
+        observations.setdefault(regime, []).append(ic)
+        row_counts[regime] = row_counts.get(regime, 0) + rows
+    return [
+        {
+            "fold_id": fold.fold_id,
+            "regime_label": regime,
+            "primary_group": primary_group,
+            "control_group": control_group,
+            "test_days": len(values),
+            "rows": row_counts[regime],
+            "partial_ic_mean": round(float(pd.Series(values).mean()), 6),
+            "partial_ic_median": round(float(pd.Series(values).median()), 6),
+            "positive_partial_ic_rate": round(float((pd.Series(values) > 0).mean()), 6),
+        }
+        for regime, values in observations.items()
+    ]
+
+
+def summarize_incremental(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    total_days = sum(row["test_days"] for row in rows)
+    if total_days == 0:
+        return {"decision": "INSUFFICIENT_DATA", "test_days": 0, "promotion_ready": False}
+    weighted_ic = sum(row["partial_ic_mean"] * row["test_days"] for row in rows) / total_days
+    stable = [row for row in rows if row["test_days"] >= 5]
+    positive_rate = sum(row["partial_ic_mean"] > 0 for row in stable) / len(stable) if stable else 0.0
+    if total_days >= 40 and weighted_ic >= 0.01 and positive_rate >= 0.60:
+        decision = "INCREMENTAL_WALKFORWARD_CANDIDATE"
+    elif total_days >= 20 and weighted_ic > 0 and positive_rate >= 0.50:
+        decision = "INCREMENTAL_MONITOR_ONLY"
+    else:
+        decision = "NO_INCREMENTAL_EDGE"
+    return {
+        "decision": decision,
+        "test_days": total_days,
+        "stable_buckets": len(stable),
+        "positive_bucket_rate": round(positive_rate, 6),
+        "weighted_partial_ic_mean": round(weighted_ic, 6),
+        "promotion_ready": False,
+    }
 
 
 def evaluate_fold(
@@ -456,6 +578,55 @@ def mask_unavailable_source_features(
     }
 
 
+def apply_research_universe(
+    frame: pd.DataFrame,
+    *,
+    mode: str,
+    liquidity_top_n: int,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """建立只使用當日已知 rolling liquidity 的 point-in-time universe。"""
+    if mode == "all":
+        return frame.copy(), {
+            "mode": mode,
+            "point_in_time": False,
+            "rows": int(len(frame)),
+            "stocks": int(frame["stock_id"].nunique()),
+        }
+    if mode != "point-in-time-liquidity":
+        raise ValueError(f"未知 universe mode：{mode}")
+    if liquidity_top_n <= 0:
+        raise ValueError("--liquidity-top-n 必須為正數")
+    if "avg_value_20d" not in frame.columns:
+        raise ValueError("point-in-time liquidity universe 缺少 avg_value_20d")
+    ranked = frame.dropna(subset=["avg_value_20d"]).copy()
+    ranked["avg_value_20d"] = pd.to_numeric(ranked["avg_value_20d"], errors="coerce")
+    ranked = ranked.dropna(subset=["avg_value_20d"]).sort_values(
+        ["trade_date", "avg_value_20d", "stock_id"],
+        ascending=[True, False, True],
+    )
+    ranked["_point_in_time_liquidity_rank"] = ranked.groupby("trade_date", sort=False).cumcount() + 1
+    selected = ranked[ranked["_point_in_time_liquidity_rank"] <= liquidity_top_n].copy()
+    daily_counts = selected.groupby("trade_date")["stock_id"].nunique()
+    available = selected.get("institutional_available", pd.Series(False, index=selected.index)).fillna(False).astype(bool)
+    daily_coverage = selected.assign(_available=available).groupby("trade_date")["_available"].mean()
+    return selected.drop(columns=["_point_in_time_liquidity_rank"]), {
+        "mode": mode,
+        "point_in_time": True,
+        "ranking_field": "avg_value_20d",
+        "ranking_lookback_days": 20,
+        "liquidity_top_n": liquidity_top_n,
+        "rows": int(len(selected)),
+        "stocks": int(selected["stock_id"].nunique()),
+        "trade_days": int(selected["trade_date"].nunique()),
+        "daily_selected_min": int(daily_counts.min()),
+        "daily_selected_max": int(daily_counts.max()),
+        "institutional_available_rate": round(float(available.mean()), 6),
+        "daily_institutional_coverage_min": round(float(daily_coverage.min()), 6),
+        "daily_institutional_coverage_median": round(float(daily_coverage.median()), 6),
+        "daily_institutional_coverage_max": round(float(daily_coverage.max()), 6),
+    }
+
+
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     if not 0 < args.min_daily_coverage <= 1:
         raise ValueError("--min-daily-coverage 必須介於 0 與 1 之間")
@@ -468,6 +639,11 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     frame = add_forward_returns(frame, [args.horizon])
     target = f"future_return_{args.horizon}d"
     frame = frame[frame["regime_label"].ne("UNKNOWN")].copy()
+    frame, universe_receipt = apply_research_universe(
+        frame,
+        mode=args.universe_mode,
+        liquidity_top_n=args.liquidity_top_n,
+    )
     dates = sorted(frame.loc[frame[target].notna(), "trade_date"].drop_duplicates().tolist())
     folds = build_folds(
         dates,
@@ -491,6 +667,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         for date, label in frame[["trade_date", "regime_label"]].drop_duplicates("trade_date").itertuples(index=False)
     }
     results: list[dict[str, Any]] = []
+    incremental_results: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     selections: list[dict[str, Any]] = []
     for fold in folds:
@@ -514,6 +691,18 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             target,
             args.min_daily_stocks,
             args.min_daily_coverage,
+        )
+        incremental_results.extend(
+            evaluate_incremental_fold(
+                frame,
+                fold,
+                selected,
+                target,
+                args.min_daily_stocks,
+                args.min_daily_coverage,
+                primary_group="chip_flow",
+                control_group="liquidity_activity",
+            )
         )
         results.extend(fold_results)
         warnings.extend(selection_warnings)
@@ -560,6 +749,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "min_daily_coverage": args.min_daily_coverage,
             "top_features_per_group": args.top_features_per_group,
             "min_train_abs_ic": args.min_train_abs_ic,
+            "universe_mode": args.universe_mode,
+            "liquidity_top_n": args.liquidity_top_n,
             "available_dates": len(dates),
             "start_date": str(dates[0].date()),
             "end_date": str(dates[-1].date()),
@@ -577,9 +768,17 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "feature_groups": groups,
         "excluded_features": excluded_features,
         "source_mask_receipt": source_mask_receipt,
+        "research_universe": universe_receipt,
         "folds": [asdict(fold) for fold in folds],
         "selections": selections,
         "fold_regime_results": results,
+        "incremental_evidence": {
+            "chip_flow_vs_liquidity_activity": {
+                "method": "daily partial Spearman rank IC after linear residualization on liquidity_activity rank",
+                "summary": summarize_incremental(incremental_results),
+                "fold_regime_results": incremental_results,
+            }
+        },
         "summary": summarize(results, list(groups)),
         "warnings_and_exclusions": warnings,
         "remaining_risk": [
@@ -624,6 +823,8 @@ def render_markdown(payload: dict[str, Any]) -> str:
             f"- MONITOR_ONLY: {', '.join(payload['summary']['monitor_only']) or 'none'}",
             f"- Conditional candidate: {', '.join(payload['summary']['conditional_walkforward_candidates']) or 'none'}",
             f"- Conditional monitor: {', '.join(payload['summary']['conditional_monitor_only']) or 'none'}",
+            "- Chip incremental vs liquidity: "
+            f"{payload['incremental_evidence']['chip_flow_vs_liquidity_activity']['summary']['decision']}",
             "- 本 artifact 不能直接支持 production promotion。",
             "",
         ]
