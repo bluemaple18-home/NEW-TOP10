@@ -33,6 +33,7 @@ def main() -> int:
         "constant_daily_feature_is_skipped": _constant_daily_feature_is_skipped(),
         "point_in_time_universe_reranks_each_day": _point_in_time_universe_reranks_each_day(),
         "partial_ic_detects_incremental_signal": _partial_ic_detects_incremental_signal(),
+        "incremental_groups_are_deduplicated_and_control_rejected": _incremental_groups_are_deduplicated_and_control_rejected(),
     }
     status = "OK" if all(checks.values()) else "FAILED"
     ARTIFACT.parent.mkdir(parents=True, exist_ok=True)
@@ -247,6 +248,21 @@ def _partial_ic_detects_incremental_signal() -> bool:
         min_coverage=0.70,
     )
     return rows == 40 and ic is not None and ic > 0.80
+
+
+def _incremental_groups_are_deduplicated_and_control_rejected() -> bool:
+    groups = {"liquidity_activity": ["value"], "chip_flow": ["inst"], "cost_basis": ["vwap"]}
+    resolved = walkforward.resolve_incremental_primary_groups(
+        ["cost_basis", "cost_basis", "chip_flow"],
+        groups,
+    )
+    try:
+        walkforward.resolve_incremental_primary_groups(["liquidity_activity"], groups)
+    except ValueError:
+        control_rejected = True
+    else:
+        control_rejected = False
+    return resolved == ["cost_basis", "chip_flow"] and control_rejected
 
 
 if __name__ == "__main__":

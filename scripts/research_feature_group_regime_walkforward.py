@@ -72,6 +72,12 @@ def parse_args() -> argparse.Namespace:
         default="all",
     )
     parser.add_argument("--liquidity-top-n", type=int, default=200)
+    parser.add_argument(
+        "--incremental-primary-group",
+        action="append",
+        default=None,
+        help="相對 liquidity_activity 評估 partial IC；可重複指定，預設 chip_flow",
+    )
     parser.add_argument("--output", default="artifacts/model_experiments/feature_group_regime_walkforward_2026-07-23.json")
     return parser.parse_args()
 
@@ -627,6 +633,22 @@ def apply_research_universe(
     }
 
 
+def resolve_incremental_primary_groups(
+    requested: list[str] | None,
+    available_groups: dict[str, list[str]],
+) -> list[str]:
+    """正規化 incremental primary groups，禁止重複與自我控制。"""
+    groups = list(dict.fromkeys(requested or ["chip_flow"]))
+    unknown = sorted(set(groups) - set(available_groups))
+    if unknown:
+        raise ValueError(f"未知 incremental primary groups：{unknown}")
+    if "liquidity_activity" not in available_groups:
+        raise ValueError("incremental control group liquidity_activity 不存在")
+    if "liquidity_activity" in groups:
+        raise ValueError("incremental primary group 不得等於 control group liquidity_activity")
+    return groups
+
+
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     if not 0 < args.min_daily_coverage <= 1:
         raise ValueError("--min-daily-coverage 必須介於 0 與 1 之間")
@@ -643,6 +665,10 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         frame,
         mode=args.universe_mode,
         liquidity_top_n=args.liquidity_top_n,
+    )
+    incremental_primary_groups = resolve_incremental_primary_groups(
+        args.incremental_primary_group,
+        groups,
     )
     dates = sorted(frame.loc[frame[target].notna(), "trade_date"].drop_duplicates().tolist())
     folds = build_folds(
@@ -692,18 +718,19 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             args.min_daily_stocks,
             args.min_daily_coverage,
         )
-        incremental_results.extend(
-            evaluate_incremental_fold(
-                frame,
-                fold,
-                selected,
-                target,
-                args.min_daily_stocks,
-                args.min_daily_coverage,
-                primary_group="chip_flow",
-                control_group="liquidity_activity",
+        for primary_group in incremental_primary_groups:
+            incremental_results.extend(
+                evaluate_incremental_fold(
+                    frame,
+                    fold,
+                    selected,
+                    target,
+                    args.min_daily_stocks,
+                    args.min_daily_coverage,
+                    primary_group=primary_group,
+                    control_group="liquidity_activity",
+                )
             )
-        )
         results.extend(fold_results)
         warnings.extend(selection_warnings)
         warnings.extend(fold_warnings)
@@ -751,6 +778,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "min_train_abs_ic": args.min_train_abs_ic,
             "universe_mode": args.universe_mode,
             "liquidity_top_n": args.liquidity_top_n,
+            "incremental_primary_groups": incremental_primary_groups,
             "available_dates": len(dates),
             "start_date": str(dates[0].date()),
             "end_date": str(dates[-1].date()),
@@ -773,11 +801,16 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "selections": selections,
         "fold_regime_results": results,
         "incremental_evidence": {
-            "chip_flow_vs_liquidity_activity": {
+            f"{primary_group}_vs_liquidity_activity": {
                 "method": "daily partial Spearman rank IC after linear residualization on liquidity_activity rank",
-                "summary": summarize_incremental(incremental_results),
-                "fold_regime_results": incremental_results,
+                "summary": summarize_incremental(
+                    [row for row in incremental_results if row["primary_group"] == primary_group]
+                ),
+                "fold_regime_results": [
+                    row for row in incremental_results if row["primary_group"] == primary_group
+                ],
             }
+            for primary_group in incremental_primary_groups
         },
         "summary": summarize(results, list(groups)),
         "warnings_and_exclusions": warnings,
@@ -823,8 +856,10 @@ def render_markdown(payload: dict[str, Any]) -> str:
             f"- MONITOR_ONLY: {', '.join(payload['summary']['monitor_only']) or 'none'}",
             f"- Conditional candidate: {', '.join(payload['summary']['conditional_walkforward_candidates']) or 'none'}",
             f"- Conditional monitor: {', '.join(payload['summary']['conditional_monitor_only']) or 'none'}",
-            "- Chip incremental vs liquidity: "
-            f"{payload['incremental_evidence']['chip_flow_vs_liquidity_activity']['summary']['decision']}",
+            *[
+                f"- {name}: {item['summary']['decision']}"
+                for name, item in payload["incremental_evidence"].items()
+            ],
             "- 本 artifact 不能直接支持 production promotion。",
             "",
         ]
