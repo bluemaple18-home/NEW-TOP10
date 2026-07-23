@@ -20,6 +20,7 @@ from scripts.research_chip_point_in_time_portfolio_replay import (
     compare_variant,
     pairwise_gap_receipt,
     score_daily,
+    variant_prefix,
 )
 
 
@@ -43,6 +44,17 @@ def verify_score_daily() -> None:
     assert scored["baseline"] == ["0010", "0009", "0008"]
     assert len(scored["chip_0.10"]) == 3
     assert len(scored["chip_0.20"]) == 3
+    event_selected = {
+        "RISK_OFF": {
+            "liquidity_activity": [{"feature": "liq", "direction": 1}],
+            "event": [{"feature": "chip", "direction": 1}],
+        }
+    }
+    event_scored = score_daily(daily, event_selected, top_n=3, primary_group="event")
+    assert event_scored is not None
+    assert set(event_scored) == {"baseline", "event_0.10", "event_0.20"}
+    assert variant_prefix("chip_flow") == "chip"
+    assert variant_prefix("event") == "event"
 
 
 def bucket(stock_ids: list[str], value: float, exposure: float = 0.3) -> dict:

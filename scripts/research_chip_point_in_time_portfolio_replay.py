@@ -37,6 +37,7 @@ from scripts.research_feature_group_ablation_by_regime import load_frame  # noqa
 
 
 SCHEMA_VERSION = "chip-point-in-time-portfolio-replay.v1"
+GENERIC_SCHEMA_VERSION = "feature-group-point-in-time-portfolio-replay.v1"
 OVERLAY_WEIGHTS = (0.10, 0.20)
 MIN_POSITIVE_FOLDS = 3
 MAX_TURNOVER_DELTA = 0.10
@@ -55,6 +56,7 @@ def parse_args() -> argparse.Namespace:
         default="artifacts/model_experiments/market_regime_history_append_only_2026-07-22.json",
     )
     parser.add_argument("--industry-map", default="data/reference/stock_industry_map.csv")
+    parser.add_argument("--primary-group", default="chip_flow")
     parser.add_argument("--top-n", type=int, default=10)
     parser.add_argument("--entry-delay-trade-days", type=int, default=1)
     parser.add_argument("--horizon", type=int, default=10)
@@ -102,30 +104,37 @@ def top_ids(frame: pd.DataFrame, score: str, top_n: int) -> list[str]:
     return ranked["stock_id"].astype(str).str.zfill(4).tolist()
 
 
+def variant_prefix(primary_group: str) -> str:
+    """保留既有 chip artifact key，其餘 group 使用原名。"""
+    return "chip" if primary_group == "chip_flow" else primary_group
+
+
 def score_daily(
     daily: pd.DataFrame,
     selected: dict[str, dict[str, list[dict[str, Any]]]],
     top_n: int,
+    primary_group: str = "chip_flow",
 ) -> dict[str, list[str]] | None:
     regime = str(daily["regime_label"].iloc[0])
     liquidity = build_group_score(daily, selected.get(regime, {}).get("liquidity_activity", []))
-    chip = build_group_score(daily, selected.get(regime, {}).get("chip_flow", []))
+    primary = build_group_score(daily, selected.get(regime, {}).get(primary_group, []))
     scored = pd.DataFrame(
         {
             "stock_id": daily["stock_id"].astype(str).str.zfill(4),
             "liquidity": liquidity,
-            "chip": chip,
+            "primary": primary,
         }
     ).dropna()
     required = max(top_n, int(len(daily) * 0.70 + 0.999999))
-    if len(scored) < required or scored["liquidity"].nunique() < 3 or scored["chip"].nunique() < 3:
+    if len(scored) < required or scored["liquidity"].nunique() < 3 or scored["primary"].nunique() < 3:
         return None
     scored["liquidity_rank"] = scored["liquidity"].rank(pct=True)
-    scored["chip_rank"] = scored["chip"].rank(pct=True)
+    scored["primary_rank"] = scored["primary"].rank(pct=True)
     result = {"baseline": top_ids(scored, "liquidity_rank", top_n)}
+    prefix = variant_prefix(primary_group)
     for weight in OVERLAY_WEIGHTS:
-        key = f"chip_{weight:.2f}"
-        scored[key] = (1 - weight) * scored["liquidity_rank"] + weight * scored["chip_rank"]
+        key = f"{prefix}_{weight:.2f}"
+        scored[key] = (1 - weight) * scored["liquidity_rank"] + weight * scored["primary_rank"]
         result[key] = top_ids(scored, key, top_n)
     return result
 
@@ -273,9 +282,13 @@ def pairwise_gap_receipt(
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     walkforward_path = resolve_path(args.walkforward)
     walkforward = json.loads(walkforward_path.read_text(encoding="utf-8"))
-    incremental = walkforward["incremental_evidence"]["chip_flow_vs_liquidity_activity"]["summary"]
+    incremental_key = f"{args.primary_group}_vs_liquidity_activity"
+    incremental_evidence = walkforward.get("incremental_evidence") or {}
+    if incremental_key not in incremental_evidence:
+        raise RuntimeError(f"walkforward 缺少 incremental evidence：{incremental_key}")
+    incremental = incremental_evidence[incremental_key]["summary"]
     if incremental["decision"] != "INCREMENTAL_WALKFORWARD_CANDIDATE":
-        raise RuntimeError("chip_flow 未通過 incremental gate，不應執行 portfolio replay")
+        raise RuntimeError(f"{args.primary_group} 未通過 incremental gate，不應執行 portfolio replay")
 
     frame, source_groups, _ = load_frame(
         resolve_path(args.data_dir),
@@ -307,7 +320,12 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         fold_id = int(fold["fold_id"])
         test = frame[frame["trade_date"].between(fold["test_start"], fold["test_end"])]
         for trade_date, daily in test.groupby("trade_date", sort=True):
-            ids = score_daily(daily, selections[fold_id], args.top_n)
+            ids = score_daily(
+                daily,
+                selections[fold_id],
+                args.top_n,
+                primary_group=args.primary_group,
+            )
             if ids is None:
                 unavailable_days += 1
                 continue
@@ -316,7 +334,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                 row[key] = simulate_bucket(price_index, trade_dates, row["ranking_date"], stock_ids, group_map, args)
             attempted_rows.append(row)
 
-    variant_keys = ["baseline", *[f"chip_{weight:.2f}" for weight in OVERLAY_WEIGHTS]]
+    prefix = variant_prefix(args.primary_group)
+    variant_keys = ["baseline", *[f"{prefix}_{weight:.2f}" for weight in OVERLAY_WEIGHTS]]
     excluded_incomplete = []
     rows = []
     for row in attempted_rows:
@@ -335,17 +354,18 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             rows.append(row)
         else:
             excluded_incomplete.append(receipt)
-    comparisons = [compare_variant(rows, f"chip_{weight:.2f}") for weight in OVERLAY_WEIGHTS]
+    comparisons = [compare_variant(rows, f"{prefix}_{weight:.2f}") for weight in OVERLAY_WEIGHTS]
     candidates = [row["variant"] for row in comparisons if row["decision"] == "SHADOW_CANDIDATE"]
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": SCHEMA_VERSION if args.primary_group == "chip_flow" else GENERIC_SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "OK",
         "decision": "SHADOW_CANDIDATE" if candidates else "NO_GO",
         "contract": {
             "research_only": True,
             "point_in_time_universe": True,
-            "paired_chip_available_universe": True,
+            "paired_chip_available_universe": args.primary_group == "chip_flow",
+            "paired_primary_available_universe": True,
             "train_only_feature_selection": True,
             "shared_oos_with_incremental_gate": True,
             "independent_validation": False,
@@ -364,6 +384,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         },
         "inputs": {
             "walkforward": repo_path(walkforward_path),
+            "primary_group": args.primary_group,
             "top_n": args.top_n,
             "costs": {
                 "fee_rate": args.fee_rate,
@@ -385,7 +406,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
 
 def render_markdown(payload: dict[str, Any]) -> str:
     lines = [
-        "# Chip Point-in-time Portfolio Replay",
+        f"# {payload['inputs']['primary_group']} Point-in-time Portfolio Replay",
         "",
         f"- decision：`{payload['decision']}`",
         f"- replay_days：`{payload['replay_days']}`",
