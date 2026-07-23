@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""每日更新 regime history，並執行 Chip／Event append-only shadow。"""
+"""每日更新 regime history，並執行 Chip／Event／量價警示 append-only shadow。"""
 
 from __future__ import annotations
 
@@ -163,6 +163,11 @@ def parse_args() -> argparse.Namespace:
         "--event-ledger",
         default="artifacts/model_experiments/event_overlay_shadow_ledger_v1.json",
     )
+    parser.add_argument("--volume-climax-config", default="config/volume_climax_warning_shadow_v1.json")
+    parser.add_argument(
+        "--volume-climax-ledger",
+        default="artifacts/model_experiments/volume_climax_warning_shadow_ledger_v1.json",
+    )
     parser.add_argument(
         "--status-output",
         default="artifacts/model_experiments/overlay_shadow_daily_status.json",
@@ -210,12 +215,22 @@ def main() -> int:
                 "--market-regime-history",
                 str(regime_path),
             ],
+            "volume_climax": [
+                sys.executable,
+                "scripts/run_volume_climax_warning_append_only_shadow.py",
+                "--config",
+                str(resolve_path(args.volume_climax_config)),
+                "--ledger",
+                str(resolve_path(args.volume_climax_ledger)),
+                "--features",
+                str(resolve_path(args.features)),
+            ],
         }
         for name, command in commands.items():
             payload["components"][name] = run_json_command(command)
         failed = [
             name
-            for name in ("chip", "event")
+            for name in ("chip", "event", "volume_climax")
             if int(payload["components"][name]["exit_code"]) != 0
         ]
         payload["status"] = "OK" if not failed else "PARTIAL"
@@ -232,6 +247,7 @@ def main() -> int:
                 "status_output": repo_path(status_path),
                 "chip": (payload["components"].get("chip") or {}).get("result"),
                 "event": (payload["components"].get("event") or {}).get("result"),
+                "volume_climax": (payload["components"].get("volume_climax") or {}).get("result"),
                 "promotion_allowed": False,
             },
             ensure_ascii=False,

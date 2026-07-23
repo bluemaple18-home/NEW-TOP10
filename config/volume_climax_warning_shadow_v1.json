@@ -1,0 +1,21 @@
+{
+  "schema_version": "volume-climax-warning-shadow-config.v1",
+  "seal_date": "2026-07-23",
+  "watchlist_ranking_days": 7,
+  "volume_ratio_20d_min": 1.8,
+  "require_long_upper_shadow": true,
+  "active_regimes": [
+    "RISK_ON"
+  ],
+  "required_observation_count": 60,
+  "warning_text": "短線追價要保守",
+  "contract": {
+    "append_only": true,
+    "dates_must_be_after_seal": true,
+    "research_only": true,
+    "warning_only": true,
+    "production_promotion_allowed": false,
+    "changes_production_ranking": false,
+    "sends_push": false
+  }
+}
