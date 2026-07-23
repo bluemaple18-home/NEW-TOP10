@@ -55,6 +55,18 @@ def verify_score_daily() -> None:
     assert set(event_scored) == {"baseline", "event_0.10", "event_0.20"}
     assert variant_prefix("chip_flow") == "chip"
     assert variant_prefix("event") == "event"
+    constrained = score_daily(
+        daily,
+        event_selected,
+        top_n=5,
+        primary_group="event",
+        overlay_weights=[0.10],
+        min_retain_baseline=3,
+        candidate_pool_multiplier=2,
+    )
+    assert constrained is not None
+    assert set(constrained["baseline"][:3]).issubset(set(constrained["event_0.10"]))
+    assert len(constrained["event_0.10"]) == 5
 
 
 def bucket(stock_ids: list[str], value: float, exposure: float = 0.3) -> dict:

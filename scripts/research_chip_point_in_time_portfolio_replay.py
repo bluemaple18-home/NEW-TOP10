@@ -57,7 +57,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--industry-map", default="data/reference/stock_industry_map.csv")
     parser.add_argument("--primary-group", default="chip_flow")
+    parser.add_argument(
+        "--overlay-weight",
+        action="append",
+        type=float,
+        default=None,
+        help="可重複指定；未指定時維持 0.10/0.20",
+    )
     parser.add_argument("--top-n", type=int, default=10)
+    parser.add_argument("--min-retain-baseline", type=int, default=0)
+    parser.add_argument("--candidate-pool-multiplier", type=int, default=3)
     parser.add_argument("--entry-delay-trade-days", type=int, default=1)
     parser.add_argument("--horizon", type=int, default=10)
     parser.add_argument("--fee-rate", type=float, default=0.001425)
@@ -109,11 +118,40 @@ def variant_prefix(primary_group: str) -> str:
     return "chip" if primary_group == "chip_flow" else primary_group
 
 
+def constrained_overlay_ids(
+    scored: pd.DataFrame,
+    *,
+    variant_score: str,
+    top_n: int,
+    min_retain_baseline: int,
+    candidate_pool_multiplier: int,
+) -> list[str]:
+    if min_retain_baseline <= 0:
+        return top_ids(scored, variant_score, top_n)
+    retain_count = min(max(min_retain_baseline, 0), top_n)
+    baseline = scored.sort_values(
+        ["liquidity_rank", "stock_id"],
+        ascending=[False, True],
+    )
+    retained = baseline.head(retain_count)
+    pool_size = max(top_n, top_n * max(candidate_pool_multiplier, 1))
+    pool = baseline.head(pool_size)
+    retained_ids = set(retained["stock_id"].astype(str))
+    fill = pool[~pool["stock_id"].astype(str).isin(retained_ids)].sort_values(
+        [variant_score, "stock_id"],
+        ascending=[False, True],
+    ).head(top_n - retain_count)
+    return pd.concat([retained, fill], ignore_index=True)["stock_id"].astype(str).str.zfill(4).tolist()
+
+
 def score_daily(
     daily: pd.DataFrame,
     selected: dict[str, dict[str, list[dict[str, Any]]]],
     top_n: int,
     primary_group: str = "chip_flow",
+    overlay_weights: list[float] | tuple[float, ...] = OVERLAY_WEIGHTS,
+    min_retain_baseline: int = 0,
+    candidate_pool_multiplier: int = 3,
 ) -> dict[str, list[str]] | None:
     regime = str(daily["regime_label"].iloc[0])
     liquidity = build_group_score(daily, selected.get(regime, {}).get("liquidity_activity", []))
@@ -132,10 +170,16 @@ def score_daily(
     scored["primary_rank"] = scored["primary"].rank(pct=True)
     result = {"baseline": top_ids(scored, "liquidity_rank", top_n)}
     prefix = variant_prefix(primary_group)
-    for weight in OVERLAY_WEIGHTS:
+    for weight in overlay_weights:
         key = f"{prefix}_{weight:.2f}"
         scored[key] = (1 - weight) * scored["liquidity_rank"] + weight * scored["primary_rank"]
-        result[key] = top_ids(scored, key, top_n)
+        result[key] = constrained_overlay_ids(
+            scored,
+            variant_score=key,
+            top_n=top_n,
+            min_retain_baseline=min_retain_baseline,
+            candidate_pool_multiplier=candidate_pool_multiplier,
+        )
     return result
 
 
@@ -289,6 +333,13 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     incremental = incremental_evidence[incremental_key]["summary"]
     if incremental["decision"] != "INCREMENTAL_WALKFORWARD_CANDIDATE":
         raise RuntimeError(f"{args.primary_group} 未通過 incremental gate，不應執行 portfolio replay")
+    overlay_weights = list(dict.fromkeys(args.overlay_weight or OVERLAY_WEIGHTS))
+    if not overlay_weights or any(not 0 < weight < 1 for weight in overlay_weights):
+        raise ValueError("overlay weights 必須介於 0 與 1 之間")
+    if not 0 <= args.min_retain_baseline <= args.top_n:
+        raise ValueError("min-retain-baseline 必須介於 0 與 top-n 之間")
+    if args.candidate_pool_multiplier < 1:
+        raise ValueError("candidate-pool-multiplier 必須至少為 1")
 
     frame, source_groups, _ = load_frame(
         resolve_path(args.data_dir),
@@ -325,6 +376,9 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                 selections[fold_id],
                 args.top_n,
                 primary_group=args.primary_group,
+                overlay_weights=overlay_weights,
+                min_retain_baseline=args.min_retain_baseline,
+                candidate_pool_multiplier=args.candidate_pool_multiplier,
             )
             if ids is None:
                 unavailable_days += 1
@@ -335,7 +389,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             attempted_rows.append(row)
 
     prefix = variant_prefix(args.primary_group)
-    variant_keys = ["baseline", *[f"{prefix}_{weight:.2f}" for weight in OVERLAY_WEIGHTS]]
+    variant_keys = ["baseline", *[f"{prefix}_{weight:.2f}" for weight in overlay_weights]]
     excluded_incomplete = []
     rows = []
     for row in attempted_rows:
@@ -354,7 +408,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             rows.append(row)
         else:
             excluded_incomplete.append(receipt)
-    comparisons = [compare_variant(rows, f"{prefix}_{weight:.2f}") for weight in OVERLAY_WEIGHTS]
+    comparisons = [compare_variant(rows, f"{prefix}_{weight:.2f}") for weight in overlay_weights]
     candidates = [row["variant"] for row in comparisons if row["decision"] == "SHADOW_CANDIDATE"]
     return {
         "schema_version": SCHEMA_VERSION if args.primary_group == "chip_flow" else GENERIC_SCHEMA_VERSION,
@@ -375,7 +429,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "exit_timing": f"D+{args.horizon} close",
         },
         "decision_policy": {
-            "overlay_weights_pre_registered": list(OVERLAY_WEIGHTS),
+            "overlay_weights_pre_registered": overlay_weights,
             "min_return_delta": 0,
             "min_positive_folds": MIN_POSITIVE_FOLDS,
             "max_turnover_delta": MAX_TURNOVER_DELTA,
@@ -386,6 +440,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "walkforward": repo_path(walkforward_path),
             "primary_group": args.primary_group,
             "top_n": args.top_n,
+            "min_retain_baseline": args.min_retain_baseline,
+            "candidate_pool_multiplier": args.candidate_pool_multiplier,
             "costs": {
                 "fee_rate": args.fee_rate,
                 "tax_rate": args.tax_rate,
