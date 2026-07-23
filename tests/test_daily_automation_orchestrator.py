@@ -68,6 +68,7 @@ class DailyAutomationOrchestratorTest(unittest.TestCase):
                 "run_candidate_trail10_shadow_monitor",
                 "run_overlap_first_recommendation_shadow",
                 "run_shadow_historical_evidence_report",
+                "run_overlay_append_only_shadow",
                 "run_daily_shadow_status_report",
                 "record_api_cache_clear_skipped",
                 "run_postcheck",

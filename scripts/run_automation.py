@@ -121,6 +121,9 @@ class _DailyActions:
     def run_shadow_historical_evidence_report(self, config: dict[str, Any]) -> None:
         self.runner._run_shadow_historical_evidence_report(config)
 
+    def run_overlay_append_only_shadow(self, config: dict[str, Any]) -> None:
+        self.runner._run_overlay_append_only_shadow(config)
+
     def run_daily_shadow_status_report(self, config: dict[str, Any]) -> None:
         self.runner._run_daily_shadow_status_report(config)
 
@@ -818,6 +821,41 @@ class AutomationRunner:
         if not self.dry_run and output_path.exists():
             self.status.metadata["daily_shadow_status_report"] = str(output_path)
             self._record_step("daily_shadow.status_report.artifact", "OK", message=str(output_path))
+
+    def _run_overlay_append_only_shadow(self, daily_config: dict[str, Any]) -> None:
+        output_path = PROJECT_ROOT / "artifacts" / "model_experiments" / "overlay_shadow_daily_status.json"
+        self.status.metadata["expected_overlay_append_only_shadow_status"] = str(output_path)
+        if not daily_config.get("overlay_append_only_shadow_enabled", False):
+            self._record_step(
+                "overlay_append_only.shadow",
+                "SKIPPED",
+                message="config daily.overlay_append_only_shadow_enabled=false",
+            )
+            return
+
+        self._run_command(
+            "overlay_append_only.shadow",
+            ["python", "scripts/run_overlay_shadow_daily_monitor.py"],
+            allow_failure=True,
+        )
+        if self.dry_run:
+            return
+        step = self.status.steps[-1]
+        if output_path.exists() and step.status == "OK":
+            self.status.metadata["overlay_append_only_shadow_status"] = str(output_path)
+            self._record_step("overlay_append_only.shadow.artifact", "OK", message=str(output_path))
+        elif output_path.exists():
+            self._record_step(
+                "overlay_append_only.shadow.artifact",
+                "WARN",
+                message=f"monitor failed; inspect receipt: {output_path}",
+            )
+        else:
+            self._record_step(
+                "overlay_append_only.shadow.artifact",
+                "WARN",
+                message=f"missing monitor receipt: {output_path}",
+            )
 
     def _run_shadow_historical_evidence_report(self, daily_config: dict[str, Any]) -> None:
         date_text = self._latest_feature_date()

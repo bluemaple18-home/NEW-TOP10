@@ -38,6 +38,7 @@ daily:
   candidate_trail10_shadow_monitor_enabled: false # LONG-CANDIDATE-VALIDATION-01：candidate ranking + trail10 每日 shadow，不改正式榜/推播；預設手動開啟
   overlap_first_recommendation_shadow_enabled: false # SHADOW-ROLLOUT-02：正式榜與 candidate trail10 重複者優先的影子推薦稿；預設手動開啟
   shadow_historical_evidence_report_enabled: false # 用既有長區間 replay 回答是否只能等待 forward monitor；預設手動開啟
+  overlay_append_only_shadow_enabled: true # 每日累積 frozen Chip/Event overlay；研究失敗 allow-failure，不影響正式 ranking/publish
   daily_shadow_status_report_enabled: false # 彙整目前所有 shadow 觀測分支與 review readiness；預設手動開啟
   clawd_payload_enabled: true   # CLAWD-01：daily report 後產出 Clawd-ready payload；不實際發送
   postcheck_enabled: false     # DAILY-03：每日後驗收預設手動執行，避免 launchd 被前端/Chrome 環境卡住
