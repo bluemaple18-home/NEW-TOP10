@@ -1,0 +1,81 @@
+{
+  "schema_version": "feature-group-liquidity-overlay-shadow-candidate.v1",
+  "candidate_id": "event_liquidity_constrained_overlay_0.10_v1",
+  "primary_group": "event",
+  "ledger_writer_role": "primary_integrator_machine",
+  "frozen_at_commit": "7bd2a8921fd9cc56b1ca2f1239681311ba1569e2",
+  "seal_date": "2026-07-08",
+  "regime_history": {
+    "path": "artifacts/model_experiments/market_regime_history_append_only_2026-07-22.json",
+    "anchor_through": "2026-07-08",
+    "anchor_rows": 271,
+    "anchor_sha256": "71e89bd35f8e82b59907a0ebb3944836eb4f70a428d394da4742a77d90dbf8b4"
+  },
+  "training_contract": {
+    "mature_trade_days": 252,
+    "horizon_trade_days": 10,
+    "min_daily_coverage": 0.7,
+    "min_daily_stocks": 30,
+    "top_features_per_group": 3,
+    "min_train_abs_ic": 0.02,
+    "feature_selection_uses_dates_on_or_before_seal": true
+  },
+  "universe": {
+    "mode": "point-in-time-liquidity",
+    "ranking_field": "avg_value_20d",
+    "liquidity_top_n": 200
+  },
+  "portfolio": {
+    "top_n": 10,
+    "overlay_weight": 0.1,
+    "min_retain_baseline": 7,
+    "candidate_pool_multiplier": 3,
+    "entry_delay_trade_days": 1,
+    "holding_trade_days": 10,
+    "fee_rate": 0.001425,
+    "tax_rate": 0.003,
+    "slippage_rate": 0.001
+  },
+  "acceptance": {
+    "required_independent_dates": 60,
+    "required_monthly_buckets": 3,
+    "min_positive_monthly_bucket_rate": 0.6,
+    "min_avg_net_return_delta": 0.0,
+    "max_turnover_delta": 0.1,
+    "max_avg_group_exposure_delta": 0.0,
+    "promotion_allowed": false
+  },
+  "selected": {
+    "MIXED_NEUTRAL": {
+      "liquidity_activity": [
+        {"feature": "obv", "direction": 1},
+        {"feature": "avg_volume_10d", "direction": 1},
+        {"feature": "avg_volume_20d", "direction": 1}
+      ],
+      "event": [
+        {"feature": "event_volume_spike", "direction": -1},
+        {"feature": "event_ma5_cross_ma20_up", "direction": -1},
+        {"feature": "event_macd_bullish_cross", "direction": -1}
+      ]
+    },
+    "NARROW_LEADER": {
+      "liquidity_activity": [
+        {"feature": "avg_volume_10d", "direction": 1},
+        {"feature": "avg_volume_5d", "direction": 1},
+        {"feature": "avg_volume_20d", "direction": 1}
+      ],
+      "event": [
+        {"feature": "event_rsi_rebound_from_40", "direction": -1},
+        {"feature": "event_break_20d_high", "direction": 1},
+        {"feature": "event_close_above_bb_mid", "direction": -1}
+      ]
+    }
+  },
+  "unsupported_regimes": [
+    "BROAD_RISK_ON",
+    "CHOPPY_RANGE",
+    "EARLY_REVERSAL",
+    "PANIC_SELLING",
+    "RISK_OFF"
+  ]
+}

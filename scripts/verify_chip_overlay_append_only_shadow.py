@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 import sys
 
+import pandas as pd
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -15,6 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.run_chip_overlay_append_only_shadow import (  # noqa: E402
     empty_ledger,
+    frozen_daily_selection,
     merge_append_only,
     regime_anchor,
     summarize,
@@ -24,6 +27,7 @@ from scripts.run_chip_overlay_append_only_shadow import (  # noqa: E402
 
 
 CONFIG_PATH = PROJECT_ROOT / "config" / "chip_liquidity_overlay_shadow_v1.json"
+EVENT_CONFIG_PATH = PROJECT_ROOT / "config" / "event_liquidity_overlay_shadow_v1.json"
 
 
 def config() -> dict:
@@ -104,13 +108,42 @@ def verify_regime_anchor_detects_drift() -> None:
     assert digest != changed_digest
 
 
+def verify_generic_event_selection() -> None:
+    candidate = json.loads(EVENT_CONFIG_PATH.read_text(encoding="utf-8"))
+    rows = 40
+    daily = pd.DataFrame(
+        {
+            "trade_date": [pd.Timestamp("2026-07-09")] * rows,
+            "stock_id": [f"{index:04d}" for index in range(1, rows + 1)],
+            "regime_label": ["MIXED_NEUTRAL"] * rows,
+            "obv": list(range(rows)),
+            "avg_volume_10d": list(range(rows)),
+            "avg_volume_20d": list(range(rows)),
+            "event_volume_spike": [index % 5 for index in range(rows)],
+            "event_ma5_cross_ma20_up": [index % 7 for index in range(rows)],
+            "event_macd_bullish_cross": [index % 11 for index in range(rows)],
+        }
+    )
+    selection, warning = frozen_daily_selection(daily, candidate)
+    assert warning is None and selection is not None
+    assert len(selection["baseline"]) == len(selection["overlay"]) == 10
+    assert set(selection["baseline"][:7]).issubset(selection["overlay"])
+
+    daily["regime_label"] = "RISK_OFF"
+    selection, warning = frozen_daily_selection(daily, candidate)
+    assert selection is None
+    assert warning and warning["reason_code"] == "NO_FROZEN_SELECTION_FOR_REGIME"
+
+
 def main() -> int:
     candidate = config()
     validate_config(candidate)
+    validate_config(json.loads(EVENT_CONFIG_PATH.read_text(encoding="utf-8")))
     verify_append_only()
     verify_config_drift_fails()
     verify_first_sixty_are_sealed()
     verify_regime_anchor_detects_drift()
+    verify_generic_event_selection()
     print("CHIP_OVERLAY_APPEND_ONLY_SHADOW_OK")
     return 0
 

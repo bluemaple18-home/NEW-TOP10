@@ -33,6 +33,7 @@ from scripts.research_feature_group_regime_walkforward import (  # noqa: E402
     clean_feature_groups,
     mask_unavailable_source_features,
 )
+from scripts.research_chip_point_in_time_portfolio_replay import constrained_overlay_ids  # noqa: E402
 
 
 SCHEMA_VERSION = "chip-overlay-append-only-shadow-ledger.v1"
@@ -94,10 +95,15 @@ def read_json(path: Path) -> dict[str, Any]:
 
 
 def validate_config(config: dict[str, Any]) -> None:
-    if config.get("schema_version") != "chip-liquidity-overlay-shadow-candidate.v1":
+    if config.get("schema_version") not in {
+        "chip-liquidity-overlay-shadow-candidate.v1",
+        "feature-group-liquidity-overlay-shadow-candidate.v1",
+    }:
         raise ValueError("candidate config schema_version 不符")
-    if float((config.get("portfolio") or {}).get("chip_overlay_weight") or 0) != 0.10:
-        raise ValueError("candidate 必須固定為 10% chip overlay")
+    portfolio = config.get("portfolio") or {}
+    overlay_weight = portfolio.get("overlay_weight", portfolio.get("chip_overlay_weight"))
+    if float(overlay_weight or 0) != 0.10:
+        raise ValueError("candidate 必須固定為 10% overlay")
     if (config.get("universe") or {}).get("mode") != "point-in-time-liquidity":
         raise ValueError("candidate universe 必須為 point-in-time-liquidity")
     if int((config.get("acceptance") or {}).get("required_independent_dates") or 0) != 60:
@@ -106,6 +112,15 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ValueError("shadow candidate 不得允許直接 promotion")
     if not config.get("seal_date") or not isinstance(config.get("selected"), dict):
         raise ValueError("candidate 缺少 seal_date 或 selected")
+    primary_group = str(config.get("primary_group") or "chip_flow")
+    if not primary_group or primary_group == "liquidity_activity":
+        raise ValueError("candidate primary_group 不得為空或等於 liquidity_activity")
+    top_n = int(portfolio.get("top_n") or 0)
+    retain = int(portfolio.get("min_retain_baseline") or 0)
+    if top_n <= 0 or not 0 <= retain <= top_n:
+        raise ValueError("candidate top_n／min_retain_baseline 不合法")
+    if int(portfolio.get("candidate_pool_multiplier") or 3) < 1:
+        raise ValueError("candidate_pool_multiplier 必須至少為 1")
     regime = config.get("regime_history") or {}
     if regime.get("anchor_through") != config["seal_date"] or not regime.get("anchor_sha256"):
         raise ValueError("candidate 缺少與 seal date 一致的 regime history anchor")
@@ -196,6 +211,7 @@ def frozen_daily_selection(
 ) -> tuple[dict[str, list[str]] | None, dict[str, Any] | None]:
     regime = str(daily["regime_label"].iloc[0])
     selected = (config.get("selected") or {}).get(regime)
+    primary_group = str(config.get("primary_group") or "chip_flow")
     if not selected:
         return None, {
             "record": str(daily["trade_date"].iloc[0].date()),
@@ -205,12 +221,12 @@ def frozen_daily_selection(
             "regime_label": regime,
         }
     liquidity = build_group_score(daily, selected["liquidity_activity"])
-    chip = build_group_score(daily, selected["chip_flow"])
+    primary = build_group_score(daily, selected[primary_group])
     scored = pd.DataFrame(
         {
             "stock_id": daily["stock_id"].astype(str).str.zfill(4),
             "liquidity": liquidity,
-            "chip": chip,
+            "primary": primary,
         }
     ).dropna()
     coverage = float(len(scored) / len(daily)) if len(daily) else 0.0
@@ -225,13 +241,20 @@ def frozen_daily_selection(
             "minimum": minimum,
         }
     scored["liquidity_rank"] = scored["liquidity"].rank(pct=True)
-    scored["chip_rank"] = scored["chip"].rank(pct=True)
-    weight = float(config["portfolio"]["chip_overlay_weight"])
-    scored["overlay_rank"] = (1 - weight) * scored["liquidity_rank"] + weight * scored["chip_rank"]
+    scored["primary_rank"] = scored["primary"].rank(pct=True)
+    portfolio = config["portfolio"]
+    weight = float(portfolio.get("overlay_weight", portfolio.get("chip_overlay_weight")))
+    scored["overlay_rank"] = (1 - weight) * scored["liquidity_rank"] + weight * scored["primary_rank"]
     top_n = int(config["portfolio"]["top_n"])
     return {
         "baseline": top_ids(scored, "liquidity_rank", top_n),
-        "overlay": top_ids(scored, "overlay_rank", top_n),
+        "overlay": constrained_overlay_ids(
+            scored,
+            variant_score="overlay_rank",
+            top_n=top_n,
+            min_retain_baseline=int(portfolio.get("min_retain_baseline") or 0),
+            candidate_pool_multiplier=int(portfolio.get("candidate_pool_multiplier") or 3),
+        ),
     }, None
 
 
