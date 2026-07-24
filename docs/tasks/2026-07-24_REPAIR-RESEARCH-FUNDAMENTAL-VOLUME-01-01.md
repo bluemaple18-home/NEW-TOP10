@@ -1,7 +1,7 @@
 ---
 card_id: REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01
 chain_id: RESEARCH-FUNDAMENTAL-VOLUME-20260724
-status: CARD_DRAFTED
+status: REPAIR_CANDIDATE_READY
 type: bounded-repair
 repair_generation: 1
 repair_limit: 2
@@ -14,7 +14,7 @@ risk: research evidence integrity, independent verification, daily automation re
 model: gpt-5.6-sol
 reasoning: high
 model_reason: 修復一個 append-only integrity P1 與兩個 verifier completeness P2，需 adversarial fixtures 與原 Reviewer re-review。
-worktree: pending_visible_thread_provisioning
+worktree: codex/repair-research-fundamental-volume-01-01
 evidence_path: docs/evidence/REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01/repair.md
 ---
 

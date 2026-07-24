@@ -19,6 +19,7 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "volume-climax-warning-shadow-ledger.v1"
 RANKING_PATTERN = re.compile(r"^ranking_(\d{4}-\d{2}-\d{2})\.csv$")
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 def resolve_path(value: str | Path) -> Path:
@@ -78,6 +79,110 @@ def new_ledger(config: dict[str, Any], config_path: Path) -> dict[str, Any]:
         "summary": {},
         "last_run_receipt": {},
     }
+
+
+def validate_ledger(
+    ledger: dict[str, Any],
+    *,
+    config: dict[str, Any],
+    config_path: Path,
+    require_receipt: bool = True,
+) -> None:
+    """在續寫前驗證完整 frozen warning-only 契約。"""
+    if ledger.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError("ledger schema_version 不符")
+    if ledger.get("contract") != config.get("contract"):
+        raise ValueError("ledger frozen contract 不符")
+    if ledger.get("config") != repo_path(config_path):
+        raise ValueError("ledger config path 不符")
+    expected_config_sha = file_sha256(config_path)
+    if ledger.get("config_sha256") != expected_config_sha:
+        raise ValueError("frozen config 已變更；不得在原 ledger 續寫")
+    if not SHA256_PATTERN.fullmatch(str(ledger.get("config_sha256") or "")):
+        raise ValueError("ledger config SHA-256 格式不符")
+    if ledger.get("warnings_and_exclusions") != []:
+        raise ValueError("warning-only ledger 不得混入 exclusions")
+
+    observations = ledger.get("observations")
+    if not isinstance(observations, list):
+        raise ValueError("ledger observations 必須是 list")
+    dates = [str(row.get("ranking_date") or "") for row in observations if isinstance(row, dict)]
+    if len(dates) != len(observations) or any(not date for date in dates):
+        raise ValueError("observation ranking_date 缺漏")
+    if dates != sorted(dates) or len(dates) != len(set(dates)):
+        raise ValueError("observation 日期必須唯一且嚴格排序")
+    if any(date <= str(config["seal_date"]) for date in dates):
+        raise ValueError("observation 日期必須全部晚於 seal")
+
+    active_regimes = {str(value) for value in config["active_regimes"]}
+    expected_warning = str(config["warning_text"])
+    for row in observations:
+        source_hashes = row.get("source_hashes")
+        if not isinstance(source_hashes, dict):
+            raise ValueError("observation source_hashes 缺漏")
+        if not SHA256_PATTERN.fullmatch(str(source_hashes.get("features_sha256") or "")):
+            raise ValueError("observation features source hash 缺漏或格式不符")
+        ranking_hashes = source_hashes.get("ranking_files")
+        window_dates = row.get("ranking_window_dates")
+        if not isinstance(ranking_hashes, dict) or not ranking_hashes:
+            raise ValueError("observation ranking source hashes 缺漏")
+        if not isinstance(window_dates, list) or not window_dates:
+            raise ValueError("observation ranking window 缺漏")
+        expected_files = {f"ranking_{date}.csv" for date in window_dates}
+        if set(ranking_hashes) != expected_files:
+            raise ValueError("observation ranking source hashes 與 window 不一致")
+        if any(not SHA256_PATTERN.fullmatch(str(value)) for value in ranking_hashes.values()):
+            raise ValueError("observation ranking source hash 格式不符")
+        if window_dates != sorted(set(window_dates)) or window_dates[-1] != row["ranking_date"]:
+            raise ValueError("observation ranking window 日期不符")
+        if len(window_dates) > int(config["watchlist_ranking_days"]):
+            raise ValueError("observation ranking window 超出 frozen config")
+
+        items = row.get("flagged_items")
+        if not isinstance(items, list):
+            raise ValueError("observation flagged_items 必須是 list")
+        stock_ids = [str(item.get("stock_id") or "") for item in items if isinstance(item, dict)]
+        if len(stock_ids) != len(items) or stock_ids != sorted(set(stock_ids)):
+            raise ValueError("flagged_items 必須依 stock_id 唯一排序")
+        if int(row.get("raw_signal_count", -1)) != len(items):
+            raise ValueError("raw_signal_count 與 flagged_items 不一致")
+        warning_active = str(row.get("market_regime")) in active_regimes
+        expected_active_count = len(items) if warning_active else 0
+        if int(row.get("active_warning_count", -1)) != expected_active_count:
+            raise ValueError("active_warning_count 違反 regime 契約")
+        expected_text = expected_warning if expected_active_count else None
+        if row.get("warning_text") != expected_text:
+            raise ValueError("warning_text 違反 frozen warning-only 語意")
+        if row.get("production_ranking_changed") is not False:
+            raise ValueError("warning-only observation 不得改 production ranking")
+        if row.get("push_sent") is not False:
+            raise ValueError("warning-only observation 不得送 push")
+        for item in items:
+            if item.get("warning_active") is not warning_active:
+                raise ValueError("flagged item warning_active 違反 regime 契約")
+            if item.get("long_upper_shadow") is not True:
+                raise ValueError("flagged item 不符合 long upper shadow 契約")
+            if float(item.get("volume_ratio_20d", float("-inf"))) < float(config["volume_ratio_20d_min"]):
+                raise ValueError("flagged item 不符合 volume ratio 契約")
+
+    summary = ledger.get("summary")
+    if not isinstance(summary, dict):
+        raise ValueError("ledger summary 缺漏")
+    count = len(observations)
+    expected_summary = {
+        "observation_count": count,
+        "required_observation_count": int(config["required_observation_count"]),
+        "raw_signal_count": sum(int(row["raw_signal_count"]) for row in observations),
+        "active_warning_count": sum(int(row["active_warning_count"]) for row in observations),
+        "status": "MONITORING" if count else "WAITING_FOR_POST_SEAL_DATES",
+        "promotion_ready": False,
+    }
+    if summary != expected_summary:
+        raise ValueError("ledger summary 或 promotion fail-closed 契約不符")
+    if require_receipt:
+        receipt = ledger.get("last_run_receipt")
+        if not isinstance(receipt, dict) or int(receipt.get("observations_appended", -1)) < 0:
+            raise ValueError("ledger last_run_receipt 缺漏或不符")
 
 
 def build_observation(
@@ -149,19 +254,21 @@ def run(
     features: pd.DataFrame,
 ) -> dict[str, Any]:
     config = read_json(config_path)
-    ledger = read_json(ledger_path) if ledger_path.exists() else new_ledger(config, config_path)
-    if ledger["schema_version"] != SCHEMA_VERSION:
-        raise ValueError("ledger schema_version 不符")
-    if ledger["config_sha256"] != hashlib.sha256(config_path.read_bytes()).hexdigest():
-        raise ValueError("frozen config 已變更；不得在原 ledger 續寫")
+    ledger_exists = ledger_path.exists()
+    ledger = read_json(ledger_path) if ledger_exists else new_ledger(config, config_path)
+    if ledger_exists:
+        validate_ledger(ledger, config=config, config_path=config_path)
 
     existing = {str(row["ranking_date"]) for row in ledger["observations"]}
+    latest_existing = max(existing) if existing else None
     files = ranking_files(rankings_dir)
     features_sha256 = file_sha256(features_path)
     appended = 0
     for index, (ranking_date, _) in enumerate(files):
         if ranking_date <= str(config["seal_date"]) or ranking_date in existing:
             continue
+        if latest_existing is not None and ranking_date <= latest_existing:
+            raise ValueError("不得回填早於既有 ledger 尾端的 ranking_date")
         window_size = int(config["watchlist_ranking_days"])
         window = files[max(0, index - window_size + 1) : index + 1]
         observation = build_observation(
@@ -173,9 +280,9 @@ def run(
         )
         ledger["observations"].append(observation)
         existing.add(ranking_date)
+        latest_existing = ranking_date
         appended += 1
 
-    ledger["observations"] = sorted(ledger["observations"], key=lambda row: str(row["ranking_date"]))
     observation_count = len(ledger["observations"])
     required = int(config["required_observation_count"])
     ledger["summary"] = {
@@ -193,6 +300,7 @@ def run(
         "features": repo_path(features_path),
         "rankings_dir": repo_path(rankings_dir),
     }
+    validate_ledger(ledger, config=config, config_path=config_path)
     atomic_write(ledger_path, ledger)
     return {
         "status": "OK",

@@ -5,11 +5,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 
 import yaml
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.run_volume_climax_warning_append_only_shadow import validate_ledger  # noqa: E402
+
+
 STATUS_PATH = PROJECT_ROOT / "artifacts/model_experiments/overlay_shadow_daily_status.json"
 LEDGERS = [
     PROJECT_ROOT / "artifacts/model_experiments/chip_overlay_shadow_ledger_v1.json",
@@ -37,6 +44,13 @@ def main() -> int:
 
     for name, path in zip(("chip", "event", "volume_climax"), LEDGERS, strict=True):
         ledger = read_json(path)
+        if name == "volume_climax":
+            config_path = PROJECT_ROOT / "config/volume_climax_warning_shadow_v1.json"
+            validate_ledger(
+                ledger,
+                config=read_json(config_path),
+                config_path=config_path,
+            )
         observation_dates = [str(row["ranking_date"]) for row in ledger["observations"]]
         assert observation_dates == sorted(set(observation_dates))
         if name != "volume_climax":
