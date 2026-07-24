@@ -1,7 +1,8 @@
 ---
 card_id: REVIEW-UI-MFR-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: READY_FOR_INDEPENDENT_REVIEW
+status: REVIEW_GO
+final_review_sha: 8b324275ba5a1544486c6d11b1a387d85a75c872
 type: independent-api-ui-browser-review
 reviewed_candidate: a8d11a26d4378992a4749bae2707f6961a8de8ff
 base_sha: cdd4c42

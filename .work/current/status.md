@@ -1,6 +1,13 @@
 # Current Status
 
-狀態：`INDUSTRY-COMPLETION-20260722 / CLOSED`
+狀態：`REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01 / CARD_DRAFTED`
+
+## Current review
+
+- reviewed range：`f716883503941320fd8b27a9c88b36576557ed50..4deb72660dce9fc15f44d45e30307eb24f0caae1`
+- scope：Fundamental point-in-time readiness + Volume Climax warning append-only shadow
+- card：`docs/tasks/2026-07-24_REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01.md`
+- next gate：正式 visible Reviewer thread／獨立 worktree provisioning
 
 ## TPEx current-day institutional source
 
@@ -27,4 +34,4 @@
 - targeted：70 passed
 - full suite：465 passed
 - py_compile／promotion verifier／git diff check：PASS
-- mainline：integrated；2026-07-23 quick diagnostic addendum 待 push receipt
+- mainline：已整合並推送；`HEAD == origin/main == 4deb72660dce9fc15f44d45e30307eb24f0caae1`

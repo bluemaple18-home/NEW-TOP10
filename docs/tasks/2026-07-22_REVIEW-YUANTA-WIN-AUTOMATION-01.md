@@ -1,5 +1,7 @@
 ---
 task_id: REVIEW-YUANTA-WIN-AUTOMATION-01
+status: REVIEW_GO
+final_review_sha: 5505a7e
 card_type: independent-security-correctness-review
 reviewed_sha: d765cb5
 ownership: independent reviewer

@@ -1,7 +1,8 @@
 ---
 card_id: FEATURE-PROMOTE-02
 chain_id: TOP10-NEXT-WAVE-20260722
-status: CARD_DRAFTED
+status: INTEGRATED_NO_GO
+decision: NO_GO_MISSING_REQUIRED_EVIDENCE
 type: promotion-decision
 owner: receiving Mini
 model: receiving Mini

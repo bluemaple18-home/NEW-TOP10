@@ -1,7 +1,8 @@
 ---
 card_id: REPAIR-FEATURE-PROMOTE-02-02
 chain_id: TOP10-NEXT-WAVE-20260722
-status: READY_FOR_REPAIR
+status: REPAIR_COMPLETED
+final_candidate: 1a08f38550a73dfbf680de7ff441e5b6f82baa89
 type: bounded-repair
 repair_generation: 2
 repair_limit: 2

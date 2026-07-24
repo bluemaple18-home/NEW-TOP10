@@ -1,5 +1,6 @@
 ---
 task_id: SHADOW-RUN-01
+status: INTEGRATED
 card_type: implementation
 ownership: receiving Mini
 allowlist:

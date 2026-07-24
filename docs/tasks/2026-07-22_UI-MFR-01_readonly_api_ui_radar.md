@@ -1,7 +1,7 @@
 ---
 card_id: UI-MFR-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: CARD_DRAFTED
+status: INTEGRATED_READ_ONLY
 type: vertical-api-ui-slice
 owner: receiving Mini
 model: receiving Mini

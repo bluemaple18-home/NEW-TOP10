@@ -1,7 +1,8 @@
 ---
 card_id: REVIEW-TSKG-MFO-GRAPH-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: READY_FOR_INDEPENDENT_REVIEW
+status: REVIEW_GO
+final_review_sha: 17b2400
 type: independent-code-review
 reviewed_candidate: 1c6a760a0d655f370e9056131d9fcba53851b97b
 base_sha: 4dece38211968ee3d4f68937d2968940520ce145

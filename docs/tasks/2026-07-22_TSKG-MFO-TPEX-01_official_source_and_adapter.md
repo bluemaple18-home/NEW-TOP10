@@ -1,7 +1,8 @@
 ---
 card_id: TSKG-MFO-TPEX-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: READY_FOR_REVIEW_V2
+status: INTEGRATED_CURRENT_DAY_ONLY
+source_decision: GO_CURRENT_DAY_OPENAPI_ONLY
 type: source-governance-and-conditional-implementation
 owner: receiving Mini
 model: receiving Mini

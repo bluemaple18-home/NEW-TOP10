@@ -1,5 +1,13 @@
 # Context Manifest
 
+## Current independent review
+
+- `docs/tasks/2026-07-24_REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01.md`
+- `docs/tasks/2026-07-24_RESEARCH-FUNDAMENTAL-READINESS-01.md`
+- `docs/tasks/2026-07-24_VOLUME-CLIMAX-WARNING-SHADOW-01.md`
+- `docs/evidence/RESEARCH-FUNDAMENTAL-READINESS-01/`
+- `docs/evidence/VOLUME-CLIMAX-WARNING-SHADOW-01/`
+
 ## Dispatcher
 
 - `docs/tasks/2026-07-22_MINI-REMAINING-01_cross_machine_executor.md`

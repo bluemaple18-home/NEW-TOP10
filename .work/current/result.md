@@ -1,6 +1,10 @@
 # Result
 
-state：`CLOSED`
+state：`READY_FOR_INDEPENDENT_REVIEW`
+
+## Current follow-up
+
+基本面 readiness 與量價 warning monitor 已整合至 `4deb72660dce9fc15f44d45e30307eb24f0caae1`。正式 post-merge Review 卡已建立，尚待 visible Reviewer thread／獨立 worktree receipt；在 Reviewer 回覆前不得宣稱這兩項為 `REVIEW_GO`。
 
 ## Integrated outcome
 
@@ -31,4 +35,4 @@ state：`CLOSED`
 
 ## Remaining repository action items
 
-`0`。現行 overlay 不需被動等待更多日期。若提出 materially different 的產業 formulation，才另開 candidate，並以 time-split／walk-forward、sealed OOS 與成本後證據重新驗證。
+目前有 `1` 個流程項目：`REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01` 獨立審查。產業 overlay 本身仍無 repository action item；若提出 materially different formulation，才另開 candidate。

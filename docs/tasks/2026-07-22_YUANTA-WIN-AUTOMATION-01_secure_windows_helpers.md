@@ -1,5 +1,6 @@
 ---
 task_id: YUANTA-WIN-AUTOMATION-01
+status: INTEGRATED_EXPERIMENTAL_STATIC
 card_type: secure-implementation
 ownership: receiving Mini
 allowlist:

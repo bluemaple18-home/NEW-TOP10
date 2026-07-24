@@ -1,5 +1,7 @@
 ---
 task_id: REPAIR-YUANTA-WIN-AUTOMATION-01-01
+status: REPAIR_COMPLETED
+final_candidate: 6c2d0ceaed976701d2c4b0da0a6b619926d0cb01
 card_type: repair
 review_no_go_commit: f9b7503
 original_candidate: d765cb5

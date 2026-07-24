@@ -1,7 +1,8 @@
 ---
 card_id: REVIEW-TSKG-MFO-THEME-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: READY_FOR_REVIEW
+status: REVIEW_GO
+final_review_sha: ca077d987d1b1dbc653026848454b5ee9e8fa5bd
 type: independent-correctness-boundary-review
 reviewed_sha: 04f1380d7390609bea854afd354f7f0859f1d3e0
 owner: independent reviewer

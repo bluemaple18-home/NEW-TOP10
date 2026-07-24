@@ -1,7 +1,7 @@
 ---
 card_id: TSKG-MFO-THEME-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: CARD_DRAFTED
+status: INTEGRATED
 type: implementation
 owner: receiving Mini
 model: receiving Mini

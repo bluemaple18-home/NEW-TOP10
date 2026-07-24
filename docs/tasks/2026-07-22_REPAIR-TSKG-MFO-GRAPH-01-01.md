@@ -1,7 +1,8 @@
 ---
 card_id: REPAIR-TSKG-MFO-GRAPH-01-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: READY_FOR_REPAIR
+status: REPAIR_COMPLETED
+final_candidate: 6115a3c578e878682dbac79b7903c0f6e0a033d9
 type: bounded-repair
 repair_generation: 1
 candidate_sha: 1c6a760a0d655f370e9056131d9fcba53851b97b

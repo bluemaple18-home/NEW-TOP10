@@ -1,7 +1,8 @@
 ---
 card_id: REVIEW-TSKG-MFO-TPEX-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: READY_FOR_REVIEW
+status: REVIEW_GO
+review_sha: 6398e63340123871bc184e80fcfac73eb1806f38
 type: independent-source-governance-review
 reviewed_sha: 5a436b1062a8ef6a7ba4908cd6a79f8446dce2c9
 owner: independent reviewer

@@ -1,7 +1,8 @@
 ---
 card_id: REPAIR-TSKG-MFO-THEME-01-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: REPAIR_READY
+status: REPAIR_COMPLETED
+final_candidate: 71c02aa8a4f9106364e97da97ffefb887db0833e
 type: repair
 original_candidate: 04f1380d7390609bea854afd354f7f0859f1d3e0
 review_no_go_commit: 69282b5

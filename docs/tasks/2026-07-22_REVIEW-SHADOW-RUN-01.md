@@ -1,5 +1,7 @@
 ---
 task_id: REVIEW-SHADOW-RUN-01
+status: REVIEW_GO
+review_sha: 08caf5d
 card_type: independent-review
 reviewed_sha: 19a2d12
 ownership: independent reviewer

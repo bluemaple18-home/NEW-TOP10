@@ -1,7 +1,7 @@
 ---
 card_id: TSKG-MFO-GRAPH-01
 chain_id: TOP10-NEXT-WAVE-20260722
-status: CARD_DRAFTED
+status: INTEGRATED_SHADOW_ONLY
 type: shadow-research-implementation
 owner: receiving Mini
 model: receiving Mini

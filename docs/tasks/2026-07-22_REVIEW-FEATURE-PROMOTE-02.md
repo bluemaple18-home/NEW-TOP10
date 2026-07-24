@@ -1,7 +1,8 @@
 ---
 card_id: REVIEW-FEATURE-PROMOTE-02
 chain_id: TOP10-NEXT-WAVE-20260722
-status: READY_FOR_INDEPENDENT_REVIEW
+status: REVIEW_GO
+final_review_sha: 6f92520047abbd73d1ba6875a9c75440316cec28
 type: independent-promotion-review
 reviewed_candidate: e057ff9e5256091c7825251c7a9e7e43ed324ebe
 base_sha: b5a5e6394fa1bdb4f82124ffa5e1694844605f28
