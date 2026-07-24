@@ -1,17 +1,19 @@
 # Current Status
 
-狀態：`REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01 / CARD_DRAFTED`
+狀態：`RESEARCH-FUNDAMENTAL-VOLUME-01 / ACCEPTANCE_PENDING_MAINLINE`
 
 ## Current Review／Repair
 
 - reviewed range：`f716883503941320fd8b27a9c88b36576557ed50..4deb72660dce9fc15f44d45e30307eb24f0caae1`
 - scope：Fundamental point-in-time readiness + Volume Climax warning append-only shadow
 - card：`docs/tasks/2026-07-24_REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01.md`
-- independent Review：`REVIEW_NO_GO`
+- initial independent Review：`REVIEW_NO_GO`
 - review evidence：`9a90e5317c8c61745bd7273cdc865019399b9525`
 - Reviewer thread：`019f9241-fe47-7ef0-accf-3e021a49c401`
 - Repair card：`docs/tasks/2026-07-24_REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01.md`
-- next gate：Repair-1 visible thread／獨立 worktree provisioning
+- Repair candidate：`a28036a7797f9d1067698ae387d1a76231e917a8`
+- final re-review：`REVIEW_GO` at `9f29f3018887ea56e838603f865a5b758e04758e`
+- next gate：mainline acceptance rerun／push
 
 ## TPEx current-day institutional source
 

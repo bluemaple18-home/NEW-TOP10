@@ -1,7 +1,9 @@
 ---
 card_id: REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01
 chain_id: RESEARCH-FUNDAMENTAL-VOLUME-20260724
-status: REPAIR_CANDIDATE_READY
+status: REPAIR_COMPLETED
+candidate_sha: a28036a7797f9d1067698ae387d1a76231e917a8
+re_review_sha: 9f29f3018887ea56e838603f865a5b758e04758e
 type: bounded-repair
 repair_generation: 1
 repair_limit: 2

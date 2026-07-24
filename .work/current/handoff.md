@@ -2,7 +2,7 @@
 
 ## Current review handoff
 
-`REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01` 已對 `f716883..4deb726` 回覆 `REVIEW_NO_GO`。主線 follow-up 為 `REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01`；只修 review evidence 的 F-01～F-03。Repair 完成後必須回原 Reviewer thread `019f9241-fe47-7ef0-accf-3e021a49c401` re-review，不得更換 Reviewer 重置 findings。
+`REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01` initial verdict 為 `REVIEW_NO_GO`；Repair-1 `a28036a...` 已修復 F-01～F-03，並由原 Reviewer thread `019f9241-fe47-7ef0-accf-3e021a49c401` re-review `GO`。下一步只剩主線 acceptance rerun、整合與 push。
 
 本輪已完成 TPEx current-day 官方法人來源、產業 promotion 真實 production baseline 重跑、獨立 Review／Repair／re-review 與 mainline acceptance。
 

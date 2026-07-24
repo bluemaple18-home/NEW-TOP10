@@ -1,10 +1,10 @@
 # Result
 
-state：`REVIEW_NO_GO_REPAIR_READY`
+state：`REVIEW_GO_ACCEPTANCE_PENDING`
 
 ## Current follow-up
 
-基本面 readiness 與量價 warning monitor 已整合至 `4deb72660dce9fc15f44d45e30307eb24f0caae1`。獨立 post-merge Review 結論為 `REVIEW_NO_GO`，evidence commit `9a90e5317c8c61745bd7273cdc865019399b9525`；一個 P1 與兩個 P2 必須由 Repair-1 修復，再回原 Reviewer re-review。
+基本面 readiness 與量價 warning monitor 的 initial Review 為 `REVIEW_NO_GO`。Repair-1 candidate `a28036a7797f9d1067698ae387d1a76231e917a8` 已關閉一個 P1 與兩個 P2，原 Reviewer re-review 於 `9f29f3018887ea56e838603f865a5b758e04758e` 回覆 `REVIEW_GO`。
 
 ## Integrated outcome
 
@@ -35,4 +35,4 @@ state：`REVIEW_NO_GO_REPAIR_READY`
 
 ## Remaining repository action items
 
-目前有 `1` 個流程項目：`REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01`。產業 overlay 本身仍無 repository action item；若提出 materially different formulation，才另開 candidate。
+目前有 `1` 個流程項目：mainline acceptance rerun 與 push。產業 overlay 本身仍無 repository action item；若提出 materially different formulation，才另開 candidate。
