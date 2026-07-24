@@ -1,6 +1,6 @@
 # Result
 
-state：`REVIEW_GO_ACCEPTANCE_PENDING`
+state：`INTEGRATED_CLEANUP_PENDING`
 
 ## Current follow-up
 
@@ -35,4 +35,4 @@ state：`REVIEW_GO_ACCEPTANCE_PENDING`
 
 ## Remaining repository action items
 
-目前有 `1` 個流程項目：mainline acceptance rerun 與 push。產業 overlay 本身仍無 repository action item；若提出 materially different formulation，才另開 candidate。
+目前功能與證據待辦為 `0`；main 已整合並推送至 `01b5e87`。只剩需使用者明確授權的本機 worktree／thread／branch cleanup，不影響功能或研究結論。

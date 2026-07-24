@@ -1,6 +1,6 @@
 # Current Status
 
-狀態：`RESEARCH-FUNDAMENTAL-VOLUME-01 / ACCEPTANCE_PENDING_MAINLINE`
+狀態：`RESEARCH-FUNDAMENTAL-VOLUME-01 / INTEGRATED_CLEANUP_PENDING`
 
 ## Current Review／Repair
 
@@ -13,7 +13,8 @@
 - Repair card：`docs/tasks/2026-07-24_REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01.md`
 - Repair candidate：`a28036a7797f9d1067698ae387d1a76231e917a8`
 - final re-review：`REVIEW_GO` at `9f29f3018887ea56e838603f865a5b758e04758e`
-- next gate：mainline acceptance rerun／push
+- integrated／pushed SHA：`01b5e87`
+- next gate：使用者授權後移除兩個 worktree、封存 Review／Repair threads、刪除已整合 branches
 
 ## TPEx current-day institutional source
 

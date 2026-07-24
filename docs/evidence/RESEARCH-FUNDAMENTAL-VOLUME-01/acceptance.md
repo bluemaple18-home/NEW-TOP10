@@ -2,6 +2,8 @@
 
 Status: `ACCEPTED`
 
+Integrated／pushed SHA: `01b5e87`
+
 ## Lineage
 
 - original integrated research：`4deb72660dce9fc15f44d45e30307eb24f0caae1`
