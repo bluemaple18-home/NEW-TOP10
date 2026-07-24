@@ -1,7 +1,7 @@
 ---
 card_id: REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01
 chain_id: RESEARCH-FUNDAMENTAL-VOLUME-20260724
-status: CARD_DRAFTED
+status: REVIEW_NO_GO
 type: independent-post-merge-code-and-research-review
 ownership: independent reviewer
 base_sha: f716883503941320fd8b27a9c88b36576557ed50
