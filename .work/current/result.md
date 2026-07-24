@@ -1,10 +1,10 @@
 # Result
 
-state：`READY_FOR_INDEPENDENT_REVIEW`
+state：`REVIEW_NO_GO_REPAIR_READY`
 
 ## Current follow-up
 
-基本面 readiness 與量價 warning monitor 已整合至 `4deb72660dce9fc15f44d45e30307eb24f0caae1`。正式 post-merge Review 卡已建立，尚待 visible Reviewer thread／獨立 worktree receipt；在 Reviewer 回覆前不得宣稱這兩項為 `REVIEW_GO`。
+基本面 readiness 與量價 warning monitor 已整合至 `4deb72660dce9fc15f44d45e30307eb24f0caae1`。獨立 post-merge Review 結論為 `REVIEW_NO_GO`，evidence commit `9a90e5317c8c61745bd7273cdc865019399b9525`；一個 P1 與兩個 P2 必須由 Repair-1 修復，再回原 Reviewer re-review。
 
 ## Integrated outcome
 
@@ -35,4 +35,4 @@ state：`READY_FOR_INDEPENDENT_REVIEW`
 
 ## Remaining repository action items
 
-目前有 `1` 個流程項目：`REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01` 獨立審查。產業 overlay 本身仍無 repository action item；若提出 materially different formulation，才另開 candidate。
+目前有 `1` 個流程項目：`REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01`。產業 overlay 本身仍無 repository action item；若提出 materially different formulation，才另開 candidate。

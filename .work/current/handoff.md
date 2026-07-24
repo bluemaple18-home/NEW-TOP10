@@ -2,7 +2,7 @@
 
 ## Current review handoff
 
-新主線 follow-up 為 `REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01`，固定審查 `f716883..4deb726`。卡片只允許 Reviewer 新增 review evidence／更新 Review 狀態；不得修改 implementation。初始狀態為 `CARD_DRAFTED`，取得正式 visible thread、獨立 worktree 與可驗證 receipt 後才能標 `READY_FOR_REVIEW`。
+`REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01` 已對 `f716883..4deb726` 回覆 `REVIEW_NO_GO`。主線 follow-up 為 `REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01`；只修 review evidence 的 F-01～F-03。Repair 完成後必須回原 Reviewer thread `019f9241-fe47-7ef0-accf-3e021a49c401` re-review，不得更換 Reviewer 重置 findings。
 
 本輪已完成 TPEx current-day 官方法人來源、產業 promotion 真實 production baseline 重跑、獨立 Review／Repair／re-review 與 mainline acceptance。
 

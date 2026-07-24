@@ -1,13 +1,17 @@
 # Current Status
 
-狀態：`REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01 / CARD_DRAFTED`
+狀態：`REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01 / CARD_DRAFTED`
 
-## Current review
+## Current Review／Repair
 
 - reviewed range：`f716883503941320fd8b27a9c88b36576557ed50..4deb72660dce9fc15f44d45e30307eb24f0caae1`
 - scope：Fundamental point-in-time readiness + Volume Climax warning append-only shadow
 - card：`docs/tasks/2026-07-24_REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01.md`
-- next gate：正式 visible Reviewer thread／獨立 worktree provisioning
+- independent Review：`REVIEW_NO_GO`
+- review evidence：`9a90e5317c8c61745bd7273cdc865019399b9525`
+- Reviewer thread：`019f9241-fe47-7ef0-accf-3e021a49c401`
+- Repair card：`docs/tasks/2026-07-24_REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01.md`
+- next gate：Repair-1 visible thread／獨立 worktree provisioning
 
 ## TPEx current-day institutional source
 
