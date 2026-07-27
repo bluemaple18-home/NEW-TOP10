@@ -1,6 +1,25 @@
 # Result
 
-state：`INTEGRATED_CLEANUP_PENDING`
+state：`REGIME_ACCEPTED_CLEANUP_PENDING`
+
+## REGIME-RESEARCH-AUTONOMY-01
+
+closed-regime research governance 與 statistical-family trust boundary 已完成
+實作、兩代 Repair、replacement independent Review 與 mainline acceptance。
+
+- final candidate：`b1e3dc191527c24a5d3f5d80b975a81ad8a46543`
+- final Review：`GO`
+- review evidence：`213bdd8c4d39d8df7e58ff349200efbc77222031`
+- mainline merge receipt：`e87450c`
+- targeted：52 passed
+- verifier：28/28 OK
+- canary：PASS
+- full suite：539 passed，246 subtests passed
+
+這代表研究流程與防偽邊界可正常運作，不代表目前資料已足以產生選股加分結論。
+現有 profile 覆蓋 `242/720`，available-data independent units 為 `2/14`，
+因此研究結論仍為 `INSUFFICIENT_EVIDENCE`；production ranking、weight、model
+均未修改。
 
 ## Current follow-up
 

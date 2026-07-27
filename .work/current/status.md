@@ -1,6 +1,32 @@
 # Current Status
 
-狀態：`RESEARCH-FUNDAMENTAL-VOLUME-01 / INTEGRATED_CLEANUP_PENDING`
+狀態：`REGIME-RESEARCH-AUTONOMY-01 / ACCEPTED_CLEANUP_PENDING`
+
+## Current mainline
+
+- final candidate：`b1e3dc191527c24a5d3f5d80b975a81ad8a46543`
+- replacement Review：`GO`
+- review evidence：`213bdd8c4d39d8df7e58ff349200efbc77222031`
+- mainline merge receipt：`e87450c`
+- acceptance evidence：`docs/evidence/REGIME-RESEARCH-AUTONOMY-01/acceptance.md`
+- next gate：push main，移除本輪 worktrees／branches，封存本輪 tasks
+
+## Regime research decision
+
+- closed-regime governance 與 statistical-family trust boundary：`GO`
+- parameter profile coverage：`242/720`，尚非完整搜尋
+- available-data independent units：`2/14`
+- research conclusion：`INSUFFICIENT_EVIDENCE`
+- production ranking／weight／model：本輪未修改
+
+## Acceptance 2026-07-27
+
+- targeted：52 passed
+- fixed-SHA verifier：28/28 OK
+- statistical-family canary：PASS
+- main-workspace full suite：539 passed，246 subtests passed
+- production model／baseline hashes：unchanged
+- `git diff --check`：PASS
 
 ## Current Review／Repair
 
