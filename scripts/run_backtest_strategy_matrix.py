@@ -28,6 +28,7 @@ SCHEMA_VERSION = "backtest-strategy-matrix.v1"
 MAX_DRAWDOWN_LIMIT = -0.25
 NEIGHBOR_P_VALUE_LIMIT = 0.05
 SCENARIO_PARAMETER_FIELDS = ("horizon", "stop_loss_pct", "take_profit_pct", "max_group_exposure")
+TRUSTED_RESEARCH_CONTRACT_PATH = PROJECT_ROOT / "config" / "regime_research_contract.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -57,6 +58,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--family-tags", default="")
     parser.add_argument("--allowed-episode-ids", default=None)
     parser.add_argument("--pre-registration", default=None)
+    parser.add_argument("--experiment-registry", default=None)
     parser.add_argument("--output", default=None)
     return parser.parse_args()
 
@@ -359,8 +361,42 @@ def expected_statistical_family(args: argparse.Namespace) -> dict[str, Any] | No
         return None
     path = run_portfolio_replay.resolve_path(args.pre_registration)
     payload = json.loads(path.read_text(encoding="utf-8"))
-    registration_valid = bool(payload.get("experiment_id")) and (
-        str(payload["experiment_id"]) == regime_research.deterministic_experiment_id(payload)
+    registry_path_value = getattr(args, "experiment_registry", None)
+    registry_path = (
+        run_portfolio_replay.resolve_path(registry_path_value)
+        if registry_path_value
+        else None
+    )
+    registry: list[dict[str, Any]] = []
+    if registry_path and registry_path.exists():
+        registry = [
+            json.loads(line)
+            for line in registry_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    contract = json.loads(TRUSTED_RESEARCH_CONTRACT_PATH.read_text(encoding="utf-8"))
+    trusted_authority = regime_research.statistical_family_contract(contract)
+    expected_regime_id = regime_research.regime_identity_id(
+        {
+            "base_regime": args.base_regime,
+            "family_tags": [
+                item.strip()
+                for item in str(getattr(args, "family_tags", "") or "").split(",")
+                if item.strip()
+            ],
+        }
+    )
+    allowed_episode_ids = [
+        item.strip()
+        for item in str(getattr(args, "allowed_episode_ids", "") or "").split(",")
+        if item.strip()
+    ]
+    validation = regime_research.validate_statistical_family_registration(
+        payload,
+        contract=contract,
+        registry=registry,
+        expected_regime_id=expected_regime_id,
+        expected_development_episode_ids=allowed_episode_ids,
     )
     return {
         "tested_combination_ids": payload.get("tested_combination_ids"),
@@ -369,12 +405,14 @@ def expected_statistical_family(args: argparse.Namespace) -> dict[str, Any] | No
         "correction_family_id": payload.get("correction_family_id"),
         "correction_family_size": payload.get("correction_family_size"),
         "partition_policy": payload.get("partition_policy"),
-        "registration_valid": registration_valid,
-        "registration_validation_reason": (
-            "PRE_REGISTRATION_VALID"
-            if registration_valid
-            else "PRE_REGISTRATION_ID_MISMATCH"
-        ),
+        "contract_hash": payload.get("contract_hash"),
+        "global_combination_ids_hash": payload.get("global_combination_ids_hash"),
+        "registry_record_hash": payload.get("registry_record_hash"),
+        "minimum_statistical_unit_count": trusted_authority[
+            "minimum_statistical_unit_count"
+        ],
+        "registration_valid": validation["ok"],
+        "registration_validation_reason": validation["reason_code"],
     }
 
 
@@ -437,6 +475,12 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "parameter_space_hash": regime_research.canonical_json_hash(scenarios),
             "correction_family_id": rows[0]["correction_family_id"] if rows else None,
             "pre_registration": getattr(args, "pre_registration", None),
+            "experiment_registry": getattr(args, "experiment_registry", None),
+            "contract_hash": (expected_family or {}).get("contract_hash"),
+            "global_combination_ids_hash": (
+                (expected_family or {}).get("global_combination_ids_hash")
+            ),
+            "registry_record_hash": (expected_family or {}).get("registry_record_hash"),
             "tested_combination_ids_hash": (
                 (expected_family or {}).get("tested_combination_ids_hash")
                 if args.require_exact_regime

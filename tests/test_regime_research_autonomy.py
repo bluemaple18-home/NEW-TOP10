@@ -737,16 +737,19 @@ def test_real_matrix_row_contains_pre_registered_statistical_evidence() -> None:
     assert gate["reason_code"] == "MULTIPLE_TESTING_OR_ROBUSTNESS_FAILED"
 
 
-def _adversarial_matrix_args(pre_registration: Path) -> SimpleNamespace:
+def _adversarial_matrix_args(
+    pre_registration: Path,
+    experiment_registry: Path | None = None,
+) -> SimpleNamespace:
     return SimpleNamespace(
         rankings_dir="unused",
         features="unused.parquet",
         max_ranking_files=1,
         top_n=10,
         horizons="3,5,10",
-        stop_loss_pcts="none",
-        take_profit_pcts="none",
-        max_group_exposures="none",
+        stop_loss_pcts="none,0.08,0.12",
+        take_profit_pcts="none,0.15,0.25",
+        max_group_exposures="none,0.35,0.55",
         max_gross_exposure=0.65,
         max_position_weight=0.2,
         fee_rate=0.001,
@@ -759,29 +762,277 @@ def _adversarial_matrix_args(pre_registration: Path) -> SimpleNamespace:
         family_tags="BIG_BULL,HIGH_CHOPPY",
         allowed_episode_ids="episode-1",
         pre_registration=str(pre_registration),
+        experiment_registry=str(experiment_registry) if experiment_registry else None,
     )
 
 
-def _write_matrix_registration(path: Path, tested_ids: list[str]) -> None:
-    universe = research.parameter_universe_summary(_contract())
+def _write_registered_matrix_registration(
+    tmp_path: Path,
+    *,
+    tested_ids: list[str],
+    correction_family_ids: list[str],
+    partition_id: str,
+    correction_scope: str,
+) -> tuple[Path, Path]:
+    contract = _contract()
+    universe = research.parameter_universe_summary(contract)
     tested_ids = sorted(tested_ids)
-    correction_family_ids = sorted(universe["legal_combination_ids"])
+    correction_family_ids = sorted(correction_family_ids)
     correction_family_id = research.canonical_json_hash(correction_family_ids)
-    payload = research.build_experiment_pre_registration({
-        "tested_combination_ids": tested_ids,
-        "tested_combination_ids_hash": research.canonical_json_hash(tested_ids),
-        "correction_family_combination_ids": correction_family_ids,
-        "correction_family_id": correction_family_id,
-        "correction_family_size": universe["legal_combination_count"],
-        "partition_policy": {
-            "policy_id": "validation_profile_partition.v1",
-            "correction_scope": "global_parameter_universe",
+    split_ids = {
+        "development": ["episode-1"],
+        "validation": ["validation-1"],
+        "embargo": ["embargo-1"],
+        "sealed": ["sealed-1"],
+    }
+    registration = research.build_experiment_pre_registration(
+        {
+            "research_question": "public matrix trust-boundary adversarial fixture",
+            "baseline_id": "baseline-v1",
+            "regime_id": "BROAD_RISK_ON|BIG_BULL+HIGH_CHOPPY",
+            "dataset_hash": "sha256:dataset",
+            "split_id": "sha256:split",
+            "split_artifact_hash": "sha256:split-artifact",
+            "parameter_space_hash": universe["parameter_space_hash"],
+            "contract_hash": research.canonical_json_hash(contract),
+            "global_combination_ids": sorted(universe["legal_combination_ids"]),
+            "global_combination_ids_hash": universe["combination_id_hash"],
+            "global_family_id": research.canonical_json_hash(
+                sorted(universe["legal_combination_ids"])
+            ),
+            "global_family_size": universe["legal_combination_count"],
+            "tested_combination_ids": tested_ids,
             "tested_combination_ids_hash": research.canonical_json_hash(tested_ids),
+            "correction_family_combination_ids": correction_family_ids,
             "correction_family_id": correction_family_id,
-            "correction_family_size": universe["legal_combination_count"],
-        },
-    })
-    path.write_text(json.dumps(payload), encoding="utf-8")
+            "correction_family_size": len(correction_family_ids),
+            "partition_policy": {
+                "policy_id": "validation_profile_partition.v1",
+                "partition_id": partition_id,
+                "correction_scope": correction_scope,
+                "parameter_space_hash": universe["parameter_space_hash"],
+                "tested_combination_count": len(tested_ids),
+                "tested_combination_ids_hash": research.canonical_json_hash(tested_ids),
+                "correction_family_id": correction_family_id,
+                "correction_family_size": len(correction_family_ids),
+            },
+            "metric_policy_hash": research.canonical_json_hash(
+                contract["multiple_testing_policy"]
+            ),
+            "development_episode_ids": split_ids["development"],
+            "validation_episode_ids": split_ids["validation"],
+            "embargo_episode_ids": split_ids["embargo"],
+            "sealed_episode_ids": split_ids["sealed"],
+            "episode_split_ids_hash": research.canonical_json_hash(split_ids),
+            "sealed_trade_dates": ["2026-01-31"],
+        }
+    )
+    registry_path = tmp_path / "registry.jsonl"
+    registered = research.append_experiment_registry(registry_path, registration)
+    assert registered["ok"] is True
+    registration_path = tmp_path / "pre_registration.json"
+    registration_path.write_text(
+        json.dumps(
+            {
+                **registration,
+                "registry_record_hash": registered["registry_record_hash"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return registration_path, registry_path
+
+
+def _statistical_rows(combination_ids: list[str], family_id: str) -> list[dict]:
+    return [
+        {
+            "combination_id": combination_id,
+            "correction_family_id": family_id,
+            "p_value": 0.015625,
+            "robust_neighbor_lineage": sorted(set(combination_ids) - {combination_id}),
+            "robust_neighbor_pass_count": len(combination_ids) - 1,
+            "drawdown_within_limit": True,
+            "statistical_unit_policy": "independent_regime_episode_cluster.v1",
+            "statistical_unit_ids": [f"episode-{index}" for index in range(6)],
+            "statistical_unit_count": 6,
+            "pseudo_replication_detected": False,
+        }
+        for combination_id in combination_ids
+    ]
+
+
+def test_public_matrix_rejects_manager_registered_local_family(
+    tmp_path: Path,
+) -> None:
+    scenarios = [
+        {
+            "horizon": horizon,
+            "stop_loss_pct": None,
+            "take_profit_pct": None,
+            "max_group_exposure": None,
+        }
+        for horizon in (3, 5, 10)
+    ]
+    tested_ids = sorted(research.canonical_json_hash(scenario) for scenario in scenarios)
+    registration_path, registry_path = _write_registered_matrix_registration(
+        tmp_path,
+        tested_ids=tested_ids,
+        correction_family_ids=tested_ids,
+        partition_id="forged-local-three",
+        correction_scope="local_profile",
+    )
+
+    expected_family = matrix.expected_statistical_family(
+        _adversarial_matrix_args(registration_path, registry_path)
+    )
+    gate = research.multiple_testing_gate(
+        _statistical_rows(
+            tested_ids,
+            research.canonical_json_hash(tested_ids),
+        ),
+        expected_family=expected_family,
+    )
+
+    assert gate["ok"] is False
+    assert gate["evidence_complete"] is False
+    assert gate["reason_code"] == "INSUFFICIENT_EVIDENCE"
+    assert gate["family_validation_reason"] in {
+        "INVALID_PARTITION_ID",
+        "INVALID_CORRECTION_FAMILY",
+    }
+
+
+def test_statistical_family_contract_has_81_of_720_standard_partition() -> None:
+    authority = research.statistical_family_contract(_contract())
+    coverage = research.validation_profile_partition_coverage(_contract())
+
+    assert authority["global_family_size"] == 720
+    assert authority["corrected_alpha"] == pytest.approx(0.05 / 720)
+    assert authority["minimum_statistical_unit_count"] == 14
+    assert coverage["partitions"]["standard"]["tested_combination_count"] == 81
+    assert coverage["partitions"]["standard"]["duplicate_ids"] == []
+    assert coverage["global_family_size"] == 720
+
+
+def test_public_matrix_accepts_manager_registered_standard_partition_81_of_720(
+    tmp_path: Path,
+) -> None:
+    coverage = research.validation_profile_partition_coverage(_contract())
+    standard_ids = coverage["partitions"]["standard"]["tested_combination_ids"]
+    authority = research.statistical_family_contract(_contract())
+    registration_path, registry_path = _write_registered_matrix_registration(
+        tmp_path,
+        tested_ids=standard_ids,
+        correction_family_ids=authority["global_combination_ids"],
+        partition_id="standard",
+        correction_scope="global_parameter_universe",
+    )
+
+    expected_family = matrix.expected_statistical_family(
+        _adversarial_matrix_args(registration_path, registry_path)
+    )
+    gate = research.multiple_testing_gate(
+        _statistical_rows(standard_ids, authority["global_family_id"]),
+        expected_family=expected_family,
+    )
+
+    assert expected_family["registration_valid"] is True
+    assert expected_family["registration_validation_reason"] == (
+        "STATISTICAL_FAMILY_AUTHORITY_VALID"
+    )
+    assert len(expected_family["tested_combination_ids"]) == 81
+    assert expected_family["correction_family_size"] == 720
+    assert gate["reason_code"] == "INSUFFICIENT_EVIDENCE"
+    assert gate["corrected_alpha"] == pytest.approx(0.05 / 720)
+    assert gate["minimum_statistical_unit_count"] == 14
+
+
+def test_statistical_partition_rejects_duplicate_and_missing_ids() -> None:
+    authority = research.statistical_family_contract(_contract())
+    standard_ids = research.validation_profile_partition_coverage(_contract())[
+        "partitions"
+    ]["standard"]["tested_combination_ids"]
+
+    duplicate = research.validate_statistical_partition(
+        partition_id="standard",
+        tested_combination_ids=[*standard_ids, standard_ids[0]],
+        authority=authority,
+    )
+    missing = research.validate_statistical_partition(
+        partition_id="standard",
+        tested_combination_ids=standard_ids[:-1],
+        authority=authority,
+    )
+
+    assert duplicate["ok"] is False
+    assert duplicate["reason_code"] == "DUPLICATE_TESTED_COMBINATION_IDS"
+    assert missing["ok"] is False
+    assert missing["reason_code"] == "PARTITION_TESTED_IDS_MISMATCH"
+    assert missing["missing_ids"] == [standard_ids[-1]]
+
+
+def test_statistical_authority_rejects_unknown_contract_global_hash_and_registry_hash(
+    tmp_path: Path,
+) -> None:
+    contract = _contract()
+    authority = research.statistical_family_contract(contract)
+    standard_ids = authority["legal_partitions"]["standard"]
+    registration_path, registry_path = _write_registered_matrix_registration(
+        tmp_path,
+        tested_ids=standard_ids,
+        correction_family_ids=authority["global_combination_ids"],
+        partition_id="standard",
+        correction_scope="global_parameter_universe",
+    )
+    registration = json.loads(registration_path.read_text(encoding="utf-8"))
+    registry = [
+        json.loads(line)
+        for line in registry_path.read_text(encoding="utf-8").splitlines()
+    ]
+
+    unknown_contract = research.validate_statistical_family_registration(
+        {**registration, "contract_hash": "sha256:unknown"},
+        contract=contract,
+        registry=registry,
+    )
+    wrong_global_hash = research.validate_statistical_family_registration(
+        {**registration, "global_combination_ids_hash": "sha256:wrong"},
+        contract=contract,
+        registry=registry,
+    )
+    wrong_global_ids = research.validate_statistical_family_registration(
+        {**registration, "global_combination_ids": registration["global_combination_ids"][:-1]},
+        contract=contract,
+        registry=registry,
+    )
+    wrong_registry_hash = research.validate_statistical_family_registration(
+        {**registration, "registry_record_hash": "sha256:wrong"},
+        contract=contract,
+        registry=registry,
+    )
+
+    assert unknown_contract["reason_code"] == "UNKNOWN_CONTRACT"
+    assert wrong_global_ids["reason_code"] == "GLOBAL_COMBINATION_IDS_MISMATCH"
+    assert wrong_global_hash["reason_code"] == "GLOBAL_COMBINATION_IDS_HASH_MISMATCH"
+    assert wrong_registry_hash["reason_code"] == "REGISTRY_RECORD_HASH_MISMATCH"
+
+
+def test_available_data_canary_dry_run_reports_episode_gaps() -> None:
+    result = research.closed_mode_episode_evidence_status(
+        exact_regime="BROAD_RISK_ON|BIG_BULL+HIGH_CHOPPY",
+        available_episode_count=2,
+        contract=_contract(),
+    )
+
+    assert result["decision"] == "INSUFFICIENT_EVIDENCE"
+    assert result["exact_regime"] == "BROAD_RISK_ON|BIG_BULL+HIGH_CHOPPY"
+    assert result["available_episode_count"] == 2
+    assert result["theoretical_minimum_episode_count"] == 4
+    assert result["episode_gaps"] == {
+        "development": 0,
+        "validation": 1,
+        "sealed": 1,
+    }
 
 
 def _run_adversarial_matrix_payload(
@@ -789,8 +1040,14 @@ def _run_adversarial_matrix_payload(
     monkeypatch: pytest.MonkeyPatch,
     tested_ids: list[str],
 ) -> dict:
-    registration_path = tmp_path / "pre_registration.json"
-    _write_matrix_registration(registration_path, tested_ids)
+    universe = research.parameter_universe_summary(_contract())
+    registration_path, registry_path = _write_registered_matrix_registration(
+        tmp_path,
+        tested_ids=tested_ids,
+        correction_family_ids=universe["legal_combination_ids"],
+        partition_id="standard",
+        correction_scope="global_parameter_universe",
+    )
     monkeypatch.setattr(
         matrix.run_portfolio_replay.run_backtest_replay,
         "load_price_frame",
@@ -824,22 +1081,21 @@ def _run_adversarial_matrix_payload(
         "run_portfolio_from_price_frame",
         lambda *_: replay,
     )
-    return matrix.build_payload(_adversarial_matrix_args(registration_path))
+    return matrix.build_payload(
+        _adversarial_matrix_args(registration_path, registry_path)
+    )
 
 
 def test_public_matrix_blocks_pre_registration_family_mismatch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    scenarios = [
-        {
-            "horizon": horizon,
-            "stop_loss_pct": None,
-            "take_profit_pct": None,
-            "max_group_exposure": None,
-        }
-        for horizon in (3, 5, 10)
-    ]
+    scenarios = research.validation_profile_combinations(
+        "3,5,10",
+        "none,0.08,0.12",
+        "none,0.15,0.25",
+        "none,0.35,0.55",
+    )
     tested_ids = [research.canonical_json_hash(scenario) for scenario in scenarios]
     tested_ids[-1] = "sha256:not-the-executed-combination"
 
@@ -849,22 +1105,19 @@ def test_public_matrix_blocks_pre_registration_family_mismatch(
     assert gate["ok"] is False
     assert gate["evidence_complete"] is False
     assert gate["reason_code"] == "INSUFFICIENT_EVIDENCE"
-    assert gate["family_validation_reason"] == "TESTED_COMBINATION_FAMILY_MISMATCH"
+    assert gate["family_validation_reason"] == "PARTITION_TESTED_IDS_MISMATCH"
 
 
 def test_public_matrix_rejects_duplicate_trade_pseudo_replication(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    scenarios = [
-        {
-            "horizon": horizon,
-            "stop_loss_pct": None,
-            "take_profit_pct": None,
-            "max_group_exposure": None,
-        }
-        for horizon in (3, 5, 10)
-    ]
+    scenarios = research.validation_profile_combinations(
+        "3,5,10",
+        "none,0.08,0.12",
+        "none,0.15,0.25",
+        "none,0.35,0.55",
+    )
     tested_ids = [research.canonical_json_hash(scenario) for scenario in scenarios]
 
     payload = _run_adversarial_matrix_payload(tmp_path, monkeypatch, tested_ids)
@@ -984,10 +1237,11 @@ def test_closed_manager_cli_writes_registration_split_and_append_only_trace(
         reasons=[],
         evidence_sources=[],
         ranking_file_count=1,
-        horizons="3",
-        stop_loss_pcts="none",
-        take_profit_pcts="none",
-        max_group_exposures="none",
+        validation_profile="standard",
+        horizons="3,5,10",
+        stop_loss_pcts="none,0.08,0.12",
+        take_profit_pcts="none,0.15,0.25",
+        max_group_exposures="none,0.35,0.55",
         regime_identity=EXACT,
         eligible=True,
         reason_code="ELIGIBLE",
@@ -1003,10 +1257,10 @@ def test_closed_manager_cli_writes_registration_split_and_append_only_trace(
         max_topics=1,
         min_ranking_files=1,
         max_ranking_files=1,
-        horizons="3",
-        stop_loss_pcts="none",
-        take_profit_pcts="none",
-        max_group_exposures="none",
+        horizons="3,5,10",
+        stop_loss_pcts="none,0.08,0.12",
+        take_profit_pcts="none,0.15,0.25",
+        max_group_exposures="none,0.35,0.55",
         execute=True,
         execute_topic_count=1,
         from_queue=False,
@@ -1089,20 +1343,25 @@ def test_closed_manager_cli_writes_registration_split_and_append_only_trace(
         "STATE_TRANSITION",
         "STATE_TRANSITION",
     ]
-    assert [event.get("target_state") for event in events[1:]] == ["COARSE_SCREEN", "BLOCKED"]
+    assert [event.get("target_state") for event in events[1:]] == [
+        "COARSE_SCREEN",
+        "INSUFFICIENT_EVIDENCE",
+    ]
     assert Path(payload["outputs"]["closed_episode_split"]).exists()
     registration_path = Path(payload["outputs"]["closed_pre_registration"])
     assert registration_path.exists()
     registration = json.loads(registration_path.read_text(encoding="utf-8"))
-    assert len(registration["tested_combination_ids"]) == 1
+    assert len(registration["tested_combination_ids"]) == 81
     assert registration["tested_combination_ids_hash"] == research.canonical_json_hash(
         registration["tested_combination_ids"]
     )
     assert registration["correction_family_size"] == 720
+    assert registration["global_family_size"] == 720
     assert registration["correction_family_id"] == research.canonical_json_hash(
         registration["correction_family_combination_ids"]
     )
     assert registration["partition_policy"]["correction_scope"] == "global_parameter_universe"
+    assert registration["registry_record_hash"] == events[0]["registry_record_hash"]
     matrix_steps = [
         step
         for step in payload["steps"]
@@ -1112,6 +1371,9 @@ def test_closed_manager_cli_writes_registration_split_and_append_only_trace(
     for step in matrix_steps:
         assert step["command"][step["command"].index("--pre-registration") + 1] == str(
             registration_path
+        )
+        assert step["command"][step["command"].index("--experiment-registry") + 1] == str(
+            registry_path
         )
 
 
@@ -1126,6 +1388,7 @@ def test_consolidated_verifier_has_positive_and_synthetic_negative_checks() -> N
     names = {row["name"] for row in report["checks"]}
     categories = {
         "parameter_universe",
+        "statistical_family_authority",
         "as_of_regime",
         "exact_match",
         "episode_split",

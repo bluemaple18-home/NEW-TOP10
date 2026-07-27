@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import itertools
 import json
+import math
 import re
 import subprocess
 import sys
@@ -50,7 +51,13 @@ BASE_REGIME_LABELS = {
 REGIME_FAMILY_TAGS = {"HIGH_CHOPPY", "BIG_BULL"}
 FUNNEL_TRANSITIONS = {
     "REGISTERED": {"COARSE_SCREEN", "BLOCKED", "INSUFFICIENT_EVIDENCE"},
-    "COARSE_SCREEN": {"SAME_REGIME_VALIDATION", "REJECTED", "NO_STRATEGY", "BLOCKED"},
+    "COARSE_SCREEN": {
+        "SAME_REGIME_VALIDATION",
+        "REJECTED",
+        "NO_STRATEGY",
+        "INSUFFICIENT_EVIDENCE",
+        "BLOCKED",
+    },
     "SAME_REGIME_VALIDATION": {"SEALED_OOS", "REJECTED", "INSUFFICIENT_EVIDENCE", "BLOCKED"},
     "SEALED_OOS": {"FORWARD_SHADOW", "REJECTED", "INSUFFICIENT_EVIDENCE", "BLOCKED"},
     "FORWARD_SHADOW": {"REGIME_POLICY_CANDIDATE", "MONITOR_ONLY", "REJECTED", "BLOCKED"},
@@ -468,6 +475,184 @@ def parameter_universe_summary(contract: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _validation_profile_partition_ids(contract: dict[str, Any]) -> dict[str, list[str]]:
+    global_ids = set(parameter_universe_summary(contract)["legal_combination_ids"])
+    partitions: dict[str, list[str]] = {}
+    for profile in VALIDATION_PROFILES:
+        combinations = validation_profile_combinations(
+            profile["horizons"],
+            profile["stop_loss_pcts"],
+            profile["take_profit_pcts"],
+            profile["max_group_exposures"],
+        )
+        ids = sorted(canonical_json_hash(combination) for combination in combinations)
+        unexpected = sorted(set(ids) - global_ids)
+        if unexpected:
+            raise ValueError(
+                f"validation profile {profile['name']} 包含 contract 外參數組合：{unexpected[:3]}"
+            )
+        partitions[str(profile["name"])] = ids
+    return partitions
+
+
+def statistical_family_contract(contract: dict[str, Any]) -> dict[str, Any]:
+    """由 immutable research contract 推導唯一的統計 family authority。"""
+
+    universe = parameter_universe_summary(contract)
+    global_ids = sorted(str(item) for item in universe["legal_combination_ids"])
+    global_family_id = canonical_json_hash(global_ids)
+    familywise_alpha = float(
+        (contract.get("multiple_testing_policy") or {}).get("familywise_alpha") or 0.0
+    )
+    if not global_ids or familywise_alpha <= 0:
+        raise ValueError("research contract 缺少合法 statistical family 或 familywise alpha")
+    partitions = _validation_profile_partition_ids(contract)
+    return {
+        "contract_hash": canonical_json_hash(contract),
+        "parameter_space_hash": universe["parameter_space_hash"],
+        "global_combination_ids": global_ids,
+        "global_combination_ids_hash": universe["combination_id_hash"],
+        "global_family_id": global_family_id,
+        "global_family_size": len(global_ids),
+        "familywise_alpha": familywise_alpha,
+        "corrected_alpha": familywise_alpha / len(global_ids),
+        "minimum_statistical_unit_count": math.ceil(
+            math.log2(len(global_ids) / familywise_alpha)
+        ),
+        "partition_policy_id": "validation_profile_partition.v1",
+        "legal_partitions": partitions,
+    }
+
+
+def validate_statistical_partition(
+    *,
+    partition_id: str,
+    tested_combination_ids: list[str],
+    authority: dict[str, Any],
+) -> dict[str, Any]:
+    """驗證 tested IDs 完整等於 contract 中一個合法 validation profile。"""
+
+    ids = [str(item) for item in tested_combination_ids if str(item)]
+    duplicates = sorted({item for item in ids if ids.count(item) > 1})
+    if duplicates:
+        return {
+            "ok": False,
+            "reason_code": "DUPLICATE_TESTED_COMBINATION_IDS",
+            "duplicate_ids": duplicates,
+        }
+    partitions = authority.get("legal_partitions") or {}
+    if partition_id not in partitions:
+        return {
+            "ok": False,
+            "reason_code": "INVALID_PARTITION_ID",
+            "legal_partition_ids": sorted(partitions),
+        }
+    expected = sorted(str(item) for item in partitions[partition_id])
+    observed = sorted(ids)
+    missing = sorted(set(expected) - set(observed))
+    unexpected = sorted(set(observed) - set(expected))
+    if observed != expected:
+        return {
+            "ok": False,
+            "reason_code": "PARTITION_TESTED_IDS_MISMATCH",
+            "missing_ids": missing,
+            "unexpected_ids": unexpected,
+        }
+    return {
+        "ok": True,
+        "reason_code": "PARTITION_VALID",
+        "partition_id": partition_id,
+        "tested_combination_ids": expected,
+        "tested_combination_count": len(expected),
+        "tested_combination_ids_hash": canonical_json_hash(expected),
+    }
+
+
+def validation_profile_partition_coverage(contract: dict[str, Any]) -> dict[str, Any]:
+    """列舉 public validation profiles 對 720-family 的 union 與交集政策。"""
+
+    authority = statistical_family_contract(contract)
+    membership: dict[str, list[str]] = {}
+    partitions: dict[str, dict[str, Any]] = {}
+    for partition_id, ids in authority["legal_partitions"].items():
+        duplicate_ids = sorted({item for item in ids if ids.count(item) > 1})
+        for combination_id in set(ids):
+            membership.setdefault(combination_id, []).append(partition_id)
+        partitions[partition_id] = {
+            "tested_combination_ids": ids,
+            "tested_combination_ids_hash": canonical_json_hash(ids),
+            "tested_combination_count": len(ids),
+            "duplicate_ids": duplicate_ids,
+        }
+    covered_ids = sorted(membership)
+    missing_ids = sorted(set(authority["global_combination_ids"]) - set(covered_ids))
+    overlapping_ids = sorted(
+        combination_id
+        for combination_id, partition_ids in membership.items()
+        if len(partition_ids) > 1
+    )
+    status = (
+        "PARTITION_COVERAGE_COMPLETE"
+        if not missing_ids and not any(row["duplicate_ids"] for row in partitions.values())
+        else "PARTITION_COVERAGE_INCOMPLETE"
+    )
+    return {
+        "status": status,
+        "global_family_size": authority["global_family_size"],
+        "covered_unique_count": len(covered_ids),
+        "missing_count": len(missing_ids),
+        "missing_ids": missing_ids,
+        "cross_partition_overlap_count": len(overlapping_ids),
+        "cross_partition_overlap_ids": overlapping_ids,
+        "policy": {
+            "within_partition_duplicates": "forbidden",
+            "cross_partition_overlap": (
+                "allowed_for_separate_pre_registered_runs_but_counted_once_in_union"
+            ),
+            "coverage_claim": "complete_only_when_union_equals_global_family",
+        },
+        "partitions": partitions,
+    }
+
+
+def closed_mode_episode_evidence_status(
+    *,
+    exact_regime: str,
+    available_episode_count: int,
+    contract: dict[str, Any],
+) -> dict[str, Any]:
+    """在不降低 split gate 下回報 closed-mode 可用 episode 缺口。"""
+
+    split_policy = contract.get("split_policy") or {}
+    requirements = {
+        "development": int(split_policy.get("development_episode_count") or 0),
+        "validation": int(split_policy.get("validation_episode_count") or 0),
+        "sealed": int(split_policy.get("sealed_episode_count") or 0),
+    }
+    remaining = max(0, int(available_episode_count))
+    gaps: dict[str, int] = {}
+    for role in ("development", "validation", "sealed"):
+        allocated = min(remaining, requirements[role])
+        remaining -= allocated
+        gaps[role] = requirements[role] - allocated
+    theoretical_minimum = sum(requirements.values())
+    sufficient = not any(gaps.values())
+    return {
+        "decision": "EVIDENCE_READY" if sufficient else "INSUFFICIENT_EVIDENCE",
+        "exact_regime": exact_regime,
+        "available_episode_count": int(available_episode_count),
+        "theoretical_minimum_episode_count": theoretical_minimum,
+        "episode_gaps": gaps,
+        "embargo_min_trade_days": int(split_policy.get("embargo_min_trade_days") or 0),
+        "next_replay_condition": (
+            None
+            if sufficient
+            else f"exact regime 累積至少 {theoretical_minimum} 個角色用 episode，"
+            "另須完整 episode 覆蓋 embargo trade days"
+        ),
+    }
+
+
 def build_regime_episodes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     episodes: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
@@ -622,6 +807,158 @@ def validate_experiment_registration(candidate: dict[str, Any], registry: list[d
             "expected_experiment_id": expected_id,
         }
     return {"ok": True, "reason_code": "REGISTERED", "registry_record_hash": canonical_json_hash(candidate)}
+
+
+def validate_statistical_family_registration(
+    candidate: dict[str, Any],
+    *,
+    contract: dict[str, Any],
+    registry: list[dict[str, Any]],
+    expected_regime_id: str | None = None,
+    expected_development_episode_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    """以 trusted contract 與 manager registry 驗證 matrix statistical authority。"""
+
+    authority = statistical_family_contract(contract)
+    if str(candidate.get("contract_hash") or "") != authority["contract_hash"]:
+        return {"ok": False, "reason_code": "UNKNOWN_CONTRACT"}
+    if str(candidate.get("parameter_space_hash") or "") != authority["parameter_space_hash"]:
+        return {"ok": False, "reason_code": "PARAMETER_SPACE_HASH_MISMATCH"}
+    global_combination_ids = [
+        str(item)
+        for item in candidate.get("global_combination_ids") or []
+        if str(item)
+    ]
+    if global_combination_ids != authority["global_combination_ids"]:
+        return {"ok": False, "reason_code": "GLOBAL_COMBINATION_IDS_MISMATCH"}
+    if (
+        str(candidate.get("global_combination_ids_hash") or "")
+        != authority["global_combination_ids_hash"]
+    ):
+        return {"ok": False, "reason_code": "GLOBAL_COMBINATION_IDS_HASH_MISMATCH"}
+    if (
+        str(candidate.get("global_family_id") or "") != authority["global_family_id"]
+        or int(candidate.get("global_family_size") or 0) != authority["global_family_size"]
+    ):
+        return {"ok": False, "reason_code": "GLOBAL_FAMILY_MISMATCH"}
+    correction_ids = [
+        str(item)
+        for item in candidate.get("correction_family_combination_ids") or []
+        if str(item)
+    ]
+    if (
+        correction_ids != authority["global_combination_ids"]
+        or str(candidate.get("correction_family_id") or "") != authority["global_family_id"]
+        or int(candidate.get("correction_family_size") or 0) != authority["global_family_size"]
+    ):
+        return {"ok": False, "reason_code": "INVALID_CORRECTION_FAMILY"}
+    tested_ids = [
+        str(item)
+        for item in candidate.get("tested_combination_ids") or []
+        if str(item)
+    ]
+    if len(tested_ids) != len(candidate.get("tested_combination_ids") or []):
+        return {"ok": False, "reason_code": "MISSING_TESTED_COMBINATION_IDS"}
+    if str(candidate.get("tested_combination_ids_hash") or "") != canonical_json_hash(
+        sorted(tested_ids)
+    ):
+        return {"ok": False, "reason_code": "TESTED_COMBINATION_HASH_MISMATCH"}
+    partition_policy = candidate.get("partition_policy")
+    if not isinstance(partition_policy, dict):
+        return {"ok": False, "reason_code": "MISSING_PARTITION_POLICY"}
+    if partition_policy.get("policy_id") != authority["partition_policy_id"]:
+        return {"ok": False, "reason_code": "INVALID_PARTITION_POLICY"}
+    partition = validate_statistical_partition(
+        partition_id=str(partition_policy.get("partition_id") or ""),
+        tested_combination_ids=tested_ids,
+        authority=authority,
+    )
+    if not partition["ok"]:
+        return partition
+    if (
+        partition_policy.get("correction_scope") != "global_parameter_universe"
+        or partition_policy.get("parameter_space_hash") != authority["parameter_space_hash"]
+        or int(partition_policy.get("tested_combination_count") or 0)
+        != partition["tested_combination_count"]
+        or partition_policy.get("tested_combination_ids_hash")
+        != partition["tested_combination_ids_hash"]
+        or partition_policy.get("correction_family_id") != authority["global_family_id"]
+        or int(partition_policy.get("correction_family_size") or 0)
+        != authority["global_family_size"]
+    ):
+        return {"ok": False, "reason_code": "PARTITION_POLICY_FAMILY_MISMATCH"}
+
+    split_ids = {
+        role: [str(item) for item in candidate.get(f"{role}_episode_ids") or [] if str(item)]
+        for role in ("development", "validation", "embargo", "sealed")
+    }
+    required_lineage = {
+        "regime_id",
+        "dataset_hash",
+        "split_id",
+        "split_artifact_hash",
+        "episode_split_ids_hash",
+    }
+    missing_lineage = sorted(field for field in required_lineage if not candidate.get(field))
+    if missing_lineage or not split_ids["development"] or not split_ids["validation"] or not split_ids["sealed"]:
+        return {
+            "ok": False,
+            "reason_code": "INCOMPLETE_STATISTICAL_LINEAGE",
+            "missing_fields": missing_lineage,
+        }
+    all_episode_ids = [item for values in split_ids.values() for item in values]
+    if (
+        any(len(values) != len(set(values)) for values in split_ids.values())
+        or len(all_episode_ids) != len(set(all_episode_ids))
+    ):
+        return {"ok": False, "reason_code": "EPISODE_SPLIT_ID_REUSE"}
+    if candidate.get("episode_split_ids_hash") != canonical_json_hash(split_ids):
+        return {"ok": False, "reason_code": "EPISODE_SPLIT_HASH_MISMATCH"}
+    if expected_regime_id and candidate.get("regime_id") != expected_regime_id:
+        return {"ok": False, "reason_code": "REGIME_IDENTITY_MISMATCH"}
+    if expected_development_episode_ids is not None and sorted(
+        expected_development_episode_ids
+    ) != sorted(split_ids["development"]):
+        return {"ok": False, "reason_code": "DEVELOPMENT_EPISODE_IDS_MISMATCH"}
+
+    artifact = {key: value for key, value in candidate.items() if key != "registry_record_hash"}
+    artifact_hash = canonical_json_hash(artifact)
+    supplied_record_hash = str(candidate.get("registry_record_hash") or "")
+    matching_records = [
+        (index, row)
+        for index, row in enumerate(registry)
+        if row.get("event_type") == "PRE_REGISTRATION"
+        and row.get("experiment_id") == candidate.get("experiment_id")
+    ]
+    if len(matching_records) != 1:
+        return {"ok": False, "reason_code": "REGISTRY_MEMBERSHIP_MISMATCH"}
+    record_index, record = matching_records[0]
+    record_payload = {
+        key: value
+        for key, value in record.items()
+        if key not in {"event_type", "registry_record_hash"}
+    }
+    if (
+        not supplied_record_hash
+        or supplied_record_hash != artifact_hash
+        or record.get("registry_record_hash") != artifact_hash
+        or record_payload != artifact
+    ):
+        return {"ok": False, "reason_code": "REGISTRY_RECORD_HASH_MISMATCH"}
+    registration_check = validate_experiment_registration(artifact, registry[:record_index])
+    if not registration_check["ok"]:
+        return {
+            "ok": False,
+            "reason_code": "INVALID_REGISTERED_EXPERIMENT",
+            "registration_reason_code": registration_check["reason_code"],
+        }
+    return {
+        "ok": True,
+        "reason_code": "STATISTICAL_FAMILY_AUTHORITY_VALID",
+        "authority": authority,
+        "partition": partition,
+        "registry_record_hash": artifact_hash,
+    }
 
 
 def append_experiment_registry(path: Path, candidate: dict[str, Any]) -> dict[str, Any]:
@@ -785,6 +1122,24 @@ def multiple_testing_gate(
         or len(row.get("statistical_unit_ids") or []) != len(set(row.get("statistical_unit_ids") or []))
         for row in candidates
     )
+    minimum_statistical_unit_count = int(
+        (expected_family or {}).get("minimum_statistical_unit_count") or 0
+    )
+    insufficient_units_by_combination = {
+        str(row.get("combination_id") or f"row:{index}"): {
+            "actual": int(row.get("statistical_unit_count") or 0),
+            "required": minimum_statistical_unit_count,
+            "gap": max(
+                0,
+                minimum_statistical_unit_count
+                - int(row.get("statistical_unit_count") or 0),
+            ),
+        }
+        for index, row in enumerate(candidates)
+        if minimum_statistical_unit_count > 0
+        and int(row.get("statistical_unit_count") or 0)
+        < minimum_statistical_unit_count
+    }
     pseudo_replication_detected = any(bool(row.get("pseudo_replication_detected")) for row in candidates)
     if (
         missing_by_combination
@@ -795,6 +1150,7 @@ def multiple_testing_gate(
         or correction_family_ids != {expected_family_id}
         or lineage_invalid
         or statistical_unit_invalid
+        or insufficient_units_by_combination
         or pseudo_replication_detected
     ):
         return {
@@ -805,6 +1161,14 @@ def multiple_testing_gate(
             "eligible_ids": [],
             "missing_fields_by_combination": missing_by_combination,
             "family_validation_reason": family_validation_reason,
+            "correction_family_size": expected_family_size,
+            "corrected_alpha": (
+                familywise_alpha / expected_family_size
+                if expected_family_size > 0
+                else None
+            ),
+            "minimum_statistical_unit_count": minimum_statistical_unit_count,
+            "insufficient_units_by_combination": insufficient_units_by_combination,
             "pseudo_replication_detected": pseudo_replication_detected,
         }
     corrected_alpha = familywise_alpha / expected_family_size
@@ -1308,6 +1672,7 @@ def matrix_command(
     *,
     allowed_episode_ids: list[str] | None = None,
     pre_registration_path: Path | None = None,
+    experiment_registry_path: Path | None = None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -1336,6 +1701,8 @@ def matrix_command(
             raise ValueError("closed regime matrix 缺少 immutable development episode IDs")
         if pre_registration_path is None:
             raise ValueError("closed regime matrix 缺少 immutable pre-registration")
+        if experiment_registry_path is None:
+            raise ValueError("closed regime matrix 缺少 manager experiment registry")
         command.extend(
             [
                 "--require-exact-regime",
@@ -1349,6 +1716,8 @@ def matrix_command(
                 ",".join(allowed_episode_ids),
                 "--pre-registration",
                 repo_path(pre_registration_path) or str(pre_registration_path),
+                "--experiment-registry",
+                repo_path(experiment_registry_path) or str(experiment_registry_path),
             ]
         )
     return command
@@ -1981,6 +2350,14 @@ def prepare_closed_experiment(
         raise ValueError(f"validation profile 包含 contract 外參數組合：{unexpected_combinations[:3]}")
     tested_combination_ids_hash = canonical_json_hash(tested_combination_ids)
     correction_family_id = canonical_json_hash(legal_combination_ids)
+    authority = statistical_family_contract(contract)
+    partition_check = validate_statistical_partition(
+        partition_id=topic.validation_profile,
+        tested_combination_ids=tested_combination_ids,
+        authority=authority,
+    )
+    if not partition_check["ok"]:
+        raise ValueError(f"validation profile 不是合法 contract partition：{partition_check}")
     partition_policy = {
         "policy_id": "validation_profile_partition.v1",
         "partition_id": topic.validation_profile,
@@ -2001,6 +2378,11 @@ def prepare_closed_experiment(
             "split_id": split.metadata["split_id"],
             "split_artifact_hash": canonical_json_hash(split_payload),
             "parameter_space_hash": universe["parameter_space_hash"],
+            "contract_hash": authority["contract_hash"],
+            "global_combination_ids": authority["global_combination_ids"],
+            "global_combination_ids_hash": authority["global_combination_ids_hash"],
+            "global_family_id": authority["global_family_id"],
+            "global_family_size": authority["global_family_size"],
             "tested_combination_ids": tested_combination_ids,
             "tested_combination_ids_hash": tested_combination_ids_hash,
             "correction_family_combination_ids": legal_combination_ids,
@@ -2008,19 +2390,32 @@ def prepare_closed_experiment(
             "correction_family_size": len(legal_combination_ids),
             "partition_policy": partition_policy,
             "metric_policy_hash": canonical_json_hash(contract.get("multiple_testing_policy") or {}),
+            "development_episode_ids": split.metadata["development_episode_ids"],
+            "validation_episode_ids": split.metadata["validation_episode_ids"],
+            "embargo_episode_ids": split.metadata["embargo_episode_ids"],
             "sealed_episode_ids": split.metadata["sealed_episode_ids"],
+            "episode_split_ids_hash": canonical_json_hash(
+                {
+                    role: list(split.metadata[f"{role}_episode_ids"])
+                    for role in ("development", "validation", "embargo", "sealed")
+                }
+            ),
             "sealed_trade_dates": sealed_trade_dates,
         }
     )
     registration_path = run_dir / f"{slugify(topic.topic_id)}_closed_pre_registration.json"
-    write_text_atomic(
-        registration_path,
-        json.dumps(registration, ensure_ascii=False, indent=2, allow_nan=False),
-    )
     registry_path = OUTPUT_DIR / "closed_experiment_registry.jsonl"
     registered = append_experiment_registry(registry_path, registration)
     if not registered["ok"]:
         raise RuntimeError(f"closed experiment registration failed: {registered}")
+    registration = {
+        **registration,
+        "registry_record_hash": registered["registry_record_hash"],
+    }
+    write_text_atomic(
+        registration_path,
+        json.dumps(registration, ensure_ascii=False, indent=2, allow_nan=False),
+    )
     coarse = transition_experiment_registry(
         registry_path,
         experiment_id=registration["experiment_id"],
@@ -2068,6 +2463,7 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 topic,
                 allowed_episode_ids=allowed_episode_ids,
                 pre_registration_path=closed["registration_path"] if closed else None,
+                experiment_registry_path=closed["registry_path"] if closed else None,
             ),
         ),
         (
@@ -2079,6 +2475,7 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 topic,
                 allowed_episode_ids=allowed_episode_ids,
                 pre_registration_path=closed["registration_path"] if closed else None,
+                experiment_registry_path=closed["registry_path"] if closed else None,
             ),
         ),
         (
@@ -2129,8 +2526,10 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 allow_nan=False,
             ),
         )
-        if failed or outcome.get("decision") in {"INSUFFICIENT_EVIDENCE", "NO_COMPARISON_EVIDENCE"}:
+        if failed or outcome.get("decision") == "NO_COMPARISON_EVIDENCE":
             target_state = "BLOCKED"
+        elif outcome.get("decision") == "INSUFFICIENT_EVIDENCE":
+            target_state = "INSUFFICIENT_EVIDENCE"
         elif outcome.get("decision") == "NO_STRATEGY":
             target_state = "NO_STRATEGY"
         else:

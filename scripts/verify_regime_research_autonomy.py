@@ -36,11 +36,13 @@ ALLOWED_EXACT_FILES = {
     "scripts/run_autonomous_research.py",
     "scripts/run_backtest_strategy_matrix.py",
     "scripts/run_portfolio_replay.py",
+    "scripts/run_regime_statistical_family_canary.py",
     "scripts/verify_regime_research_autonomy.py",
     "tests/test_regime_research_autonomy.py",
     "docs/tasks/2026-07-27_REVIEW-REGIME-RESEARCH-AUTONOMY-01.md",
     "docs/tasks/2026-07-27_REPAIR-REGIME-RESEARCH-AUTONOMY-01-01.md",
     "docs/tasks/2026-07-27_REPAIR-REGIME-RESEARCH-AUTONOMY-01-02.md",
+    "docs/tasks/2026-07-27_REGIME-STATISTICAL-FAMILY-TRUST-BOUNDARY-01.md",
 }
 ALLOWED_PREFIXES = (
     "artifacts/visible_thread/REGIME-RESEARCH-AUTONOMY-01/",
@@ -48,6 +50,7 @@ ALLOWED_PREFIXES = (
     "docs/evidence/REVIEW-REGIME-RESEARCH-AUTONOMY-01/",
     "docs/evidence/REPAIR-REGIME-RESEARCH-AUTONOMY-01-01/",
     "docs/evidence/REPAIR-REGIME-RESEARCH-AUTONOMY-01-02/",
+    "docs/evidence/REGIME-STATISTICAL-FAMILY-TRUST-BOUNDARY-01/",
 )
 
 
@@ -156,6 +159,47 @@ def build_report(contract: dict[str, Any], *, base: str, candidate: str) -> dict
             "parameter_universe.synthetic_negative",
             research.parameter_universe_summary(drifted)["legal_combination_count"] != expected_count,
             "count drift rejected",
+        )
+    )
+    authority = research.statistical_family_contract(contract)
+    partition_coverage = research.validation_profile_partition_coverage(contract)
+    checks.append(
+        check(
+            "statistical_family_authority.positive",
+            authority["global_family_size"] == 720
+            and len(authority["legal_partitions"]["standard"]) == 81
+            and authority["corrected_alpha"] == 0.05 / 720
+            and authority["minimum_statistical_unit_count"] == 14,
+            {
+                key: value
+                for key, value in authority.items()
+                if key not in {"global_combination_ids", "legal_partitions"}
+            },
+        )
+    )
+    duplicate_partition = research.validate_statistical_partition(
+        partition_id="standard",
+        tested_combination_ids=[
+            *authority["legal_partitions"]["standard"],
+            authority["legal_partitions"]["standard"][0],
+        ],
+        authority=authority,
+    )
+    checks.append(
+        check(
+            "statistical_family_authority.synthetic_negative",
+            duplicate_partition["reason_code"] == "DUPLICATE_TESTED_COMBINATION_IDS"
+            and partition_coverage["status"] == "PARTITION_COVERAGE_INCOMPLETE"
+            and partition_coverage["missing_count"] > 0,
+            {
+                "duplicate_partition": duplicate_partition,
+                "coverage_status": partition_coverage["status"],
+                "covered_unique_count": partition_coverage["covered_unique_count"],
+                "missing_count": partition_coverage["missing_count"],
+                "cross_partition_overlap_count": partition_coverage[
+                    "cross_partition_overlap_count"
+                ],
+            },
         )
     )
 
