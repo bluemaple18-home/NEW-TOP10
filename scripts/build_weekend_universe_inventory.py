@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import Counter, defaultdict
 from typing import Any
@@ -17,6 +18,8 @@ from weekend_training_common import (
     MAP_PATH,
     PRODUCTION_IMPACT,
     REPLAY_READY_STATUSES,
+    RUN_HISTORY_PATH,
+    TOPIC_REGISTRY_PATH,
     base_scenarios_by_v2_combo,
     count_by,
     current_status_from_base_scenario,
@@ -194,6 +197,21 @@ def build_payload_and_rows_once(date: str, include_records: bool = False) -> tup
     topics = load_topics()
     expected_total = expanded_universe_total(len(topics))
     processed_current = sum(count for status, count in current_counts.items() if status != "PENDING")
+    source_paths = [MAP_PATH, RUN_HISTORY_PATH, TOPIC_REGISTRY_PATH]
+    source_hashes = {
+        repo_path(path): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in source_paths
+        if path.is_file()
+    }
+    processed_records = [
+        {
+            "combo_id": row["combo_id"],
+            "completion_status": "completed",
+            "artifact_path": row.get("source_artifact"),
+        }
+        for row in rows
+        if row.get("current_status") != "PENDING" and row.get("source_artifact")
+    ]
     payload = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": now_utc(),
@@ -205,6 +223,8 @@ def build_payload_and_rows_once(date: str, include_records: bool = False) -> tup
             "run_history": "artifacts/autonomous_research/run_history.jsonl",
             "topic_registry": "artifacts/autonomous_research/topic_registry.json",
         },
+        "source_hashes": source_hashes,
+        "processed_records": processed_records,
         "summary": {
             "topic_count": len(topics),
             "full_universe_total": len(rows),

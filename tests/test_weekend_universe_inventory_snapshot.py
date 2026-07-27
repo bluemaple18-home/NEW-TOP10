@@ -35,7 +35,9 @@ def row(combo_id: str, status: str) -> dict[str, Any]:
         "unsupported_category": None,
         "can_be_unblocked": False,
         "unblock_requirement": None,
-        "source_artifact": None,
+        "source_artifact": (
+            f"artifacts/research/{combo_id}.json" if status != "PENDING" else None
+        ),
         "priority_score": 0,
         "production_impact": "NO_PRODUCTION_CHANGE",
     }
@@ -61,6 +63,12 @@ def test_inventory_rebuilds_when_source_snapshot_advances_during_build(monkeypat
     assert payload["summary"]["current_processed_count"] == 4
     assert payload["summary"]["map_expanded_processed"] == 4
     assert payload["source"]["snapshot_rebuilt_after_mismatch"] is True
+    assert {row["combo_id"] for row in payload["processed_records"]} == {
+        "done-1",
+        "done-2",
+        "done-3",
+        "done-4",
+    }
 
 
 def test_inventory_fails_loud_when_source_snapshot_stays_inconsistent(monkeypatch: pytest.MonkeyPatch) -> None:

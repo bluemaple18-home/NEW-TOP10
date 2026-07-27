@@ -1,6 +1,6 @@
 ---
 id: FOG-CLOSED-REGIME-AUTONOMY-01-REPAIR-1
-status: READY_TO_DISPATCH
+status: DELIVERED_REPAIR_1_CANDIDATE
 type: repair
 chain_id: FOG-CLOSED-REGIME-AUTONOMY-01
 repair_generation: 1

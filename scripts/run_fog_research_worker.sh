@@ -154,17 +154,23 @@ recover_retry_circuit_if_verified() {
     return 1
   fi
 
-  local recovery_stamp verifier_output regime_history runtime_receipt
+  local recovery_stamp verifier_output regime_history runtime_receipt production_baseline
   recovery_stamp="$(date +%Y%m%d%H%M%S)"
   verifier_output="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.recovery_verification_${recovery_stamp}.json"
   regime_history="${TOP10_MARKET_REGIME_HISTORY:-artifacts/autonomous_research/market_regime_history_${RUN_DATE}.json}"
   runtime_receipt="artifacts/autonomous_research/closed_regime_runtime_${RUN_DATE}.json"
+  production_baseline="${TOP10_FOG_PRODUCTION_HASH_BASELINE:-}"
+  if [ -z "$production_baseline" ]; then
+    echo "fog research retry circuit recovery denied; trusted production baseline missing" | tee -a "$LOG_FILE"
+    return 1
+  fi
   echo "fog research retry circuit recovery requested; running bounded recovery gates before state rotation" | tee -a "$LOG_FILE"
   set +e
   "$PYTHON_BIN" scripts/verify_fog_closed_regime_recovery.py \
     --run-date "$RUN_DATE" \
     --market-regime-history "$regime_history" \
     --closed-regime-runtime-receipt "$runtime_receipt" \
+    --production-hash-baseline "$production_baseline" \
     --output "$verifier_output" >> "$LOG_FILE" 2>&1
   local verifier_exit_code=$?
   set -e

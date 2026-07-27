@@ -110,6 +110,20 @@ set +e
 RUN_EXIT_CODE=$?
 set -e
 
+if [ "$RUN_EXIT_CODE" -eq 0 ]; then
+  set +e
+  "${RUNNER_CMD[@]}" scripts/verify_closed_regime_runtime.py \
+    --run-date "$RUN_DATE" \
+    --market-regime-history "$REGIME_HISTORY" \
+    --research-contract "$RESEARCH_CONTRACT" \
+    --daily-research-artifact "$OUTPUT" \
+    --output "$REGIME_RUNTIME_RECEIPT" >> "$LOG_FILE" 2>&1
+  REGIME_BIND_EXIT_CODE=$?
+  set -e
+else
+  REGIME_BIND_EXIT_CODE="$RUN_EXIT_CODE"
+fi
+
 set +e
 "${RUNNER_CMD[@]}" scripts/verify_daily_research_quota.py \
   --artifact "$OUTPUT" \
@@ -121,6 +135,11 @@ set -e
 if [ "$RUN_EXIT_CODE" -ne 0 ]; then
   echo "❌ autonomous research quota run failed exit_code=$RUN_EXIT_CODE" | tee -a "$LOG_FILE"
   exit "$RUN_EXIT_CODE"
+fi
+
+if [ "$REGIME_BIND_EXIT_CODE" -ne 0 ]; then
+  echo "❌ closed-regime runtime receipt binding failed exit_code=$REGIME_BIND_EXIT_CODE" | tee -a "$LOG_FILE"
+  exit "$REGIME_BIND_EXIT_CODE"
 fi
 
 if [ "$VERIFY_EXIT_CODE" -ne 0 ]; then

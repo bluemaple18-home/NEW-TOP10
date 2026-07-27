@@ -7,11 +7,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.verify_daily_research_quota import build_payload
+from scripts.verify_daily_research_quota import build_payload, canonical_json_hash
 
 
 class DailyResearchQuotaVerifierTest(unittest.TestCase):
     def build_artifact(self, topic_count: int, quota: int = 5) -> tuple[Path, Path]:
+        run_date = "2099-01-05"
         directory = Path(tempfile.mkdtemp())
         artifact = directory / "quota.json"
         history = directory / "history.json"
@@ -22,7 +23,8 @@ class DailyResearchQuotaVerifierTest(unittest.TestCase):
         runtime_receipt.write_text(
             json.dumps(
                 {
-                    "status": "OK",
+                    "schema_version": "closed-regime-runtime-receipt.v2",
+                    "status": "READY",
                     "closed_regime_research": True,
                     "market_regime_history": {
                         "path": str(history),
@@ -51,6 +53,7 @@ class DailyResearchQuotaVerifierTest(unittest.TestCase):
             json.dumps(
                 {
                     "schema_version": "autonomous-research-run.v1",
+                    "date": run_date,
                     "status": "OK",
                     "contract": {
                         "research_only": True,
@@ -67,12 +70,63 @@ class DailyResearchQuotaVerifierTest(unittest.TestCase):
                         "execute_topic_count": quota,
                         "closed_regime_research": True,
                         "market_regime_history": str(history),
+                        "research_contract": str(contract_path),
                     },
                     "selected_topics": [run["topic"] for run in topic_runs],
                     "topic_runs": topic_runs,
                     "outcome": {"decision": "NO_EXECUTABLE_TOPIC" if not topic_runs else "REJECTED_BY_STRATEGY_MATRIX"},
                 },
                 ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        topic_lineage = [
+            {
+                "topic_id": str(run["topic"]["topic_id"]),
+                "status": str(run["status"]),
+                "decision": run["outcome"]["decision"],
+            }
+            for run in topic_runs
+        ]
+        runtime_receipt.write_text(
+            json.dumps(
+                {
+                    "schema_version": "closed-regime-runtime-receipt.v2",
+                    "status": "OK",
+                    "generated_at": "2099-01-05T00:00:00+00:00",
+                    "run_date": run_date,
+                    "closed_regime_research": True,
+                    "queue_owner": "fog_worker",
+                    "runner_identity": "scripts/run_daily_research_quota.sh",
+                    "market_regime_history": {
+                        "path": str(history),
+                        "schema_version": "market-regime-history.v2",
+                        "sha256": hashlib.sha256(history.read_bytes()).hexdigest(),
+                        "source_trade_date": run_date,
+                    },
+                    "research_contract": {
+                        "path": str(contract_path),
+                        "sha256": hashlib.sha256(contract_path.read_bytes()).hexdigest(),
+                    },
+                    "exact_regime": {
+                        "base_regime": "RISK_OFF",
+                        "family_tags": [],
+                        "identity_id": "RISK_OFF|",
+                    },
+                    "state_transition": {
+                        "from": "VERIFIED_HISTORY",
+                        "to": "CLOSED_RESEARCH_COMPLETED",
+                    },
+                    "daily_research_artifact": {
+                        "path": str(artifact),
+                        "schema_version": "autonomous-research-run.v1",
+                        "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+                        "run_date": run_date,
+                    },
+                    "topic_runs": topic_lineage,
+                    "topic_runs_sha256": canonical_json_hash(topic_lineage),
+                    "production_impact": "NO_PRODUCTION_CHANGE",
+                }
             ),
             encoding="utf-8",
         )

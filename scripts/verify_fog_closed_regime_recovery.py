@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -16,6 +15,8 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "fog-closed-regime-recovery-gate.v1"
+PRODUCTION_BASELINE_SCHEMA = "fog-production-hash-baseline.v1"
+PROTECTED_ROLES = {"model", "baseline", "ranking", "weights", "promotion"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -23,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-date", required=True)
     parser.add_argument("--market-regime-history", required=True)
     parser.add_argument("--closed-regime-runtime-receipt", required=True)
+    parser.add_argument("--production-hash-baseline", required=True)
     parser.add_argument("--output", required=True)
     return parser.parse_args()
 
@@ -54,24 +56,139 @@ def run_step(name: str, command: list[str]) -> dict[str, Any]:
     }
 
 
-def production_hashes() -> dict[str, str]:
-    paths = {
-        "model": PROJECT_ROOT / "models/latest_lgbm.pkl",
-        "baseline": PROJECT_ROOT / "models/baseline_stats.json",
-    }
-    ranking_pattern = re.compile(r"ranking_\d{4}-\d{2}-\d{2}\.csv$")
-    rankings = sorted(
-        path
-        for path in (PROJECT_ROOT / "artifacts").glob("ranking_*.csv")
-        if ranking_pattern.fullmatch(path.name)
+def runtime_daily_artifact(receipt_path: Path) -> str:
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return "__missing_runtime_daily_artifact__"
+    daily = receipt.get("daily_research_artifact")
+    if not isinstance(daily, dict):
+        return "__missing_runtime_daily_artifact__"
+    return str(daily.get("path") or "__missing_runtime_daily_artifact__")
+
+
+def canonical_artifact_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(resolved)
+
+
+def current_source_identity() -> str:
+    completed = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
     )
-    if not rankings:
-        raise FileNotFoundError("找不到 production ranking artifact")
-    paths["ranking"] = rankings[-1]
-    missing = [str(path) for path in paths.values() if not path.is_file()]
+    identity = completed.stdout.strip()
+    if completed.returncode != 0 or len(identity) != 40:
+        raise RuntimeError("無法取得可信 git source identity")
+    return identity
+
+
+def build_production_hash_baseline(
+    protected_paths: dict[str, Path],
+    *,
+    source_identity: str,
+    created_at: str,
+) -> dict[str, Any]:
+    if set(protected_paths) != PROTECTED_ROLES:
+        raise ValueError(
+            f"protected roles 必須完整且固定：{sorted(PROTECTED_ROLES)}"
+        )
+    missing = [
+        f"{role}:{path}"
+        for role, path in protected_paths.items()
+        if not path.is_file()
+    ]
     if missing:
-        raise FileNotFoundError(f"production hash inputs missing: {missing}")
-    return {name: sha256(path) for name, path in paths.items()}
+        raise FileNotFoundError(f"production baseline inputs missing: {missing}")
+    return {
+        "schema_version": PRODUCTION_BASELINE_SCHEMA,
+        "created_at": created_at,
+        "source_identity": source_identity,
+        "artifacts": {
+            role: {
+                "path": canonical_artifact_path(path),
+                "sha256": sha256(path),
+            }
+            for role, path in sorted(protected_paths.items())
+        },
+    }
+
+
+def _baseline_paths(baseline: dict[str, Any]) -> dict[str, Path]:
+    artifacts = baseline.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return {}
+    return {
+        str(role): resolve_path(str(entry.get("path") or ""))
+        for role, entry in artifacts.items()
+        if isinstance(entry, dict)
+    }
+
+
+def verify_production_hash_baseline(
+    baseline: dict[str, Any],
+    protected_paths: dict[str, Path] | None = None,
+    *,
+    expected_source_identity: str,
+) -> dict[str, Any]:
+    artifacts = baseline.get("artifacts")
+    artifacts = artifacts if isinstance(artifacts, dict) else {}
+    current_paths = protected_paths or _baseline_paths(baseline)
+    schema_ok = (
+        set(baseline)
+        == {"schema_version", "created_at", "source_identity", "artifacts"}
+        and baseline.get("schema_version") == PRODUCTION_BASELINE_SCHEMA
+        and isinstance(baseline.get("created_at"), str)
+        and bool(baseline.get("created_at"))
+    )
+    source_identity_ok = baseline.get("source_identity") == expected_source_identity
+    role_set_ok = set(artifacts) == PROTECTED_ROLES == set(current_paths)
+    missing: list[str] = []
+    path_drift: list[str] = []
+    hash_drift: list[str] = []
+    current_hashes: dict[str, str] = {}
+    for role in sorted(PROTECTED_ROLES):
+        entry = artifacts.get(role)
+        path = current_paths.get(role)
+        if not isinstance(entry, dict) or path is None or not path.is_file():
+            missing.append(role)
+            continue
+        if set(entry) != {"path", "sha256"}:
+            path_drift.append(role)
+            continue
+        if canonical_artifact_path(path) != entry.get("path"):
+            path_drift.append(role)
+        digest = sha256(path)
+        current_hashes[role] = digest
+        if digest != entry.get("sha256"):
+            hash_drift.append(role)
+    return {
+        "name": "production_hash_gate",
+        "ok": schema_ok
+        and source_identity_ok
+        and role_set_ok
+        and not missing
+        and not path_drift
+        and not hash_drift,
+        "schema_ok": schema_ok,
+        "source_identity_ok": source_identity_ok,
+        "role_set_ok": role_set_ok,
+        "missing": missing,
+        "path_drift": path_drift,
+        "hash_drift": hash_drift,
+        "baseline_hashes": {
+            role: entry.get("sha256")
+            for role, entry in artifacts.items()
+            if isinstance(entry, dict)
+        },
+        "current_hashes": current_hashes,
+    }
 
 
 def main() -> int:
@@ -80,6 +197,8 @@ def main() -> int:
     inventory = (
         f"artifacts/weekend_training/weekend_universe_inventory_{args.run_date}.json"
     )
+    runtime_receipt_path = resolve_path(args.closed_regime_runtime_receipt)
+    daily_artifact = runtime_daily_artifact(runtime_receipt_path)
     steps = [
         run_step(
             "processed_id_authority",
@@ -113,16 +232,16 @@ def main() -> int:
             ],
         ),
         run_step(
-            "closed_regime_canary",
+            "closed_regime_runtime_receipt",
             [
                 sys.executable,
-                "scripts/verify_closed_regime_runtime.py",
-                "--run-date",
-                args.run_date,
-                "--market-regime-history",
-                args.market_regime_history,
-                "--output",
+                "scripts/verify_daily_research_quota.py",
+                "--artifact",
+                daily_artifact,
+                "--closed-regime-runtime-receipt",
                 args.closed_regime_runtime_receipt,
+                "--output",
+                f"{output}.daily_receipt.json",
             ],
         ),
         run_step(
@@ -144,17 +263,23 @@ def main() -> int:
             ["bash", "tests/test_research_lock_contention.sh"],
         ),
     ]
+    baseline_path = resolve_path(args.production_hash_baseline)
     try:
-        hashes = production_hashes()
-        steps.append(
-            {
-                "name": "production_hash_gate",
-                "ok": True,
-                "returncode": 0,
-                "value": hashes,
-            }
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        production_check = verify_production_hash_baseline(
+            baseline,
+            expected_source_identity=current_source_identity(),
         )
-    except (FileNotFoundError, OSError) as exc:
+        production_check["returncode"] = 0 if production_check["ok"] else 1
+        production_check["baseline_receipt"] = {
+            "path": canonical_artifact_path(baseline_path),
+            "sha256": sha256(baseline_path),
+            "source_identity": baseline.get("source_identity"),
+            "created_at": baseline.get("created_at"),
+        }
+        hashes = production_check["current_hashes"]
+        steps.append(production_check)
+    except (FileNotFoundError, OSError, json.JSONDecodeError, ValueError) as exc:
         hashes = {}
         steps.append(
             {

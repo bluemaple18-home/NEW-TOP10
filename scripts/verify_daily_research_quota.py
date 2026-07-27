@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +17,9 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "daily-research-quota-verification.v2"
 REPORT_SCHEMA = "autonomous-research-run.v1"
+RUNTIME_RECEIPT_SCHEMA = "closed-regime-runtime-receipt.v2"
+EXPECTED_QUEUE_OWNER = "fog_worker"
+EXPECTED_RUNNER_IDENTITY = "scripts/run_daily_research_quota.sh"
 FOLLOWUP_DECISIONS = {"CONFIRMED_FOR_NEXT_REPLAY", "PARTIAL_SCORE_ONLY"}
 REJECTION_DECISIONS = {"REJECTED_BY_STRATEGY_MATRIX", "NO_COMPARISON_EVIDENCE"}
 SUCCESS_STATES = {"COMPLETED", "PARTIAL_NO_MORE_WORK"}
@@ -55,6 +58,47 @@ def sha256(path: Path | None) -> str | None:
     if path is None or not path.is_file():
         return None
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def canonical_json_hash(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def paths_match(left: str | None, right: str | None) -> bool:
+    if not left or not right:
+        return False
+    left_path = resolve_path(left)
+    right_path = resolve_path(right)
+    return bool(
+        left_path is not None
+        and right_path is not None
+        and left_path.resolve() == right_path.resolve()
+    )
+
+
+def date_not_after(value: Any, upper_bound: Any) -> bool:
+    try:
+        return date.fromisoformat(str(value)) <= date.fromisoformat(str(upper_bound))
+    except ValueError:
+        return False
+
+
+def topic_run_lineage(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "topic_id": str((row.get("topic") or {}).get("topic_id") or ""),
+            "status": str(row.get("status") or ""),
+            "decision": (row.get("outcome") or {}).get("decision"),
+        }
+        for row in rows
+    ]
 
 
 def build_payload(
@@ -100,6 +144,52 @@ def build_payload(
         else {}
     )
     runtime_contract_path = resolve_path(runtime_contract.get("path"))
+    runtime_daily = (
+        runtime_receipt.get("daily_research_artifact")
+        if isinstance(runtime_receipt.get("daily_research_artifact"), dict)
+        else {}
+    )
+    expected_topic_runs = topic_run_lineage(topic_runs)
+    receipt_allowed_keys = {
+        "schema_version",
+        "status",
+        "generated_at",
+        "run_date",
+        "closed_regime_research",
+        "queue_owner",
+        "runner_identity",
+        "market_regime_history",
+        "research_contract",
+        "exact_regime",
+        "state_transition",
+        "daily_research_artifact",
+        "topic_runs",
+        "topic_runs_sha256",
+        "production_impact",
+    }
+    history_allowed_keys = {"path", "schema_version", "sha256", "source_trade_date"}
+    contract_allowed_keys = {"path", "sha256"}
+    regime_allowed_keys = {"base_regime", "family_tags", "identity_id"}
+    transition_allowed_keys = {"from", "to"}
+    daily_allowed_keys = {"path", "schema_version", "sha256", "run_date"}
+    receipt_schema_exact = (
+        set(runtime_receipt) == receipt_allowed_keys
+        and set(runtime_history) == history_allowed_keys
+        and set(runtime_contract) == contract_allowed_keys
+        and set(
+            runtime_receipt.get("exact_regime")
+            if isinstance(runtime_receipt.get("exact_regime"), dict)
+            else {}
+        )
+        == regime_allowed_keys
+        and set(
+            runtime_receipt.get("state_transition")
+            if isinstance(runtime_receipt.get("state_transition"), dict)
+            else {}
+        )
+        == transition_allowed_keys
+        and set(runtime_daily) == daily_allowed_keys
+    )
     quota = int(inputs.get("execute_topic_count") or 0)
     queue_empty = inputs.get("from_queue") is True and outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs
     followup_count = sum(1 for decision in decisions if decision in FOLLOWUP_DECISIONS)
@@ -156,12 +246,75 @@ def build_payload(
             },
         },
         {
+            "name": "runtime_receipt_schema",
+            "ok": runtime_receipt.get("schema_version") == RUNTIME_RECEIPT_SCHEMA
+            and receipt_schema_exact,
+            "value": {
+                "schema_version": runtime_receipt.get("schema_version"),
+                "unknown_or_missing_top_level": sorted(
+                    set(runtime_receipt).symmetric_difference(receipt_allowed_keys)
+                ),
+            },
+        },
+        {
+            "name": "runtime_receipt_run_date",
+            "ok": bool(payload.get("date"))
+            and runtime_receipt.get("run_date") == payload.get("date")
+            and date_not_after(
+                runtime_history.get("source_trade_date"),
+                payload.get("date"),
+            )
+            and runtime_daily.get("run_date") == payload.get("date"),
+            "value": {
+                "expected": payload.get("date"),
+                "receipt": runtime_receipt.get("run_date"),
+                "history": runtime_history.get("source_trade_date"),
+                "daily_artifact": runtime_daily.get("run_date"),
+            },
+        },
+        {
+            "name": "runtime_receipt_identity",
+            "ok": runtime_receipt.get("queue_owner") == EXPECTED_QUEUE_OWNER
+            and runtime_receipt.get("runner_identity") == EXPECTED_RUNNER_IDENTITY,
+            "value": {
+                "queue_owner": runtime_receipt.get("queue_owner"),
+                "runner_identity": runtime_receipt.get("runner_identity"),
+            },
+        },
+        {
+            "name": "runtime_receipt_state_transition",
+            "ok": runtime_receipt.get("state_transition")
+            == {
+                "from": "VERIFIED_HISTORY",
+                "to": "CLOSED_RESEARCH_COMPLETED",
+            },
+            "value": runtime_receipt.get("state_transition"),
+        },
+        {
+            "name": "runtime_receipt_topic_run_lineage",
+            "ok": runtime_receipt.get("topic_runs") == expected_topic_runs
+            and runtime_receipt.get("topic_runs_sha256")
+            == canonical_json_hash(expected_topic_runs)
+            and runtime_daily.get("schema_version") == REPORT_SCHEMA
+            and paths_match(runtime_daily.get("path"), str(artifact))
+            and runtime_daily.get("sha256") == sha256(artifact),
+            "value": {
+                "expected": expected_topic_runs,
+                "receipt": runtime_receipt.get("topic_runs"),
+                "daily_artifact": runtime_daily,
+            },
+        },
+        {
             "name": "verified_regime_history_lineage",
             "ok": runtime_receipt.get("status") == "OK"
             and runtime_receipt.get("closed_regime_research") is True
-            and runtime_history.get("path") == artifact_history
+            and paths_match(runtime_history.get("path"), artifact_history)
+            and runtime_history.get("schema_version") == "market-regime-history.v2"
             and runtime_history.get("sha256") == sha256(artifact_history_path)
+            and paths_match(runtime_contract.get("path"), str(inputs.get("research_contract") or ""))
             and runtime_contract.get("sha256") == sha256(runtime_contract_path)
+            and bool((runtime_receipt.get("exact_regime") or {}).get("base_regime"))
+            and isinstance((runtime_receipt.get("exact_regime") or {}).get("family_tags"), list)
             and bool((runtime_receipt.get("exact_regime") or {}).get("identity_id"))
             and runtime_receipt.get("production_impact") == "NO_PRODUCTION_CHANGE",
             "value": {
