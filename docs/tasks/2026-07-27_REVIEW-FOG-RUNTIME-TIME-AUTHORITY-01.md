@@ -15,7 +15,7 @@ chain_base_sha: cfaabf914f752b63a8efaf15ca40a5984221c2e1
 base_sha: cfaabf914f752b63a8efaf15ca40a5984221c2e1
 reviewed_candidate_sha: 26d8471d15572f216095122f2462df79bc96edc1
 architecture_thread_id: 019fa43d-3544-7662-be9c-3b258eee681c
-reviewer_thread_id: PENDING
+reviewer_thread_id: 019fa448-4ffe-7473-af1a-7cc1f417bdd7
 evidence_path: docs/evidence/REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01/
 ---
 
@@ -149,12 +149,20 @@ Review commit只允許新增本卡 evidence與更新本卡狀態；不得修改 
 - Source clean：是
 - Git metadata：可用
 - unrelated dirty paths：`[]`
-- Reviewer task：`PENDING`
-- Capability preflight：`PENDING`
+- Client receipt：
+  `client-new-thread:a513c2de-a944-4ee6-bf52-b05dc2930aad`
+- Reviewer task：`019fa448-4ffe-7473-af1a-7cc1f417bdd7`
+- Reviewer title：`Review 市場時間權威契約`
+- Reviewer worktree：isolated／registered
+- Reviewer initial HEAD：
+  `deffa7e5f84aeae47461d5877a015754618ef1e6`
+- Reviewer initial branch：`detached`
+- Reviewer initial worktree：clean
+- Capability preflight：task內執行中；worktree provisioning已 `PASS`
 - Workflow：
   `DELIVERED_ARCHITECTURE_CANDIDATE → READY_FOR_REVIEW`
 - Gate 1 card contract：`PASS`
-- Gate 2 visible thread：`PENDING`
+- Gate 2 visible thread：`PASS`
 - Gate 3 candidate delivery：`PASS`
 - Gate 4 independent review：`PENDING`
 - Gate 5 implementation authorization：`PENDING`
