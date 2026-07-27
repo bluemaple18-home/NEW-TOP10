@@ -27,6 +27,15 @@
       "HIGH_CHOPPY",
       "BIG_BULL"
     ],
+    "required_universal_regime_ids": [
+      "BROAD_RISK_ON|",
+      "NARROW_LEADER|",
+      "CHOPPY_RANGE|",
+      "RISK_OFF|",
+      "PANIC_SELLING|",
+      "EARLY_REVERSAL|",
+      "MIXED_NEUTRAL|"
+    ],
     "identity_rule": "exact_base_and_exact_family_tag_set",
     "unknown_policy": "exclude_from_formal_evidence",
     "transition_policy": "exclude_from_formal_evidence"
@@ -108,7 +117,11 @@
   },
   "multiple_testing_policy": {
     "method": "bonferroni_familywise",
+    "p_value_test": "one_sided_exact_sign_test",
     "familywise_alpha": 0.05,
+    "max_drawdown_limit": -0.25,
+    "neighbor_definition": "exactly_one_parameter_differs",
+    "neighbor_p_value_limit": 0.05,
     "min_robust_neighbor_pass_count": 2,
     "winner_cannot_advance_without_neighbor_stability": true
   },

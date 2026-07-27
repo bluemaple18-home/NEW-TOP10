@@ -107,6 +107,7 @@ def build_entry_plans(
     plans: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
     entry_delay_trade_days = getattr(args, "entry_delay_trade_days", 1)
+    exact_episode_by_date = getattr(args, "exact_regime_episode_by_date", None)
 
     for ranking_path in files:
         ranking_date = run_backtest_replay.ranking_date(ranking_path)
@@ -124,6 +125,20 @@ def build_entry_plans(
         if holding_dates is None:
             skipped.append({"ranking_date": ranking_date, "reason": "insufficient_future_market_bars"})
             continue
+        if exact_episode_by_date is not None:
+            episode_id = exact_episode_by_date.get(ranking_date)
+            window_dates = [ranking_date, *(item.isoformat() for item in holding_dates)]
+            mismatched_dates = [
+                item
+                for item in window_dates
+                if not episode_id or exact_episode_by_date.get(item) != episode_id
+            ]
+            if mismatched_dates:
+                raise ValueError(
+                    "ranking/entry/holding/exit 必須屬於同一完整 exact-match episode："
+                    f"ranking_date={ranking_date} episode_id={episode_id} "
+                    f"mismatched_dates={mismatched_dates}"
+                )
 
         items = run_backtest_replay.read_ranking(ranking_path, args.top_n)
         weights = run_backtest_replay.portfolio_weights(
@@ -165,6 +180,9 @@ def build_entry_plans(
             plans.append(
                 {
                     "ranking_date": ranking_date,
+                    "regime_episode_id": exact_episode_by_date.get(ranking_date)
+                    if exact_episode_by_date is not None
+                    else None,
                     "entry_date": entry_date,
                     "exit_date": holding_dates[-1],
                     "stock_id": item["stock_id"],

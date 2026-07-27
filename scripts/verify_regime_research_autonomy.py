@@ -35,12 +35,17 @@ ALLOWED_EXACT_FILES = {
     "scripts/compare_strategy_matrices.py",
     "scripts/run_autonomous_research.py",
     "scripts/run_backtest_strategy_matrix.py",
+    "scripts/run_portfolio_replay.py",
     "scripts/verify_regime_research_autonomy.py",
     "tests/test_regime_research_autonomy.py",
+    "docs/tasks/2026-07-27_REVIEW-REGIME-RESEARCH-AUTONOMY-01.md",
+    "docs/tasks/2026-07-27_REPAIR-REGIME-RESEARCH-AUTONOMY-01-01.md",
 }
 ALLOWED_PREFIXES = (
     "artifacts/visible_thread/REGIME-RESEARCH-AUTONOMY-01/",
     "docs/evidence/REGIME-RESEARCH-AUTONOMY-01/",
+    "docs/evidence/REVIEW-REGIME-RESEARCH-AUTONOMY-01/",
+    "docs/evidence/REPAIR-REGIME-RESEARCH-AUTONOMY-01-01/",
 )
 
 
@@ -48,6 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="verify closed regime research autonomy contract")
     parser.add_argument("--contract", default=str(DEFAULT_CONTRACT))
     parser.add_argument("--base", default="7efda43641118f36b10261b4a04e0278bba941a2")
+    parser.add_argument("--candidate", default="HEAD")
     parser.add_argument(
         "--output",
         default="artifacts/visible_thread/REGIME-RESEARCH-AUTONOMY-01/verifier_report.json",
@@ -67,7 +73,23 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_at_ref(ref: str, path: str) -> str:
+    result = subprocess.run(
+        ["git", "show", f"{ref}:{path}"],
+        cwd=PROJECT_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    return hashlib.sha256(result.stdout).hexdigest()
+
+
 def experiment(experiment_id: str, sealed: list[str]) -> dict[str, Any]:
+    trade_dates = [
+        f"2026-02-{index + 1 + int(hashlib.sha256(item.encode('utf-8')).hexdigest()[:2], 16) % 20:02d}"
+        for index, item in enumerate(sealed)
+    ]
+    trade_dates = sorted(set(trade_dates))
     return research.build_experiment_pre_registration(
         {
             "experiment_label": experiment_id,
@@ -79,6 +101,7 @@ def experiment(experiment_id: str, sealed: list[str]) -> dict[str, Any]:
             "parameter_space_hash": "sha256:space",
             "metric_policy_hash": "sha256:metrics",
             "sealed_episode_ids": sealed,
+            "sealed_trade_dates": trade_dates,
         }
     )
 
@@ -99,29 +122,19 @@ def allowed_change_paths(paths: list[str]) -> bool:
     return all(path in ALLOWED_EXACT_FILES or path.startswith(ALLOWED_PREFIXES) for path in paths)
 
 
-def changed_paths(base: str) -> list[str]:
+def changed_paths(base: str, candidate: str) -> list[str]:
     diff = subprocess.run(
-        ["git", "diff", "--name-only", base],
+        ["git", "diff", "--name-only", f"{base}...{candidate}"],
         cwd=PROJECT_ROOT,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=True,
     )
-    tracked = [line.strip() for line in diff.stdout.splitlines() if line.strip()]
-    status = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=all"],
-        cwd=PROJECT_ROOT,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=True,
-    )
-    untracked = [line[3:].strip() for line in status.stdout.splitlines() if line.startswith("?? ")]
-    return sorted(set(tracked + untracked))
+    return sorted({line.strip() for line in diff.stdout.splitlines() if line.strip()})
 
 
-def build_report(contract: dict[str, Any], *, base: str) -> dict[str, Any]:
+def build_report(contract: dict[str, Any], *, base: str, candidate: str) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
 
     universe = research.parameter_universe_summary(contract)
@@ -229,20 +242,35 @@ def build_report(contract: dict[str, Any], *, base: str) -> dict[str, Any]:
     checks.append(check("sealed_reuse.positive", fresh["ok"], fresh))
     checks.append(check("sealed_reuse.synthetic_negative", reused["reason_code"] == "SEALED_DATASET_REUSE", reused))
 
+    source_entry = experiment("exp-entry", ["episode-entry"])
+    source_exit = experiment("exp-exit", ["episode-exit"])
+    source_entry["registry_record_hash"] = research.canonical_json_hash(source_entry)
+    source_exit["registry_record_hash"] = research.canonical_json_hash(source_exit)
     composed = research.build_experiment_pre_registration(
         {
-            **{key: value for key, value in experiment("exp-composed", ["episode-9"]).items() if key != "experiment_id"},
-            "component_source_experiment_ids": ["exp-entry", "exp-exit"],
+            **{
+                key: value
+                for key, value in experiment("exp-composed", ["episode-9"]).items()
+                if key != "experiment_id"
+            },
+            "component_source_experiment_ids": [
+                source_entry["experiment_id"],
+                source_exit["experiment_id"],
+            ],
+            "component_source_hashes": {
+                source_entry["experiment_id"]: source_entry["registry_record_hash"],
+                source_exit["experiment_id"]: source_exit["registry_record_hash"],
+            },
             "fresh_composition_experiment": True,
         }
     )
-    composition_ok = research.validate_experiment_registration(composed, [first])
+    composition_ok = research.validate_experiment_registration(composed, [source_entry, source_exit])
     composition_bad = {**composed, "experiment_id": "exp-entry", "fresh_composition_experiment": False}
     checks.append(check("composition.positive", composition_ok["ok"], composition_ok))
     checks.append(
         check(
             "composition.synthetic_negative",
-            research.validate_experiment_registration(composition_bad, [first])["reason_code"]
+            research.validate_experiment_registration(composition_bad, [source_entry, source_exit])["reason_code"]
             == "CROSS_EXPERIMENT_COMPOSITION",
             "old experiment id rejected",
         )
@@ -308,16 +336,44 @@ def build_report(contract: dict[str, Any], *, base: str) -> dict[str, Any]:
         {
             "combination_id": "robust",
             "p_value": 0.001,
+            "robust_neighbor_lineage": ["neighbor-a", "neighbor-b", "neighbor-c"],
             "robust_neighbor_pass_count": 3,
             "drawdown_within_limit": True,
         },
         {
             "combination_id": "lucky-winner",
             "p_value": 0.02,
+            "robust_neighbor_lineage": [],
+            "robust_neighbor_pass_count": 0,
+            "drawdown_within_limit": True,
+        },
+        {
+            "combination_id": "neighbor-a",
+            "p_value": 0.001,
+            "robust_neighbor_lineage": [],
+            "robust_neighbor_pass_count": 0,
+            "drawdown_within_limit": True,
+        },
+        {
+            "combination_id": "neighbor-b",
+            "p_value": 0.001,
+            "robust_neighbor_lineage": [],
+            "robust_neighbor_pass_count": 0,
+            "drawdown_within_limit": True,
+        },
+        {
+            "combination_id": "neighbor-c",
+            "p_value": 0.001,
+            "robust_neighbor_lineage": [],
             "robust_neighbor_pass_count": 0,
             "drawdown_within_limit": True,
         },
     ]
+    family_id = research.canonical_json_hash(
+        sorted(row["combination_id"] for row in robust_candidates)
+    )
+    for row in robust_candidates:
+        row["correction_family_id"] = family_id
     multiple = research.multiple_testing_gate(robust_candidates)
     checks.append(check("multiple_testing.positive", multiple["eligible_ids"] == ["robust"], multiple))
     checks.append(check("multiple_testing.synthetic_negative", "lucky-winner" not in multiple["eligible_ids"], multiple))
@@ -328,27 +384,57 @@ def build_report(contract: dict[str, Any], *, base: str) -> dict[str, Any]:
         "high_value_regions_remaining": 0,
         "fixed_parameter_hash": "sha256:fixed",
         "fresh_sealed_oos_per_regime": True,
+        "required_regime_ids": ["BROAD_RISK_ON|BIG_BULL", "RISK_OFF|"],
+        "coverage_regime_ids": ["BROAD_RISK_ON|BIG_BULL", "RISK_OFF|"],
         "regime_results": [
-            {"regime_id": "BROAD_RISK_ON|BIG_BULL", "sufficient_evidence": True, "passed": True},
-            {"regime_id": "RISK_OFF|", "sufficient_evidence": False, "status": "INSUFFICIENT_EVIDENCE"},
+            {
+                "regime_id": "BROAD_RISK_ON|BIG_BULL",
+                "sufficient_evidence": True,
+                "passed": True,
+                "parameter_hash": "sha256:fixed",
+                "sealed_dataset_slice_hash": "sha256:sealed-bull",
+                "independent_emergence": True,
+                "transition_forward_shadow_passed": True,
+            },
+            {
+                "regime_id": "RISK_OFF|",
+                "sufficient_evidence": True,
+                "passed": True,
+                "parameter_hash": "sha256:fixed",
+                "sealed_dataset_slice_hash": "sha256:sealed-risk-off",
+                "independent_emergence": True,
+                "transition_forward_shadow_passed": True,
+            },
         ],
     }
-    universal_ok = research.validate_universal_candidate(universal_base)
+    universal_contract = json.loads(json.dumps(contract))
+    universal_contract["taxonomy"]["required_universal_regime_ids"] = [
+        "BROAD_RISK_ON|BIG_BULL",
+        "RISK_OFF|",
+    ]
+    universal_ok = research.validate_universal_candidate(
+        universal_base,
+        contract=universal_contract,
+    )
     universal_bad = research.validate_universal_candidate(
         {
             **universal_base,
             "regime_results": [
-                *universal_base["regime_results"],
-                {"regime_id": "CHOPPY_RANGE|HIGH_CHOPPY", "sufficient_evidence": True, "passed": False},
+                universal_base["regime_results"][0],
+                {
+                    **universal_base["regime_results"][1],
+                    "passed": False,
+                },
             ],
             "full_period_average_passed": True,
-        }
+        },
+        contract=universal_contract,
     )
     checks.append(check("universal_gate.positive", universal_ok["unlocked"], universal_ok))
     checks.append(check("universal_gate.synthetic_negative", universal_bad["reason_code"] == "WORST_REGIME_FAILED", universal_bad))
 
-    paths = changed_paths(base)
-    hashes = {path: sha256(PROJECT_ROOT / path) for path in EXPECTED_PRODUCTION_HASHES}
+    paths = changed_paths(base, candidate)
+    hashes = {path: sha256_at_ref(candidate, path) for path in EXPECTED_PRODUCTION_HASHES}
     production_unchanged = hashes == EXPECTED_PRODUCTION_HASHES and allowed_change_paths(paths)
     checks.append(check("production_no_change.positive", production_unchanged, {"paths": paths, "hashes": hashes}))
     checks.append(
@@ -366,6 +452,8 @@ def build_report(contract: dict[str, Any], *, base: str) -> dict[str, Any]:
         "summary": {"check_count": len(checks), "failed_count": len(failed)},
         "checks": checks,
         "parameter_universe": universe_evidence,
+        "base": base,
+        "candidate": candidate,
         "production_change_paths": paths,
     }
 
@@ -376,7 +464,7 @@ def main() -> int:
     if not contract_path.is_absolute():
         contract_path = PROJECT_ROOT / contract_path
     contract = json.loads(contract_path.read_text(encoding="utf-8"))
-    report = build_report(contract, base=args.base)
+    report = build_report(contract, base=args.base, candidate=args.candidate)
     output = Path(args.output)
     if not output.is_absolute():
         output = PROJECT_ROOT / output

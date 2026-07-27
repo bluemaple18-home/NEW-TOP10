@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 import hashlib
@@ -106,6 +106,32 @@ def build_regime_episode_split(
     ids = [str(row.get("episode_id") or "") for row in ordered]
     if not ordered or any(not item for item in ids) or len(ids) != len(set(ids)):
         raise ValueError("episode_id 缺失或重複")
+    seen_trade_dates: set[str] = set()
+    previous_end: date | None = None
+    episode_overlap = False
+    for episode in ordered:
+        raw_dates = episode.get("trade_dates")
+        trade_dates = [str(item) for item in raw_dates] if isinstance(raw_dates, list) else []
+        if not trade_dates or any(not item for item in trade_dates):
+            raise ValueError("episode 交易日不可為空")
+        if len(trade_dates) != len(set(trade_dates)):
+            raise ValueError("episode 內部交易日重複")
+        try:
+            parsed_dates = [date.fromisoformat(item) for item in trade_dates]
+        except ValueError as exc:
+            raise ValueError("episode 交易日必須是 ISO YYYY-MM-DD") from exc
+        if parsed_dates != sorted(parsed_dates):
+            raise ValueError("episode 交易日必須嚴格遞增")
+        if str(episode.get("start_date") or "") != trade_dates[0] or str(episode.get("end_date") or "") != trade_dates[-1]:
+            raise ValueError("episode start_date/end_date 必須與交易日邊界一致")
+        overlap = seen_trade_dates.intersection(trade_dates)
+        episode_overlap = episode_overlap or bool(overlap)
+        if overlap:
+            raise ValueError(f"episode 交易日跨 split 重疊：{sorted(overlap)}")
+        if previous_end is not None and parsed_dates[0] <= previous_end:
+            raise ValueError("episode 交易日 chronology 必須嚴格排序")
+        seen_trade_dates.update(trade_dates)
+        previous_end = parsed_dates[-1]
     regime_ids = {str(row.get("regime_id") or "") for row in ordered}
     if len(regime_ids) != 1 or "" in regime_ids:
         raise ValueError("split 只能包含同一 exact-match regime identity")
@@ -161,7 +187,7 @@ def build_regime_episode_split(
             "schema_version": "regime-episode-split.v1",
             **split_payload,
             "split_id": f"sha256:{split_hash}",
-            "episode_overlap": False,
+            "episode_overlap": episode_overlap,
             "embargo_covers_horizon": embargo_days >= horizon,
         },
     )

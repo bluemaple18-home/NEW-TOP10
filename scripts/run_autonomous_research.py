@@ -23,6 +23,12 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.modeling.sealed_oos import build_regime_episode_split  # noqa: E402
+
+
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 OUTPUT_DIR = ARTIFACTS_DIR / "autonomous_research"
 LEDGER_PATH = ARTIFACTS_DIR / "model_experiments" / "model_experiment_ledger.json"
@@ -216,6 +222,25 @@ def canonical_json_hash(value: Any) -> str:
 
     encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def canonical_trade_dates(values: Any) -> list[str]:
+    if not isinstance(values, list) or not values:
+        raise ValueError("sealed trade dates 不可為空")
+    dates = [str(item) for item in values]
+    if any(not item for item in dates) or len(dates) != len(set(dates)):
+        raise ValueError("sealed trade dates 缺失或重複")
+    try:
+        parsed = [date.fromisoformat(item) for item in dates]
+    except ValueError as exc:
+        raise ValueError("sealed trade dates 必須是 ISO YYYY-MM-DD") from exc
+    if parsed != sorted(parsed):
+        raise ValueError("sealed trade dates 必須嚴格遞增")
+    return dates
+
+
+def sealed_dataset_slice_hash(dataset_hash: str, trade_dates: list[str]) -> str:
+    return canonical_json_hash({"dataset_hash": dataset_hash, "sealed_trade_dates": trade_dates})
 
 
 def canonical_regime_identity(value: dict[str, Any]) -> dict[str, Any]:
@@ -467,6 +492,15 @@ def deterministic_experiment_id(candidate: dict[str, Any]) -> str:
 def build_experiment_pre_registration(values: dict[str, Any]) -> dict[str, Any]:
     candidate = {key: value for key, value in values.items() if key != "experiment_id"}
     candidate.setdefault("state", "REGISTERED")
+    if candidate.get("sealed_trade_dates") is not None:
+        trade_dates = canonical_trade_dates(candidate["sealed_trade_dates"])
+        candidate["sealed_trade_dates"] = trade_dates
+        candidate["sealed_trade_date_hash"] = canonical_json_hash(trade_dates)
+        if candidate.get("dataset_hash"):
+            candidate["sealed_dataset_slice_hash"] = sealed_dataset_slice_hash(
+                str(candidate["dataset_hash"]),
+                trade_dates,
+            )
     return {**candidate, "experiment_id": deterministic_experiment_id(candidate)}
 
 
@@ -475,23 +509,64 @@ def validate_experiment_registration(candidate: dict[str, Any], registry: list[d
     if not experiment_id:
         return {"ok": False, "reason_code": "MISSING_EXPERIMENT_ID"}
     sources = {str(item) for item in candidate.get("component_source_experiment_ids") or [] if str(item)}
-    if len(sources) > 1 and (experiment_id in sources or not bool(candidate.get("fresh_composition_experiment"))):
+    if sources and (experiment_id in sources or not bool(candidate.get("fresh_composition_experiment"))):
         return {"ok": False, "reason_code": "CROSS_EXPERIMENT_COMPOSITION"}
-    prior_by_id = {str(row.get("experiment_id")): row for row in registry if row.get("experiment_id")}
+    prior_by_id = {
+        str(row.get("experiment_id")): row
+        for row in registry
+        if row.get("experiment_id") and row.get("event_type") in {None, "PRE_REGISTRATION"}
+    }
     if experiment_id in prior_by_id:
         return {"ok": False, "reason_code": "EXPERIMENT_ID_REUSE"}
+    unknown_sources = sorted(sources - set(prior_by_id))
+    if unknown_sources:
+        return {
+            "ok": False,
+            "reason_code": "UNKNOWN_COMPONENT_SOURCE",
+            "source_experiment_ids": unknown_sources,
+        }
+    source_hashes = candidate.get("component_source_hashes")
+    if sources:
+        if not isinstance(source_hashes, dict):
+            return {"ok": False, "reason_code": "MISSING_COMPONENT_SOURCE_HASHES"}
+        for source_id in sorted(sources):
+            expected_hash = str(prior_by_id[source_id].get("registry_record_hash") or "")
+            if not expected_hash or str(source_hashes.get(source_id) or "") != expected_hash:
+                return {
+                    "ok": False,
+                    "reason_code": "UNTRACEABLE_COMPONENT_SOURCE",
+                    "source_experiment_id": source_id,
+                }
     sealed = {str(item) for item in candidate.get("sealed_episode_ids") or [] if str(item)}
     if not sealed:
         return {"ok": False, "reason_code": "MISSING_SEALED_EPISODES"}
+    try:
+        sealed_dates = canonical_trade_dates(candidate.get("sealed_trade_dates"))
+    except ValueError as exc:
+        return {"ok": False, "reason_code": "MISSING_CANONICAL_SEALED_DATES", "error": str(exc)}
+    sealed_date_hash = canonical_json_hash(sealed_dates)
+    if str(candidate.get("sealed_trade_date_hash") or "") != sealed_date_hash:
+        return {"ok": False, "reason_code": "SEALED_TRADE_DATE_HASH_MISMATCH"}
+    expected_slice_hash = sealed_dataset_slice_hash(str(candidate.get("dataset_hash") or ""), sealed_dates)
+    if str(candidate.get("sealed_dataset_slice_hash") or "") != expected_slice_hash:
+        return {"ok": False, "reason_code": "SEALED_DATASET_SLICE_HASH_MISMATCH"}
     for row in registry:
         used = {str(item) for item in row.get("sealed_episode_ids") or [] if str(item)}
         overlap = sorted(sealed & used)
-        if overlap:
+        used_dates = {str(item) for item in row.get("sealed_trade_dates") or [] if str(item)}
+        overlapping_dates = sorted(set(sealed_dates) & used_dates)
+        same_date_hash = bool(row.get("sealed_trade_date_hash")) and row.get("sealed_trade_date_hash") == sealed_date_hash
+        same_slice_hash = (
+            bool(row.get("sealed_dataset_slice_hash"))
+            and row.get("sealed_dataset_slice_hash") == expected_slice_hash
+        )
+        if overlap or overlapping_dates or same_date_hash or same_slice_hash:
             return {
                 "ok": False,
                 "reason_code": "SEALED_DATASET_REUSE",
                 "source_experiment_id": row.get("experiment_id"),
                 "overlapping_episode_ids": overlap,
+                "overlapping_trade_dates": overlapping_dates,
             }
     required = {
         "research_question",
@@ -501,6 +576,8 @@ def validate_experiment_registration(candidate: dict[str, Any], registry: list[d
         "split_id",
         "parameter_space_hash",
         "metric_policy_hash",
+        "sealed_trade_date_hash",
+        "sealed_dataset_slice_hash",
     }
     missing = sorted(key for key in required if not candidate.get(key))
     if missing:
@@ -585,18 +662,66 @@ def multiple_testing_gate(
 ) -> dict[str, Any]:
     tested = len(candidates)
     if tested <= 0:
-        return {"ok": False, "reason_code": "NO_CANDIDATES", "eligible_ids": []}
+        return {
+            "ok": False,
+            "reason_code": "INSUFFICIENT_EVIDENCE",
+            "evidence_complete": False,
+            "eligible_ids": [],
+        }
+    required_fields = {
+        "combination_id",
+        "correction_family_id",
+        "p_value",
+        "robust_neighbor_lineage",
+        "robust_neighbor_pass_count",
+        "drawdown_within_limit",
+    }
+    missing_by_combination: dict[str, list[str]] = {}
+    for index, row in enumerate(candidates):
+        missing = sorted(
+            field
+            for field in required_fields
+            if field not in row or (field in {"combination_id", "correction_family_id", "p_value"} and row.get(field) is None)
+        )
+        if missing:
+            missing_by_combination[str(row.get("combination_id") or f"row:{index}")] = missing
+    combination_ids = [str(row.get("combination_id") or "") for row in candidates]
+    correction_family_ids = {str(row.get("correction_family_id") or "") for row in candidates}
+    expected_family_id = canonical_json_hash(sorted(combination_ids))
+    lineage_invalid = any(
+        not isinstance(row.get("robust_neighbor_lineage"), list)
+        or int(row.get("robust_neighbor_pass_count") or 0) != len(row.get("robust_neighbor_lineage") or [])
+        or not set(str(item) for item in row.get("robust_neighbor_lineage") or []).issubset(set(combination_ids))
+        for row in candidates
+    )
+    if (
+        missing_by_combination
+        or len(combination_ids) != len(set(combination_ids))
+        or len(correction_family_ids) != 1
+        or "" in correction_family_ids
+        or correction_family_ids != {expected_family_id}
+        or lineage_invalid
+    ):
+        return {
+            "ok": False,
+            "reason_code": "INSUFFICIENT_EVIDENCE",
+            "evidence_complete": False,
+            "tested_count": tested,
+            "eligible_ids": [],
+            "missing_fields_by_combination": missing_by_combination,
+        }
     corrected_alpha = familywise_alpha / tested
     eligible = [
         str(row["combination_id"])
         for row in candidates
-        if float(row.get("p_value") or 1.0) <= corrected_alpha
+        if float(row["p_value"]) <= corrected_alpha
         and int(row.get("robust_neighbor_pass_count") or 0) >= min_robust_neighbors
         and bool(row.get("drawdown_within_limit"))
     ]
     return {
         "ok": bool(eligible),
         "reason_code": "ROBUST_CANDIDATE_AVAILABLE" if eligible else "MULTIPLE_TESTING_OR_ROBUSTNESS_FAILED",
+        "evidence_complete": True,
         "tested_count": tested,
         "corrected_alpha": corrected_alpha,
         "eligible_ids": sorted(eligible),
@@ -644,31 +769,90 @@ def coverage_summary(
     return {**payload, "coverage_hash": canonical_json_hash(payload)}
 
 
-def validate_universal_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
-    if not bool(candidate.get("universe_declared_complete", True)):
+def validate_universal_candidate(
+    candidate: dict[str, Any],
+    *,
+    contract: dict[str, Any],
+) -> dict[str, Any]:
+    if "universe_declared_complete" in candidate and not bool(candidate["universe_declared_complete"]):
         return {"unlocked": False, "reason_code": "PARAMETER_UNIVERSE_INCOMPLETE"}
-    if not bool(candidate.get("coverage_closed")):
+    required_fields = {
+        "universe_declared_complete",
+        "coverage_closed",
+        "high_value_regions_remaining",
+        "fixed_parameter_hash",
+        "fresh_sealed_oos_per_regime",
+        "coverage_regime_ids",
+        "regime_results",
+    }
+    missing_fields = sorted(field for field in required_fields if field not in candidate)
+    if missing_fields:
+        return {
+            "unlocked": False,
+            "reason_code": "MISSING_UNIVERSAL_FIELDS",
+            "missing_fields": missing_fields,
+        }
+    if not bool(candidate["coverage_closed"]):
         return {"unlocked": False, "reason_code": "COVERAGE_NOT_CLOSED"}
-    if int(candidate.get("high_value_regions_remaining") or 0) > 0:
+    if int(candidate["high_value_regions_remaining"] or 0) > 0:
         return {"unlocked": False, "reason_code": "HIGH_VALUE_RESEARCH_REMAINS"}
     if not candidate.get("fixed_parameter_hash"):
         return {"unlocked": False, "reason_code": "PARAMETERS_NOT_FROZEN"}
+    contract_required = contract.get("taxonomy", {}).get("required_universal_regime_ids")
+    required_regimes = {
+        str(item)
+        for item in contract_required or []
+        if isinstance(contract_required, list) and str(item)
+    }
+    if not required_regimes:
+        return {"unlocked": False, "reason_code": "MISSING_REQUIRED_REGIME_POLICY"}
+    candidate_required = {str(item) for item in candidate.get("required_regime_ids") or [] if str(item)}
+    if candidate_required and candidate_required != required_regimes:
+        return {"unlocked": False, "reason_code": "REQUIRED_REGIME_POLICY_MISMATCH"}
+    coverage_regimes = {str(item) for item in candidate["coverage_regime_ids"] or [] if str(item)}
+    missing_coverage = sorted(required_regimes - coverage_regimes)
+    if missing_coverage:
+        return {
+            "unlocked": False,
+            "reason_code": "MISSING_REQUIRED_REGIMES",
+            "missing_regime_ids": missing_coverage,
+        }
     results = candidate.get("regime_results") if isinstance(candidate.get("regime_results"), list) else []
     if not results:
         return {"unlocked": False, "reason_code": "MISSING_REGIME_RESULTS"}
-    sufficient = [row for row in results if bool(row.get("sufficient_evidence"))]
-    if any(not bool(row.get("passed")) for row in sufficient):
-        return {"unlocked": False, "reason_code": "WORST_REGIME_FAILED"}
-    unresolved = [
-        row
-        for row in results
-        if not bool(row.get("sufficient_evidence"))
-        and str(row.get("status") or "") not in {"INSUFFICIENT_EVIDENCE", "MONITOR_ONLY"}
-    ]
-    if unresolved:
-        return {"unlocked": False, "reason_code": "UNRESOLVED_REGIME"}
-    if not bool(candidate.get("fresh_sealed_oos_per_regime", True)):
+    result_ids = [str(row.get("regime_id") or "") for row in results if row.get("regime_id")]
+    if len(result_ids) != len(set(result_ids)):
+        return {"unlocked": False, "reason_code": "DUPLICATE_REGIME_RESULTS"}
+    result_by_regime = {str(row.get("regime_id") or ""): row for row in results if row.get("regime_id")}
+    missing_results = sorted(required_regimes - set(result_by_regime))
+    if missing_results:
+        return {
+            "unlocked": False,
+            "reason_code": "MISSING_REQUIRED_REGIMES",
+            "missing_regime_ids": missing_results,
+        }
+    if not bool(candidate["fresh_sealed_oos_per_regime"]):
         return {"unlocked": False, "reason_code": "SEALED_OOS_NOT_INDEPENDENT"}
+    fixed_parameter_hash = str(candidate["fixed_parameter_hash"])
+    sealed_lineages: set[str] = set()
+    for regime_id in sorted(required_regimes):
+        row = result_by_regime[regime_id]
+        if not bool(row.get("sufficient_evidence")):
+            return {"unlocked": False, "reason_code": "INSUFFICIENT_REQUIRED_REGIME", "regime_id": regime_id}
+        if not bool(row.get("passed")):
+            return {"unlocked": False, "reason_code": "WORST_REGIME_FAILED", "regime_id": regime_id}
+        if str(row.get("parameter_hash") or "") != fixed_parameter_hash:
+            return {"unlocked": False, "reason_code": "FIXED_PARAMETER_HASH_MISMATCH", "regime_id": regime_id}
+        sealed_hash = str(row.get("sealed_dataset_slice_hash") or "")
+        if not sealed_hash:
+            return {"unlocked": False, "reason_code": "MISSING_SEALED_LINEAGE", "regime_id": regime_id}
+        if sealed_hash in sealed_lineages:
+            return {"unlocked": False, "reason_code": "DUPLICATE_SEALED_LINEAGE", "regime_id": regime_id}
+        sealed_lineages.add(sealed_hash)
+        if row.get("independent_emergence") is not True:
+            return {"unlocked": False, "reason_code": "INDEPENDENT_EMERGENCE_MISSING", "regime_id": regime_id}
+        if row.get("transition_forward_shadow_passed") is not True:
+            return {"unlocked": False, "reason_code": "TRANSITION_FORWARD_SHADOW_MISSING", "regime_id": regime_id}
     return {"unlocked": True, "reason_code": "UNIVERSAL_CANDIDATE_UNLOCKED"}
 
 
@@ -948,10 +1132,17 @@ def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
 
 
 def generate_topics(args: argparse.Namespace) -> list[ResearchTopic]:
-    return generate_all_topics(args)[: args.max_topics]
+    return [topic for topic in generate_all_topics(args) if topic.eligible][: args.max_topics]
 
 
-def matrix_command(args: argparse.Namespace, rankings_dir: str, output: str, topic: ResearchTopic | None = None) -> list[str]:
+def matrix_command(
+    args: argparse.Namespace,
+    rankings_dir: str,
+    output: str,
+    topic: ResearchTopic | None = None,
+    *,
+    allowed_episode_ids: list[str] | None = None,
+) -> list[str]:
     command = [
         sys.executable,
         "scripts/run_backtest_strategy_matrix.py",
@@ -975,6 +1166,8 @@ def matrix_command(args: argparse.Namespace, rankings_dir: str, output: str, top
     if bool(getattr(args, "closed_regime_research", False)):
         if topic is None or topic.regime_identity is None or not getattr(args, "market_regime_history", None):
             raise ValueError("closed regime matrix 缺少 regime identity/history")
+        if not allowed_episode_ids:
+            raise ValueError("closed regime matrix 缺少 immutable development episode IDs")
         command.extend(
             [
                 "--require-exact-regime",
@@ -984,6 +1177,8 @@ def matrix_command(args: argparse.Namespace, rankings_dir: str, output: str, top
                 str(topic.regime_identity["base_regime"]),
                 "--family-tags",
                 ",".join(topic.regime_identity["family_tags"]),
+                "--allowed-episode-ids",
+                ",".join(allowed_episode_ids),
             ]
         )
     return command
@@ -1102,6 +1297,8 @@ def topic_allowed_by_manager(
     last_run_at_by_topic: dict[str, str] | None = None,
     now: datetime | None = None,
 ) -> bool:
+    if not topic.eligible:
+        return False
     current = registry.get(topic.topic_id, {})
     status = str(current.get("manager_status") or "candidate")
     run_count = int(current.get("run_count") or 0)
@@ -1223,7 +1420,7 @@ def topic_from_json(row: dict[str, Any]) -> ResearchTopic | None:
 def load_active_topic_bank() -> list[ResearchTopic]:
     rows = load_list_payload(manager_paths()["topic_bank"], "topics")
     topics = [topic_from_json(row) for row in rows]
-    return [topic for topic in topics if topic is not None]
+    return [topic for topic in topics if topic is not None and topic.eligible]
 
 
 def is_active_bank_topic(topic_id: str, registry_rows: dict[str, dict[str, Any]], queued_ids: set[str] | None = None) -> bool:
@@ -1244,7 +1441,11 @@ def write_topic_bank(
 ) -> Path:
     path = OUTPUT_DIR / "topic_bank.json"
     registry_rows = registry_rows or load_topic_registry()
-    active_topics = [topic for topic in topics if is_active_bank_topic(topic.topic_id, registry_rows, queued_ids)]
+    active_topics = [
+        topic
+        for topic in topics
+        if topic.eligible and is_active_bank_topic(topic.topic_id, registry_rows, queued_ids)
+    ]
     payload = {
         "schema_version": TOPIC_BANK_SCHEMA_VERSION,
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -1271,6 +1472,20 @@ def outcome_from_comparison(path: Path | None) -> dict[str, Any]:
     baseline = rows.get("baseline") or {}
     candidate = rows.get("candidate") or {}
     if candidate.get("exact_match_regime_required") and candidate.get("statistical_gate_ok") is not True:
+        matrix_path = resolve_path(candidate.get("path"))
+        matrix_payload = load_json(matrix_path)
+        gate = (matrix_payload.get("summary") or {}).get("statistical_gate") or {}
+        if gate.get("reason_code") == "INSUFFICIENT_EVIDENCE":
+            return {
+                "decision": "INSUFFICIENT_EVIDENCE",
+                "score_delta": None,
+                "return_delta": None,
+                "drawdown_delta": None,
+                "baseline": baseline,
+                "candidate": candidate,
+                "promotion_allowed": False,
+                "reason_code": "INSUFFICIENT_EVIDENCE",
+            }
         return {
             "decision": "NO_STRATEGY",
             "score_delta": None,
@@ -1333,6 +1548,8 @@ def next_action_for_status(status: str, topic: dict[str, Any]) -> str:
 
 def topic_actionable_for_queue(topic: dict[str, Any]) -> bool:
     """判斷 topic 是否仍有可執行的 manager lifecycle；冷卻由選題 gate 負責。"""
+    if topic.get("eligible") is not True:
+        return False
     status = str(topic.get("manager_status") or "candidate")
     run_count = int(topic.get("run_count") or 0)
     if run_count == 0:
@@ -1434,7 +1651,9 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
     active_bank_topics = [
         topic
         for topic in all_topics
-        if topic.get("topic_id") and is_active_bank_topic(str(topic.get("topic_id")), registry_rows, queued_ids)
+        if topic.get("topic_id")
+        and topic.get("eligible") is True
+        and is_active_bank_topic(str(topic.get("topic_id")), registry_rows, queued_ids)
     ]
     counts: dict[str, int] = {}
     for topic in topics:
@@ -1535,14 +1754,132 @@ def delta(left: Any, right: Any) -> float | None:
         return None
 
 
+def prepare_closed_experiment(
+    args: argparse.Namespace,
+    topic: ResearchTopic,
+    run_dir: Path,
+) -> dict[str, Any]:
+    if topic.regime_identity is None:
+        raise ValueError("closed experiment 缺少 exact-match regime identity")
+    history_path = resolve_path(getattr(args, "market_regime_history", None))
+    contract_path = resolve_path(getattr(args, "research_contract", None))
+    if history_path is None or contract_path is None:
+        raise ValueError("closed experiment 缺少 market regime history 或 research contract")
+    history = load_json(history_path)
+    rows = history.get("rows") if isinstance(history.get("rows"), list) else []
+    as_of_check = validate_as_of_regime_rows(rows)
+    if not as_of_check["ok"]:
+        raise ValueError(f"market regime history 不符合 as-of 契約：{as_of_check['violations'][:3]}")
+    regime_id = regime_identity_id(topic.regime_identity)
+    episodes = [episode for episode in build_regime_episodes(rows) if episode["regime_id"] == regime_id]
+    contract = load_json(contract_path)
+    split_policy = contract.get("split_policy") or {}
+    horizons = parse_positive_ints(topic.horizons or args.horizons)
+    split = build_regime_episode_split(
+        episodes,
+        horizon=max(horizons),
+        min_development_episodes=int(split_policy.get("development_episode_count") or 2),
+        validation_episodes=int(split_policy.get("validation_episode_count") or 1),
+        sealed_episodes=int(split_policy.get("sealed_episode_count") or 1),
+        min_embargo_trade_days=int(split_policy.get("embargo_min_trade_days") or max(horizons)),
+    )
+    split_payload = {
+        "metadata": split.metadata,
+        "development": split.development,
+        "validation": split.validation,
+        "embargo": split.embargo,
+        "sealed": split.sealed,
+    }
+    split_path = run_dir / f"{slugify(topic.topic_id)}_closed_episode_split.json"
+    write_text_atomic(split_path, json.dumps(split_payload, ensure_ascii=False, indent=2, allow_nan=False))
+    sealed_trade_dates = [
+        str(trade_date)
+        for episode in split.sealed
+        for trade_date in episode["trade_dates"]
+    ]
+    universe = parameter_universe_summary(contract)
+    registration = build_experiment_pre_registration(
+        {
+            "experiment_label": f"{args.date}:{topic.topic_id}",
+            "research_question": topic.hypothesis,
+            "baseline_id": canonical_json_hash({"baseline_dir": topic.baseline_dir}),
+            "regime_id": regime_id,
+            "dataset_hash": canonical_json_hash(rows),
+            "split_id": split.metadata["split_id"],
+            "split_artifact_hash": canonical_json_hash(split_payload),
+            "parameter_space_hash": universe["parameter_space_hash"],
+            "metric_policy_hash": canonical_json_hash(contract.get("multiple_testing_policy") or {}),
+            "sealed_episode_ids": split.metadata["sealed_episode_ids"],
+            "sealed_trade_dates": sealed_trade_dates,
+        }
+    )
+    registration_path = run_dir / f"{slugify(topic.topic_id)}_closed_pre_registration.json"
+    write_text_atomic(
+        registration_path,
+        json.dumps(registration, ensure_ascii=False, indent=2, allow_nan=False),
+    )
+    registry_path = OUTPUT_DIR / "closed_experiment_registry.jsonl"
+    registered = append_experiment_registry(registry_path, registration)
+    if not registered["ok"]:
+        raise RuntimeError(f"closed experiment registration failed: {registered}")
+    coarse = transition_experiment_registry(
+        registry_path,
+        experiment_id=registration["experiment_id"],
+        target_state="COARSE_SCREEN",
+        evidence_path=repo_path(split_path) or str(split_path),
+    )
+    if not coarse["ok"]:
+        raise RuntimeError(f"closed experiment coarse transition failed: {coarse}")
+    return {
+        "experiment": registration,
+        "registry_path": registry_path,
+        "split_path": split_path,
+        "registration_path": registration_path,
+        "development_episode_ids": list(split.metadata["development_episode_ids"]),
+    }
+
+
+def parse_positive_ints(value: str) -> list[int]:
+    values = [int(item.strip()) for item in str(value).split(",") if item.strip()]
+    if not values or any(item <= 0 for item in values):
+        raise ValueError("closed experiment horizons 必須是正整數")
+    return values
+
+
 def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, str]]:
+    if not topic.eligible:
+        raise ValueError(f"topic 不符合執行資格：{topic.topic_id} ({topic.reason_code})")
+    closed = (
+        prepare_closed_experiment(args, topic, run_dir)
+        if bool(getattr(args, "closed_regime_research", False))
+        else None
+    )
+    allowed_episode_ids = closed["development_episode_ids"] if closed else None
     slug = slugify(topic.topic_id)
     baseline_output = run_dir / f"{slug}_baseline_strategy_matrix.json"
     candidate_output = run_dir / f"{slug}_candidate_strategy_matrix.json"
     comparison_output = run_dir / f"{slug}_comparison.json"
     commands = [
-        ("baseline.strategy_matrix", matrix_command(args, topic.baseline_dir, repo_path(baseline_output) or str(baseline_output), topic)),
-        ("candidate.strategy_matrix", matrix_command(args, topic.candidate_dir, repo_path(candidate_output) or str(candidate_output), topic)),
+        (
+            "baseline.strategy_matrix",
+            matrix_command(
+                args,
+                topic.baseline_dir,
+                repo_path(baseline_output) or str(baseline_output),
+                topic,
+                allowed_episode_ids=allowed_episode_ids,
+            ),
+        ),
+        (
+            "candidate.strategy_matrix",
+            matrix_command(
+                args,
+                topic.candidate_dir,
+                repo_path(candidate_output) or str(candidate_output),
+                topic,
+                allowed_episode_ids=allowed_episode_ids,
+            ),
+        ),
         (
             "compare.strategy_matrices",
             compare_command(
@@ -1580,6 +1917,47 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
         "candidate_strategy_matrix": repo_path(candidate_output) or str(candidate_output),
         "comparison": repo_path(comparison_output) or str(comparison_output),
     }
+    if closed:
+        execution_evidence_path = run_dir / f"{slug}_closed_execution_evidence.json"
+        write_text_atomic(
+            execution_evidence_path,
+            json.dumps(
+                {"steps": steps, "outcome": outcome},
+                ensure_ascii=False,
+                indent=2,
+                allow_nan=False,
+            ),
+        )
+        if failed or outcome.get("decision") in {"INSUFFICIENT_EVIDENCE", "NO_COMPARISON_EVIDENCE"}:
+            target_state = "BLOCKED"
+        elif outcome.get("decision") == "NO_STRATEGY":
+            target_state = "NO_STRATEGY"
+        else:
+            target_state = "SAME_REGIME_VALIDATION"
+        transition = transition_experiment_registry(
+            closed["registry_path"],
+            experiment_id=closed["experiment"]["experiment_id"],
+            target_state=target_state,
+            evidence_path=repo_path(execution_evidence_path) or str(execution_evidence_path),
+        )
+        if not transition["ok"]:
+            raise RuntimeError(f"closed experiment final transition failed: {transition}")
+        outputs.update(
+            {
+                "closed_experiment_registry": repo_path(closed["registry_path"])
+                or str(closed["registry_path"]),
+                "closed_episode_split": repo_path(closed["split_path"]) or str(closed["split_path"]),
+                "closed_pre_registration": repo_path(closed["registration_path"])
+                or str(closed["registration_path"]),
+                "closed_execution_evidence": repo_path(execution_evidence_path)
+                or str(execution_evidence_path),
+            }
+        )
+        outcome = {
+            **outcome,
+            "closed_experiment_id": closed["experiment"]["experiment_id"],
+            "closed_final_state": target_state,
+        }
     return steps, outcome, outputs
 
 

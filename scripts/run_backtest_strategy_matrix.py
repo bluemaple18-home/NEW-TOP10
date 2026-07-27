@@ -26,6 +26,9 @@ from scripts import run_autonomous_research as regime_research  # noqa: E402
 
 
 SCHEMA_VERSION = "backtest-strategy-matrix.v1"
+MAX_DRAWDOWN_LIMIT = -0.25
+NEIGHBOR_P_VALUE_LIMIT = 0.05
+SCENARIO_PARAMETER_FIELDS = ("horizon", "stop_loss_pct", "take_profit_pct", "max_group_exposure")
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,6 +56,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--market-regime-history", default=None)
     parser.add_argument("--base-regime", default=None)
     parser.add_argument("--family-tags", default="")
+    parser.add_argument("--allowed-episode-ids", default=None)
     parser.add_argument("--output", default=None)
     return parser.parse_args()
 
@@ -82,6 +86,7 @@ def replay_args(base: argparse.Namespace, scenario: dict[str, Any]) -> argparse.
         initial_cash=1.0,
         max_gross_exposure=base.max_gross_exposure,
         market_regime_history=getattr(base, "market_regime_history", None),
+        exact_regime_episode_by_date=getattr(base, "exact_regime_episode_by_date", None),
         big_bull_gross_exposure=None,
         high_choppy_gross_exposure=None,
         other_family_gross_exposure=None,
@@ -116,9 +121,11 @@ def fmt_token(value: Any) -> str:
     return str(value).replace(".", "p")
 
 
-def exact_regime_context(args: argparse.Namespace) -> tuple[dict[str, Any] | None, set[str] | None]:
+def exact_regime_context(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any] | None, set[str] | None, dict[str, str] | None]:
     if not bool(args.require_exact_regime):
-        return None, None
+        return None, None, None
     if not args.market_regime_history or not args.base_regime:
         raise ValueError("--require-exact-regime 必須提供 --market-regime-history 與 --base-regime")
     path = run_portfolio_replay.resolve_path(args.market_regime_history)
@@ -133,11 +140,34 @@ def exact_regime_context(args: argparse.Namespace) -> tuple[dict[str, Any] | Non
             "family_tags": [item.strip() for item in args.family_tags.split(",") if item.strip()],
         }
     )
-    selected = regime_research.select_exact_regime_rows(rows, identity)
-    allowed_dates = {str(row["trade_date"]) for row in selected if row.get("trade_date")}
+    requested_episode_ids = {
+        item.strip()
+        for item in str(getattr(args, "allowed_episode_ids", "") or "").split(",")
+        if item.strip()
+    }
+    if not requested_episode_ids:
+        raise ValueError("--require-exact-regime 必須提供 immutable --allowed-episode-ids")
+    regime_id = regime_research.regime_identity_id(identity)
+    episodes = [
+        episode
+        for episode in regime_research.build_regime_episodes(rows)
+        if episode.get("regime_id") == regime_id
+    ]
+    by_id = {str(episode["episode_id"]): episode for episode in episodes}
+    missing_episode_ids = sorted(requested_episode_ids - set(by_id))
+    if missing_episode_ids:
+        raise ValueError(f"immutable episode split 引用了未知 episode IDs：{missing_episode_ids}")
+    allowed_dates: set[str] = set()
+    episode_by_date: dict[str, str] = {}
+    for episode_id in sorted(requested_episode_ids):
+        for trade_date in by_id[episode_id]["trade_dates"]:
+            if trade_date in episode_by_date:
+                raise ValueError(f"immutable episode split 交易日重疊：{trade_date}")
+            allowed_dates.add(str(trade_date))
+            episode_by_date[str(trade_date)] = episode_id
     if not allowed_dates:
         raise ValueError(f"exact-match 盤勢沒有可用日期：{regime_research.regime_identity_id(identity)}")
-    return identity, allowed_dates
+    return identity, allowed_dates, episode_by_date
 
 
 @contextmanager
@@ -181,6 +211,7 @@ def matrix_row(scenario: dict[str, Any], replay: dict[str, Any]) -> dict[str, An
     score = strategy_score(total_return, max_drawdown, win_rate, avg_trade_return)
     return {
         "scenario_id": scenario_id(scenario),
+        "combination_id": regime_research.canonical_json_hash(scenario),
         "horizon": scenario["horizon"],
         "stop_loss_pct": scenario["stop_loss_pct"],
         "take_profit_pct": scenario["take_profit_pct"],
@@ -195,7 +226,45 @@ def matrix_row(scenario: dict[str, Any], replay: dict[str, Any]) -> dict[str, An
         "max_group_exposure_observed": summary.get("max_group_exposure"),
         "exit_reason_counts": event_counts(replay.get("trades", [])),
         "score": score,
+        "p_value": exact_sign_test_p_value(replay.get("trades", [])),
+        "robust_neighbor_lineage": [],
+        "robust_neighbor_pass_count": 0,
+        "drawdown_within_limit": max_drawdown is not None and max_drawdown >= MAX_DRAWDOWN_LIMIT,
     }
+
+
+def exact_sign_test_p_value(trades: list[dict[str, Any]]) -> float | None:
+    returns = [finite(row.get("net_return")) for row in trades]
+    non_zero = [value for value in returns if value is not None and value != 0]
+    if not non_zero:
+        return None
+    wins = sum(value > 0 for value in non_zero)
+    sample_count = len(non_zero)
+    tail = sum(math.comb(sample_count, count) for count in range(wins, sample_count + 1))
+    return round(tail / (2**sample_count), 12)
+
+
+def annotate_statistical_lineage(rows: list[dict[str, Any]]) -> None:
+    family_id = regime_research.canonical_json_hash(sorted(str(row["combination_id"]) for row in rows))
+    for row in rows:
+        lineage = []
+        for neighbor in rows:
+            if neighbor is row:
+                continue
+            differing_fields = sum(row.get(field) != neighbor.get(field) for field in SCENARIO_PARAMETER_FIELDS)
+            if differing_fields != 1:
+                continue
+            p_value = finite(neighbor.get("p_value"))
+            if (
+                p_value is not None
+                and p_value <= NEIGHBOR_P_VALUE_LIMIT
+                and bool(neighbor.get("drawdown_within_limit"))
+                and (finite(neighbor.get("total_return")) or 0.0) > 0
+            ):
+                lineage.append(str(neighbor["combination_id"]))
+        row["correction_family_id"] = family_id
+        row["robust_neighbor_lineage"] = sorted(lineage)
+        row["robust_neighbor_pass_count"] = len(lineage)
 
 
 def finite(value: Any) -> float | None:
@@ -245,12 +314,14 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             parse_optional_float_list(args.max_group_exposures),
         )
     ]
-    regime_identity, allowed_dates = exact_regime_context(args)
+    regime_identity, allowed_dates, episode_by_date = exact_regime_context(args)
+    args.exact_regime_episode_by_date = episode_by_date
     rows: list[dict[str, Any]] = []
     with exact_ranking_file_scope(allowed_dates):
         for scenario in scenarios:
             replay = run_portfolio_replay.run_portfolio_from_price_frame(replay_args(args, scenario), price_frame)
             rows.append(matrix_row(scenario, replay))
+    annotate_statistical_lineage(rows)
     ranked_rows = sorted(rows, key=lambda item: (item["score"] is not None, score_sort_value(item)), reverse=True)
     best = ranked_rows[0] if ranked_rows else None
     statistical_gate = regime_research.multiple_testing_gate(ranked_rows) if args.require_exact_regime else None
@@ -278,11 +349,13 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "scenario_count": len(rows),
             "regime_identity": regime_identity,
             "exact_match_ranking_date_count": len(allowed_dates or []),
+            "exact_match_episode_ids": sorted(set((episode_by_date or {}).values())),
             "market_regime_history": args.market_regime_history,
             "exact_match_dataset_hash": (
                 regime_research.canonical_json_hash(sorted(allowed_dates)) if allowed_dates is not None else None
             ),
             "parameter_space_hash": regime_research.canonical_json_hash(scenarios),
+            "correction_family_id": rows[0]["correction_family_id"] if rows else None,
         },
         "summary": {
             "scenario_count": len(rows),
@@ -292,6 +365,14 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "negative_return_count": sum((row.get("total_return") or 0) < 0 for row in rows),
             "statistical_gate": statistical_gate,
             "formal_candidate_scenario_ids": (statistical_gate or {}).get("eligible_ids", []),
+            "round_decision": (
+                regime_research.research_round_decision(
+                    [{"passed": True} for _ in (statistical_gate or {}).get("eligible_ids", [])],
+                    sufficient_evidence=bool((statistical_gate or {}).get("evidence_complete")),
+                )
+                if args.require_exact_regime
+                else None
+            ),
         },
         "scenarios": ranked_rows,
     }

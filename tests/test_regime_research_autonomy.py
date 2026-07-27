@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
 from app.modeling.sealed_oos import build_regime_episode_split
@@ -60,20 +62,14 @@ def test_transition_and_unknown_are_not_forced_into_nearest_regime() -> None:
 
 
 def test_used_sealed_episode_cannot_be_reused_as_new_oos() -> None:
-    registry = [
-        {
-            "experiment_id": "exp-a",
-            "sealed_episode_ids": ["episode-3"],
-            "selection_influenced": True,
-        }
-    ]
-    candidate = {"experiment_id": "exp-b", "sealed_episode_ids": ["episode-3"]}
+    first = _experiment_with_dates("exp-a", ["episode-3"], ["2026-01-05"])
+    candidate = _experiment_with_dates("exp-b", ["episode-alias"], ["2026-01-05"])
 
-    result = research.validate_experiment_registration(candidate, registry)
+    result = research.validate_experiment_registration(candidate, [first])
 
     assert result["ok"] is False
     assert result["reason_code"] == "SEALED_DATASET_REUSE"
-    assert result["source_experiment_id"] == "exp-a"
+    assert result["source_experiment_id"] == first["experiment_id"]
 
 
 def test_cross_experiment_composition_requires_new_id_and_fresh_sealed_data() -> None:
@@ -96,15 +92,28 @@ def test_cross_experiment_composition_requires_new_id_and_fresh_sealed_data() ->
 def test_universal_gate_rejects_full_period_average_when_one_regime_fails() -> None:
     result = research.validate_universal_candidate(
         {
+            "universe_declared_complete": True,
             "coverage_closed": True,
             "high_value_regions_remaining": 0,
             "fixed_parameter_hash": "sha256:fixed",
+            "fresh_sealed_oos_per_regime": True,
+            "required_regime_ids": ["BROAD_RISK_ON|BIG_BULL", "RISK_OFF|"],
+            "coverage_regime_ids": ["BROAD_RISK_ON|BIG_BULL", "RISK_OFF|"],
             "regime_results": [
-                {"regime_id": "BROAD_RISK_ON|BIG_BULL", "sufficient_evidence": True, "passed": True},
+                {
+                    "regime_id": "BROAD_RISK_ON|BIG_BULL",
+                    "sufficient_evidence": True,
+                    "passed": True,
+                    "parameter_hash": "sha256:fixed",
+                    "sealed_dataset_slice_hash": "sha256:sealed-bull",
+                    "independent_emergence": True,
+                    "transition_forward_shadow_passed": True,
+                },
                 {"regime_id": "RISK_OFF|", "sufficient_evidence": True, "passed": False},
             ],
             "full_period_average_passed": True,
-        }
+        },
+        contract=_universal_contract(),
     )
 
     assert result["unlocked"] is False
@@ -115,7 +124,23 @@ def _contract() -> dict:
     return json.loads((research.PROJECT_ROOT / "config/regime_research_contract.json").read_text(encoding="utf-8"))
 
 
+def _universal_contract() -> dict:
+    contract = _contract()
+    contract["taxonomy"]["required_universal_regime_ids"] = [
+        "BROAD_RISK_ON|BIG_BULL",
+        "RISK_OFF|",
+    ]
+    return contract
+
+
 def _experiment(experiment_id: str, sealed: list[str]) -> dict:
+    sealed_trade_dates = sorted(
+        (
+            date(2025, 1, 1)
+            + timedelta(days=int(research.canonical_json_hash(item)[7:15], 16) % 300)
+        ).isoformat()
+        for item in sealed
+    )
     return research.build_experiment_pre_registration(
         {
         "experiment_label": experiment_id,
@@ -127,6 +152,24 @@ def _experiment(experiment_id: str, sealed: list[str]) -> dict:
         "parameter_space_hash": "sha256:space",
         "metric_policy_hash": "sha256:metrics",
         "sealed_episode_ids": sealed,
+        "sealed_trade_dates": sealed_trade_dates,
+        }
+    )
+
+
+def _experiment_with_dates(experiment_id: str, sealed: list[str], trade_dates: list[str]) -> dict:
+    return research.build_experiment_pre_registration(
+        {
+            "experiment_label": experiment_id,
+            "research_question": "候選是否優於 exact-match baseline？",
+            "baseline_id": "baseline-v1",
+            "regime_id": "BROAD_RISK_ON|BIG_BULL",
+            "dataset_hash": "sha256:dataset",
+            "split_id": "sha256:split",
+            "parameter_space_hash": "sha256:space",
+            "metric_policy_hash": "sha256:metrics",
+            "sealed_episode_ids": sealed,
+            "sealed_trade_dates": trade_dates,
         }
     )
 
@@ -223,6 +266,29 @@ def test_episode_builder_and_split_keep_complete_episodes_disjoint() -> None:
         build_regime_episode_split([*episodes[:-1], _episode(8, "RISK_OFF|")], horizon=3)
 
 
+def test_episode_split_rejects_overlapping_trade_dates_across_alias_ids() -> None:
+    episodes = [
+        {
+            "episode_id": f"episode-alias-{index}",
+            "regime_id": "BROAD_RISK_ON|BIG_BULL",
+            "start_date": "2026-01-05",
+            "end_date": "2026-01-05",
+            "trade_dates": ["2026-01-05"],
+        }
+        for index in range(5)
+    ]
+
+    with pytest.raises(ValueError, match="交易日"):
+        build_regime_episode_split(
+            episodes,
+            horizon=1,
+            min_development_episodes=2,
+            validation_episodes=1,
+            sealed_episodes=1,
+            min_embargo_trade_days=1,
+        )
+
+
 def test_append_only_registry_preserves_history_and_rejects_reuse(tmp_path: Path) -> None:
     path = tmp_path / "experiments.jsonl"
     first = research.append_experiment_registry(path, _experiment("exp-a", ["sealed-a"]))
@@ -233,6 +299,45 @@ def test_append_only_registry_preserves_history_and_rejects_reuse(tmp_path: Path
     assert second["ok"] is True
     assert reused["reason_code"] == "SEALED_DATASET_REUSE"
     assert len(path.read_text(encoding="utf-8").splitlines()) == 2
+
+
+def test_sealed_reuse_rejects_same_dates_hidden_behind_episode_aliases() -> None:
+    first = _experiment_with_dates("exp-a", ["episode-alias-a"], ["2026-01-05", "2026-01-06"])
+    candidate = _experiment_with_dates("exp-b", ["episode-alias-b"], ["2026-01-05", "2026-01-06"])
+
+    result = research.validate_experiment_registration(candidate, [first])
+
+    assert result["ok"] is False
+    assert result["reason_code"] == "SEALED_DATASET_REUSE"
+
+
+def test_stitching_rejects_unknown_component_source_and_untraceable_hash() -> None:
+    first = _experiment_with_dates("exp-source", ["episode-a"], ["2026-01-05"])
+    candidate = research.build_experiment_pre_registration(
+        {
+            "experiment_label": "exp-composed",
+            "research_question": "組合 entry/exit 是否穩健？",
+            "baseline_id": "baseline-v1",
+            "regime_id": "BROAD_RISK_ON|BIG_BULL",
+            "dataset_hash": "sha256:dataset",
+            "split_id": "sha256:split",
+            "parameter_space_hash": "sha256:space",
+            "metric_policy_hash": "sha256:metrics",
+            "sealed_episode_ids": ["episode-alias-new"],
+            "sealed_trade_dates": ["2026-02-05"],
+            "component_source_experiment_ids": [first["experiment_id"], "experiment:unknown"],
+            "component_source_hashes": {
+                first["experiment_id"]: "sha256:source-record",
+                "experiment:unknown": "sha256:unknown",
+            },
+            "fresh_composition_experiment": True,
+        }
+    )
+
+    result = research.validate_experiment_registration(candidate, [first])
+
+    assert result["ok"] is False
+    assert result["reason_code"] == "UNKNOWN_COMPONENT_SOURCE"
 
 
 def test_experiment_id_is_derived_from_immutable_pre_registration_payload() -> None:
@@ -328,22 +433,42 @@ def test_coverage_funnel_multiple_testing_and_no_strategy_are_fail_closed() -> N
     open_summary = research.coverage_summary(universe, [regime_id], records[:-1])
     illegal_transition = research.validate_funnel_transition("REGISTERED", "SEALED_OOS", "evidence.json")
     missing_evidence = research.validate_funnel_transition("REGISTERED", "COARSE_SCREEN", None)
-    gate = research.multiple_testing_gate(
-        [
+    gate_candidates = [
             {
                 "combination_id": "robust",
                 "p_value": 0.001,
+                "robust_neighbor_lineage": ["neighbor-a", "neighbor-b"],
                 "robust_neighbor_pass_count": 2,
                 "drawdown_within_limit": True,
             },
             {
                 "combination_id": "lucky",
                 "p_value": 0.02,
+                "robust_neighbor_lineage": [],
+                "robust_neighbor_pass_count": 0,
+                "drawdown_within_limit": True,
+            },
+            {
+                "combination_id": "neighbor-a",
+                "p_value": 0.001,
+                "robust_neighbor_lineage": [],
+                "robust_neighbor_pass_count": 0,
+                "drawdown_within_limit": True,
+            },
+            {
+                "combination_id": "neighbor-b",
+                "p_value": 0.001,
+                "robust_neighbor_lineage": [],
                 "robust_neighbor_pass_count": 0,
                 "drawdown_within_limit": True,
             },
         ]
+    family_id = research.canonical_json_hash(
+        sorted(row["combination_id"] for row in gate_candidates)
     )
+    for row in gate_candidates:
+        row["correction_family_id"] = family_id
+    gate = research.multiple_testing_gate(gate_candidates)
 
     assert closed["regimes"][0]["coverage_closed"] is True
     assert open_summary["regimes"][0]["coverage_closed"] is False
@@ -362,10 +487,34 @@ def test_universal_gate_stays_locked_while_inventory_is_incomplete() -> None:
             "high_value_regions_remaining": 0,
             "fixed_parameter_hash": "sha256:fixed",
             "regime_results": [{"regime_id": "RISK_OFF|", "sufficient_evidence": True, "passed": True}],
-        }
+        },
+        contract=_universal_contract(),
     )
 
     assert result == {"unlocked": False, "reason_code": "PARAMETER_UNIVERSE_INCOMPLETE"}
+
+
+def test_universal_gate_fails_closed_on_missing_fields_and_missing_regimes() -> None:
+    result = research.validate_universal_candidate(
+        {
+            "coverage_closed": True,
+            "high_value_regions_remaining": 0,
+            "fixed_parameter_hash": "sha256:fixed",
+            "required_regime_ids": ["BROAD_RISK_ON|BIG_BULL", "RISK_OFF|"],
+            "coverage_regime_ids": ["BROAD_RISK_ON|BIG_BULL"],
+            "regime_results": [
+                {
+                    "regime_id": "BROAD_RISK_ON|BIG_BULL",
+                    "sufficient_evidence": True,
+                    "passed": True,
+                }
+            ],
+        },
+        contract=_universal_contract(),
+    )
+
+    assert result["unlocked"] is False
+    assert result["reason_code"] in {"MISSING_UNIVERSAL_FIELDS", "MISSING_REQUIRED_REGIMES"}
 
 
 def test_strategy_matrix_filters_ranking_files_before_replay(tmp_path: Path) -> None:
@@ -376,6 +525,48 @@ def test_strategy_matrix_filters_ranking_files_before_replay(tmp_path: Path) -> 
         paths = matrix.run_portfolio_replay.run_backtest_replay.ranking_files(tmp_path, None)
 
     assert [path.name for path in paths] == ["ranking_2026-01-03.csv"]
+
+
+def test_exact_match_replay_rejects_holding_window_crossing_episode(tmp_path: Path) -> None:
+    (tmp_path / "ranking_2026-03-02.csv").write_text("stock_id\n2330\n", encoding="utf-8")
+    price_frame = pd.DataFrame(
+        {
+            "stock_id": ["2330"] * 4,
+            "trade_date": [
+                date(2026, 3, 2),
+                date(2026, 3, 3),
+                date(2026, 3, 4),
+                date(2026, 3, 5),
+            ],
+            "open": [100.0, 101.0, 102.0, 103.0],
+            "high": [101.0, 102.0, 103.0, 104.0],
+            "low": [99.0, 100.0, 101.0, 102.0],
+            "close": [100.5, 101.5, 102.5, 103.5],
+        }
+    )
+    args = SimpleNamespace(
+        rankings_dir=str(tmp_path),
+        max_ranking_files=None,
+        horizon=3,
+        top_n=10,
+        entry_delay_trade_days=1,
+        max_gross_exposure=0.65,
+        max_position_weight=0.2,
+        exact_regime_episode_by_date={
+            "2026-03-02": "episode-a",
+            "2026-03-03": "episode-a",
+            "2026-03-04": "episode-b",
+            "2026-03-05": "episode-b",
+        },
+    )
+
+    with pytest.raises(ValueError, match="完整 exact-match episode"):
+        matrix.run_portfolio_replay.build_entry_plans(
+            args,
+            price_frame,
+            list(price_frame["trade_date"]),
+            {},
+        )
 
 
 def test_strategy_matrix_replay_args_preserve_regime_history() -> None:
@@ -397,6 +588,72 @@ def test_strategy_matrix_replay_args_preserve_regime_history() -> None:
     replay = matrix.replay_args(base, scenario)
 
     assert replay.market_regime_history == "regime.json"
+
+
+def test_real_matrix_row_contains_pre_registered_statistical_evidence() -> None:
+    scenario = {
+        "horizon": 5,
+        "stop_loss_pct": None,
+        "take_profit_pct": 0.15,
+        "max_group_exposure": 0.35,
+    }
+    replay = {
+        "summary": {
+            "total_return": 0.12,
+            "max_drawdown": -0.08,
+            "avg_trade_return": 0.03,
+            "win_rate": 0.75,
+            "trade_count": 4,
+        },
+        "trades": [{"net_return": value} for value in (0.03, 0.04, 0.02, -0.01)],
+    }
+
+    row = matrix.matrix_row(scenario, replay)
+
+    assert row["combination_id"] == research.canonical_json_hash(scenario)
+    assert row["p_value"] is not None
+    assert row["robust_neighbor_lineage"] == []
+    assert row["robust_neighbor_pass_count"] == 0
+    assert row["drawdown_within_limit"] is True
+    matrix.annotate_statistical_lineage([row])
+    gate = research.multiple_testing_gate([row])
+    assert gate["evidence_complete"] is True
+    assert gate["reason_code"] == "MULTIPLE_TESTING_OR_ROBUSTNESS_FAILED"
+
+
+def _ineligible_topic() -> research.ResearchTopic:
+    return research.ResearchTopic(
+        topic_id="review:ineligible-zero-coverage",
+        title="ineligible",
+        hypothesis="coverage closed",
+        validation_plan="monitor only",
+        runner="strategy_matrix_comparison",
+        candidate_dir="candidate",
+        baseline_dir="baseline",
+        score=0.0,
+        reasons=[],
+        evidence_sources=[],
+        ranking_file_count=10,
+        eligible=False,
+        reason_code="ZERO_INFORMATION_VALUE",
+    )
+
+
+def test_ineligible_topic_is_excluded_from_selection_and_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(research, "load_topic_registry", lambda: {})
+    monkeypatch.setattr(research, "load_last_run_at_by_topic", lambda: {})
+    args = SimpleNamespace(
+        execute_topic_count=1,
+        from_queue=False,
+        topic_index=0,
+        execute=True,
+        rerun=False,
+        include_rejected=False,
+    )
+
+    selected = research.select_topics_for_run([_ineligible_topic()], args)
+
+    assert selected == []
 
 
 def test_closed_comparison_cannot_promote_raw_best_without_statistical_gate(tmp_path: Path) -> None:
@@ -433,8 +690,161 @@ def test_closed_comparison_cannot_promote_raw_best_without_statistical_gate(tmp_
     assert outcome["reason_code"] == "MULTIPLE_TESTING_OR_ROBUSTNESS_FAILED"
 
 
+def _closed_history_rows() -> list[dict]:
+    rows: list[dict] = []
+    cursor = date(2026, 1, 1)
+    for episode_index in range(8):
+        if episode_index:
+            rows.append(
+                {
+                    "trade_date": cursor.isoformat(),
+                    "as_of_date": cursor.isoformat(),
+                    **EXACT,
+                    "is_transition": True,
+                }
+            )
+            cursor += timedelta(days=1)
+        for _ in range(12):
+            rows.append({"trade_date": cursor.isoformat(), "as_of_date": cursor.isoformat(), **EXACT})
+            cursor += timedelta(days=1)
+    return rows
+
+
+def test_closed_manager_cli_writes_registration_split_and_append_only_trace(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    history_path = tmp_path / "market_regime_history.json"
+    history_rows = _closed_history_rows()
+    history_path.write_text(json.dumps({"rows": history_rows}), encoding="utf-8")
+    topic = research.ResearchTopic(
+        topic_id="closed:cli-e2e",
+        title="closed cli",
+        hypothesis="closed manager 必須先完成治理證據",
+        validation_plan="coarse screen",
+        runner="strategy_matrix_comparison",
+        candidate_dir=str(tmp_path / "candidate"),
+        baseline_dir=str(tmp_path / "baseline"),
+        score=1.0,
+        reasons=[],
+        evidence_sources=[],
+        ranking_file_count=1,
+        horizons="3",
+        stop_loss_pcts="none",
+        take_profit_pcts="none",
+        max_group_exposures="none",
+        regime_identity=EXACT,
+        eligible=True,
+        reason_code="ELIGIBLE",
+    )
+    output = tmp_path / "closed_run.json"
+    args = SimpleNamespace(
+        date=history_rows[-1]["trade_date"],
+        output=str(output),
+        features=str(tmp_path / "features.parquet"),
+        baseline_dir=topic.baseline_dir,
+        candidate_dir=topic.candidate_dir,
+        topic_index=0,
+        max_topics=1,
+        min_ranking_files=1,
+        max_ranking_files=1,
+        horizons="3",
+        stop_loss_pcts="none",
+        take_profit_pcts="none",
+        max_group_exposures="none",
+        execute=True,
+        execute_topic_count=1,
+        from_queue=False,
+        rerun=False,
+        include_rejected=False,
+        no_manager_update=True,
+        closed_regime_research=True,
+        market_regime_history=str(history_path),
+        research_contract=str(research.PROJECT_ROOT / "config/regime_research_contract.json"),
+        coverage_map=None,
+    )
+    monkeypatch.setattr(research, "OUTPUT_DIR", tmp_path / "manager")
+    monkeypatch.setattr(research, "parse_args", lambda: args)
+    monkeypatch.setattr(research, "generate_all_topics", lambda _: [topic])
+
+    def fake_run_step(name: str, command: list[str]) -> dict:
+        output_path = Path(command[command.index("--output") + 1])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        if command[1].endswith("run_backtest_strategy_matrix.py"):
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "contract": {"exact_match_regime_required": True},
+                        "summary": {
+                            "statistical_gate": {
+                                "ok": False,
+                                "reason_code": "INSUFFICIENT_EVIDENCE",
+                            },
+                            "formal_candidate_scenario_ids": [],
+                        },
+                        "scenarios": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+        else:
+            baseline_path = command[command.index("--variant") + 1].split("=", 1)[1]
+            candidate_path = command[command.index("--variant", command.index("--variant") + 1) + 1].split("=", 1)[1]
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "summary": [
+                            {
+                                "variant": "baseline",
+                                "path": baseline_path,
+                                "exact_match_regime_required": True,
+                                "statistical_gate_ok": False,
+                            },
+                            {
+                                "variant": "candidate",
+                                "path": candidate_path,
+                                "exact_match_regime_required": True,
+                                "statistical_gate_ok": False,
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+        return {
+            "name": name,
+            "status": "OK",
+            "returncode": 0,
+            "started_at": "2026-07-27T00:00:00+00:00",
+            "ended_at": "2026-07-27T00:00:01+00:00",
+            "command": command,
+            "stdout_tail": "",
+            "stderr_tail": "",
+        }
+
+    monkeypatch.setattr(research, "run_step", fake_run_step)
+
+    assert research.main() == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    registry_path = Path(payload["outputs"]["closed_experiment_registry"])
+    events = [json.loads(line) for line in registry_path.read_text(encoding="utf-8").splitlines()]
+
+    assert [event["event_type"] for event in events] == [
+        "PRE_REGISTRATION",
+        "STATE_TRANSITION",
+        "STATE_TRANSITION",
+    ]
+    assert [event.get("target_state") for event in events[1:]] == ["COARSE_SCREEN", "BLOCKED"]
+    assert Path(payload["outputs"]["closed_episode_split"]).exists()
+    assert Path(payload["outputs"]["closed_pre_registration"]).exists()
+
+
 def test_consolidated_verifier_has_positive_and_synthetic_negative_checks() -> None:
-    report = verifier.build_report(_contract(), base="7efda43641118f36b10261b4a04e0278bba941a2")
+    report = verifier.build_report(
+        _contract(),
+        base="7efda43641118f36b10261b4a04e0278bba941a2",
+        candidate="5cc87798804a48046cd9698b901e2b1bc8995871",
+    )
 
     assert report["status"] == "OK"
     names = {row["name"] for row in report["checks"]}
