@@ -1,6 +1,7 @@
 ---
 id: REVIEW-FOG-CLOSED-REGIME-AUTONOMY-01
-status: READY_FOR_REVIEW
+status: BLOCKED
+block_reason: REVIEW_REPAIR_LIMIT
 type: review
 chain_id: FOG-CLOSED-REGIME-AUTONOMY-01
 dispatch_version: 2
@@ -55,7 +56,7 @@ kickstart、輪替 live retry state 或執行 acceptance。
 |---|---|---|---|
 | implementation | `5e1de6aa170f7c2446e5da76fadfa75a88495e54` | `REVIEW_NO_GO` | processed verifier同源、stale/forged receipt、無 trusted baseline |
 | Repair-1 | `394b90feae0a5c11a75a578ea4e721b44bb3893d` | `REVIEW_NO_GO` | `RRV-P1-01`、`RRV-P1-02`、`RRV-P1-03` |
-| Repair-2 | `acd835df3a4fe40a149333dca0b55e62cc8eded9` | `DELIVERED_REPAIR_2_CANDIDATE` | re-review pending |
+| Repair-2 | `acd835df3a4fe40a149333dca0b55e62cc8eded9` | `NO_GO / BLOCKED_REVIEW_REPAIR_LIMIT` | `RRV-P1-02` |
 
 - Repair regression IDs：
   `R2-REG-BASELINE-AUTHORITY`、`R2-REG-RECEIPT-IDENTITY-FRESHNESS`、
@@ -174,5 +175,5 @@ Review commit 只允許新增本卡 evidence／狀態，不得修改 candidate c
 - Gate 1 card contract：`PASS`
 - Gate 2 visible thread：`PASS_REUSED_REVIEWER_IDENTITY`
 - Gate 3 candidate delivery：`PASS`
-- Gate 4 independent review：`PENDING_REPAIR_2_RE_REVIEW`
-- Gate 5 mainline acceptance：`PENDING`
+- Gate 4 independent review：`NO_GO_RRV-P1-02`
+- Gate 5 mainline acceptance：`BLOCKED_REVIEW_REPAIR_LIMIT`
