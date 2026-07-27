@@ -5,9 +5,13 @@ import hashlib
 import shutil
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 from scripts.verify_daily_research_quota import build_payload, canonical_json_hash
+
+
+VERIFICATION_TIME = datetime(2099, 1, 5, 1, tzinfo=timezone.utc)
 
 
 class DailyResearchQuotaVerifierTest(unittest.TestCase):
@@ -18,7 +22,24 @@ class DailyResearchQuotaVerifierTest(unittest.TestCase):
         history = directory / "history.json"
         contract_path = directory / "contract.json"
         runtime_receipt = directory / "runtime.json"
-        history.write_text('{"schema_version":"market-regime-history.v2"}\n', encoding="utf-8")
+        history.write_text(
+            json.dumps(
+                {
+                    "schema_version": "market-regime-history.v2",
+                    "rows": [
+                        {
+                            "trade_date": run_date,
+                            "as_of_date": run_date,
+                            "base_regime": "RISK_OFF",
+                            "family_tags": [],
+                            "is_transition": False,
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         contract_path.write_text('{"contract":"fixture"}\n', encoding="utf-8")
         runtime_receipt.write_text(
             json.dumps(
@@ -135,22 +156,51 @@ class DailyResearchQuotaVerifierTest(unittest.TestCase):
 
     def test_zero_topics_is_partial_no_more_work(self) -> None:
         artifact, runtime = self.build_artifact(0)
-        payload = build_payload(artifact, min_quota=5, runtime_receipt_path=runtime)
+        payload = build_payload(
+            artifact,
+            min_quota=5,
+            runtime_receipt_path=runtime,
+            verification_time=VERIFICATION_TIME,
+        )
 
         self.assertEqual(payload["status"], "PARTIAL_NO_MORE_WORK")
         self.assertEqual(payload["summary"]["research_value_status"], "QUEUE_EMPTY")
 
     def test_one_topic_is_partial_no_more_work(self) -> None:
         artifact, runtime = self.build_artifact(1)
-        self.assertEqual(build_payload(artifact, 5, runtime)["status"], "PARTIAL_NO_MORE_WORK")
+        self.assertEqual(
+            build_payload(
+                artifact,
+                5,
+                runtime,
+                verification_time=VERIFICATION_TIME,
+            )["status"],
+            "PARTIAL_NO_MORE_WORK",
+        )
 
     def test_three_topics_is_partial_no_more_work(self) -> None:
         artifact, runtime = self.build_artifact(3)
-        self.assertEqual(build_payload(artifact, 5, runtime)["status"], "PARTIAL_NO_MORE_WORK")
+        self.assertEqual(
+            build_payload(
+                artifact,
+                5,
+                runtime,
+                verification_time=VERIFICATION_TIME,
+            )["status"],
+            "PARTIAL_NO_MORE_WORK",
+        )
 
     def test_five_topics_completes_batch(self) -> None:
         artifact, runtime = self.build_artifact(5)
-        self.assertEqual(build_payload(artifact, 5, runtime)["status"], "COMPLETED")
+        self.assertEqual(
+            build_payload(
+                artifact,
+                5,
+                runtime,
+                verification_time=VERIFICATION_TIME,
+            )["status"],
+            "COMPLETED",
+        )
 
     def test_topic_failure_is_failed(self) -> None:
         artifact, runtime = self.build_artifact(1)
@@ -159,11 +209,27 @@ class DailyResearchQuotaVerifierTest(unittest.TestCase):
         payload["topic_runs"][0]["status"] = "FAILED"
         artifact.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
-        self.assertEqual(build_payload(artifact, 5, runtime)["status"], "FAILED")
+        self.assertEqual(
+            build_payload(
+                artifact,
+                5,
+                runtime,
+                verification_time=VERIFICATION_TIME,
+            )["status"],
+            "FAILED",
+        )
 
     def test_quota_above_cap_is_blocked(self) -> None:
         artifact, runtime = self.build_artifact(5, quota=6)
-        self.assertEqual(build_payload(artifact, 5, runtime)["status"], "BLOCKED")
+        self.assertEqual(
+            build_payload(
+                artifact,
+                5,
+                runtime,
+                verification_time=VERIFICATION_TIME,
+            )["status"],
+            "BLOCKED",
+        )
 
 
 if __name__ == "__main__":

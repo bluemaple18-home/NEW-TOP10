@@ -56,6 +56,11 @@ def test_inventory_rebuilds_when_source_snapshot_advances_during_build(monkeypat
     monkeypatch.setattr(builder, "stage2_combo_ids", lambda date: set())
     monkeypatch.setattr(builder, "load_topics", lambda: [{"topic_id": "topic-1"}])
     monkeypatch.setattr(builder, "expanded_universe_total", lambda topic_count: 4)
+    monkeypatch.setattr(
+        builder,
+        "build_source_lineage",
+        lambda *args, **kwargs: {"fixture": True},
+    )
 
     payload, rows = builder.build_payload_and_rows(RUN_DATE)
 
@@ -78,6 +83,11 @@ def test_inventory_fails_loud_when_source_snapshot_stays_inconsistent(monkeypatc
     monkeypatch.setattr(builder, "stage2_combo_ids", lambda date: set())
     monkeypatch.setattr(builder, "load_topics", lambda: [{"topic_id": "topic-1"}])
     monkeypatch.setattr(builder, "expanded_universe_total", lambda topic_count: 4)
+    monkeypatch.setattr(
+        builder,
+        "build_source_lineage",
+        lambda *args, **kwargs: {"fixture": True},
+    )
 
     with pytest.raises(builder.SnapshotInconsistentError):
         builder.build_payload_and_rows(RUN_DATE)

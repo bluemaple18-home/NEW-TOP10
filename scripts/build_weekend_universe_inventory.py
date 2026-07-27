@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Any
 
 from research_map_contract import (
@@ -43,10 +44,15 @@ from weekend_training_common import (
     write_json,
     write_text,
 )
+try:
+    from fog_authority_contracts import build_source_lineage
+except ModuleNotFoundError:  # pragma: no cover - package import path
+    from scripts.fog_authority_contracts import build_source_lineage
 
 
 SCHEMA_VERSION = "weekend-universe-inventory.v1"
 MAX_SNAPSHOT_ATTEMPTS = 2
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class SnapshotInconsistentError(RuntimeError):
@@ -224,6 +230,10 @@ def build_payload_and_rows_once(date: str, include_records: bool = False) -> tup
             "topic_registry": "artifacts/autonomous_research/topic_registry.json",
         },
         "source_hashes": source_hashes,
+        "source_lineage": build_source_lineage(
+            PROJECT_ROOT,
+            "weekend_inventory",
+        ),
         "processed_records": processed_records,
         "summary": {
             "topic_count": len(topics),

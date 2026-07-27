@@ -89,6 +89,7 @@ class ResearchFogMapRefactorTests(unittest.TestCase):
                 },
                 generated_at=actual["generated_at"],
             )
+            expected["source_lineage"] = actual["source_lineage"]
 
         self.assertEqual(actual, expected)
         self.assertEqual(actual["schema_version"], "research-fog-map.v2")

@@ -62,6 +62,10 @@ from app.research.map_contract import (  # noqa: E402, F401
     status_from_insight,
     v2_combo_id,
 )
+try:  # noqa: E402
+    from fog_authority_contracts import build_source_lineage
+except ModuleNotFoundError:  # pragma: no cover - package import path
+    from scripts.fog_authority_contracts import build_source_lineage
 
 
 SOURCE_DIR = PROJECT_ROOT / "artifacts" / "autonomous_research"
@@ -145,7 +149,7 @@ def build_payload(date: str) -> dict[str, Any]:
     history_path = SOURCE_DIR / "run_history.json"
     history_jsonl_path = SOURCE_DIR / "run_history.jsonl"
     rollup_path = latest_weekend_rollup_path(date)
-    return build_payload_from_inputs(
+    payload = build_payload_from_inputs(
         date,
         progress=read_json(progress_path),
         registry=read_json(registry_path),
@@ -164,6 +168,12 @@ def build_payload(date: str) -> dict[str, Any]:
             "next_action_queue": repo_path(queue_path) if queue_path.exists() else None,
         },
     )
+    payload["source_lineage"] = build_source_lineage(
+        PROJECT_ROOT,
+        "research_map",
+        allow_missing=payload.get("source_mode") != "live",
+    )
+    return payload
 
 
 def main() -> int:

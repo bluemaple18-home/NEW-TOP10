@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,7 @@ import verify_processed_id_authority as processed_verifier
 
 
 RUN_DATE = "2099-01-05"
+VERIFICATION_TIME = datetime(2099, 1, 5, 1, tzinfo=timezone.utc)
 
 
 def write_history(path: Path, rows: list[dict[str, object]]) -> None:
@@ -249,7 +251,10 @@ def test_unknown_or_transition_current_regime_fails_closed(
         runtime_verifier.verify_runtime(RUN_DATE, history, contract)
 
 
-def test_processed_id_verifier_rejects_forged_inventory_id() -> None:
+def test_processed_id_verifier_rejects_forged_inventory_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def completed(combo_id: str) -> dict[str, object]:
         return {
             "schema_version": "research-map-run-history.v2",
@@ -293,6 +298,10 @@ def test_processed_id_verifier_rejects_forged_inventory_id() -> None:
             },
         ],
     }
+    lineage_map, lineage_inventory, _ = _processed_lineage_fixture(tmp_path)
+    map_payload["source_lineage"] = lineage_map["source_lineage"]
+    inventory_payload["source_lineage"] = lineage_inventory["source_lineage"]
+    monkeypatch.setattr(processed_verifier, "PROJECT_ROOT", tmp_path)
 
     payload = processed_verifier.build_payload(
         [],
@@ -428,12 +437,14 @@ def test_daily_verifier_accepts_fully_bound_runtime_receipt(tmp_path: Path) -> N
         contract,
         artifact,
     )
+    bound_receipt["generated_at"] = "2099-01-05T00:00:00+00:00"
     receipt.write_text(json.dumps(bound_receipt), encoding="utf-8")
 
     verification = daily_verifier.build_payload(
         artifact,
         min_quota=5,
         runtime_receipt_path=receipt,
+        verification_time=VERIFICATION_TIME,
     )
 
     assert verification["status"] == "COMPLETED"
@@ -469,33 +480,323 @@ def test_daily_verifier_rejects_unknown_runtime_receipt_field(tmp_path: Path) ->
 def test_production_hash_gate_rejects_drift_against_trusted_baseline(
     tmp_path: Path,
 ) -> None:
-    protected = {}
-    for role in ("model", "baseline", "ranking", "weights", "promotion"):
-        path = tmp_path / f"{role}.artifact"
+    protected = recovery_verifier.canonical_protected_paths(tmp_path, RUN_DATE)
+    for role, path in protected.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f"{role}-v1\n", encoding="utf-8")
-        protected[role] = path
     baseline = recovery_verifier.build_production_hash_baseline(
-        protected,
+        run_date=RUN_DATE,
+        root=tmp_path,
         source_identity="candidate-fixture",
         created_at="2099-01-05T00:00:00+00:00",
     )
     assert recovery_verifier.verify_production_hash_baseline(
         baseline,
-        protected,
+        run_date=RUN_DATE,
+        root=tmp_path,
         expected_source_identity="candidate-fixture",
     )["ok"] is True
     assert recovery_verifier.verify_production_hash_baseline(
         baseline,
-        protected,
+        run_date=RUN_DATE,
+        root=tmp_path,
         expected_source_identity="forged-source",
     )["ok"] is False
     protected["model"].write_text("model-forged\n", encoding="utf-8")
 
     check = recovery_verifier.verify_production_hash_baseline(
         baseline,
-        protected,
+        run_date=RUN_DATE,
+        root=tmp_path,
         expected_source_identity="candidate-fixture",
     )
 
     assert check["ok"] is False
     assert check["hash_drift"] == ["model"]
+
+
+def test_production_baseline_uses_canonical_contract_and_is_create_once(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError):
+        recovery_verifier.canonical_baseline_path(tmp_path, "../../escape")
+    protected = recovery_verifier.canonical_protected_paths(tmp_path, RUN_DATE)
+    for role, path in protected.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"{role}-v1\n", encoding="utf-8")
+    baseline_path = recovery_verifier.canonical_baseline_path(tmp_path, RUN_DATE)
+    baseline = recovery_verifier.write_production_hash_baseline_once(
+        baseline_path,
+        run_date=RUN_DATE,
+        root=tmp_path,
+        source_identity="candidate-fixture",
+        created_at="2099-01-05T00:00:00+00:00",
+    )
+
+    protected["model"].write_text("model-forged\n", encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        recovery_verifier.write_production_hash_baseline_once(
+            baseline_path,
+            run_date=RUN_DATE,
+            root=tmp_path,
+            source_identity="candidate-fixture",
+            created_at="2099-01-05T00:01:00+00:00",
+        )
+
+    persisted = json.loads(baseline_path.read_text(encoding="utf-8"))
+    assert persisted == baseline
+    check = recovery_verifier.verify_production_hash_baseline(
+        persisted,
+        run_date=RUN_DATE,
+        root=tmp_path,
+        expected_source_identity="candidate-fixture",
+    )
+    assert check["ok"] is False
+    assert check["hash_drift"] == ["model"]
+
+    arbitrary = {
+        **persisted,
+        "artifacts": {
+            role: {
+                "path": f"attacker/{role}.artifact",
+                "sha256": "a" * 64,
+            }
+            for role in ("model", "baseline", "ranking", "weights", "promotion")
+        },
+    }
+    arbitrary_check = recovery_verifier.verify_production_hash_baseline(
+        arbitrary,
+        run_date=RUN_DATE,
+        root=tmp_path,
+        expected_source_identity="candidate-fixture",
+    )
+    assert arbitrary_check["ok"] is False
+    assert sorted(arbitrary_check["path_drift"]) == [
+        "baseline",
+        "model",
+        "promotion",
+        "ranking",
+        "weights",
+    ]
+
+    with pytest.raises(ValueError, match="canonical baseline path"):
+        recovery_verifier.write_production_hash_baseline_once(
+            tmp_path / "attacker-baseline.json",
+            run_date=RUN_DATE,
+            root=tmp_path,
+            source_identity="candidate-fixture",
+            created_at="2099-01-05T00:02:00+00:00",
+        )
+
+
+@pytest.mark.parametrize(
+    ("attack", "value"),
+    [
+        ("generated_at", "1999-01-01T00:00:00+00:00"),
+        ("generated_at", "2199-01-01T00:00:00+00:00"),
+        ("generated_at", "2099-01-05T00:00:00"),
+        (
+            "exact_regime",
+            {
+                "base_regime": "BROAD_RISK_ON",
+                "family_tags": ["BIG_BULL"],
+                "identity_id": "BROAD_RISK_ON|BIG_BULL",
+            },
+        ),
+    ],
+)
+def test_daily_verifier_rejects_unfresh_or_forged_exact_regime(
+    tmp_path: Path,
+    attack: str,
+    value: object,
+) -> None:
+    artifact, receipt = _write_daily_verifier_attack_fixture(tmp_path)
+    artifact_payload = json.loads(artifact.read_text(encoding="utf-8"))
+    bound_receipt = runtime_verifier.verify_runtime(
+        RUN_DATE,
+        Path(artifact_payload["inputs"]["market_regime_history"]),
+        Path(artifact_payload["inputs"]["research_contract"]),
+        artifact,
+    )
+    bound_receipt["generated_at"] = "2099-01-05T00:00:00+00:00"
+    bound_receipt[attack] = value
+    receipt.write_text(json.dumps(bound_receipt), encoding="utf-8")
+
+    verification = daily_verifier.build_payload(
+        artifact,
+        min_quota=5,
+        runtime_receipt_path=receipt,
+        verification_time=VERIFICATION_TIME,
+    )
+
+    assert verification["status"] == "BLOCKED"
+    failed = {check["name"] for check in verification["checks"] if not check["ok"]}
+    expected = (
+        "runtime_receipt_freshness"
+        if attack == "generated_at"
+        else "runtime_receipt_exact_regime"
+    )
+    assert expected in failed
+
+
+def _source_contract_hash(
+    artifact_kind: str,
+    roles: dict[str, str],
+) -> str:
+    contract = {
+        "schema_version": "fog-source-role-path-contract.v1",
+        "artifact_kind": artifact_kind,
+        "roles": roles,
+    }
+    return hashlib.sha256(
+        json.dumps(
+            contract,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _processed_lineage_fixture(
+    root: Path,
+) -> tuple[dict[str, object], dict[str, object], dict[str, Path]]:
+    paths = {
+        "topic_registry": root
+        / "artifacts"
+        / "autonomous_research"
+        / "topic_registry.json",
+        "run_history": root
+        / "artifacts"
+        / "autonomous_research"
+        / "run_history.jsonl",
+        "research_map": root
+        / "artifacts"
+        / "research_map"
+        / "research_fog_map_latest.json",
+    }
+    for role, path in paths.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"{role}-source\n", encoding="utf-8")
+
+    map_roles = {
+        "topic_registry": "artifacts/autonomous_research/topic_registry.json",
+        "run_history": "artifacts/autonomous_research/run_history.jsonl",
+    }
+    inventory_roles = {
+        "research_map": "artifacts/research_map/research_fog_map_latest.json",
+        **map_roles,
+    }
+
+    def lineage(artifact_kind: str, roles: dict[str, str]) -> dict[str, object]:
+        return {
+            "schema_version": "fog-source-lineage.v1",
+            "contract_sha256": _source_contract_hash(artifact_kind, roles),
+            "sources": {
+                role: {
+                    "path": path,
+                    "sha256": hashlib.sha256(
+                        (root / path).read_bytes()
+                    ).hexdigest(),
+                }
+                for role, path in roles.items()
+            },
+        }
+
+    completed = {
+        "schema_version": "research-map-run-history.v2",
+        "map_version": "v2",
+        "combo_id": "processed-a",
+        "status": "completed",
+        "artifact_path": "artifacts/research/processed-a.json",
+        "dimensions": {
+            "regime_gate": "RISK_OFF",
+            "risk_guard": "NONE",
+            "entry_filter": "LOG_GATE",
+        },
+    }
+    map_payload: dict[str, object] = {
+        "schema_version": "research-fog-map.v2",
+        "date": RUN_DATE,
+        "contract": {"progress_from_run_history_jsonl": True},
+        "source_hashes": {"missing/map-source.jsonl": "a" * 64},
+        "source_lineage": lineage("research_map", map_roles),
+        "summary": {"expanded_processed": 1},
+        "processed_records": [completed],
+    }
+    inventory_payload: dict[str, object] = {
+        "schema_version": "weekend-universe-inventory.v1",
+        "date": RUN_DATE,
+        "contract": {"manual_progress_fill_allowed": False},
+        "source_hashes": {"missing/inventory-source.jsonl": "b" * 64},
+        "source_lineage": lineage("weekend_inventory", inventory_roles),
+        "summary": {"current_processed_count": 1},
+        "processed_records": [
+            {
+                "combo_id": "processed-a",
+                "completion_status": "completed",
+                "artifact_path": "artifacts/research/processed-a.json",
+            }
+        ],
+    }
+    return map_payload, inventory_payload, paths
+
+
+@pytest.mark.parametrize(
+    "attack",
+    [
+        "missing_source",
+        "source_set_addition",
+        "source_set_removal",
+        "path_escape",
+        "symlink_escape",
+    ],
+)
+def test_processed_source_lineage_rejects_hostile_paths_and_sets(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    attack: str,
+) -> None:
+    map_payload, inventory_payload, paths = _processed_lineage_fixture(tmp_path)
+    monkeypatch.setattr(processed_verifier, "PROJECT_ROOT", tmp_path)
+    map_sources = map_payload["source_lineage"]["sources"]
+    inventory_sources = inventory_payload["source_lineage"]["sources"]
+
+    if attack == "missing_source":
+        paths["run_history"].unlink()
+    elif attack == "source_set_addition":
+        map_sources["attacker"] = {
+            "path": "attacker/source.json",
+            "sha256": "a" * 64,
+        }
+    elif attack == "source_set_removal":
+        inventory_sources.pop("topic_registry")
+    elif attack == "path_escape":
+        map_sources["run_history"] = {
+            "path": "../escape.jsonl",
+            "sha256": "a" * 64,
+        }
+    else:
+        outside = tmp_path.parent / f"{tmp_path.name}-outside.jsonl"
+        outside.write_text("outside\n", encoding="utf-8")
+        paths["run_history"].unlink()
+        paths["run_history"].symlink_to(outside)
+        map_sources["run_history"]["sha256"] = hashlib.sha256(
+            outside.read_bytes()
+        ).hexdigest()
+        inventory_sources["run_history"]["sha256"] = hashlib.sha256(
+            outside.read_bytes()
+        ).hexdigest()
+
+    payload = processed_verifier.build_payload(
+        [],
+        [],
+        map_payload,
+        inventory_payload,
+    )
+
+    assert payload["status"] == "FAILED"
+    source_check = next(
+        check for check in payload["checks"] if check["name"] == "source_hash_lineage"
+    )
+    assert source_check["ok"] is False

@@ -159,9 +159,9 @@ recover_retry_circuit_if_verified() {
   verifier_output="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.recovery_verification_${recovery_stamp}.json"
   regime_history="${TOP10_MARKET_REGIME_HISTORY:-artifacts/autonomous_research/market_regime_history_${RUN_DATE}.json}"
   runtime_receipt="artifacts/autonomous_research/closed_regime_runtime_${RUN_DATE}.json"
-  production_baseline="${TOP10_FOG_PRODUCTION_HASH_BASELINE:-}"
-  if [ -z "$production_baseline" ]; then
-    echo "fog research retry circuit recovery denied; trusted production baseline missing" | tee -a "$LOG_FILE"
+  production_baseline="artifacts/autonomous_research/fog_production_hash_baseline_${RUN_DATE}.json"
+  if [ ! -f "$production_baseline" ]; then
+    echo "fog research retry circuit recovery denied; canonical trusted production baseline missing path=$production_baseline" | tee -a "$LOG_FILE"
     return 1
   fi
   echo "fog research retry circuit recovery requested; running bounded recovery gates before state rotation" | tee -a "$LOG_FILE"

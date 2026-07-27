@@ -9,9 +9,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from datetime import date, datetime, timezone
+import re
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+try:
+    from run_autonomous_research import current_regime_context
+except ModuleNotFoundError:  # pragma: no cover - package import path
+    from scripts.run_autonomous_research import current_regime_context
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +29,11 @@ EXPECTED_RUNNER_IDENTITY = "scripts/run_daily_research_quota.sh"
 FOLLOWUP_DECISIONS = {"CONFIRMED_FOR_NEXT_REPLAY", "PARTIAL_SCORE_ONLY"}
 REJECTION_DECISIONS = {"REJECTED_BY_STRATEGY_MATRIX", "NO_COMPARISON_EVIDENCE"}
 SUCCESS_STATES = {"COMPLETED", "PARTIAL_NO_MORE_WORK"}
+RUNTIME_RECEIPT_MAX_AGE = timedelta(hours=24)
+RFC3339_PATTERN = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
+    r"(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -90,6 +101,55 @@ def date_not_after(value: Any, upper_bound: Any) -> bool:
         return False
 
 
+def parse_rfc3339(value: Any) -> datetime | None:
+    if (
+        not isinstance(value, str)
+        or not value
+        or RFC3339_PATTERN.fullmatch(value) is None
+    ):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
+def runtime_receipt_freshness(
+    generated_at: Any,
+    run_date: Any,
+    verification_time: datetime,
+) -> dict[str, Any]:
+    generated = parse_rfc3339(generated_at)
+    try:
+        expected_date = date.fromisoformat(str(run_date))
+    except ValueError:
+        expected_date = None
+    if (
+        verification_time.tzinfo is None
+        or verification_time.utcoffset() is None
+    ):
+        raise ValueError("verification_time 必須包含 timezone")
+    now = verification_time.astimezone(timezone.utc)
+    age = now - generated if generated is not None else None
+    return {
+        "ok": bool(
+            generated is not None
+            and expected_date is not None
+            and generated.date() == expected_date
+            and age is not None
+            and timedelta(0) <= age <= RUNTIME_RECEIPT_MAX_AGE
+        ),
+        "generated_at": generated_at,
+        "run_date": run_date,
+        "verification_time": now.isoformat(),
+        "max_age_seconds": int(RUNTIME_RECEIPT_MAX_AGE.total_seconds()),
+        "age_seconds": age.total_seconds() if age is not None else None,
+    }
+
+
 def topic_run_lineage(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         {
@@ -105,6 +165,7 @@ def build_payload(
     artifact: Path,
     min_quota: int,
     runtime_receipt_path: Path | None = None,
+    verification_time: datetime | None = None,
 ) -> dict[str, Any]:
     """驗證單批上限，並把可接受的 partial 與實際失敗分開。"""
     payload = read_json(artifact)
@@ -150,6 +211,7 @@ def build_payload(
         else {}
     )
     expected_topic_runs = topic_run_lineage(topic_runs)
+    verification_time = verification_time or datetime.now(timezone.utc)
     receipt_allowed_keys = {
         "schema_version",
         "status",
@@ -189,6 +251,51 @@ def build_payload(
         )
         == transition_allowed_keys
         and set(runtime_daily) == daily_allowed_keys
+    )
+    freshness = runtime_receipt_freshness(
+        runtime_receipt.get("generated_at"),
+        runtime_receipt.get("run_date"),
+        verification_time,
+    )
+    expected_regime: dict[str, Any] | None = None
+    expected_source_trade_date: str | None = None
+    regime_error: str | None = None
+    history_payload: dict[str, Any] = {}
+    if artifact_history_path is not None and artifact_history_path.is_file():
+        try:
+            history_payload = read_json(artifact_history_path)
+        except (OSError, json.JSONDecodeError):
+            history_payload = {}
+    history_is_bound = bool(
+        artifact_history_path is not None
+        and artifact_history_path.is_file()
+        and paths_match(runtime_history.get("path"), artifact_history)
+        and runtime_history.get("schema_version")
+        == "market-regime-history.v2"
+        and history_payload.get("schema_version")
+        == "market-regime-history.v2"
+        and runtime_history.get("sha256") == sha256(artifact_history_path)
+    )
+    if history_is_bound and payload.get("date"):
+        try:
+            context = current_regime_context(
+                artifact_history_path,
+                str(payload.get("date")),
+            )
+            identity = context["identity"]
+            expected_regime = {
+                "base_regime": identity["base_regime"],
+                "family_tags": identity["family_tags"],
+                "identity_id": context["identity_id"],
+            }
+            expected_source_trade_date = context["source_trade_date"]
+        except (FileNotFoundError, OSError, ValueError, KeyError, TypeError) as exc:
+            regime_error = str(exc)
+    exact_regime_ok = bool(
+        expected_regime is not None
+        and runtime_receipt.get("exact_regime") == expected_regime
+        and runtime_history.get("source_trade_date")
+        == expected_source_trade_date
     )
     quota = int(inputs.get("execute_topic_count") or 0)
     queue_empty = inputs.get("from_queue") is True and outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs
@@ -282,6 +389,24 @@ def build_payload(
             },
         },
         {
+            "name": "runtime_receipt_freshness",
+            "ok": freshness["ok"],
+            "value": freshness,
+        },
+        {
+            "name": "runtime_receipt_exact_regime",
+            "ok": exact_regime_ok,
+            "value": {
+                "expected": expected_regime,
+                "receipt": runtime_receipt.get("exact_regime"),
+                "expected_source_trade_date": expected_source_trade_date,
+                "receipt_source_trade_date": runtime_history.get(
+                    "source_trade_date"
+                ),
+                "error": regime_error,
+            },
+        },
+        {
             "name": "runtime_receipt_state_transition",
             "ok": runtime_receipt.get("state_transition")
             == {
@@ -313,9 +438,7 @@ def build_payload(
             and runtime_history.get("sha256") == sha256(artifact_history_path)
             and paths_match(runtime_contract.get("path"), str(inputs.get("research_contract") or ""))
             and runtime_contract.get("sha256") == sha256(runtime_contract_path)
-            and bool((runtime_receipt.get("exact_regime") or {}).get("base_regime"))
-            and isinstance((runtime_receipt.get("exact_regime") or {}).get("family_tags"), list)
-            and bool((runtime_receipt.get("exact_regime") or {}).get("identity_id"))
+            and exact_regime_ok
             and runtime_receipt.get("production_impact") == "NO_PRODUCTION_CHANGE",
             "value": {
                 "receipt": repo_path(runtime_receipt_path),

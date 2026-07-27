@@ -9,6 +9,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    from fog_authority_contracts import verify_source_lineage
+except ModuleNotFoundError:  # pragma: no cover - package import path
+    from scripts.fog_authority_contracts import verify_source_lineage
 from research_map_contract import (
     apply_run_history,
     build_combo_registry,
@@ -129,35 +133,6 @@ def _artifact_processed_ids(
     return {combo_id for combo_id in claimed if combo_id}, duplicates, missing_ids
 
 
-def _source_hashes(payload: dict[str, Any]) -> dict[str, str]:
-    source_hashes = payload.get("source_hashes")
-    if (
-        isinstance(source_hashes, dict)
-        and bool(source_hashes)
-        and all(
-            isinstance(path, str)
-            and bool(path)
-            and isinstance(digest, str)
-            and len(digest) == 64
-            for path, digest in source_hashes.items()
-        )
-    ):
-        return {str(path): str(digest) for path, digest in source_hashes.items()}
-    declared = payload.get("sources")
-    if not isinstance(declared, dict):
-        declared = payload.get("source")
-    if not isinstance(declared, dict):
-        return {}
-    resolved: dict[str, str] = {}
-    for value in declared.values():
-        if not isinstance(value, str) or not value:
-            continue
-        path = resolve_path(value)
-        if path.is_file():
-            resolved[repo_path(path)] = sha256(path)
-    return resolved
-
-
 def processed_sets(
     topics: list[dict[str, Any]],
     history_records: list[dict[str, Any]],
@@ -235,8 +210,18 @@ def build_payload(
     )
     map_only_sample = map_only[:DIFFERENCE_SAMPLE_LIMIT]
     inventory_only_sample = inventory_only[:DIFFERENCE_SAMPLE_LIMIT]
-    map_source_hashes = _source_hashes(map_payload)
-    inventory_source_hashes = _source_hashes(inventory_payload)
+    map_source_check = verify_source_lineage(
+        map_payload,
+        "research_map",
+        PROJECT_ROOT,
+    )
+    inventory_source_check = verify_source_lineage(
+        inventory_payload,
+        "weekend_inventory",
+        PROJECT_ROOT,
+    )
+    map_source_hashes = map_source_check["current_hashes"]
+    inventory_source_hashes = inventory_source_check["current_hashes"]
     checks = [
         {
             "name": "artifact_schemas",
@@ -269,10 +254,10 @@ def build_payload(
         },
         {
             "name": "source_hash_lineage",
-            "ok": bool(map_source_hashes) and bool(inventory_source_hashes),
+            "ok": map_source_check["ok"] and inventory_source_check["ok"],
             "value": {
-                "research_map": map_source_hashes,
-                "weekend_inventory": inventory_source_hashes,
+                "research_map": map_source_check,
+                "weekend_inventory": inventory_source_check,
             },
         },
         {

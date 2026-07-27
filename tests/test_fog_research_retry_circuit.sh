@@ -15,7 +15,8 @@ trap cleanup EXIT
 RUN_DATE="2099-01-06"
 STATE_FILE="$TEST_ROOT/logs/fog_research_retry_20990106.state"
 CONTEXT_FILE="$TEST_ROOT/logs/fog_research_retry_20990106.context.log"
-mkdir -p "$TEST_ROOT/scripts" "$TEST_ROOT/logs"
+CANONICAL_BASELINE="artifacts/autonomous_research/fog_production_hash_baseline_${RUN_DATE}.json"
+mkdir -p "$TEST_ROOT/scripts" "$TEST_ROOT/logs" "$TEST_ROOT/artifacts/autonomous_research"
 cp "$PROJECT_ROOT/scripts/run_fog_research_worker.sh" "$TEST_ROOT/scripts/run_fog_research_worker.sh"
 cat > "$TEST_ROOT/fake_python.sh" <<'SH'
 #!/usr/bin/env bash
@@ -24,6 +25,14 @@ script="${1:-}"
 shift || true
 case "$script" in
   scripts/verify_fog_closed_regime_recovery.py)
+    baseline=""
+    for ((index=1; index <= $#; index++)); do
+      if [ "${!index}" = "--production-hash-baseline" ]; then
+        next=$((index + 1))
+        baseline="${!next}"
+      fi
+    done
+    [ "$baseline" = "artifacts/autonomous_research/fog_production_hash_baseline_2099-01-06.json" ] || exit 9
     if [ "${FAKE_VERIFY_OK:-0}" = "1" ]; then
       output=""
       while [ "$#" -gt 0 ]; do
@@ -51,6 +60,7 @@ case "$script" in
 esac
 SH
 chmod +x "$TEST_ROOT/fake_python.sh"
+printf '{"fixture":true}\n' > "$TEST_ROOT/$CANONICAL_BASELINE"
 
 write_open_state() {
   cat > "$STATE_FILE" <<'STATE'
