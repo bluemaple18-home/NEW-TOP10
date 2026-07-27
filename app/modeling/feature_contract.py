@@ -50,6 +50,8 @@ FUNDAMENTAL_METRIC_NAMES = (
 FUNDAMENTAL_FEATURE_COLUMNS = tuple(f"fundamental_{name}" for name in FUNDAMENTAL_METRIC_NAMES)
 PATTERN_FEATURE_PREFIXES = ("candle_", "td_", "pattern_")
 MIN_FUNDAMENTAL_FEATURE_COVERAGE = 0.80
+# 基本面資料達研究覆蓋率不等於取得正式訓練核准；promotion 卡完成前固定關閉。
+FUNDAMENTAL_PRODUCTION_PROMOTION_ENABLED = False
 
 
 @dataclass(frozen=True)
@@ -133,6 +135,8 @@ def build_m4_feature_frame(
             "基本面 cache 覆蓋率未達模型接入門檻 "
             f"{MIN_FUNDAMENTAL_FEATURE_COVERAGE:.0%}，fundamental_* 欄位只保留 metadata，不進候選特徵。"
         )
+    elif not FUNDAMENTAL_PRODUCTION_PROMOTION_ENABLED:
+        notes.append("基本面資料已達研究覆蓋率，但 production promotion gate 預設關閉，不進正式訓練候選。")
 
     _ensure_unique_trade_keys(frame, "m4_feature_frame")
     metadata = _metadata(
@@ -152,8 +156,11 @@ def candidate_feature_columns(frame: pd.DataFrame, metadata: FeatureFrameMetadat
 
     grouped_columns: list[str] = []
     for group in ("technical", "event", "pattern", "fundamental"):
-        if group == "fundamental" and metadata.fundamental_cache_coverage < MIN_FUNDAMENTAL_FEATURE_COVERAGE:
-            continue
+        if group == "fundamental":
+            if not FUNDAMENTAL_PRODUCTION_PROMOTION_ENABLED:
+                continue
+            if metadata.fundamental_cache_coverage < MIN_FUNDAMENTAL_FEATURE_COVERAGE:
+                continue
         if group in metadata.feature_groups:
             grouped_columns.extend(metadata.feature_groups[group].columns)
     trainable_columns = set(trainable_factor_columns(frame, metadata))

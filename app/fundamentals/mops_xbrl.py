@@ -29,6 +29,26 @@ FACT_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 TAG_RE = re.compile(r"<[^>]+>")
+CONTEXT_RE = re.compile(
+    r"<(?:[A-Za-z0-9_]+:)?context\b(?P<attrs>[^>]*)>(?P<body>.*?)</(?:[A-Za-z0-9_]+:)?context>",
+    re.IGNORECASE | re.DOTALL,
+)
+START_DATE_RE = re.compile(
+    r"<(?:[A-Za-z0-9_]+:)?startdate\b[^>]*>(?P<value>.*?)</(?:[A-Za-z0-9_]+:)?startdate>",
+    re.IGNORECASE | re.DOTALL,
+)
+END_DATE_RE = re.compile(
+    r"<(?:[A-Za-z0-9_]+:)?enddate\b[^>]*>(?P<value>.*?)</(?:[A-Za-z0-9_]+:)?enddate>",
+    re.IGNORECASE | re.DOTALL,
+)
+INSTANT_RE = re.compile(
+    r"<(?:[A-Za-z0-9_]+:)?instant\b[^>]*>(?P<value>.*?)</(?:[A-Za-z0-9_]+:)?instant>",
+    re.IGNORECASE | re.DOTALL,
+)
+
+MAX_ZIP_MEMBERS = 10_000
+MAX_ZIP_MEMBER_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES = 8 * 1024 * 1024 * 1024
 
 FIELD_LABELS: dict[str, tuple[str, ...]] = {
     "revenue": ("營業收入合計", "收益合計", "營業收入"),
@@ -127,7 +147,9 @@ def parse_xbrl_zip(
 
     selected: dict[str, tuple[int, dict[str, Any]]] = {}
     with ZipFile(zip_path) as archive:
-        for name in archive.namelist():
+        _validate_zip_resources(archive)
+        for info in archive.infolist():
+            name = info.filename
             match = PERIOD_RE.search(name)
             if not match:
                 continue
@@ -138,7 +160,7 @@ def parse_xbrl_zip(
             if stock_id in selected and selected[stock_id][0] >= priority:
                 continue
             metric = parse_xbrl_document(
-                archive.read(name).decode("utf-8", errors="replace"),
+                archive.read(info).decode("utf-8", errors="replace"),
                 stock_id=stock_id,
                 period=match.group("period").upper(),
             )
@@ -151,6 +173,8 @@ def parse_xbrl_document(html: str, stock_id: str, period: str) -> dict[str, Any]
     """從單一 inline XBRL HTML 取出目前季度的標準財務指標。"""
 
     values: dict[str, float] = {}
+    contexts = _parse_contexts(html)
+    cash_flow_contexts: dict[str, tuple[date, date] | None] = {}
     label_to_field = {
         _normalize_label(label): field
         for field, labels in FIELD_LABELS.items()
@@ -159,19 +183,27 @@ def parse_xbrl_document(html: str, stock_id: str, period: str) -> dict[str, Any]
     for row_match in ROW_RE.finditer(html):
         row = row_match.group("body")
         label_match = ZH_RE.search(row)
-        fact_match = FACT_RE.search(row)
-        if not label_match or not fact_match:
+        if not label_match:
             continue
         label = _normalize_label(label_match.group("label"))
         field = label_to_field.get(label)
         if field is None or field in values:
             continue
-        value = _parse_fact(fact_match.group("value"), fact_match.group("attrs"))
+        selected = _select_current_fact(row, field=field, period=period, contexts=contexts)
+        if selected is None:
+            continue
+        value, context = selected
         if value is not None:
             values[field] = value
+            if field in {"operating_cash_flow", "capex"}:
+                cash_flow_contexts[field] = context
 
     if not values:
         return None
+    cash_flow_metadata = _cash_flow_metadata(values, cash_flow_contexts, period, contexts_present=bool(contexts))
+    if cash_flow_metadata.get("cash_flow_grain") == "invalid_context":
+        values.pop("operating_cash_flow", None)
+        values.pop("capex", None)
     computed = compute_financial_metrics({period: values})[0]
     return {
         **asdict(computed),
@@ -179,6 +211,7 @@ def parse_xbrl_document(html: str, stock_id: str, period: str) -> dict[str, Any]
         "period": period,
         "available_from": conservative_available_from(period),
         "availability_policy": "statutory_conservative",
+        **cash_flow_metadata,
     }
 
 
@@ -187,7 +220,8 @@ def build_cache_payload(
     metrics: Iterable[dict[str, Any]],
     source_periods: Iterable[str],
 ) -> dict[str, Any]:
-    ordered = sorted(metrics, key=lambda item: (str(item["available_from"]), str(item["year"])), reverse=True)
+    normalized = _normalize_quarterly_cash_flow(item for item in metrics if item is not None)
+    ordered = sorted(normalized, key=lambda item: (str(item["available_from"]), str(item["year"])), reverse=True)
     periods = sorted(set(source_periods))
     now = datetime.now(timezone.utc).isoformat()
     return {
@@ -228,9 +262,181 @@ def _normalize_label(value: str) -> str:
     return re.sub(r"[\s　]+", "", text).strip()
 
 
+def _attribute(attrs: str, name: str) -> str | None:
+    match = re.search(rf"""\b{re.escape(name)}\s*=\s*["'](?P<value>[^"']+)["']""", attrs, re.IGNORECASE)
+    return unescape(match.group("value")).strip() if match else None
+
+
+def _parse_contexts(html: str) -> dict[str, tuple[date, date]]:
+    contexts: dict[str, tuple[date, date]] = {}
+    for match in CONTEXT_RE.finditer(html):
+        context_id = _attribute(match.group("attrs"), "id")
+        if not context_id:
+            continue
+        body = match.group("body")
+        start_match = START_DATE_RE.search(body)
+        end_match = END_DATE_RE.search(body)
+        instant_match = INSTANT_RE.search(body)
+        try:
+            if start_match and end_match:
+                start = date.fromisoformat(_normalize_label(start_match.group("value")))
+                end = date.fromisoformat(_normalize_label(end_match.group("value")))
+            elif instant_match:
+                start = end = date.fromisoformat(_normalize_label(instant_match.group("value")))
+            else:
+                continue
+        except ValueError:
+            continue
+        if start <= end:
+            contexts[context_id] = (start, end)
+    return contexts
+
+
+def _period_dates(period: str) -> tuple[date, date, date]:
+    year, quarter = parse_period(period)
+    quarter_start_month = 3 * (quarter - 1) + 1
+    quarter_start = date(year, quarter_start_month, 1)
+    if quarter == 4:
+        quarter_end = date(year, 12, 31)
+    else:
+        quarter_end = date(year, quarter_start_month + 3, 1) - date.resolution
+    return date(year, 1, 1), quarter_start, quarter_end
+
+
+def _select_current_fact(
+    row: str,
+    *,
+    field: str,
+    period: str,
+    contexts: dict[str, tuple[date, date]],
+) -> tuple[float, tuple[date, date] | None] | None:
+    parsed: list[tuple[float, tuple[date, date] | None]] = []
+    for fact_match in FACT_RE.finditer(row):
+        value = _parse_fact(fact_match.group("value"), fact_match.group("attrs"))
+        if value is None:
+            continue
+        context_ref = _attribute(fact_match.group("attrs"), "contextRef")
+        context = contexts.get(context_ref) if context_ref else None
+        parsed.append((value, context))
+    if not parsed:
+        return None
+    if not contexts:
+        return parsed[0]
+
+    year_start, quarter_start, quarter_end = _period_dates(period)
+    current = [item for item in parsed if item[1] is not None and item[1][1] == quarter_end]
+    if not current:
+        return None
+    preferred_start = year_start if field in {"operating_cash_flow", "capex"} else quarter_start
+    for item in current:
+        if item[1] is not None and item[1][0] == preferred_start:
+            return item
+    for item in current:
+        if item[1] is not None and item[1][0] == year_start:
+            return item
+    return current[0]
+
+
+def _cash_flow_metadata(
+    values: dict[str, float],
+    contexts: dict[str, tuple[date, date] | None],
+    period: str,
+    *,
+    contexts_present: bool,
+) -> dict[str, Any]:
+    reported = {
+        "reported_operating_cash_flow": values.get("operating_cash_flow"),
+        "reported_capex": values.get("capex"),
+    }
+    if not contexts_present:
+        return reported
+    selected = [context for context in contexts.values() if context is not None]
+    if not selected or any(context != selected[0] for context in selected[1:]):
+        return {**reported, "cash_flow_grain": "invalid_context"}
+
+    start, end = selected[0]
+    year_start, quarter_start, quarter_end = _period_dates(period)
+    if end != quarter_end:
+        return {**reported, "cash_flow_grain": "invalid_context"}
+    if start == quarter_start:
+        grain = "single_quarter"
+    elif start == year_start:
+        grain = "year_to_date"
+    else:
+        grain = "invalid_context"
+    return {
+        **reported,
+        "cash_flow_period_start": start.isoformat(),
+        "cash_flow_period_end": end.isoformat(),
+        "cash_flow_grain": grain,
+    }
+
+
+def _normalize_quarterly_cash_flow(metrics: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized = [dict(item) for item in metrics]
+    by_period = {str(item.get("year")): item for item in normalized}
+    for item in normalized:
+        period = str(item.get("year", ""))
+        try:
+            year, quarter = parse_period(period)
+        except ValueError:
+            continue
+        grain = item.get("cash_flow_grain")
+        if grain == "single_quarter":
+            continue
+        if grain != "year_to_date":
+            continue
+        previous = by_period.get(f"{year}Q{quarter - 1}") if quarter > 1 else None
+        if previous is None:
+            item["free_cash_flow"] = None
+            item["cash_flow_grain"] = "missing_previous_ytd"
+            continue
+        current_ocf = item.get("reported_operating_cash_flow")
+        previous_ocf = previous.get("reported_operating_cash_flow")
+        current_capex = item.get("reported_capex")
+        previous_capex = previous.get("reported_capex")
+        if current_ocf is None or previous_ocf is None:
+            item["free_cash_flow"] = None
+            item["cash_flow_grain"] = "missing_previous_ytd"
+            continue
+        quarter_ocf = float(current_ocf) - float(previous_ocf)
+        if current_capex is None and previous_capex is None:
+            quarter_capex = 0.0
+        elif current_capex is None or previous_capex is None:
+            item["free_cash_flow"] = None
+            item["cash_flow_grain"] = "missing_previous_ytd"
+            continue
+        else:
+            quarter_capex = float(current_capex) - float(previous_capex)
+        item["free_cash_flow"] = round(quarter_ocf + quarter_capex, 4)
+        item["cash_flow_grain"] = "single_quarter"
+        item["cash_flow_normalization"] = "ytd_difference"
+    return normalized
+
+
+def _validate_zip_resources(archive: ZipFile) -> None:
+    members = archive.infolist()
+    if len(members) > MAX_ZIP_MEMBERS:
+        raise ValueError(f"ZIP member 數量超限：{len(members)} > {MAX_ZIP_MEMBERS}")
+    total_size = 0
+    for info in members:
+        if info.file_size > MAX_ZIP_MEMBER_UNCOMPRESSED_BYTES:
+            raise ValueError(
+                "ZIP member 單檔未壓縮大小超限："
+                f"{info.filename}={info.file_size} > {MAX_ZIP_MEMBER_UNCOMPRESSED_BYTES}"
+            )
+        total_size += info.file_size
+        if total_size > MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES:
+            raise ValueError(
+                "ZIP member 總未壓縮大小超限："
+                f"{total_size} > {MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES}"
+            )
+
+
 def _valid_zip(path: Path) -> bool:
     try:
         with ZipFile(path) as archive:
+            _validate_zip_resources(archive)
             return bool(archive.namelist())
     except Exception:
         return False
