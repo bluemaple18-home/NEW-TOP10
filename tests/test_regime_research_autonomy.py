@@ -126,11 +126,69 @@ def _contract() -> dict:
 
 def _universal_contract() -> dict:
     contract = _contract()
-    contract["taxonomy"]["required_universal_regime_ids"] = [
+    required = [
         "BROAD_RISK_ON|BIG_BULL",
         "RISK_OFF|",
     ]
+    contract["parameter_universe"]["declared_complete"] = True
+    contract["parameter_universe"]["inventory_status"] = "COMPLETE"
+    contract["parameter_universe"]["blocked_dimensions"] = []
+    contract["taxonomy"]["universal_identity_policy"] = "explicit_legal_identity_set"
+    contract["taxonomy"]["legal_identity_rules"] = [
+        "此 synthetic contract 僅允許列舉的兩個 exact identities。",
+    ]
+    contract["taxonomy"]["legal_universal_regime_ids"] = required
+    contract["taxonomy"]["required_universal_regime_ids"] = required
     return contract
+
+
+def _universal_candidate(regime_ids: list[str]) -> dict:
+    return {
+        "universe_declared_complete": True,
+        "coverage_closed": True,
+        "high_value_regions_remaining": 0,
+        "fixed_parameter_hash": "sha256:fixed",
+        "fresh_sealed_oos_per_regime": True,
+        "required_regime_ids": regime_ids,
+        "coverage_regime_ids": regime_ids,
+        "regime_results": [
+            {
+                "regime_id": regime_id,
+                "sufficient_evidence": True,
+                "passed": True,
+                "parameter_hash": "sha256:fixed",
+                "sealed_dataset_slice_hash": f"sha256:sealed-{index}",
+                "independent_emergence": True,
+                "transition_forward_shadow_passed": True,
+            }
+            for index, regime_id in enumerate(regime_ids)
+        ],
+    }
+
+
+def _expected_family(
+    combination_ids: list[str],
+    *,
+    correction_family_id: str | None = None,
+    correction_family_size: int | None = None,
+) -> dict:
+    tested_ids = sorted(combination_ids)
+    family_id = correction_family_id or research.canonical_json_hash(tested_ids)
+    return {
+        "tested_combination_ids": tested_ids,
+        "tested_combination_ids_hash": research.canonical_json_hash(tested_ids),
+        "correction_family_combination_ids": tested_ids,
+        "correction_family_id": family_id,
+        "correction_family_size": correction_family_size or len(tested_ids),
+        "partition_policy": {
+            "policy_id": "test_partition.v1",
+            "correction_scope": "global_parameter_universe",
+            "tested_combination_ids_hash": research.canonical_json_hash(tested_ids),
+            "correction_family_id": family_id,
+            "correction_family_size": correction_family_size or len(tested_ids),
+        },
+        "registration_valid": True,
+    }
 
 
 def _experiment(experiment_id: str, sealed: list[str]) -> dict:
@@ -468,7 +526,14 @@ def test_coverage_funnel_multiple_testing_and_no_strategy_are_fail_closed() -> N
     )
     for row in gate_candidates:
         row["correction_family_id"] = family_id
-    gate = research.multiple_testing_gate(gate_candidates)
+        row["statistical_unit_policy"] = "independent_regime_episode_cluster.v1"
+        row["statistical_unit_ids"] = ["episode-1"]
+        row["statistical_unit_count"] = 1
+        row["pseudo_replication_detected"] = False
+    gate = research.multiple_testing_gate(
+        gate_candidates,
+        expected_family=_expected_family([row["combination_id"] for row in gate_candidates]),
+    )
 
     assert closed["regimes"][0]["coverage_closed"] is True
     assert open_summary["regimes"][0]["coverage_closed"] is False
@@ -488,10 +553,48 @@ def test_universal_gate_stays_locked_while_inventory_is_incomplete() -> None:
             "fixed_parameter_hash": "sha256:fixed",
             "regime_results": [{"regime_id": "RISK_OFF|", "sufficient_evidence": True, "passed": True}],
         },
-        contract=_universal_contract(),
+        contract=_contract(),
     )
 
     assert result == {"unlocked": False, "reason_code": "PARAMETER_UNIVERSE_INCOMPLETE"}
+
+
+def test_universal_gate_does_not_trust_candidate_completeness_claim() -> None:
+    contract = _contract()
+    required = contract["taxonomy"]["required_universal_regime_ids"]
+
+    result = research.validate_universal_candidate(
+        _universal_candidate(required),
+        contract=contract,
+    )
+
+    assert result["unlocked"] is False
+    assert result["reason_code"] == "PARAMETER_UNIVERSE_INCOMPLETE"
+
+
+def test_universal_gate_requires_all_legal_tagged_exact_identities() -> None:
+    contract = _contract()
+    contract["parameter_universe"]["declared_complete"] = True
+    contract["parameter_universe"]["inventory_status"] = "COMPLETE"
+    contract["parameter_universe"]["blocked_dimensions"] = []
+    contract["taxonomy"]["universal_identity_policy"] = "full_cartesian_product"
+    base_only = [
+        regime_id
+        for regime_id in contract["taxonomy"]["required_universal_regime_ids"]
+        if regime_id.endswith("|")
+    ]
+
+    result = research.validate_universal_candidate(
+        _universal_candidate(base_only),
+        contract=contract,
+    )
+
+    assert result["unlocked"] is False
+    assert result["reason_code"] in {
+        "REQUIRED_REGIME_POLICY_MISMATCH",
+        "MISSING_REQUIRED_REGIMES",
+    }
+    assert "BROAD_RISK_ON|BIG_BULL+HIGH_CHOPPY" in result.get("missing_regime_ids", [])
 
 
 def test_universal_gate_fails_closed_on_missing_fields_and_missing_regimes() -> None:
@@ -605,7 +708,16 @@ def test_real_matrix_row_contains_pre_registered_statistical_evidence() -> None:
             "win_rate": 0.75,
             "trade_count": 4,
         },
-        "trades": [{"net_return": value} for value in (0.03, 0.04, 0.02, -0.01)],
+        "trades": [
+            {
+                "stock_id": f"stock-{index}",
+                "entry_date": f"2026-01-{index + 1:02d}",
+                "exit_date": f"2026-01-{index + 2:02d}",
+                "regime_episode_id": f"episode-{index}",
+                "net_return": value,
+            }
+            for index, value in enumerate((0.03, 0.04, 0.02, -0.01))
+        ],
     }
 
     row = matrix.matrix_row(scenario, replay)
@@ -615,10 +727,153 @@ def test_real_matrix_row_contains_pre_registered_statistical_evidence() -> None:
     assert row["robust_neighbor_lineage"] == []
     assert row["robust_neighbor_pass_count"] == 0
     assert row["drawdown_within_limit"] is True
-    matrix.annotate_statistical_lineage([row])
-    gate = research.multiple_testing_gate([row])
+    expected_family = _expected_family([row["combination_id"]])
+    matrix.annotate_statistical_lineage(
+        [row],
+        correction_family_id=expected_family["correction_family_id"],
+    )
+    gate = research.multiple_testing_gate([row], expected_family=expected_family)
     assert gate["evidence_complete"] is True
     assert gate["reason_code"] == "MULTIPLE_TESTING_OR_ROBUSTNESS_FAILED"
+
+
+def _adversarial_matrix_args(pre_registration: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        rankings_dir="unused",
+        features="unused.parquet",
+        max_ranking_files=1,
+        top_n=10,
+        horizons="3,5,10",
+        stop_loss_pcts="none",
+        take_profit_pcts="none",
+        max_group_exposures="none",
+        max_gross_exposure=0.65,
+        max_position_weight=0.2,
+        fee_rate=0.001,
+        tax_rate=0.003,
+        slippage_rate=0.001,
+        same_day_hit_priority="stop_loss",
+        require_exact_regime=True,
+        market_regime_history="unused.json",
+        base_regime="BROAD_RISK_ON",
+        family_tags="BIG_BULL,HIGH_CHOPPY",
+        allowed_episode_ids="episode-1",
+        pre_registration=str(pre_registration),
+    )
+
+
+def _write_matrix_registration(path: Path, tested_ids: list[str]) -> None:
+    universe = research.parameter_universe_summary(_contract())
+    tested_ids = sorted(tested_ids)
+    correction_family_ids = sorted(universe["legal_combination_ids"])
+    correction_family_id = research.canonical_json_hash(correction_family_ids)
+    payload = research.build_experiment_pre_registration({
+        "tested_combination_ids": tested_ids,
+        "tested_combination_ids_hash": research.canonical_json_hash(tested_ids),
+        "correction_family_combination_ids": correction_family_ids,
+        "correction_family_id": correction_family_id,
+        "correction_family_size": universe["legal_combination_count"],
+        "partition_policy": {
+            "policy_id": "validation_profile_partition.v1",
+            "correction_scope": "global_parameter_universe",
+            "tested_combination_ids_hash": research.canonical_json_hash(tested_ids),
+            "correction_family_id": correction_family_id,
+            "correction_family_size": universe["legal_combination_count"],
+        },
+    })
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _run_adversarial_matrix_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tested_ids: list[str],
+) -> dict:
+    registration_path = tmp_path / "pre_registration.json"
+    _write_matrix_registration(registration_path, tested_ids)
+    monkeypatch.setattr(
+        matrix.run_portfolio_replay.run_backtest_replay,
+        "load_price_frame",
+        lambda _: pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        matrix,
+        "exact_regime_context",
+        lambda _: (EXACT, {"2026-01-02"}, {"2026-01-02": "episode-1"}),
+    )
+    repeated_trade = {
+        "stock_id": "2330",
+        "ranking_date": "2026-01-02",
+        "entry_date": "2026-01-02",
+        "exit_date": "2026-01-03",
+        "regime_episode_id": "episode-1",
+        "net_return": 0.01,
+    }
+    replay = {
+        "summary": {
+            "total_return": 0.2,
+            "max_drawdown": -0.05,
+            "avg_trade_return": 0.01,
+            "win_rate": 1.0,
+            "trade_count": 20,
+        },
+        "trades": [dict(repeated_trade) for _ in range(20)],
+    }
+    monkeypatch.setattr(
+        matrix.run_portfolio_replay,
+        "run_portfolio_from_price_frame",
+        lambda *_: replay,
+    )
+    return matrix.build_payload(_adversarial_matrix_args(registration_path))
+
+
+def test_public_matrix_blocks_pre_registration_family_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenarios = [
+        {
+            "horizon": horizon,
+            "stop_loss_pct": None,
+            "take_profit_pct": None,
+            "max_group_exposure": None,
+        }
+        for horizon in (3, 5, 10)
+    ]
+    tested_ids = [research.canonical_json_hash(scenario) for scenario in scenarios]
+    tested_ids[-1] = "sha256:not-the-executed-combination"
+
+    payload = _run_adversarial_matrix_payload(tmp_path, monkeypatch, tested_ids)
+
+    gate = payload["summary"]["statistical_gate"]
+    assert gate["ok"] is False
+    assert gate["evidence_complete"] is False
+    assert gate["reason_code"] == "INSUFFICIENT_EVIDENCE"
+    assert gate["family_validation_reason"] == "TESTED_COMBINATION_FAMILY_MISMATCH"
+
+
+def test_public_matrix_rejects_duplicate_trade_pseudo_replication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenarios = [
+        {
+            "horizon": horizon,
+            "stop_loss_pct": None,
+            "take_profit_pct": None,
+            "max_group_exposure": None,
+        }
+        for horizon in (3, 5, 10)
+    ]
+    tested_ids = [research.canonical_json_hash(scenario) for scenario in scenarios]
+
+    payload = _run_adversarial_matrix_payload(tmp_path, monkeypatch, tested_ids)
+
+    gate = payload["summary"]["statistical_gate"]
+    assert gate["ok"] is False
+    assert gate["evidence_complete"] is False
+    assert gate["reason_code"] == "INSUFFICIENT_EVIDENCE"
+    assert gate["pseudo_replication_detected"] is True
 
 
 def _ineligible_topic() -> research.ResearchTopic:
@@ -836,7 +1091,28 @@ def test_closed_manager_cli_writes_registration_split_and_append_only_trace(
     ]
     assert [event.get("target_state") for event in events[1:]] == ["COARSE_SCREEN", "BLOCKED"]
     assert Path(payload["outputs"]["closed_episode_split"]).exists()
-    assert Path(payload["outputs"]["closed_pre_registration"]).exists()
+    registration_path = Path(payload["outputs"]["closed_pre_registration"])
+    assert registration_path.exists()
+    registration = json.loads(registration_path.read_text(encoding="utf-8"))
+    assert len(registration["tested_combination_ids"]) == 1
+    assert registration["tested_combination_ids_hash"] == research.canonical_json_hash(
+        registration["tested_combination_ids"]
+    )
+    assert registration["correction_family_size"] == 720
+    assert registration["correction_family_id"] == research.canonical_json_hash(
+        registration["correction_family_combination_ids"]
+    )
+    assert registration["partition_policy"]["correction_scope"] == "global_parameter_universe"
+    matrix_steps = [
+        step
+        for step in payload["steps"]
+        if step["name"].endswith(("baseline.strategy_matrix", "candidate.strategy_matrix"))
+    ]
+    assert len(matrix_steps) == 2
+    for step in matrix_steps:
+        assert step["command"][step["command"].index("--pre-registration") + 1] == str(
+            registration_path
+        )
 
 
 def test_consolidated_verifier_has_positive_and_synthetic_negative_checks() -> None:

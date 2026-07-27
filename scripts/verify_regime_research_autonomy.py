@@ -40,12 +40,14 @@ ALLOWED_EXACT_FILES = {
     "tests/test_regime_research_autonomy.py",
     "docs/tasks/2026-07-27_REVIEW-REGIME-RESEARCH-AUTONOMY-01.md",
     "docs/tasks/2026-07-27_REPAIR-REGIME-RESEARCH-AUTONOMY-01-01.md",
+    "docs/tasks/2026-07-27_REPAIR-REGIME-RESEARCH-AUTONOMY-01-02.md",
 }
 ALLOWED_PREFIXES = (
     "artifacts/visible_thread/REGIME-RESEARCH-AUTONOMY-01/",
     "docs/evidence/REGIME-RESEARCH-AUTONOMY-01/",
     "docs/evidence/REVIEW-REGIME-RESEARCH-AUTONOMY-01/",
     "docs/evidence/REPAIR-REGIME-RESEARCH-AUTONOMY-01-01/",
+    "docs/evidence/REPAIR-REGIME-RESEARCH-AUTONOMY-01-02/",
 )
 
 
@@ -374,7 +376,35 @@ def build_report(contract: dict[str, Any], *, base: str, candidate: str) -> dict
     )
     for row in robust_candidates:
         row["correction_family_id"] = family_id
-    multiple = research.multiple_testing_gate(robust_candidates)
+        row["statistical_unit_policy"] = "independent_regime_episode_cluster.v1"
+        row["statistical_unit_ids"] = ["episode-1"]
+        row["statistical_unit_count"] = 1
+        row["pseudo_replication_detected"] = False
+    expected_family = {
+        "tested_combination_ids": sorted(row["combination_id"] for row in robust_candidates),
+        "tested_combination_ids_hash": research.canonical_json_hash(
+            sorted(row["combination_id"] for row in robust_candidates)
+        ),
+        "correction_family_combination_ids": sorted(
+            row["combination_id"] for row in robust_candidates
+        ),
+        "correction_family_id": family_id,
+        "correction_family_size": len(robust_candidates),
+        "partition_policy": {
+            "policy_id": "verifier_complete_family.v1",
+            "correction_scope": "global_parameter_universe",
+            "tested_combination_ids_hash": research.canonical_json_hash(
+                sorted(row["combination_id"] for row in robust_candidates)
+            ),
+            "correction_family_id": family_id,
+            "correction_family_size": len(robust_candidates),
+        },
+        "registration_valid": True,
+    }
+    multiple = research.multiple_testing_gate(
+        robust_candidates,
+        expected_family=expected_family,
+    )
     checks.append(check("multiple_testing.positive", multiple["eligible_ids"] == ["robust"], multiple))
     checks.append(check("multiple_testing.synthetic_negative", "lucky-winner" not in multiple["eligible_ids"], multiple))
 
@@ -408,10 +438,19 @@ def build_report(contract: dict[str, Any], *, base: str, candidate: str) -> dict
         ],
     }
     universal_contract = json.loads(json.dumps(contract))
-    universal_contract["taxonomy"]["required_universal_regime_ids"] = [
+    universal_required = [
         "BROAD_RISK_ON|BIG_BULL",
         "RISK_OFF|",
     ]
+    universal_contract["parameter_universe"]["declared_complete"] = True
+    universal_contract["parameter_universe"]["inventory_status"] = "COMPLETE"
+    universal_contract["parameter_universe"]["blocked_dimensions"] = []
+    universal_contract["taxonomy"]["universal_identity_policy"] = "explicit_legal_identity_set"
+    universal_contract["taxonomy"]["legal_identity_rules"] = [
+        "verifier synthetic contract 僅允許列舉的 exact identities",
+    ]
+    universal_contract["taxonomy"]["legal_universal_regime_ids"] = universal_required
+    universal_contract["taxonomy"]["required_universal_regime_ids"] = universal_required
     universal_ok = research.validate_universal_candidate(
         universal_base,
         contract=universal_contract,

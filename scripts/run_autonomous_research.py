@@ -415,6 +415,38 @@ def parameter_combinations(contract: dict[str, Any]) -> list[dict[str, Any]]:
     return combinations
 
 
+def validation_profile_combinations(
+    horizons: str,
+    stop_loss_pcts: str,
+    take_profit_pcts: str,
+    max_group_exposures: str,
+) -> list[dict[str, Any]]:
+    """展開實際送入 matrix 的 profile，作為不可變更的預註冊測試集合。"""
+
+    def optional_floats(value: str) -> list[float | None]:
+        values: list[float | None] = []
+        for item in str(value).split(","):
+            token = item.strip().lower()
+            if token:
+                values.append(None if token in {"none", "null", "-"} else float(token))
+        return values
+
+    return [
+        {
+            "horizon": horizon,
+            "stop_loss_pct": stop_loss_pct,
+            "take_profit_pct": take_profit_pct,
+            "max_group_exposure": max_group_exposure,
+        }
+        for horizon, stop_loss_pct, take_profit_pct, max_group_exposure in itertools.product(
+            [int(item.strip()) for item in str(horizons).split(",") if item.strip()],
+            optional_floats(stop_loss_pcts),
+            optional_floats(take_profit_pcts),
+            optional_floats(max_group_exposures),
+        )
+    ]
+
+
 def parameter_universe_summary(contract: dict[str, Any]) -> dict[str, Any]:
     combinations = parameter_combinations(contract)
     ids = [row["combination_id"] for row in combinations]
@@ -657,6 +689,7 @@ def validate_funnel_transition(current: str, target: str, evidence_path: str | N
 def multiple_testing_gate(
     candidates: list[dict[str, Any]],
     *,
+    expected_family: dict[str, Any] | None = None,
     familywise_alpha: float = 0.05,
     min_robust_neighbors: int = 2,
 ) -> dict[str, Any]:
@@ -675,6 +708,10 @@ def multiple_testing_gate(
         "robust_neighbor_lineage",
         "robust_neighbor_pass_count",
         "drawdown_within_limit",
+        "statistical_unit_policy",
+        "statistical_unit_ids",
+        "statistical_unit_count",
+        "pseudo_replication_detected",
     }
     missing_by_combination: dict[str, list[str]] = {}
     for index, row in enumerate(candidates):
@@ -687,20 +724,78 @@ def multiple_testing_gate(
             missing_by_combination[str(row.get("combination_id") or f"row:{index}")] = missing
     combination_ids = [str(row.get("combination_id") or "") for row in candidates]
     correction_family_ids = {str(row.get("correction_family_id") or "") for row in candidates}
-    expected_family_id = canonical_json_hash(sorted(combination_ids))
+    expected_ids = sorted(
+        str(item)
+        for item in (expected_family or {}).get("tested_combination_ids") or []
+        if str(item)
+    )
+    expected_tested_hash = str((expected_family or {}).get("tested_combination_ids_hash") or "")
+    correction_family_combination_ids = sorted(
+        str(item)
+        for item in (expected_family or {}).get("correction_family_combination_ids") or []
+        if str(item)
+    )
+    expected_family_id = str((expected_family or {}).get("correction_family_id") or "")
+    expected_family_size = int((expected_family or {}).get("correction_family_size") or 0)
+    partition_policy = (expected_family or {}).get("partition_policy")
+    family_validation_reason = "EXPECTED_FAMILY_VALID"
+    if expected_family is None:
+        family_validation_reason = "MISSING_EXPECTED_PRE_REGISTRATION_FAMILY"
+    elif (expected_family or {}).get("registration_valid") is not True:
+        family_validation_reason = str(
+            (expected_family or {}).get("registration_validation_reason")
+            or "INVALID_PRE_REGISTRATION"
+        )
+    elif sorted(combination_ids) != expected_ids:
+        family_validation_reason = "TESTED_COMBINATION_FAMILY_MISMATCH"
+    elif expected_tested_hash != canonical_json_hash(expected_ids):
+        family_validation_reason = "TESTED_COMBINATION_HASH_MISMATCH"
+    elif (
+        not expected_family_id
+        or expected_family_size != len(correction_family_combination_ids)
+        or len(correction_family_combination_ids) != len(set(correction_family_combination_ids))
+        or expected_family_id != canonical_json_hash(correction_family_combination_ids)
+        or not set(expected_ids).issubset(set(correction_family_combination_ids))
+    ):
+        family_validation_reason = "INVALID_CORRECTION_FAMILY"
+    elif not isinstance(partition_policy, dict):
+        family_validation_reason = "MISSING_PARTITION_POLICY"
+    elif (
+        expected_family_size > len(expected_ids)
+        and partition_policy.get("correction_scope") != "global_parameter_universe"
+    ):
+        family_validation_reason = "INVALID_PARTITION_CORRECTION_SCOPE"
+    elif (
+        partition_policy.get("tested_combination_ids_hash") != expected_tested_hash
+        or partition_policy.get("correction_family_id") != expected_family_id
+        or int(partition_policy.get("correction_family_size") or 0) != expected_family_size
+    ):
+        family_validation_reason = "PARTITION_POLICY_FAMILY_MISMATCH"
     lineage_invalid = any(
         not isinstance(row.get("robust_neighbor_lineage"), list)
         or int(row.get("robust_neighbor_pass_count") or 0) != len(row.get("robust_neighbor_lineage") or [])
         or not set(str(item) for item in row.get("robust_neighbor_lineage") or []).issubset(set(combination_ids))
         for row in candidates
     )
+    statistical_unit_invalid = any(
+        row.get("statistical_unit_policy") != "independent_regime_episode_cluster.v1"
+        or not isinstance(row.get("statistical_unit_ids"), list)
+        or int(row.get("statistical_unit_count") or 0) != len(row.get("statistical_unit_ids") or [])
+        or int(row.get("statistical_unit_count") or 0) <= 0
+        or len(row.get("statistical_unit_ids") or []) != len(set(row.get("statistical_unit_ids") or []))
+        for row in candidates
+    )
+    pseudo_replication_detected = any(bool(row.get("pseudo_replication_detected")) for row in candidates)
     if (
         missing_by_combination
         or len(combination_ids) != len(set(combination_ids))
+        or family_validation_reason != "EXPECTED_FAMILY_VALID"
         or len(correction_family_ids) != 1
         or "" in correction_family_ids
         or correction_family_ids != {expected_family_id}
         or lineage_invalid
+        or statistical_unit_invalid
+        or pseudo_replication_detected
     ):
         return {
             "ok": False,
@@ -709,8 +804,10 @@ def multiple_testing_gate(
             "tested_count": tested,
             "eligible_ids": [],
             "missing_fields_by_combination": missing_by_combination,
+            "family_validation_reason": family_validation_reason,
+            "pseudo_replication_detected": pseudo_replication_detected,
         }
-    corrected_alpha = familywise_alpha / tested
+    corrected_alpha = familywise_alpha / expected_family_size
     eligible = [
         str(row["combination_id"])
         for row in candidates
@@ -723,8 +820,11 @@ def multiple_testing_gate(
         "reason_code": "ROBUST_CANDIDATE_AVAILABLE" if eligible else "MULTIPLE_TESTING_OR_ROBUSTNESS_FAILED",
         "evidence_complete": True,
         "tested_count": tested,
+        "correction_family_size": expected_family_size,
         "corrected_alpha": corrected_alpha,
         "eligible_ids": sorted(eligible),
+        "family_validation_reason": family_validation_reason,
+        "pseudo_replication_detected": False,
     }
 
 
@@ -769,15 +869,75 @@ def coverage_summary(
     return {**payload, "coverage_hash": canonical_json_hash(payload)}
 
 
+def required_universal_regime_policy(contract: dict[str, Any]) -> dict[str, Any]:
+    """由 contract taxonomy 推導 universal gate 的完整 exact identity 集合。"""
+
+    taxonomy = contract.get("taxonomy") if isinstance(contract.get("taxonomy"), dict) else {}
+    configured = {
+        str(item)
+        for item in taxonomy.get("required_universal_regime_ids") or []
+        if str(item)
+    }
+    policy = str(taxonomy.get("universal_identity_policy") or "")
+    if taxonomy.get("identity_rule") != "exact_base_and_exact_family_tag_set":
+        return {"ok": False, "reason_code": "MISSING_REQUIRED_REGIME_POLICY", "required_regime_ids": []}
+    if policy == "full_cartesian_product":
+        bases = sorted(
+            str(item)
+            for item in taxonomy.get("base_regimes") or []
+            if str(item) and str(item) != "UNKNOWN"
+        )
+        tags = sorted(str(item) for item in taxonomy.get("family_tags") or [] if str(item))
+        derived = {
+            regime_identity_id({"base_regime": base, "family_tags": list(tag_subset)})
+            for base in bases
+            for size in range(len(tags) + 1)
+            for tag_subset in itertools.combinations(tags, size)
+        }
+    elif policy == "explicit_legal_identity_set":
+        rules = taxonomy.get("legal_identity_rules")
+        legal = taxonomy.get("legal_universal_regime_ids")
+        if not rules or not isinstance(legal, list):
+            return {"ok": False, "reason_code": "MISSING_REQUIRED_REGIME_POLICY", "required_regime_ids": []}
+        derived = {str(item) for item in legal if str(item)}
+    else:
+        return {"ok": False, "reason_code": "MISSING_REQUIRED_REGIME_POLICY", "required_regime_ids": []}
+    if not derived or configured != derived:
+        return {
+            "ok": False,
+            "reason_code": "REQUIRED_REGIME_POLICY_MISMATCH",
+            "required_regime_ids": sorted(derived),
+            "missing_regime_ids": sorted(derived - configured),
+            "unexpected_regime_ids": sorted(configured - derived),
+        }
+    return {
+        "ok": True,
+        "reason_code": "REQUIRED_REGIME_POLICY_VALID",
+        "required_regime_ids": sorted(derived),
+    }
+
+
 def validate_universal_candidate(
     candidate: dict[str, Any],
     *,
     contract: dict[str, Any],
 ) -> dict[str, Any]:
-    if "universe_declared_complete" in candidate and not bool(candidate["universe_declared_complete"]):
+    universe = contract.get("parameter_universe") if isinstance(contract.get("parameter_universe"), dict) else {}
+    if (
+        universe.get("declared_complete") is not True
+        or str(universe.get("inventory_status") or "") != "COMPLETE"
+        or bool(universe.get("blocked_dimensions"))
+    ):
         return {"unlocked": False, "reason_code": "PARAMETER_UNIVERSE_INCOMPLETE"}
+    required_policy = required_universal_regime_policy(contract)
+    if not required_policy["ok"]:
+        return {
+            "unlocked": False,
+            "reason_code": required_policy["reason_code"],
+            "missing_regime_ids": required_policy.get("missing_regime_ids", []),
+            "unexpected_regime_ids": required_policy.get("unexpected_regime_ids", []),
+        }
     required_fields = {
-        "universe_declared_complete",
         "coverage_closed",
         "high_value_regions_remaining",
         "fixed_parameter_hash",
@@ -798,18 +958,23 @@ def validate_universal_candidate(
         return {"unlocked": False, "reason_code": "HIGH_VALUE_RESEARCH_REMAINS"}
     if not candidate.get("fixed_parameter_hash"):
         return {"unlocked": False, "reason_code": "PARAMETERS_NOT_FROZEN"}
-    contract_required = contract.get("taxonomy", {}).get("required_universal_regime_ids")
-    required_regimes = {
-        str(item)
-        for item in contract_required or []
-        if isinstance(contract_required, list) and str(item)
-    }
-    if not required_regimes:
-        return {"unlocked": False, "reason_code": "MISSING_REQUIRED_REGIME_POLICY"}
+    required_regimes = set(required_policy["required_regime_ids"])
     candidate_required = {str(item) for item in candidate.get("required_regime_ids") or [] if str(item)}
     if candidate_required and candidate_required != required_regimes:
-        return {"unlocked": False, "reason_code": "REQUIRED_REGIME_POLICY_MISMATCH"}
+        return {
+            "unlocked": False,
+            "reason_code": "REQUIRED_REGIME_POLICY_MISMATCH",
+            "missing_regime_ids": sorted(required_regimes - candidate_required),
+            "unexpected_regime_ids": sorted(candidate_required - required_regimes),
+        }
     coverage_regimes = {str(item) for item in candidate["coverage_regime_ids"] or [] if str(item)}
+    researched_outside_policy = sorted(coverage_regimes - required_regimes)
+    if researched_outside_policy:
+        return {
+            "unlocked": False,
+            "reason_code": "REQUIRED_REGIME_POLICY_MISMATCH",
+            "unexpected_regime_ids": researched_outside_policy,
+        }
     missing_coverage = sorted(required_regimes - coverage_regimes)
     if missing_coverage:
         return {
@@ -1142,6 +1307,7 @@ def matrix_command(
     topic: ResearchTopic | None = None,
     *,
     allowed_episode_ids: list[str] | None = None,
+    pre_registration_path: Path | None = None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -1168,6 +1334,8 @@ def matrix_command(
             raise ValueError("closed regime matrix 缺少 regime identity/history")
         if not allowed_episode_ids:
             raise ValueError("closed regime matrix 缺少 immutable development episode IDs")
+        if pre_registration_path is None:
+            raise ValueError("closed regime matrix 缺少 immutable pre-registration")
         command.extend(
             [
                 "--require-exact-regime",
@@ -1179,6 +1347,8 @@ def matrix_command(
                 ",".join(topic.regime_identity["family_tags"]),
                 "--allowed-episode-ids",
                 ",".join(allowed_episode_ids),
+                "--pre-registration",
+                repo_path(pre_registration_path) or str(pre_registration_path),
             ]
         )
     return command
@@ -1798,6 +1968,29 @@ def prepare_closed_experiment(
         for trade_date in episode["trade_dates"]
     ]
     universe = parameter_universe_summary(contract)
+    tested_combinations = validation_profile_combinations(
+        topic.horizons or args.horizons,
+        topic.stop_loss_pcts or args.stop_loss_pcts,
+        topic.take_profit_pcts or args.take_profit_pcts,
+        topic.max_group_exposures or args.max_group_exposures,
+    )
+    tested_combination_ids = sorted(canonical_json_hash(item) for item in tested_combinations)
+    legal_combination_ids = sorted(str(item) for item in universe["legal_combination_ids"])
+    unexpected_combinations = sorted(set(tested_combination_ids) - set(legal_combination_ids))
+    if unexpected_combinations:
+        raise ValueError(f"validation profile 包含 contract 外參數組合：{unexpected_combinations[:3]}")
+    tested_combination_ids_hash = canonical_json_hash(tested_combination_ids)
+    correction_family_id = canonical_json_hash(legal_combination_ids)
+    partition_policy = {
+        "policy_id": "validation_profile_partition.v1",
+        "partition_id": topic.validation_profile,
+        "correction_scope": "global_parameter_universe",
+        "parameter_space_hash": universe["parameter_space_hash"],
+        "tested_combination_count": len(tested_combination_ids),
+        "tested_combination_ids_hash": tested_combination_ids_hash,
+        "correction_family_id": correction_family_id,
+        "correction_family_size": len(legal_combination_ids),
+    }
     registration = build_experiment_pre_registration(
         {
             "experiment_label": f"{args.date}:{topic.topic_id}",
@@ -1808,6 +2001,12 @@ def prepare_closed_experiment(
             "split_id": split.metadata["split_id"],
             "split_artifact_hash": canonical_json_hash(split_payload),
             "parameter_space_hash": universe["parameter_space_hash"],
+            "tested_combination_ids": tested_combination_ids,
+            "tested_combination_ids_hash": tested_combination_ids_hash,
+            "correction_family_combination_ids": legal_combination_ids,
+            "correction_family_id": correction_family_id,
+            "correction_family_size": len(legal_combination_ids),
+            "partition_policy": partition_policy,
             "metric_policy_hash": canonical_json_hash(contract.get("multiple_testing_policy") or {}),
             "sealed_episode_ids": split.metadata["sealed_episode_ids"],
             "sealed_trade_dates": sealed_trade_dates,
@@ -1868,6 +2067,7 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 repo_path(baseline_output) or str(baseline_output),
                 topic,
                 allowed_episode_ids=allowed_episode_ids,
+                pre_registration_path=closed["registration_path"] if closed else None,
             ),
         ),
         (
@@ -1878,6 +2078,7 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 repo_path(candidate_output) or str(candidate_output),
                 topic,
                 allowed_episode_ids=allowed_episode_ids,
+                pre_registration_path=closed["registration_path"] if closed else None,
             ),
         ),
         (

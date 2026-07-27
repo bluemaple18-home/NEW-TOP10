@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import argparse
-import itertools
 import json
 import math
 import sys
@@ -57,22 +56,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base-regime", default=None)
     parser.add_argument("--family-tags", default="")
     parser.add_argument("--allowed-episode-ids", default=None)
+    parser.add_argument("--pre-registration", default=None)
     parser.add_argument("--output", default=None)
     return parser.parse_args()
-
-
-def parse_int_list(value: str) -> list[int]:
-    return [int(item.strip()) for item in value.split(",") if item.strip()]
-
-
-def parse_optional_float_list(value: str) -> list[float | None]:
-    result: list[float | None] = []
-    for item in value.split(","):
-        token = item.strip().lower()
-        if not token:
-            continue
-        result.append(None if token in {"none", "null", "-"} else float(token))
-    return result
 
 
 def replay_args(base: argparse.Namespace, scenario: dict[str, Any]) -> argparse.Namespace:
@@ -209,6 +195,7 @@ def matrix_row(scenario: dict[str, Any], replay: dict[str, Any]) -> dict[str, An
     avg_trade_return = finite(summary.get("avg_trade_return"))
     win_rate = finite(summary.get("win_rate"))
     score = strategy_score(total_return, max_drawdown, win_rate, avg_trade_return)
+    statistical_evidence = independent_episode_sign_test(replay.get("trades", []))
     return {
         "scenario_id": scenario_id(scenario),
         "combination_id": regime_research.canonical_json_hash(scenario),
@@ -226,26 +213,97 @@ def matrix_row(scenario: dict[str, Any], replay: dict[str, Any]) -> dict[str, An
         "max_group_exposure_observed": summary.get("max_group_exposure"),
         "exit_reason_counts": event_counts(replay.get("trades", [])),
         "score": score,
-        "p_value": exact_sign_test_p_value(replay.get("trades", [])),
+        "p_value": statistical_evidence["p_value"],
+        "statistical_unit_policy": "independent_regime_episode_cluster.v1",
+        "statistical_unit_ids": statistical_evidence["statistical_unit_ids"],
+        "statistical_unit_count": statistical_evidence["statistical_unit_count"],
+        "pseudo_replication_detected": statistical_evidence["pseudo_replication_detected"],
+        "pseudo_replication_reasons": statistical_evidence["pseudo_replication_reasons"],
         "robust_neighbor_lineage": [],
         "robust_neighbor_pass_count": 0,
         "drawdown_within_limit": max_drawdown is not None and max_drawdown >= MAX_DRAWDOWN_LIMIT,
     }
 
 
-def exact_sign_test_p_value(trades: list[dict[str, Any]]) -> float | None:
-    returns = [finite(row.get("net_return")) for row in trades]
-    non_zero = [value for value in returns if value is not None and value != 0]
+def independent_episode_sign_test(trades: list[dict[str, Any]]) -> dict[str, Any]:
+    """以獨立 regime episode 聚合報酬，並拒絕重複或跨 alias 重疊交易。"""
+
+    reasons: set[str] = set()
+    fingerprints: set[tuple[str, str, str]] = set()
+    returns_by_episode: dict[str, list[float]] = {}
+    intervals_by_stock: dict[str, list[tuple[str, str, str]]] = {}
+    for trade in trades:
+        net_return = finite(trade.get("net_return"))
+        if net_return is None or net_return == 0:
+            continue
+        episode_id = str(trade.get("regime_episode_id") or "")
+        stock_id = str(trade.get("stock_id") or "")
+        entry_date = str(trade.get("entry_date") or "")
+        exit_date = str(trade.get("exit_date") or "")
+        if not episode_id:
+            reasons.add("MISSING_INDEPENDENT_EPISODE_ID")
+            continue
+        if not stock_id or not entry_date or not exit_date:
+            reasons.add("MISSING_TRADE_IDENTITY")
+            continue
+        fingerprint = (stock_id, entry_date, exit_date)
+        if fingerprint in fingerprints:
+            reasons.add("DUPLICATE_TRADE_IDENTITY")
+        fingerprints.add(fingerprint)
+        returns_by_episode.setdefault(episode_id, []).append(net_return)
+        intervals_by_stock.setdefault(stock_id, []).append((entry_date, exit_date, episode_id))
+    for intervals in intervals_by_stock.values():
+        active: list[tuple[str, str]] = []
+        for entry_date, exit_date, episode_id in sorted(intervals):
+            active = [(end_date, prior_episode) for end_date, prior_episode in active if end_date >= entry_date]
+            if any(prior_episode != episode_id for _, prior_episode in active):
+                reasons.add("OVERLAPPING_ALIAS_EPISODES")
+            active.append((exit_date, episode_id))
+    cluster_returns = [
+        sum(values) / len(values)
+        for _, values in sorted(returns_by_episode.items())
+        if values
+    ]
+    non_zero = [value for value in cluster_returns if value != 0]
     if not non_zero:
-        return None
-    wins = sum(value > 0 for value in non_zero)
-    sample_count = len(non_zero)
-    tail = sum(math.comb(sample_count, count) for count in range(wins, sample_count + 1))
-    return round(tail / (2**sample_count), 12)
+        p_value = None
+    else:
+        wins = sum(value > 0 for value in non_zero)
+        sample_count = len(non_zero)
+        tail = sum(math.comb(sample_count, count) for count in range(wins, sample_count + 1))
+        p_value = round(tail / (2**sample_count), 12)
+    return {
+        "p_value": p_value,
+        "statistical_unit_ids": sorted(returns_by_episode),
+        "statistical_unit_count": len(non_zero),
+        "pseudo_replication_detected": bool(reasons),
+        "pseudo_replication_reasons": sorted(reasons),
+    }
 
 
-def annotate_statistical_lineage(rows: list[dict[str, Any]]) -> None:
-    family_id = regime_research.canonical_json_hash(sorted(str(row["combination_id"]) for row in rows))
+def bind_trade_episode_clusters(
+    replay: dict[str, Any],
+    episode_by_date: dict[str, str] | None,
+) -> dict[str, Any]:
+    """以 immutable ranking-date episode map 綁定統計 cluster，不信任 trade payload alias。"""
+
+    if episode_by_date is None:
+        return replay
+    trades = [
+        {
+            **trade,
+            "regime_episode_id": episode_by_date.get(str(trade.get("ranking_date") or "")),
+        }
+        for trade in replay.get("trades", [])
+    ]
+    return {**replay, "trades": trades}
+
+
+def exact_sign_test_p_value(trades: list[dict[str, Any]]) -> float | None:
+    return independent_episode_sign_test(trades)["p_value"]
+
+
+def annotate_statistical_lineage(rows: list[dict[str, Any]], *, correction_family_id: str) -> None:
     for row in rows:
         lineage = []
         for neighbor in rows:
@@ -262,7 +320,7 @@ def annotate_statistical_lineage(rows: list[dict[str, Any]]) -> None:
                 and (finite(neighbor.get("total_return")) or 0.0) > 0
             ):
                 lineage.append(str(neighbor["combination_id"]))
-        row["correction_family_id"] = family_id
+        row["correction_family_id"] = correction_family_id
         row["robust_neighbor_lineage"] = sorted(lineage)
         row["robust_neighbor_pass_count"] = len(lineage)
 
@@ -296,35 +354,57 @@ def score_sort_value(item: dict[str, Any]) -> float:
     return float(score) if score is not None else -999.0
 
 
+def expected_statistical_family(args: argparse.Namespace) -> dict[str, Any] | None:
+    if not bool(args.require_exact_regime) or not getattr(args, "pre_registration", None):
+        return None
+    path = run_portfolio_replay.resolve_path(args.pre_registration)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    registration_valid = bool(payload.get("experiment_id")) and (
+        str(payload["experiment_id"]) == regime_research.deterministic_experiment_id(payload)
+    )
+    return {
+        "tested_combination_ids": payload.get("tested_combination_ids"),
+        "tested_combination_ids_hash": payload.get("tested_combination_ids_hash"),
+        "correction_family_combination_ids": payload.get("correction_family_combination_ids"),
+        "correction_family_id": payload.get("correction_family_id"),
+        "correction_family_size": payload.get("correction_family_size"),
+        "partition_policy": payload.get("partition_policy"),
+        "registration_valid": registration_valid,
+        "registration_validation_reason": (
+            "PRE_REGISTRATION_VALID"
+            if registration_valid
+            else "PRE_REGISTRATION_ID_MISMATCH"
+        ),
+    }
+
+
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     price_frame = run_portfolio_replay.run_backtest_replay.load_price_frame(
         run_portfolio_replay.resolve_path(args.features)
     )
-    scenarios = [
-        {
-            "horizon": horizon,
-            "stop_loss_pct": stop_loss_pct,
-            "take_profit_pct": take_profit_pct,
-            "max_group_exposure": max_group_exposure,
-        }
-        for horizon, stop_loss_pct, take_profit_pct, max_group_exposure in itertools.product(
-            parse_int_list(args.horizons),
-            parse_optional_float_list(args.stop_loss_pcts),
-            parse_optional_float_list(args.take_profit_pcts),
-            parse_optional_float_list(args.max_group_exposures),
-        )
-    ]
+    scenarios = regime_research.validation_profile_combinations(
+        args.horizons,
+        args.stop_loss_pcts,
+        args.take_profit_pcts,
+        args.max_group_exposures,
+    )
+    expected_family = expected_statistical_family(args)
     regime_identity, allowed_dates, episode_by_date = exact_regime_context(args)
     args.exact_regime_episode_by_date = episode_by_date
     rows: list[dict[str, Any]] = []
     with exact_ranking_file_scope(allowed_dates):
         for scenario in scenarios:
             replay = run_portfolio_replay.run_portfolio_from_price_frame(replay_args(args, scenario), price_frame)
-            rows.append(matrix_row(scenario, replay))
-    annotate_statistical_lineage(rows)
+            rows.append(matrix_row(scenario, bind_trade_episode_clusters(replay, episode_by_date)))
+    correction_family_id = str((expected_family or {}).get("correction_family_id") or "")
+    annotate_statistical_lineage(rows, correction_family_id=correction_family_id)
     ranked_rows = sorted(rows, key=lambda item: (item["score"] is not None, score_sort_value(item)), reverse=True)
     best = ranked_rows[0] if ranked_rows else None
-    statistical_gate = regime_research.multiple_testing_gate(ranked_rows) if args.require_exact_regime else None
+    statistical_gate = (
+        regime_research.multiple_testing_gate(ranked_rows, expected_family=expected_family)
+        if args.require_exact_regime
+        else None
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -356,6 +436,12 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "parameter_space_hash": regime_research.canonical_json_hash(scenarios),
             "correction_family_id": rows[0]["correction_family_id"] if rows else None,
+            "pre_registration": getattr(args, "pre_registration", None),
+            "tested_combination_ids_hash": (
+                (expected_family or {}).get("tested_combination_ids_hash")
+                if args.require_exact_regime
+                else None
+            ),
         },
         "summary": {
             "scenario_count": len(rows),
