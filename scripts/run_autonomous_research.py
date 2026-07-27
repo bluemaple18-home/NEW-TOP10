@@ -743,8 +743,16 @@ def statistical_lineage_authority(
         role: list(split.metadata[f"{role}_episode_ids"])
         for role in ("development", "validation", "embargo", "sealed")
     }
+    dataset_hash = canonical_json_hash(rows)
+    sealed_trade_dates = canonical_trade_dates(
+        [
+            str(trade_date)
+            for episode in split.sealed
+            for trade_date in episode["trade_dates"]
+        ]
+    )
     return {
-        "dataset_hash": canonical_json_hash(rows),
+        "dataset_hash": dataset_hash,
         "split_id": split.metadata["split_id"],
         "split_artifact_hash": canonical_json_hash(split_artifact),
         "development_episode_ids": split_ids["development"],
@@ -752,11 +760,12 @@ def statistical_lineage_authority(
         "embargo_episode_ids": split_ids["embargo"],
         "sealed_episode_ids": split_ids["sealed"],
         "episode_split_ids_hash": canonical_json_hash(split_ids),
-        "sealed_trade_dates": [
-            str(trade_date)
-            for episode in split.sealed
-            for trade_date in episode["trade_dates"]
-        ],
+        "sealed_trade_dates": sealed_trade_dates,
+        "sealed_trade_date_hash": canonical_json_hash(sealed_trade_dates),
+        "sealed_dataset_slice_hash": sealed_dataset_slice_hash(
+            dataset_hash,
+            sealed_trade_dates,
+        ),
         "split_artifact": split_artifact,
     }
 
@@ -988,6 +997,20 @@ def validate_statistical_family_registration(
             "split_artifact_hash": "SPLIT_ARTIFACT_HASH_MISMATCH",
         }
         for field, reason_code in scalar_lineage_reason_codes.items():
+            if candidate.get(field) != expected_lineage.get(field):
+                return {"ok": False, "reason_code": reason_code}
+        if candidate.get("sealed_trade_dates") != expected_lineage.get(
+            "sealed_trade_dates"
+        ):
+            return {
+                "ok": False,
+                "reason_code": "SEALED_TRADE_DATES_MISMATCH",
+            }
+        sealed_hash_reason_codes = {
+            "sealed_trade_date_hash": "SEALED_TRADE_DATE_HASH_MISMATCH",
+            "sealed_dataset_slice_hash": "SEALED_DATASET_SLICE_HASH_MISMATCH",
+        }
+        for field, reason_code in sealed_hash_reason_codes.items():
             if candidate.get(field) != expected_lineage.get(field):
                 return {"ok": False, "reason_code": reason_code}
         for role in ("development", "validation", "embargo", "sealed"):

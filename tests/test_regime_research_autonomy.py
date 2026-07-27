@@ -892,6 +892,47 @@ def _write_registered_matrix_registration(
     return registration_path, registry_path
 
 
+def _rewrite_content_addressed_registration_field(
+    registration_path: Path,
+    registry_path: Path,
+    *,
+    field: str,
+    value: object,
+) -> None:
+    registration = json.loads(registration_path.read_text(encoding="utf-8"))
+    artifact = {
+        key: item
+        for key, item in registration.items()
+        if key != "registry_record_hash"
+    }
+    artifact[field] = value
+    artifact["experiment_id"] = research.deterministic_experiment_id(artifact)
+    registry_record_hash = research.canonical_json_hash(artifact)
+    registration_path.write_text(
+        json.dumps(
+            {
+                **artifact,
+                "registry_record_hash": registry_record_hash,
+            }
+        ),
+        encoding="utf-8",
+    )
+    registry_path.write_text(
+        json.dumps(
+            {
+                **artifact,
+                "event_type": "PRE_REGISTRATION",
+                "registry_record_hash": registry_record_hash,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            allow_nan=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _write_runtime_history(tmp_path: Path) -> tuple[Path, list[dict], object]:
     rows: list[dict] = []
     cursor = date(2025, 1, 2)
@@ -966,6 +1007,132 @@ def test_public_matrix_rejects_content_addressed_forged_runtime_lineage(
 
     assert expected_family["registration_valid"] is False
     assert expected_family["registration_validation_reason"] == "DATASET_HASH_MISMATCH"
+
+
+def test_public_matrix_rejects_content_addressed_forged_sealed_trade_dates(
+    tmp_path: Path,
+) -> None:
+    history_path, rows, runtime_split = _write_runtime_history(tmp_path)
+    contract = _contract()
+    authority = research.statistical_family_contract(contract)
+    runtime_lineage = research.statistical_lineage_authority(
+        rows=rows,
+        contract=contract,
+        regime_id=research.regime_identity_id(EXACT),
+        horizons=[3, 5, 10],
+    )
+    registration_path, registry_path = _write_registered_matrix_registration(
+        tmp_path,
+        tested_ids=authority["legal_partitions"]["standard"],
+        correction_family_ids=authority["global_combination_ids"],
+        partition_id="standard",
+        correction_scope="global_parameter_universe",
+        lineage={
+            "dataset_hash": runtime_lineage["dataset_hash"],
+            "split_id": runtime_lineage["split_id"],
+            "split_artifact_hash": runtime_lineage["split_artifact_hash"],
+            "split_ids": {
+                role: list(runtime_lineage[f"{role}_episode_ids"])
+                for role in ("development", "validation", "embargo", "sealed")
+            },
+            "sealed_trade_dates": ["2099-01-01"],
+        },
+    )
+
+    expected_family = matrix.expected_statistical_family(
+        _adversarial_matrix_args(
+            registration_path,
+            registry_path,
+            market_regime_history=history_path,
+            allowed_episode_ids=runtime_split.metadata["development_episode_ids"],
+        )
+    )
+    gate = research.multiple_testing_gate(
+        _statistical_rows(
+            authority["legal_partitions"]["standard"],
+            authority["global_family_id"],
+        ),
+        expected_family=expected_family,
+    )
+
+    assert gate["family_validation_reason"] == "SEALED_TRADE_DATES_MISMATCH"
+    assert (
+        expected_family["registration_validation_reason"]
+        == "SEALED_TRADE_DATES_MISMATCH"
+    )
+    assert expected_family["registration_valid"] is False
+
+
+@pytest.mark.parametrize(
+    ("forged_field", "forged_value", "reason_code"),
+    [
+        (
+            "sealed_trade_dates",
+            ["2099-01-01"],
+            "SEALED_TRADE_DATES_MISMATCH",
+        ),
+        (
+            "sealed_trade_date_hash",
+            "sha256:forged-sealed-trade-date-hash",
+            "SEALED_TRADE_DATE_HASH_MISMATCH",
+        ),
+        (
+            "sealed_dataset_slice_hash",
+            "sha256:forged-sealed-dataset-slice-hash",
+            "SEALED_DATASET_SLICE_HASH_MISMATCH",
+        ),
+    ],
+)
+def test_public_matrix_sealed_lineage_mismatch_reason_codes_are_stable(
+    tmp_path: Path,
+    forged_field: str,
+    forged_value: object,
+    reason_code: str,
+) -> None:
+    history_path, rows, runtime_split = _write_runtime_history(tmp_path)
+    contract = _contract()
+    authority = research.statistical_family_contract(contract)
+    runtime_lineage = research.statistical_lineage_authority(
+        rows=rows,
+        contract=contract,
+        regime_id=research.regime_identity_id(EXACT),
+        horizons=[3, 5, 10],
+    )
+    registration_path, registry_path = _write_registered_matrix_registration(
+        tmp_path,
+        tested_ids=authority["legal_partitions"]["standard"],
+        correction_family_ids=authority["global_combination_ids"],
+        partition_id="standard",
+        correction_scope="global_parameter_universe",
+        lineage={
+            "dataset_hash": runtime_lineage["dataset_hash"],
+            "split_id": runtime_lineage["split_id"],
+            "split_artifact_hash": runtime_lineage["split_artifact_hash"],
+            "split_ids": {
+                role: list(runtime_lineage[f"{role}_episode_ids"])
+                for role in ("development", "validation", "embargo", "sealed")
+            },
+            "sealed_trade_dates": runtime_lineage["sealed_trade_dates"],
+        },
+    )
+    _rewrite_content_addressed_registration_field(
+        registration_path,
+        registry_path,
+        field=forged_field,
+        value=forged_value,
+    )
+
+    expected_family = matrix.expected_statistical_family(
+        _adversarial_matrix_args(
+            registration_path,
+            registry_path,
+            market_regime_history=history_path,
+            allowed_episode_ids=runtime_split.metadata["development_episode_ids"],
+        )
+    )
+
+    assert expected_family["registration_valid"] is False
+    assert expected_family["registration_validation_reason"] == reason_code
 
 
 @pytest.mark.parametrize(
