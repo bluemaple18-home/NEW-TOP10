@@ -1,0 +1,383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fog_runtime_receipt_v3.schema.json",
+  "title": "Fog closed-regime runtime receipt v3",
+  "description": "Producer 與 verifier 共用的唯一 closed receipt authority；所有欄位皆 required，只有 topic_run_lineage[].decision 明定可為 null。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "closed_regime_research",
+    "schema_authority",
+    "time_authority",
+    "market_regime_history",
+    "daily_research_artifact",
+    "queue_owner",
+    "runner_identity",
+    "research_contract",
+    "exact_regime",
+    "state_transition",
+    "topic_run_lineage",
+    "topic_run_lineage_sha256",
+    "production_impact"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "closed-regime-runtime-receipt.v3"
+    },
+    "status": {
+      "const": "OK"
+    },
+    "closed_regime_research": {
+      "const": true
+    },
+    "schema_authority": {
+      "$ref": "#/$defs/schema_authority"
+    },
+    "time_authority": {
+      "$ref": "#/$defs/time_authority"
+    },
+    "market_regime_history": {
+      "$ref": "#/$defs/market_regime_history"
+    },
+    "daily_research_artifact": {
+      "$ref": "#/$defs/daily_research_artifact"
+    },
+    "queue_owner": {
+      "const": "fog_worker"
+    },
+    "runner_identity": {
+      "const": "scripts/run_daily_research_quota.sh"
+    },
+    "research_contract": {
+      "$ref": "#/$defs/research_contract"
+    },
+    "exact_regime": {
+      "$ref": "#/$defs/exact_regime"
+    },
+    "state_transition": {
+      "$ref": "#/$defs/state_transition"
+    },
+    "topic_run_lineage": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/topic_run"
+      }
+    },
+    "topic_run_lineage_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "production_impact": {
+      "const": "NO_PRODUCTION_CHANGE"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "utc_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+    },
+    "taipei_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?\\+08:00$"
+    },
+    "repo_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
+    },
+    "schema_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema_version"
+      ],
+      "properties": {
+        "path": {
+          "const": "docs/architecture/fog_runtime_receipt_v3.schema.json"
+        },
+        "schema_version": {
+          "const": "closed-regime-runtime-receipt.v3"
+        }
+      }
+    },
+    "time_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "contract_hash",
+        "market_id",
+        "market_timezone",
+        "run_context_created_at_utc",
+        "run_context_market_datetime",
+        "market_run_date",
+        "generated_at_utc",
+        "generated_market_datetime"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "fog-runtime-time-authority.v1"
+        },
+        "contract_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "market_id": {
+          "const": "TWSE"
+        },
+        "market_timezone": {
+          "const": "Asia/Taipei"
+        },
+        "run_context_created_at_utc": {
+          "$ref": "#/$defs/utc_timestamp"
+        },
+        "run_context_market_datetime": {
+          "$ref": "#/$defs/taipei_timestamp"
+        },
+        "market_run_date": {
+          "$ref": "#/$defs/date"
+        },
+        "generated_at_utc": {
+          "$ref": "#/$defs/utc_timestamp"
+        },
+        "generated_market_datetime": {
+          "$ref": "#/$defs/taipei_timestamp"
+        }
+      }
+    },
+    "market_regime_history": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema_version",
+        "sha256",
+        "source_trade_date"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repo_relative_path"
+        },
+        "schema_version": {
+          "const": "market-regime-history.v2"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_trade_date": {
+          "$ref": "#/$defs/date"
+        }
+      }
+    },
+    "daily_research_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema_version",
+        "sha256",
+        "artifact_run_date",
+        "daily_source_date"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repo_relative_path"
+        },
+        "schema_version": {
+          "const": "autonomous-research-run.v1"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "artifact_run_date": {
+          "$ref": "#/$defs/date"
+        },
+        "daily_source_date": {
+          "$ref": "#/$defs/date"
+        }
+      }
+    },
+    "research_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema_version",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repo_relative_path"
+        },
+        "schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "exact_regime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_regime",
+        "family_tags",
+        "identity_id"
+      ],
+      "properties": {
+        "base_regime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "family_tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "identity_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "state_transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "const": "VERIFIED_HISTORY"
+        },
+        "to": {
+          "const": "CLOSED_RESEARCH_COMPLETED"
+        }
+      }
+    },
+    "topic_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "topic_id",
+        "status",
+        "decision"
+      ],
+      "properties": {
+        "topic_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "x-v2-to-v3-mapping": [
+    "v2.schema_version -> v3.schema_version | constant replacement only after full v3 production; never relabel a v2 payload",
+    "v2.status -> v3.status | direct only when canonical workload and every v3 gate independently pass",
+    "v2.closed_regime_research -> v3.closed_regime_research | direct comparison against canonical contract",
+    "no v2 field -> v3.schema_authority | recompute from the repository authority",
+    "v2.generated_at -> v3.time_authority.generated_at_utc | strict parse and canonicalize only when the instant is authoritative; otherwise fail closed",
+    "v2.run_date -> v3.time_authority.market_run_date | do not copy; recompute from the authoritative UTC run context",
+    "no v2 field -> v3.time_authority.contract_hash and projections | recompute from repository policy and authoritative UTC instants; missing instants fail closed",
+    "v2.market_regime_history -> v3.market_regime_history | re-read canonical artifact and recompute path, schema, hash, and source_trade_date",
+    "v2.daily_research_artifact.run_date -> v3.daily_research_artifact.artifact_run_date | verify against immutable run context and canonical path identity",
+    "no trustworthy v2 field -> v3.daily_research_artifact.daily_source_date | re-read canonical artifact source lineage; unavailable lineage fails closed",
+    "v2.queue_owner and v2.runner_identity -> v3 same fields | direct comparison against fixed repository authority",
+    "v2.research_contract -> v3.research_contract | re-read canonical contract and recompute schema and hash",
+    "v2.exact_regime -> v3.exact_regime | re-derive from verified regime history; never trust-copy",
+    "v2.state_transition -> v3.state_transition | direct comparison only after all transition prerequisites independently pass",
+    "v2.topic_runs and v2.topic_runs_sha256 -> v3.topic_run_lineage and v3.topic_run_lineage_sha256 | rebuild from canonical daily artifact and recompute hash",
+    "v2.production_impact -> v3.production_impact | compare with fixed NO_PRODUCTION_CHANGE policy; never infer from status",
+    "missing authoritative run-context instant, source lineage, contract, artifact, or hash -> no v3 field | fail closed; archive v2 without upgrading"
+  ],
+  "examples": [
+    {
+      "schema_version": "closed-regime-runtime-receipt.v3",
+      "status": "OK",
+      "closed_regime_research": true,
+      "schema_authority": {
+        "path": "docs/architecture/fog_runtime_receipt_v3.schema.json",
+        "schema_version": "closed-regime-runtime-receipt.v3"
+      },
+      "time_authority": {
+        "schema_version": "fog-runtime-time-authority.v1",
+        "contract_hash": "67327c40206251adf4d377e76833dfd6261ce4fb3f56c7de0b0bf92c7231e357",
+        "market_id": "TWSE",
+        "market_timezone": "Asia/Taipei",
+        "run_context_created_at_utc": "2026-08-08T02:00:00Z",
+        "run_context_market_datetime": "2026-08-08T10:00:00+08:00",
+        "market_run_date": "2026-08-08",
+        "generated_at_utc": "2026-08-08T02:01:00Z",
+        "generated_market_datetime": "2026-08-08T10:01:00+08:00"
+      },
+      "market_regime_history": {
+        "path": "artifacts/market_regime_history.json",
+        "schema_version": "market-regime-history.v2",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "source_trade_date": "2026-08-07"
+      },
+      "daily_research_artifact": {
+        "path": "artifacts/autonomous_research/daily_research_2026-08-08.json",
+        "schema_version": "autonomous-research-run.v1",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "artifact_run_date": "2026-08-08",
+        "daily_source_date": "2026-08-07"
+      },
+      "queue_owner": "fog_worker",
+      "runner_identity": "scripts/run_daily_research_quota.sh",
+      "research_contract": {
+        "path": "config/regime_research_contract.json",
+        "schema_version": "regime-research-contract.v1",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "exact_regime": {
+        "base_regime": "RISK_OFF",
+        "family_tags": [
+          "HIGH_VOLATILITY"
+        ],
+        "identity_id": "RISK_OFF|HIGH_VOLATILITY"
+      },
+      "state_transition": {
+        "from": "VERIFIED_HISTORY",
+        "to": "CLOSED_RESEARCH_COMPLETED"
+      },
+      "topic_run_lineage": [
+        {
+          "topic_id": "topic-001",
+          "status": "OK",
+          "decision": "REJECTED_BY_STRATEGY_MATRIX"
+        }
+      ],
+      "topic_run_lineage_sha256": "849f37e96efa858ab3032126daf7ed6a7d76048729055063b6c448b9e167c385",
+      "production_impact": "NO_PRODUCTION_CHANGE"
+    }
+  ]
+}

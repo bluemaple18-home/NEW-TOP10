@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-REPAIR-1
-status: REPAIR_READY
+status: READY_FOR_TARGETED_REVIEW
 type: repair
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 dispatch_version: 2
@@ -206,11 +206,13 @@ git diff --check
   `5ffc0a33874fe742ba7ffa2170ad6236612817e4`
 - Repair initial branch：`detached`
 - Repair initial worktree：clean
-- Capability preflight：task內執行中；worktree provisioning已 `PASS`
+- Capability preflight：`PASS`；isolated detached worktree、Git、uv-managed
+  CPython 3.12.12、`zoneinfo`與 SHA-256 可用；不需 network/live runtime。
 - Workflow：
-  `REVIEW_NO_GO → REPAIR_READY`
+  `REVIEW_NO_GO → REPAIR_READY → READY_FOR_TARGETED_REVIEW`
 - Gate 1 card contract：`PASS`
 - Gate 2 visible thread：`PASS`
-- Gate 3 Repair delivery：`PENDING`
+- Gate 3 Repair delivery：`PASS`；candidate
+  `f9cfbabde1d89d2f759a7cbc60d1dd03e96a2171`
 - Gate 4 targeted re-review：`PENDING`
 - Gate 5 implementation authorization：`DENIED_UNTIL_REVIEW_GO`
