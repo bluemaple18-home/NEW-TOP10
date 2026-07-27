@@ -1,10 +1,10 @@
 ---
 id: REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01
-status: NO_GO
+status: GO_FOR_IMPLEMENTATION_CARD
 type: review
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 dispatch_version: 2
-review_cycle: architecture
+review_cycle: repair_1_targeted
 ownership: independent_reviewer
 thickness: strict
 risk: high
@@ -14,6 +14,7 @@ model_reason: 時間權威契約橫跨市場日、UTC freshness、receipt schema
 chain_base_sha: cfaabf914f752b63a8efaf15ca40a5984221c2e1
 base_sha: cfaabf914f752b63a8efaf15ca40a5984221c2e1
 reviewed_candidate_sha: 26d8471d15572f216095122f2462df79bc96edc1
+repair_candidate_sha: f9cfbabde1d89d2f759a7cbc60d1dd03e96a2171
 architecture_thread_id: 019fa43d-3544-7662-be9c-3b258eee681c
 reviewer_thread_id: 019fa448-4ffe-7473-af1a-7cc1f417bdd7
 evidence_path: docs/evidence/REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01/
@@ -56,6 +57,7 @@ candidate、runtime code、tests、config、plist、live state或 production art
 | Cycle | Candidate | State | Blocking finding IDs |
 |---|---|---|---|
 | architecture | `26d8471d15572f216095122f2462df79bc96edc1` | `NO_GO` | `FRTA-P1-01`, `FRTA-P1-02`, `FRTA-P1-03` |
+| repair-1 targeted | `f9cfbabde1d89d2f759a7cbc60d1dd03e96a2171` | `GO_FOR_IMPLEMENTATION_CARD` | none；三個 fixed findings closed |
 
 - 本卡是此 chain 唯一可重用 Reviewer identity。
 - 若 `NO_GO`，只建立一個可重用 Repair task，並由本 Reviewer做 targeted
@@ -168,3 +170,31 @@ Review commit只允許新增本卡 evidence與更新本卡狀態；不得修改 
 - Gate 4 independent review：`NO_GO`；固定 findings：
   `FRTA-P1-01`、`FRTA-P1-02`、`FRTA-P1-03`
 - Gate 5 implementation authorization：`DENIED`
+
+## Repair-1 targeted re-review receipt
+
+- Repair card：
+  `docs/tasks/2026-07-28_FOG-RUNTIME-TIME-AUTHORITY-01_REPAIR-1_contract_closure.md`
+- Repair candidate parent：
+  `5ffc0a33874fe742ba7ffa2170ad6236612817e4`
+- Repair candidate：
+  `f9cfbabde1d89d2f759a7cbc60d1dd03e96a2171`
+- Reviewer identity：同一 task/thread
+  `019fa448-4ffe-7473-af1a-7cc1f417bdd7`
+- Worktree/capability：isolated detached、clean；Git、uv-created temporary
+  `.venv` CPython 3.12.12、`zoneinfo`與 SHA-256 可用；不需 network/live runtime
+- Fixed finding disposition：
+  - `FRTA-P1-01 CLOSED`
+  - `FRTA-P1-02 CLOSED`
+  - `FRTA-P1-03 CLOSED`
+- Independent probes：
+  `docs/evidence/REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01/repair1_targeted_probe.py`
+  與 `repair1_targeted_results.json`
+- Workflow：
+  `REVIEW_NO_GO → REPAIR_1 → TARGETED_REVIEW → GO_FOR_IMPLEMENTATION_CARD`
+- Gate 1 Repair card contract：`PASS`
+- Gate 2 fixed candidate／allowlist：`PASS`
+- Gate 3 independent targeted probes：`PASS`
+- Gate 4 targeted re-review：`GO_FOR_IMPLEMENTATION_CARD`
+- Gate 5 implementation authorization：`AUTHORIZED_CARD_CREATION_ONLY`
+- Runtime／production：`NOT_IMPLEMENTED / NOT_ACCEPTED`

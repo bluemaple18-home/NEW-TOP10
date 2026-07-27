@@ -1,0 +1,58 @@
+{
+  "direct_regression": {
+    "age_boundaries": {
+      "-5": true,
+      "-5.001": false,
+      "900": true,
+      "900.001": false
+    },
+    "dst_folds": [
+      0,
+      1
+    ],
+    "dst_round_trip": true,
+    "host_dates": {
+      "America/Los_Angeles": "2026-07-28",
+      "Asia/Taipei": "2026-07-28",
+      "UTC": "2026-07-28"
+    },
+    "host_invariant": true,
+    "policy_hash": "67327c40206251adf4d377e76833dfd6261ce4fb3f56c7de0b0bf92c7231e357",
+    "policy_hash_matches_fixture": true
+  },
+  "frta_p1_01": {
+    "artifact_drift": true,
+    "future_source": true,
+    "valid_weekend": true,
+    "wrong_source": true
+  },
+  "frta_p1_02": {
+    "clean_room_policy": true,
+    "regression_ids_present": true,
+    "required_modules_present": true
+  },
+  "frta_p1_03": {
+    "canonical_fixture": true,
+    "invalid_format_rejections": {
+      "calendar_date": true,
+      "non_z_utc": true,
+      "path_traversal": true,
+      "utc_hour": true
+    },
+    "missing_rejections": 46,
+    "nullable_locations": [
+      "$/$defs/topic_run/properties/decision"
+    ],
+    "object_contract": true,
+    "object_contract_errors": [],
+    "object_layer_count": 9,
+    "only_decision_nullable": true,
+    "required_mutation_count": 46,
+    "topic_hash_matches": true,
+    "type_rejections": 46,
+    "unknown_mutation_count": 9,
+    "unknown_rejections": 9,
+    "v2_missing_authority_fails": true,
+    "v2_no_relabel": true
+  }
+}
