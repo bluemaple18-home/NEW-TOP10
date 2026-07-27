@@ -72,3 +72,27 @@ runtime_exact_match_dataset_hash=sha256:f328e8caacfeb4b93c23a1c2e4deb5c817d07292
    修復前可通過、修復後必須拒絕。
 4. 保留合法 `81/720`、partition coverage、available-data canary 行為及 production hashes。
 5. 修復 candidate 交回同一 Reviewer task 複審。
+
+## Repair-1 re-review
+
+- Reviewed candidate：`759dd7c76bf7ea3766fb67670c501be3a24ef2c4`
+- Verdict：`NO_GO`
+- Finding：`F-02`
+
+Repair-1 已正確綁定 dataset、split artifact/id、四角色 episode IDs 與 episode hash，
+但未比對同一 runtime authority 產生的 `sealed_trade_dates`、
+`sealed_trade_date_hash`、`sealed_dataset_slice_hash`。
+
+同一 Reviewer 撰寫的 public-path adversarial harness 實跑結果：
+
+```text
+append_registry_ok=true
+registration_sealed_trade_dates=["2099-01-01"]
+runtime_sealed_trade_dates starts with 2025-05-26
+public_cli_returncode=0
+public_cli_family_validation_reason=EXPECTED_FAMILY_VALID
+```
+
+因此 content-address 正確但 sealed dates/slice lineage 偽造的 registration 仍可通過。
+Repair-2 必須由 runtime authority 重算並逐欄比對上述三欄，任一不符 fail closed，
+補 public-path red→green test，並保持 Repair-1 其餘驗證與 production hashes 不變。
