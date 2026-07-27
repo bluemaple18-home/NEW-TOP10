@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 from typing import Any, Iterable
 from urllib.parse import urlencode
-from zipfile import ZipFile
+from zipfile import BadZipFile, ZipFile
 
 import requests
 
@@ -438,5 +438,5 @@ def _valid_zip(path: Path) -> bool:
         with ZipFile(path) as archive:
             _validate_zip_resources(archive)
             return bool(archive.namelist())
-    except Exception:
+    except (BadZipFile, OSError):
         return False

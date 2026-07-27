@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pandas as pd
@@ -302,3 +303,53 @@ def test_zip_total_uncompressed_limit_fails_closed(
 
     with pytest.raises(ValueError, match="總未壓縮大小"):
         parse_xbrl_zip(path)
+
+
+def test_download_xbrl_zip_cache_reuse_preserves_resource_limit_diagnostic(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    period = "2025Q2"
+    member = "tifrs-fr1-m1-ci-cr-2330-2025Q2.html"
+    destination = tmp_path / f"tifrs-{period}.zip"
+    with ZipFile(destination, "w") as archive:
+        archive.writestr(member, "A" * 2048)
+    download_calls: list[str] = []
+
+    def fake_get(*args: object, **kwargs: object) -> SimpleNamespace:
+        del args, kwargs
+        download_calls.append("called")
+        return SimpleNamespace(content=destination.read_bytes(), raise_for_status=lambda: None)
+
+    monkeypatch.setattr(mops_xbrl, "MAX_ZIP_MEMBER_UNCOMPRESSED_BYTES", 1024)
+    monkeypatch.setattr(mops_xbrl.requests, "get", fake_get)
+
+    with pytest.raises(ValueError) as error:
+        mops_xbrl.download_xbrl_zip(period, tmp_path)
+
+    assert str(error.value) == (
+        f"ZIP member 單檔未壓縮大小超限：{member}=2048 > 1024"
+    )
+    assert download_calls == []
+
+
+def test_download_xbrl_zip_new_download_preserves_resource_limit_diagnostic(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    period = "2025Q2"
+    member = "tifrs-fr1-m1-ci-cr-2330-2025Q2.html"
+    source = tmp_path / "source.zip"
+    with ZipFile(source, "w") as archive:
+        archive.writestr(member, "A" * 2048)
+    response = SimpleNamespace(content=source.read_bytes(), raise_for_status=lambda: None)
+
+    monkeypatch.setattr(mops_xbrl, "MAX_ZIP_MEMBER_UNCOMPRESSED_BYTES", 1024)
+    monkeypatch.setattr(mops_xbrl.requests, "get", lambda *args, **kwargs: response)
+
+    with pytest.raises(ValueError) as error:
+        mops_xbrl.download_xbrl_zip(period, tmp_path / "downloads")
+
+    assert str(error.value) == (
+        f"ZIP member 單檔未壓縮大小超限：{member}=2048 > 1024"
+    )
