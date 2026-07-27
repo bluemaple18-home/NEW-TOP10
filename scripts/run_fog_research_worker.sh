@@ -149,9 +149,41 @@ LAST_ROLLUP_EXIT_CODE=0
 CIRCUIT_OPEN=0
 BATCH_LOG_START_LINE=0
 
+recover_retry_circuit_if_verified() {
+  if [ "${TOP10_FOG_RESEARCH_RECOVER_CIRCUIT:-0}" != "1" ]; then
+    return 1
+  fi
+
+  local recovery_stamp verifier_output
+  recovery_stamp="$(date +%Y%m%d%H%M%S)"
+  verifier_output="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.recovery_verification_${recovery_stamp}.json"
+  echo "fog research retry circuit recovery requested; verifying weekend inventory before state rotation" | tee -a "$LOG_FILE"
+  set +e
+  "$PYTHON_BIN" scripts/verify_weekend_universe_inventory.py \
+    --date "$RUN_DATE" \
+    --output "$verifier_output" >> "$LOG_FILE" 2>&1
+  local verifier_exit_code=$?
+  set -e
+  if [ "$verifier_exit_code" -ne 0 ]; then
+    echo "fog research retry circuit recovery denied; inventory verification failed output=$verifier_output" | tee -a "$LOG_FILE"
+    return 1
+  fi
+
+  if [ -f "$RETRY_STATE_FILE" ]; then
+    mv "$RETRY_STATE_FILE" "$RETRY_STATE_FILE.recovered.$recovery_stamp"
+  fi
+  if [ -f "$RETRY_CONTEXT_FILE" ]; then
+    mv "$RETRY_CONTEXT_FILE" "$RETRY_CONTEXT_FILE.recovered.$recovery_stamp"
+  fi
+  echo "fog research retry circuit recovered after verification output=$verifier_output" | tee -a "$LOG_FILE"
+  return 0
+}
+
 if [ -f "$RETRY_STATE_FILE" ] && grep -qx "circuit_open=1" "$RETRY_STATE_FILE"; then
-  echo "fog research worker skipped; retry circuit remains open state=$RETRY_STATE_FILE context=$RETRY_CONTEXT_FILE" | tee -a "$LOG_FILE"
-  exit 0
+  if ! recover_retry_circuit_if_verified; then
+    echo "fog research worker skipped; retry circuit remains open state=$RETRY_STATE_FILE context=$RETRY_CONTEXT_FILE" | tee -a "$LOG_FILE"
+    exit 0
+  fi
 fi
 
 record_failure() {

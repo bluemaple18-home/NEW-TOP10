@@ -39,6 +39,11 @@ from weekend_training_common import (
 
 
 SCHEMA_VERSION = "weekend-universe-inventory.v1"
+MAX_SNAPSHOT_ATTEMPTS = 2
+
+
+class SnapshotInconsistentError(RuntimeError):
+    """來源 snapshot 在 inventory 建立期間不一致時明確失敗。"""
 
 
 def parse_args() -> argparse.Namespace:
@@ -158,7 +163,22 @@ def normalize_unsupported_details(rows: list[dict[str, Any]]) -> None:
         row["unblock_requirement"] = info["unblock_requirement"]
 
 
-def build_payload_and_rows(date: str, include_records: bool = False) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def source_snapshot_mismatch(summary: dict[str, Any]) -> dict[str, Any] | None:
+    processed = int(summary.get("current_processed_count") or 0)
+    remaining = int(summary.get("current_remaining_count") or 0)
+    source_processed = summary.get("map_expanded_processed")
+    source_pending = summary.get("map_expanded_pending")
+    if processed == source_processed and remaining == source_pending:
+        return None
+    return {
+        "current_processed_count": processed,
+        "map_expanded_processed": source_processed,
+        "current_remaining_count": remaining,
+        "map_expanded_pending": source_pending,
+    }
+
+
+def build_payload_and_rows_once(date: str, include_records: bool = False) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     rows, fog_map = build_initial_rows(date)
     assign_equivalence(rows)
     normalize_unsupported_details(rows)
@@ -210,6 +230,22 @@ def build_payload_and_rows(date: str, include_records: bool = False) -> tuple[di
     if include_records:
         payload["records"] = rows
     return payload, rows
+
+
+def build_payload_and_rows(date: str, include_records: bool = False) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    mismatches: list[dict[str, Any]] = []
+    for attempt in range(1, MAX_SNAPSHOT_ATTEMPTS + 1):
+        payload, rows = build_payload_and_rows_once(date, include_records=include_records)
+        mismatch = source_snapshot_mismatch(payload["summary"])
+        if mismatch is None:
+            if attempt > 1:
+                payload["source"]["snapshot_rebuilt_after_mismatch"] = True
+            return payload, rows
+        mismatches.append({"attempt": attempt, **mismatch})
+    raise SnapshotInconsistentError(
+        "weekend inventory source snapshot inconsistent after bounded rebuild: "
+        + json.dumps(mismatches, ensure_ascii=False, sort_keys=True)
+    )
 
 
 def build_payload(date: str, include_records: bool = False) -> dict[str, Any]:
