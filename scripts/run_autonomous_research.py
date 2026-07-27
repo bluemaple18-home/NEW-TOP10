@@ -697,6 +697,70 @@ def build_regime_episodes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return episodes
 
 
+def statistical_lineage_authority(
+    *,
+    rows: list[dict[str, Any]],
+    contract: dict[str, Any],
+    regime_id: str,
+    horizons: list[int],
+) -> dict[str, Any]:
+    """由可信 runtime history 與 contract 重建唯一的 episode split lineage。"""
+
+    as_of_check = validate_as_of_regime_rows(rows)
+    if not as_of_check["ok"]:
+        raise ValueError(
+            f"market regime history 不符合 as-of 契約：{as_of_check['violations'][:3]}"
+        )
+    if not horizons or any(int(item) <= 0 for item in horizons):
+        raise ValueError("statistical lineage horizons 必須是正整數")
+    episodes = [
+        episode
+        for episode in build_regime_episodes(rows)
+        if episode["regime_id"] == regime_id
+    ]
+    split_policy = contract.get("split_policy") or {}
+    max_horizon = max(int(item) for item in horizons)
+    split = build_regime_episode_split(
+        episodes,
+        horizon=max_horizon,
+        min_development_episodes=int(
+            split_policy.get("development_episode_count") or 2
+        ),
+        validation_episodes=int(split_policy.get("validation_episode_count") or 1),
+        sealed_episodes=int(split_policy.get("sealed_episode_count") or 1),
+        min_embargo_trade_days=int(
+            split_policy.get("embargo_min_trade_days") or max_horizon
+        ),
+    )
+    split_artifact = {
+        "metadata": split.metadata,
+        "development": split.development,
+        "validation": split.validation,
+        "embargo": split.embargo,
+        "sealed": split.sealed,
+    }
+    split_ids = {
+        role: list(split.metadata[f"{role}_episode_ids"])
+        for role in ("development", "validation", "embargo", "sealed")
+    }
+    return {
+        "dataset_hash": canonical_json_hash(rows),
+        "split_id": split.metadata["split_id"],
+        "split_artifact_hash": canonical_json_hash(split_artifact),
+        "development_episode_ids": split_ids["development"],
+        "validation_episode_ids": split_ids["validation"],
+        "embargo_episode_ids": split_ids["embargo"],
+        "sealed_episode_ids": split_ids["sealed"],
+        "episode_split_ids_hash": canonical_json_hash(split_ids),
+        "sealed_trade_dates": [
+            str(trade_date)
+            for episode in split.sealed
+            for trade_date in episode["trade_dates"]
+        ],
+        "split_artifact": split_artifact,
+    }
+
+
 def deterministic_experiment_id(candidate: dict[str, Any]) -> str:
     identity_payload = {
         key: value
@@ -816,6 +880,7 @@ def validate_statistical_family_registration(
     registry: list[dict[str, Any]],
     expected_regime_id: str | None = None,
     expected_development_episode_ids: list[str] | None = None,
+    expected_lineage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """以 trusted contract 與 manager registry 驗證 matrix statistical authority。"""
 
@@ -916,6 +981,30 @@ def validate_statistical_family_registration(
         return {"ok": False, "reason_code": "EPISODE_SPLIT_HASH_MISMATCH"}
     if expected_regime_id and candidate.get("regime_id") != expected_regime_id:
         return {"ok": False, "reason_code": "REGIME_IDENTITY_MISMATCH"}
+    if expected_lineage is not None:
+        scalar_lineage_reason_codes = {
+            "dataset_hash": "DATASET_HASH_MISMATCH",
+            "split_id": "SPLIT_ID_MISMATCH",
+            "split_artifact_hash": "SPLIT_ARTIFACT_HASH_MISMATCH",
+        }
+        for field, reason_code in scalar_lineage_reason_codes.items():
+            if candidate.get(field) != expected_lineage.get(field):
+                return {"ok": False, "reason_code": reason_code}
+        for role in ("development", "validation", "embargo", "sealed"):
+            if split_ids[role] != list(
+                expected_lineage.get(f"{role}_episode_ids") or []
+            ):
+                return {
+                    "ok": False,
+                    "reason_code": f"{role.upper()}_EPISODE_IDS_MISMATCH",
+                }
+        if candidate.get("episode_split_ids_hash") != expected_lineage.get(
+            "episode_split_ids_hash"
+        ):
+            return {
+                "ok": False,
+                "reason_code": "EPISODE_SPLIT_IDS_HASH_MISMATCH",
+            }
     if expected_development_episode_ids is not None and sorted(
         expected_development_episode_ids
     ) != sorted(split_ids["development"]):
@@ -2310,32 +2399,17 @@ def prepare_closed_experiment(
     if not as_of_check["ok"]:
         raise ValueError(f"market regime history 不符合 as-of 契約：{as_of_check['violations'][:3]}")
     regime_id = regime_identity_id(topic.regime_identity)
-    episodes = [episode for episode in build_regime_episodes(rows) if episode["regime_id"] == regime_id]
     contract = load_json(contract_path)
-    split_policy = contract.get("split_policy") or {}
     horizons = parse_positive_ints(topic.horizons or args.horizons)
-    split = build_regime_episode_split(
-        episodes,
-        horizon=max(horizons),
-        min_development_episodes=int(split_policy.get("development_episode_count") or 2),
-        validation_episodes=int(split_policy.get("validation_episode_count") or 1),
-        sealed_episodes=int(split_policy.get("sealed_episode_count") or 1),
-        min_embargo_trade_days=int(split_policy.get("embargo_min_trade_days") or max(horizons)),
+    lineage = statistical_lineage_authority(
+        rows=rows,
+        contract=contract,
+        regime_id=regime_id,
+        horizons=horizons,
     )
-    split_payload = {
-        "metadata": split.metadata,
-        "development": split.development,
-        "validation": split.validation,
-        "embargo": split.embargo,
-        "sealed": split.sealed,
-    }
+    split_payload = lineage["split_artifact"]
     split_path = run_dir / f"{slugify(topic.topic_id)}_closed_episode_split.json"
     write_text_atomic(split_path, json.dumps(split_payload, ensure_ascii=False, indent=2, allow_nan=False))
-    sealed_trade_dates = [
-        str(trade_date)
-        for episode in split.sealed
-        for trade_date in episode["trade_dates"]
-    ]
     universe = parameter_universe_summary(contract)
     tested_combinations = validation_profile_combinations(
         topic.horizons or args.horizons,
@@ -2374,9 +2448,9 @@ def prepare_closed_experiment(
             "research_question": topic.hypothesis,
             "baseline_id": canonical_json_hash({"baseline_dir": topic.baseline_dir}),
             "regime_id": regime_id,
-            "dataset_hash": canonical_json_hash(rows),
-            "split_id": split.metadata["split_id"],
-            "split_artifact_hash": canonical_json_hash(split_payload),
+            "dataset_hash": lineage["dataset_hash"],
+            "split_id": lineage["split_id"],
+            "split_artifact_hash": lineage["split_artifact_hash"],
             "parameter_space_hash": universe["parameter_space_hash"],
             "contract_hash": authority["contract_hash"],
             "global_combination_ids": authority["global_combination_ids"],
@@ -2390,17 +2464,12 @@ def prepare_closed_experiment(
             "correction_family_size": len(legal_combination_ids),
             "partition_policy": partition_policy,
             "metric_policy_hash": canonical_json_hash(contract.get("multiple_testing_policy") or {}),
-            "development_episode_ids": split.metadata["development_episode_ids"],
-            "validation_episode_ids": split.metadata["validation_episode_ids"],
-            "embargo_episode_ids": split.metadata["embargo_episode_ids"],
-            "sealed_episode_ids": split.metadata["sealed_episode_ids"],
-            "episode_split_ids_hash": canonical_json_hash(
-                {
-                    role: list(split.metadata[f"{role}_episode_ids"])
-                    for role in ("development", "validation", "embargo", "sealed")
-                }
-            ),
-            "sealed_trade_dates": sealed_trade_dates,
+            "development_episode_ids": lineage["development_episode_ids"],
+            "validation_episode_ids": lineage["validation_episode_ids"],
+            "embargo_episode_ids": lineage["embargo_episode_ids"],
+            "sealed_episode_ids": lineage["sealed_episode_ids"],
+            "episode_split_ids_hash": lineage["episode_split_ids_hash"],
+            "sealed_trade_dates": lineage["sealed_trade_dates"],
         }
     )
     registration_path = run_dir / f"{slugify(topic.topic_id)}_closed_pre_registration.json"
@@ -2429,7 +2498,7 @@ def prepare_closed_experiment(
         "registry_path": registry_path,
         "split_path": split_path,
         "registration_path": registration_path,
-        "development_episode_ids": list(split.metadata["development_episode_ids"]),
+        "development_episode_ids": list(lineage["development_episode_ids"]),
     }
 
 

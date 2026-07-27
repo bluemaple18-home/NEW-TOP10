@@ -740,7 +740,22 @@ def test_real_matrix_row_contains_pre_registered_statistical_evidence() -> None:
 def _adversarial_matrix_args(
     pre_registration: Path,
     experiment_registry: Path | None = None,
+    *,
+    market_regime_history: Path | None = None,
+    allowed_episode_ids: list[str] | None = None,
 ) -> SimpleNamespace:
+    default_history_path = pre_registration.parent / "market-regime-history.json"
+    effective_history_path = market_regime_history or default_history_path
+    effective_allowed_episode_ids = allowed_episode_ids
+    if effective_allowed_episode_ids is None and default_history_path.exists():
+        history = json.loads(default_history_path.read_text(encoding="utf-8"))
+        runtime_lineage = research.statistical_lineage_authority(
+            rows=history["rows"],
+            contract=_contract(),
+            regime_id=research.regime_identity_id(EXACT),
+            horizons=[3, 5, 10],
+        )
+        effective_allowed_episode_ids = runtime_lineage["development_episode_ids"]
     return SimpleNamespace(
         rankings_dir="unused",
         features="unused.parquet",
@@ -757,10 +772,10 @@ def _adversarial_matrix_args(
         slippage_rate=0.001,
         same_day_hit_priority="stop_loss",
         require_exact_regime=True,
-        market_regime_history="unused.json",
+        market_regime_history=str(effective_history_path),
         base_regime="BROAD_RISK_ON",
         family_tags="BIG_BULL,HIGH_CHOPPY",
-        allowed_episode_ids="episode-1",
+        allowed_episode_ids=",".join(effective_allowed_episode_ids or ["episode-1"]),
         pre_registration=str(pre_registration),
         experiment_registry=str(experiment_registry) if experiment_registry else None,
     )
@@ -773,13 +788,40 @@ def _write_registered_matrix_registration(
     correction_family_ids: list[str],
     partition_id: str,
     correction_scope: str,
+    lineage: dict | None = None,
 ) -> tuple[Path, Path]:
     contract = _contract()
     universe = research.parameter_universe_summary(contract)
     tested_ids = sorted(tested_ids)
     correction_family_ids = sorted(correction_family_ids)
     correction_family_id = research.canonical_json_hash(correction_family_ids)
-    split_ids = {
+    runtime_lineage = None
+    if lineage is None:
+        _, rows, runtime_split = _write_runtime_history(tmp_path)
+        split_artifact = {
+            "metadata": runtime_split.metadata,
+            "development": runtime_split.development,
+            "validation": runtime_split.validation,
+            "embargo": runtime_split.embargo,
+            "sealed": runtime_split.sealed,
+        }
+        runtime_split_ids = {
+            role: list(runtime_split.metadata[f"{role}_episode_ids"])
+            for role in ("development", "validation", "embargo", "sealed")
+        }
+        runtime_lineage = {
+            "dataset_hash": research.canonical_json_hash(rows),
+            "split_id": runtime_split.metadata["split_id"],
+            "split_artifact_hash": research.canonical_json_hash(split_artifact),
+            "split_ids": runtime_split_ids,
+            "sealed_trade_dates": [
+                str(trade_date)
+                for episode in runtime_split.sealed
+                for trade_date in episode["trade_dates"]
+            ],
+        }
+    effective_lineage = lineage or runtime_lineage or {}
+    split_ids = effective_lineage.get("split_ids") or {
         "development": ["episode-1"],
         "validation": ["validation-1"],
         "embargo": ["embargo-1"],
@@ -790,9 +832,11 @@ def _write_registered_matrix_registration(
             "research_question": "public matrix trust-boundary adversarial fixture",
             "baseline_id": "baseline-v1",
             "regime_id": "BROAD_RISK_ON|BIG_BULL+HIGH_CHOPPY",
-            "dataset_hash": "sha256:dataset",
-            "split_id": "sha256:split",
-            "split_artifact_hash": "sha256:split-artifact",
+            "dataset_hash": effective_lineage.get("dataset_hash", "sha256:dataset"),
+            "split_id": effective_lineage.get("split_id", "sha256:split"),
+            "split_artifact_hash": effective_lineage.get(
+                "split_artifact_hash", "sha256:split-artifact"
+            ),
             "parameter_space_hash": universe["parameter_space_hash"],
             "contract_hash": research.canonical_json_hash(contract),
             "global_combination_ids": sorted(universe["legal_combination_ids"]),
@@ -823,8 +867,13 @@ def _write_registered_matrix_registration(
             "validation_episode_ids": split_ids["validation"],
             "embargo_episode_ids": split_ids["embargo"],
             "sealed_episode_ids": split_ids["sealed"],
-            "episode_split_ids_hash": research.canonical_json_hash(split_ids),
-            "sealed_trade_dates": ["2026-01-31"],
+            "episode_split_ids_hash": effective_lineage.get(
+                "episode_split_ids_hash",
+                research.canonical_json_hash(split_ids),
+            ),
+            "sealed_trade_dates": effective_lineage.get(
+                "sealed_trade_dates", ["2026-01-31"]
+            ),
         }
     )
     registry_path = tmp_path / "registry.jsonl"
@@ -841,6 +890,148 @@ def _write_registered_matrix_registration(
         encoding="utf-8",
     )
     return registration_path, registry_path
+
+
+def _write_runtime_history(tmp_path: Path) -> tuple[Path, list[dict], object]:
+    rows: list[dict] = []
+    cursor = date(2025, 1, 2)
+    for _ in range(10):
+        for _ in range(15):
+            trade_date = cursor.isoformat()
+            rows.append(
+                {
+                    "trade_date": trade_date,
+                    "as_of_date": trade_date,
+                    **EXACT,
+                    "is_transition": False,
+                }
+            )
+            cursor += timedelta(days=1)
+        transition_date = cursor.isoformat()
+        rows.append(
+            {
+                "trade_date": transition_date,
+                "as_of_date": transition_date,
+                **EXACT,
+                "is_transition": True,
+            }
+        )
+        cursor += timedelta(days=1)
+    history_path = tmp_path / "market-regime-history.json"
+    history_path.write_text(json.dumps({"rows": rows}), encoding="utf-8")
+    split = build_regime_episode_split(
+        research.build_regime_episodes(rows),
+        horizon=10,
+        min_development_episodes=2,
+        validation_episodes=1,
+        sealed_episodes=1,
+        min_embargo_trade_days=10,
+    )
+    return history_path, rows, split
+
+
+def test_public_matrix_rejects_content_addressed_forged_runtime_lineage(
+    tmp_path: Path,
+) -> None:
+    history_path, _, runtime_split = _write_runtime_history(tmp_path)
+    authority = research.statistical_family_contract(_contract())
+    forged_split_ids = {
+        "development": list(runtime_split.metadata["development_episode_ids"]),
+        "validation": ["sha256:forged-validation"],
+        "embargo": ["sha256:forged-embargo"],
+        "sealed": ["sha256:forged-sealed"],
+    }
+    registration_path, registry_path = _write_registered_matrix_registration(
+        tmp_path,
+        tested_ids=authority["legal_partitions"]["standard"],
+        correction_family_ids=authority["global_combination_ids"],
+        partition_id="standard",
+        correction_scope="global_parameter_universe",
+        lineage={
+            "dataset_hash": "sha256:forged-runtime-lineage",
+            "split_id": "sha256:forged-split",
+            "split_artifact_hash": "sha256:forged-split-artifact",
+            "split_ids": forged_split_ids,
+        },
+    )
+
+    expected_family = matrix.expected_statistical_family(
+        _adversarial_matrix_args(
+            registration_path,
+            registry_path,
+            market_regime_history=history_path,
+            allowed_episode_ids=runtime_split.metadata["development_episode_ids"],
+        )
+    )
+
+    assert expected_family["registration_valid"] is False
+    assert expected_family["registration_validation_reason"] == "DATASET_HASH_MISMATCH"
+
+
+@pytest.mark.parametrize(
+    ("forged_field", "reason_code"),
+    [
+        ("dataset_hash", "DATASET_HASH_MISMATCH"),
+        ("split_id", "SPLIT_ID_MISMATCH"),
+        ("split_artifact_hash", "SPLIT_ARTIFACT_HASH_MISMATCH"),
+        ("development", "DEVELOPMENT_EPISODE_IDS_MISMATCH"),
+        ("validation", "VALIDATION_EPISODE_IDS_MISMATCH"),
+        ("embargo", "EMBARGO_EPISODE_IDS_MISMATCH"),
+        ("sealed", "SEALED_EPISODE_IDS_MISMATCH"),
+        ("episode_split_ids_hash", "EPISODE_SPLIT_HASH_MISMATCH"),
+    ],
+)
+def test_public_matrix_lineage_mismatch_reason_codes_are_stable(
+    tmp_path: Path,
+    forged_field: str,
+    reason_code: str,
+) -> None:
+    history_path, rows, runtime_split = _write_runtime_history(tmp_path)
+    contract = _contract()
+    authority = research.statistical_family_contract(contract)
+    runtime_lineage = research.statistical_lineage_authority(
+        rows=rows,
+        contract=contract,
+        regime_id=research.regime_identity_id(EXACT),
+        horizons=[3, 5, 10],
+    )
+    split_ids = {
+        role: list(runtime_lineage[f"{role}_episode_ids"])
+        for role in ("development", "validation", "embargo", "sealed")
+    }
+    registration_lineage = {
+        "dataset_hash": runtime_lineage["dataset_hash"],
+        "split_id": runtime_lineage["split_id"],
+        "split_artifact_hash": runtime_lineage["split_artifact_hash"],
+        "split_ids": split_ids,
+        "sealed_trade_dates": runtime_lineage["sealed_trade_dates"],
+    }
+    if forged_field in split_ids:
+        split_ids[forged_field] = [f"sha256:forged-{forged_field}"]
+    elif forged_field == "episode_split_ids_hash":
+        registration_lineage[forged_field] = "sha256:forged-episode-split-ids"
+    else:
+        registration_lineage[forged_field] = f"sha256:forged-{forged_field}"
+    registration_path, registry_path = _write_registered_matrix_registration(
+        tmp_path,
+        tested_ids=authority["legal_partitions"]["standard"],
+        correction_family_ids=authority["global_combination_ids"],
+        partition_id="standard",
+        correction_scope="global_parameter_universe",
+        lineage=registration_lineage,
+    )
+
+    expected_family = matrix.expected_statistical_family(
+        _adversarial_matrix_args(
+            registration_path,
+            registry_path,
+            market_regime_history=history_path,
+            allowed_episode_ids=runtime_split.metadata["development_episode_ids"],
+        )
+    )
+
+    assert expected_family["registration_valid"] is False
+    assert expected_family["registration_validation_reason"] == reason_code
 
 
 def _statistical_rows(combination_ids: list[str], family_id: str) -> list[dict]:

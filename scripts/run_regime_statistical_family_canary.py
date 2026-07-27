@@ -330,7 +330,7 @@ def run_synthetic_canaries(
     root: Path,
     artifact_dir: Path,
     contract: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     fixture = synthetic_fixture(root)
     authority = research.statistical_family_contract(contract)
     local_combinations = research.validation_profile_combinations(
@@ -438,7 +438,84 @@ def run_synthetic_canaries(
         "shared_registry_record_hash": standard_payload["registry_record_hash"],
         "runs": run_receipts,
     }
-    return local_receipt, standard_receipt
+
+    forged_split_ids = {
+        "development": list(fixture["split"].metadata["development_episode_ids"]),
+        "validation": ["sha256:forged-validation"],
+        "embargo": ["sha256:forged-embargo"],
+        "sealed": ["sha256:forged-sealed"],
+    }
+    forged_values = {
+        key: value
+        for key, value in standard_payload.items()
+        if key not in {"experiment_id", "registry_record_hash"}
+    }
+    forged_values.update(
+        {
+            "dataset_hash": "sha256:forged-runtime-lineage",
+            "split_id": "sha256:forged-split",
+            "split_artifact_hash": "sha256:forged-split-artifact",
+            "development_episode_ids": forged_split_ids["development"],
+            "validation_episode_ids": forged_split_ids["validation"],
+            "embargo_episode_ids": forged_split_ids["embargo"],
+            "sealed_episode_ids": forged_split_ids["sealed"],
+            "episode_split_ids_hash": research.canonical_json_hash(forged_split_ids),
+        }
+    )
+    forged_registration = research.build_experiment_pre_registration(forged_values)
+    forged_registry_path = root / "forged-lineage-registry.jsonl"
+    forged_registered = research.append_experiment_registry(
+        forged_registry_path,
+        forged_registration,
+    )
+    if not forged_registered["ok"]:
+        raise RuntimeError(f"forged-lineage registration failed: {forged_registered}")
+    forged_registration = {
+        **forged_registration,
+        "registry_record_hash": forged_registered["registry_record_hash"],
+    }
+    forged_registration_path = root / "forged-lineage-registration.json"
+    write_json(forged_registration_path, forged_registration)
+    forged_output_path = artifact_dir / "forged-lineage-public-matrix.json"
+    forged_execution = run_command(
+        matrix_command(
+            fixture=fixture,
+            registration_path=forged_registration_path,
+            registry_path=forged_registry_path,
+            output_path=forged_output_path,
+            horizons=standard_profile["horizons"],
+            stop_loss_pcts=standard_profile["stop_loss_pcts"],
+            take_profit_pcts=standard_profile["take_profit_pcts"],
+            max_group_exposures=standard_profile["max_group_exposures"],
+            max_ranking_files=6,
+        )
+    )
+    forged_receipt = matrix_receipt(forged_output_path, forged_execution)
+    forged_gate = forged_receipt["statistical_gate"]
+    forged_receipt.update(
+        {
+            "status": (
+                "PASS"
+                if forged_execution["returncode"] == 0
+                and forged_receipt["scenario_count"] == 81
+                and not forged_gate.get("ok")
+                and not forged_gate.get("evidence_complete")
+                and forged_gate.get("family_validation_reason")
+                == "DATASET_HASH_MISMATCH"
+                else "FAIL"
+            ),
+            "registration_dataset_hash": forged_registration["dataset_hash"],
+            "runtime_dataset_hash": research.canonical_json_hash(
+                fixture["history_rows"]
+            ),
+            "registration_split_id": forged_registration["split_id"],
+            "runtime_split_id": fixture["split"].metadata["split_id"],
+            "registration_episode_split_ids_hash": forged_registration[
+                "episode_split_ids_hash"
+            ],
+        }
+    )
+    return local_receipt, standard_receipt, forged_receipt
 
 
 def safe_real_rankings(
@@ -759,7 +836,11 @@ def main() -> int:
     started = datetime.now(timezone.utc)
     with tempfile.TemporaryDirectory(prefix="regime-family-canary-") as temp_dir:
         root = Path(temp_dir)
-        canary_a, canary_b = run_synthetic_canaries(root, artifact_dir, contract)
+        canary_a, canary_b, forged_lineage = run_synthetic_canaries(
+            root,
+            artifact_dir,
+            contract,
+        )
         canary_d = run_available_data_canary(
             root=root,
             artifact_dir=artifact_dir,
@@ -788,6 +869,7 @@ def main() -> int:
         "canary_b_public_cli_81_of_720": canary_b,
         "canary_c_partition_coverage": canary_c,
         "canary_d_available_data_closed_run": canary_d,
+        "forged_lineage_public_attack": forged_lineage,
         "new_problems": [
             {
                 "reason_code": "PARTITION_COVERAGE_INCOMPLETE",
@@ -810,7 +892,7 @@ def main() -> int:
     write_json(output_path, receipts)
     passed = all(
         row.get("status") == "PASS"
-        for row in (canary_a, canary_b, canary_c, canary_d)
+        for row in (canary_a, canary_b, canary_c, canary_d, forged_lineage)
     )
     print(json.dumps({"status": "PASS" if passed else "FAIL", "output": str(output_path)}))
     return 0 if passed else 1

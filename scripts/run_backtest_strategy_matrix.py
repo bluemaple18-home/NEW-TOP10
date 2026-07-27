@@ -391,12 +391,26 @@ def expected_statistical_family(args: argparse.Namespace) -> dict[str, Any] | No
         for item in str(getattr(args, "allowed_episode_ids", "") or "").split(",")
         if item.strip()
     ]
+    history_path = run_portfolio_replay.resolve_path(args.market_regime_history)
+    history = json.loads(history_path.read_text(encoding="utf-8"))
+    history_rows = history.get("rows") if isinstance(history.get("rows"), list) else []
+    expected_lineage = regime_research.statistical_lineage_authority(
+        rows=history_rows,
+        contract=contract,
+        regime_id=expected_regime_id,
+        horizons=[
+            int(item.strip())
+            for item in str(args.horizons).split(",")
+            if item.strip()
+        ],
+    )
     validation = regime_research.validate_statistical_family_registration(
         payload,
         contract=contract,
         registry=registry,
         expected_regime_id=expected_regime_id,
         expected_development_episode_ids=allowed_episode_ids,
+        expected_lineage=expected_lineage,
     )
     return {
         "tested_combination_ids": payload.get("tested_combination_ids"),

@@ -1,0 +1,212 @@
+{
+  "schema_version": "backtest-strategy-matrix.v1",
+  "generated_at": "2026-07-27T12:13:52.647439+00:00",
+  "contract": {
+    "source": "portfolio_replay_matrix",
+    "research_stage": "COARSE_SCREEN",
+    "model_feature": false,
+    "ranking_score_change": false,
+    "resource_mode": "read_existing_artifacts_only",
+    "features_load_policy": "load_once_per_matrix",
+    "same_day_hit_priority": "stop_loss",
+    "exact_match_regime_required": true,
+    "transition_and_unknown_excluded": true,
+    "production_promotion_allowed": false,
+    "raw_best_is_diagnostic_only": true
+  },
+  "inputs": {
+    "rankings_dir": "/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/regime-family-canary-_ts2smbu/rankings",
+    "features": "/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/regime-family-canary-_ts2smbu/features.parquet",
+    "max_ranking_files": 6,
+    "top_n": 10,
+    "scenario_count": 3,
+    "regime_identity": {
+      "base_regime": "BROAD_RISK_ON",
+      "family_tags": [
+        "BIG_BULL",
+        "HIGH_CHOPPY"
+      ]
+    },
+    "exact_match_ranking_date_count": 105,
+    "exact_match_episode_ids": [
+      "sha256:08a3e7f25205f9cb1543c8d9cec296b23b2a58ee7b99ac1790fc32bdb6a7f1a1",
+      "sha256:162e21c68e4567964428ef45e275d9e85922214fe45c0d390e5a28b5c6cf0b93",
+      "sha256:566c83895270581bc4cdf1db062307cf8cf29ab6001c2365c4664037891fe677",
+      "sha256:5ca62964b02fd52f086b236be2b0f15bb67c4e2cb77229abf07a1f6aef1b0482",
+      "sha256:8f18cc88591d4078bb46df0f7b05ff15c9a02f3a57133ff4f9ddb5743f8504d0",
+      "sha256:998778218336b7040285c2594460e387e4db465ebe09bba54be0859c83210dfd",
+      "sha256:b2ede328418ebee27122dfb41ecbc9f85d58755e1995ad9edf962b3171ce4051"
+    ],
+    "market_regime_history": "/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/regime-family-canary-_ts2smbu/history.json",
+    "exact_match_dataset_hash": "sha256:f328e8caacfeb4b93c23a1c2e4deb5c817d07292f2fe130a02b1dc4b0d3cca4f",
+    "parameter_space_hash": "sha256:4240ec82cce9354eac3da4fddddb8050cb1b7880205d2f3d5793d66a5de9f1fd",
+    "correction_family_id": "sha256:510a33da969ca5767c0e8ad611006256399ba39124da0a653ec81883317400fa",
+    "pre_registration": "/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/regime-family-canary-_ts2smbu/canary-a-local-three-registration.json",
+    "experiment_registry": "/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/regime-family-canary-_ts2smbu/canary-a-local-three-registry.jsonl",
+    "contract_hash": "sha256:e81c0ca71f7b9e2e0f187ec17dac8de92509287c39b60e5ad6349074244dce16",
+    "global_combination_ids_hash": "sha256:78cd9b8b6fa39935f9037d5b4c8dde3fcc2ae39955414aa51bda96dafb69f6b4",
+    "registry_record_hash": "sha256:004253820e2bbf0a96326899e1107bd8d4237753131e5a87ac9cd8566131fdba",
+    "tested_combination_ids_hash": "sha256:510a33da969ca5767c0e8ad611006256399ba39124da0a653ec81883317400fa"
+  },
+  "summary": {
+    "scenario_count": 3,
+    "best_scenario_id": "h10_slnone_tpnone_gcnone",
+    "best_score": 0.413087,
+    "positive_return_count": 3,
+    "negative_return_count": 0,
+    "statistical_gate": {
+      "ok": false,
+      "reason_code": "INSUFFICIENT_EVIDENCE",
+      "evidence_complete": false,
+      "tested_count": 3,
+      "eligible_ids": [],
+      "missing_fields_by_combination": {},
+      "family_validation_reason": "INVALID_CORRECTION_FAMILY",
+      "correction_family_size": 3,
+      "corrected_alpha": 0.016666666666666666,
+      "minimum_statistical_unit_count": 14,
+      "insufficient_units_by_combination": {
+        "sha256:deabbdc745ca3c9951829f7c0426ff3e6d212ffada2ec36c404858b71f1a6827": {
+          "actual": 6,
+          "required": 14,
+          "gap": 8
+        },
+        "sha256:bdaba0c0c33d887062fd218c7aeb30267bd3fdc7aaae2d95369e4953a6ef98da": {
+          "actual": 6,
+          "required": 14,
+          "gap": 8
+        },
+        "sha256:9d1d08b6706e4335655d3ffb98e4f9d7eab147fd1b8cc3a91668b87deb34b1c4": {
+          "actual": 6,
+          "required": 14,
+          "gap": 8
+        }
+      },
+      "pseudo_replication_detected": false
+    },
+    "formal_candidate_scenario_ids": [],
+    "round_decision": "INSUFFICIENT_EVIDENCE"
+  },
+  "scenarios": [
+    {
+      "scenario_id": "h10_slnone_tpnone_gcnone",
+      "combination_id": "sha256:deabbdc745ca3c9951829f7c0426ff3e6d212ffada2ec36c404858b71f1a6827",
+      "horizon": 10,
+      "stop_loss_pct": null,
+      "take_profit_pct": null,
+      "max_group_exposure": null,
+      "final_equity": 1.121143,
+      "total_return": 0.121143,
+      "max_drawdown": 0.0,
+      "trade_count": 6,
+      "win_rate": 1.0,
+      "avg_trade_return": 0.095972,
+      "max_gross_exposure": 0.214816,
+      "max_group_exposure_observed": 0.214816,
+      "exit_reason_counts": {
+        "scheduled_horizon": 6
+      },
+      "score": 0.413087,
+      "p_value": 0.015625,
+      "statistical_unit_policy": "independent_regime_episode_cluster.v1",
+      "statistical_unit_ids": [
+        "sha256:08a3e7f25205f9cb1543c8d9cec296b23b2a58ee7b99ac1790fc32bdb6a7f1a1",
+        "sha256:162e21c68e4567964428ef45e275d9e85922214fe45c0d390e5a28b5c6cf0b93",
+        "sha256:566c83895270581bc4cdf1db062307cf8cf29ab6001c2365c4664037891fe677",
+        "sha256:5ca62964b02fd52f086b236be2b0f15bb67c4e2cb77229abf07a1f6aef1b0482",
+        "sha256:8f18cc88591d4078bb46df0f7b05ff15c9a02f3a57133ff4f9ddb5743f8504d0",
+        "sha256:b2ede328418ebee27122dfb41ecbc9f85d58755e1995ad9edf962b3171ce4051"
+      ],
+      "statistical_unit_count": 6,
+      "pseudo_replication_detected": false,
+      "pseudo_replication_reasons": [],
+      "robust_neighbor_lineage": [
+        "sha256:9d1d08b6706e4335655d3ffb98e4f9d7eab147fd1b8cc3a91668b87deb34b1c4",
+        "sha256:bdaba0c0c33d887062fd218c7aeb30267bd3fdc7aaae2d95369e4953a6ef98da"
+      ],
+      "robust_neighbor_pass_count": 2,
+      "drawdown_within_limit": true,
+      "correction_family_id": "sha256:510a33da969ca5767c0e8ad611006256399ba39124da0a653ec81883317400fa"
+    },
+    {
+      "scenario_id": "h5_slnone_tpnone_gcnone",
+      "combination_id": "sha256:bdaba0c0c33d887062fd218c7aeb30267bd3fdc7aaae2d95369e4953a6ef98da",
+      "horizon": 5,
+      "stop_loss_pct": null,
+      "take_profit_pct": null,
+      "max_group_exposure": null,
+      "final_equity": 1.052576,
+      "total_return": 0.052576,
+      "max_drawdown": 0.0,
+      "trade_count": 6,
+      "win_rate": 1.0,
+      "avg_trade_return": 0.04278,
+      "max_gross_exposure": 0.206544,
+      "max_group_exposure_observed": 0.206544,
+      "exit_reason_counts": {
+        "scheduled_horizon": 6
+      },
+      "score": 0.238136,
+      "p_value": 0.015625,
+      "statistical_unit_policy": "independent_regime_episode_cluster.v1",
+      "statistical_unit_ids": [
+        "sha256:08a3e7f25205f9cb1543c8d9cec296b23b2a58ee7b99ac1790fc32bdb6a7f1a1",
+        "sha256:162e21c68e4567964428ef45e275d9e85922214fe45c0d390e5a28b5c6cf0b93",
+        "sha256:566c83895270581bc4cdf1db062307cf8cf29ab6001c2365c4664037891fe677",
+        "sha256:5ca62964b02fd52f086b236be2b0f15bb67c4e2cb77229abf07a1f6aef1b0482",
+        "sha256:8f18cc88591d4078bb46df0f7b05ff15c9a02f3a57133ff4f9ddb5743f8504d0",
+        "sha256:b2ede328418ebee27122dfb41ecbc9f85d58755e1995ad9edf962b3171ce4051"
+      ],
+      "statistical_unit_count": 6,
+      "pseudo_replication_detected": false,
+      "pseudo_replication_reasons": [],
+      "robust_neighbor_lineage": [
+        "sha256:9d1d08b6706e4335655d3ffb98e4f9d7eab147fd1b8cc3a91668b87deb34b1c4",
+        "sha256:deabbdc745ca3c9951829f7c0426ff3e6d212ffada2ec36c404858b71f1a6827"
+      ],
+      "robust_neighbor_pass_count": 2,
+      "drawdown_within_limit": true,
+      "correction_family_id": "sha256:510a33da969ca5767c0e8ad611006256399ba39124da0a653ec81883317400fa"
+    },
+    {
+      "scenario_id": "h3_slnone_tpnone_gcnone",
+      "combination_id": "sha256:9d1d08b6706e4335655d3ffb98e4f9d7eab147fd1b8cc3a91668b87deb34b1c4",
+      "horizon": 3,
+      "stop_loss_pct": null,
+      "take_profit_pct": null,
+      "max_group_exposure": null,
+      "final_equity": 1.027044,
+      "total_return": 0.027044,
+      "max_drawdown": 0.0,
+      "trade_count": 6,
+      "win_rate": 1.0,
+      "avg_trade_return": 0.022233,
+      "max_gross_exposure": 0.203301,
+      "max_group_exposure_observed": 0.203301,
+      "exit_reason_counts": {
+        "scheduled_horizon": 6
+      },
+      "score": 0.17151,
+      "p_value": 0.015625,
+      "statistical_unit_policy": "independent_regime_episode_cluster.v1",
+      "statistical_unit_ids": [
+        "sha256:08a3e7f25205f9cb1543c8d9cec296b23b2a58ee7b99ac1790fc32bdb6a7f1a1",
+        "sha256:162e21c68e4567964428ef45e275d9e85922214fe45c0d390e5a28b5c6cf0b93",
+        "sha256:566c83895270581bc4cdf1db062307cf8cf29ab6001c2365c4664037891fe677",
+        "sha256:5ca62964b02fd52f086b236be2b0f15bb67c4e2cb77229abf07a1f6aef1b0482",
+        "sha256:8f18cc88591d4078bb46df0f7b05ff15c9a02f3a57133ff4f9ddb5743f8504d0",
+        "sha256:b2ede328418ebee27122dfb41ecbc9f85d58755e1995ad9edf962b3171ce4051"
+      ],
+      "statistical_unit_count": 6,
+      "pseudo_replication_detected": false,
+      "pseudo_replication_reasons": [],
+      "robust_neighbor_lineage": [
+        "sha256:bdaba0c0c33d887062fd218c7aeb30267bd3fdc7aaae2d95369e4953a6ef98da",
+        "sha256:deabbdc745ca3c9951829f7c0426ff3e6d212ffada2ec36c404858b71f1a6827"
+      ],
+      "robust_neighbor_pass_count": 2,
+      "drawdown_within_limit": true,
+      "correction_family_id": "sha256:510a33da969ca5767c0e8ad611006256399ba39124da0a653ec81883317400fa"
+    }
+  ]
+}
