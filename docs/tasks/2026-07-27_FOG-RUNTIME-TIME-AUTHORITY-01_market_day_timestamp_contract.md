@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01
-status: CARD_DRAFTED
+status: RUNNING
 type: architecture
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 successor_of:
@@ -147,9 +147,40 @@ implementation slices、migration、rollback與 production boundary。
 
 ## Initial workflow receipt
 
-- Workflow：`CARD_DRAFTED`
-- Gate 1 card contract：`PENDING_COMMIT`
-- Gate 2 visible thread：`PENDING`
+- Card commit：`cfaabf914f752b63a8efaf15ca40a5984221c2e1`
+- Provisioning source kind：`commit`
+- Provisioning source SHA：`cfaabf914f752b63a8efaf15ca40a5984221c2e1`
+- Source branch：`main`
+- Source clean：是
+- Git metadata：可用
+- `index.lock`：不存在
+- unrelated dirty paths：`[]`
+- Client receipt：
+  `client-new-thread:db26489f-be59-4ff5-a20e-61f85ec0e602`
+- Formal task：`019fa43d-3544-7662-be9c-3b258eee681c`
+- Task title：`建立市場時間權威契約`
+- Task status：`active / inProgress`
+- Worktree／cwd（local-only）：
+  `/Users/mattkuo/.codex/worktrees/d6ce/TOP10new`
+- Main cwd（local-only）：`/Users/mattkuo/TOP10new`
+- Worktree exists／registered：是
+- Initial worktree HEAD：
+  `cfaabf914f752b63a8efaf15ca40a5984221c2e1`
+- Initial branch：`detached`
+- Capability preflight：
+  `worktree_registered=true`、`python_tests=needs_prepare`、
+  `codegraph=degraded:fallback_rg`
+- Current card：`FOG-RUNTIME-TIME-AUTHORITY-01`
+- Mainline dispatcher：
+  `019f82c1-b7d0-7eb3-9371-7a95ebfbd7ce`
+- Previous blocked chain Reviewer：
+  `019fa409-ead7-71d3-8115-5ac50857613a`
+- Cross-thread binding：
+  current task/worktree/title 與 previous Reviewer 均不同，`PASS`
+- Workflow：
+  `CARD_DRAFTED → QUEUED → THREAD_CREATED → RUNNING`
+- Gate 1 card contract：`PASS`
+- Gate 2 visible thread：`PASS`
 - Gate 3 candidate delivery：`PENDING`
 - Gate 4 independent review：`PENDING`
 - Gate 5 mainline acceptance：`PENDING`
