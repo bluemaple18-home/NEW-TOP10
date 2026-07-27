@@ -1,6 +1,6 @@
 ---
 id: FOG-CLOSED-REGIME-AUTONOMY-01
-status: CARD_DRAFTED
+status: RUNNING
 type: implementation
 chain_id: FOG-CLOSED-REGIME-AUTONOMY-01
 successor_of:
@@ -214,3 +214,32 @@ git diff --check
   production paths 時，標記 `BLOCKED` 回主線。
 - Candidate 只交付 `DELIVERED_CANDIDATE`；後續必須另開 independent Review，
   Review GO 後才由主線 acceptance／整合。
+
+## Dispatch receipt
+
+- Card commit：`c2ed61956524385779bd9383cb9faa0c5beaa099`
+- Provisioning source kind：`commit`
+- Provisioning source SHA：`c2ed61956524385779bd9383cb9faa0c5beaa099`
+- Source branch：`main`
+- Source clean：是
+- Git metadata：可用
+- `index.lock`：不存在
+- unrelated dirty paths：`[]`
+- Client receipt：
+  `client-new-thread:ea75ef0c-5ab8-467e-a435-70f1725556e3`
+- Formal thread：`019fa3ce-33fc-7291-a9f0-a5ca549d0628`
+- Thread title：`修復 FOG closed-regime 自動研究鏈`
+- Thread status：`active / inProgress`
+- Worktree／cwd（local-only）：
+  `/Users/mattkuo/.codex/worktrees/35c4/TOP10new`
+- Main cwd（local-only）：`/Users/mattkuo/TOP10new`
+- Worktree exists：是
+- Initial worktree HEAD：`c2ed61956524385779bd9383cb9faa0c5beaa099`
+- Initial branch：`detached`（Executor 交付前建立 `codex/` branch）
+- Workflow：
+  `CARD_DRAFTED → QUEUED → THREAD_CREATED → RUNNING`
+- Gate 1 card contract：`PASS`
+- Gate 2 visible thread／isolated worktree：`PASS`
+- Gate 3 candidate delivery：`PENDING`
+- Gate 4 independent Review：`PENDING`
+- Gate 5 mainline acceptance：`PENDING`
