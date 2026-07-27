@@ -1,6 +1,6 @@
 # Result
 
-state：`REGIME_ACCEPTED_CLEANUP_PENDING`
+state：`REGIME_COMPLETE`
 
 ## REGIME-RESEARCH-AUTONOMY-01
 
@@ -15,6 +15,9 @@ closed-regime research governance 與 statistical-family trust boundary 已完�
 - verifier：28/28 OK
 - canary：PASS
 - full suite：539 passed，246 subtests passed
+- acceptance receipt：`44c111d62dd3f994f3d0e271cf455c2546af922a`
+- cleanup：5 tasks archived、11 worktrees removed、5 local branches deleted
+- remaining repository action items：`0`
 
 這代表研究流程與防偽邊界可正常運作，不代表目前資料已足以產生選股加分結論。
 現有 profile 覆蓋 `242/720`，available-data independent units 為 `2/14`，

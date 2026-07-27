@@ -1,6 +1,6 @@
 # Current Status
 
-狀態：`REGIME-RESEARCH-AUTONOMY-01 / ACCEPTED_CLEANUP_PENDING`
+狀態：`REGIME-RESEARCH-AUTONOMY-01 / COMPLETE`
 
 ## Current mainline
 
@@ -9,7 +9,9 @@
 - review evidence：`213bdd8c4d39d8df7e58ff349200efbc77222031`
 - mainline merge receipt：`e87450c`
 - acceptance evidence：`docs/evidence/REGIME-RESEARCH-AUTONOMY-01/acceptance.md`
-- next gate：push main，移除本輪 worktrees／branches，封存本輪 tasks
+- acceptance receipt：`44c111d62dd3f994f3d0e271cf455c2546af922a`
+- cleanup：5 tasks archived、11 worktrees removed、5 local branches deleted
+- remaining action：`0`
 
 ## Regime research decision
 
