@@ -8,7 +8,11 @@ import json
 from collections import Counter, defaultdict
 from typing import Any
 
-from research_map_contract import expanded_universe_total, v2_combo_id
+from research_map_contract import (
+    expanded_universe_total,
+    is_completed_v2_expansion_record,
+    v2_combo_id,
+)
 from weekend_training_common import (
     MAP_PATH,
     PRODUCTION_IMPACT,
@@ -76,7 +80,7 @@ def build_initial_rows(date: str) -> tuple[list[dict[str, Any]], dict[str, Any]]
             for dimensions in all_v2_dimensions(base_dimensions):
                 combo_id = v2_combo_id(topic, dimensions)
                 record = latest_records.get(combo_id)
-                if record:
+                if record and is_completed_v2_expansion_record(record):
                     current_status = current_status_from_record(record)
                     source_artifact = record.get("artifact_path")
                 elif is_default_coordinate(dimensions):

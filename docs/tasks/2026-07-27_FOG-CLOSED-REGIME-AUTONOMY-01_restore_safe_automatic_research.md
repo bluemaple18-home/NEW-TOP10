@@ -1,6 +1,6 @@
 ---
 id: FOG-CLOSED-REGIME-AUTONOMY-01
-status: CARD_DRAFTED
+status: BLOCKED_RUNTIME_INTEGRATION
 type: implementation
 chain_id: FOG-CLOSED-REGIME-AUTONOMY-01
 successor_of:

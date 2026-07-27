@@ -33,6 +33,9 @@ MAX_TOPICS="${TOP10_RESEARCH_MAX_TOPICS:-200}"
 REFRESH_RESEARCH_MAP="${TOP10_REFRESH_RESEARCH_MAP:-1}"
 LOG_DIR="$PROJECT_DIR/logs"
 OUTPUT="artifacts/autonomous_research/autonomous_research_daily_quota_${RUN_DATE}.json"
+REGIME_HISTORY="${TOP10_MARKET_REGIME_HISTORY:-artifacts/autonomous_research/market_regime_history_${RUN_DATE}.json}"
+REGIME_RUNTIME_RECEIPT="artifacts/autonomous_research/closed_regime_runtime_${RUN_DATE}.json"
+RESEARCH_CONTRACT="${TOP10_REGIME_RESEARCH_CONTRACT:-config/regime_research_contract.json}"
 RUN_ARCHIVE_DIR="artifacts/autonomous_research/run_outputs"
 RUN_ARCHIVE_STEM="autonomous_research_daily_quota_${RUN_DATE}_$(date +%H%M%S)"
 LOG_FILE="$LOG_DIR/daily_research_quota_${RUN_DATE//-/}.log"
@@ -46,6 +49,9 @@ RUN_ARGS=(
   scripts/run_autonomous_research.py
   --date "$RUN_DATE"
   --execute
+  --closed-regime-research
+  --market-regime-history "$REGIME_HISTORY"
+  --research-contract "$RESEARCH_CONTRACT"
   --max-topics "$MAX_TOPICS"
   --execute-topic-count "$QUOTA"
   --max-ranking-files "$MAX_RANKING_FILES"
@@ -70,7 +76,34 @@ echo "開始每日研究配額 - $(date)" | tee -a "$LOG_FILE"
 echo "run_date=$RUN_DATE quota=$QUOTA max_topics=$MAX_TOPICS max_ranking_files=$MAX_RANKING_FILES allow_rerun=$ALLOW_RERUN include_rejected=$INCLUDE_REJECTED from_queue=$FROM_QUEUE" | tee -a "$LOG_FILE"
 echo "runtime=$RUNTIME_LABEL" | tee -a "$LOG_FILE"
 echo "refresh_research_map=$REFRESH_RESEARCH_MAP" | tee -a "$LOG_FILE"
+echo "closed_regime_research=true market_regime_history=$REGIME_HISTORY" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
+
+if [ -z "${TOP10_MARKET_REGIME_HISTORY:-}" ]; then
+  set +e
+  "${RUNNER_CMD[@]}" scripts/build_market_regime_history.py \
+    --end-date "$RUN_DATE" \
+    --output "$REGIME_HISTORY" >> "$LOG_FILE" 2>&1
+  HISTORY_BUILD_EXIT_CODE=$?
+  set -e
+  if [ "$HISTORY_BUILD_EXIT_CODE" -ne 0 ]; then
+    echo "❌ market regime history build failed exit_code=$HISTORY_BUILD_EXIT_CODE" | tee -a "$LOG_FILE"
+    exit "$HISTORY_BUILD_EXIT_CODE"
+  fi
+fi
+
+set +e
+"${RUNNER_CMD[@]}" scripts/verify_closed_regime_runtime.py \
+  --run-date "$RUN_DATE" \
+  --market-regime-history "$REGIME_HISTORY" \
+  --research-contract "$RESEARCH_CONTRACT" \
+  --output "$REGIME_RUNTIME_RECEIPT" >> "$LOG_FILE" 2>&1
+REGIME_VERIFY_EXIT_CODE=$?
+set -e
+if [ "$REGIME_VERIFY_EXIT_CODE" -ne 0 ]; then
+  echo "❌ closed-regime runtime verification failed exit_code=$REGIME_VERIFY_EXIT_CODE" | tee -a "$LOG_FILE"
+  exit "$REGIME_VERIFY_EXIT_CODE"
+fi
 
 set +e
 "${RUNNER_CMD[@]}" "${RUN_ARGS[@]}" >> "$LOG_FILE" 2>&1
@@ -80,7 +113,8 @@ set -e
 set +e
 "${RUNNER_CMD[@]}" scripts/verify_daily_research_quota.py \
   --artifact "$OUTPUT" \
-  --min-quota "$QUOTA" >> "$LOG_FILE" 2>&1
+  --min-quota "$QUOTA" \
+  --closed-regime-runtime-receipt "$REGIME_RUNTIME_RECEIPT" >> "$LOG_FILE" 2>&1
 VERIFY_EXIT_CODE=$?
 set -e
 
@@ -96,6 +130,7 @@ fi
 
 mkdir -p "$RUN_ARCHIVE_DIR"
 cp "$OUTPUT" "$RUN_ARCHIVE_DIR/${RUN_ARCHIVE_STEM}.json"
+cp "$REGIME_RUNTIME_RECEIPT" "$RUN_ARCHIVE_DIR/${RUN_ARCHIVE_STEM}_closed_regime_runtime.json"
 if [ -f "${OUTPUT%.json}.md" ]; then
   cp "${OUTPUT%.json}.md" "$RUN_ARCHIVE_DIR/${RUN_ARCHIVE_STEM}.md"
 fi

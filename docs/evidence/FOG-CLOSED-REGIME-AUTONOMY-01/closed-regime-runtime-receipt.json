@@ -1,0 +1,26 @@
+{
+  "schema_version": "closed-regime-runtime-receipt.v1",
+  "status": "OK",
+  "run_date": "2026-07-27",
+  "closed_regime_research": true,
+  "market_regime_history": {
+    "path": "docs/evidence/FOG-CLOSED-REGIME-AUTONOMY-01/market_regime_history_2026-07-27.json",
+    "schema_version": "market-regime-history.v2",
+    "sha256": "dae9cf0c97f8e0d286e5a0f5e63b71c53bd0088195bcac4e8702acda679088ba",
+    "source_trade_date": "2026-07-27"
+  },
+  "research_contract": {
+    "path": "config/regime_research_contract.json",
+    "sha256": "ea9d2618dfff8efbcbff452415999483a9b5771b4c4ff1aa41c60538aea6bd39"
+  },
+  "exact_regime": {
+    "base_regime": "RISK_OFF",
+    "family_tags": [],
+    "identity_id": "RISK_OFF|"
+  },
+  "state_transition": {
+    "from": "VERIFIED_HISTORY",
+    "to": "READY_FOR_CLOSED_RESEARCH"
+  },
+  "production_impact": "NO_PRODUCTION_CHANGE"
+}

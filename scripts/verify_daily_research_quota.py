@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="verify daily research quota artifact")
     parser.add_argument("--artifact", required=True)
     parser.add_argument("--min-quota", type=int, default=5, help="相容參數；研究單批最多可執行 topic 數")
+    parser.add_argument("--closed-regime-runtime-receipt", default=None)
     parser.add_argument("--output", default="artifacts/autonomous_research/daily_research_quota_verification_latest.json")
     return parser.parse_args()
 
@@ -49,9 +51,23 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
+def sha256(path: Path | None) -> str | None:
+    if path is None or not path.is_file():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def build_payload(
+    artifact: Path,
+    min_quota: int,
+    runtime_receipt_path: Path | None = None,
+) -> dict[str, Any]:
     """驗證單批上限，並把可接受的 partial 與實際失敗分開。"""
     payload = read_json(artifact)
+    if runtime_receipt_path is None:
+        runtime_receipt_path = resolve_path(
+            f"artifacts/autonomous_research/closed_regime_runtime_{payload.get('date')}.json"
+        )
     contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else {}
     inputs = payload.get("inputs") if isinstance(payload.get("inputs"), dict) else {}
     selected_topics = payload.get("selected_topics") if isinstance(payload.get("selected_topics"), list) else []
@@ -66,6 +82,24 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
     allowed_scripts = {"scripts/run_backtest_strategy_matrix.py", "scripts/compare_strategy_matrices.py"}
     decisions = [(run.get("outcome") or {}).get("decision") for run in topic_runs]
     outcome = payload.get("outcome") if isinstance(payload.get("outcome"), dict) else {}
+    runtime_receipt = (
+        read_json(runtime_receipt_path)
+        if runtime_receipt_path is not None and runtime_receipt_path.is_file()
+        else {}
+    )
+    runtime_history = (
+        runtime_receipt.get("market_regime_history")
+        if isinstance(runtime_receipt.get("market_regime_history"), dict)
+        else {}
+    )
+    artifact_history = str(inputs.get("market_regime_history") or "")
+    artifact_history_path = resolve_path(artifact_history)
+    runtime_contract = (
+        runtime_receipt.get("research_contract")
+        if isinstance(runtime_receipt.get("research_contract"), dict)
+        else {}
+    )
+    runtime_contract_path = resolve_path(runtime_contract.get("path"))
     quota = int(inputs.get("execute_topic_count") or 0)
     queue_empty = inputs.get("from_queue") is True and outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs
     followup_count = sum(1 for decision in decisions if decision in FOLLOWUP_DECISIONS)
@@ -113,6 +147,31 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
             "value": contract,
         },
         {
+            "name": "closed_regime_contract",
+            "ok": contract.get("closed_regime_research") is True
+            and inputs.get("closed_regime_research") is True,
+            "value": {
+                "contract": contract.get("closed_regime_research"),
+                "input": inputs.get("closed_regime_research"),
+            },
+        },
+        {
+            "name": "verified_regime_history_lineage",
+            "ok": runtime_receipt.get("status") == "OK"
+            and runtime_receipt.get("closed_regime_research") is True
+            and runtime_history.get("path") == artifact_history
+            and runtime_history.get("sha256") == sha256(artifact_history_path)
+            and runtime_contract.get("sha256") == sha256(runtime_contract_path)
+            and bool((runtime_receipt.get("exact_regime") or {}).get("identity_id"))
+            and runtime_receipt.get("production_impact") == "NO_PRODUCTION_CHANGE",
+            "value": {
+                "receipt": repo_path(runtime_receipt_path),
+                "history": runtime_history,
+                "exact_regime": runtime_receipt.get("exact_regime"),
+                "production_impact": runtime_receipt.get("production_impact"),
+            },
+        },
+        {
             "name": "allowlisted_runners_only",
             "ok": runner_scripts.issubset(allowed_scripts),
             "value": sorted(runner_scripts),
@@ -158,6 +217,7 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
             "decisions": decisions,
         },
         "checks": checks,
+        "closed_regime_runtime": runtime_receipt,
     }
 
 
@@ -169,7 +229,8 @@ def main() -> int:
     output = resolve_path(args.output)
     if output is None:
         raise RuntimeError("output resolution failed")
-    payload = build_payload(artifact, args.min_quota)
+    runtime_receipt = resolve_path(args.closed_regime_runtime_receipt)
+    payload = build_payload(artifact, args.min_quota, runtime_receipt)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     print(json.dumps({"status": payload["status"], "output": repo_path(output), "topic_runs": payload["summary"]["topic_runs"]}, ensure_ascii=False))

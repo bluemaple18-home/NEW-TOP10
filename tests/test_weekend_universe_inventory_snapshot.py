@@ -12,6 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 import build_weekend_universe_inventory as builder
+import research_map_contract as map_contract
 import verify_weekend_universe_inventory as verifier
 
 
@@ -104,3 +105,53 @@ def test_verifier_remains_fail_closed_for_stale_inventory_snapshot(tmp_path: Pat
     assert {"current_processed_matches_source_snapshot", "remaining_matches_source_snapshot"} <= {
         error["name"] for error in payload["errors"]
     }
+
+
+def test_inventory_uses_research_map_processed_id_semantics_for_default_v2_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    topic = {
+        "topic_id": "strategy-matrix:fixture:long_horizon",
+        "candidate_dir": "artifacts/backtest/fixture",
+    }
+    base_dimensions = [
+        {"horizon": "3", "stop_loss": "none", "take_profit": "0.15", "group_exposure": "none"},
+        {"horizon": "3", "stop_loss": "none", "take_profit": "0.25", "group_exposure": "none"},
+    ]
+    default_rows = []
+    for dimensions in base_dimensions:
+        expanded = {**dimensions, **map_contract.V2_DEFAULT_COORDINATES}
+        default_rows.append(
+            {
+                "schema_version": "research-map-run-history.v2",
+                "map_version": "v2",
+                "combo_id": map_contract.v2_combo_id(topic, expanded),
+                "topic_id": topic["topic_id"],
+                "dimensions": expanded,
+                "status": "completed",
+                "artifact_path": "artifacts/weekend_training/weekend_representative_replay_fixture.json",
+                "decision": "LOW_INFORMATION",
+                "insight_level": "ordinary",
+                "finished_at": "2099-01-05T00:00:00+00:00",
+            }
+        )
+
+    monkeypatch.setattr(map_contract, "SCENARIO_DIMENSION_GRID", base_dimensions)
+    monkeypatch.setattr(builder, "load_topics", lambda: [topic])
+    monkeypatch.setattr(builder, "load_map", lambda: fog_map(0, total=2))
+    monkeypatch.setattr(builder, "load_history", lambda: default_rows)
+    monkeypatch.setattr(builder, "stage2_combo_ids", lambda date: set())
+    monkeypatch.setattr(
+        builder,
+        "all_v2_dimensions",
+        lambda dimensions: [{**dimensions, **map_contract.V2_DEFAULT_COORDINATES}],
+    )
+    monkeypatch.setattr(builder, "unsupported_reason", lambda topic, dimensions: None)
+    monkeypatch.setattr(builder, "rule_prune_reason", lambda dimensions: None)
+
+    rows, _ = builder.build_initial_rows(RUN_DATE)
+    inventory_processed_ids = {
+        item["combo_id"] for item in rows if item["current_status"] != "PENDING"
+    }
+
+    assert inventory_processed_ids == set()

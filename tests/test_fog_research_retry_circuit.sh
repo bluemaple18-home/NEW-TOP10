@@ -23,7 +23,7 @@ set -euo pipefail
 script="${1:-}"
 shift || true
 case "$script" in
-  scripts/verify_weekend_universe_inventory.py)
+  scripts/verify_fog_closed_regime_recovery.py)
     if [ "${FAKE_VERIFY_OK:-0}" = "1" ]; then
       output=""
       while [ "$#" -gt 0 ]; do

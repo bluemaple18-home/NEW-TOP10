@@ -154,18 +154,22 @@ recover_retry_circuit_if_verified() {
     return 1
   fi
 
-  local recovery_stamp verifier_output
+  local recovery_stamp verifier_output regime_history runtime_receipt
   recovery_stamp="$(date +%Y%m%d%H%M%S)"
   verifier_output="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.recovery_verification_${recovery_stamp}.json"
-  echo "fog research retry circuit recovery requested; verifying weekend inventory before state rotation" | tee -a "$LOG_FILE"
+  regime_history="${TOP10_MARKET_REGIME_HISTORY:-artifacts/autonomous_research/market_regime_history_${RUN_DATE}.json}"
+  runtime_receipt="artifacts/autonomous_research/closed_regime_runtime_${RUN_DATE}.json"
+  echo "fog research retry circuit recovery requested; running bounded recovery gates before state rotation" | tee -a "$LOG_FILE"
   set +e
-  "$PYTHON_BIN" scripts/verify_weekend_universe_inventory.py \
-    --date "$RUN_DATE" \
+  "$PYTHON_BIN" scripts/verify_fog_closed_regime_recovery.py \
+    --run-date "$RUN_DATE" \
+    --market-regime-history "$regime_history" \
+    --closed-regime-runtime-receipt "$runtime_receipt" \
     --output "$verifier_output" >> "$LOG_FILE" 2>&1
   local verifier_exit_code=$?
   set -e
   if [ "$verifier_exit_code" -ne 0 ]; then
-    echo "fog research retry circuit recovery denied; inventory verification failed output=$verifier_output" | tee -a "$LOG_FILE"
+    echo "fog research retry circuit recovery denied; bounded recovery gate failed output=$verifier_output" | tee -a "$LOG_FILE"
     return 1
   fi
 

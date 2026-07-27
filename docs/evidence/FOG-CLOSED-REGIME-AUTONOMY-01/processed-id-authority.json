@@ -1,0 +1,71 @@
+{
+  "schema_version": "processed-id-authority-verification.v1",
+  "status": "OK",
+  "summary": {
+    "research_map_processed": 33358,
+    "weekend_inventory_processed": 33358,
+    "symmetric_difference": [],
+    "pre_fix_inventory_minus_map": [
+      "artifacts-backtest-liquidity_quality_candidate_universe_shadow_rankings_2026-06--514eedec:long_horizon|horizon_3|stop_none|take_profit_0.15|group_exposure_none|regime_gate_ALL|risk_guard_NONE|entry_filter_TOPIC_DEFAULT",
+      "artifacts-backtest-liquidity_quality_candidate_universe_shadow_rankings_2026-06--514eedec:long_horizon|horizon_3|stop_none|take_profit_0.25|group_exposure_none|regime_gate_ALL|risk_guard_NONE|entry_filter_TOPIC_DEFAULT"
+    ]
+  },
+  "pre_fix_source_rows": [
+    {
+      "combo_id": "artifacts-backtest-liquidity_quality_candidate_universe_shadow_rankings_2026-06--514eedec:long_horizon|horizon_3|stop_none|take_profit_0.15|group_exposure_none|regime_gate_ALL|risk_guard_NONE|entry_filter_TOPIC_DEFAULT",
+      "status": "completed",
+      "artifact_path": "artifacts/weekend_training/weekend_representative_replay_2026-07-21.json",
+      "source": "weekend_representative_replay",
+      "dimensions": {
+        "entry_filter": "TOPIC_DEFAULT",
+        "group_exposure": "none",
+        "horizon": "3",
+        "regime_gate": "ALL",
+        "risk_guard": "NONE",
+        "stop_loss": "none",
+        "take_profit": "0.15"
+      }
+    },
+    {
+      "combo_id": "artifacts-backtest-liquidity_quality_candidate_universe_shadow_rankings_2026-06--514eedec:long_horizon|horizon_3|stop_none|take_profit_0.25|group_exposure_none|regime_gate_ALL|risk_guard_NONE|entry_filter_TOPIC_DEFAULT",
+      "status": "completed",
+      "artifact_path": "artifacts/weekend_training/weekend_representative_replay_2026-07-21.json",
+      "source": "weekend_representative_replay",
+      "dimensions": {
+        "entry_filter": "TOPIC_DEFAULT",
+        "group_exposure": "none",
+        "horizon": "3",
+        "regime_gate": "ALL",
+        "risk_guard": "NONE",
+        "stop_loss": "none",
+        "take_profit": "0.25"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "processed_id_symmetric_difference_empty",
+      "ok": true,
+      "value": {
+        "map_only": [],
+        "inventory_only": []
+      }
+    },
+    {
+      "name": "research_map_count_matches_authority",
+      "ok": true,
+      "value": {
+        "artifact": 33358,
+        "authority": 33358
+      }
+    },
+    {
+      "name": "weekend_inventory_count_matches_authority",
+      "ok": true,
+      "value": {
+        "artifact": 33358,
+        "authority": 33358
+      }
+    }
+  ]
+}
