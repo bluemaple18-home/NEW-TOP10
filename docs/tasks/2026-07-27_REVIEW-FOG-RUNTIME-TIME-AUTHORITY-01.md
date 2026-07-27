@@ -1,6 +1,6 @@
 ---
 id: REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01
-status: READY_FOR_REVIEW
+status: NO_GO
 type: review
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 dispatch_version: 2
@@ -55,7 +55,7 @@ candidate、runtime code、tests、config、plist、live state或 production art
 
 | Cycle | Candidate | State | Blocking finding IDs |
 |---|---|---|---|
-| architecture | `26d8471d15572f216095122f2462df79bc96edc1` | `READY_FOR_REVIEW` | pending independent Review |
+| architecture | `26d8471d15572f216095122f2462df79bc96edc1` | `NO_GO` | `FRTA-P1-01`, `FRTA-P1-02`, `FRTA-P1-03` |
 
 - 本卡是此 chain 唯一可重用 Reviewer identity。
 - 若 `NO_GO`，只建立一個可重用 Repair task，並由本 Reviewer做 targeted
@@ -158,11 +158,13 @@ Review commit只允許新增本卡 evidence與更新本卡狀態；不得修改 
   `deffa7e5f84aeae47461d5877a015754618ef1e6`
 - Reviewer initial branch：`detached`
 - Reviewer initial worktree：clean
-- Capability preflight：task內執行中；worktree provisioning已 `PASS`
+- Capability preflight：`PASS`；isolated detached worktree、Git、uv-managed
+  Python 3.12、`zoneinfo`與 SHA-256 可用；不需 network/live runtime
 - Workflow：
-  `DELIVERED_ARCHITECTURE_CANDIDATE → READY_FOR_REVIEW`
+  `DELIVERED_ARCHITECTURE_CANDIDATE → READY_FOR_REVIEW → NO_GO`
 - Gate 1 card contract：`PASS`
 - Gate 2 visible thread：`PASS`
 - Gate 3 candidate delivery：`PASS`
-- Gate 4 independent review：`PENDING`
-- Gate 5 implementation authorization：`PENDING`
+- Gate 4 independent review：`NO_GO`；固定 findings：
+  `FRTA-P1-01`、`FRTA-P1-02`、`FRTA-P1-03`
+- Gate 5 implementation authorization：`DENIED`

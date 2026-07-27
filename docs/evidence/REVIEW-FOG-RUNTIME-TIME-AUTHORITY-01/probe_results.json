@@ -1,0 +1,52 @@
+{
+  "boundaries": {
+    "-5": true,
+    "-5.001": false,
+    "900": true,
+    "900.001": false,
+    "midnight_identity_changes": true
+  },
+  "dst_fold": [
+    {
+      "fold": 0,
+      "local": "2026-11-01T01:30:00-04:00",
+      "utc": "2026-11-01T05:30:00+00:00"
+    },
+    {
+      "fold": 1,
+      "local": "2026-11-01T01:30:00-05:00",
+      "utc": "2026-11-01T06:30:00+00:00"
+    }
+  ],
+  "host_results": {
+    "America/Los_Angeles": "2026-07-28",
+    "Asia/Taipei": "2026-07-28",
+    "UTC": "2026-07-28"
+  },
+  "matrix": {
+    "dst_fold": true,
+    "future": true,
+    "host_timezone_drift": true,
+    "naive": true,
+    "stale": true,
+    "taipei_cross_utc": true,
+    "taipei_daytime": true,
+    "wrong_market_date": true
+  },
+  "policy_hash": {
+    "expected": "67327c40206251adf4d377e76833dfd6261ce4fb3f56c7de0b0bf92c7231e357",
+    "reordered_equal": true,
+    "semantic_mutation_changes_hash": true
+  },
+  "source_date_counterexample": {
+    "candidate_invariant_accepts": false,
+    "daily_source_date": "2026-08-07",
+    "independent_dates_possible": true,
+    "market_run_date": "2026-08-08"
+  },
+  "trust_boundary": {
+    "forged_hash_rejected": true,
+    "receipt_policy_cannot_freshen_stale": true,
+    "valid_claim": true
+  }
+}
