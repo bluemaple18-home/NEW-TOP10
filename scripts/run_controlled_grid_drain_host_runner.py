@@ -119,6 +119,64 @@ def build_gates(date: str, status: str, steps: list[dict[str, Any]]) -> dict[str
     return payload
 
 
+def build_failed_gates_without_inventory(date: str, steps: list[dict[str, Any]]) -> dict[str, Any]:
+    payload = {
+        "schema_version": "controlled-grid-drain-gates.v1",
+        "generated_at": now_utc(),
+        "date": date,
+        "status": "FAILED",
+        "controlled_grid_drain_ready": False,
+        "baseline_alias": "artifacts/backtest/production_baseline_harness_medium_window",
+        "target_production_path_created": False,
+        "production_impact": PRODUCTION_IMPACT,
+        "runner_mode": "linkage_only",
+        "notes": [
+            "Pre-inventory research map refresh failed; inventory was not rebuilt.",
+            "Does not execute replay, train model, change production ranking, or promote results.",
+        ],
+        "gates": {
+            "queue_contract": {
+                "inventory_summary": {},
+                "queue_summary": {"representative_replay_count": None, "queue_count": None},
+            },
+            "micro_batch": {"status": "NOT_RUN_LINKAGE_ONLY"},
+            "unattended_resume": {"status": "NOT_RUN_LINKAGE_ONLY"},
+        },
+        "steps": steps,
+    }
+    write_json(gates_path(date), payload)
+    return payload
+
+
+def pre_inventory_refresh_commands(py: str, date: str) -> list[tuple[str, list[str]]]:
+    return [
+        ("build_research_progress_before_inventory", [py, "scripts/build_research_campaign_progress.py", "--date", date]),
+        ("build_fog_map_before_inventory", [py, "scripts/build_research_fog_map.py", "--date", date]),
+        ("verify_fog_map_before_inventory", [py, "scripts/verify_research_fog_map.py", "--date", date]),
+    ]
+
+
+def inventory_commands(py: str, date: str) -> list[tuple[str, list[str]]]:
+    return [
+        (
+            "build_inventory_and_bounded_frontier_queue",
+            [py, "scripts/build_weekend_universe_inventory.py", "--date", date, "--write-bounded-frontier-queue"],
+        ),
+        ("verify_inventory", [py, "scripts/verify_weekend_universe_inventory.py", "--date", date]),
+        ("verify_frontier_queue", [py, "scripts/verify_weekend_frontier_queue.py", "--date", date]),
+    ]
+
+
+def post_inventory_linkage_commands(py: str, date: str) -> list[tuple[str, list[str]]]:
+    return [
+        ("build_rollup", [py, "scripts/build_weekend_training_rollup.py", "--date", date]),
+        ("verify_rollup", [py, "scripts/verify_weekend_training_rollup.py", "--date", date]),
+        ("build_research_progress_after_rollup", [py, "scripts/build_research_campaign_progress.py", "--date", date]),
+        ("build_fog_map_after_rollup", [py, "scripts/build_research_fog_map.py", "--date", date]),
+        ("verify_fog_map_after_rollup", [py, "scripts/verify_research_fog_map.py", "--date", date]),
+    ]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="run controlled grid drain linkage host runner")
     parser.add_argument("--date", required=True)
@@ -130,36 +188,25 @@ def cleanup_enabled() -> bool:
     return value not in {"0", "false", "no", "off"}
 
 
-def main() -> int:
-    args = parse_args()
-    py = str(PROJECT_ROOT / ".venv" / "bin" / "python")
-    date = args.date
+def run_linkage(date: str, py: str) -> int:
     steps: list[dict[str, Any]] = []
-    inventory_commands = [
-        (
-            "build_inventory_and_bounded_frontier_queue",
-            [py, "scripts/build_weekend_universe_inventory.py", "--date", date, "--write-bounded-frontier-queue"],
-        ),
-        ("verify_inventory", [py, "scripts/verify_weekend_universe_inventory.py", "--date", date]),
-        ("verify_frontier_queue", [py, "scripts/verify_weekend_frontier_queue.py", "--date", date]),
-    ]
-    for name, command in inventory_commands:
+    for name, command in pre_inventory_refresh_commands(py, date):
         step = run_step(name, command)
         steps.append(step)
         if step["returncode"] != 0:
-            gates = build_gates(date, "FAILED", steps)
+            gates = build_failed_gates_without_inventory(date, steps)
+            return write_status(date, "FAILED", steps, gates)
+
+    for name, command in inventory_commands(py, date):
+        step = run_step(name, command)
+        steps.append(step)
+        if step["returncode"] != 0:
+            gates = build_failed_gates_without_inventory(date, steps)
             return write_status(date, "FAILED", steps, gates)
 
     gates = build_gates(date, "OK", steps)
-    followup_commands = [
-        ("build_rollup", [py, "scripts/build_weekend_training_rollup.py", "--date", date]),
-        ("verify_rollup", [py, "scripts/verify_weekend_training_rollup.py", "--date", date]),
-        ("build_research_progress", [py, "scripts/build_research_campaign_progress.py", "--date", date]),
-        ("build_fog_map", [py, "scripts/build_research_fog_map.py", "--date", date]),
-        ("verify_fog_map", [py, "scripts/verify_research_fog_map.py", "--date", date]),
-    ]
     status = "OK"
-    for name, command in followup_commands:
+    for name, command in post_inventory_linkage_commands(py, date):
         step = run_step(name, command)
         steps.append(step)
         if step["returncode"] != 0:
@@ -186,6 +233,12 @@ def main() -> int:
     if status != gates["status"]:
         gates = build_gates(date, status, steps)
     return write_status(date, status, steps, gates)
+
+
+def main() -> int:
+    args = parse_args()
+    py = str(PROJECT_ROOT / ".venv" / "bin" / "python")
+    return run_linkage(args.date, py)
 
 
 def write_status(date: str, status: str, steps: list[dict[str, Any]], gates: dict[str, Any]) -> int:
