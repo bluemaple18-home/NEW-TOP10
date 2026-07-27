@@ -1,6 +1,6 @@
 ---
 id: FOG-RECOVERY-01
-status: READY_FOR_DISPATCH
+status: BLOCKED_REPAIR_LIMIT
 type: implementation
 owner: implementation-thread
 thickness: standard
@@ -73,3 +73,12 @@ traces_to:
 
 - 同一 blocker 最多 3 次；第 3 次即停，不進行第 4 次。
 - 若修復需要改 production contract、刪 runtime state、或無法建立 red-capable test，標記 `BLOCKED` 並交回主線。
+
+## Mainline acceptance status
+
+- Implementation candidate、Repair-1、Repair-2 均已完成獨立 Review／re-review。
+- Mainline full suite：`474 passed, 246 subtests passed`。
+- Live linkage acceptance 仍 fail-loud：fog map refresh 後維持 `expanded_processed=33358`，inventory 依自身 status semantics 計為 `33360`。
+- 真正剩餘根因為 research progress 與 weekend inventory 的「processed」語意不一致，不是瞬間 snapshot race。
+- Repair generation 已達上限 2；依 chain 契約禁止 Repair-3，狀態固定為 `BLOCKED_REPAIR_LIMIT`。
+- Live retry circuit 保持 open，未執行 recovery、未修改 production ranking／model。
