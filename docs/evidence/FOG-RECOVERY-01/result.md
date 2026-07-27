@@ -54,4 +54,3 @@ If verifier fails, the circuit remains open and the worker exits without running
 
 - Full pytest has one unrelated artifact-evidence failure in `tests/test_research_component_ledger.py`; see `verification.md`.
 - This candidate does not execute production recovery, publish, replay drain, model training, or promotion.
-
