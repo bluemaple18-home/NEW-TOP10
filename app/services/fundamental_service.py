@@ -83,7 +83,11 @@ class FundamentalService:
 
     def _load_metrics(self, payload: dict) -> list:
         if payload.get("metrics"):
-            return [FinancialYearMetrics(**item) for item in payload["metrics"]]
+            fields = FinancialYearMetrics.__dataclass_fields__
+            return [
+                FinancialYearMetrics(**{key: value for key, value in item.items() if key in fields})
+                for item in payload["metrics"]
+            ]
         financials = payload.get("financials_by_year") or {}
         return compute_financial_metrics(financials)
 

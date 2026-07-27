@@ -114,7 +114,7 @@ def build_payload() -> dict[str, Any]:
         "status": "OK",
         "decision": decision,
         "as_of_date": str(pd.Timestamp(daily["trade_date"].max()).date()),
-        "source_and_grain": "data/clean stock_id × trade_date + annual fundamental cache as-of join",
+        "source_and_grain": "data/clean stock_id × trade_date + quarterly/annual fundamental cache as-of join",
         "inputs": {
             "features": "data/clean/features.parquet",
             "features_sha256": file_sha256(PROJECT_ROOT / "data/clean/features.parquet"),

@@ -1,11 +1,13 @@
 # Fundamental Point-in-time Readiness
 
-- decision：`BLOCKED_DATA_COVERAGE`
-- as of：`2026-07-23`
-- usable stocks：`23/1967`
-- usable stock coverage：`1.17%`
-- latest Top200 coverage：`3/200`（`1.50%`）
-- recent 252 days meeting research gate：`0/252`
+- decision：`READY_FOR_POINT_IN_TIME_RESEARCH`
+- as of：`2026-07-24`
+- usable stocks：`1963/1967`
+- usable stock coverage：`99.80%`
+- latest Top200 coverage：`200/200`（`100.00%`）
+- recent 252 days meeting research gate：`252/252`
 - promotion allowed：`false`
 
-低 coverage cache 並非隨機樣本；既有正向 IC／spread 不可當作完整 universe 選股結論。
+MOPS 官方季度 XBRL 已解除資料覆蓋 blocker。完整 universe shadow 的 IC 與分組 spread 仍不足以支持 production promotion，故本 artifact 只允許進入 point-in-time 研究，不代表可修改 ranking 權重。
+
+限制：官方整批檔可能反映後續更補正版本；可用日已採 Q1 `6/1`、Q2 `8/30`、Q3 `11/30`、Q4 次年 `5/1` 的保守政策，但仍不是逐次申報版本歷史。
