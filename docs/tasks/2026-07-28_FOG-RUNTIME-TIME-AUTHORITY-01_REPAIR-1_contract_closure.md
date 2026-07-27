@@ -14,7 +14,7 @@ model_reason: 三個固定 P1 涉及休市日資料語意、前鏈安全能力�
 reviewed_candidate_sha: 26d8471d15572f216095122f2462df79bc96edc1
 review_evidence_sha: 3102e13
 reviewer_thread_id: 019fa448-4ffe-7473-af1a-7cc1f417bdd7
-repair_thread_id: PENDING
+repair_thread_id: 019fa471-2a58-7690-951d-9be2a2a4ca97
 evidence_path: docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-REPAIR-1/
 ---
 
@@ -197,12 +197,20 @@ git diff --check
 - Source clean：是
 - Git metadata：可用
 - unrelated dirty paths：`[]`
-- Repair task：`PENDING`
-- Capability preflight：`PENDING`
+- Client receipt：
+  `client-new-thread:ee300c7b-d1ed-4f39-a0e0-d62cca950d52`
+- Repair task：`019fa471-2a58-7690-951d-9be2a2a4ca97`
+- Repair title：`修復 FOG runtime time authority`
+- Repair worktree：isolated／registered
+- Repair initial HEAD：
+  `5ffc0a33874fe742ba7ffa2170ad6236612817e4`
+- Repair initial branch：`detached`
+- Repair initial worktree：clean
+- Capability preflight：task內執行中；worktree provisioning已 `PASS`
 - Workflow：
   `REVIEW_NO_GO → REPAIR_READY`
 - Gate 1 card contract：`PASS`
-- Gate 2 visible thread：`PENDING`
+- Gate 2 visible thread：`PASS`
 - Gate 3 Repair delivery：`PENDING`
 - Gate 4 targeted re-review：`PENDING`
 - Gate 5 implementation authorization：`DENIED_UNTIL_REVIEW_GO`
