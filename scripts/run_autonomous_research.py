@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import re
 import subprocess
@@ -29,6 +30,25 @@ SCHEMA_VERSION = "autonomous-research-run.v1"
 MANAGER_SCHEMA_VERSION = "autonomous-research-manager.v1"
 TOPIC_BANK_SCHEMA_VERSION = "autonomous-research-topic-bank.v1"
 RUNNER_REGISTRY_SCHEMA_VERSION = "autonomous-research-runner-registry.v1"
+REGIME_RESEARCH_SCHEMA_VERSION = "closed-regime-research.v1"
+BASE_REGIME_LABELS = {
+    "BROAD_RISK_ON",
+    "NARROW_LEADER",
+    "CHOPPY_RANGE",
+    "RISK_OFF",
+    "PANIC_SELLING",
+    "EARLY_REVERSAL",
+    "MIXED_NEUTRAL",
+    "UNKNOWN",
+}
+REGIME_FAMILY_TAGS = {"HIGH_CHOPPY", "BIG_BULL"}
+FUNNEL_TRANSITIONS = {
+    "REGISTERED": {"COARSE_SCREEN", "BLOCKED", "INSUFFICIENT_EVIDENCE"},
+    "COARSE_SCREEN": {"SAME_REGIME_VALIDATION", "REJECTED", "NO_STRATEGY", "BLOCKED"},
+    "SAME_REGIME_VALIDATION": {"SEALED_OOS", "REJECTED", "INSUFFICIENT_EVIDENCE", "BLOCKED"},
+    "SEALED_OOS": {"FORWARD_SHADOW", "REJECTED", "INSUFFICIENT_EVIDENCE", "BLOCKED"},
+    "FORWARD_SHADOW": {"REGIME_POLICY_CANDIDATE", "MONITOR_ONLY", "REJECTED", "BLOCKED"},
+}
 ALLOWED_RUNNERS = {
     "scripts/run_backtest_strategy_matrix.py",
     "scripts/compare_strategy_matrices.py",
@@ -47,6 +67,7 @@ RUNNER_SPECS = {
             "PARTIAL_SCORE_ONLY",
             "REJECTED_BY_STRATEGY_MATRIX",
             "NO_COMPARISON_EVIDENCE",
+            "NO_STRATEGY",
         ],
     }
 }
@@ -76,6 +97,11 @@ class ResearchTopic:
     stop_loss_pcts: str = ""
     take_profit_pcts: str = ""
     max_group_exposures: str = ""
+    regime_identity: dict[str, Any] | None = None
+    score_breakdown: dict[str, float] | None = None
+    eligible: bool = True
+    reason_code: str = "LEGACY_TOPIC"
+    selection_rationale: dict[str, Any] | None = None
 
 
 VALIDATION_PROFILES = [
@@ -143,6 +169,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rerun", action="store_true", help="相容舊入口；不得繞過 manager 受控重跑政策")
     parser.add_argument("--include-rejected", action="store_true", help="相容舊入口；rejected topic 仍不得重跑")
     parser.add_argument("--no-manager-update", action="store_true", help="只產生本次 run artifact，不更新管理層狀態")
+    parser.add_argument("--closed-regime-research", action="store_true", help="啟用 default-off 的 exact-match 封閉盤勢研究契約")
+    parser.add_argument("--market-regime-history", default=None, help="含 as_of_date/base_regime/family_tags 的盤勢歷史 artifact")
+    parser.add_argument("--research-contract", default="config/regime_research_contract.json")
+    parser.add_argument("--coverage-map", default=None, help="既有 exact-match coverage records JSON；未指定視為尚無研究紀錄")
     return parser.parse_args()
 
 
@@ -179,6 +209,467 @@ def load_json(path: Path | None) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return {}
+
+
+def canonical_json_hash(value: Any) -> str:
+    """產生不受 dict key 順序影響的 SHA-256。"""
+
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def canonical_regime_identity(value: dict[str, Any]) -> dict[str, Any]:
+    base = str(value.get("base_regime") or value.get("regime_label") or "").strip().upper()
+    if base not in BASE_REGIME_LABELS:
+        raise ValueError(f"未知 base regime：{base or '<empty>'}")
+    raw_tags = value.get("family_tags") or []
+    if not isinstance(raw_tags, (list, tuple, set)):
+        raise ValueError("family_tags 必須是 list/tuple/set")
+    tags = sorted({str(item).strip().upper() for item in raw_tags if str(item).strip()})
+    unknown = sorted(set(tags) - REGIME_FAMILY_TAGS)
+    if unknown:
+        raise ValueError(f"未知 family tags：{unknown}")
+    return {"base_regime": base, "family_tags": tags}
+
+
+def regime_identity_id(value: dict[str, Any]) -> str:
+    identity = canonical_regime_identity(value)
+    return f"{identity['base_regime']}|{'+'.join(identity['family_tags'])}"
+
+
+def regime_row_identity(row: dict[str, Any]) -> dict[str, Any]:
+    tags = row.get("family_tags")
+    if tags is None:
+        tags = [tag for tag in sorted(REGIME_FAMILY_TAGS) if bool(row.get(f"family_{tag}"))]
+    return canonical_regime_identity(
+        {
+            "base_regime": row.get("base_regime") or row.get("regime_label"),
+            "family_tags": tags,
+        }
+    )
+
+
+def validate_as_of_regime_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    violations = []
+    for index, row in enumerate(rows):
+        trade_date = str(row.get("trade_date") or "")
+        as_of_date = str(row.get("as_of_date") or "")
+        if not trade_date or not as_of_date:
+            violations.append({"index": index, "reason_code": "MISSING_AS_OF_DATE"})
+        elif as_of_date != trade_date:
+            violations.append(
+                {
+                    "index": index,
+                    "reason_code": "AS_OF_DATE_NOT_TRADE_DATE",
+                    "trade_date": trade_date,
+                    "as_of_date": as_of_date,
+                }
+            )
+    return {"ok": not violations, "violations": violations}
+
+
+def select_exact_regime_rows(rows: list[dict[str, Any]], target: dict[str, Any]) -> list[dict[str, Any]]:
+    """只保留完全相同 identity；transition 與 UNKNOWN 一律 fail closed。"""
+
+    expected = canonical_regime_identity(target)
+    selected: list[dict[str, Any]] = []
+    for row in rows:
+        if bool(row.get("is_transition")):
+            continue
+        try:
+            actual = regime_row_identity(row)
+        except ValueError:
+            continue
+        if actual["base_regime"] == "UNKNOWN":
+            continue
+        if actual == expected:
+            selected.append(row)
+    return selected
+
+
+def current_regime_context(path: Path, as_of_date: str) -> dict[str, Any]:
+    payload = load_json(path)
+    rows = payload.get("rows") if isinstance(payload.get("rows"), list) else []
+    as_of_check = validate_as_of_regime_rows(rows)
+    if not as_of_check["ok"]:
+        raise ValueError(f"market regime history 不符合 as_of 契約：{as_of_check['violations'][:3]}")
+    eligible: list[dict[str, Any]] = []
+    for row in rows:
+        trade_date = str(row.get("trade_date") or "")
+        observed_as_of = str(row.get("as_of_date") or "")
+        if not trade_date or not observed_as_of:
+            continue
+        if trade_date <= as_of_date and observed_as_of <= as_of_date:
+            eligible.append(row)
+    if not eligible:
+        raise ValueError("找不到具有 as_of_date 的當前盤勢；封閉研究不得回退到檔名判斷")
+    row = sorted(eligible, key=lambda item: (str(item["trade_date"]), str(item["as_of_date"])))[-1]
+    identity = regime_row_identity(row)
+    if identity["base_regime"] == "UNKNOWN" or bool(row.get("is_transition")):
+        raise ValueError("當前盤勢為 UNKNOWN/transition；只能 MONITOR_ONLY，不得執行正式研究")
+    return {
+        "as_of_date": as_of_date,
+        "source_trade_date": str(row["trade_date"]),
+        "identity": identity,
+        "identity_id": regime_identity_id(identity),
+        "source": repo_path(path),
+    }
+
+
+def score_regime_research_topic(
+    topic: dict[str, Any],
+    *,
+    current_regime: dict[str, Any],
+    coverage: dict[str, Any],
+    information_gain: float,
+    product_value: float,
+    feasibility: float,
+    estimated_compute_cost: float,
+) -> dict[str, Any]:
+    topic_identity = topic.get("regime_identity")
+    if not isinstance(topic_identity, dict):
+        return {
+            "eligible": False,
+            "reason_code": "MISSING_TOPIC_REGIME_IDENTITY",
+            "priority": 0.0,
+            "score_breakdown": {},
+        }
+    try:
+        current = canonical_regime_identity(current_regime)
+        candidate = canonical_regime_identity(topic_identity)
+    except ValueError as exc:
+        return {"eligible": False, "reason_code": "INVALID_REGIME_IDENTITY", "priority": 0.0, "error": str(exc)}
+    if candidate != current:
+        return {
+            "eligible": False,
+            "reason_code": "NON_EXACT_CURRENT_REGIME",
+            "priority": 0.0,
+            "score_breakdown": {"current_regime_relevance": 0.0},
+        }
+    cost = float(estimated_compute_cost)
+    if cost <= 0:
+        return {"eligible": False, "reason_code": "INVALID_COMPUTE_COST", "priority": 0.0, "score_breakdown": {}}
+    breakdown = {
+        "current_regime_relevance": 1.0,
+        "evidence_gap": max(0.0, float(coverage.get("evidence_gap") or 0.0)),
+        "expected_information_gain": max(0.0, float(information_gain)),
+        "product_value": max(0.0, float(product_value)),
+        "feasibility": max(0.0, float(feasibility)),
+        "estimated_compute_cost": cost,
+    }
+    priority = (
+        breakdown["current_regime_relevance"]
+        * breakdown["evidence_gap"]
+        * breakdown["expected_information_gain"]
+        * breakdown["product_value"]
+        * breakdown["feasibility"]
+        / cost
+    )
+    return {
+        "eligible": priority > 0,
+        "reason_code": "ELIGIBLE" if priority > 0 else "ZERO_INFORMATION_VALUE",
+        "priority": round(priority, 9),
+        "score_breakdown": breakdown,
+    }
+
+
+def parameter_combinations(contract: dict[str, Any]) -> list[dict[str, Any]]:
+    dimensions = contract.get("parameter_universe", {}).get("dimensions", [])
+    executable = [row for row in dimensions if row.get("execution_status") == "EXECUTABLE"]
+    names = [str(row["id"]) for row in executable]
+    values = [list(row.get("allowed_values") or []) for row in executable]
+    combinations: list[dict[str, Any]] = []
+    for items in itertools.product(*values):
+        params = dict(zip(names, items, strict=True))
+        combinations.append(
+            {
+                "combination_id": canonical_json_hash(params),
+                "parameters": params,
+            }
+        )
+    return combinations
+
+
+def parameter_universe_summary(contract: dict[str, Any]) -> dict[str, Any]:
+    combinations = parameter_combinations(contract)
+    ids = [row["combination_id"] for row in combinations]
+    return {
+        "inventory_status": contract.get("parameter_universe", {}).get("inventory_status"),
+        "declared_complete": bool(contract.get("parameter_universe", {}).get("declared_complete")),
+        "executable_dimension_count": len(
+            [
+                row
+                for row in contract.get("parameter_universe", {}).get("dimensions", [])
+                if row.get("execution_status") == "EXECUTABLE"
+            ]
+        ),
+        "legal_combination_count": len(combinations),
+        "legal_combination_ids": ids,
+        "combination_id_hash": canonical_json_hash(ids),
+        "parameter_space_hash": canonical_json_hash(contract.get("parameter_universe", {})),
+        "blocked_dimensions": contract.get("parameter_universe", {}).get("blocked_dimensions", []),
+    }
+
+
+def build_regime_episodes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    episodes: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for row in sorted(rows, key=lambda item: str(item.get("trade_date") or "")):
+        if bool(row.get("is_transition")):
+            current = None
+            continue
+        try:
+            identity = regime_row_identity(row)
+        except ValueError:
+            current = None
+            continue
+        if identity["base_regime"] == "UNKNOWN":
+            current = None
+            continue
+        identity_id = regime_identity_id(identity)
+        trade_date = str(row.get("trade_date") or "")
+        if not trade_date:
+            current = None
+            continue
+        if current is None or current["regime_id"] != identity_id:
+            current = {
+                "regime_id": identity_id,
+                "identity": identity,
+                "start_date": trade_date,
+                "end_date": trade_date,
+                "trade_dates": [trade_date],
+            }
+            episodes.append(current)
+        else:
+            current["end_date"] = trade_date
+            current["trade_dates"].append(trade_date)
+    for episode in episodes:
+        episode["episode_id"] = canonical_json_hash(
+            {
+                "regime_id": episode["regime_id"],
+                "start_date": episode["start_date"],
+                "end_date": episode["end_date"],
+                "trade_dates": episode["trade_dates"],
+            }
+        )
+    return episodes
+
+
+def deterministic_experiment_id(candidate: dict[str, Any]) -> str:
+    identity_payload = {
+        key: value
+        for key, value in candidate.items()
+        if key not in {"experiment_id", "registry_record_hash", "registered_at"}
+    }
+    return f"experiment:{canonical_json_hash(identity_payload).split(':', 1)[1]}"
+
+
+def build_experiment_pre_registration(values: dict[str, Any]) -> dict[str, Any]:
+    candidate = {key: value for key, value in values.items() if key != "experiment_id"}
+    candidate.setdefault("state", "REGISTERED")
+    return {**candidate, "experiment_id": deterministic_experiment_id(candidate)}
+
+
+def validate_experiment_registration(candidate: dict[str, Any], registry: list[dict[str, Any]]) -> dict[str, Any]:
+    experiment_id = str(candidate.get("experiment_id") or "")
+    if not experiment_id:
+        return {"ok": False, "reason_code": "MISSING_EXPERIMENT_ID"}
+    sources = {str(item) for item in candidate.get("component_source_experiment_ids") or [] if str(item)}
+    if len(sources) > 1 and (experiment_id in sources or not bool(candidate.get("fresh_composition_experiment"))):
+        return {"ok": False, "reason_code": "CROSS_EXPERIMENT_COMPOSITION"}
+    prior_by_id = {str(row.get("experiment_id")): row for row in registry if row.get("experiment_id")}
+    if experiment_id in prior_by_id:
+        return {"ok": False, "reason_code": "EXPERIMENT_ID_REUSE"}
+    sealed = {str(item) for item in candidate.get("sealed_episode_ids") or [] if str(item)}
+    if not sealed:
+        return {"ok": False, "reason_code": "MISSING_SEALED_EPISODES"}
+    for row in registry:
+        used = {str(item) for item in row.get("sealed_episode_ids") or [] if str(item)}
+        overlap = sorted(sealed & used)
+        if overlap:
+            return {
+                "ok": False,
+                "reason_code": "SEALED_DATASET_REUSE",
+                "source_experiment_id": row.get("experiment_id"),
+                "overlapping_episode_ids": overlap,
+            }
+    required = {
+        "research_question",
+        "baseline_id",
+        "regime_id",
+        "dataset_hash",
+        "split_id",
+        "parameter_space_hash",
+        "metric_policy_hash",
+    }
+    missing = sorted(key for key in required if not candidate.get(key))
+    if missing:
+        return {"ok": False, "reason_code": "INCOMPLETE_PRE_REGISTRATION", "missing_fields": missing}
+    expected_id = deterministic_experiment_id(candidate)
+    if experiment_id != expected_id:
+        return {
+            "ok": False,
+            "reason_code": "EXPERIMENT_ID_PAYLOAD_MISMATCH",
+            "expected_experiment_id": expected_id,
+        }
+    return {"ok": True, "reason_code": "REGISTERED", "registry_record_hash": canonical_json_hash(candidate)}
+
+
+def append_experiment_registry(path: Path, candidate: dict[str, Any]) -> dict[str, Any]:
+    registry: list[dict[str, Any]] = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                registry.append(json.loads(line))
+    result = validate_experiment_registration(candidate, registry)
+    if not result["ok"]:
+        return result
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        **candidate,
+        "event_type": "PRE_REGISTRATION",
+        "registry_record_hash": result["registry_record_hash"],
+    }
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True, allow_nan=False) + "\n")
+    return result
+
+
+def transition_experiment_registry(
+    path: Path,
+    *,
+    experiment_id: str,
+    target_state: str,
+    evidence_path: str,
+) -> dict[str, Any]:
+    if not path.exists():
+        return {"ok": False, "reason_code": "EXPERIMENT_NOT_REGISTERED"}
+    events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    own_events = [row for row in events if str(row.get("experiment_id") or "") == experiment_id]
+    registration = next((row for row in own_events if row.get("event_type") == "PRE_REGISTRATION"), None)
+    if registration is None:
+        return {"ok": False, "reason_code": "EXPERIMENT_NOT_REGISTERED"}
+    current_state = str(own_events[-1].get("target_state") or registration.get("state") or "REGISTERED")
+    validation = validate_funnel_transition(current_state, target_state, evidence_path)
+    if not validation["ok"]:
+        return validation
+    previous_hash = str(own_events[-1].get("event_hash") or own_events[-1].get("registry_record_hash") or "")
+    event = {
+        "event_type": "STATE_TRANSITION",
+        "experiment_id": experiment_id,
+        "from_state": current_state,
+        "target_state": target_state,
+        "evidence_path": evidence_path,
+        "previous_event_hash": previous_hash,
+    }
+    event["event_hash"] = canonical_json_hash(event)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True, allow_nan=False) + "\n")
+    return {"ok": True, "reason_code": "TRANSITION_RECORDED", **event}
+
+
+def validate_funnel_transition(current: str, target: str, evidence_path: str | None) -> dict[str, Any]:
+    allowed = FUNNEL_TRANSITIONS.get(current, set())
+    if target not in allowed:
+        return {"ok": False, "reason_code": "ILLEGAL_STATE_TRANSITION", "allowed": sorted(allowed)}
+    if not evidence_path:
+        return {"ok": False, "reason_code": "MISSING_TRANSITION_EVIDENCE"}
+    return {"ok": True, "reason_code": "TRANSITION_ALLOWED"}
+
+
+def multiple_testing_gate(
+    candidates: list[dict[str, Any]],
+    *,
+    familywise_alpha: float = 0.05,
+    min_robust_neighbors: int = 2,
+) -> dict[str, Any]:
+    tested = len(candidates)
+    if tested <= 0:
+        return {"ok": False, "reason_code": "NO_CANDIDATES", "eligible_ids": []}
+    corrected_alpha = familywise_alpha / tested
+    eligible = [
+        str(row["combination_id"])
+        for row in candidates
+        if float(row.get("p_value") or 1.0) <= corrected_alpha
+        and int(row.get("robust_neighbor_pass_count") or 0) >= min_robust_neighbors
+        and bool(row.get("drawdown_within_limit"))
+    ]
+    return {
+        "ok": bool(eligible),
+        "reason_code": "ROBUST_CANDIDATE_AVAILABLE" if eligible else "MULTIPLE_TESTING_OR_ROBUSTNESS_FAILED",
+        "tested_count": tested,
+        "corrected_alpha": corrected_alpha,
+        "eligible_ids": sorted(eligible),
+    }
+
+
+def research_round_decision(candidate_results: list[dict[str, Any]], *, sufficient_evidence: bool) -> str:
+    if not sufficient_evidence:
+        return "INSUFFICIENT_EVIDENCE"
+    return "REGIME_POLICY_CANDIDATE" if any(bool(row.get("passed")) for row in candidate_results) else "NO_STRATEGY"
+
+
+def coverage_summary(
+    universe: dict[str, Any],
+    regime_ids: list[str],
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    legal_count = int(universe.get("legal_combination_count") or 0)
+    legal_ids = {str(item) for item in universe.get("legal_combination_ids") or []}
+    allowed_statuses = {"PENDING", "REJECTED", "VALIDATING", "INSUFFICIENT_EVIDENCE", "PASSED", "BLOCKED"}
+    by_regime: list[dict[str, Any]] = []
+    for regime_id in sorted(set(regime_ids)):
+        rows = [row for row in records if str(row.get("regime_id")) == regime_id]
+        counts = {status: 0 for status in sorted(allowed_statuses)}
+        seen: set[str] = set()
+        for row in rows:
+            combo_id = str(row.get("combination_id") or "")
+            status = str(row.get("status") or "")
+            if combo_id and combo_id in legal_ids and combo_id not in seen and status in allowed_statuses:
+                counts[status] += 1
+                seen.add(combo_id)
+        processed = sum(counts[status] for status in counts if status != "PENDING")
+        pending = max(0, legal_count - len(seen)) + counts["PENDING"]
+        by_regime.append(
+            {
+                "regime_id": regime_id,
+                "legal_combination_count": legal_count,
+                "processed_count": processed,
+                "pending_count": pending,
+                "status_counts": counts,
+                "coverage_closed": pending == 0,
+            }
+        )
+    payload = {"parameter_space_hash": universe.get("parameter_space_hash"), "regimes": by_regime}
+    return {**payload, "coverage_hash": canonical_json_hash(payload)}
+
+
+def validate_universal_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
+    if not bool(candidate.get("universe_declared_complete", True)):
+        return {"unlocked": False, "reason_code": "PARAMETER_UNIVERSE_INCOMPLETE"}
+    if not bool(candidate.get("coverage_closed")):
+        return {"unlocked": False, "reason_code": "COVERAGE_NOT_CLOSED"}
+    if int(candidate.get("high_value_regions_remaining") or 0) > 0:
+        return {"unlocked": False, "reason_code": "HIGH_VALUE_RESEARCH_REMAINS"}
+    if not candidate.get("fixed_parameter_hash"):
+        return {"unlocked": False, "reason_code": "PARAMETERS_NOT_FROZEN"}
+    results = candidate.get("regime_results") if isinstance(candidate.get("regime_results"), list) else []
+    if not results:
+        return {"unlocked": False, "reason_code": "MISSING_REGIME_RESULTS"}
+    sufficient = [row for row in results if bool(row.get("sufficient_evidence"))]
+    if any(not bool(row.get("passed")) for row in sufficient):
+        return {"unlocked": False, "reason_code": "WORST_REGIME_FAILED"}
+    unresolved = [
+        row
+        for row in results
+        if not bool(row.get("sufficient_evidence"))
+        and str(row.get("status") or "") not in {"INSUFFICIENT_EVIDENCE", "MONITOR_ONLY"}
+    ]
+    if unresolved:
+        return {"unlocked": False, "reason_code": "UNRESOLVED_REGIME"}
+    if not bool(candidate.get("fresh_sealed_oos_per_regime", True)):
+        return {"unlocked": False, "reason_code": "SEALED_OOS_NOT_INDEPENDENT"}
+    return {"unlocked": True, "reason_code": "UNIVERSAL_CANDIDATE_UNLOCKED"}
 
 
 def write_text_atomic(path: Path, text: str) -> None:
@@ -316,6 +807,8 @@ def topic_for_dir(
     external_signals: list[str],
     evidence_sources: list[str],
     profile: dict[str, Any] | None = None,
+    current_regime: dict[str, Any] | None = None,
+    coverage: dict[str, Any] | None = None,
 ) -> ResearchTopic | None:
     profile = profile or VALIDATION_PROFILES[0]
     candidate_dir = str(row["repo_path"])
@@ -330,6 +823,34 @@ def topic_for_dir(
     profile_name = str(profile.get("name") or "standard")
     base_topic_id = f"strategy-matrix:{slugify(candidate_dir)}"
     topic_id = base_topic_id if profile_name == "standard" else f"{base_topic_id}:{slugify(profile_name)}"
+    regime_identity = canonical_regime_identity(current_regime) if current_regime else None
+    coverage = coverage or {"evidence_gap": 1.0, "pending_count": None, "legal_combination_count": None}
+    profile_values = [
+        [item for item in str(profile.get(key) or "").split(",") if item.strip()]
+        for key in ("horizons", "stop_loss_pcts", "take_profit_pcts", "max_group_exposures")
+    ]
+    estimated_resolved = 1
+    for values in profile_values:
+        estimated_resolved *= max(1, len(values))
+    priority = (
+        score_regime_research_topic(
+            {"regime_identity": regime_identity},
+            current_regime=regime_identity,
+            coverage=coverage,
+            information_gain=max(
+                0.000001,
+                min(
+                    1.0,
+                    estimated_resolved / max(1, int(coverage.get("legal_combination_count") or estimated_resolved)),
+                ),
+            ),
+            product_value=1.0,
+            feasibility=1.0,
+            estimated_compute_cost=max(1.0, count / 8),
+        )
+        if regime_identity
+        else None
+    )
     return ResearchTopic(
         topic_id=topic_id,
         title=f"回測 ranking variant：{Path(candidate_dir).name}｜{profile.get('title_suffix')}",
@@ -338,7 +859,7 @@ def topic_for_dir(
         runner="strategy_matrix_comparison",
         candidate_dir=candidate_dir,
         baseline_dir=baseline_dir,
-        score=score,
+        score=float(priority["priority"]) if priority else score,
         reasons=key_reasons + sig_reasons + [f"ranking files: {count}"],
         evidence_sources=evidence_sources + [candidate_dir],
         ranking_file_count=count,
@@ -347,6 +868,21 @@ def topic_for_dir(
         stop_loss_pcts=str(profile.get("stop_loss_pcts") or ""),
         take_profit_pcts=str(profile.get("take_profit_pcts") or ""),
         max_group_exposures=str(profile.get("max_group_exposures") or ""),
+        regime_identity=regime_identity,
+        score_breakdown=priority.get("score_breakdown") if priority else None,
+        eligible=bool(priority["eligible"]) if priority else True,
+        reason_code=str(priority["reason_code"]) if priority else "LEGACY_TOPIC",
+        selection_rationale=(
+            {
+                "why_now": f"current exact-match regime is {regime_identity_id(regime_identity)}",
+                "coverage_gap": float(coverage.get("evidence_gap") or 0.0),
+                "pending_combination_count": coverage.get("pending_count"),
+                "estimated_combinations_resolved_on_success_or_failure": estimated_resolved,
+                "selection_is_deterministic": True,
+            }
+            if regime_identity
+            else None
+        ),
     )
 
 
@@ -354,6 +890,27 @@ def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
     ledger_candidates, ledger_sources = ledger_signals()
     external_signals, external_sources = external_review_signals()
     evidence_sources = ledger_sources + external_sources
+    current_regime = None
+    current_coverage = None
+    if bool(getattr(args, "closed_regime_research", False)):
+        history_path = resolve_path(getattr(args, "market_regime_history", None))
+        if history_path is None:
+            raise ValueError("--closed-regime-research 必須提供 --market-regime-history")
+        current_regime = current_regime_context(history_path, str(args.date))["identity"]
+        contract_path = resolve_path(getattr(args, "research_contract", None))
+        if contract_path is None:
+            raise ValueError("closed regime research 缺少 parameter universe contract")
+        contract = load_json(contract_path)
+        universe = parameter_universe_summary(contract)
+        coverage_path = resolve_path(getattr(args, "coverage_map", None))
+        coverage_payload = load_json(coverage_path)
+        records = coverage_payload.get("records") if isinstance(coverage_payload.get("records"), list) else []
+        summary = coverage_summary(universe, [regime_identity_id(current_regime)], records)["regimes"][0]
+        current_coverage = {
+            "evidence_gap": summary["pending_count"] / max(1, summary["legal_combination_count"]),
+            "pending_count": summary["pending_count"],
+            "legal_combination_count": summary["legal_combination_count"],
+        }
     if args.candidate_dir:
         path = resolve_path(args.candidate_dir)
         count = len(list(path.glob("ranking_*.csv"))) if path else 0
@@ -366,6 +923,8 @@ def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
                 external_signals=external_signals,
                 evidence_sources=evidence_sources,
                 profile=profile,
+                current_regime=current_regime,
+                coverage=current_coverage,
             )
             for profile in VALIDATION_PROFILES
         ]
@@ -380,6 +939,8 @@ def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
                 external_signals=external_signals,
                 evidence_sources=evidence_sources,
                 profile=profile,
+                current_regime=current_regime,
+                coverage=current_coverage,
             )
             if topic is not None:
                 topics.append(topic)
@@ -391,7 +952,7 @@ def generate_topics(args: argparse.Namespace) -> list[ResearchTopic]:
 
 
 def matrix_command(args: argparse.Namespace, rankings_dir: str, output: str, topic: ResearchTopic | None = None) -> list[str]:
-    return [
+    command = [
         sys.executable,
         "scripts/run_backtest_strategy_matrix.py",
         "--rankings-dir",
@@ -411,6 +972,21 @@ def matrix_command(args: argparse.Namespace, rankings_dir: str, output: str, top
         "--output",
         output,
     ]
+    if bool(getattr(args, "closed_regime_research", False)):
+        if topic is None or topic.regime_identity is None or not getattr(args, "market_regime_history", None):
+            raise ValueError("closed regime matrix 缺少 regime identity/history")
+        command.extend(
+            [
+                "--require-exact-regime",
+                "--market-regime-history",
+                str(args.market_regime_history),
+                "--base-regime",
+                str(topic.regime_identity["base_regime"]),
+                "--family-tags",
+                ",".join(topic.regime_identity["family_tags"]),
+            ]
+        )
+    return command
 
 
 def compare_command(baseline_output: str, candidate_output: str, comparison_output: str) -> list[str]:
@@ -606,6 +1182,11 @@ def topic_to_json(topic: ResearchTopic) -> dict[str, Any]:
         "stop_loss_pcts": topic.stop_loss_pcts,
         "take_profit_pcts": topic.take_profit_pcts,
         "max_group_exposures": topic.max_group_exposures,
+        "regime_identity": topic.regime_identity,
+        "score_breakdown": topic.score_breakdown,
+        "eligible": topic.eligible,
+        "reason_code": topic.reason_code,
+        "selection_rationale": topic.selection_rationale,
     }
 
 
@@ -631,6 +1212,11 @@ def topic_from_json(row: dict[str, Any]) -> ResearchTopic | None:
         stop_loss_pcts=str(row.get("stop_loss_pcts") or ""),
         take_profit_pcts=str(row.get("take_profit_pcts") or ""),
         max_group_exposures=str(row.get("max_group_exposures") or ""),
+        regime_identity=row.get("regime_identity") if isinstance(row.get("regime_identity"), dict) else None,
+        score_breakdown=row.get("score_breakdown") if isinstance(row.get("score_breakdown"), dict) else None,
+        eligible=bool(row.get("eligible", True)),
+        reason_code=str(row.get("reason_code") or "LEGACY_TOPIC"),
+        selection_rationale=row.get("selection_rationale") if isinstance(row.get("selection_rationale"), dict) else None,
     )
 
 
@@ -684,6 +1270,17 @@ def outcome_from_comparison(path: Path | None) -> dict[str, Any]:
     rows = {row.get("variant"): row for row in payload.get("summary", [])}
     baseline = rows.get("baseline") or {}
     candidate = rows.get("candidate") or {}
+    if candidate.get("exact_match_regime_required") and candidate.get("statistical_gate_ok") is not True:
+        return {
+            "decision": "NO_STRATEGY",
+            "score_delta": None,
+            "return_delta": None,
+            "drawdown_delta": None,
+            "baseline": baseline,
+            "candidate": candidate,
+            "promotion_allowed": False,
+            "reason_code": "MULTIPLE_TESTING_OR_ROBUSTNESS_FAILED",
+        }
     score_delta = delta(candidate.get("best_score"), baseline.get("best_score"))
     return_delta = delta(candidate.get("best_total_return"), baseline.get("best_total_return"))
     drawdown_delta = delta(candidate.get("best_max_drawdown"), baseline.get("best_max_drawdown"))
@@ -717,6 +1314,8 @@ def topic_manager_status(topic: dict[str, Any], run_outcome: dict[str, Any] | No
             return "rejected"
         if decision == "NO_COMPARISON_EVIDENCE":
             return "blocked_missing_evidence"
+        if decision == "NO_STRATEGY":
+            return "no_strategy"
     return str(topic.get("manager_status") or "candidate")
 
 
@@ -727,6 +1326,7 @@ def next_action_for_status(status: str, topic: dict[str, Any]) -> str:
         "partial_needs_followup": "rerun_with_larger_window_or_add_risk_check",
         "rejected": "archive_or_wait_for_new_evidence",
         "blocked_missing_evidence": "inspect_runner_outputs_and_missing_artifacts",
+        "no_strategy": "wait_for_new_pre_registered_hypothesis",
     }
     return mapping.get(status, f"manual_review:{topic.get('topic_id')}")
 
@@ -1012,6 +1612,9 @@ def build_payload(
             "does_not_change_production_ranking": True,
             "production_promotion_allowed": False,
             "controlled_rerun_policies": CONTROLLED_RERUN_POLICIES,
+            "closed_regime_research": bool(getattr(args, "closed_regime_research", False)),
+            "exact_match_required": bool(getattr(args, "closed_regime_research", False)),
+            "sealed_oos_required_before_policy_candidate": bool(getattr(args, "closed_regime_research", False)),
         },
         "inputs": {
             "execute": args.execute,
@@ -1029,6 +1632,10 @@ def build_payload(
             "take_profit_pcts": args.take_profit_pcts,
             "max_group_exposures": args.max_group_exposures,
             "manager_update": not args.no_manager_update,
+            "closed_regime_research": bool(getattr(args, "closed_regime_research", False)),
+            "market_regime_history": getattr(args, "market_regime_history", None),
+            "research_contract": getattr(args, "research_contract", None),
+            "coverage_map": getattr(args, "coverage_map", None),
         },
         "selected_topic": topic_to_json(selected) if selected else None,
         "selected_topics": [topic_to_json(topic) for topic in selected_topics_for_run],

@@ -1,6 +1,6 @@
 ---
 id: REGIME-RESEARCH-AUTONOMY-01
-status: CARD_DRAFTED
+status: DELIVERED_CANDIDATE
 type: implementation
 ownership: existing-visible-implementation-thread
 chain_id: REGIME-RESEARCH-AUTONOMY-01
@@ -9,10 +9,13 @@ risk: high
 model: gpt-5.6-sol
 reasoning: high
 model_reason: 核心研究契約、盤勢資料隔離、sealed OOS、兩百萬級參數空間治理與 promotion 前證據會跨多個模組；錯誤可能系統性製造過度擬合與錯誤策略結論。
-worktree_path: TO_BE_VERIFIED_BY_EXISTING_THREAD
-cwd: TO_BE_VERIFIED_BY_EXISTING_THREAD
+worktree_path: <codex-managed-worktree>/TOP10new
+cwd: <codex-managed-worktree>/TOP10new
 main_cwd: <repo-root>
-worktree_exists: TO_BE_VERIFIED_BY_EXISTING_THREAD
+worktree_exists: true
+source_sha: 7efda43641118f36b10261b4a04e0278bba941a2
+card_sha: ebfffbd5b926b169dde353c6f1a888fe04fbd159
+implementation_branch: codex/regime-research-autonomy-01-ea64
 evidence_path: artifacts/visible_thread/REGIME-RESEARCH-AUTONOMY-01/
 ---
 
@@ -556,18 +559,15 @@ Fork 發生時先產具證據的 decision note，不得靜默改變本卡研究�
 
 ## 下一步
 
-接手對話完成 preflight 後：
-
-1. 將本卡狀態更新為 `QUEUED`／`RUNNING` 的實證狀態。
-2. 先完成 Phase 0 baseline 與紅燈測試。
-3. 提交 Phase 0 的實際參數 inventory、regime data contract 與實作切面。
-4. 再依 Phase 1–7 實作，不得直接從現有 matrix 擴大暴力搜尋。
+Implementation Executor 已完成 candidate；下一步由主線建立獨立 Review 卡，檢查
+candidate SHA、diff、verifier 與 artifacts。Review `GO` 前不得 merge、push、
+deploy、promotion 或啟用 production。
 
 ## 等待條件
 
-- 等待既有可見對話讀卡並回報 preflight。
-- 等待其確認原卡與本卡的 commit／worktree 不混用。
-- 不等待 PM 提供研究題目；自主選題正是本卡要建立的能力。
+- 等待獨立 Reviewer。
+- 等待代表性真實 features／ranking artifacts 的受控 replay evidence。
+- 等待完整兩百萬級參數來源 inventory；目前只證明既有四維 720 組。
 
 ## Mainline Acceptance
 

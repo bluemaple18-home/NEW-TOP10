@@ -1,0 +1,19 @@
+{
+  "schema_version": "regime-research-bounded-baseline.v1",
+  "source_sha": "ebfffbd5b926b169dde353c6f1a888fe04fbd159",
+  "fixture": {
+    "candidate_dir": "artifacts/backtest/shadow_rankings_regime_guard_recent",
+    "ranking_file_count": 12
+  },
+  "observed": {
+    "keyword_score": 28.0,
+    "keyword_reasons": [
+      "regime conditional hypothesis",
+      "risk guard variant"
+    ],
+    "topic_score": 42.0,
+    "topic_has_current_regime_identity": false,
+    "matrix_market_regime_history": null
+  },
+  "classification": "legacy_diagnostic_only"
+}

@@ -1,0 +1,357 @@
+{
+  "schema_version": "regime-research-autonomy-verification.v1",
+  "status": "OK",
+  "summary": {
+    "check_count": 26,
+    "failed_count": 0
+  },
+  "checks": [
+    {
+      "name": "parameter_universe.positive",
+      "ok": true,
+      "value": {
+        "inventory_status": "PARTIAL_BLOCKED_SOURCE_UNKNOWN",
+        "declared_complete": false,
+        "executable_dimension_count": 4,
+        "legal_combination_count": 720,
+        "combination_id_hash": "sha256:78cd9b8b6fa39935f9037d5b4c8dde3fcc2ae39955414aa51bda96dafb69f6b4",
+        "parameter_space_hash": "sha256:bcf2e751de5b0cef85eb2513eda044d3d063594c4a6197c1cea689f330b5fd0e",
+        "blocked_dimensions": [
+          {
+            "id": "full_product_parameter_universe",
+            "reason_code": "SOURCE_INVENTORY_NOT_PROVEN",
+            "detail": "兩百萬級估算沒有可稽核的維度來源；不得由目前四維矩陣外推。"
+          }
+        ]
+      }
+    },
+    {
+      "name": "parameter_universe.synthetic_negative",
+      "ok": true,
+      "value": "count drift rejected"
+    },
+    {
+      "name": "as_of_regime.positive",
+      "ok": true,
+      "value": {
+        "validation": {
+          "ok": true,
+          "violations": []
+        },
+        "identity": "BROAD_RISK_ON|BIG_BULL"
+      }
+    },
+    {
+      "name": "as_of_regime.synthetic_negative",
+      "ok": true,
+      "value": {
+        "ok": false,
+        "violations": [
+          {
+            "index": 0,
+            "reason_code": "AS_OF_DATE_NOT_TRADE_DATE",
+            "trade_date": "2026-01-01",
+            "as_of_date": "2026-01-02"
+          }
+        ]
+      }
+    },
+    {
+      "name": "exact_match.positive",
+      "ok": true,
+      "value": [
+        {
+          "trade_date": "2026-01-01",
+          "as_of_date": "2026-01-01",
+          "base_regime": "BROAD_RISK_ON",
+          "family_tags": [
+            "BIG_BULL"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "exact_match.synthetic_negative",
+      "ok": true,
+      "value": "family mismatch/transition/UNKNOWN excluded"
+    },
+    {
+      "name": "episode_split.positive",
+      "ok": true,
+      "value": {
+        "schema_version": "regime-episode-split.v1",
+        "regime_id": "BROAD_RISK_ON|BIG_BULL",
+        "development_episode_ids": [
+          "episode-1",
+          "episode-2",
+          "episode-3",
+          "episode-4"
+        ],
+        "validation_episode_ids": [
+          "episode-5"
+        ],
+        "embargo_episode_ids": [
+          "episode-6"
+        ],
+        "sealed_episode_ids": [
+          "episode-7"
+        ],
+        "horizon": 3,
+        "embargo_trade_days": 3,
+        "split_id": "sha256:04b217d5f43f29d744becc6b85d01e7de59bcdf3c0417d25e7864a2a778fa608",
+        "episode_overlap": false,
+        "embargo_covers_horizon": true
+      }
+    },
+    {
+      "name": "episode_split.synthetic_negative",
+      "ok": true,
+      "value": "mixed identity rejected"
+    },
+    {
+      "name": "pre_registration.positive",
+      "ok": true,
+      "value": {
+        "ok": true,
+        "reason_code": "REGISTERED",
+        "registry_record_hash": "sha256:08bd26f3650d5cbf550e18fd62081004cae03f50e5b61ca13902bc6d0b48cb74"
+      }
+    },
+    {
+      "name": "pre_registration.synthetic_negative",
+      "ok": true,
+      "value": {
+        "ok": false,
+        "reason_code": "EXPERIMENT_ID_PAYLOAD_MISMATCH",
+        "expected_experiment_id": "experiment:83452e1aefe7ae71da4212265d56e82138b002303efc91fa14ad13ab12b517b8"
+      }
+    },
+    {
+      "name": "sealed_reuse.positive",
+      "ok": true,
+      "value": {
+        "ok": true,
+        "reason_code": "REGISTERED",
+        "registry_record_hash": "sha256:13b1d02755b9837c8c9c376b67f6d49e86ddcc5942b260c6693b8600ea85d972"
+      }
+    },
+    {
+      "name": "sealed_reuse.synthetic_negative",
+      "ok": true,
+      "value": {
+        "ok": false,
+        "reason_code": "SEALED_DATASET_REUSE",
+        "source_experiment_id": "experiment:3435cbd24c39ababf5ce422b57aaea08edc3987c5350e6b82f476e4b0e4befb8",
+        "overlapping_episode_ids": [
+          "episode-7"
+        ]
+      }
+    },
+    {
+      "name": "composition.positive",
+      "ok": true,
+      "value": {
+        "ok": true,
+        "reason_code": "REGISTERED",
+        "registry_record_hash": "sha256:ed81e4fb5a2adfee2358ccda74558a31c8919cb8f1d8390d7fdb1d02d1c71755"
+      }
+    },
+    {
+      "name": "composition.synthetic_negative",
+      "ok": true,
+      "value": "old experiment id rejected"
+    },
+    {
+      "name": "funnel.positive",
+      "ok": true,
+      "value": {
+        "ok": true,
+        "reason_code": "TRANSITION_RECORDED",
+        "event_type": "STATE_TRANSITION",
+        "experiment_id": "experiment:48348e9d22768896708ebd76bf23c7d29a2b6089519dde9f055ccc35d3735949",
+        "from_state": "REGISTERED",
+        "target_state": "COARSE_SCREEN",
+        "evidence_path": "artifacts/coarse.json",
+        "previous_event_hash": "sha256:1e4b0f2cc9b1550d661ff36be80b97a4648ed3582d0646105d05c70e6850448d",
+        "event_hash": "sha256:52b95a3cd8d0ba4ec87091ed2fe11f10a884e6163eb4caf064186b7bb6a960d8"
+      }
+    },
+    {
+      "name": "funnel.synthetic_negative",
+      "ok": true,
+      "value": {
+        "ok": false,
+        "reason_code": "ILLEGAL_STATE_TRANSITION",
+        "allowed": [
+          "BLOCKED",
+          "NO_STRATEGY",
+          "REJECTED",
+          "SAME_REGIME_VALIDATION"
+        ]
+      }
+    },
+    {
+      "name": "coverage.positive",
+      "ok": true,
+      "value": {
+        "regime_id": "BROAD_RISK_ON|BIG_BULL",
+        "legal_combination_count": 720,
+        "processed_count": 720,
+        "pending_count": 0,
+        "status_counts": {
+          "BLOCKED": 0,
+          "INSUFFICIENT_EVIDENCE": 0,
+          "PASSED": 0,
+          "PENDING": 0,
+          "REJECTED": 720,
+          "VALIDATING": 0
+        },
+        "coverage_closed": true
+      }
+    },
+    {
+      "name": "coverage.synthetic_negative",
+      "ok": true,
+      "value": {
+        "regime_id": "BROAD_RISK_ON|BIG_BULL",
+        "legal_combination_count": 720,
+        "processed_count": 719,
+        "pending_count": 1,
+        "status_counts": {
+          "BLOCKED": 0,
+          "INSUFFICIENT_EVIDENCE": 0,
+          "PASSED": 0,
+          "PENDING": 0,
+          "REJECTED": 719,
+          "VALIDATING": 0
+        },
+        "coverage_closed": false
+      }
+    },
+    {
+      "name": "topic_score.positive",
+      "ok": true,
+      "value": {
+        "eligible": true,
+        "reason_code": "ELIGIBLE",
+        "priority": 0.15,
+        "score_breakdown": {
+          "current_regime_relevance": 1.0,
+          "evidence_gap": 0.5,
+          "expected_information_gain": 0.8,
+          "product_value": 1.0,
+          "feasibility": 0.75,
+          "estimated_compute_cost": 2.0
+        }
+      }
+    },
+    {
+      "name": "topic_score.synthetic_negative",
+      "ok": true,
+      "value": {
+        "eligible": false,
+        "reason_code": "MISSING_TOPIC_REGIME_IDENTITY",
+        "priority": 0.0,
+        "score_breakdown": {}
+      }
+    },
+    {
+      "name": "multiple_testing.positive",
+      "ok": true,
+      "value": {
+        "ok": true,
+        "reason_code": "ROBUST_CANDIDATE_AVAILABLE",
+        "tested_count": 2,
+        "corrected_alpha": 0.025,
+        "eligible_ids": [
+          "robust"
+        ]
+      }
+    },
+    {
+      "name": "multiple_testing.synthetic_negative",
+      "ok": true,
+      "value": {
+        "ok": true,
+        "reason_code": "ROBUST_CANDIDATE_AVAILABLE",
+        "tested_count": 2,
+        "corrected_alpha": 0.025,
+        "eligible_ids": [
+          "robust"
+        ]
+      }
+    },
+    {
+      "name": "universal_gate.positive",
+      "ok": true,
+      "value": {
+        "unlocked": true,
+        "reason_code": "UNIVERSAL_CANDIDATE_UNLOCKED"
+      }
+    },
+    {
+      "name": "universal_gate.synthetic_negative",
+      "ok": true,
+      "value": {
+        "unlocked": false,
+        "reason_code": "WORST_REGIME_FAILED"
+      }
+    },
+    {
+      "name": "production_no_change.positive",
+      "ok": true,
+      "value": {
+        "paths": [
+          "app/modeling/sealed_oos.py",
+          "config/regime_research_contract.json",
+          "docs/architecture/AUTONOMOUS_RESEARCH_MANAGER.md",
+          "docs/architecture/MODEL_IMPROVEMENT_LOOP.md",
+          "docs/tasks/2026-07-27_REGIME-RESEARCH-AUTONOMY-01_closed_regime_parameter_research.md",
+          "scripts/build_market_regime_history.py",
+          "scripts/compare_strategy_matrices.py",
+          "scripts/run_autonomous_research.py",
+          "scripts/run_backtest_strategy_matrix.py",
+          "scripts/verify_regime_research_autonomy.py",
+          "tests/test_regime_research_autonomy.py"
+        ],
+        "hashes": {
+          "models/latest_lgbm.pkl": "ce64379701339bf7eadd696872efa0f64be118b4b8c58582e90691ec175c8a5d",
+          "models/baseline_stats.json": "c219b1b3c31c9b77f0a20cbeaeff87047bf88511f08dd642200f9d9370f832e7"
+        }
+      }
+    },
+    {
+      "name": "production_no_change.synthetic_negative",
+      "ok": true,
+      "value": "synthetic production path rejected"
+    }
+  ],
+  "parameter_universe": {
+    "inventory_status": "PARTIAL_BLOCKED_SOURCE_UNKNOWN",
+    "declared_complete": false,
+    "executable_dimension_count": 4,
+    "legal_combination_count": 720,
+    "combination_id_hash": "sha256:78cd9b8b6fa39935f9037d5b4c8dde3fcc2ae39955414aa51bda96dafb69f6b4",
+    "parameter_space_hash": "sha256:bcf2e751de5b0cef85eb2513eda044d3d063594c4a6197c1cea689f330b5fd0e",
+    "blocked_dimensions": [
+      {
+        "id": "full_product_parameter_universe",
+        "reason_code": "SOURCE_INVENTORY_NOT_PROVEN",
+        "detail": "兩百萬級估算沒有可稽核的維度來源；不得由目前四維矩陣外推。"
+      }
+    ]
+  },
+  "production_change_paths": [
+    "app/modeling/sealed_oos.py",
+    "config/regime_research_contract.json",
+    "docs/architecture/AUTONOMOUS_RESEARCH_MANAGER.md",
+    "docs/architecture/MODEL_IMPROVEMENT_LOOP.md",
+    "docs/tasks/2026-07-27_REGIME-RESEARCH-AUTONOMY-01_closed_regime_parameter_research.md",
+    "scripts/build_market_regime_history.py",
+    "scripts/compare_strategy_matrices.py",
+    "scripts/run_autonomous_research.py",
+    "scripts/run_backtest_strategy_matrix.py",
+    "scripts/verify_regime_research_autonomy.py",
+    "tests/test_regime_research_autonomy.py"
+  ]
+}

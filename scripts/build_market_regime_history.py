@@ -18,7 +18,7 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_VERSION = "market-regime-history.v1"
+SCHEMA_VERSION = "market-regime-history.v2"
 BASE_REGIME_LABELS = [
     "BROAD_RISK_ON",
     "NARROW_LEADER",
@@ -272,6 +272,115 @@ def summarize(rows: list[RegimeRow]) -> dict[str, Any]:
     }
 
 
+def _rolling_compound(series: pd.Series, window: int, min_periods: int) -> pd.Series:
+    return series.fillna(0).rolling(window, min_periods=min_periods).apply(
+        lambda values: float((1 + values).prod() - 1),
+        raw=False,
+    )
+
+
+def _is_high_choppy(row: pd.Series) -> bool:
+    label = str(row.get("regime_label") or "")
+    breadth = row.get("breadth_ma20")
+    breadth60 = row.get("breadth_ma60")
+    top_share = row.get("top_sector_value_share")
+    upper = row.get("long_upper_shadow_ratio")
+    ew_return = row.get("equal_weight_return")
+    value_return = row.get("value_weight_return")
+    return (
+        label in {"NARROW_LEADER", "MIXED_NEUTRAL", "CHOPPY_RANGE"}
+        and pd.notna(breadth)
+        and 0.38 <= float(breadth) <= 0.56
+        and (pd.isna(breadth60) or float(breadth60) <= 0.45)
+        and pd.notna(top_share)
+        and float(top_share) >= 0.65
+        and pd.notna(upper)
+        and float(upper) >= 0.12
+        and pd.notna(ew_return)
+        and float(ew_return) <= 0.016
+        and (pd.isna(value_return) or float(value_return) >= -0.015)
+    )
+
+
+def _is_big_bull(row: pd.Series) -> bool:
+    label = str(row.get("regime_label") or "")
+    if label == "BROAD_RISK_ON":
+        return True
+    rolling_20 = row.get("rolling_value_return_20d")
+    rolling_60 = row.get("rolling_value_return_60d")
+    top_share = row.get("top_sector_value_share")
+    top_strong_share = row.get("top_strong_sector_value_share")
+    avg_rsi = row.get("avg_rsi")
+    breakdown = row.get("breakdown_ratio")
+    index_led = (
+        ((pd.notna(rolling_60) and float(rolling_60) >= 0.08) or (pd.notna(rolling_20) and float(rolling_20) >= 0.04))
+        and pd.notna(top_share)
+        and float(top_share) >= 0.60
+        and (pd.isna(top_strong_share) or float(top_strong_share) >= 0.62)
+        and (pd.isna(avg_rsi) or float(avg_rsi) >= 48)
+        and (pd.isna(breakdown) or float(breakdown) <= 0.12)
+    )
+    if index_led:
+        return True
+    breadth = row.get("breadth_ma20")
+    advance = row.get("advance_ratio")
+    breakout = row.get("breakout_ratio")
+    value_return = row.get("value_weight_return")
+    ew_return = row.get("equal_weight_return")
+    return (
+        label == "NARROW_LEADER"
+        and pd.notna(breadth)
+        and float(breadth) >= 0.45
+        and pd.notna(advance)
+        and float(advance) >= 0.48
+        and pd.notna(breakout)
+        and float(breakout) >= 0.05
+        and pd.notna(avg_rsi)
+        and float(avg_rsi) >= 50
+        and pd.notna(value_return)
+        and float(value_return) >= 0.015
+        and pd.notna(ew_return)
+        and float(ew_return) >= 0
+    )
+
+
+def enrich_regime_contract_rows(rows: list[RegimeRow]) -> list[dict[str, Any]]:
+    """補上 exact-match identity、as-of 與保守 transition policy。
+
+    rolling family 指標只使用當日與過去列；附加未來列不會改變既有日期結果。
+    base regime 改變後的第一天標為 transition，正式研究會排除。
+    """
+
+    frame = pd.DataFrame([asdict(row) for row in rows])
+    if frame.empty:
+        return []
+    for column in ["value_weight_return", "equal_weight_return"]:
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    frame["rolling_value_return_20d"] = _rolling_compound(frame["value_weight_return"], 20, 10)
+    frame["rolling_value_return_60d"] = _rolling_compound(frame["value_weight_return"], 60, 30)
+    previous_base = frame["regime_label"].shift(1)
+    payload_rows: list[dict[str, Any]] = []
+    for index, row in frame.iterrows():
+        family_tags = []
+        if _is_high_choppy(row):
+            family_tags.append("HIGH_CHOPPY")
+        if _is_big_bull(row):
+            family_tags.append("BIG_BULL")
+        is_transition = bool(index > 0 and str(previous_base.iloc[index]) != str(row["regime_label"]))
+        payload = {key: (None if pd.isna(value) else value) for key, value in row.to_dict().items()}
+        payload.update(
+            {
+                "as_of_date": str(row["trade_date"]),
+                "base_regime": str(row["regime_label"]),
+                "family_tags": sorted(family_tags),
+                "is_transition": is_transition,
+                "transition_reason": "BASE_REGIME_CHANGED" if is_transition else None,
+            }
+        )
+        payload_rows.append(payload)
+    return payload_rows
+
+
 def render_markdown(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
     lines = [
@@ -338,6 +447,7 @@ def main() -> int:
     industry_map = load_industry_map(industry_path)
     frame = enrich_reference(features, industry_map)
     rows = build_rows(frame)
+    contract_rows = enrich_regime_contract_rows(rows)
     output_path = resolve_path(args.output) or PROJECT_ROOT / "artifacts" / "market_regime_history_latest.json"
     assert output_path is not None
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -354,8 +464,16 @@ def main() -> int:
                 "unknown_is_data_gap_label": True,
                 "regime_family_tags_are_separate_layer": True,
                 "do_not_add_base_regime_without_contract_change": True,
+                "family_tags": ["HIGH_CHOPPY", "BIG_BULL"],
+                "family_tag_set_exact_match_required": True,
+                "transition_rows_excluded_from_formal_evidence": True,
             },
             "regime_labels": BASE_REGIME_LABELS,
+            "as_of_policy": {
+                "row_as_of_date_equals_trade_date": True,
+                "uses_same_day_or_prior_rows_only": True,
+                "future_rows_cannot_change_prior_identity": True,
+            },
         },
         "inputs": {
             "features": str(features_path),
@@ -364,7 +482,7 @@ def main() -> int:
             "end_date": args.end_date,
         },
         "summary": summarize(rows),
-        "rows": [asdict(row) for row in rows],
+        "rows": contract_rows,
     }
     output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
     output_path.with_suffix(".md").write_text(render_markdown(payload), encoding="utf-8")

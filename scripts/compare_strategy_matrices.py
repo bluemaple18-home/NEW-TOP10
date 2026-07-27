@@ -89,6 +89,8 @@ def compare(variants: list[tuple[str, Path]]) -> dict[str, Any]:
     for label, path, payload in loaded:
         scenarios = payload.get("scenarios", [])
         best = scenarios[0] if scenarios else {}
+        exact_match = bool((payload.get("contract") or {}).get("exact_match_regime_required"))
+        statistical_gate = (payload.get("summary") or {}).get("statistical_gate")
         summaries.append(
             {
                 "variant": label,
@@ -102,6 +104,9 @@ def compare(variants: list[tuple[str, Path]]) -> dict[str, Any]:
                 "best_max_drawdown": safe_float(best.get("max_drawdown")),
                 "best_win_rate": safe_float(best.get("win_rate")),
                 "best_score": safe_float(best.get("score")),
+                "exact_match_regime_required": exact_match,
+                "statistical_gate_ok": bool((statistical_gate or {}).get("ok")) if exact_match else None,
+                "formal_candidate_scenario_ids": (payload.get("summary") or {}).get("formal_candidate_scenario_ids", []),
             }
         )
         current_rows = scenario_map(payload)
@@ -147,6 +152,9 @@ def compare(variants: list[tuple[str, Path]]) -> dict[str, Any]:
             "research_only": True,
             "reads_strategy_matrix_artifacts_only": True,
             "baseline_variant": baseline_label,
+            "raw_best_is_diagnostic_only_when_exact_match": True,
+            "formal_candidate_requires_multiple_testing_and_robustness": True,
+            "production_promotion_allowed": False,
         },
         "variants": [{"label": label, "path": repo_path(path)} for label, path, _ in loaded],
         "summary": summaries,

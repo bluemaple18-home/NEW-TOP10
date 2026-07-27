@@ -63,6 +63,24 @@ MODEL-PROMOTE-01：人工 review + rollback-ready 正式替換
 
 `BIG_BULL` 與 `HIGH_CHOPPY` 可以重疊，語意是「大牛市裡的高檔震盪段」。重疊不是 bug，但 artifact 必須明確寫出 `family_tags_are_not_mutually_exclusive=true`，避免後續訓練把它們誤當互斥分類。
 
+### Exact-match episode 契約
+
+`market-regime-history.v2` 為每列補上：
+
+- `as_of_date`：與該列 `trade_date` 相同，分類只可用當日與過去資料。
+- `base_regime`：互斥 base taxonomy。
+- `family_tags`：排序後的完整 tag set，可為空、單一或重疊。
+- `is_transition`：base regime 改變後第一列採保守 transition 標記。
+
+正式盤勢研究只接受 base 與 family tag set 都完全相同的歷史列。base-only match、
+其他 tag set、transition 與 `UNKNOWN` 只能作診斷或排除，不得進正式 metric。
+切分單位是完整 episode，順序固定為 development、validation、embargo、sealed；
+embargo 交易日必須至少覆蓋 label horizon。同一 episode 不得跨 split。
+
+跨實驗使用由 append-only registry 管理。sealed episode 一旦影響過候選選擇，
+不得再次冒充新 OOS；跨實驗組合必須開新 experiment 並使用未污染 sealed data。
+這一層仍是 research-only，不能修改 production model、ranking、權重或 promotion。
+
 ## Regime Family 訓練候選
 
 目前只研究固定的兩個 family tag，不新增、不刪減：

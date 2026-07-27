@@ -6,6 +6,58 @@
 
 它不是模型升版 gate，不會訓練模型、不會覆蓋 `models/latest_lgbm.pkl`、不會修改正式 ranking，也不會輸出 promotion ready。
 
+## 封閉盤勢研究模式
+
+`--closed-regime-research` 是 default-off 的嚴格模式。啟用後，manager 不再以
+ranking 目錄名稱作正式資格，而會：
+
+1. 從 `market_regime_history.v2` 讀取不晚於研究日的 `as_of_date`。
+2. 把 `base_regime + 完整 family tag set` 寫入 topic。
+3. 依 relevance、evidence gap、information gain、product value、
+   feasibility 與 compute cost 輸出可重現 score breakdown。
+4. 把 exact-match identity 傳給 strategy matrix；matrix 在建立 entry plan
+   前排除 base-only match、family mismatch、transition 與 `UNKNOWN`。
+
+```bash
+.venv/bin/python scripts/run_autonomous_research.py \
+  --date YYYY-MM-DD \
+  --closed-regime-research \
+  --market-regime-history artifacts/market_regime_history_YYYY-MM-DD.json
+```
+
+盤勢 history 缺少 `as_of_date`、當前盤勢為 transition／`UNKNOWN`，或沒有
+exact-match ranking date 時一律 fail closed，不會回退到檔名或全期間結果。
+
+## 參數宇宙與封閉實驗
+
+單一契約在 `config/regime_research_contract.json`。目前從既有可執行程式盤點出
+四個維度、720 個穩定 combination ID；「兩百萬級」來源尚無可稽核 inventory，
+所以明確標記 `PARTIAL_BLOCKED_SOURCE_UNKNOWN`，不得外推或宣稱完整覆蓋。
+
+封閉實驗以 immutable hash 固定 research question、baseline、dataset、split、
+parameter space 與 metric policy。registry 使用 JSONL append-only；已影響選擇的
+sealed episode 不得再次當新 OOS。跨實驗零件拼接必須使用新 experiment ID 與
+全新 sealed episodes。
+
+漏斗只能依序前進：
+
+```text
+REGISTERED
+→ COARSE_SCREEN
+→ SAME_REGIME_VALIDATION
+→ SEALED_OOS
+→ FORWARD_SHADOW
+→ REGIME_POLICY_CANDIDATE
+```
+
+最高分不等於通過；Bonferroni family-wise correction、鄰近參數穩定度與 drawdown
+必須同時通過。全部候選失敗時輸出 `NO_STRATEGY`，樣本不足則輸出
+`INSUFFICIENT_EVIDENCE`。
+
+Universal candidate 只有在 parameter universe 已證明完整、逐盤勢 coverage
+closed、沒有高價值區域待研究、參數完全凍結、每個具足夠證據的盤勢都通過獨立
+sealed OOS 時才可能解鎖。目前 inventory 未完成，因此 gate 預設 locked。
+
 ## 使用方式
 
 只產題與更新管理層：
@@ -115,5 +167,7 @@ scripts/compare_strategy_matrices.py
 
 .venv/bin/python scripts/verify_autonomous_research.py
 .venv/bin/python scripts/verify_backtest_strategy_matrix.py
+.venv/bin/python scripts/verify_regime_research_autonomy.py
+.venv/bin/python -m pytest -q tests/test_regime_research_autonomy.py
 git diff --check
 ```

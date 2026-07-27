@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import hashlib
+import json
 import pickle
 
 import numpy as np
@@ -69,6 +70,101 @@ class SealedOOSSplit:
     embargo: pd.DataFrame
     sealed: pd.DataFrame
     metadata: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class RegimeEpisodeSplit:
+    """以完整 exact-match 盤勢 episode 建立封閉研究切分。"""
+
+    development: list[dict[str, Any]]
+    validation: list[dict[str, Any]]
+    embargo: list[dict[str, Any]]
+    sealed: list[dict[str, Any]]
+    metadata: dict[str, Any]
+
+
+def build_regime_episode_split(
+    episodes: list[dict[str, Any]],
+    *,
+    horizon: int,
+    min_development_episodes: int = 2,
+    validation_episodes: int = 1,
+    sealed_episodes: int = 1,
+    min_embargo_trade_days: int | None = None,
+) -> RegimeEpisodeSplit:
+    """依完整 episode 建立 development / validation / embargo / sealed。
+
+    embargo 以完整 episode 累積，且交易日至少覆蓋 label horizon。任何 episode
+    都只會出現在一個 split；不足時直接 fail closed。
+    """
+
+    if horizon <= 0:
+        raise ValueError("horizon 必須大於 0")
+    if min_development_episodes <= 0 or validation_episodes <= 0 or sealed_episodes <= 0:
+        raise ValueError("development/validation/sealed episode count 必須大於 0")
+    ordered = sorted(episodes, key=lambda row: (str(row.get("start_date") or ""), str(row.get("episode_id") or "")))
+    ids = [str(row.get("episode_id") or "") for row in ordered]
+    if not ordered or any(not item for item in ids) or len(ids) != len(set(ids)):
+        raise ValueError("episode_id 缺失或重複")
+    regime_ids = {str(row.get("regime_id") or "") for row in ordered}
+    if len(regime_ids) != 1 or "" in regime_ids:
+        raise ValueError("split 只能包含同一 exact-match regime identity")
+    if len(ordered) < min_development_episodes + validation_episodes + sealed_episodes + 1:
+        raise ValueError("完整盤勢 episode 不足，無法建立封閉切分")
+
+    sealed = ordered[-sealed_episodes:]
+    cursor = len(ordered) - sealed_episodes
+    required_embargo_days = max(horizon, int(min_embargo_trade_days or 0))
+    embargo_reversed: list[dict[str, Any]] = []
+    embargo_days = 0
+    while cursor > 0 and embargo_days < required_embargo_days:
+        cursor -= 1
+        episode = ordered[cursor]
+        embargo_reversed.append(episode)
+        embargo_days += len(episode.get("trade_dates") or [])
+    embargo = list(reversed(embargo_reversed))
+    validation_start = cursor - validation_episodes
+    if validation_start < min_development_episodes:
+        raise ValueError(
+            "完整盤勢 episode 不足："
+            f"development_available={max(0, validation_start)} required={min_development_episodes} "
+            f"embargo_days={embargo_days} required_embargo_days={required_embargo_days}"
+        )
+    validation = ordered[validation_start:cursor]
+    development = ordered[:validation_start]
+    all_split_ids = [
+        *(str(row["episode_id"]) for row in development),
+        *(str(row["episode_id"]) for row in validation),
+        *(str(row["episode_id"]) for row in embargo),
+        *(str(row["episode_id"]) for row in sealed),
+    ]
+    if len(all_split_ids) != len(set(all_split_ids)):
+        raise ValueError("episode 跨 split 重複")
+    split_payload = {
+        "regime_id": next(iter(regime_ids)),
+        "development_episode_ids": [row["episode_id"] for row in development],
+        "validation_episode_ids": [row["episode_id"] for row in validation],
+        "embargo_episode_ids": [row["episode_id"] for row in embargo],
+        "sealed_episode_ids": [row["episode_id"] for row in sealed],
+        "horizon": horizon,
+        "embargo_trade_days": embargo_days,
+    }
+    split_hash = hashlib.sha256(
+        json.dumps(split_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return RegimeEpisodeSplit(
+        development=development,
+        validation=validation,
+        embargo=embargo,
+        sealed=sealed,
+        metadata={
+            "schema_version": "regime-episode-split.v1",
+            **split_payload,
+            "split_id": f"sha256:{split_hash}",
+            "episode_overlap": False,
+            "embargo_covers_horizon": embargo_days >= horizon,
+        },
+    )
 
 
 def build_sealed_oos_split(

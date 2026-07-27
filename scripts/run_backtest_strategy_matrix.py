@@ -12,6 +12,7 @@ import itertools
 import json
 import math
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts import run_portfolio_replay  # noqa: E402
+from scripts import run_autonomous_research as regime_research  # noqa: E402
 
 
 SCHEMA_VERSION = "backtest-strategy-matrix.v1"
@@ -47,6 +49,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tax-rate", type=float, default=0.003)
     parser.add_argument("--slippage-rate", type=float, default=0.001)
     parser.add_argument("--same-day-hit-priority", choices=["stop_loss", "take_profit"], default="stop_loss")
+    parser.add_argument("--require-exact-regime", action="store_true")
+    parser.add_argument("--market-regime-history", default=None)
+    parser.add_argument("--base-regime", default=None)
+    parser.add_argument("--family-tags", default="")
     parser.add_argument("--output", default=None)
     return parser.parse_args()
 
@@ -75,7 +81,7 @@ def replay_args(base: argparse.Namespace, scenario: dict[str, Any]) -> argparse.
         max_ranking_files=base.max_ranking_files,
         initial_cash=1.0,
         max_gross_exposure=base.max_gross_exposure,
-        market_regime_history=None,
+        market_regime_history=getattr(base, "market_regime_history", None),
         big_bull_gross_exposure=None,
         high_choppy_gross_exposure=None,
         other_family_gross_exposure=None,
@@ -108,6 +114,54 @@ def fmt_token(value: Any) -> str:
     if value is None:
         return "none"
     return str(value).replace(".", "p")
+
+
+def exact_regime_context(args: argparse.Namespace) -> tuple[dict[str, Any] | None, set[str] | None]:
+    if not bool(args.require_exact_regime):
+        return None, None
+    if not args.market_regime_history or not args.base_regime:
+        raise ValueError("--require-exact-regime 必須提供 --market-regime-history 與 --base-regime")
+    path = run_portfolio_replay.resolve_path(args.market_regime_history)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    rows = payload.get("rows") if isinstance(payload.get("rows"), list) else []
+    as_of_check = regime_research.validate_as_of_regime_rows(rows)
+    if not as_of_check["ok"]:
+        raise ValueError(f"market regime history 不符合 as-of 契約：{as_of_check['violations'][:3]}")
+    identity = regime_research.canonical_regime_identity(
+        {
+            "base_regime": args.base_regime,
+            "family_tags": [item.strip() for item in args.family_tags.split(",") if item.strip()],
+        }
+    )
+    selected = regime_research.select_exact_regime_rows(rows, identity)
+    allowed_dates = {str(row["trade_date"]) for row in selected if row.get("trade_date")}
+    if not allowed_dates:
+        raise ValueError(f"exact-match 盤勢沒有可用日期：{regime_research.regime_identity_id(identity)}")
+    return identity, allowed_dates
+
+
+@contextmanager
+def exact_ranking_file_scope(allowed_dates: set[str] | None):
+    """在 portfolio replay 建立 entry plan 前限制 ranking date。"""
+
+    if allowed_dates is None:
+        yield
+        return
+    replay_module = run_portfolio_replay.run_backtest_replay
+    original = replay_module.ranking_files
+
+    def filtered(rankings_dir: Path, max_files: int | None) -> list[Path]:
+        files = original(rankings_dir, None)
+        exact = [path for path in files if replay_module.ranking_date(path) in allowed_dates]
+        if not exact:
+            raise FileNotFoundError("ranking artifacts 沒有 exact-match regime 日期")
+        return exact[-max_files:] if max_files else exact
+
+    replay_module.ranking_files = filtered
+    try:
+        yield
+    finally:
+        replay_module.ranking_files = original
 
 
 def event_counts(trades: list[dict[str, Any]]) -> dict[str, int]:
@@ -191,22 +245,30 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             parse_optional_float_list(args.max_group_exposures),
         )
     ]
+    regime_identity, allowed_dates = exact_regime_context(args)
     rows: list[dict[str, Any]] = []
-    for scenario in scenarios:
-        replay = run_portfolio_replay.run_portfolio_from_price_frame(replay_args(args, scenario), price_frame)
-        rows.append(matrix_row(scenario, replay))
+    with exact_ranking_file_scope(allowed_dates):
+        for scenario in scenarios:
+            replay = run_portfolio_replay.run_portfolio_from_price_frame(replay_args(args, scenario), price_frame)
+            rows.append(matrix_row(scenario, replay))
     ranked_rows = sorted(rows, key=lambda item: (item["score"] is not None, score_sort_value(item)), reverse=True)
     best = ranked_rows[0] if ranked_rows else None
+    statistical_gate = regime_research.multiple_testing_gate(ranked_rows) if args.require_exact_regime else None
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "contract": {
             "source": "portfolio_replay_matrix",
+            "research_stage": "COARSE_SCREEN",
             "model_feature": False,
             "ranking_score_change": False,
             "resource_mode": "read_existing_artifacts_only",
             "features_load_policy": "load_once_per_matrix",
             "same_day_hit_priority": args.same_day_hit_priority,
+            "exact_match_regime_required": bool(args.require_exact_regime),
+            "transition_and_unknown_excluded": bool(args.require_exact_regime),
+            "production_promotion_allowed": False,
+            "raw_best_is_diagnostic_only": bool(args.require_exact_regime),
         },
         "inputs": {
             "rankings_dir": str(run_portfolio_replay.resolve_path(args.rankings_dir)),
@@ -214,6 +276,13 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "max_ranking_files": args.max_ranking_files,
             "top_n": args.top_n,
             "scenario_count": len(rows),
+            "regime_identity": regime_identity,
+            "exact_match_ranking_date_count": len(allowed_dates or []),
+            "market_regime_history": args.market_regime_history,
+            "exact_match_dataset_hash": (
+                regime_research.canonical_json_hash(sorted(allowed_dates)) if allowed_dates is not None else None
+            ),
+            "parameter_space_hash": regime_research.canonical_json_hash(scenarios),
         },
         "summary": {
             "scenario_count": len(rows),
@@ -221,6 +290,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "best_score": best.get("score") if best else None,
             "positive_return_count": sum((row.get("total_return") or 0) > 0 for row in rows),
             "negative_return_count": sum((row.get("total_return") or 0) < 0 for row in rows),
+            "statistical_gate": statistical_gate,
+            "formal_candidate_scenario_ids": (statistical_gate or {}).get("eligible_ids", []),
         },
         "scenarios": ranked_rows,
     }

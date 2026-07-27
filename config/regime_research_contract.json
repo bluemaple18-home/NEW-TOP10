@@ -1,0 +1,136 @@
+{
+  "schema_version": "regime-research-contract.v1",
+  "mode": "research_only_default_off",
+  "product_constitution": {
+    "serves_unmonitored_users": true,
+    "long_only": true,
+    "momentum_trend_following": true,
+    "medium_term_swing": true,
+    "explainability_required": true,
+    "controlled_drawdown_required": true,
+    "future_information_forbidden": true,
+    "no_strategy_allowed": true,
+    "production_promotion_allowed": false
+  },
+  "taxonomy": {
+    "base_regimes": [
+      "BROAD_RISK_ON",
+      "NARROW_LEADER",
+      "CHOPPY_RANGE",
+      "RISK_OFF",
+      "PANIC_SELLING",
+      "EARLY_REVERSAL",
+      "MIXED_NEUTRAL",
+      "UNKNOWN"
+    ],
+    "family_tags": [
+      "HIGH_CHOPPY",
+      "BIG_BULL"
+    ],
+    "identity_rule": "exact_base_and_exact_family_tag_set",
+    "unknown_policy": "exclude_from_formal_evidence",
+    "transition_policy": "exclude_from_formal_evidence"
+  },
+  "parameter_universe": {
+    "inventory_status": "PARTIAL_BLOCKED_SOURCE_UNKNOWN",
+    "declared_complete": false,
+    "inventory_source": [
+      "scripts/run_backtest_strategy_matrix.py",
+      "scripts/run_autonomous_research.py::VALIDATION_PROFILES"
+    ],
+    "dimensions": [
+      {
+        "id": "horizon",
+        "name": "持有交易日",
+        "research_level": "exit",
+        "product_semantics": "中期波段持有上限",
+        "data_type": "integer",
+        "allowed_values": [3, 5, 10, 20],
+        "default_value": 5,
+        "baseline_value": 5,
+        "dependencies": [],
+        "execution_status": "EXECUTABLE"
+      },
+      {
+        "id": "stop_loss_pct",
+        "name": "停損幅度",
+        "research_level": "risk",
+        "product_semantics": "控制單筆下行風險；null 表示不用事件停損",
+        "data_type": "number_or_null",
+        "allowed_values": [null, 0.05, 0.06, 0.08, 0.1, 0.12],
+        "default_value": null,
+        "baseline_value": null,
+        "dependencies": [],
+        "execution_status": "EXECUTABLE"
+      },
+      {
+        "id": "take_profit_pct",
+        "name": "停利幅度",
+        "research_level": "exit",
+        "product_semantics": "控制單筆獲利了結；null 表示不用事件停利",
+        "data_type": "number_or_null",
+        "allowed_values": [null, 0.1, 0.15, 0.2, 0.25, 0.3],
+        "default_value": null,
+        "baseline_value": null,
+        "dependencies": [],
+        "execution_status": "EXECUTABLE"
+      },
+      {
+        "id": "max_group_exposure",
+        "name": "同族群曝險上限",
+        "research_level": "portfolio",
+        "product_semantics": "控制產業集中風險；null 表示只受 gross exposure 限制",
+        "data_type": "number_or_null",
+        "allowed_values": [null, 0.25, 0.35, 0.45, 0.55],
+        "default_value": null,
+        "baseline_value": null,
+        "dependencies": [],
+        "execution_status": "EXECUTABLE"
+      }
+    ],
+    "invalid_combination_rules": [],
+    "expected_executable_legal_combination_count": 720,
+    "blocked_dimensions": [
+      {
+        "id": "full_product_parameter_universe",
+        "reason_code": "SOURCE_INVENTORY_NOT_PROVEN",
+        "detail": "兩百萬級估算沒有可稽核的維度來源；不得由目前四維矩陣外推。"
+      }
+    ]
+  },
+  "split_policy": {
+    "unit": "complete_regime_episode",
+    "development_episode_count": 2,
+    "validation_episode_count": 1,
+    "embargo_min_trade_days": 10,
+    "sealed_episode_count": 1,
+    "embargo_must_cover_horizon": true
+  },
+  "multiple_testing_policy": {
+    "method": "bonferroni_familywise",
+    "familywise_alpha": 0.05,
+    "min_robust_neighbor_pass_count": 2,
+    "winner_cannot_advance_without_neighbor_stability": true
+  },
+  "funnel": [
+    "REGISTERED",
+    "COARSE_SCREEN",
+    "SAME_REGIME_VALIDATION",
+    "SEALED_OOS",
+    "FORWARD_SHADOW",
+    "REGIME_POLICY_CANDIDATE"
+  ],
+  "terminal_states": [
+    "REGIME_POLICY_CANDIDATE",
+    "MONITOR_ONLY",
+    "INSUFFICIENT_EVIDENCE",
+    "REJECTED",
+    "NO_STRATEGY",
+    "BLOCKED"
+  ],
+  "legacy_policy": {
+    "unisolated_results": "legacy_diagnostic_only",
+    "can_support_policy_candidate": false,
+    "can_support_universal_candidate": false
+  }
+}
