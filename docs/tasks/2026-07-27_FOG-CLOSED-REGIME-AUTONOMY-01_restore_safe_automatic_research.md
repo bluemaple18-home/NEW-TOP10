@@ -1,6 +1,6 @@
 ---
 id: FOG-CLOSED-REGIME-AUTONOMY-01
-status: RUNNING
+status: READY_FOR_REVIEW
 type: implementation
 chain_id: FOG-CLOSED-REGIME-AUTONOMY-01
 successor_of:
@@ -243,3 +243,16 @@ git diff --check
 - Gate 3 candidate delivery：`PENDING`
 - Gate 4 independent Review：`PENDING`
 - Gate 5 mainline acceptance：`PENDING`
+
+## Candidate receipt
+
+- Candidate branch：`codex/fog-closed-regime-autonomy-01`
+- Candidate SHA：`5e1de6aa170f7c2446e5da76fadfa75a88495e54`
+- Candidate parent：`c2ed61956524385779bd9383cb9faa0c5beaa099`
+- Executor task：`019fa3ce-33fc-7291-a9f0-a5ca549d0628`
+- Deterministic tests：`546 passed, 246 subtests passed`
+- Runtime state：`BLOCKED_RUNTIME_INTEGRATION`
+- Mainline interpretation：實作 candidate 已交付；live circuit recovery／3-cycle
+  acceptance 必須等 independent Review GO 且 candidate 整合至 LaunchAgent 指向的
+  main checkout 後執行。
+- Gate 3 candidate delivery：`PASS_WITH_RUNTIME_ACCEPTANCE_PENDING`
