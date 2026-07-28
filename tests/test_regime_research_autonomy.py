@@ -1633,6 +1633,16 @@ def test_closed_manager_cli_writes_registration_split_and_append_only_trace(
     monkeypatch.setattr(research, "OUTPUT_DIR", tmp_path / "manager")
     monkeypatch.setattr(research, "parse_args", lambda: args)
     monkeypatch.setattr(research, "generate_all_topics", lambda _: [topic])
+    monkeypatch.setattr(
+        research,
+        "build_daily_source_lineage",
+        lambda **_: {
+            "schema_version": "fog-daily-source-lineage.v1",
+            "features_path": "data/clean/features.parquet",
+            "features_sha256": "a" * 64,
+            "daily_source_date": history_rows[-1]["trade_date"],
+        },
+    )
 
     def fake_run_step(name: str, command: list[str]) -> dict:
         output_path = Path(command[command.index("--output") + 1])

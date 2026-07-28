@@ -10,6 +10,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+import pandas as pd
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_SOURCE = PROJECT_ROOT / "docs/architecture/fog_runtime_receipt_v3.schema.json"
@@ -78,6 +80,14 @@ def _runtime_fixture() -> Iterator[tuple[Path, dict[str, object]]]:
                 ],
             },
         )
+        features_path = root / "data/clean/features.parquet"
+        features_path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2026-08-07"]),
+                "stock_id": ["0001"],
+            }
+        ).to_parquet(features_path)
         _write_json(
             root / paths["daily"],
             {
@@ -85,6 +95,12 @@ def _runtime_fixture() -> Iterator[tuple[Path, dict[str, object]]]:
                 "status": "OK",
                 "run_date": "2026-08-08",
                 "source_date": "2026-08-07",
+                "source_lineage": {
+                    "schema_version": "fog-daily-source-lineage.v1",
+                    "features_path": "data/clean/features.parquet",
+                    "features_sha256": _sha256(features_path),
+                    "daily_source_date": "2026-08-07",
+                },
                 "topic_runs": [
                     {
                         "topic": {"topic_id": "topic-001"},
@@ -382,6 +398,20 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
                     }
                 ],
             }
+            features_path = root / "data/clean/features.parquet"
+            features_path.parent.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                {
+                    "date": pd.to_datetime(["2026-08-07"]),
+                    "stock_id": ["0001"],
+                }
+            ).to_parquet(features_path)
+            daily["source_lineage"] = {
+                "schema_version": "fog-daily-source-lineage.v1",
+                "features_path": "data/clean/features.parquet",
+                "features_sha256": _sha256(features_path),
+                "daily_source_date": "2026-08-07",
+            }
             research_contract = {"schema_version": "regime-research-contract.v1"}
             _write_json(root / receipt["market_regime_history"]["path"], regime)
             _write_json(root / receipt["daily_research_artifact"]["path"], daily)
@@ -530,10 +560,11 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
                 )
             daily["run_date"] = "2026-08-08"
             daily["source_date"] = "2026-08-09"
+            daily["source_lineage"]["daily_source_date"] = "2026-08-09"
             _write_json(daily_path, daily)
             with self.assertRaisesRegex(
                 producer.ClosedRegimeRuntimeError,
-                "FUTURE_DAILY_SOURCE_DATE",
+                "DAILY_ARTIFACT_SCHEMA_REJECT",
             ):
                 producer.build_receipt(
                     run_context=context,
@@ -555,6 +586,7 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
             daily_path = root / str(paths["daily"])
             daily = json.loads(daily_path.read_text(encoding="utf-8"))
             daily.pop("source_date")
+            daily.pop("source_lineage")
             _write_json(daily_path, daily)
 
             with self.assertRaisesRegex(
@@ -586,6 +618,7 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
             daily_path = root / str(paths["daily"])
             daily = json.loads(daily_path.read_text(encoding="utf-8"))
             daily.pop("source_date")
+            daily.pop("source_lineage")
             _write_json(daily_path, daily)
 
             result = runtime.verify_receipt(

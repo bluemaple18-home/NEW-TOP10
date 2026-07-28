@@ -28,6 +28,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.modeling.sealed_oos import build_regime_episode_split  # noqa: E402
+from scripts.fog_daily_source_lineage import build_daily_source_lineage  # noqa: E402
 
 
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
@@ -2663,10 +2664,11 @@ def build_payload(
     outputs: dict[str, str],
     manager: dict[str, Any] | None = None,
     all_topics: list[ResearchTopic] | None = None,
+    source_lineage: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     selected = selected_topics_for_run[0] if selected_topics_for_run else None
     executed = bool(args.execute and selected_topics_for_run)
-    return {
+    payload = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "date": args.date,
@@ -2717,6 +2719,9 @@ def build_payload(
         "outputs": outputs,
         "manager": manager or {"status": "PENDING_WRITE"},
     }
+    if bool(getattr(args, "closed_regime_research", False)):
+        payload["source_lineage"] = source_lineage
+    return payload
 
 
 def render_markdown(payload: dict[str, Any]) -> str:
@@ -2762,6 +2767,15 @@ def main() -> int:
     run_dir = output.parent / f"run_{args.date}_{datetime.now().strftime('%H%M%S')}"
     output.parent.mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=True, exist_ok=True)
+    source_lineage = (
+        build_daily_source_lineage(
+            root=PROJECT_ROOT,
+            features_path=args.features,
+            market_run_date=str(args.date),
+        )
+        if bool(getattr(args, "closed_regime_research", False))
+        else None
+    )
     all_topics = generate_all_topics(args)
     topic_bank_path = write_topic_bank(all_topics, args, queued_ids=queued_topic_ids())
     active_topics = load_active_topic_bank()
@@ -2800,11 +2814,32 @@ def main() -> int:
             },
             "promotion_allowed": False,
         }
-    payload = build_payload(args, topics, selected_topics_for_run, topic_runs, steps, outcome, outputs, all_topics=all_topics)
+    payload = build_payload(
+        args,
+        topics,
+        selected_topics_for_run,
+        topic_runs,
+        steps,
+        outcome,
+        outputs,
+        all_topics=all_topics,
+        source_lineage=source_lineage,
+    )
     write_run_artifacts(payload, output)
     if not args.no_manager_update:
         manager = update_manager(payload, output)
-        payload = build_payload(args, topics, selected_topics_for_run, topic_runs, steps, outcome, outputs, manager=manager, all_topics=all_topics)
+        payload = build_payload(
+            args,
+            topics,
+            selected_topics_for_run,
+            topic_runs,
+            steps,
+            outcome,
+            outputs,
+            manager=manager,
+            all_topics=all_topics,
+            source_lineage=source_lineage,
+        )
         write_run_artifacts(payload, output)
     print(
         json.dumps(

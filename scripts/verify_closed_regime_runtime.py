@@ -21,6 +21,7 @@ from scripts.fog_authority_contracts import (
     sha256_file,
     validate_receipt_schema,
 )
+from scripts.fog_daily_source_lineage import verify_daily_source_lineage
 from scripts.fog_runtime_time_authority import (
     TimeAuthorityError,
     canonical_json_hash as time_contract_hash,
@@ -107,6 +108,7 @@ def _canonical_daily(
     payload: dict[str, Any],
     *,
     market_run_date: str,
+    project_root: str | Path,
 ) -> dict[str, Any]:
     if payload.get("schema_version") != "autonomous-research-run.v1":
         raise ClosedRegimeRuntimeError(
@@ -120,12 +122,22 @@ def _canonical_daily(
             "缺少 run_date/date identity",
         )
     raw_source_lineage = payload.get("source_lineage")
-    if raw_source_lineage is not None and not isinstance(raw_source_lineage, dict):
+    if not isinstance(raw_source_lineage, dict):
         raise ClosedRegimeRuntimeError(
             "DAILY_ARTIFACT_SCHEMA_REJECT",
-            "source_lineage 非 object",
+            "source_lineage 缺少或非 object",
         )
-    source_lineage = raw_source_lineage or {}
+    lineage_result = verify_daily_source_lineage(
+        root=project_root,
+        lineage=raw_source_lineage,
+        market_run_date=market_run_date,
+    )
+    if not lineage_result["ok"]:
+        raise ClosedRegimeRuntimeError(
+            "DAILY_ARTIFACT_SCHEMA_REJECT",
+            str(lineage_result["reason_codes"]),
+        )
+    source_lineage = raw_source_lineage
     source_candidates = [
         payload[key]
         for key in ("source_date", "daily_source_date")
@@ -142,7 +154,7 @@ def _canonical_daily(
             "DAILY_ARTIFACT_SCHEMA_REJECT",
             "缺少、型別錯誤或互相衝突的 daily source lineage",
         )
-    daily_source_date = source_candidates[0]
+    daily_source_date = str(lineage_result["daily_source_date"])
     topic_runs = payload.get("topic_runs")
     if not isinstance(topic_runs, list):
         raise ClosedRegimeRuntimeError(
@@ -240,6 +252,7 @@ def build_receipt(
     daily = _canonical_daily(
         daily_payload,
         market_run_date=market_run_date,
+        project_root=project_root,
     )
     lineage = verify_date_lineage(
         market_run_date=market_run_date,
@@ -412,6 +425,7 @@ def verify_receipt(
             daily = _canonical_daily(
                 daily_payload,
                 market_run_date=market_run_date,
+                project_root=project_root,
             )
             hashes = {
                 "market_regime_history": sha256_file(history_file),
