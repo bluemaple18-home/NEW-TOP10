@@ -1529,6 +1529,13 @@ def repo_owned_ranking_date_inventory(path_value: str | Path) -> dict[str, Any]:
         return {"ok": False, "reason_code": "MISSING_RANKING_INVENTORY"}
     ranking_dates: list[str] = []
     for path in files:
+        if path.is_symlink() or not path.is_file():
+            return {"ok": False, "reason_code": "RANKING_INVENTORY_PATH_ESCAPE"}
+        try:
+            resolved_entry = path.resolve(strict=True)
+            resolved_entry.relative_to(PROJECT_ROOT.resolve())
+        except (OSError, RuntimeError, ValueError):
+            return {"ok": False, "reason_code": "RANKING_INVENTORY_PATH_ESCAPE"}
         match = RANKING_FILE_NAME_PATTERN.fullmatch(path.name)
         if match is None:
             return {"ok": False, "reason_code": "MALFORMED_RANKING_DATE"}
