@@ -23,6 +23,38 @@ set -euo pipefail
 script="${1:-}"
 shift || true
 case "$script" in
+  scripts/fog_runtime_time_authority.py)
+    output=""
+    field=""
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --output)
+          shift
+          output="$1"
+          ;;
+        --field)
+          shift
+          field="$1"
+          ;;
+      esac
+      shift || true
+    done
+    if [ "${FAKE_CONTEXT_OK:-1}" != "1" ]; then
+      exit 9
+    fi
+    if [ -n "$output" ]; then
+      printf '%s\n' '{"schema_version":"fog-runtime-run-context.v1"}' > "$output"
+    fi
+    case "$field" in
+      market_run_date)
+        printf '%s\n' '2099-01-06'
+        ;;
+      run_context_created_at_utc)
+        printf '%s\n' '2099-01-05T16:30:00Z'
+        ;;
+    esac
+    exit 0
+    ;;
   scripts/verify_weekend_universe_inventory.py)
     if [ "${FAKE_VERIFY_OK:-0}" = "1" ]; then
       output=""
@@ -62,6 +94,9 @@ STATE
   printf '%s\n' 'old failure context' > "$CONTEXT_FILE"
 }
 
+FOREIGN_CONTEXT="$TEST_ROOT/logs/fog_runtime_run_context.foreign"
+printf '%s\n' '{"foreign":true}' > "$FOREIGN_CONTEXT"
+
 write_open_state
 TOP10_DAILY_PYTHON="$TEST_ROOT/fake_python.sh" \
 TOP10_RUN_DATE="$RUN_DATE" \
@@ -69,6 +104,8 @@ TOP10_REPLAY_DRAIN_ENABLED=0 \
 bash "$TEST_ROOT/scripts/run_fog_research_worker.sh"
 grep -qx 'circuit_open=1' "$STATE_FILE"
 test "$(sed -n 's/^fingerprint=//p' "$STATE_FILE")" = "old-fingerprint"
+test -f "$FOREIGN_CONTEXT"
+test -z "$(find "$TEST_ROOT/logs" -name 'fog_runtime_run_context.*' ! -name 'fog_runtime_run_context.foreign' -print -quit)"
 
 write_open_state
 TOP10_DAILY_PYTHON="$TEST_ROOT/fake_python.sh" \
@@ -78,6 +115,8 @@ TOP10_REPLAY_DRAIN_ENABLED=0 \
 bash "$TEST_ROOT/scripts/run_fog_research_worker.sh"
 grep -qx 'circuit_open=1' "$STATE_FILE"
 test "$(sed -n 's/^fingerprint=//p' "$STATE_FILE")" = "old-fingerprint"
+test -f "$FOREIGN_CONTEXT"
+test -z "$(find "$TEST_ROOT/logs" -name 'fog_runtime_run_context.*' ! -name 'fog_runtime_run_context.foreign' -print -quit)"
 
 write_open_state
 FAKE_VERIFY_OK=1 \
@@ -92,3 +131,16 @@ bash "$TEST_ROOT/scripts/run_fog_research_worker.sh"
 test -n "$(find "$TEST_ROOT/logs" -name 'fog_research_retry_20990106.state.recovered.*' -print -quit)"
 grep -qx 'circuit_open=1' "$STATE_FILE"
 test "$(sed -n 's/^fingerprint=//p' "$STATE_FILE")" != "old-fingerprint"
+test -f "$FOREIGN_CONTEXT"
+test -z "$(find "$TEST_ROOT/logs" -name 'fog_runtime_run_context.*' ! -name 'fog_runtime_run_context.foreign' -print -quit)"
+
+if FAKE_CONTEXT_OK=0 \
+  TOP10_DAILY_PYTHON="$TEST_ROOT/fake_python.sh" \
+  TOP10_RUN_DATE="$RUN_DATE" \
+  TOP10_REPLAY_DRAIN_ENABLED=0 \
+  bash "$TEST_ROOT/scripts/run_fog_research_worker.sh"; then
+  echo "context creation failure unexpectedly succeeded" >&2
+  exit 1
+fi
+test -f "$FOREIGN_CONTEXT"
+test -z "$(find "$TEST_ROOT/logs" -name 'fog_runtime_run_context.*' ! -name 'fog_runtime_run_context.foreign' -print -quit)"

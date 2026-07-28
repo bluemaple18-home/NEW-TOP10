@@ -1,0 +1,28 @@
+{
+  "schema_version": "fog-runtime-data-authority.v1",
+  "processed_id_authority": {
+    "research_map": {
+      "artifact_path": "artifacts/research_map/research_fog_map_latest.json",
+      "source_roles": {
+        "research_run_history": "artifacts/autonomous_research/run_history.jsonl"
+      }
+    },
+    "inventory": {
+      "artifact_path": "artifacts/weekend_training/weekend_universe_inventory_latest.json",
+      "source_roles": {
+        "weekend_inventory_snapshot": "artifacts/weekend_training/weekend_universe_inventory_source.json"
+      }
+    }
+  },
+  "trusted_baseline": {
+    "path": "authority/trusted-protected-baseline.json",
+    "source_identity": "trusted-mainline",
+    "protected_roles": {
+      "baseline": "models/baseline_stats.json",
+      "model": "models/latest_lgbm.pkl",
+      "promotion": "app/modeling/model_runtime_promotion.py",
+      "ranking": "app/agent_b_ranking.py",
+      "weights": "config/signals.yaml"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "fog-runtime-time-authority.v1",
+  "market_id": "TWSE",
+  "market_timezone": "Asia/Taipei",
+  "market_day_semantics": "local-civil-date",
+  "timestamp_format": "rfc3339-utc-z",
+  "receipt_schema_version": "closed-regime-runtime-receipt.v3",
+  "freshness": {
+    "max_age_seconds": 900,
+    "future_tolerance_seconds": 5
+  },
+  "lifecycle": {
+    "market_midnight_boundary": "hard"
+  }
+}
