@@ -1,7 +1,7 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-REPAIR-1
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
-status: REVIEW_GO
+status: ACCEPTED
 type: repair
 ownership: reusable_implementation_repair
 repair_generation: 1
@@ -15,6 +15,7 @@ review_sha: 15a87e5
 review_probe_correction_sha: 8b4b6e3
 reviewer_thread_id: 019fa66b-444f-7522-915b-15aad3de5fe3
 repair_thread_id: 019fa67b-7377-7002-a8d3-d7f6aee514c5
+integration_main_sha: 74a034f
 ---
 
 # FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-REPAIR-1
@@ -206,3 +207,4 @@ git diff --check
 - Gate 4 same Reviewer re-review：
   `REVIEW_GO`（`3642c99c3cda690d1cb3afe779873514d47aefed`）
 - Repair result：三個固定 finding已完成 RED→GREEN並由同一 Reviewer關閉
+- Gate 5 mainline integration：`PASS`（`74a034f`）

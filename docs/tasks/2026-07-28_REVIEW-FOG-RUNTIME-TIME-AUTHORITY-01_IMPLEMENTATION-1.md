@@ -17,6 +17,7 @@ reviewer_thread_id: 019fa66b-444f-7522-915b-15aad3de5fe3
 review_commit_sha: 15a87e5
 review_probe_correction_sha: 8b4b6e3
 re_review_commit_sha: 3642c99c3cda690d1cb3afe779873514d47aefed
+integration_main_sha: 74a034f
 repair_thread_id: 019fa67b-7377-7002-a8d3-d7f6aee514c5
 ---
 
@@ -203,3 +204,4 @@ i5_live_acceptance: NOT_RUN_OUT_OF_SCOPE
 - Gate 4 Repair-1 candidate：`PASS`
 - Gate 5 targeted re-review：
   `REVIEW_GO`（`3642c99c3cda690d1cb3afe779873514d47aefed`）
+- Gate 6 mainline integration：`PASS`（`74a034f`）

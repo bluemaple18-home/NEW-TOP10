@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1
-status: MAINLINE_INTEGRATION_IN_PROGRESS
+status: ACCEPTED_I1_I4
 type: implementation
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 dispatch_version: 2
@@ -17,6 +17,7 @@ accepted_main_sha: 408f3e0
 implementation_thread_id: 019fa64f-3973-7d10-b0aa-4759af7aff1d
 reviewer_thread_id: 019fa66b-444f-7522-915b-15aad3de5fe3
 repair_thread_id: 019fa67b-7377-7002-a8d3-d7f6aee514c5
+integration_main_sha: 74a034f
 evidence_path: docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1/
 ---
 
@@ -284,5 +285,6 @@ git diff --check
   `PASS`（`f7d51a3d994707c819198fd1edcdcf0db4dd0775`）
 - Gate 4 independent implementation review：
   `REVIEW_GO`（Repair-1 `6905ab2`；re-review `3642c99`）
-- Gate 5 mainline integration：`IN_PROGRESS`
+- Gate 5 mainline integration：
+  `PASS`（`74a034f`）
 - I5 live/runtime acceptance：`PENDING / OUT_OF_SCOPE`
