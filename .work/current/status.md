@@ -1,7 +1,7 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-STATUS
-status: READY_FOR_DISPATCH
-type: handoff
+status: REPAIR_READY
+type: mainline
 ---
 
 # Current Status
@@ -13,9 +13,9 @@ strategy-matrix topic？
 
 ## Blocker
 
-最新 bounded run已通過 source-lineage gate，但 baseline matrix回：
-`FileNotFoundError: ranking artifacts 沒有 exact-match regime 日期`，因此
-outcome為 `NO_COMPARISON_EVIDENCE`，I5維持 `NO_GO`。
+Independent Review以 hostile probe重現 P1：
+repo內 `ranking_YYYY-MM-DD.csv`若為指向 repo外 regular file的 symlink，
+eligibility仍回 `ELIGIBLE`，matrix並會讀到外部內容。
 
 ## Fork
 
@@ -33,16 +33,20 @@ outcome為 `NO_COMPARISON_EVIDENCE`，I5維持 `NO_GO`。
 - LaunchAgent：unloaded
 - Circuit：open
 - Live retry budget：已達三次上限
+- Candidate：`684d3adf3916100a7eb9bb57c6164f3b67a58064`
+- Independent Review：`REVIEW_NO_GO`
+- Review commit：`e50022a9db130832d9855846d12168a79d454cef`
+- Blocking finding：`FOG-EXACT-REGIME-REVIEW-P1-001`
 
 ## Next step
 
-由獨立 Executor依
-`docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
-先建立 RED，再產生 candidate並停在 `READY_FOR_INDEPENDENT_REVIEW`。
+由獨立 Repair Executor依
+`docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_REPAIR-1_symlink_authority.md`
+先建立 file-level symlink RED，再關閉 P1並停在 `READY_FOR_REVIEW`。
 
 ## Waiting condition
 
-等待 Executor candidate；之後由主線另開 strict independent Review。
+等待 Repair-1 candidate；之後交回原 Reviewer task做 targeted re-review。
 
 ## Restrictions
 

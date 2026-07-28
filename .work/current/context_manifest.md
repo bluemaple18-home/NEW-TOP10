@@ -1,13 +1,16 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-CONTEXT
-status: READY_FOR_DISPATCH
-type: handoff
+status: REPAIR_READY
+type: mainline
 ---
 
 # Context Manifest
 
 ## Read first
 
+- `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_REPAIR-1_symlink_authority.md`
+- Review commit `e50022a9db130832d9855846d12168a79d454cef`中的
+  `docs/evidence/REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01/review.md`
 - `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
 - `docs/tasks/2026-07-28_FOG-RUNTIME-TIME-AUTHORITY-01_I5_live_acceptance.md`
 - `docs/tasks/2026-07-28_FOG-DAILY-SOURCE-LINEAGE-01.md`

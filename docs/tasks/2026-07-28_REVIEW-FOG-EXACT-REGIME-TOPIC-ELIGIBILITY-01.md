@@ -1,7 +1,7 @@
 ---
 id: REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01
 chain_id: FOG-I5-EXACT-REGIME-ELIGIBILITY
-status: RUNNING
+status: REVIEW_NO_GO
 type: review
 ownership: independent-reviewer
 thickness: strict
@@ -13,6 +13,8 @@ base_sha: 33aee4d
 candidate_sha: 684d3adf3916100a7eb9bb57c6164f3b67a58064
 implementation_sha: 3969aba5c62171ef52d5c54856f0c0821b750627
 reviewer_thread_id: 019fa76b-e568-7653-ade0-a399a3a1aa4a
+review_commit: e50022a9db130832d9855846d12168a79d454cef
+blocking_finding: FOG-EXACT-REGIME-REVIEW-P1-001
 ---
 
 # REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01
@@ -155,3 +157,18 @@ REVIEW_NO_GO
 ```
 
 回報後停止；不得自行建立 Repair或整合。
+
+## Review receipt
+
+- Verdict：`REVIEW_NO_GO`
+- Reviewed SHA：
+  `684d3adf3916100a7eb9bb57c6164f3b67a58064`
+- Review commit：
+  `e50022a9db130832d9855846d12168a79d454cef`
+- Blocking finding：`FOG-EXACT-REGIME-REVIEW-P1-001`（P1）
+- Reproduction：16個 hostile probes中15個通過；repo內 ranking file symlink
+  指向 repo外時仍為 `ELIGIBLE`，matrix可讀到外部內容。
+- Targeted：`86 passed`
+- Full suite：`584 passed, 1 failed`；唯一失敗為隔離 worktree缺少 ignored
+  research component ledger artifacts，相關路徑在 candidate diff中為零。
+- Next gate：Repair-1關閉 P1後，由同一 Reviewer identity做 targeted re-review。

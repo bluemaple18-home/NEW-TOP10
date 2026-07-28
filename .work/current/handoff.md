@@ -1,7 +1,7 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-HANDOFF
-status: READY_FOR_DISPATCH
-type: handoff
+status: REPAIR_READY
+type: mainline
 ---
 
 # Handoff: FOG exact-regime topic eligibility
@@ -38,11 +38,11 @@ closed-regime fail-closed契約與合法 no-work receipt。
 
 ## In progress / remaining work
 
-1. Phase 0建立 zero exact-date topic的 deterministic RED。
-2. 修正 eligibility並覆蓋 index／fallback／queue。
-3. 跑 targeted、full suite、py_compile、diff check與 allowlist audit。
-4. 產生 candidate後停在 `READY_FOR_INDEPENDENT_REVIEW`。
-5. 主線另開 Reviewer，GO後才整合並重回 I5。
+1. Repair-1 Phase 0建立 candidate／baseline file-level symlink deterministic RED。
+2. 逐檔 fail closed，固定 reason `RANKING_INVENTORY_PATH_ESCAPE`。
+3. 重跑 reviewer hostile probe，須由15/16轉為16/16。
+4. 跑 targeted、full suite、py_compile、diff check與 allowlist audit。
+5. 產生 Repair candidate後交回原 Reviewer task複審。
 
 ## Blocked & errors
 
@@ -52,6 +52,8 @@ closed-regime fail-closed契約與合法 no-work receipt。
   `FileNotFoundError: ranking artifacts 沒有 exact-match regime 日期`
 - Outcome：`NO_COMPARISON_EVIDENCE`
 - 三次 live probe停損已達上限，不可再試第四次。
+- Candidate `684d3ad...`經 independent Review判定`REVIEW_NO_GO`。
+- P1：repo內 ranking file symlink可指向 repo外且仍被 matrix讀取。
 
 ## Key decisions & resolved questions
 
@@ -60,6 +62,8 @@ closed-regime fail-closed契約與合法 no-work receipt。
 - 本輪先修已證明的 eligibility缺口；正式 canary mode不併入本卡。
 - Combined independent Review必須檢查 `33aee4d..candidate`，不可只看新一個
   commit而漏掉 stacked source-lineage變更。
+- Repair-1只關閉`FOG-EXACT-REGIME-REVIEW-P1-001`，不得修改 protected matrix；
+  修完由原 Reviewer identity做 targeted re-review。
 
 ## Do not touch
 
