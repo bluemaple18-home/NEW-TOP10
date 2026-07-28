@@ -1,7 +1,7 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1
 chain_id: FOG-I5-EXACT-REGIME-ELIGIBILITY
-status: RUNNING
+status: READY_FOR_REVIEW
 type: repair
 generation: 1
 ownership: repair_executor
@@ -14,6 +14,7 @@ base_candidate_sha: 684d3adf3916100a7eb9bb57c6164f3b67a58064
 review_evidence_sha: e50022a9db130832d9855846d12168a79d454cef
 reviewer_thread_id: 019fa76b-e568-7653-ade0-a399a3a1aa4a
 repair_thread_id: 019fa778-8623-70b1-840d-a542a9a2e46d
+repair_candidate_sha: 51c084cd077cd4e997873e4a924f73e3dca2ba3d
 finding_id: FOG-EXACT-REGIME-REVIEW-P1-001
 evidence_path: docs/evidence/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1/
 ---
@@ -148,3 +149,17 @@ base/review歸因證據；不得把其他 failure視為可接受。
 - Actual model：`gpt-5.6-sol xhigh`
 - Receipt：
   `.work/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1/dispatch_receipt.md`
+
+## Candidate receipt
+
+- Status：`READY_FOR_REVIEW`
+- Repair candidate：
+  `51c084cd077cd4e997873e4a924f73e3dca2ba3d`
+- Parent：
+  `e50022a9db130832d9855846d12168a79d454cef`
+- Hostile probes：`16/16`
+- Targeted：`88 passed`
+- Full suite：`586 passed, 1 failed`；唯一失敗為既有 isolated-worktree ledger
+  missing ignored-artifact failure。
+- Protected matrix、原 Review evidence/probe：零差異。
+- Next gate：原 Reviewer task targeted re-review。

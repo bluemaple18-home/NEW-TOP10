@@ -1,0 +1,3 @@
+{"added_lines": 167, "binary": false, "old_path": null, "path": "docs/evidence/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1/evidence.md", "removed_lines": 0, "status": "A", "untracked": false}
+{"added_lines": 7, "binary": false, "old_path": null, "path": "scripts/run_autonomous_research.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 38, "binary": false, "old_path": null, "path": "tests/test_regime_research_autonomy.py", "removed_lines": 0, "status": "M", "untracked": false}

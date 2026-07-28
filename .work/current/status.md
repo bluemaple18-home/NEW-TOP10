@@ -1,6 +1,6 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-STATUS
-status: REPAIR_RUNNING
+status: REPAIR_REVIEW_READY
 type: mainline
 ---
 
@@ -46,8 +46,9 @@ eligibility仍回 `ELIGIBLE`，matrix並會讀到外部內容。
 
 ## Waiting condition
 
-Repair-1正式 task `019fa778-8623-70b1-840d-a542a9a2e46d`執行中；
-candidate完成後交回原 Reviewer task做 targeted re-review。
+Repair candidate `51c084cd077cd4e997873e4a924f73e3dca2ba3d`已完成；
+現在交回原 Reviewer task `019fa76b-e568-7653-ade0-a399a3a1aa4a`做 targeted
+re-review。
 
 ## Restrictions
 

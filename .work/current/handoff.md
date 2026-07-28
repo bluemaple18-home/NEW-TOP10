@@ -1,6 +1,6 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-HANDOFF
-status: REPAIR_RUNNING
+status: REPAIR_REVIEW_READY
 type: mainline
 ---
 
@@ -43,6 +43,15 @@ closed-regime fail-closed契約與合法 no-work receipt。
 3. 重跑 reviewer hostile probe，須由15/16轉為16/16。
 4. 跑 targeted、full suite、py_compile、diff check與 allowlist audit。
 5. 產生 Repair candidate後交回原 Reviewer task複審。
+
+## Repair-1 candidate
+
+- SHA：`51c084cd077cd4e997873e4a924f73e3dca2ba3d`
+- Parent：`e50022a9db130832d9855846d12168a79d454cef`
+- Hostile probe：`16/16`
+- Targeted：`88 passed`
+- Full suite唯一失敗為既有 isolated-worktree ledger missing ignored artifacts。
+- Next：原 Reviewer targeted re-review。
 
 ## Blocked & errors
 

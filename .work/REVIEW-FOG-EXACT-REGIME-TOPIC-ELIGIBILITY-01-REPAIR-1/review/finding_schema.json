@@ -1,0 +1,39 @@
+{
+  "blocking_rule": "Only P0/P1, production safety risk, exploitable security issue, or repeated warning pattern should block.",
+  "category_values": [
+    "correctness",
+    "regression",
+    "security",
+    "performance",
+    "test_gap",
+    "maintainability",
+    "agents_md",
+    "release"
+  ],
+  "required_fields": [
+    "finding_id",
+    "severity",
+    "category",
+    "path",
+    "line",
+    "evidence",
+    "risk",
+    "suggested_fix",
+    "validation_gap",
+    "confidence",
+    "status"
+  ],
+  "schema_version": "review.orchestrator.finding.v1",
+  "severity_values": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "status_values": [
+    "open",
+    "resolved",
+    "wont_fix",
+    "disputed"
+  ]
+}

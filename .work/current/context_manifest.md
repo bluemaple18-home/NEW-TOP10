@@ -1,6 +1,6 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-CONTEXT
-status: REPAIR_RUNNING
+status: REPAIR_REVIEW_READY
 type: mainline
 ---
 
@@ -9,6 +9,7 @@ type: mainline
 ## Read first
 
 - `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_REPAIR-1_symlink_authority.md`
+- `docs/tasks/2026-07-28_REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_REPAIR-1.md`
 - Review commit `e50022a9db130832d9855846d12168a79d454cef`中的
   `docs/evidence/REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01/review.md`
 - `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
