@@ -1,6 +1,6 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-HANDOFF
-status: REPAIR_READY
+status: REPAIR_RUNNING
 type: mainline
 ---
 

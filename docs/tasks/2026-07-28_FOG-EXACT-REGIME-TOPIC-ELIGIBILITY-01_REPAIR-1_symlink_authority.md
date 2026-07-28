@@ -1,18 +1,19 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1
 chain_id: FOG-I5-EXACT-REGIME-ELIGIBILITY
-status: READY_FOR_DISPATCH
+status: RUNNING
 type: repair
 generation: 1
 ownership: repair_executor
 thickness: strict
 risk: high
 model: gpt-5.6-sol
-reasoning: high
-model_reason: 修補 closed-regime ranking inventory 可透過 file-level symlink 越過 repo authority 的 P1 trust-boundary 缺口。
+reasoning: xhigh
+model_reason: 修補 closed-regime ranking inventory 可透過 file-level symlink 越過 repo authority 的 P1 trust-boundary 缺口；正式 task繼承使用者設定的 gpt-5.6-sol xhigh。
 base_candidate_sha: 684d3adf3916100a7eb9bb57c6164f3b67a58064
 review_evidence_sha: e50022a9db130832d9855846d12168a79d454cef
 reviewer_thread_id: 019fa76b-e568-7653-ade0-a399a3a1aa4a
+repair_thread_id: 019fa778-8623-70b1-840d-a542a9a2e46d
 finding_id: FOG-EXACT-REGIME-REVIEW-P1-001
 evidence_path: docs/evidence/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1/
 ---
@@ -136,3 +137,14 @@ base/review歸因證據；不得把其他 failure視為可接受。
 - 未驗證項目與剩餘風險
 
 完成即停止，交回原 Reviewer task做 targeted re-review。
+
+## Dispatch receipt
+
+- Formal task：`019fa778-8623-70b1-840d-a542a9a2e46d`
+- Worktree：`<codex-worktree>/39c6/TOP10new`
+- Source SHA：
+  `e50022a9db130832d9855846d12168a79d454cef`
+- Initial worktree：clean
+- Actual model：`gpt-5.6-sol xhigh`
+- Receipt：
+  `.work/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1/dispatch_receipt.md`
