@@ -14,7 +14,7 @@ candidate_sha: f7d51a3d994707c819198fd1edcdcf0db4dd0775
 implementation_thread_id: 019fa64f-3973-7d10-b0aa-4759af7aff1d
 reviewer_thread_id: 019fa66b-444f-7522-915b-15aad3de5fe3
 review_commit_sha: 15a87e5
-repair_thread_id: PENDING
+repair_thread_id: 019fa67b-7377-7002-a8d3-d7f6aee514c5
 ---
 
 # REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1
@@ -164,3 +164,4 @@ deploy、建立 Repair、操作 live runtime或自行宣稱 mainline acceptance�
 - `FRTA-IMPL-P1-02`：daily source lineage缺欄時仍會補值並簽出 receipt v3。
 - `FRTA-IMPL-P2-03`：immutable context沒有有界 cleanup／retention。
 - Mainline／I5 acceptance：未授權
+- Repair-1 task：`019fa67b-7377-7002-a8d3-d7f6aee514c5`

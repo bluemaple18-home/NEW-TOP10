@@ -1,7 +1,7 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-REPAIR-1
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
-status: READY_FOR_REPAIR
+status: REPAIR_IN_PROGRESS
 type: repair
 ownership: reusable_implementation_repair
 repair_generation: 1
@@ -13,7 +13,7 @@ reasoning: high
 base_candidate_sha: f7d51a3d994707c819198fd1edcdcf0db4dd0775
 review_sha: 15a87e5
 reviewer_thread_id: 019fa66b-444f-7522-915b-15aad3de5fe3
-repair_thread_id: PENDING
+repair_thread_id: 019fa67b-7377-7002-a8d3-d7f6aee514c5
 ---
 
 # FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-REPAIR-1
@@ -181,8 +181,11 @@ git diff --check
 - Dispatcher task：`019f82c1-b7d0-7eb3-9371-7a95ebfbd7ce`
 - Review verdict：`REVIEW_NO_GO`
 - Review commit：`15a87e5`
-- Repair task：`PENDING`
+- Client receipt：
+  `client-new-thread:497a1fdf-760a-4695-abb0-bce47a9c5b7a`
+- Repair task：
+  `019fa67b-7377-7002-a8d3-d7f6aee514c5`
+- Repair worktree：獨立 Codex worktree；initial review lineage、clean
 - Gate 1 physical card：`PASS`
-- Gate 2 visible thread：`PENDING`
+- Gate 2 visible thread：`PASS`
 - Gate 3 Repair candidate：`PENDING`
-
