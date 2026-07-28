@@ -1699,6 +1699,44 @@ def test_exact_regime_ranking_inventory_hostile_cases_fail_closed(
     assert result.get("inventory_role") == expected_role
 
 
+@pytest.mark.parametrize("symlink_role", ["candidate", "baseline"])
+def test_exact_regime_ranking_inventory_rejects_external_file_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    symlink_role: str,
+) -> None:
+    repo_root = tmp_path / "repo"
+    candidate_dir = repo_root / "artifacts" / "backtest" / "candidate"
+    baseline_dir = repo_root / "artifacts" / "backtest" / "baseline"
+    candidate_dir.mkdir(parents=True)
+    baseline_dir.mkdir(parents=True)
+    ranking_name = "ranking_2026-01-02.csv"
+    for directory in (candidate_dir, baseline_dir):
+        (directory / ranking_name).write_text("rank,stock_id\n", encoding="utf-8")
+
+    outside_file = tmp_path / "outside" / ranking_name
+    outside_file.parent.mkdir()
+    outside_file.write_text("rank,stock_id\n1,9999\n", encoding="utf-8")
+    escaped_entry = {
+        "candidate": candidate_dir,
+        "baseline": baseline_dir,
+    }[symlink_role] / ranking_name
+    escaped_entry.unlink()
+    escaped_entry.symlink_to(outside_file)
+    monkeypatch.setattr(research, "PROJECT_ROOT", repo_root)
+
+    result = research.exact_regime_topic_ranking_eligibility(
+        candidate_dir=str(candidate_dir),
+        baseline_dir=str(baseline_dir),
+        allowed_dates={"2026-01-02"},
+        as_of_date="2026-01-03",
+    )
+
+    assert result["eligible"] is False
+    assert result["reason_code"] == "RANKING_INVENTORY_PATH_ESCAPE"
+    assert result["inventory_role"] == symlink_role
+
+
 def test_ineligible_topic_is_excluded_from_selection_and_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(research, "load_topic_registry", lambda: {})
     monkeypatch.setattr(research, "load_last_run_at_by_topic", lambda: {})
