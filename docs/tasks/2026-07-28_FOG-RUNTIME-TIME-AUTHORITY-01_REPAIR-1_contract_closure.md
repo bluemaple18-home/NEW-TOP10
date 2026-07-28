@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-REPAIR-1
-status: READY_FOR_TARGETED_REVIEW
+status: REVIEW_GO
 type: repair
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 dispatch_version: 2
@@ -214,5 +214,6 @@ git diff --check
 - Gate 2 visible thread：`PASS`
 - Gate 3 Repair delivery：`PASS`；candidate
   `f9cfbabde1d89d2f759a7cbc60d1dd03e96a2171`
-- Gate 4 targeted re-review：`PENDING`
-- Gate 5 implementation authorization：`DENIED_UNTIL_REVIEW_GO`
+- Gate 4 targeted re-review：`GO_FOR_IMPLEMENTATION_CARD`；Review evidence
+  `5c95a2e`
+- Gate 5 implementation authorization：`AUTHORIZED_CARD_CREATION_ONLY`

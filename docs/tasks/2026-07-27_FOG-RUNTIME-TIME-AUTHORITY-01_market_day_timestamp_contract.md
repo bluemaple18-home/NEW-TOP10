@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01
-status: RUNNING
+status: ACCEPTED_ARCHITECTURE
 type: architecture
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 successor_of:
