@@ -90,6 +90,7 @@ CONTROLLED_RERUN_POLICIES = {
     "confirmed_for_next_replay": {"max_run_count": 2, "cooldown_hours": 24},
     "partial_needs_followup": {"max_run_count": 3, "cooldown_hours": 24},
 }
+RANKING_FILE_NAME_PATTERN = re.compile(r"ranking_(\d{4}-\d{2}-\d{2})\.csv")
 
 
 @dataclass(frozen=True)
@@ -1510,6 +1511,124 @@ def write_run_artifacts(payload: dict[str, Any], output: Path) -> None:
     write_text_atomic(output.with_suffix(".md"), render_markdown(payload))
 
 
+def repo_owned_ranking_date_inventory(path_value: str | Path) -> dict[str, Any]:
+    """從 repo 內 ranking 檔名建立可重算的日期 inventory。"""
+
+    path = resolve_path(path_value)
+    if path is None:
+        return {"ok": False, "reason_code": "MISSING_RANKING_INVENTORY"}
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(PROJECT_ROOT.resolve())
+    except ValueError:
+        return {"ok": False, "reason_code": "RANKING_INVENTORY_PATH_ESCAPE"}
+    if not resolved.is_dir():
+        return {"ok": False, "reason_code": "MISSING_RANKING_INVENTORY"}
+    files = sorted(resolved.glob("ranking_*.csv"))
+    if not files:
+        return {"ok": False, "reason_code": "MISSING_RANKING_INVENTORY"}
+    ranking_dates: list[str] = []
+    for path in files:
+        match = RANKING_FILE_NAME_PATTERN.fullmatch(path.name)
+        if match is None:
+            return {"ok": False, "reason_code": "MALFORMED_RANKING_DATE"}
+        value = match.group(1)
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError:
+            return {"ok": False, "reason_code": "MALFORMED_RANKING_DATE"}
+        if parsed.isoformat() != value:
+            return {"ok": False, "reason_code": "MALFORMED_RANKING_DATE"}
+        ranking_dates.append(value)
+    return {"ok": True, "reason_code": "RANKING_INVENTORY_VALID", "ranking_dates": sorted(set(ranking_dates))}
+
+
+def canonical_exact_regime_allowed_dates(
+    *,
+    rows: list[dict[str, Any]],
+    contract: dict[str, Any],
+    regime_identity: dict[str, Any],
+    horizons: str,
+    as_of_date: str,
+) -> set[str]:
+    """以 matrix 共用的 episode split authority 重建可執行 development dates。"""
+
+    run_date = date.fromisoformat(as_of_date)
+    lineage = statistical_lineage_authority(
+        rows=rows,
+        contract=contract,
+        regime_id=regime_identity_id(regime_identity),
+        horizons=parse_positive_ints(horizons),
+    )
+    development = lineage["split_artifact"].get("development")
+    if not isinstance(development, list):
+        raise ValueError("canonical development episode authority 缺失")
+    allowed_dates = {
+        str(trade_date)
+        for episode in development
+        if isinstance(episode, dict)
+        for trade_date in episode.get("trade_dates", [])
+        if date.fromisoformat(str(trade_date)) <= run_date
+    }
+    if not allowed_dates:
+        raise ValueError("canonical exact-regime allowed dates 不可為空")
+    return allowed_dates
+
+
+def exact_regime_topic_ranking_eligibility(
+    *,
+    candidate_dir: str,
+    baseline_dir: str,
+    allowed_dates: set[str] | None,
+    as_of_date: str,
+) -> dict[str, Any]:
+    """要求 candidate 與 baseline 都有 canonical exact-regime ranking date。"""
+
+    try:
+        run_date = date.fromisoformat(as_of_date)
+        canonical_allowed = {
+            value
+            for value in (allowed_dates or set())
+            if date.fromisoformat(value) <= run_date
+        }
+    except (TypeError, ValueError):
+        canonical_allowed = set()
+    if not canonical_allowed:
+        return {"eligible": False, "reason_code": "MISSING_EXACT_REGIME_AUTHORITY"}
+    result: dict[str, Any] = {
+        "eligible": True,
+        "reason_code": "ELIGIBLE",
+        "exact_regime_allowed_date_count": len(canonical_allowed),
+    }
+    for role, path_value in (("candidate", candidate_dir), ("baseline", baseline_dir)):
+        inventory = repo_owned_ranking_date_inventory(path_value)
+        if not inventory["ok"]:
+            return {
+                **result,
+                "eligible": False,
+                "reason_code": inventory["reason_code"],
+                "inventory_role": role,
+            }
+        ranking_dates = set(inventory["ranking_dates"])
+        result[f"{role}_ranking_date_count"] = len(ranking_dates)
+        result[f"{role}_exact_date_count"] = len(ranking_dates & canonical_allowed)
+        if ranking_dates and all(date.fromisoformat(value) > run_date for value in ranking_dates):
+            return {
+                **result,
+                "eligible": False,
+                "reason_code": "FUTURE_ONLY_RANKING_DATE",
+                "inventory_role": role,
+            }
+        if not ranking_dates & canonical_allowed:
+            return {
+                **result,
+                "eligible": False,
+                "reason_code": "NO_EXACT_REGIME_RANKING_DATE",
+                "inventory_role": role,
+            }
+    return result
+
+
 def ranking_dirs(min_ranking_files: int) -> list[dict[str, Any]]:
     roots = [ARTIFACTS_DIR / "backtest", ARTIFACTS_DIR / "research_rankings"]
     by_dir: dict[Path, int] = {}
@@ -1635,6 +1754,9 @@ def topic_for_dir(
     profile: dict[str, Any] | None = None,
     current_regime: dict[str, Any] | None = None,
     coverage: dict[str, Any] | None = None,
+    enforce_exact_regime_ranking_dates: bool = False,
+    exact_regime_allowed_dates: set[str] | None = None,
+    exact_regime_as_of_date: str | None = None,
 ) -> ResearchTopic | None:
     profile = profile or VALIDATION_PROFILES[0]
     candidate_dir = str(row["repo_path"])
@@ -1677,6 +1799,21 @@ def topic_for_dir(
         if regime_identity
         else None
     )
+    ranking_eligibility = (
+        exact_regime_topic_ranking_eligibility(
+            candidate_dir=candidate_dir,
+            baseline_dir=baseline_dir,
+            allowed_dates=exact_regime_allowed_dates,
+            as_of_date=str(exact_regime_as_of_date or ""),
+        )
+        if enforce_exact_regime_ranking_dates
+        else None
+    )
+    eligible = bool(priority["eligible"]) if priority else True
+    reason_code = str(priority["reason_code"]) if priority else "LEGACY_TOPIC"
+    if ranking_eligibility is not None and not ranking_eligibility["eligible"]:
+        eligible = False
+        reason_code = str(ranking_eligibility["reason_code"])
     return ResearchTopic(
         topic_id=topic_id,
         title=f"回測 ranking variant：{Path(candidate_dir).name}｜{profile.get('title_suffix')}",
@@ -1696,8 +1833,8 @@ def topic_for_dir(
         max_group_exposures=str(profile.get("max_group_exposures") or ""),
         regime_identity=regime_identity,
         score_breakdown=priority.get("score_breakdown") if priority else None,
-        eligible=bool(priority["eligible"]) if priority else True,
-        reason_code=str(priority["reason_code"]) if priority else "LEGACY_TOPIC",
+        eligible=eligible,
+        reason_code=reason_code,
         selection_rationale=(
             {
                 "why_now": f"current exact-match regime is {regime_identity_id(regime_identity)}",
@@ -1705,6 +1842,7 @@ def topic_for_dir(
                 "pending_combination_count": coverage.get("pending_count"),
                 "estimated_combinations_resolved_on_success_or_failure": estimated_resolved,
                 "selection_is_deterministic": True,
+                **({"ranking_eligibility": ranking_eligibility} if ranking_eligibility is not None else {}),
             }
             if regime_identity
             else None
@@ -1718,6 +1856,7 @@ def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
     evidence_sources = ledger_sources + external_sources
     current_regime = None
     current_coverage = None
+    exact_dates_by_profile: dict[str, set[str] | None] = {}
     if bool(getattr(args, "closed_regime_research", False)):
         history_path = resolve_path(getattr(args, "market_regime_history", None))
         if history_path is None:
@@ -1737,6 +1876,20 @@ def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
             "pending_count": summary["pending_count"],
             "legal_combination_count": summary["legal_combination_count"],
         }
+        history_payload = load_json(history_path)
+        history_rows = history_payload.get("rows") if isinstance(history_payload.get("rows"), list) else []
+        for profile in VALIDATION_PROFILES:
+            profile_name = str(profile.get("name") or "standard")
+            try:
+                exact_dates_by_profile[profile_name] = canonical_exact_regime_allowed_dates(
+                    rows=history_rows,
+                    contract=contract,
+                    regime_identity=current_regime,
+                    horizons=str(profile.get("horizons") or ""),
+                    as_of_date=str(args.date),
+                )
+            except (KeyError, TypeError, ValueError):
+                exact_dates_by_profile[profile_name] = None
     if args.candidate_dir:
         path = resolve_path(args.candidate_dir)
         count = len(list(path.glob("ranking_*.csv"))) if path else 0
@@ -1751,6 +1904,9 @@ def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
                 profile=profile,
                 current_regime=current_regime,
                 coverage=current_coverage,
+                enforce_exact_regime_ranking_dates=current_regime is not None,
+                exact_regime_allowed_dates=exact_dates_by_profile.get(str(profile.get("name") or "standard")),
+                exact_regime_as_of_date=str(args.date),
             )
             for profile in VALIDATION_PROFILES
         ]
@@ -1767,6 +1923,9 @@ def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
                 profile=profile,
                 current_regime=current_regime,
                 coverage=current_coverage,
+                enforce_exact_regime_ranking_dates=current_regime is not None,
+                exact_regime_allowed_dates=exact_dates_by_profile.get(str(profile.get("name") or "standard")),
+                exact_regime_as_of_date=str(args.date),
             )
             if topic is not None:
                 topics.append(topic)
@@ -1969,6 +2128,7 @@ def topic_allowed_by_manager(
 
 
 def select_topics_for_run(topics: list[ResearchTopic], args: argparse.Namespace) -> list[ResearchTopic]:
+    topics = [topic for topic in topics if topic.eligible]
     if not topics:
         return []
     count = max(1, int(args.execute_topic_count or 1))

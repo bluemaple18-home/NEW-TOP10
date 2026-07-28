@@ -299,6 +299,34 @@ def test_current_regime_context_fails_closed_without_as_of_date(tmp_path: Path) 
         research.current_regime_context(path, "2026-01-02")
 
 
+@pytest.mark.parametrize(
+    "row",
+    [
+        {
+            "trade_date": "2026-01-02",
+            "as_of_date": "2026-01-02",
+            "base_regime": "UNKNOWN",
+            "family_tags": [],
+        },
+        {
+            "trade_date": "2026-01-02",
+            "as_of_date": "2026-01-02",
+            **EXACT,
+            "is_transition": True,
+        },
+    ],
+)
+def test_current_regime_context_fails_closed_for_unknown_or_transition(
+    tmp_path: Path,
+    row: dict,
+) -> None:
+    path = tmp_path / "regime.json"
+    path.write_text(json.dumps({"rows": [row]}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="UNKNOWN/transition"):
+        research.current_regime_context(path, "2026-01-02")
+
+
 def test_episode_builder_and_split_keep_complete_episodes_disjoint() -> None:
     episodes = [_episode(index) for index in range(1, 8)]
 
@@ -1503,6 +1531,172 @@ def _ineligible_topic() -> research.ResearchTopic:
         eligible=False,
         reason_code="ZERO_INFORMATION_VALUE",
     )
+
+
+def test_zero_exact_date_topic_is_ineligible_across_selection_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    contract_path = research.PROJECT_ROOT / "config/regime_research_contract.json"
+    candidate_dir = tmp_path / "artifacts" / "backtest" / "candidate"
+    baseline_dir = tmp_path / "artifacts" / "backtest" / "baseline"
+    candidate_dir.mkdir(parents=True)
+    baseline_dir.mkdir(parents=True)
+    (candidate_dir / "ranking_2025-01-02.csv").write_text("rank,stock_id\n", encoding="utf-8")
+    (baseline_dir / "ranking_2025-01-03.csv").write_text("rank,stock_id\n", encoding="utf-8")
+    history_path = tmp_path / "market_regime_history.json"
+    history_rows = _closed_history_rows()
+    history_path.write_text(json.dumps({"rows": history_rows}), encoding="utf-8")
+
+    monkeypatch.setattr(research, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(research, "ARTIFACTS_DIR", tmp_path / "artifacts")
+    monkeypatch.setattr(research, "OUTPUT_DIR", tmp_path / "artifacts" / "autonomous_research")
+    monkeypatch.setattr(research, "ledger_signals", lambda: ([], []))
+    monkeypatch.setattr(research, "external_review_signals", lambda: ([], []))
+    monkeypatch.setattr(research, "load_topic_registry", lambda: {})
+    monkeypatch.setattr(research, "load_last_run_at_by_topic", lambda: {})
+
+    args = SimpleNamespace(
+        date=history_rows[-1]["trade_date"],
+        candidate_dir="artifacts/backtest/candidate",
+        baseline_dir="artifacts/backtest/baseline",
+        min_ranking_files=1,
+        max_topics=12,
+        closed_regime_research=True,
+        market_regime_history=str(history_path),
+        research_contract=str(contract_path),
+        coverage_map=None,
+    )
+    topics = research.generate_all_topics(args)
+    zero_exact_topic = topics[0]
+    selection_args = SimpleNamespace(
+        execute_topic_count=1,
+        from_queue=False,
+        topic_index=0,
+        execute=True,
+        rerun=False,
+        include_rejected=False,
+    )
+    index_selection = research.select_topics_for_run([zero_exact_topic], selection_args)
+    fallback_selection = research.select_topics_for_run(
+        [_ineligible_topic(), zero_exact_topic],
+        selection_args,
+    )
+    monkeypatch.setattr(
+        research,
+        "load_next_action_queue",
+        lambda: [{"topic_id": zero_exact_topic.topic_id}],
+    )
+    selection_args.from_queue = True
+    queue_selection = research.select_topics_for_run([zero_exact_topic], selection_args)
+
+    observed = {
+        "eligible": zero_exact_topic.eligible,
+        "reason_code": zero_exact_topic.reason_code,
+        "index": [topic.topic_id for topic in index_selection],
+        "fallback": [topic.topic_id for topic in fallback_selection],
+        "queue": [topic.topic_id for topic in queue_selection],
+    }
+    assert observed == {
+        "eligible": False,
+        "reason_code": "NO_EXACT_REGIME_RANKING_DATE",
+        "index": [],
+        "fallback": [],
+        "queue": [],
+    }
+
+
+def test_legal_exact_date_topic_remains_selectable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate_dir = tmp_path / "artifacts" / "backtest" / "candidate"
+    baseline_dir = tmp_path / "artifacts" / "backtest" / "baseline"
+    candidate_dir.mkdir(parents=True)
+    baseline_dir.mkdir(parents=True)
+    for path in (candidate_dir, baseline_dir):
+        (path / "ranking_2026-01-02.csv").write_text("rank,stock_id\n", encoding="utf-8")
+    monkeypatch.setattr(research, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(research, "load_topic_registry", lambda: {})
+    monkeypatch.setattr(research, "load_last_run_at_by_topic", lambda: {})
+
+    topic = research.topic_for_dir(
+        {"repo_path": "artifacts/backtest/candidate", "count": 1},
+        baseline_dir="artifacts/backtest/baseline",
+        ledger_candidates=[],
+        external_signals=[],
+        evidence_sources=[],
+        current_regime=EXACT,
+        coverage={"evidence_gap": 1.0},
+        enforce_exact_regime_ranking_dates=True,
+        exact_regime_allowed_dates={"2026-01-02"},
+        exact_regime_as_of_date="2026-01-03",
+    )
+    assert topic is not None
+    args = SimpleNamespace(
+        execute_topic_count=1,
+        from_queue=False,
+        topic_index=0,
+        execute=True,
+        rerun=False,
+        include_rejected=False,
+    )
+
+    assert topic.eligible is True
+    assert topic.reason_code == "ELIGIBLE"
+    assert research.select_topics_for_run([topic], args) == [topic]
+
+
+@pytest.mark.parametrize(
+    ("case", "expected_reason", "expected_role"),
+    [
+        ("missing_authority", "MISSING_EXACT_REGIME_AUTHORITY", None),
+        ("malformed", "MALFORMED_RANKING_DATE", "candidate"),
+        ("future_only", "FUTURE_ONLY_RANKING_DATE", "candidate"),
+        ("path_escape", "RANKING_INVENTORY_PATH_ESCAPE", "candidate"),
+        ("baseline_no_exact", "NO_EXACT_REGIME_RANKING_DATE", "baseline"),
+    ],
+)
+def test_exact_regime_ranking_inventory_hostile_cases_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case: str,
+    expected_reason: str,
+    expected_role: str | None,
+) -> None:
+    repo_root = tmp_path / "repo"
+    candidate_dir = repo_root / "artifacts" / "backtest" / "candidate"
+    baseline_dir = repo_root / "artifacts" / "backtest" / "baseline"
+    candidate_dir.mkdir(parents=True)
+    baseline_dir.mkdir(parents=True)
+    baseline_ranking_date = "2025-01-02" if case == "baseline_no_exact" else "2026-01-02"
+    (baseline_dir / f"ranking_{baseline_ranking_date}.csv").write_text("rank,stock_id\n", encoding="utf-8")
+    allowed_dates: set[str] | None = {"2026-01-02"}
+    if case == "missing_authority":
+        allowed_dates = None
+        (candidate_dir / "ranking_2026-01-02.csv").write_text("rank,stock_id\n", encoding="utf-8")
+    elif case == "malformed":
+        (candidate_dir / "ranking_not-a-date.csv").write_text("rank,stock_id\n", encoding="utf-8")
+    elif case == "future_only":
+        (candidate_dir / "ranking_2026-02-01.csv").write_text("rank,stock_id\n", encoding="utf-8")
+    elif case == "path_escape":
+        candidate_dir = tmp_path / "outside"
+        candidate_dir.mkdir()
+        (candidate_dir / "ranking_2026-01-02.csv").write_text("rank,stock_id\n", encoding="utf-8")
+    else:
+        (candidate_dir / "ranking_2026-01-02.csv").write_text("rank,stock_id\n", encoding="utf-8")
+    monkeypatch.setattr(research, "PROJECT_ROOT", repo_root)
+
+    result = research.exact_regime_topic_ranking_eligibility(
+        candidate_dir=str(candidate_dir),
+        baseline_dir=str(baseline_dir),
+        allowed_dates=allowed_dates,
+        as_of_date="2026-01-03",
+    )
+
+    assert result["eligible"] is False
+    assert result["reason_code"] == expected_reason
+    assert result.get("inventory_role") == expected_role
 
 
 def test_ineligible_topic_is_excluded_from_selection_and_fallback(monkeypatch: pytest.MonkeyPatch) -> None:

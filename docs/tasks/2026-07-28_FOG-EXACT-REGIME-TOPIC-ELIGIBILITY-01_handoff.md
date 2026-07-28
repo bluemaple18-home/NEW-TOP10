@@ -1,6 +1,6 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01
-status: READY_FOR_DISPATCH
+status: READY_FOR_INDEPENDENT_REVIEW
 type: repair
 ownership: executor
 thickness: strict
@@ -187,3 +187,14 @@ fail closed？
 不得自行整合。主線將另開 strict independent Review；Review GO且整合後，
 才可由 I5 acceptance線決定是否安全恢復 circuit並重新開始三輪 scheduler
 acceptance。
+
+## Executor result
+
+- Phase 0 RED已證明 zero exact-date topic原本會維持 `ELIGIBLE`，並被
+  index、fallback、queue選回。
+- Candidate已改用 canonical development episode dates與 repo-owned
+  candidate/baseline ranking inventory判斷 eligibility。
+- Targeted：`86 passed`
+- Full：`585 passed, 4 warnings, 246 subtests passed`
+- Live acceptance未執行；LaunchAgent與 retry circuit保持原狀。
+- Candidate SHA記錄於同卡 evidence；等待 strict independent Review。
