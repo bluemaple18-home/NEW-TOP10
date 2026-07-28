@@ -1,0 +1,17 @@
+{"added_lines": 44, "binary": false, "old_path": null, "path": ".work/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01/status.md", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 25, "binary": false, "old_path": null, "path": ".work/current/brief.md", "removed_lines": 6, "status": "M", "untracked": false}
+{"added_lines": 31, "binary": false, "old_path": null, "path": ".work/current/context_manifest.md", "removed_lines": 45, "status": "M", "untracked": false}
+{"added_lines": 9, "binary": false, "old_path": null, "path": ".work/current/goal.md", "removed_lines": 1, "status": "M", "untracked": false}
+{"added_lines": 56, "binary": false, "old_path": null, "path": ".work/current/handoff.md", "removed_lines": 24, "status": "M", "untracked": false}
+{"added_lines": 22, "binary": false, "old_path": null, "path": ".work/current/result.md", "removed_lines": 52, "status": "M", "untracked": false}
+{"added_lines": 35, "binary": false, "old_path": null, "path": ".work/current/status.md", "removed_lines": 57, "status": "M", "untracked": false}
+{"added_lines": 58, "binary": false, "old_path": null, "path": "docs/evidence/FOG-DAILY-SOURCE-LINEAGE-01/verification.md", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 138, "binary": false, "old_path": null, "path": "docs/evidence/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01/verification.md", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 50, "binary": false, "old_path": null, "path": "docs/tasks/2026-07-28_FOG-DAILY-SOURCE-LINEAGE-01.md", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 200, "binary": false, "old_path": null, "path": "docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 139, "binary": false, "old_path": null, "path": "scripts/fog_daily_source_lineage.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 200, "binary": false, "old_path": null, "path": "scripts/run_autonomous_research.py", "removed_lines": 5, "status": "M", "untracked": false}
+{"added_lines": 18, "binary": false, "old_path": null, "path": "scripts/verify_closed_regime_runtime.py", "removed_lines": 4, "status": "M", "untracked": false}
+{"added_lines": 34, "binary": false, "old_path": null, "path": "tests/test_fog_closed_regime_runtime.py", "removed_lines": 1, "status": "M", "untracked": false}
+{"added_lines": 143, "binary": false, "old_path": null, "path": "tests/test_fog_daily_source_lineage.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 204, "binary": false, "old_path": null, "path": "tests/test_regime_research_autonomy.py", "removed_lines": 0, "status": "M", "untracked": false}
