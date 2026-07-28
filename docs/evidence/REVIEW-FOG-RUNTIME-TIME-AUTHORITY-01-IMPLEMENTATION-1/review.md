@@ -46,6 +46,20 @@ live_state_mutation: NONE
 Candidate diff共 19 個檔案，均在 Implementation allowlist；architecture/schema
 未改，model／ranking／weights／baseline／promotion protected surface無 diff。
 
+## Reviewer evidence correction
+
+Repair Phase 0指出原 `baseline_probes()`把同一個 verifier result同時用於
+`legitimate_shape_control_accepted`與`self_reported_baseline_rejected`，形成邏輯
+矛盾。Reviewer已把兩者拆成獨立 temporary roots與獨立 calls：
+
+- repo-owned canonical path／`trusted-mainline` baseline作 legitimate control；
+- attacker-selected baseline path／source identity作 fail-open attack。
+
+修正只影響 Reviewer probe的證據有效性；candidate code、下列 findings與
+`REVIEW_NO_GO` verdict均未變。修正後 legitimate control與hash drift均符合預期，
+attacker-selected baseline仍被 candidate接受，因此 probe仍因實際 P1 fail-open
+非零退出。
+
 ## Findings
 
 ### FRTA-IMPL-P1-01：source role/path與 baseline provenance仍由 caller自報

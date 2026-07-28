@@ -233,23 +233,29 @@ def path_probes() -> dict[str, bool]:
 
 
 def baseline_probes() -> dict[str, bool]:
-    with tempfile.TemporaryDirectory() as raw_tmp:
-        root = Path(raw_tmp)
-        roles = {
-            "model": "models/latest_lgbm.pkl",
-            "baseline": "models/baseline_stats.json",
-            "ranking": "app/agent_b_ranking.py",
-            "weights": "config/signals.yaml",
-            "promotion": "app/modeling/model_runtime_promotion.py",
-        }
+    roles = {
+        "model": "models/latest_lgbm.pkl",
+        "baseline": "models/baseline_stats.json",
+        "ranking": "app/agent_b_ranking.py",
+        "weights": "config/signals.yaml",
+        "promotion": "app/modeling/model_runtime_promotion.py",
+    }
+
+    def materialize_protected_files(root: Path, prefix: str) -> None:
         for role, relative in roles.items():
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(f"{role}\n", encoding="utf-8")
-        self_reported = {
+            path.write_text(f"{prefix}-{role}\n", encoding="utf-8")
+
+    def baseline_payload(
+        root: Path,
+        *,
+        source_identity: str,
+    ) -> dict[str, object]:
+        return {
             "schema_version": "fog-protected-baseline.v1",
             "created_at_utc": "2026-07-28T01:00:00Z",
-            "source_identity": "attacker-selected-identity",
+            "source_identity": source_identity,
             "artifacts": [
                 {
                     "role": role,
@@ -259,23 +265,55 @@ def baseline_probes() -> dict[str, bool]:
                 for role, relative in roles.items()
             ],
         }
-        write_json(root / "attacker-baseline.json", self_reported)
-        accepted = verify_trusted_baseline(
-            root=root,
-            baseline_path="attacker-baseline.json",
-            expected_source_identity="attacker-selected-identity",
+
+    with tempfile.TemporaryDirectory() as legitimate_tmp:
+        legitimate_root = Path(legitimate_tmp)
+        materialize_protected_files(legitimate_root, "repo-owned")
+        legitimate_path = "authority/trusted-protected-baseline.json"
+        write_json(
+            legitimate_root / legitimate_path,
+            baseline_payload(
+                legitimate_root,
+                source_identity="trusted-mainline",
+            ),
         )
-        (root / roles["model"]).write_text("drift\n", encoding="utf-8")
+        legitimate = verify_trusted_baseline(
+            root=legitimate_root,
+            baseline_path=legitimate_path,
+            expected_source_identity="trusted-mainline",
+        )
+        (legitimate_root / roles["model"]).write_text(
+            "drift\n",
+            encoding="utf-8",
+        )
         drift = verify_trusted_baseline(
-            root=root,
-            baseline_path="attacker-baseline.json",
+            root=legitimate_root,
+            baseline_path=legitimate_path,
+            expected_source_identity="trusted-mainline",
+        )
+
+    with tempfile.TemporaryDirectory() as attacker_tmp:
+        attacker_root = Path(attacker_tmp)
+        materialize_protected_files(attacker_root, "runtime-current")
+        attacker_path = "attacker/runtime-selected-baseline.json"
+        write_json(
+            attacker_root / attacker_path,
+            baseline_payload(
+                attacker_root,
+                source_identity="attacker-selected-identity",
+            ),
+        )
+        self_reported = verify_trusted_baseline(
+            root=attacker_root,
+            baseline_path=attacker_path,
             expected_source_identity="attacker-selected-identity",
         )
-        return {
-            "legitimate_shape_control_accepted": accepted["ok"],
-            "self_reported_baseline_rejected": not accepted["ok"],
-            "baseline_hash_drift_rejected": not drift["ok"],
-        }
+
+    return {
+        "legitimate_shape_control_accepted": legitimate["ok"],
+        "self_reported_baseline_rejected": not self_reported["ok"],
+        "baseline_hash_drift_rejected": not drift["ok"],
+    }
 
 
 def receipt_and_time_probes() -> dict[str, bool]:
