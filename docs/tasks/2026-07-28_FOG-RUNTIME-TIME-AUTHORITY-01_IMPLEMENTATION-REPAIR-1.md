@@ -12,6 +12,7 @@ model: gpt-5.6-sol
 reasoning: high
 base_candidate_sha: f7d51a3d994707c819198fd1edcdcf0db4dd0775
 review_sha: 15a87e5
+review_probe_correction_sha: 8b4b6e3
 reviewer_thread_id: 019fa66b-444f-7522-915b-15aad3de5fe3
 repair_thread_id: 019fa67b-7377-7002-a8d3-d7f6aee514c5
 ---
@@ -35,6 +36,8 @@ repair_thread_id: 019fa67b-7377-7002-a8d3-d7f6aee514c5
   `f7d51a3d994707c819198fd1edcdcf0db4dd0775`
 - Blocking Review：
   `15a87e5`
+- Reviewer probe correction：
+  `8b4b6e3`
 - Review evidence：
   `docs/evidence/REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1/`
 - Reusable Reviewer：
@@ -181,6 +184,7 @@ git diff --check
 - Dispatcher task：`019f82c1-b7d0-7eb3-9371-7a95ebfbd7ce`
 - Review verdict：`REVIEW_NO_GO`
 - Review commit：`15a87e5`
+- Reviewer probe correction：`8b4b6e3`
 - Client receipt：
   `client-new-thread:497a1fdf-760a-4695-abb0-bce47a9c5b7a`
 - Repair task：
