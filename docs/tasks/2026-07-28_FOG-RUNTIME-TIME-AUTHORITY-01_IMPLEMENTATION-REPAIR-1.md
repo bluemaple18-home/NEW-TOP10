@@ -1,7 +1,7 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-REPAIR-1
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
-status: REPAIR_IN_PROGRESS
+status: RE_REVIEW_IN_PROGRESS
 type: repair
 ownership: reusable_implementation_repair
 repair_generation: 1
@@ -201,4 +201,7 @@ git diff --check
   time authority v1 semantic object與 hash不變
 - Gate 1 physical card：`PASS`
 - Gate 2 visible thread：`PASS`
-- Gate 3 Repair candidate：`PENDING`
+- Gate 3 Repair candidate：
+  `PASS`（`6905ab2`）
+- Gate 4 same Reviewer re-review：
+  `IN_PROGRESS`（`019fa66b-444f-7522-915b-15aad3de5fe3`）

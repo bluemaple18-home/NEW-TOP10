@@ -167,3 +167,5 @@ deploy、建立 Repair、操作 live runtime或自行宣稱 mainline acceptance�
 - `FRTA-IMPL-P2-03`：immutable context沒有有界 cleanup／retention。
 - Mainline／I5 acceptance：未授權
 - Repair-1 task：`019fa67b-7377-7002-a8d3-d7f6aee514c5`
+- Repair-1 candidate：`6905ab2`
+- Targeted re-review：`IN_PROGRESS`
