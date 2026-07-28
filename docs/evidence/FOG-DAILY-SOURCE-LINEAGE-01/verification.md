@@ -44,6 +44,15 @@ Live producer已成功輸出：
 
 ## Remaining blocker
 
-I5仍為 `NO_GO`。下一個 root question是該 closed-regime topic為何沒有 comparison
-evidence，或提供不執行研究、但可證明 scheduler receipt wiring的正式 canary mode。
-不得把 `NO_COMPARISON_EVIDENCE` 改成成功或繞過。
+I5仍為 `NO_GO`。Read-only trace已定位：
+
+- selected topic：
+  `strategy-matrix:artifacts-backtest-production_baseline_harness_smoke:long_horizon`
+- baseline matrix在 `run_backtest_strategy_matrix.py` 的 exact-regime ranking filter
+  fail closed：
+  `FileNotFoundError: ranking artifacts 沒有 exact-match regime 日期`
+- candidate／comparison因此跳過，outcome為 `NO_COMPARISON_EVIDENCE`。
+
+下一個 root question是 closed-regime topic eligibility為何會選到沒有 exact-match
+ranking日期的 topic，或提供不執行研究、但可證明 scheduler receipt wiring的正式
+canary mode。不得把 `NO_COMPARISON_EVIDENCE` 改成成功或繞過。
