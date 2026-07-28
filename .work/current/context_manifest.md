@@ -1,50 +1,36 @@
+---
+id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-CONTEXT
+status: READY_FOR_DISPATCH
+type: handoff
+---
+
 # Context Manifest
 
-## Current independent review
+## Read first
 
-- `docs/tasks/2026-07-24_REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01.md`
-- `docs/evidence/REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01/review.md`
-- `docs/tasks/2026-07-24_REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01.md`
-- `docs/evidence/REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01/repair.md`
-- `docs/evidence/REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01/re-review-repair-01.md`
-- `docs/evidence/RESEARCH-FUNDAMENTAL-VOLUME-01/acceptance.md`
-- `docs/tasks/2026-07-24_RESEARCH-FUNDAMENTAL-READINESS-01.md`
-- `docs/tasks/2026-07-24_VOLUME-CLIMAX-WARNING-SHADOW-01.md`
-- `docs/evidence/RESEARCH-FUNDAMENTAL-READINESS-01/`
-- `docs/evidence/VOLUME-CLIMAX-WARNING-SHADOW-01/`
+- `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
+- `docs/tasks/2026-07-28_FOG-RUNTIME-TIME-AUTHORITY-01_I5_live_acceptance.md`
+- `docs/tasks/2026-07-28_FOG-DAILY-SOURCE-LINEAGE-01.md`
+- `docs/evidence/FOG-DAILY-SOURCE-LINEAGE-01/verification.md`
 
-## Dispatcher
+## Code only when needed
 
-- `docs/tasks/2026-07-22_MINI-REMAINING-01_cross_machine_executor.md`
-- `.work/MINI-REMAINING-01/evidence/research_candidate_preflight.md`
-- `.work/MINI-REMAINING-01/evidence/yuanta_local_prototype_redacted.md`
+- `scripts/run_autonomous_research.py`：
+  topic generation、eligibility與index／fallback／queue selection。
+- `scripts/run_backtest_strategy_matrix.py`：
+  只讀 exact-regime second-line guard；本卡禁止修改。
+- `tests/test_regime_research_autonomy.py`：
+  既有 ineligible selection regression。
 
-## SHADOW-RUN-01
+## Local-only runtime evidence
 
-- `docs/tasks/2026-07-22_SHADOW-RUN-01_shadow_feature_experiments.md`
-- `docs/tasks/2026-07-22_REVIEW-SHADOW-RUN-01.md`
-- `docs/evidence/SHADOW-RUN-01/verification.md`
-- `docs/evidence/SHADOW-RUN-01/acceptance.md`
-- `docs/evidence/REVIEW-SHADOW-RUN-01/review.md`
-- `config/research_shadow_runs.yaml`
-- `scripts/run_research_shadow_runs.py`
-- `scripts/verify_research_shadow_runs.py`
+- `artifacts/autonomous_research/run_2026-07-28_115728`
 
-## YUANTA-WIN-AUTOMATION-01
-
-- `docs/tasks/2026-07-22_YUANTA-WIN-AUTOMATION-01_secure_windows_helpers.md`
-- `docs/tasks/2026-07-22_REVIEW-YUANTA-WIN-AUTOMATION-01.md`
-- `docs/tasks/2026-07-22_REPAIR-YUANTA-WIN-AUTOMATION-01-01.md`
-- `docs/evidence/YUANTA-WIN-AUTOMATION-01/verification.md`
-- `docs/evidence/YUANTA-WIN-AUTOMATION-01/acceptance.md`
-- `docs/evidence/REVIEW-YUANTA-WIN-AUTOMATION-01/review.md`
-- `docs/evidence/REVIEW-YUANTA-WIN-AUTOMATION-01/re-review-01.md`
-- `docs/evidence/REPAIR-YUANTA-WIN-AUTOMATION-01-01/repair.md`
-- `tools/yuanta_windows/`
-- `scripts/verify_yuanta_windows_helpers.py`
+此 artifact預設不進 Git，只用於重現已確認的 blocker。新對話不得重跑 live
+worker來替代 deterministic fixture。
 
 ## Boundary
 
-- Runtime `artifacts/` 預設不進 Git。
-- Production promotion 仍為 `NO_GO`。
-- Yuanta Windows live verification 未完成，且任何真實 external write 都需要新授權。
+- 只處理 exact-regime topic eligibility。
+- 不處理 canary mode、production promotion或 I5 live acceptance。
+- 不載入舊產業／元大／Fundamental handoff；與本 root question無關。

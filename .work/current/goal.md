@@ -1,3 +1,11 @@
+---
+id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-GOAL
+status: READY_FOR_DISPATCH
+type: handoff
+---
+
 # Goal
 
-完成 SHADOW-RUN-01 與 YUANTA-WIN-AUTOMATION-01 的實作、驗證、獨立 Review／Repair、mainline acceptance、整合、push 與安全 cleanup，同時不洩漏或搬運來源主機的登入祕密。
+讓 closed-regime scheduler 在執行 strategy matrix 之前，排除沒有任何
+exact-match regime ranking 日期的 topic，同時保留 matrix 內既有 fail-closed
+防線與合法 `NO_EXECUTABLE_TOPIC` source-lineage receipt。

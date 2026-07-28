@@ -1,35 +1,67 @@
-# Handoff: INDUSTRY-COMPLETION-20260722 Closeout
+---
+id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-HANDOFF
+status: READY_FOR_DISPATCH
+type: handoff
+---
 
-## REGIME-RESEARCH-AUTONOMY-01 closeout
+# Handoff: FOG exact-regime topic eligibility
 
-最終 candidate `b1e3dc191527c24a5d3f5d80b975a81ad8a46543` 已由
-replacement Reviewer 以 `213bdd8c4d39d8df7e58ff349200efbc77222031`
-判定 `GO`，並於 mainline merge receipt `e87450c` 完成整合。
+## Goal
 
-Acceptance：
+在 matrix執行前排除沒有 exact-match regime ranking 日期的 topic，保留
+closed-regime fail-closed契約與合法 no-work receipt。
 
-- targeted 52 passed
-- fixed-SHA verifier 28/28 OK
-- canary PASS
-- main-workspace full suite 539 passed，246 subtests passed
-- production model／baseline hashes unchanged
+## Constraints & preferences
 
-Acceptance receipt `44c111d62dd3f994f3d0e271cf455c2546af922a` 已推送。
-5 個 tasks 已封存、11 個 worktrees 已移除、5 個本機 branches 已刪除；本輪剩餘
-repo action items 為 `0`。不得把 `242/720` profile coverage 或 `2/14`
-independent units 改寫成完整搜尋或 production ranking promotion。
+- strict task，Executor使用 `gpt-5.6-sol high`。
+- 新對話必須使用獨立乾淨 worktree／branch。
+- 先 RED，再 production edit。
+- Executor不自審、不整合、不執行 live acceptance。
 
-## Current review handoff
+## Completed actions
 
-`REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01` initial verdict 為 `REVIEW_NO_GO`；Repair-1 `a28036a...` 已修復 F-01～F-03，並由原 Reviewer thread `019f9241-fe47-7ef0-accf-3e021a49c401` re-review `GO`。主線已於 `01b5e87` 完成 acceptance、整合與 push；只剩明確授權後的 cleanup。
+- I1–I4 time/data authority已整合並 acceptance。
+- Processed-semantics repair已整合。
+- Installed plist已更新為 reviewed版本，但 worker保持 unloaded。
+- Source lineage candidate `be9bb74`已建立。
+- Evidence tip `5e6c038...`已驗證 targeted 69與 full 576 tests。
+- 三次 bounded live probe證明下一個 blocker是 exact-regime topic eligibility。
 
-本輪已完成 TPEx current-day 官方法人來源、產業 promotion 真實 production baseline 重跑、獨立 Review／Repair／re-review 與 mainline acceptance。
+## Active state
 
-不得把 `NO_GO_INSUFFICIENT_PRODUCTION_HISTORY` 改寫成 GO。現行 `0.12` overlay 已由多窗口 diagnostic 標為 `REJECT_CURRENT_OVERLAY`，但產業 feature family 仍為 `UNRESOLVED_RESEARCH_CANDIDATE`；只有 materially different formulation 才另開研究。TPEx 歷史網站 crawler、paid S35、raw public redistribution，以及用股數冒充 TWD ThemeFlow 都不在核准範圍。
+- Current dispatch source包含 `5e6c038...`。
+- Repo tracked changes在本 handoff commit前僅包含交接文件。
+- Fog LaunchAgent unloaded。
+- Retry circuit open；沒有直接刪除或旋轉。
+- Local runtime evidence：
+  `artifacts/autonomous_research/run_2026-07-28_115728`
 
-主要證據：
+## In progress / remaining work
 
-- `docs/evidence/TSKG-MFO-TPEX-01/verification_v2.md`
-- `docs/evidence/INDUSTRY-PROMOTION-20260722/`
-- `docs/evidence/REVIEW-INDUSTRY-COMPLETION-20260722/review.md`
-- `docs/evidence/INDUSTRY-COMPLETION-20260722/acceptance.md`
+1. Phase 0建立 zero exact-date topic的 deterministic RED。
+2. 修正 eligibility並覆蓋 index／fallback／queue。
+3. 跑 targeted、full suite、py_compile、diff check與 allowlist audit。
+4. 產生 candidate後停在 `READY_FOR_INDEPENDENT_REVIEW`。
+5. 主線另開 Reviewer，GO後才整合並重回 I5。
+
+## Blocked & errors
+
+- Selected topic：
+  `strategy-matrix:artifacts-backtest-production_baseline_harness_smoke:long_horizon`
+- Error：
+  `FileNotFoundError: ranking artifacts 沒有 exact-match regime 日期`
+- Outcome：`NO_COMPARISON_EVIDENCE`
+- 三次 live probe停損已達上限，不可再試第四次。
+
+## Key decisions & resolved questions
+
+- Source lineage已證明正常，這次不是 source date缺失。
+- Matrix exact-regime filter是正確第二道防線，不得放寬。
+- 本輪先修已證明的 eligibility缺口；正式 canary mode不併入本卡。
+- Combined independent Review必須檢查 `33aee4d..candidate`，不可只看新一個
+  commit而漏掉 stacked source-lineage變更。
+
+## Do not touch
+
+Production model、ranking、weights、baseline、promotion、queue policy、manager
+history、LaunchAgent、retry circuit與live artifacts。

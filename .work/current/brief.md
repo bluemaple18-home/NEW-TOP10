@@ -1,10 +1,29 @@
+---
+id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-BRIEF
+status: READY_FOR_DISPATCH
+type: handoff
+---
+
 # Current Brief
 
-任務：`MINI-REMAINING-01` 已完成兩張子卡的實作、獨立 Review、必要 Repair、mainline acceptance、push 與接收端 cleanup；狀態 `CLOSED`。
+## Main task
 
-- `SHADOW-RUN-01`：candidate `19a2d12`，獨立 Review `REVIEW_GO`，整合／acceptance `2aadec4`。
-- `YUANTA-WIN-AUTOMATION-01`：candidate `d765cb5` 初審 NO_GO；Repair `6c2d0ce` 經原 Reviewer re-review GO，整合／experimental acceptance `2480364`。
-- 遠端 `main` 已包含兩條完整 evidence chain。
-- 元大 Windows live、真實登入與憑證匯入均未執行；工具維持 `EXPERIMENTAL`。
+`FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01`
 
-本輪 repository action item 為 0。原交接主機未進 Git 的含敏感資料 prototype 仍須由使用者在該主機安全處理並輪替登入祕密；這不在接收端檔案系統內。
+Closed-regime source lineage 已修復並驗證；目前 blocker 是 scheduler 仍會選到
+沒有 exact-match regime ranking 日期的 topic。下一個獨立 Executor 必須先做
+RED，再於 matrix 執行前將該 topic fail closed。
+
+## Fixed source
+
+- Main base：`33aee4d`
+- Stacked parent：`5e6c0385fc8d93a89561583c79981d273c44fde6`
+- Full task card：
+  `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
+
+## Safety boundary
+
+- Fog LaunchAgent保持 unloaded。
+- Retry circuit保持 open，不得刪除或旋轉。
+- 三次 live probe停損已到；禁止第四次 live probe。
+- Executor只產生 candidate，不自審、不整合、不做 live acceptance。

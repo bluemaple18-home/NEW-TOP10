@@ -1,72 +1,50 @@
+---
+id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-STATUS
+status: READY_FOR_DISPATCH
+type: handoff
+---
+
 # Current Status
 
-狀態：`REGIME-RESEARCH-AUTONOMY-01 / COMPLETE`
+## Root question
 
-## Current mainline
+Closed-regime scheduler為何仍會選到沒有 exact-match regime ranking 日期的
+strategy-matrix topic？
 
-- final candidate：`b1e3dc191527c24a5d3f5d80b975a81ad8a46543`
-- replacement Review：`GO`
-- review evidence：`213bdd8c4d39d8df7e58ff349200efbc77222031`
-- mainline merge receipt：`e87450c`
-- acceptance evidence：`docs/evidence/REGIME-RESEARCH-AUTONOMY-01/acceptance.md`
-- acceptance receipt：`44c111d62dd3f994f3d0e271cf455c2546af922a`
-- cleanup：5 tasks archived、11 worktrees removed、5 local branches deleted
-- remaining action：`0`
+## Blocker
 
-## Regime research decision
+最新 bounded run已通過 source-lineage gate，但 baseline matrix回：
+`FileNotFoundError: ranking artifacts 沒有 exact-match regime 日期`，因此
+outcome為 `NO_COMPARISON_EVIDENCE`，I5維持 `NO_GO`。
 
-- closed-regime governance 與 statistical-family trust boundary：`GO`
-- parameter profile coverage：`242/720`，尚非完整搜尋
-- available-data independent units：`2/14`
-- research conclusion：`INSUFFICIENT_EVIDENCE`
-- production ranking／weight／model：本輪未修改
+## Fork
 
-## Acceptance 2026-07-27
+無。正式 canary mode只保留為候選方案；本卡先修正已被證明的 eligibility
+缺口，不另外擴卡。
 
-- targeted：52 passed
-- fixed-SHA verifier：28/28 OK
-- statistical-family canary：PASS
-- main-workspace full suite：539 passed，246 subtests passed
-- production model／baseline hashes：unchanged
-- `git diff --check`：PASS
+## Current state
 
-## Current Review／Repair
+- Main base：`33aee4d`
+- Source-lineage candidate：`be9bb74`
+- Stacked parent／evidence tip：`5e6c0385fc8d93a89561583c79981d273c44fde6`
+- Source-lineage targeted：`69 passed`
+- Full suite：`576 passed, 4 warnings, 246 subtests passed`
+- I5：`NO_GO`
+- LaunchAgent：unloaded
+- Circuit：open
+- Live retry budget：已達三次上限
 
-- reviewed range：`f716883503941320fd8b27a9c88b36576557ed50..4deb72660dce9fc15f44d45e30307eb24f0caae1`
-- scope：Fundamental point-in-time readiness + Volume Climax warning append-only shadow
-- card：`docs/tasks/2026-07-24_REVIEW-RESEARCH-FUNDAMENTAL-VOLUME-01.md`
-- initial independent Review：`REVIEW_NO_GO`
-- review evidence：`9a90e5317c8c61745bd7273cdc865019399b9525`
-- Reviewer thread：`019f9241-fe47-7ef0-accf-3e021a49c401`
-- Repair card：`docs/tasks/2026-07-24_REPAIR-RESEARCH-FUNDAMENTAL-VOLUME-01-01.md`
-- Repair candidate：`a28036a7797f9d1067698ae387d1a76231e917a8`
-- final re-review：`REVIEW_GO` at `9f29f3018887ea56e838603f865a5b758e04758e`
-- integrated／pushed SHA：`01b5e87`
-- next gate：使用者授權後移除兩個 worktree、封存 Review／Repair threads、刪除已整合 branches
+## Next step
 
-## TPEx current-day institutional source
+由獨立 Executor依
+`docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
+先建立 RED，再產生 candidate並停在 `READY_FOR_INDEPENDENT_REVIEW`。
 
-- source decision：`GO_CURRENT_DAY_OPENAPI_ONLY`
-- functional integrated SHA：`c081e36a569f1505716b983550ddd7533cddd316`
-- independent review：`REVIEW_GO`
-- review evidence commit：`06dcbee2c831f083117ff39f6b2df3cfc22489ef`
-- live receipt：2026-07-22、906 rows、Repair-schema SHA `bdfc2fcaee414d6dd3b4a553e8caf00a55783a8cca8aa3d05f8ae50a6875a2fa`
-- boundary：只允許 OGL current-day OpenAPI；歷史網站 crawler、paid S35、raw public redistribution 仍 blocked
+## Waiting condition
 
-## Industry promotion
+等待 Executor candidate；之後由主線另開 strict independent Review。
 
-- formal production decision：`NO_GO_INSUFFICIENT_PRODUCTION_HISTORY`
-- tested overlay disposition：`REJECT_CURRENT_OVERLAY`
-- industry feature family：`UNRESOLVED_RESEARCH_CANDIDATE`
-- evidence：40 份 production ranking manifest；26 個成熟日期；低於 60 日 promotion floor
-- observed：return uplift `-0.0075`、hit-rate uplift `-0.0231`
-- quick multi-window：59 日弱正但未達門檻；99／119／234 日皆負，四窗集中度均惡化
-- production action：`NO_RANKING_OR_WEIGHT_CHANGE`
-- Theme／Graph／Radar：既有 accepted shadow/read-only contract 回歸通過；未偽裝為 production feature
+## Restrictions
 
-## Acceptance
-
-- targeted：70 passed
-- full suite：465 passed
-- py_compile／promotion verifier／git diff check：PASS
-- mainline：已整合並推送；`HEAD == origin/main == 4deb72660dce9fc15f44d45e30307eb24f0caae1`
+不准第四次 live probe、不准重啟 LaunchAgent、不准清 circuit、不准修改
+production model／ranking／weights／baseline／promotion。
