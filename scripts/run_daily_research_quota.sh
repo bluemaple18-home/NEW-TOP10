@@ -48,6 +48,7 @@ ALLOW_RERUN="${TOP10_RESEARCH_ALLOW_RERUN:-1}"
 INCLUDE_REJECTED="${TOP10_RESEARCH_INCLUDE_REJECTED:-0}"
 FROM_QUEUE="${TOP10_RESEARCH_FROM_QUEUE:-0}"
 MAX_TOPICS="${TOP10_RESEARCH_MAX_TOPICS:-200}"
+BASELINE_DIR="${TOP10_RESEARCH_BASELINE_DIR:-artifacts/backtest/historical_rankings_current_model_fog_2025-06-03_2026-07-28_ce643797}"
 REFRESH_RESEARCH_MAP="${TOP10_REFRESH_RESEARCH_MAP:-1}"
 LOG_DIR="$PROJECT_DIR/logs"
 OUTPUT="artifacts/autonomous_research/autonomous_research_daily_quota_${RUN_DATE}.json"
@@ -68,6 +69,7 @@ RUN_ARGS=(
   --closed-regime-research
   --market-regime-history artifacts/market_regime_history.json
   --research-contract config/regime_research_contract.json
+  --baseline-dir "$BASELINE_DIR"
   --max-topics "$MAX_TOPICS"
   --execute-topic-count "$QUOTA"
   --max-ranking-files "$MAX_RANKING_FILES"
@@ -89,7 +91,7 @@ mkdir -p "$LOG_DIR"
 
 echo "========================================" | tee -a "$LOG_FILE"
 echo "開始每日研究配額 - $(date)" | tee -a "$LOG_FILE"
-echo "run_date=$RUN_DATE quota=$QUOTA max_topics=$MAX_TOPICS max_ranking_files=$MAX_RANKING_FILES allow_rerun=$ALLOW_RERUN include_rejected=$INCLUDE_REJECTED from_queue=$FROM_QUEUE" | tee -a "$LOG_FILE"
+echo "run_date=$RUN_DATE quota=$QUOTA max_topics=$MAX_TOPICS max_ranking_files=$MAX_RANKING_FILES allow_rerun=$ALLOW_RERUN include_rejected=$INCLUDE_REJECTED from_queue=$FROM_QUEUE baseline_dir=$BASELINE_DIR" | tee -a "$LOG_FILE"
 echo "runtime=$RUNTIME_LABEL" | tee -a "$LOG_FILE"
 echo "refresh_research_map=$REFRESH_RESEARCH_MAP" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"

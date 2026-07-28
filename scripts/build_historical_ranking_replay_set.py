@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from contextlib import redirect_stdout
@@ -57,6 +58,16 @@ def repo_path(path: Path | None) -> str | None:
         return str(path.resolve().relative_to(PROJECT_ROOT))
     except ValueError:
         return str(path)
+
+
+def sha256_file(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_trade_dates(data_dir: Path, start_date: str, end_date: str, stride: int, max_dates: int | None) -> list[str]:
@@ -222,6 +233,9 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     ranker.top_n = args.top_n
     ranker.load_model()
     batch_frames = None if args.legacy_per_date_load else prepare_batch_frames(ranker)
+    features_path = data_dir / "features.parquet"
+    universe_path = data_dir / "universe.parquet"
+    model_path = model_dir / "latest_lgbm.pkl"
 
     outputs: list[dict[str, Any]] = []
     failures: list[dict[str, str]] = []
@@ -248,6 +262,16 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "does_not_train_model": True,
             "does_not_write_models_latest_lgbm": True,
             "does_not_change_production_ranking": True,
+        },
+        "source_lineage": {
+            "features_path": repo_path(features_path),
+            "features_sha256": sha256_file(features_path),
+            "universe_path": repo_path(universe_path),
+            "universe_sha256": sha256_file(universe_path),
+            "model_path": repo_path(model_path),
+            "model_sha256": sha256_file(model_path),
+            "config_path": repo_path(config_path),
+            "config_sha256": sha256_file(config_path),
         },
         "inputs": {
             "data_dir": repo_path(data_dir),

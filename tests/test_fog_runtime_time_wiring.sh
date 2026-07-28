@@ -60,6 +60,9 @@ grep -q 'TOP10_FOG_RUN_CONTEXT' scripts/run_fog_research_worker.sh
 grep -q 'TOP10_FOG_RUN_CONTEXT' scripts/run_daily_research_quota.sh
 grep -q 'TOP10_RUN_DATE mismatches immutable context' scripts/run_fog_research_worker.sh
 grep -q 'TOP10_RESEARCH_DATE mismatches immutable time context' scripts/run_daily_research_quota.sh
+grep -q 'TOP10_RESEARCH_BASELINE_DIR' scripts/run_daily_research_quota.sh
+grep -q -- '--baseline-dir "$BASELINE_DIR"' scripts/run_daily_research_quota.sh
+grep -q 'TOP10_RESEARCH_FROM_QUEUE:-0' scripts/run_fog_research_worker.sh
 
 if grep -Eq '<key>(TZ|TOP10_RUN_DATE|TOP10_RESEARCH_DATE|TOP10_.*(FRESH|AGE|TIMEZONE))</key>' \
   scripts/com.new-top10.fog-research-worker.plist; then
