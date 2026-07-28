@@ -4,9 +4,11 @@ import argparse
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from scripts import run_autonomous_research as research
 
@@ -182,6 +184,74 @@ class AutonomousResearchTopicBankTests(unittest.TestCase):
                 self.assertEqual(research.select_topics_for_run([eligible, rejected], self.manager_args()), [])
             finally:
                 research.OUTPUT_DIR = original_output_dir
+
+    def test_closed_capacity_excludes_topics_with_used_sealed_dataset(self):
+        topic = replace(
+            self.make_topic("used-sealed"),
+            regime_identity={"base_regime": "RISK_OFF", "family_tags": []},
+        )
+        lineage = {
+            "dataset_hash": "sha256:dataset",
+            "sealed_episode_ids": ["sha256:sealed-episode"],
+            "sealed_trade_dates": ["2026-07-22", "2026-07-23"],
+            "sealed_trade_date_hash": "sha256:sealed-dates",
+            "sealed_dataset_slice_hash": "sha256:sealed-slice",
+        }
+        registry = [
+            {
+                "experiment_id": "experiment:used",
+                "sealed_episode_ids": lineage["sealed_episode_ids"],
+                "sealed_trade_dates": lineage["sealed_trade_dates"],
+                "sealed_trade_date_hash": lineage["sealed_trade_date_hash"],
+                "sealed_dataset_slice_hash": lineage["sealed_dataset_slice_hash"],
+            }
+        ]
+        args = self.manager_args(closed_regime_research=True)
+
+        with (
+            patch.object(research, "closed_experiment_context", return_value={"lineage": lineage}),
+            patch.object(research, "load_experiment_registry", return_value=registry),
+            patch.object(research, "load_topic_registry", return_value={}),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            topics = research.apply_closed_experiment_capacity([topic], args)
+
+        self.assertFalse(topics[0].eligible)
+        self.assertEqual(topics[0].reason_code, "SEALED_DATASET_REUSE")
+        self.assertEqual(
+            topics[0].selection_rationale["sealed_capacity"]["source_experiment_id"],
+            "experiment:used",
+        )
+
+    def test_closed_capacity_reserves_fresh_slice_for_one_topic_per_run(self):
+        first = replace(
+            self.make_topic("fresh-first"),
+            regime_identity={"base_regime": "RISK_OFF", "family_tags": []},
+        )
+        second = replace(
+            self.make_topic("fresh-second"),
+            regime_identity={"base_regime": "RISK_OFF", "family_tags": []},
+        )
+        lineage = {
+            "dataset_hash": "sha256:dataset",
+            "sealed_episode_ids": ["sha256:sealed-episode"],
+            "sealed_trade_dates": ["2026-07-22", "2026-07-23"],
+            "sealed_trade_date_hash": "sha256:sealed-dates",
+            "sealed_dataset_slice_hash": "sha256:sealed-slice",
+        }
+        args = self.manager_args(closed_regime_research=True)
+
+        with (
+            patch.object(research, "closed_experiment_context", return_value={"lineage": lineage}),
+            patch.object(research, "load_experiment_registry", return_value=[]),
+            patch.object(research, "load_topic_registry", return_value={}),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            topics = research.apply_closed_experiment_capacity([first, second], args)
+
+        self.assertTrue(topics[0].eligible)
+        self.assertFalse(topics[1].eligible)
+        self.assertEqual(topics[1].reason_code, "SEALED_DATASET_REUSE")
 
     def test_history_fallback_requires_proven_real_execution(self):
         now = datetime(2026, 7, 17, 12, tzinfo=timezone.utc)

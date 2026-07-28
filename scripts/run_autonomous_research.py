@@ -17,7 +17,7 @@ import math
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -796,6 +796,37 @@ def build_experiment_pre_registration(values: dict[str, Any]) -> dict[str, Any]:
     return {**candidate, "experiment_id": deterministic_experiment_id(candidate)}
 
 
+def find_sealed_dataset_reuse(
+    registry: list[dict[str, Any]],
+    *,
+    sealed_episode_ids: list[str],
+    sealed_trade_dates: list[str],
+    sealed_trade_date_hash: str,
+    sealed_dataset_slice_hash: str,
+) -> dict[str, Any] | None:
+    sealed = {str(item) for item in sealed_episode_ids if str(item)}
+    sealed_dates = canonical_trade_dates(sealed_trade_dates)
+    for row in registry:
+        used = {str(item) for item in row.get("sealed_episode_ids") or [] if str(item)}
+        overlap = sorted(sealed & used)
+        used_dates = {str(item) for item in row.get("sealed_trade_dates") or [] if str(item)}
+        overlapping_dates = sorted(set(sealed_dates) & used_dates)
+        same_date_hash = bool(row.get("sealed_trade_date_hash")) and row.get("sealed_trade_date_hash") == sealed_trade_date_hash
+        same_slice_hash = (
+            bool(row.get("sealed_dataset_slice_hash"))
+            and row.get("sealed_dataset_slice_hash") == sealed_dataset_slice_hash
+        )
+        if overlap or overlapping_dates or same_date_hash or same_slice_hash:
+            return {
+                "ok": False,
+                "reason_code": "SEALED_DATASET_REUSE",
+                "source_experiment_id": row.get("experiment_id"),
+                "overlapping_episode_ids": overlap,
+                "overlapping_trade_dates": overlapping_dates,
+            }
+    return None
+
+
 def validate_experiment_registration(candidate: dict[str, Any], registry: list[dict[str, Any]]) -> dict[str, Any]:
     experiment_id = str(candidate.get("experiment_id") or "")
     if not experiment_id:
@@ -842,24 +873,15 @@ def validate_experiment_registration(candidate: dict[str, Any], registry: list[d
     expected_slice_hash = sealed_dataset_slice_hash(str(candidate.get("dataset_hash") or ""), sealed_dates)
     if str(candidate.get("sealed_dataset_slice_hash") or "") != expected_slice_hash:
         return {"ok": False, "reason_code": "SEALED_DATASET_SLICE_HASH_MISMATCH"}
-    for row in registry:
-        used = {str(item) for item in row.get("sealed_episode_ids") or [] if str(item)}
-        overlap = sorted(sealed & used)
-        used_dates = {str(item) for item in row.get("sealed_trade_dates") or [] if str(item)}
-        overlapping_dates = sorted(set(sealed_dates) & used_dates)
-        same_date_hash = bool(row.get("sealed_trade_date_hash")) and row.get("sealed_trade_date_hash") == sealed_date_hash
-        same_slice_hash = (
-            bool(row.get("sealed_dataset_slice_hash"))
-            and row.get("sealed_dataset_slice_hash") == expected_slice_hash
-        )
-        if overlap or overlapping_dates or same_date_hash or same_slice_hash:
-            return {
-                "ok": False,
-                "reason_code": "SEALED_DATASET_REUSE",
-                "source_experiment_id": row.get("experiment_id"),
-                "overlapping_episode_ids": overlap,
-                "overlapping_trade_dates": overlapping_dates,
-            }
+    reuse = find_sealed_dataset_reuse(
+        registry,
+        sealed_episode_ids=sorted(sealed),
+        sealed_trade_dates=sealed_dates,
+        sealed_trade_date_hash=sealed_date_hash,
+        sealed_dataset_slice_hash=expected_slice_hash,
+    )
+    if reuse is not None:
+        return reuse
     required = {
         "research_question",
         "baseline_id",
@@ -1075,12 +1097,17 @@ def validate_statistical_family_registration(
     }
 
 
-def append_experiment_registry(path: Path, candidate: dict[str, Any]) -> dict[str, Any]:
+def load_experiment_registry(path: Path) -> list[dict[str, Any]]:
     registry: list[dict[str, Any]] = []
     if path.exists():
         for line in path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 registry.append(json.loads(line))
+    return registry
+
+
+def append_experiment_registry(path: Path, candidate: dict[str, Any]) -> dict[str, Any]:
+    registry = load_experiment_registry(path)
     result = validate_experiment_registration(candidate, registry)
     if not result["ok"]:
         return result
@@ -2573,11 +2600,7 @@ def delta(left: Any, right: Any) -> float | None:
         return None
 
 
-def prepare_closed_experiment(
-    args: argparse.Namespace,
-    topic: ResearchTopic,
-    run_dir: Path,
-) -> dict[str, Any]:
+def closed_experiment_context(args: argparse.Namespace, topic: ResearchTopic) -> dict[str, Any]:
     if topic.regime_identity is None:
         raise ValueError("closed experiment 缺少 exact-match regime identity")
     history_path = resolve_path(getattr(args, "market_regime_history", None))
@@ -2598,6 +2621,89 @@ def prepare_closed_experiment(
         regime_id=regime_id,
         horizons=horizons,
     )
+    return {
+        "contract": contract,
+        "lineage": lineage,
+        "regime_id": regime_id,
+        "rows": rows,
+    }
+
+
+def apply_closed_experiment_capacity(
+    topics: list[ResearchTopic],
+    args: argparse.Namespace,
+) -> list[ResearchTopic]:
+    """在選題前排除已消耗 sealed slice，並預留單輪 fresh capacity。"""
+
+    if not bool(getattr(args, "closed_regime_research", False)):
+        return topics
+    registry_path = OUTPUT_DIR / "closed_experiment_registry.jsonl"
+    provisional_registry = load_experiment_registry(registry_path)
+    manager_registry = load_topic_registry()
+    last_run_at_by_topic = load_last_run_at_by_topic()
+    context_cache: dict[tuple[str, str], dict[str, Any]] = {}
+    result: list[ResearchTopic] = []
+    for topic in topics:
+        if not topic.eligible:
+            result.append(topic)
+            continue
+        regime_id = regime_identity_id(topic.regime_identity or {})
+        cache_key = (regime_id, str(topic.horizons or getattr(args, "horizons", "")))
+        context = context_cache.get(cache_key)
+        if context is None:
+            context = closed_experiment_context(args, topic)
+            context_cache[cache_key] = context
+        lineage = context["lineage"]
+        reuse = find_sealed_dataset_reuse(
+            provisional_registry,
+            sealed_episode_ids=list(lineage["sealed_episode_ids"]),
+            sealed_trade_dates=list(lineage["sealed_trade_dates"]),
+            sealed_trade_date_hash=str(lineage["sealed_trade_date_hash"]),
+            sealed_dataset_slice_hash=str(lineage["sealed_dataset_slice_hash"]),
+        )
+        if reuse is not None:
+            rationale = dict(topic.selection_rationale or {})
+            rationale["sealed_capacity"] = {
+                "eligible": False,
+                **reuse,
+            }
+            result.append(
+                replace(
+                    topic,
+                    eligible=False,
+                    reason_code=str(reuse["reason_code"]),
+                    selection_rationale=rationale,
+                )
+            )
+            continue
+        result.append(topic)
+        if bool(getattr(args, "execute", False)) and topic_allowed_by_manager(
+            topic,
+            manager_registry,
+            args,
+            last_run_at_by_topic=last_run_at_by_topic,
+        ):
+            provisional_registry.append(
+                {
+                    "experiment_id": f"provisional:{topic.topic_id}",
+                    "sealed_episode_ids": list(lineage["sealed_episode_ids"]),
+                    "sealed_trade_dates": list(lineage["sealed_trade_dates"]),
+                    "sealed_trade_date_hash": lineage["sealed_trade_date_hash"],
+                    "sealed_dataset_slice_hash": lineage["sealed_dataset_slice_hash"],
+                }
+            )
+    return result
+
+
+def prepare_closed_experiment(
+    args: argparse.Namespace,
+    topic: ResearchTopic,
+    run_dir: Path,
+) -> dict[str, Any]:
+    context = closed_experiment_context(args, topic)
+    contract = context["contract"]
+    lineage = context["lineage"]
+    regime_id = context["regime_id"]
     split_payload = lineage["split_artifact"]
     split_path = run_dir / f"{slugify(topic.topic_id)}_closed_episode_split.json"
     write_text_atomic(split_path, json.dumps(split_payload, ensure_ascii=False, indent=2, allow_nan=False))
@@ -2943,7 +3049,7 @@ def main() -> int:
         if bool(getattr(args, "closed_regime_research", False))
         else None
     )
-    all_topics = generate_all_topics(args)
+    all_topics = apply_closed_experiment_capacity(generate_all_topics(args), args)
     topic_bank_path = write_topic_bank(all_topics, args, queued_ids=queued_topic_ids())
     active_topics = load_active_topic_bank()
     topics = all_topics[: args.max_topics] if args.from_queue else active_topics[: args.max_topics]
