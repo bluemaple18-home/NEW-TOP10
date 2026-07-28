@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1
-status: IMPLEMENTATION_REVIEW_IN_PROGRESS
+status: IMPLEMENTATION_REVIEW_NO_GO
 type: implementation
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 dispatch_version: 2
@@ -283,5 +283,5 @@ git diff --check
 - Gate 3 candidate delivery：
   `PASS`（`f7d51a3d994707c819198fd1edcdcf0db4dd0775`）
 - Gate 4 independent implementation review：
-  `IN_PROGRESS`（`019fa66b-444f-7522-915b-15aad3de5fe3`）
+  `NO_GO`（review commit `15a87e5`）
 - Gate 5 mainline/runtime acceptance：`PENDING`
