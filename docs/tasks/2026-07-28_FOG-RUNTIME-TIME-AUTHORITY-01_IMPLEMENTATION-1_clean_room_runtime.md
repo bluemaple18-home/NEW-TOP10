@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1
-status: IMPLEMENTATION_IN_PROGRESS
+status: IMPLEMENTATION_REVIEW_IN_PROGRESS
 type: implementation
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 dispatch_version: 2
@@ -15,7 +15,7 @@ accepted_architecture_candidate_sha: f9cfbabde1d89d2f759a7cbc60d1dd03e96a2171
 architecture_review_sha: 5c95a2e
 accepted_main_sha: 408f3e0
 implementation_thread_id: 019fa64f-3973-7d10-b0aa-4759af7aff1d
-reviewer_thread_id: PENDING
+reviewer_thread_id: 019fa66b-444f-7522-915b-15aad3de5fe3
 repair_thread_id: PENDING
 evidence_path: docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1/
 ---
@@ -280,6 +280,8 @@ git diff --check
   `ARCHITECTURE_REVIEW_GO → ACCEPTED → IMPLEMENTATION_IN_PROGRESS`
 - Gate 1 card contract：`PASS`
 - Gate 2 visible thread：`PASS`
-- Gate 3 candidate delivery：`PENDING`
-- Gate 4 independent implementation review：`PENDING`
+- Gate 3 candidate delivery：
+  `PASS`（`f7d51a3d994707c819198fd1edcdcf0db4dd0775`）
+- Gate 4 independent implementation review：
+  `IN_PROGRESS`（`019fa66b-444f-7522-915b-15aad3de5fe3`）
 - Gate 5 mainline/runtime acceptance：`PENDING`

@@ -1,7 +1,7 @@
 ---
 id: REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
-status: READY_FOR_REVIEW
+status: REVIEW_IN_PROGRESS
 type: review
 owner: independent-implementation-reviewer
 thickness: strict
@@ -12,7 +12,7 @@ model_reason: 變更橫跨市場時間權威、closed receipt v3、processed/sou
 base_sha: 87e4da7dd63bafe82b16c28990e7be6db137b4e6
 candidate_sha: f7d51a3d994707c819198fd1edcdcf0db4dd0775
 implementation_thread_id: 019fa64f-3973-7d10-b0aa-4759af7aff1d
-reviewer_thread_id: PENDING
+reviewer_thread_id: 019fa66b-444f-7522-915b-15aad3de5fe3
 repair_thread_id: PENDING
 ---
 
@@ -146,8 +146,11 @@ deploy、建立 Repair、操作 live runtime或自行宣稱 mainline acceptance�
   `f7d51a3d994707c819198fd1edcdcf0db4dd0775`
 - Candidate branch：
   `codex/fog-runtime-time-authority-implementation-1`
-- Reviewer task：`PENDING`
+- Client receipt：
+  `client-new-thread:54c39270-ee4e-4273-b90b-bb0c279da386`
+- Reviewer task：
+  `019fa66b-444f-7522-915b-15aad3de5fe3`
+- Reviewer worktree：獨立 Codex worktree；initial `main`、clean
 - Gate 1 physical card：`PASS`
-- Gate 2 visible thread：`PENDING`
+- Gate 2 visible thread：`PASS`
 - Gate 3 independent verdict：`PENDING`
-
