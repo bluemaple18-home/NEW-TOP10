@@ -1,6 +1,6 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-HANDOFF
-status: REPAIR_REVIEW_READY
+status: GO_LOCAL_DETERMINISTIC
 type: mainline
 ---
 
@@ -26,11 +26,16 @@ closed-regime fail-closed契約與合法 no-work receipt。
 - Source lineage candidate `be9bb74`已建立。
 - Evidence tip `5e6c038...`已驗證 targeted 69與 full 576 tests。
 - 三次 bounded live probe證明下一個 blocker是 exact-regime topic eligibility。
+- Exact-regime candidate、Repair-1與同一 Reviewer targeted re-review已完成。
+- Review verdict：`REVIEW_GO`。
+- Local integration：`374792652b8bee8a869052228da78f7a0d4558b4`。
+- Main checkout full suite：`587 passed`。
 
 ## Active state
 
-- Current dispatch source包含 `5e6c038...`。
-- Repo tracked changes在本 handoff commit前僅包含交接文件。
+- Current task branch已在
+  `374792652b8bee8a869052228da78f7a0d4558b4`完成本機整合。
+- Worktree clean；branch尚未 push。
 - Fog LaunchAgent unloaded。
 - Retry circuit open；沒有直接刪除或旋轉。
 - Local runtime evidence：
@@ -38,11 +43,9 @@ closed-regime fail-closed契約與合法 no-work receipt。
 
 ## In progress / remaining work
 
-1. Repair-1 Phase 0建立 candidate／baseline file-level symlink deterministic RED。
-2. 逐檔 fail closed，固定 reason `RANKING_INVENTORY_PATH_ESCAPE`。
-3. 重跑 reviewer hostile probe，須由15/16轉為16/16。
-4. 跑 targeted、full suite、py_compile、diff check與 allowlist audit。
-5. 產生 Repair candidate後交回原 Reviewer task複審。
+1. 等待是否 push／開 PR的明確授權。
+2. I5 bounded dry與scheduler acceptance若要恢復，另行仲裁三次停損、
+   LaunchAgent與 circuit recovery邊界。
 
 ## Repair-1 candidate
 
@@ -50,8 +53,11 @@ closed-regime fail-closed契約與合法 no-work receipt。
 - Parent：`e50022a9db130832d9855846d12168a79d454cef`
 - Hostile probe：`16/16`
 - Targeted：`88 passed`
-- Full suite唯一失敗為既有 isolated-worktree ledger missing ignored artifacts。
-- Next：原 Reviewer targeted re-review。
+- Repair worktree full suite唯一失敗為既有 isolated-worktree ledger missing
+  ignored artifacts；主 checkout full suite已`587 passed`。
+- Re-review：`REVIEW_GO`
+- Local integration：`374792652b8bee8a869052228da78f7a0d4558b4`
+- Main checkout acceptance：`587 passed`
 
 ## Blocked & errors
 
@@ -61,8 +67,8 @@ closed-regime fail-closed契約與合法 no-work receipt。
   `FileNotFoundError: ranking artifacts 沒有 exact-match regime 日期`
 - Outcome：`NO_COMPARISON_EVIDENCE`
 - 三次 live probe停損已達上限，不可再試第四次。
-- Candidate `684d3ad...`經 independent Review判定`REVIEW_NO_GO`。
-- P1：repo內 ranking file symlink可指向 repo外且仍被 matrix讀取。
+- Original P1已由 Repair-1關閉。
+- 目前沒有 deterministic code blocker。
 
 ## Key decisions & resolved questions
 

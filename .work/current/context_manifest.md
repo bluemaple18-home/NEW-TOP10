@@ -1,6 +1,6 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-CONTEXT
-status: REPAIR_REVIEW_READY
+status: GO_LOCAL_DETERMINISTIC
 type: mainline
 ---
 
@@ -8,10 +8,11 @@ type: mainline
 
 ## Read first
 
+- `docs/evidence/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01/mainline_acceptance.md`
 - `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_REPAIR-1_symlink_authority.md`
 - `docs/tasks/2026-07-28_REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_REPAIR-1.md`
-- Review commit `e50022a9db130832d9855846d12168a79d454cef`中的
-  `docs/evidence/REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01/review.md`
+- `docs/evidence/REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01/review.md`
+- `docs/evidence/REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1/review.md`
 - `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
 - `docs/tasks/2026-07-28_FOG-RUNTIME-TIME-AUTHORITY-01_I5_live_acceptance.md`
 - `docs/tasks/2026-07-28_FOG-DAILY-SOURCE-LINEAGE-01.md`
@@ -35,6 +36,6 @@ worker來替代 deterministic fixture。
 
 ## Boundary
 
-- 只處理 exact-regime topic eligibility。
-- 不處理 canary mode、production promotion或 I5 live acceptance。
+- Exact-regime topic eligibility的 deterministic修復已完成本機整合。
+- 不處理 push、canary mode、production promotion或 I5 live acceptance。
 - 不載入舊產業／元大／Fundamental handoff；與本 root question無關。

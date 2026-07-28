@@ -1,6 +1,6 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01
-status: READY_FOR_INDEPENDENT_REVIEW
+status: GO_LOCAL_DETERMINISTIC
 type: repair
 ownership: executor
 thickness: strict
@@ -11,6 +11,7 @@ model_reason: production scheduler eligibility、exact-regime authority與bounde
 chain_id: FOG-I5-EXACT-REGIME-ELIGIBILITY
 base_sha: 33aee4d
 stacked_parent_sha: 5e6c0385fc8d93a89561583c79981d273c44fde6
+integration_sha: 374792652b8bee8a869052228da78f7a0d4558b4
 ---
 
 # FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01
@@ -23,6 +24,21 @@ stacked_parent_sha: 5e6c0385fc8d93a89561583c79981d273c44fde6
 - 不得自行宣告 Review GO、整合 `main` 或啟動 live Fog worker。
 - candidate 完成後交回主線，另開獨立 Reviewer 檢查完整範圍
   `33aee4d..candidate`；這個範圍同時包含 source-lineage 與本卡修復。
+
+## Mainline completion receipt
+
+- Initial candidate：
+  `684d3adf3916100a7eb9bb57c6164f3b67a58064`
+- Repair-1：
+  `51c084cd077cd4e997873e4a924f73e3dca2ba3d`
+- Independent re-review：`REVIEW_GO`
+- Re-review commit：
+  `0b1373bdea3d02b6a92c07a121f664949e4f48f2`
+- Local integration：
+  `374792652b8bee8a869052228da78f7a0d4558b4`
+- Main checkout acceptance：hostile probes `16/16`與`7/7`、targeted
+  `88 passed`、full suite `587 passed`。
+- I5 live acceptance、push與 deploy均未執行。
 
 ## Goal
 

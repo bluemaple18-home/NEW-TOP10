@@ -1,6 +1,6 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-STATUS
-status: REPAIR_REVIEW_READY
+status: GO_LOCAL_DETERMINISTIC
 type: mainline
 ---
 
@@ -13,9 +13,8 @@ strategy-matrix topic？
 
 ## Blocker
 
-Independent Review以 hostile probe重現 P1：
-repo內 `ranking_YYYY-MM-DD.csv`若為指向 repo外 regular file的 symlink，
-eligibility仍回 `ELIGIBLE`，matrix並會讀到外部內容。
+Deterministic blocker已關閉。I5 live acceptance仍受三次 probe停損、unloaded
+LaunchAgent與 open circuit限制。
 
 ## Fork
 
@@ -28,27 +27,24 @@ eligibility仍回 `ELIGIBLE`，matrix並會讀到外部內容。
 - Source-lineage candidate：`be9bb74`
 - Stacked parent／evidence tip：`5e6c0385fc8d93a89561583c79981d273c44fde6`
 - Source-lineage targeted：`69 passed`
-- Full suite：`576 passed, 4 warnings, 246 subtests passed`
+- Main checkout full suite：`587 passed, 4 warnings, 246 subtests passed`
 - I5：`NO_GO`
 - LaunchAgent：unloaded
 - Circuit：open
 - Live retry budget：已達三次上限
 - Candidate：`684d3adf3916100a7eb9bb57c6164f3b67a58064`
-- Independent Review：`REVIEW_NO_GO`
-- Review commit：`e50022a9db130832d9855846d12168a79d454cef`
-- Blocking finding：`FOG-EXACT-REGIME-REVIEW-P1-001`
+- Repair-1：`51c084cd077cd4e997873e4a924f73e3dca2ba3d`
+- Independent re-review：`REVIEW_GO`
+- Review GO：`0b1373bdea3d02b6a92c07a121f664949e4f48f2`
+- Local integration：`374792652b8bee8a869052228da78f7a0d4558b4`
 
 ## Next step
 
-由獨立 Repair Executor依
-`docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_REPAIR-1_symlink_authority.md`
-先建立 file-level symlink RED，再關閉 P1並停在 `READY_FOR_REVIEW`。
+等待使用者決定是否 push／開 PR。I5 live恢復須另開明確決策，不自動沿用本卡。
 
 ## Waiting condition
 
-Repair candidate `51c084cd077cd4e997873e4a924f73e3dca2ba3d`已完成；
-現在交回原 Reviewer task `019fa76b-e568-7653-ade0-a399a3a1aa4a`做 targeted
-re-review。
+Branch保持本機、worktree clean；未 push、deploy或執行 live acceptance。
 
 ## Restrictions
 

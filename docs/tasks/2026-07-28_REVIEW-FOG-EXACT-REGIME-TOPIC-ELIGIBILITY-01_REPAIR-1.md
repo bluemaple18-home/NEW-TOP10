@@ -1,7 +1,7 @@
 ---
 id: REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1
 chain_id: FOG-I5-EXACT-REGIME-ELIGIBILITY
-status: READY_FOR_DISPATCH
+status: REVIEW_GO
 type: targeted_re_review
 ownership: original_independent_reviewer
 thickness: strict
@@ -14,6 +14,7 @@ repair_candidate_sha: 51c084cd077cd4e997873e4a924f73e3dca2ba3d
 original_candidate_sha: 684d3adf3916100a7eb9bb57c6164f3b67a58064
 original_reviewer_thread_id: 019fa76b-e568-7653-ade0-a399a3a1aa4a
 finding_id: FOG-EXACT-REGIME-REVIEW-P1-001
+review_commit: 0b1373bdea3d02b6a92c07a121f664949e4f48f2
 evidence_path: docs/evidence/REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1/
 ---
 
@@ -127,3 +128,19 @@ REVIEW_NO_GO
 
 回報 verdict、reviewed Repair SHA、re-review commit完整 SHA、findings、commands、
 remaining risks後停止；不得自行 Repair-2或整合。
+
+## Re-review receipt
+
+- Verdict：`REVIEW_GO`
+- Reviewed Repair SHA：
+  `51c084cd077cd4e997873e4a924f73e3dca2ba3d`
+- Re-review commit：
+  `0b1373bdea3d02b6a92c07a121f664949e4f48f2`
+- Original finding：`resolved`
+- New P0／P1：無
+- Original hostile probes：`16/16`
+- Repair-1 probes：`7/7`
+- Targeted：`88 passed`
+- Reviewer full suite：`586 passed, 1 failed`；唯一失敗為 isolated worktree
+  missing ignored-artifact ledger case，Repair diff為零。
+- Main checkout acceptance full suite：`587 passed`。

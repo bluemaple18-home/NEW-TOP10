@@ -1,7 +1,7 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-BRIEF
-status: READY_FOR_DISPATCH
-type: handoff
+status: GO_LOCAL_DETERMINISTIC
+type: mainline
 ---
 
 # Current Brief
@@ -10,9 +10,8 @@ type: handoff
 
 `FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01`
 
-Closed-regime source lineage 已修復並驗證；目前 blocker 是 scheduler 仍會選到
-沒有 exact-match regime ranking 日期的 topic。下一個獨立 Executor 必須先做
-RED，再於 matrix 執行前將該 topic fail closed。
+Closed-regime source lineage與 exact-regime topic eligibility已修復、經
+Repair-1與同一獨立 Reviewer複審，並在目前 task branch完成本機整合。
 
 ## Fixed source
 
@@ -20,10 +19,15 @@ RED，再於 matrix 執行前將該 topic fail closed。
 - Stacked parent：`5e6c0385fc8d93a89561583c79981d273c44fde6`
 - Full task card：
   `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
+- Local integration：
+  `374792652b8bee8a869052228da78f7a0d4558b4`
+- Review GO：
+  `0b1373bdea3d02b6a92c07a121f664949e4f48f2`
 
 ## Safety boundary
 
 - Fog LaunchAgent保持 unloaded。
 - Retry circuit保持 open，不得刪除或旋轉。
 - 三次 live probe停損已到；禁止第四次 live probe。
-- Executor只產生 candidate，不自審、不整合、不做 live acceptance。
+- Main checkout full suite：`587 passed`。
+- 尚未 push、deploy或執行 I5 live acceptance。

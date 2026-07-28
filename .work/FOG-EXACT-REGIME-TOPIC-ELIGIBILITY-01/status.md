@@ -1,10 +1,10 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-STATUS
-status: READY_FOR_INDEPENDENT_REVIEW
-type: candidate
+status: GO_LOCAL_DETERMINISTIC
+type: mainline
 ---
 
-# Candidate status
+# Mainline status
 
 ## Root question
 
@@ -22,23 +22,32 @@ queue都會信任該值。
 
 - Dispatch SHA：`d565fdd932576505ee9612954e5c4f8c52c24d7d`
 - Implementation candidate SHA：`3969aba5c62171ef52d5c54856f0c0821b750627`
-- Targeted：`86 passed`
-- Full：`585 passed, 4 warnings, 246 subtests passed`
+- Repair candidate SHA：`51c084cd077cd4e997873e4a924f73e3dca2ba3d`
+- Review GO SHA：`0b1373bdea3d02b6a92c07a121f664949e4f48f2`
+- Local integration SHA：`374792652b8bee8a869052228da78f7a0d4558b4`
+- Targeted：`88 passed`
+- Full：`587 passed, 4 warnings, 246 subtests passed`
 - `py_compile`：PASS
 - `git diff --check`：PASS
 - LaunchAgent：unloaded
 - Retry circuit：`attempts=3`、`circuit_open=1`
 
-## Next step
+## Mainline result
 
-由獨立 Reviewer檢查完整 `33aee4d..candidate`；Executor不自審、不整合。
+- Initial Review：`REVIEW_NO_GO`
+- Repair-1：`51c084cd077cd4e997873e4a924f73e3dca2ba3d`
+- Targeted re-review：`REVIEW_GO`
+- Local integration：`374792652b8bee8a869052228da78f7a0d4558b4`
+- Main checkout hostile probes：`16/16`與`7/7`
+- Targeted：`88 passed`
+- Full suite：`587 passed`
 
 ## Waiting conditions
 
-等待 strict independent Review結果。Review GO並整合後，I5線才可另行判斷
-是否恢復 circuit與 scheduler acceptance。
+等待是否 push／開 PR的明確授權。I5恢復 circuit與 scheduler acceptance仍是
+獨立 live決策，不包含在本 deterministic acceptance。
 
 ## Limits
 
 禁止第四次 live probe、LaunchAgent load/kickstart、circuit recovery、production
-model/ranking/weights/baseline/promotion變更，以及任何 main整合。
+model/ranking/weights/baseline/promotion變更，以及未授權的 push／deploy。

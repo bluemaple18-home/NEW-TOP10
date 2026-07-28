@@ -1,30 +1,32 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-RESULT
-status: PENDING
-type: handoff
+status: GO_LOCAL_DETERMINISTIC
+type: mainline
 ---
 
 # Result
 
-state：`PENDING_EXECUTOR`
+state：`LOCALLY_INTEGRATED`
 
 ## Confirmed
 
-- Source lineage已由 canonical features產生並通過 hostile regressions。
-- 最新 live failure不是 lineage缺失，而是 selected topic沒有任何 exact-match
-  regime ranking 日期。
-- Matrix guard正確 fail closed。
-- I5目前仍為 `NO_GO`；沒有恢復 scheduler。
+- Source lineage與 exact-regime eligibility均由 deterministic regression覆蓋。
+- Original Review P1已由 Repair-1關閉，同一 Reviewer回`REVIEW_GO`。
+- Local integration：
+  `374792652b8bee8a869052228da78f7a0d4558b4`
+- Hostile probes：`16/16`與`7/7`。
+- Targeted：`88 passed`。
+- Main checkout full suite：`587 passed, 4 warnings, 246 subtests passed`。
+- Matrix guard未修改。
+- LaunchAgent仍 unloaded，circuit仍`attempts=3`／`circuit_open=1`。
 
 ## Pending
 
-- Eligibility RED
-- Repair candidate
-- Independent Review
-- Mainline integration
-- I5 bounded dry acceptance與三輪 scheduler acceptance
+- Push／PR：等待明確授權。
+- I5 bounded dry acceptance與三輪 scheduler acceptance：仍受三次停損與 live
+  safety邊界限制，需另行決策。
 
 ## Completion boundary
 
-本交接 commit只代表卡片與 current snapshot可供新對話接手，不代表功能修復、
-Review、整合或 live acceptance完成。
+本狀態只代表 deterministic修復、Review與目前 task branch本機整合完成；
+不代表 remote push、production deployment或 I5 live acceptance完成。

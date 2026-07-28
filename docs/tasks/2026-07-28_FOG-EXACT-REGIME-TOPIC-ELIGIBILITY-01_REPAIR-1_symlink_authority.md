@@ -1,7 +1,7 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1
 chain_id: FOG-I5-EXACT-REGIME-ELIGIBILITY
-status: READY_FOR_REVIEW
+status: REVIEW_GO
 type: repair
 generation: 1
 ownership: repair_executor
@@ -15,6 +15,8 @@ review_evidence_sha: e50022a9db130832d9855846d12168a79d454cef
 reviewer_thread_id: 019fa76b-e568-7653-ade0-a399a3a1aa4a
 repair_thread_id: 019fa778-8623-70b1-840d-a542a9a2e46d
 repair_candidate_sha: 51c084cd077cd4e997873e4a924f73e3dca2ba3d
+review_go_sha: 0b1373bdea3d02b6a92c07a121f664949e4f48f2
+integration_sha: 374792652b8bee8a869052228da78f7a0d4558b4
 finding_id: FOG-EXACT-REGIME-REVIEW-P1-001
 evidence_path: docs/evidence/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1/
 ---
@@ -163,3 +165,13 @@ base/review歸因證據；不得把其他 failure視為可接受。
   missing ignored-artifact failure。
 - Protected matrix、原 Review evidence/probe：零差異。
 - Next gate：原 Reviewer task targeted re-review。
+
+## Review and integration receipt
+
+- Original Reviewer verdict：`REVIEW_GO`
+- Re-review commit：
+  `0b1373bdea3d02b6a92c07a121f664949e4f48f2`
+- Local integration：
+  `374792652b8bee8a869052228da78f7a0d4558b4`
+- Main checkout full suite：`587 passed`
+- Live／push／deploy：未執行。
