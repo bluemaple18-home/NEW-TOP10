@@ -1,10 +1,50 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-I5
-status: BLOCKED_DAILY_SOURCE_LINEAGE
+status: AUTHORIZED_PREFLIGHT
 type: acceptance
 ---
 
 # FOG-RUNTIME-TIME-AUTHORITY-01 I5 Live Acceptance
+
+## Resume authorization（2026-07-28）
+
+- 使用者已明確授權繼續本機 deploy、retry circuit recovery、LaunchAgent
+  恢復與 bounded live acceptance。
+- Recovery base固定為已推上`main`的
+  `13c9faed686677fff45f30db636ad61445be00cf`。
+- Release tag固定為
+  `top10-2026-07-28-01-fog-exact-regime-topic-eligibility`。
+- Daily source lineage blocker已由`be9bb74`修復；exact-regime topic
+  eligibility及 symlink authority blocker已由`3969aba`與`51c084c`修復，
+  independent re-review為`REVIEW_GO`。
+- 舊三次 live probe chain維持封存，不把它改寫成成功，也不直接執行第四次
+  probe。這次是 blockers修復、Review GO並整合到`main`後的新 I5 acceptance
+  chain。
+
+### Root question
+
+固定 main lineage是否能在不修改 production model／ranking／weights／baseline／
+promotion的前提下，安全恢復 Fog circuit並連續產生三輪可信 v3 scheduler
+receipts？
+
+### Mutation budget與停損
+
+1. Runtime mutation前必須完成一份唯讀 preflight receipt。
+2. Circuit recovery只允許呼叫既有 explicit verifier gate一次；不得直接刪除
+   state/context。
+3. 若 daily source lineage或 exact-regime eligibility舊 blocker在新鏈首次
+   重現，立即`NO_GO`並回到 safe stopped state，不重試。
+4. Scheduler acceptance最多三輪；任何 gate失敗立即 unload並保存 artifacts，
+   不補第四輪。
+5. 不啟用 PM harness queue mutation，不執行 external AI、publish、Discord或
+   交易。
+
+### Acceptance evidence
+
+所有 preflight、before/after hashes、plist alignment、circuit rotation、
+scheduler receipts、logs與 rollback結果寫入：
+
+`docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/`
 
 ## Objective
 
