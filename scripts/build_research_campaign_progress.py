@@ -102,6 +102,7 @@ def progress_bar(done: int, total: int, width: int = 24) -> str:
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     module = load_autonomous_module()
     topic_args = SimpleNamespace(
+        date=args.date,
         candidate_dir=None,
         baseline_dir=args.baseline_dir,
         min_ranking_files=args.min_ranking_files,

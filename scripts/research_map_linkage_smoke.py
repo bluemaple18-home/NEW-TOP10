@@ -45,9 +45,10 @@ def load_autonomous_module() -> Any:
     return module
 
 
-def load_topics(max_topics: int = 10000) -> list[dict[str, Any]]:
+def load_topics(date: str, max_topics: int = 10000) -> list[dict[str, Any]]:
     module = load_autonomous_module()
     topic_args = SimpleNamespace(
+        date=date,
         candidate_dir=None,
         baseline_dir="artifacts/backtest/historical_rankings_current_model",
         min_ranking_files=3,
@@ -63,7 +64,7 @@ def load_topics(max_topics: int = 10000) -> list[dict[str, Any]]:
 
 
 def smoke_rows(date: str, count: int) -> list[dict[str, Any]]:
-    topics = load_topics()
+    topics = load_topics(date)
     combos = build_combo_registry(topics)
     if len(combos) < count:
         raise RuntimeError(f"combo registry too small: {len(combos)}")

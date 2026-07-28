@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-I5
-status: AUTHORIZED_PREFLIGHT
+status: BOUNDED_DRY_REPAIR_1_VERIFIED
 type: acceptance
 ---
 
@@ -45,6 +45,14 @@ receipts？
 scheduler receipts、logs與 rollback結果寫入：
 
 `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/`
+
+### Bounded dry Repair 1
+
+首次 linkage-only bounded dry在 circuit recovery前 fail closed，暴露兩個 topic
+generation callers沒有傳 explicit date。Repair 1已建立 public-seam RED並以最小
+caller wiring修復；affected suite與 full suite皆通過。證據：
+
+`docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/bounded_dry_repair_1.md`
 
 ## Objective
 
