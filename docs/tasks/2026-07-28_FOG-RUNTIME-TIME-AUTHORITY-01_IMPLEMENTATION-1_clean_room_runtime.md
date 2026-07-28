@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1
-status: CARD_DRAFTED
+status: IMPLEMENTATION_IN_PROGRESS
 type: implementation
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 dispatch_version: 2
@@ -14,7 +14,7 @@ model_reason: 實作橫跨時間權威、receipt exact schema、processed/source
 accepted_architecture_candidate_sha: f9cfbabde1d89d2f759a7cbc60d1dd03e96a2171
 architecture_review_sha: 5c95a2e
 accepted_main_sha: 408f3e0
-implementation_thread_id: PENDING
+implementation_thread_id: 019fa64f-3973-7d10-b0aa-4759af7aff1d
 reviewer_thread_id: PENDING
 repair_thread_id: PENDING
 evidence_path: docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1/
@@ -263,17 +263,23 @@ git diff --check
   `REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01`／
   `019fa448-4ffe-7473-af1a-7cc1f417bdd7`
 - Source kind：`commit`
-- Source SHA：`408f3e0`
+- Source SHA：`87e4da7dd63bafe82b16c28990e7be6db137b4e6`
 - Source branch：`main`
 - Source clean：是
 - Git metadata：可用
 - unrelated dirty paths：`[]`
-- Implementation task：`PENDING`
-- Capability preflight：`PENDING`
+- Client receipt：
+  `client-new-thread:41ed603a-6075-45ba-b5d2-822954c3db36`
+- Implementation task：
+  `019fa64f-3973-7d10-b0aa-4759af7aff1d`
+- Task title：`Implement FOG runtime authority`
+- Worktree：獨立 Codex worktree；初始 detached HEAD、clean
+- Capability preflight：Git／Python／唯讀 `rg` 可用；CodeGraph index
+  未初始化，Executor 不建立 allowlist 外狀態，改以唯讀查詢並留 evidence
 - Workflow：
-  `ARCHITECTURE_REVIEW_GO → ACCEPTED → CARD_DRAFTED`
+  `ARCHITECTURE_REVIEW_GO → ACCEPTED → IMPLEMENTATION_IN_PROGRESS`
 - Gate 1 card contract：`PASS`
-- Gate 2 visible thread：`PENDING`
+- Gate 2 visible thread：`PASS`
 - Gate 3 candidate delivery：`PENDING`
 - Gate 4 independent implementation review：`PENDING`
 - Gate 5 mainline/runtime acceptance：`PENDING`
