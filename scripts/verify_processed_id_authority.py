@@ -14,6 +14,7 @@ if __package__ in {None, ""}:
 
 from scripts.fog_authority_contracts import (
     AuthorityContractError,
+    load_data_authority,
     read_json_authority,
     verify_declared_source_roles,
 )
@@ -55,8 +56,36 @@ def verify_processed_artifacts(
 ) -> dict[str, Any]:
     reason_codes: list[str] = []
     try:
-        research_map = read_json_authority(root, research_map_path)
-        inventory = read_json_authority(root, inventory_path)
+        data_authority = load_data_authority()
+    except AuthorityContractError as error:
+        return {
+            "ok": False,
+            "reason_codes": [error.reason_code],
+            "difference": {"map_only": [], "inventory_only": []},
+            "artifacts_share_processed_source": False,
+        }
+    processed_authority = data_authority["processed_id_authority"]
+    expected_map = processed_authority["research_map"]
+    expected_inventory = processed_authority["inventory"]
+    if (
+        research_map_path != expected_map["artifact_path"]
+        or inventory_path != expected_inventory["artifact_path"]
+        or research_map_source_roles != expected_map["source_roles"]
+        or inventory_source_roles != expected_inventory["source_roles"]
+    ):
+        return {
+            "ok": False,
+            "reason_codes": ["DATA_AUTHORITY_ARGUMENT_DRIFT"],
+            "difference": {"map_only": [], "inventory_only": []},
+            "artifacts_share_processed_source": False,
+        }
+    canonical_map_path = expected_map["artifact_path"]
+    canonical_inventory_path = expected_inventory["artifact_path"]
+    canonical_map_roles = expected_map["source_roles"]
+    canonical_inventory_roles = expected_inventory["source_roles"]
+    try:
+        research_map = read_json_authority(root, canonical_map_path)
+        inventory = read_json_authority(root, canonical_inventory_path)
     except AuthorityContractError as error:
         return {
             "ok": False,
@@ -71,12 +100,12 @@ def verify_processed_artifacts(
     map_lineage = verify_declared_source_roles(
         root=root,
         declared=research_map.get("source_hashes"),
-        expected_roles=research_map_source_roles,
+        expected_roles=canonical_map_roles,
     )
     inventory_lineage = verify_declared_source_roles(
         root=root,
         declared=inventory.get("source_hashes"),
-        expected_roles=inventory_source_roles,
+        expected_roles=canonical_inventory_roles,
     )
     reason_codes.extend(map_lineage["reason_codes"])
     reason_codes.extend(inventory_lineage["reason_codes"])
@@ -100,11 +129,11 @@ def verify_processed_artifacts(
         "inventory_count": len(inventory_ids),
         "artifacts_share_processed_source": shared_sources,
         "research_map": {
-            "path": research_map_path,
+            "path": canonical_map_path,
             "source_lineage": map_lineage,
         },
         "inventory": {
-            "path": inventory_path,
+            "path": canonical_inventory_path,
             "source_lineage": inventory_lineage,
         },
     }

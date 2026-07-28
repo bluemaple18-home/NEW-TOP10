@@ -107,7 +107,6 @@ def _canonical_daily(
     payload: dict[str, Any],
     *,
     market_run_date: str,
-    canonical_source_trade_date: str,
 ) -> dict[str, Any]:
     if payload.get("schema_version") != "autonomous-research-run.v1":
         raise ClosedRegimeRuntimeError(
@@ -120,23 +119,30 @@ def _canonical_daily(
             "DAILY_ARTIFACT_SCHEMA_REJECT",
             "缺少 run_date/date identity",
         )
-    source_lineage = (
-        payload.get("source_lineage")
-        if isinstance(payload.get("source_lineage"), dict)
-        else {}
-    )
-    daily_source_date = payload.get(
-        "source_date",
-        payload.get(
-            "daily_source_date",
-            source_lineage.get("daily_source_date", canonical_source_trade_date),
-        ),
-    )
-    if not isinstance(daily_source_date, str):
+    raw_source_lineage = payload.get("source_lineage")
+    if raw_source_lineage is not None and not isinstance(raw_source_lineage, dict):
         raise ClosedRegimeRuntimeError(
             "DAILY_ARTIFACT_SCHEMA_REJECT",
-            "缺少 daily source lineage",
+            "source_lineage 非 object",
         )
+    source_lineage = raw_source_lineage or {}
+    source_candidates = [
+        payload[key]
+        for key in ("source_date", "daily_source_date")
+        if key in payload
+    ]
+    if "daily_source_date" in source_lineage:
+        source_candidates.append(source_lineage["daily_source_date"])
+    if (
+        not source_candidates
+        or any(not isinstance(value, str) for value in source_candidates)
+        or len(set(source_candidates)) != 1
+    ):
+        raise ClosedRegimeRuntimeError(
+            "DAILY_ARTIFACT_SCHEMA_REJECT",
+            "缺少、型別錯誤或互相衝突的 daily source lineage",
+        )
+    daily_source_date = source_candidates[0]
     topic_runs = payload.get("topic_runs")
     if not isinstance(topic_runs, list):
         raise ClosedRegimeRuntimeError(
@@ -234,7 +240,6 @@ def build_receipt(
     daily = _canonical_daily(
         daily_payload,
         market_run_date=market_run_date,
-        canonical_source_trade_date=history["source_trade_date"],
     )
     lineage = verify_date_lineage(
         market_run_date=market_run_date,
@@ -407,7 +412,6 @@ def verify_receipt(
             daily = _canonical_daily(
                 daily_payload,
                 market_run_date=market_run_date,
-                canonical_source_trade_date=history["source_trade_date"],
             )
             hashes = {
                 "market_regime_history": sha256_file(history_file),

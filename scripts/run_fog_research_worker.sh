@@ -38,6 +38,7 @@ MAX_RETRIES="${TOP10_FOG_RESEARCH_MAX_RETRIES:-3}"
 RETRY_BACKOFF_SECONDS="${TOP10_FOG_RESEARCH_RETRY_BACKOFF_SECONDS:-30}"
 FOG_LOCK_HELD=0
 QUEUE_OWNER_LOCK_HELD=0
+RUN_CONTEXT_FILE=""
 
 if [ "$QUEUE_OWNER" != "fog_worker" ]; then
   echo "fog research worker skipped; queue owner=$QUEUE_OWNER" | tee -a "$LOG_FILE"
@@ -111,9 +112,21 @@ cleanup_locks() {
   fi
 }
 
+cleanup_context() {
+  if [ -n "$RUN_CONTEXT_FILE" ] && [ -f "$RUN_CONTEXT_FILE" ]; then
+    rm -f -- "$RUN_CONTEXT_FILE"
+  fi
+  RUN_CONTEXT_FILE=""
+}
+
+cleanup() {
+  cleanup_context
+  cleanup_locks
+}
+
 acquire_lock
 acquire_queue_owner_lock
-trap cleanup_locks EXIT INT TERM
+trap cleanup EXIT INT TERM
 
 if [ -r "$PM_LOCK_PID_FILE" ]; then
   PM_PID="$(cat "$PM_LOCK_PID_FILE" 2>/dev/null || true)"

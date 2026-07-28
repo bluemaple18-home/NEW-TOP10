@@ -102,13 +102,77 @@ def _runtime_fixture() -> Iterator[tuple[Path, dict[str, object]]]:
 
 
 class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
-    def test_frta_reg_rrv_p1_01_processed_id(self) -> None:
-        """FRTA-REG-RRV-P1-01-PROCESSED-ID：偽造與同源集合必須拒絕。"""
+    def test_processed_authority_rejects_caller_selected_distinct_sources(
+        self,
+    ) -> None:
+        """Caller 自選兩份互異 source 仍不得取得 processed authority。"""
         authority = importlib.import_module("scripts.verify_processed_id_authority")
         with tempfile.TemporaryDirectory() as raw_tmp:
             root = Path(raw_tmp)
-            _write_json(root / "sources/map.json", {"ids": ["processed-a", "processed-b"]})
-            _write_json(root / "sources/inventory.json", {"ids": ["processed-a", "processed-b"]})
+            _write_json(root / "attacker/map-source.json", {"source": "map"})
+            _write_json(
+                root / "attacker/inventory-source.json",
+                {"source": "inventory"},
+            )
+            rows = [{"topic_id": "processed-a", "status": "COMPLETED"}]
+            _write_json(
+                root / "map.json",
+                {
+                    "processed": rows,
+                    "source_hashes": {
+                        "map": {
+                            "path": "attacker/map-source.json",
+                            "sha256": _sha256(root / "attacker/map-source.json"),
+                        }
+                    },
+                },
+            )
+            _write_json(
+                root / "inventory.json",
+                {
+                    "processed": rows,
+                    "source_hashes": {
+                        "inventory": {
+                            "path": "attacker/inventory-source.json",
+                            "sha256": _sha256(
+                                root / "attacker/inventory-source.json"
+                            ),
+                        }
+                    },
+                },
+            )
+
+            result = authority.verify_processed_artifacts(
+                root=root,
+                research_map_path="map.json",
+                inventory_path="inventory.json",
+                research_map_source_roles={"map": "attacker/map-source.json"},
+                inventory_source_roles={
+                    "inventory": "attacker/inventory-source.json"
+                },
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertIn("DATA_AUTHORITY_ARGUMENT_DRIFT", result["reason_codes"])
+
+    def test_frta_reg_rrv_p1_01_processed_id(self) -> None:
+        """FRTA-REG-RRV-P1-01-PROCESSED-ID：偽造與同源集合必須拒絕。"""
+        authority = importlib.import_module("scripts.verify_processed_id_authority")
+        contracts = importlib.import_module("scripts.fog_authority_contracts")
+        configured = contracts.load_data_authority()["processed_id_authority"]
+        map_authority = configured["research_map"]
+        inventory_authority = configured["inventory"]
+        with tempfile.TemporaryDirectory() as raw_tmp:
+            root = Path(raw_tmp)
+            map_source = next(iter(map_authority["source_roles"].values()))
+            inventory_source = next(iter(inventory_authority["source_roles"].values()))
+            _write_json(root / map_source, {"ids": ["processed-a", "processed-b"]})
+            _write_json(
+                root / inventory_source,
+                {"ids": ["processed-a", "processed-b"]},
+            )
+            map_role = next(iter(map_authority["source_roles"]))
+            inventory_role = next(iter(inventory_authority["source_roles"]))
             map_payload = {
                 "schema_version": "research-map-processed.v1",
                 "processed": [
@@ -116,9 +180,9 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
                     {"topic_id": "processed-b", "status": "COMPLETED"},
                 ],
                 "source_hashes": {
-                    "research_map_source": {
-                        "path": "sources/map.json",
-                        "sha256": _sha256(root / "sources/map.json"),
+                    map_role: {
+                        "path": map_source,
+                        "sha256": _sha256(root / map_source),
                     }
                 },
             }
@@ -129,61 +193,49 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
                     {"topic_id": "forged-id", "status": "COMPLETED"},
                 ],
                 "source_hashes": {
-                    "weekend_inventory_source": {
-                        "path": "sources/inventory.json",
-                        "sha256": _sha256(root / "sources/inventory.json"),
+                    inventory_role: {
+                        "path": inventory_source,
+                        "sha256": _sha256(root / inventory_source),
                     }
                 },
             }
-            _write_json(root / "map.json", map_payload)
-            _write_json(root / "inventory.json", inventory_payload)
+            _write_json(root / map_authority["artifact_path"], map_payload)
+            _write_json(root / inventory_authority["artifact_path"], inventory_payload)
 
             result = authority.verify_processed_artifacts(
                 root=root,
-                research_map_path="map.json",
-                inventory_path="inventory.json",
-                research_map_source_roles={
-                    "research_map_source": "sources/map.json",
-                },
-                inventory_source_roles={
-                    "weekend_inventory_source": "sources/inventory.json",
-                },
+                research_map_path=map_authority["artifact_path"],
+                inventory_path=inventory_authority["artifact_path"],
+                research_map_source_roles=map_authority["source_roles"],
+                inventory_source_roles=inventory_authority["source_roles"],
             )
-            map_payload["source_hashes"]["research_map_source"]["sha256"] = "0" * 64
-            _write_json(root / "map.json", map_payload)
+            map_payload["source_hashes"][map_role]["sha256"] = "0" * 64
+            _write_json(root / map_authority["artifact_path"], map_payload)
             hash_drift = authority.verify_processed_artifacts(
                 root=root,
-                research_map_path="map.json",
-                inventory_path="inventory.json",
-                research_map_source_roles={
-                    "research_map_source": "sources/map.json",
-                },
-                inventory_source_roles={
-                    "weekend_inventory_source": "sources/inventory.json",
-                },
+                research_map_path=map_authority["artifact_path"],
+                inventory_path=inventory_authority["artifact_path"],
+                research_map_source_roles=map_authority["source_roles"],
+                inventory_source_roles=inventory_authority["source_roles"],
             )
-            map_payload["source_hashes"]["research_map_source"]["sha256"] = _sha256(
-                root / "sources/map.json"
+            map_payload["source_hashes"][map_role]["sha256"] = _sha256(
+                root / map_source
             )
             map_payload["processed"] = inventory_payload["processed"]
             inventory_payload["source_hashes"] = {
-                "weekend_inventory_source": {
-                    "path": "sources/map.json",
-                    "sha256": _sha256(root / "sources/map.json"),
+                inventory_role: {
+                    "path": map_source,
+                    "sha256": _sha256(root / map_source),
                 }
             }
-            _write_json(root / "map.json", map_payload)
-            _write_json(root / "inventory.json", inventory_payload)
+            _write_json(root / map_authority["artifact_path"], map_payload)
+            _write_json(root / inventory_authority["artifact_path"], inventory_payload)
             same_source = authority.verify_processed_artifacts(
                 root=root,
-                research_map_path="map.json",
-                inventory_path="inventory.json",
-                research_map_source_roles={
-                    "research_map_source": "sources/map.json",
-                },
-                inventory_source_roles={
-                    "weekend_inventory_source": "sources/map.json",
-                },
+                research_map_path=map_authority["artifact_path"],
+                inventory_path=inventory_authority["artifact_path"],
+                research_map_source_roles=map_authority["source_roles"],
+                inventory_source_roles=inventory_authority["source_roles"],
             )
 
         self.assertFalse(result["ok"])
@@ -191,23 +243,17 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
         self.assertEqual(result["difference"]["inventory_only"], ["forged-id"])
         self.assertFalse(result["artifacts_share_processed_source"])
         self.assertIn("SOURCE_HASH_DRIFT", hash_drift["reason_codes"])
-        self.assertIn(
-            "PROCESSED_ARTIFACTS_SHARE_SOURCE",
-            same_source["reason_codes"],
-        )
+        self.assertIn("SOURCE_PATH_DRIFT", same_source["reason_codes"])
 
     def test_frta_reg_rrv_p1_03_source_baseline(self) -> None:
         """FRTA-REG-RRV-P1-03-SOURCE-BASELINE：自報 baseline 不得成為 authority。"""
         contracts = importlib.import_module("scripts.fog_authority_contracts")
         with tempfile.TemporaryDirectory() as raw_tmp:
             root = Path(raw_tmp)
-            canonical_roles = {
-                "model": "protected/model.bin",
-                "baseline": "protected/baseline.json",
-                "ranking": "protected/ranking.py",
-                "weights": "protected/weights.json",
-                "promotion": "protected/promotion.py",
-            }
+            baseline_authority = contracts.load_data_authority()["trusted_baseline"]
+            canonical_roles = baseline_authority["protected_roles"]
+            canonical_path = baseline_authority["path"]
+            canonical_identity = baseline_authority["source_identity"]
             for role, relative_path in canonical_roles.items():
                 path = root / relative_path
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -229,18 +275,18 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
                     for role in canonical_roles
                 ],
             }
-            _write_json(root / "baseline_receipt.json", forged_baseline)
+            _write_json(root / canonical_path, forged_baseline)
 
             result = contracts.verify_trusted_baseline(
                 root=root,
-                baseline_path="baseline_receipt.json",
+                baseline_path=canonical_path,
                 protected_roles=canonical_roles,
-                expected_source_identity="trusted-mainline",
+                expected_source_identity=canonical_identity,
             )
             canonical_baseline = {
                 "schema_version": "fog-protected-baseline.v1",
                 "created_at_utc": "2026-07-28T01:00:00Z",
-                "source_identity": "trusted-mainline",
+                "source_identity": canonical_identity,
                 "artifacts": [
                     {
                         "role": role,
@@ -250,12 +296,12 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
                     for role, relative_path in canonical_roles.items()
                 ],
             }
-            _write_json(root / "canonical_baseline.json", canonical_baseline)
+            _write_json(root / canonical_path, canonical_baseline)
             canonical_result = contracts.verify_trusted_baseline(
                 root=root,
-                baseline_path="canonical_baseline.json",
+                baseline_path=canonical_path,
                 protected_roles=canonical_roles,
-                expected_source_identity="trusted-mainline",
+                expected_source_identity=canonical_identity,
             )
             (root / canonical_roles["model"]).write_text(
                 "drifted-model\n",
@@ -263,15 +309,29 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
             )
             hash_drift = contracts.verify_trusted_baseline(
                 root=root,
-                baseline_path="canonical_baseline.json",
+                baseline_path=canonical_path,
                 protected_roles=canonical_roles,
-                expected_source_identity="trusted-mainline",
+                expected_source_identity=canonical_identity,
+            )
+            attacker_baseline = copy.deepcopy(canonical_baseline)
+            attacker_baseline["source_identity"] = "attacker-selected-identity"
+            _write_json(root / "attacker/runtime-selected-baseline.json", attacker_baseline)
+            self_reported = contracts.verify_trusted_baseline(
+                root=root,
+                baseline_path="attacker/runtime-selected-baseline.json",
+                protected_roles=canonical_roles,
+                expected_source_identity="attacker-selected-identity",
             )
 
         self.assertFalse(result["ok"])
         self.assertIn("PROTECTED_PATH_SET_DRIFT", result["reason_codes"])
         self.assertTrue(canonical_result["ok"])
         self.assertIn("PROTECTED_HASH_DRIFT", hash_drift["reason_codes"])
+        self.assertFalse(self_reported["ok"])
+        self.assertIn(
+            "DATA_AUTHORITY_ARGUMENT_DRIFT",
+            self_reported["reason_codes"],
+        )
 
     def test_frta_reg_receipt_v3_exact(self) -> None:
         """FRTA-REG-RECEIPT-V3-EXACT：exact schema 與 forged lineage 必須拒絕。"""
@@ -480,6 +540,62 @@ class FogRuntimeAuthorityRegressionTest(unittest.TestCase):
                     generated_at_utc="2026-08-08T02:01:00Z",
                     project_root=root,
                 )
+
+    def test_receipt_producer_rejects_missing_daily_source_lineage(self) -> None:
+        """Producer 不得以 regime/run/host date補造 daily source lineage。"""
+        producer = importlib.import_module("scripts.verify_closed_regime_runtime")
+        time_authority = importlib.import_module(
+            "scripts.fog_runtime_time_authority"
+        )
+        with _runtime_fixture() as (root, paths):
+            context = time_authority.build_run_context(
+                "2026-08-08T02:00:00Z",
+                project_root=root,
+            )
+            daily_path = root / str(paths["daily"])
+            daily = json.loads(daily_path.read_text(encoding="utf-8"))
+            daily.pop("source_date")
+            _write_json(daily_path, daily)
+
+            with self.assertRaisesRegex(
+                producer.ClosedRegimeRuntimeError,
+                "DAILY_ARTIFACT_SCHEMA_REJECT",
+            ):
+                producer.build_receipt(
+                    run_context=context,
+                    generated_at_utc="2026-08-08T02:01:00Z",
+                    project_root=root,
+                )
+
+    def test_receipt_verifier_rejects_missing_daily_source_lineage(self) -> None:
+        """Independent verifier 必須從 canonical daily artifact重讀 lineage。"""
+        runtime = importlib.import_module("scripts.verify_closed_regime_runtime")
+        time_authority = importlib.import_module(
+            "scripts.fog_runtime_time_authority"
+        )
+        with _runtime_fixture() as (root, paths):
+            context = time_authority.build_run_context(
+                "2026-08-08T02:00:00Z",
+                project_root=root,
+            )
+            receipt = runtime.build_receipt(
+                run_context=context,
+                generated_at_utc="2026-08-08T02:01:00Z",
+                project_root=root,
+            )
+            daily_path = root / str(paths["daily"])
+            daily = json.loads(daily_path.read_text(encoding="utf-8"))
+            daily.pop("source_date")
+            _write_json(daily_path, daily)
+
+            result = runtime.verify_receipt(
+                receipt,
+                project_root=root,
+                verification_time_utc="2026-08-08T02:02:00Z",
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertIn("DAILY_ARTIFACT_SCHEMA_REJECT", result["reason_codes"])
 
     def test_v2_receipt_cannot_be_relabelled(self) -> None:
         verifier = importlib.import_module("scripts.verify_closed_regime_runtime")

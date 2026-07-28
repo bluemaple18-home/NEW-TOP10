@@ -13,12 +13,43 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RECEIPT_SCHEMA_PATH = Path("docs/architecture/fog_runtime_receipt_v3.schema.json")
+DATA_AUTHORITY_PATH = Path("config/fog_runtime_data_authority_v1.json")
 PROTECTED_PRODUCTION_ROLES = {
     "model": "models/latest_lgbm.pkl",
     "baseline": "models/baseline_stats.json",
     "ranking": "app/agent_b_ranking.py",
     "weights": "config/signals.yaml",
     "promotion": "app/modeling/model_runtime_promotion.py",
+}
+EXPECTED_DATA_AUTHORITY: dict[str, Any] = {
+    "schema_version": "fog-runtime-data-authority.v1",
+    "processed_id_authority": {
+        "research_map": {
+            "artifact_path": "artifacts/research_map/research_fog_map_latest.json",
+            "source_roles": {
+                "research_run_history": (
+                    "artifacts/autonomous_research/run_history.jsonl"
+                ),
+            },
+        },
+        "inventory": {
+            "artifact_path": (
+                "artifacts/weekend_training/"
+                "weekend_universe_inventory_latest.json"
+            ),
+            "source_roles": {
+                "weekend_inventory_snapshot": (
+                    "artifacts/weekend_training/"
+                    "weekend_universe_inventory_source.json"
+                ),
+            },
+        },
+    },
+    "trusted_baseline": {
+        "path": "authority/trusted-protected-baseline.json",
+        "source_identity": "trusted-mainline",
+        "protected_roles": PROTECTED_PRODUCTION_ROLES,
+    },
 }
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
@@ -76,6 +107,17 @@ def read_json_authority(root: str | Path, relative_path: str) -> dict[str, Any]:
     return payload
 
 
+def load_data_authority() -> dict[str, Any]:
+    """只從本 checkout 的 versioned config載入 data authority。"""
+    payload = read_json_authority(PROJECT_ROOT, DATA_AUTHORITY_PATH.as_posix())
+    if payload != EXPECTED_DATA_AUTHORITY:
+        raise AuthorityContractError(
+            "DATA_AUTHORITY_CONTRACT_DRIFT",
+            DATA_AUTHORITY_PATH.as_posix(),
+        )
+    return payload
+
+
 def verify_declared_source_roles(
     *,
     root: str | Path,
@@ -129,7 +171,21 @@ def verify_trusted_baseline(
 ) -> dict[str, Any]:
     reason_codes: list[str] = []
     try:
-        baseline = read_json_authority(root, baseline_path)
+        data_authority = load_data_authority()
+    except AuthorityContractError as error:
+        return {"ok": False, "reason_codes": [error.reason_code]}
+    baseline_authority = data_authority["trusted_baseline"]
+    if (
+        baseline_path != baseline_authority["path"]
+        or expected_source_identity != baseline_authority["source_identity"]
+        or protected_roles != baseline_authority["protected_roles"]
+    ):
+        return {"ok": False, "reason_codes": ["DATA_AUTHORITY_ARGUMENT_DRIFT"]}
+    canonical_baseline_path = baseline_authority["path"]
+    canonical_source_identity = baseline_authority["source_identity"]
+    canonical_protected_roles = baseline_authority["protected_roles"]
+    try:
+        baseline = read_json_authority(root, canonical_baseline_path)
     except AuthorityContractError as error:
         return {"ok": False, "reason_codes": [error.reason_code]}
     if set(baseline) != {
@@ -156,7 +212,7 @@ def verify_trusted_baseline(
             datetime.fromisoformat(created_at[:-1] + "+00:00")
         except ValueError:
             reason_codes.append("BASELINE_SCHEMA_REJECT")
-    if baseline.get("source_identity") != expected_source_identity:
+    if baseline.get("source_identity") != canonical_source_identity:
         reason_codes.append("SOURCE_IDENTITY_DRIFT")
     artifacts = baseline.get("artifacts")
     observed: dict[str, dict[str, Any]] = {}
@@ -175,9 +231,9 @@ def verify_trusted_baseline(
             if role in observed:
                 reason_codes.append("PROTECTED_ROLE_DUPLICATE")
             observed[role] = item
-    if set(observed) != set(protected_roles):
+    if set(observed) != set(canonical_protected_roles):
         reason_codes.append("PROTECTED_ROLE_SET_DRIFT")
-    for role, expected_path in sorted(protected_roles.items()):
+    for role, expected_path in sorted(canonical_protected_roles.items()):
         item = observed.get(role)
         if item is None:
             continue
@@ -199,7 +255,7 @@ def verify_trusted_baseline(
     return {
         "ok": not reason_codes,
         "reason_codes": sorted(set(reason_codes)),
-        "protected_roles": dict(sorted(protected_roles.items())),
+        "protected_roles": dict(sorted(canonical_protected_roles.items())),
     }
 
 
