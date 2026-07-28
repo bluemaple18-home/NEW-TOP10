@@ -1,10 +1,10 @@
 ---
 id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-VERIFICATION
-status: CANDIDATE_GATES_GREEN
+status: READY_FOR_INDEPENDENT_REVIEW
 base_sha: 33aee4d
 stacked_parent_sha: 5e6c0385fc8d93a89561583c79981d273c44fde6
 dispatch_sha: d565fdd932576505ee9612954e5c4f8c52c24d7d
-implementation_candidate_sha: PENDING_COMMIT
+implementation_candidate_sha: 3969aba5c62171ef52d5c54856f0c0821b750627
 ---
 
 # Verification

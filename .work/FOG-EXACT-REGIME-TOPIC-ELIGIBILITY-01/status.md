@@ -21,7 +21,7 @@ queue都會信任該值。
 ## Current state
 
 - Dispatch SHA：`d565fdd932576505ee9612954e5c4f8c52c24d7d`
-- Implementation candidate SHA：`PENDING_COMMIT`
+- Implementation candidate SHA：`3969aba5c62171ef52d5c54856f0c0821b750627`
 - Targeted：`86 passed`
 - Full：`585 passed, 4 warnings, 246 subtests passed`
 - `py_compile`：PASS
