@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 from scripts.verify_daily_research_quota import build_payload
+from scripts.verify_closed_regime_runtime import build_receipt, verify_receipt
+from scripts.fog_runtime_time_authority import build_run_context
+from tests.test_fog_closed_regime_runtime import _runtime_fixture
 
 
 class DailyResearchQuotaVerifierTest(unittest.TestCase):
@@ -102,6 +107,104 @@ class DailyResearchQuotaVerifierTest(unittest.TestCase):
     def test_quota_above_cap_is_blocked(self) -> None:
         artifact = self.build_artifact(5, quota=6)
         self.assertEqual(build_payload(artifact, min_quota=5)["status"], "BLOCKED")
+
+
+class DailyRuntimeReceiptVerifierTest(unittest.TestCase):
+    def _receipt(self, root: Path) -> dict:
+        context = build_run_context(
+            "2026-08-08T02:00:00Z",
+            project_root=root,
+        )
+        return build_receipt(
+            run_context=context,
+            generated_at_utc="2026-08-08T02:01:00Z",
+            project_root=root,
+        )
+
+    def test_independent_clock_exact_freshness_boundaries(self) -> None:
+        with _runtime_fixture() as (root, _):
+            receipt = self._receipt(root)
+            cases = [
+                ("2026-08-08T02:00:55Z", True, None),
+                ("2026-08-08T02:00:54.999000Z", False, "FUTURE_RECEIPT"),
+                ("2026-08-08T02:16:00Z", True, None),
+                ("2026-08-08T02:16:00.001000Z", False, "STALE_RECEIPT"),
+            ]
+            results = [
+                verify_receipt(
+                    receipt,
+                    project_root=root,
+                    verification_time_utc=verification_time,
+                )
+                for verification_time, _, _ in cases
+            ]
+
+        for result, (_, expected_ok, expected_reason) in zip(results, cases):
+            self.assertIs(result["ok"], expected_ok, result)
+            if expected_reason:
+                self.assertIn(expected_reason, result["reason_codes"])
+
+    def test_verifier_recomputes_contract_hash_and_source_lineage(self) -> None:
+        with _runtime_fixture() as (root, _):
+            receipt = self._receipt(root)
+            receipt["time_authority"]["contract_hash"] = "0" * 64
+            result = verify_receipt(
+                receipt,
+                project_root=root,
+                verification_time_utc="2026-08-08T02:02:00Z",
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertIn("TIME_CONTRACT_HASH_MISMATCH", result["reason_codes"])
+        self.assertNotEqual(
+            result["contract_hash_expected"],
+            result["contract_hash_observed"],
+        )
+
+    def test_host_timezone_drift_does_not_change_verdict(self) -> None:
+        original_tz = os.environ.get("TZ")
+        try:
+            with _runtime_fixture() as (root, _):
+                receipt = self._receipt(root)
+                results = []
+                for host_tz in ("UTC", "Asia/Taipei", "America/Los_Angeles"):
+                    os.environ["TZ"] = host_tz
+                    time.tzset()
+                    results.append(
+                        verify_receipt(
+                            receipt,
+                            project_root=root,
+                            verification_time_utc="2026-08-08T02:02:00Z",
+                        )
+                    )
+        finally:
+            if original_tz is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = original_tz
+            time.tzset()
+
+        self.assertTrue(all(result["ok"] for result in results), results)
+        self.assertEqual(
+            [result["computed_market_run_date"] for result in results],
+            ["2026-08-08"] * 3,
+        )
+
+    def test_market_midnight_rollover_is_rejected(self) -> None:
+        with _runtime_fixture() as (root, _):
+            receipt = self._receipt(root)
+            receipt["time_authority"]["generated_at_utc"] = "2026-08-08T16:00:00Z"
+            receipt["time_authority"]["generated_market_datetime"] = (
+                "2026-08-09T00:00:00+08:00"
+            )
+            result = verify_receipt(
+                receipt,
+                project_root=root,
+                verification_time_utc="2026-08-08T16:00:01Z",
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertIn("MARKET_DATE_MISMATCH", result["reason_codes"])
 
 
 if __name__ == "__main__":

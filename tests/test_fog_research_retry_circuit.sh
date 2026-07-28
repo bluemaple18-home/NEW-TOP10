@@ -23,6 +23,35 @@ set -euo pipefail
 script="${1:-}"
 shift || true
 case "$script" in
+  scripts/fog_runtime_time_authority.py)
+    output=""
+    field=""
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --output)
+          shift
+          output="$1"
+          ;;
+        --field)
+          shift
+          field="$1"
+          ;;
+      esac
+      shift || true
+    done
+    if [ -n "$output" ]; then
+      printf '%s\n' '{"schema_version":"fog-runtime-run-context.v1"}' > "$output"
+    fi
+    case "$field" in
+      market_run_date)
+        printf '%s\n' '2099-01-06'
+        ;;
+      run_context_created_at_utc)
+        printf '%s\n' '2099-01-05T16:30:00Z'
+        ;;
+    esac
+    exit 0
+    ;;
   scripts/verify_weekend_universe_inventory.py)
     if [ "${FAKE_VERIFY_OK:-0}" = "1" ]; then
       output=""

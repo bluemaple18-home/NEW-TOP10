@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1
-status: CARD_DRAFTED
+status: DELIVERED_IMPLEMENTATION_CANDIDATE
 type: implementation
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
 dispatch_version: 2
@@ -269,11 +269,11 @@ git diff --check
 - Git metadata：可用
 - unrelated dirty paths：`[]`
 - Implementation task：`PENDING`
-- Capability preflight：`PENDING`
+- Capability preflight：`PASS_WITH_CODEGRAPH_DEGRADED_FALLBACK_RG`
 - Workflow：
   `ARCHITECTURE_REVIEW_GO → ACCEPTED → CARD_DRAFTED`
 - Gate 1 card contract：`PASS`
 - Gate 2 visible thread：`PENDING`
-- Gate 3 candidate delivery：`PENDING`
+- Gate 3 candidate delivery：`PASS`
 - Gate 4 independent implementation review：`PENDING`
 - Gate 5 mainline/runtime acceptance：`PENDING`

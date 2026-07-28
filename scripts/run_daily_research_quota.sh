@@ -23,7 +23,25 @@ else
   RUNTIME_LABEL="$UV_BIN run --with-requirements requirements.txt python"
 fi
 
-RUN_DATE="${TOP10_RESEARCH_DATE:-$(date +%F)}"
+RUN_CONTEXT="${TOP10_FOG_RUN_CONTEXT:-}"
+if [ -z "$RUN_CONTEXT" ]; then
+  echo "❌ missing immutable time context; TOP10_FOG_RUN_CONTEXT is required"
+  exit 1
+fi
+if ! "${RUNNER_CMD[@]}" scripts/fog_runtime_time_authority.py --context "$RUN_CONTEXT" > /dev/null; then
+  echo "❌ immutable time context validation failed"
+  exit 1
+fi
+RUN_DATE="$("${RUNNER_CMD[@]}" scripts/fog_runtime_time_authority.py --context "$RUN_CONTEXT" --field market_run_date)"
+if [ -n "${TOP10_RESEARCH_DATE:-}" ] && [ "$TOP10_RESEARCH_DATE" != "$RUN_DATE" ]; then
+  echo "❌ TOP10_RESEARCH_DATE mismatches immutable time context"
+  exit 1
+fi
+if [ -n "${TOP10_RUN_DATE:-}" ] && [ "$TOP10_RUN_DATE" != "$RUN_DATE" ]; then
+  echo "❌ TOP10_RUN_DATE mismatches immutable time context"
+  exit 1
+fi
+export TOP10_RESEARCH_DATE="$RUN_DATE"
 QUOTA="${TOP10_RESEARCH_QUOTA:-5}"
 MAX_RANKING_FILES="${TOP10_RESEARCH_MAX_RANKING_FILES:-8}"
 ALLOW_RERUN="${TOP10_RESEARCH_ALLOW_RERUN:-1}"
@@ -33,6 +51,7 @@ MAX_TOPICS="${TOP10_RESEARCH_MAX_TOPICS:-200}"
 REFRESH_RESEARCH_MAP="${TOP10_REFRESH_RESEARCH_MAP:-1}"
 LOG_DIR="$PROJECT_DIR/logs"
 OUTPUT="artifacts/autonomous_research/autonomous_research_daily_quota_${RUN_DATE}.json"
+RUNTIME_RECEIPT="artifacts/autonomous_research/closed_regime_runtime_receipt_${RUN_DATE}.json"
 RUN_ARCHIVE_DIR="artifacts/autonomous_research/run_outputs"
 RUN_ARCHIVE_STEM="autonomous_research_daily_quota_${RUN_DATE}_$(date +%H%M%S)"
 LOG_FILE="$LOG_DIR/daily_research_quota_${RUN_DATE//-/}.log"
@@ -46,6 +65,9 @@ RUN_ARGS=(
   scripts/run_autonomous_research.py
   --date "$RUN_DATE"
   --execute
+  --closed-regime-research
+  --market-regime-history artifacts/market_regime_history.json
+  --research-contract config/regime_research_contract.json
   --max-topics "$MAX_TOPICS"
   --execute-topic-count "$QUOTA"
   --max-ranking-files "$MAX_RANKING_FILES"
@@ -77,17 +99,31 @@ set +e
 RUN_EXIT_CODE=$?
 set -e
 
-set +e
-"${RUNNER_CMD[@]}" scripts/verify_daily_research_quota.py \
-  --artifact "$OUTPUT" \
-  --min-quota "$QUOTA" >> "$LOG_FILE" 2>&1
-VERIFY_EXIT_CODE=$?
-set -e
-
 if [ "$RUN_EXIT_CODE" -ne 0 ]; then
   echo "❌ autonomous research quota run failed exit_code=$RUN_EXIT_CODE" | tee -a "$LOG_FILE"
   exit "$RUN_EXIT_CODE"
 fi
+
+set +e
+"${RUNNER_CMD[@]}" scripts/verify_closed_regime_runtime.py \
+  --build-receipt \
+  --run-context "$RUN_CONTEXT" \
+  --output "$RUNTIME_RECEIPT" >> "$LOG_FILE" 2>&1
+RECEIPT_EXIT_CODE=$?
+set -e
+
+if [ "$RECEIPT_EXIT_CODE" -ne 0 ]; then
+  echo "❌ closed-regime runtime receipt build failed exit_code=$RECEIPT_EXIT_CODE" | tee -a "$LOG_FILE"
+  exit "$RECEIPT_EXIT_CODE"
+fi
+
+set +e
+"${RUNNER_CMD[@]}" scripts/verify_daily_research_quota.py \
+  --artifact "$OUTPUT" \
+  --min-quota "$QUOTA" \
+  --runtime-receipt "$RUNTIME_RECEIPT" >> "$LOG_FILE" 2>&1
+VERIFY_EXIT_CODE=$?
+set -e
 
 if [ "$VERIFY_EXIT_CODE" -ne 0 ]; then
   echo "❌ daily research quota verification failed exit_code=$VERIFY_EXIT_CODE" | tee -a "$LOG_FILE"

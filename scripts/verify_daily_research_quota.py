@@ -8,9 +8,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.verify_closed_regime_runtime import verify_receipt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +32,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--artifact", required=True)
     parser.add_argument("--min-quota", type=int, default=5, help="相容參數；研究單批最多可執行 topic 數")
     parser.add_argument("--output", default="artifacts/autonomous_research/daily_research_quota_verification_latest.json")
+    parser.add_argument(
+        "--runtime-receipt",
+        help="closed-regime runtime receipt v3；提供時由 verifier 自有 clock 重算",
+    )
     return parser.parse_args()
 
 
@@ -49,7 +59,14 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
+def build_payload(
+    artifact: Path,
+    min_quota: int,
+    *,
+    runtime_receipt: Path | None = None,
+    verification_time_utc: str | None = None,
+    project_root: Path = PROJECT_ROOT,
+) -> dict[str, Any]:
     """驗證單批上限，並把可接受的 partial 與實際失敗分開。"""
     payload = read_json(artifact)
     contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else {}
@@ -128,6 +145,28 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
             "value": [{"topic_id": (run.get("topic") or {}).get("topic_id"), "status": run.get("status")} for run in topic_runs],
         },
     ]
+    runtime_receipt_result: dict[str, Any] | None = None
+    if runtime_receipt is not None:
+        try:
+            receipt_payload = read_json(runtime_receipt)
+            runtime_receipt_result = verify_receipt(
+                receipt_payload,
+                project_root=project_root,
+                verification_time_utc=verification_time_utc,
+            )
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+            runtime_receipt_result = {
+                "ok": False,
+                "reason_codes": ["RECEIPT_AUTHORITY_REJECT"],
+                "error": str(error),
+            }
+        checks.append(
+            {
+                "name": "runtime_receipt_v3",
+                "ok": runtime_receipt_result["ok"],
+                "value": runtime_receipt_result,
+            }
+        )
     failed = [check for check in checks if not check["ok"]]
     runtime_failed = payload.get("status") != "OK" or any(run.get("status") != "OK" for run in topic_runs)
     if runtime_failed:
@@ -158,6 +197,7 @@ def build_payload(artifact: Path, min_quota: int) -> dict[str, Any]:
             "decisions": decisions,
         },
         "checks": checks,
+        "runtime_receipt_verification": runtime_receipt_result,
     }
 
 
@@ -169,7 +209,16 @@ def main() -> int:
     output = resolve_path(args.output)
     if output is None:
         raise RuntimeError("output resolution failed")
-    payload = build_payload(artifact, args.min_quota)
+    runtime_receipt = resolve_path(args.runtime_receipt)
+    if args.runtime_receipt and (
+        runtime_receipt is None or not runtime_receipt.exists()
+    ):
+        raise FileNotFoundError(f"找不到 runtime receipt：{args.runtime_receipt}")
+    payload = build_payload(
+        artifact,
+        args.min_quota,
+        runtime_receipt=runtime_receipt,
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     print(json.dumps({"status": payload["status"], "output": repo_path(output), "topic_runs": payload["summary"]["topic_runs"]}, ensure_ascii=False))

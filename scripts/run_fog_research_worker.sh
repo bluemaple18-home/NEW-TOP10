@@ -21,9 +21,7 @@ fi
 
 LOG_DIR="$PROJECT_DIR/logs"
 mkdir -p "$LOG_DIR"
-RUN_DATE="${TOP10_RUN_DATE:-$(date +%F)}"
-RUN_ID_BASE="${TOP10_FOG_RESEARCH_RUN_ID:-fog-research-${RUN_DATE}-$(date +%H%M%S)}"
-LOG_FILE="$LOG_DIR/fog_research_worker_$(date +%Y%m%d).log"
+LOG_FILE="$LOG_DIR/fog_research_worker_bootstrap.log"
 LOCK_DIR="$LOG_DIR/fog_research_worker.lock"
 LOCK_PID_FILE="$LOCK_DIR/pid"
 PM_LOCK_DIR="$LOG_DIR/pm_research_harness_loop.lock"
@@ -38,8 +36,6 @@ QUEUE_OWNER_PID_FILE="$QUEUE_OWNER_LOCK_DIR/pid"
 QUEUE_OWNER_NAME_FILE="$QUEUE_OWNER_LOCK_DIR/owner"
 MAX_RETRIES="${TOP10_FOG_RESEARCH_MAX_RETRIES:-3}"
 RETRY_BACKOFF_SECONDS="${TOP10_FOG_RESEARCH_RETRY_BACKOFF_SECONDS:-30}"
-RETRY_STATE_FILE="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.state"
-RETRY_CONTEXT_FILE="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.context.log"
 FOG_LOCK_HELD=0
 QUEUE_OWNER_LOCK_HELD=0
 
@@ -126,6 +122,34 @@ if [ -r "$PM_LOCK_PID_FILE" ]; then
     exit 0
   fi
 fi
+
+LEGACY_RUN_DATE="${TOP10_RUN_DATE:-}"
+LEGACY_RESEARCH_DATE="${TOP10_RESEARCH_DATE:-}"
+RUN_CONTEXT_FILE="$(mktemp "$LOG_DIR/fog_runtime_run_context.XXXXXX")"
+if ! "$PYTHON_BIN" scripts/fog_runtime_time_authority.py --output "$RUN_CONTEXT_FILE" >> "$LOG_FILE" 2>&1; then
+  echo "fog research worker failed; cannot establish immutable time context" | tee -a "$LOG_FILE"
+  exit 1
+fi
+chmod 0444 "$RUN_CONTEXT_FILE"
+RUN_CONTEXT_RELATIVE="logs/$(basename "$RUN_CONTEXT_FILE")"
+RUN_DATE="$("$PYTHON_BIN" scripts/fog_runtime_time_authority.py --context "$RUN_CONTEXT_FILE" --field market_run_date)"
+RUN_CONTEXT_CREATED_AT_UTC="$("$PYTHON_BIN" scripts/fog_runtime_time_authority.py --context "$RUN_CONTEXT_FILE" --field run_context_created_at_utc)"
+if [ -n "$LEGACY_RUN_DATE" ] && [ "$LEGACY_RUN_DATE" != "$RUN_DATE" ]; then
+  echo "fog research worker failed; TOP10_RUN_DATE mismatches immutable context" | tee -a "$LOG_FILE"
+  exit 1
+fi
+if [ -n "$LEGACY_RESEARCH_DATE" ] && [ "$LEGACY_RESEARCH_DATE" != "$RUN_DATE" ]; then
+  echo "fog research worker failed; TOP10_RESEARCH_DATE mismatches immutable context" | tee -a "$LOG_FILE"
+  exit 1
+fi
+CONTEXT_STAMP="$(printf '%s' "$RUN_CONTEXT_CREATED_AT_UTC" | tr -cd '0-9')"
+RUN_ID_BASE="fog-research-${RUN_DATE}-${CONTEXT_STAMP}"
+LOG_FILE="$LOG_DIR/fog_research_worker_${RUN_DATE//-/}.log"
+RETRY_STATE_FILE="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.state"
+RETRY_CONTEXT_FILE="$LOG_DIR/fog_research_retry_${RUN_DATE//-/}.context.log"
+export TOP10_FOG_RUN_CONTEXT="$RUN_CONTEXT_RELATIVE"
+export TOP10_RUN_DATE="$RUN_DATE"
+export TOP10_RESEARCH_DATE="$RUN_DATE"
 
 export TOP10_RESEARCH_FROM_QUEUE="${TOP10_RESEARCH_FROM_QUEUE:-1}"
 export TOP10_RESEARCH_ALLOW_RERUN="${TOP10_RESEARCH_ALLOW_RERUN:-0}"
