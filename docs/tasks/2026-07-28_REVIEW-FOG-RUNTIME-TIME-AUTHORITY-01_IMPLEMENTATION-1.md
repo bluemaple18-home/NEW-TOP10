@@ -1,7 +1,7 @@
 ---
 id: REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1
 chain_id: FOG-RUNTIME-TIME-AUTHORITY-01
-status: REVIEW_NO_GO
+status: REVIEW_GO
 type: review
 owner: independent-implementation-reviewer
 thickness: strict
@@ -11,9 +11,10 @@ reasoning: high
 model_reason: 變更橫跨市場時間權威、closed receipt v3、processed/source/baseline fail-closed verifier、shell scheduler wiring與既有 daily quota 相容性；需以 hostile fixtures獨立驗證 candidate evidence。
 base_sha: 87e4da7dd63bafe82b16c28990e7be6db137b4e6
 candidate_sha: f7d51a3d994707c819198fd1edcdcf0db4dd0775
+repair_candidate_sha: 6905ab28137fe255d86b2f49dcdd6f98ce1af661
 implementation_thread_id: 019fa64f-3973-7d10-b0aa-4759af7aff1d
 reviewer_thread_id: 019fa66b-444f-7522-915b-15aad3de5fe3
-repair_thread_id: PENDING
+repair_thread_id: 019fa67b-7377-7002-a8d3-d7f6aee514c5
 ---
 
 # REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1
@@ -149,6 +150,23 @@ blocking_findings: FRTA-IMPL-P1-01, FRTA-IMPL-P1-02
 i5_live_acceptance: NOT_RUN_OUT_OF_SCOPE
 ```
 
+## Repair-1 targeted re-review receipt
+
+```text
+verdict: REVIEW_GO
+reviewed_commit: 6905ab28137fe255d86b2f49dcdd6f98ce1af661
+review_base: 8b4b6e33cad066a884b486c284cd5f707d09cf83
+amendment: 32798bd4df355315a39fe9ee4a693cfd1c90f9af
+reviewer_task: 019fa66b-444f-7522-915b-15aad3de5fe3
+repair_task: 019fa67b-7377-7002-a8d3-d7f6aee514c5
+spec_axis: PASS
+standards_axis: PASS
+FRTA-IMPL-P1-01: CLOSED
+FRTA-IMPL-P1-02: CLOSED
+FRTA-IMPL-P2-03: CLOSED
+i5_live_acceptance: NOT_RUN_OUT_OF_SCOPE
+```
+
 ## Dispatch receipt
 
 - Dispatcher task：`019f82c1-b7d0-7eb3-9371-7a95ebfbd7ce`
@@ -162,3 +180,5 @@ i5_live_acceptance: NOT_RUN_OUT_OF_SCOPE
 - Gate 1 physical card：`PASS`
 - Gate 2 visible thread：`PASS`
 - Gate 3 independent verdict：`REVIEW_NO_GO`
+- Gate 4 Repair-1 candidate：`PASS`
+- Gate 5 targeted re-review：`REVIEW_GO`
