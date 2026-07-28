@@ -52,8 +52,12 @@ finding text可直接重現；不得修改或弱化 Reviewer probe。
 
 必須：
 
-- 在 repo-owned versioned config固定 research-map／inventory artifact path、
+- 在獨立 repo-owned versioned
+  `config/fog_runtime_data_authority_v1.json`固定
+  research-map／inventory artifact path、
   各自 source role/path set、canonical baseline path與 source identity。
+- `config/fog_runtime_time_authority_v1.json`及其 canonical
+  `67327c…` hash完全不變；data authority不得混入 time semantic object。
 - production verifier從 repo config載入 expected authority，不接受 caller自選
   mapping、baseline path或 source identity。
 - 若保留 legacy CLI flags，只能與 repo authority exact compare；缺少、額外、
@@ -102,7 +106,7 @@ Exit：
 
 Production/config：
 
-- `config/fog_runtime_time_authority_v1.json`
+- `config/fog_runtime_data_authority_v1.json`
 - `scripts/fog_authority_contracts.py`
 - `scripts/verify_processed_id_authority.py`
 - `scripts/verify_fog_closed_regime_recovery.py`
@@ -122,6 +126,8 @@ Evidence/card：
 
 Read-only：
 
+- `config/fog_runtime_time_authority_v1.json`
+- `scripts/fog_runtime_time_authority.py`
 - `docs/evidence/REVIEW-FOG-RUNTIME-TIME-AUTHORITY-01-IMPLEMENTATION-1/**`
 - accepted architecture/schema
 - original Implementation evidence
@@ -190,6 +196,9 @@ git diff --check
 - Repair task：
   `019fa67b-7377-7002-a8d3-d7f6aee514c5`
 - Repair worktree：獨立 Codex worktree；initial review lineage、clean
+- Dispatcher amendment：
+  `config/fog_runtime_data_authority_v1.json`加入 exact allowlist；保留既有
+  time authority v1 semantic object與 hash不變
 - Gate 1 physical card：`PASS`
 - Gate 2 visible thread：`PASS`
 - Gate 3 Repair candidate：`PENDING`
