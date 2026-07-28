@@ -44,6 +44,63 @@ def fog_map(processed: int, total: int = 4) -> dict[str, Any]:
     return {"summary": {"expanded_processed": processed, "expanded_pending": total - processed}}
 
 
+def test_inventory_reuses_research_map_v2_completion_predicate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    topic = {"topic_id": "topic-1", "candidate_dir": "artifacts/backtest/candidate"}
+    default = {
+        "horizon": "3",
+        "stop_loss": "none",
+        "take_profit": "0.15",
+        "group_exposure": "none",
+        "regime_gate": "ALL",
+        "risk_guard": "NONE",
+        "entry_filter": "TOPIC_DEFAULT",
+    }
+    valid = {**default, "regime_gate": "BIG_BULL_ONLY"}
+    incomplete = {**default, "risk_guard": "RISK_OFF_CASH"}
+    missing_artifact = {**default, "entry_filter": "LOG_GATE"}
+
+    def history_row(dimensions: dict[str, str], **overrides: Any) -> dict[str, Any]:
+        return {
+            "schema_version": "research-map-run-history.v2",
+            "map_version": "v2",
+            "combo_id": builder.v2_combo_id(topic, dimensions),
+            "status": "completed",
+            "artifact_path": "artifacts/backtest/result.json",
+            "dimensions": dimensions,
+            "decision": "LOW_INFORMATION",
+            "insight_level": "low_information",
+            **overrides,
+        }
+
+    history = [
+        history_row(valid),
+        history_row(default),
+        history_row(incomplete, status="running"),
+        history_row(missing_artifact, artifact_path=None),
+    ]
+    monkeypatch.setattr(builder, "load_topics", lambda: [topic])
+    monkeypatch.setattr(builder, "load_map", lambda: fog_map(1))
+    monkeypatch.setattr(builder, "load_history", lambda: history)
+    monkeypatch.setattr(builder, "base_scenarios_by_v2_combo", lambda topics, records: {})
+    monkeypatch.setattr(builder, "stage2_combo_ids", lambda date: set())
+    monkeypatch.setattr(builder, "all_v2_dimensions", lambda dimensions: [valid, default, incomplete, missing_artifact])
+    monkeypatch.setattr(
+        __import__("research_map_contract"),
+        "SCENARIO_DIMENSION_GRID",
+        [{"horizon": "3", "stop_loss": "none", "take_profit": "0.15", "group_exposure": "none"}],
+    )
+
+    rows, _ = builder.build_initial_rows(RUN_DATE)
+    statuses = {item["combo_id"]: item["current_status"] for item in rows}
+
+    assert statuses[builder.v2_combo_id(topic, valid)] == "LOW_INFORMATION"
+    assert statuses[builder.v2_combo_id(topic, default)] == "PENDING"
+    assert statuses[builder.v2_combo_id(topic, incomplete)] == "PENDING"
+    assert statuses[builder.v2_combo_id(topic, missing_artifact)] == "PENDING"
+
+
 def test_inventory_rebuilds_when_source_snapshot_advances_during_build(monkeypatch: pytest.MonkeyPatch) -> None:
     stale_rows = [row("done-1", "EXECUTED_REPLAY"), row("done-2", "NEXT_STAGE_CANDIDATE"), row("done-3", "LOW_INFORMATION"), row("todo", "PENDING")]
     consistent_rows = [*stale_rows[:3], row("done-4", "REJECTED")]
