@@ -1,0 +1,72 @@
+{
+  "schema_version": "fog-i5-final-runtime-verification.v1",
+  "status": "GO",
+  "market_date": "2026-07-28",
+  "launch_agent": {
+    "label": "com.new-top10.fog-research-worker",
+    "loaded": true,
+    "state": "not running",
+    "runs": 3,
+    "last_exit_code": 0,
+    "start_interval_seconds": 900,
+    "rendered_plist_sha256": "f63ae67c4ae7b437246d31f8122307b5a5726778d36d302794b80fa342f664cb",
+    "installed_plist_sha256": "f63ae67c4ae7b437246d31f8122307b5a5726778d36d302794b80fa342f664cb"
+  },
+  "scheduler_receipts": {
+    "count": 3,
+    "verified_count": 3,
+    "failed_count": 0,
+    "schema_version": "closed-regime-runtime-receipt.v3",
+    "time_contract_sha256": "67327c40206251adf4d377e76833dfd6261ce4fb3f56c7de0b0bf92c7231e357"
+  },
+  "circuit": {
+    "active_state_exists": false,
+    "active_context_exists": false,
+    "recovery_gate_runs": 1,
+    "recovery_verifier_checks": 14,
+    "recovery_verifier_failures": 0
+  },
+  "locks": {
+    "fog_worker": false,
+    "research_queue_owner": false,
+    "pm_harness": false
+  },
+  "protected_hashes": {
+    "model": {
+      "before": "ce64379701339bf7eadd696872efa0f64be118b4b8c58582e90691ec175c8a5d",
+      "after": "ce64379701339bf7eadd696872efa0f64be118b4b8c58582e90691ec175c8a5d",
+      "unchanged": true
+    },
+    "baseline": {
+      "before": "c219b1b3c31c9b77f0a20cbeaeff87047bf88511f08dd642200f9d9370f832e7",
+      "after": "c219b1b3c31c9b77f0a20cbeaeff87047bf88511f08dd642200f9d9370f832e7",
+      "unchanged": true
+    },
+    "ranking_code": {
+      "before": "b3d44da02d2d6f34838dbe24a96b3611135d26e718bfcd54acc3561414db7cfe",
+      "after": "b3d44da02d2d6f34838dbe24a96b3611135d26e718bfcd54acc3561414db7cfe",
+      "unchanged": true
+    },
+    "weights": {
+      "before": "b34c1a20a705bb67f107de870ddd0cec5a2e3419aa385258370d88ceb553d60a",
+      "after": "b34c1a20a705bb67f107de870ddd0cec5a2e3419aa385258370d88ceb553d60a",
+      "unchanged": true
+    },
+    "promotion": {
+      "before": "2add0872011c47640f8acafc6e594f4186a33eb15a8640c8b4aa46924f78d9b1",
+      "after": "2add0872011c47640f8acafc6e594f4186a33eb15a8640c8b4aa46924f78d9b1",
+      "unchanged": true
+    },
+    "regime_history": {
+      "before": "96372f3e7fcfc8416d123496c4d2d3f32218b75d22e80fce70e394640b3527cd",
+      "after": "96372f3e7fcfc8416d123496c4d2d3f32218b75d22e80fce70e394640b3527cd",
+      "unchanged": true
+    }
+  },
+  "queue": {
+    "before_sha256": "099cfa7f86d86f4b0e9127518b89089aaf9d6bd99aeb836991d0ba224d378bce",
+    "after_sha256": "114db2c6509694880a1586e916266ec9769aae5d5df3cfdc77b140c66b69f1a4",
+    "changed_as_expected": true,
+    "final_action_count": 10
+  }
+}

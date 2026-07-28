@@ -1,0 +1,52 @@
+{
+  "schema_version": "closed-regime-runtime-receipt.v3",
+  "status": "OK",
+  "closed_regime_research": true,
+  "schema_authority": {
+    "path": "docs/architecture/fog_runtime_receipt_v3.schema.json",
+    "schema_version": "closed-regime-runtime-receipt.v3"
+  },
+  "time_authority": {
+    "schema_version": "fog-runtime-time-authority.v1",
+    "contract_hash": "67327c40206251adf4d377e76833dfd6261ce4fb3f56c7de0b0bf92c7231e357",
+    "market_id": "TWSE",
+    "market_timezone": "Asia/Taipei",
+    "run_context_created_at_utc": "2026-07-28T09:01:55.189442Z",
+    "run_context_market_datetime": "2026-07-28T17:01:55.189442+08:00",
+    "market_run_date": "2026-07-28",
+    "generated_at_utc": "2026-07-28T09:01:59.733213Z",
+    "generated_market_datetime": "2026-07-28T17:01:59.733213+08:00"
+  },
+  "market_regime_history": {
+    "path": "artifacts/market_regime_history.json",
+    "schema_version": "market-regime-history.v2",
+    "sha256": "96372f3e7fcfc8416d123496c4d2d3f32218b75d22e80fce70e394640b3527cd",
+    "source_trade_date": "2026-07-27"
+  },
+  "daily_research_artifact": {
+    "path": "artifacts/autonomous_research/autonomous_research_daily_quota_2026-07-28.json",
+    "schema_version": "autonomous-research-run.v1",
+    "sha256": "dd225ef58518582e515b39d30fb1eccfad76b94b96b8a61eca5d2a71401a4779",
+    "artifact_run_date": "2026-07-28",
+    "daily_source_date": "2026-07-27"
+  },
+  "queue_owner": "fog_worker",
+  "runner_identity": "scripts/run_daily_research_quota.sh",
+  "research_contract": {
+    "path": "config/regime_research_contract.json",
+    "schema_version": "regime-research-contract.v1",
+    "sha256": "ea9d2618dfff8efbcbff452415999483a9b5771b4c4ff1aa41c60538aea6bd39"
+  },
+  "exact_regime": {
+    "base_regime": "RISK_OFF",
+    "family_tags": [],
+    "identity_id": "RISK_OFF|"
+  },
+  "state_transition": {
+    "from": "VERIFIED_HISTORY",
+    "to": "CLOSED_RESEARCH_COMPLETED"
+  },
+  "topic_run_lineage": [],
+  "topic_run_lineage_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "production_impact": "NO_PRODUCTION_CHANGE"
+}

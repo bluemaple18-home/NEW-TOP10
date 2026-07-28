@@ -1,6 +1,6 @@
 ---
-id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-STATUS
-status: GO_LOCAL_DETERMINISTIC
+id: FOG-RUNTIME-TIME-AUTHORITY-01-I5-STATUS
+status: GO_LIVE_ACCEPTANCE
 type: mainline
 ---
 
@@ -8,45 +8,24 @@ type: mainline
 
 ## Root question
 
-Closed-regime scheduler為何仍會選到沒有 exact-match regime ranking 日期的
-strategy-matrix topic？
+固定 main lineage是否能安全恢復 Fog circuit並連續產生三輪可信 v3 scheduler
+receipts？
 
-## Blocker
+## Verdict
 
-Deterministic blocker已關閉。I5 live acceptance仍受三次 probe停損、unloaded
-LaunchAgent與 open circuit限制。
+`GO`。
 
-## Fork
-
-無。正式 canary mode只保留為候選方案；本卡先修正已被證明的 eligibility
-缺口，不另外擴卡。
-
-## Current state
-
-- Main base：`33aee4d`
-- Source-lineage candidate：`be9bb74`
-- Stacked parent／evidence tip：`5e6c0385fc8d93a89561583c79981d273c44fde6`
-- Source-lineage targeted：`69 passed`
-- Main checkout full suite：`587 passed, 4 warnings, 246 subtests passed`
-- I5：`NO_GO`
-- LaunchAgent：unloaded
-- Circuit：open
-- Live retry budget：已達三次上限
-- Candidate：`684d3adf3916100a7eb9bb57c6164f3b67a58064`
-- Repair-1：`51c084cd077cd4e997873e4a924f73e3dca2ba3d`
-- Independent re-review：`REVIEW_GO`
-- Review GO：`0b1373bdea3d02b6a92c07a121f664949e4f48f2`
-- Local integration：`374792652b8bee8a869052228da78f7a0d4558b4`
+- Bounded dry：GO；首次 fail-closed暴露的 explicit-date caller已由
+  `e6fc10a`修復。
+- Circuit：一次 verifier-gated recovery；active retry state/context不存在。
+- Scheduler：3/3 receipts通過；第 2、3 輪由 900 秒 interval自然啟動。
+- Replay drain：每輪6批、每輪144筆、0 failed。
+- LaunchAgent：loaded、not running、`runs=3`、last exit code `0`。
+- Protected hashes：model、baseline、ranking code、weights、promotion與 regime
+  history全部 unchanged。
+- Queue：依 research worker契約更新，final 10 actions。
 
 ## Next step
 
-等待使用者決定是否 push／開 PR。I5 live恢復須另開明確決策，不自動沿用本卡。
-
-## Waiting condition
-
-Branch保持本機、worktree clean；未 push、deploy或執行 live acceptance。
-
-## Restrictions
-
-不准第四次 live probe、不准重啟 LaunchAgent、不准清 circuit、不准修改
-production model／ranking／weights／baseline／promotion。
+沒有未完成的 I5 gate。後續 Fog runs屬已部署的正常 production schedule，不是
+第四次 acceptance probe。

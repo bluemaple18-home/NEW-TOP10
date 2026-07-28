@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "reason_codes": [],
+  "verification_time_utc": "2026-07-28T09:05:52.608686Z",
+  "receipt_age_seconds": 232.875473,
+  "computed_market_run_date": "2026-07-28",
+  "contract_hash_expected": "67327c40206251adf4d377e76833dfd6261ce4fb3f56c7de0b0bf92c7231e357",
+  "contract_hash_observed": "67327c40206251adf4d377e76833dfd6261ce4fb3f56c7de0b0bf92c7231e357",
+  "scheduler_host_timezone_diagnostic": "CST"
+}

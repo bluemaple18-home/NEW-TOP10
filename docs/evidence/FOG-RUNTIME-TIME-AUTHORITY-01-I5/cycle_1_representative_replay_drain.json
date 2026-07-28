@@ -1,0 +1,708 @@
+{
+  "schema_version": "representative-replay-drain.v1",
+  "generated_at": "2026-07-28T09:27:12.926240+00:00",
+  "date": "2026-07-28",
+  "run_id": "fog-research-2026-07-28-20260728090155189442-replay-drain",
+  "started_at": "2026-07-28T09:04:57.468698+00:00",
+  "finished_at": "2026-07-28T09:27:12.926246+00:00",
+  "status": "OK",
+  "stop_reason": "max_batches_reached",
+  "production_impact": "NO_PRODUCTION_CHANGE",
+  "summary": {
+    "initial_representative_replay_count": 144,
+    "latest_representative_replay_count": 144,
+    "batch_count": 6,
+    "completed_replay_count": 144,
+    "appended_run_history_count": 97,
+    "failed_batch_count": 0
+  },
+  "initial_queue": {
+    "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+    "status": "OK",
+    "representative_replay_count": 144,
+    "deferred_low_priority_count": 56893,
+    "queue_count": 144
+  },
+  "latest_queue": {
+    "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+    "status": "OK",
+    "representative_replay_count": 144,
+    "deferred_low_priority_count": 56808,
+    "queue_count": 144
+  },
+  "batches": [
+    {
+      "batch": 1,
+      "status": "OK",
+      "queue_before": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56893,
+        "queue_count": 144
+      },
+      "representative_artifact": "artifacts/weekend_training/weekend_representative_replay_2026-07-28.json",
+      "representative_summary": {
+        "start_index": 0,
+        "batch_size": 24,
+        "selected_count": 24,
+        "completed_count": 24,
+        "failed_count": 0,
+        "decision_counts": {
+          "LOW_INFORMATION": 24
+        },
+        "appended_run_history_count": 22
+      },
+      "commands": [
+        {
+          "name": "representative_replay_batch_1",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28",
+            "--batch-size",
+            "24",
+            "--start-index",
+            "0",
+            "--append-run-history"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:07:05.447958+00:00",
+          "finished_at": "2026-07-28T09:09:17.749394+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/weekend_training/weekend_representative_replay_2026-07-28.json\", \"completed\": 24, \"appended\": 22}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_research_progress_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_campaign_progress.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:09:17.749679+00:00",
+          "finished_at": "2026-07-28T09:09:21.292314+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33458, \"expanded_total\": 2866752, \"next_action\": \"RUN_NEXT_BATCH\", \"next_batch_size\": 200, \"output\": \"artifacts/autonomous_research/research_campaign_progress_2026-07-28.json\", \"processed\": 9645, \"progress\": \"#########...............\", \"status\": \"OK\", \"total\": 25596}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_fog_map_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_fog_map.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:09:21.292545+00:00",
+          "finished_at": "2026-07-28T09:09:24.379943+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33458, \"expanded_progress_pct\": 0.011671, \"expanded_universe_total\": 2866752, \"html\": \"artifacts/research_map/index.html\", \"latest\": \"artifacts/research_map/research_fog_map_latest.json\", \"payload\": \"artifacts/research_map/research_fog_map_2026-07-28.json\", \"processed_combos\": 9645, \"source_mode\": \"live\", \"status\": \"OK\", \"total_topics\": 316}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "verify_representative_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/verify_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:09:24.380095+00:00",
+          "finished_at": "2026-07-28T09:09:24.590073+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"failed_count\": 0, \"output\": \"artifacts/weekend_training/weekend_representative_replay_verification_latest.json\"}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "controlled_grid_linkage_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_controlled_grid_drain_host_runner.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:09:24.590198+00:00",
+          "finished_at": "2026-07-28T09:11:30.428303+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_status_2026-07-28.json\", \"summary\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_summary_2026-07-28.json\", \"gates\": \"artifacts/weekend_training/controlled_grid_drain_gates_2026-07-28.json\"}\n",
+          "stderr_tail": ""
+        }
+      ],
+      "queue_after": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56874,
+        "queue_count": 144
+      }
+    },
+    {
+      "batch": 2,
+      "status": "OK",
+      "queue_before": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56874,
+        "queue_count": 144
+      },
+      "representative_artifact": "artifacts/weekend_training/weekend_representative_replay_2026-07-28.json",
+      "representative_summary": {
+        "start_index": 0,
+        "batch_size": 24,
+        "selected_count": 24,
+        "completed_count": 24,
+        "failed_count": 0,
+        "decision_counts": {
+          "LOW_INFORMATION": 24
+        },
+        "appended_run_history_count": 19
+      },
+      "commands": [
+        {
+          "name": "representative_replay_batch_2",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28",
+            "--batch-size",
+            "24",
+            "--start-index",
+            "0",
+            "--append-run-history"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:11:30.430968+00:00",
+          "finished_at": "2026-07-28T09:12:37.397702+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/weekend_training/weekend_representative_replay_2026-07-28.json\", \"completed\": 24, \"appended\": 19}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_research_progress_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_campaign_progress.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:12:37.397837+00:00",
+          "finished_at": "2026-07-28T09:12:39.038504+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33475, \"expanded_total\": 2866752, \"next_action\": \"RUN_NEXT_BATCH\", \"next_batch_size\": 200, \"output\": \"artifacts/autonomous_research/research_campaign_progress_2026-07-28.json\", \"processed\": 9645, \"progress\": \"#########...............\", \"status\": \"OK\", \"total\": 25596}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_fog_map_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_fog_map.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:12:39.038629+00:00",
+          "finished_at": "2026-07-28T09:12:40.606606+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33475, \"expanded_progress_pct\": 0.011677, \"expanded_universe_total\": 2866752, \"html\": \"artifacts/research_map/index.html\", \"latest\": \"artifacts/research_map/research_fog_map_latest.json\", \"payload\": \"artifacts/research_map/research_fog_map_2026-07-28.json\", \"processed_combos\": 9645, \"source_mode\": \"live\", \"status\": \"OK\", \"total_topics\": 316}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "verify_representative_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/verify_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:12:40.606728+00:00",
+          "finished_at": "2026-07-28T09:12:40.780909+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"failed_count\": 0, \"output\": \"artifacts/weekend_training/weekend_representative_replay_verification_latest.json\"}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "controlled_grid_linkage_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_controlled_grid_drain_host_runner.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:12:40.780996+00:00",
+          "finished_at": "2026-07-28T09:14:45.658281+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_status_2026-07-28.json\", \"summary\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_summary_2026-07-28.json\", \"gates\": \"artifacts/weekend_training/controlled_grid_drain_gates_2026-07-28.json\"}\n",
+          "stderr_tail": ""
+        }
+      ],
+      "queue_after": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56857,
+        "queue_count": 144
+      }
+    },
+    {
+      "batch": 3,
+      "status": "OK",
+      "queue_before": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56857,
+        "queue_count": 144
+      },
+      "representative_artifact": "artifacts/weekend_training/weekend_representative_replay_2026-07-28.json",
+      "representative_summary": {
+        "start_index": 0,
+        "batch_size": 24,
+        "selected_count": 24,
+        "completed_count": 24,
+        "failed_count": 0,
+        "decision_counts": {
+          "LOW_INFORMATION": 24
+        },
+        "appended_run_history_count": 17
+      },
+      "commands": [
+        {
+          "name": "representative_replay_batch_3",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28",
+            "--batch-size",
+            "24",
+            "--start-index",
+            "0",
+            "--append-run-history"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:14:45.661034+00:00",
+          "finished_at": "2026-07-28T09:15:45.682507+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/weekend_training/weekend_representative_replay_2026-07-28.json\", \"completed\": 24, \"appended\": 17}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_research_progress_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_campaign_progress.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:15:45.682650+00:00",
+          "finished_at": "2026-07-28T09:15:47.284531+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33490, \"expanded_total\": 2866752, \"next_action\": \"RUN_NEXT_BATCH\", \"next_batch_size\": 200, \"output\": \"artifacts/autonomous_research/research_campaign_progress_2026-07-28.json\", \"processed\": 9645, \"progress\": \"#########...............\", \"status\": \"OK\", \"total\": 25596}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_fog_map_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_fog_map.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:15:47.284647+00:00",
+          "finished_at": "2026-07-28T09:15:48.840895+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33490, \"expanded_progress_pct\": 0.011682, \"expanded_universe_total\": 2866752, \"html\": \"artifacts/research_map/index.html\", \"latest\": \"artifacts/research_map/research_fog_map_latest.json\", \"payload\": \"artifacts/research_map/research_fog_map_2026-07-28.json\", \"processed_combos\": 9645, \"source_mode\": \"live\", \"status\": \"OK\", \"total_topics\": 316}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "verify_representative_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/verify_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:15:48.841018+00:00",
+          "finished_at": "2026-07-28T09:15:49.021018+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"failed_count\": 0, \"output\": \"artifacts/weekend_training/weekend_representative_replay_verification_latest.json\"}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "controlled_grid_linkage_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_controlled_grid_drain_host_runner.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:15:49.021163+00:00",
+          "finished_at": "2026-07-28T09:17:48.788314+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_status_2026-07-28.json\", \"summary\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_summary_2026-07-28.json\", \"gates\": \"artifacts/weekend_training/controlled_grid_drain_gates_2026-07-28.json\"}\n",
+          "stderr_tail": ""
+        }
+      ],
+      "queue_after": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56842,
+        "queue_count": 144
+      }
+    },
+    {
+      "batch": 4,
+      "status": "OK",
+      "queue_before": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56842,
+        "queue_count": 144
+      },
+      "representative_artifact": "artifacts/weekend_training/weekend_representative_replay_2026-07-28.json",
+      "representative_summary": {
+        "start_index": 0,
+        "batch_size": 24,
+        "selected_count": 24,
+        "completed_count": 24,
+        "failed_count": 0,
+        "decision_counts": {
+          "LOW_INFORMATION": 24
+        },
+        "appended_run_history_count": 15
+      },
+      "commands": [
+        {
+          "name": "representative_replay_batch_4",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28",
+            "--batch-size",
+            "24",
+            "--start-index",
+            "0",
+            "--append-run-history"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:17:48.790765+00:00",
+          "finished_at": "2026-07-28T09:18:41.366452+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/weekend_training/weekend_representative_replay_2026-07-28.json\", \"completed\": 24, \"appended\": 15}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_research_progress_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_campaign_progress.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:18:41.366584+00:00",
+          "finished_at": "2026-07-28T09:18:42.992360+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33503, \"expanded_total\": 2866752, \"next_action\": \"RUN_NEXT_BATCH\", \"next_batch_size\": 200, \"output\": \"artifacts/autonomous_research/research_campaign_progress_2026-07-28.json\", \"processed\": 9645, \"progress\": \"#########...............\", \"status\": \"OK\", \"total\": 25596}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_fog_map_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_fog_map.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:18:42.992475+00:00",
+          "finished_at": "2026-07-28T09:18:44.552301+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33503, \"expanded_progress_pct\": 0.011687, \"expanded_universe_total\": 2866752, \"html\": \"artifacts/research_map/index.html\", \"latest\": \"artifacts/research_map/research_fog_map_latest.json\", \"payload\": \"artifacts/research_map/research_fog_map_2026-07-28.json\", \"processed_combos\": 9645, \"source_mode\": \"live\", \"status\": \"OK\", \"total_topics\": 316}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "verify_representative_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/verify_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:18:44.552415+00:00",
+          "finished_at": "2026-07-28T09:18:44.728761+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"failed_count\": 0, \"output\": \"artifacts/weekend_training/weekend_representative_replay_verification_latest.json\"}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "controlled_grid_linkage_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_controlled_grid_drain_host_runner.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:18:44.728874+00:00",
+          "finished_at": "2026-07-28T09:20:57.533907+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_status_2026-07-28.json\", \"summary\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_summary_2026-07-28.json\", \"gates\": \"artifacts/weekend_training/controlled_grid_drain_gates_2026-07-28.json\"}\n",
+          "stderr_tail": ""
+        }
+      ],
+      "queue_after": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56829,
+        "queue_count": 144
+      }
+    },
+    {
+      "batch": 5,
+      "status": "OK",
+      "queue_before": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56829,
+        "queue_count": 144
+      },
+      "representative_artifact": "artifacts/weekend_training/weekend_representative_replay_2026-07-28.json",
+      "representative_summary": {
+        "start_index": 0,
+        "batch_size": 24,
+        "selected_count": 24,
+        "completed_count": 24,
+        "failed_count": 0,
+        "decision_counts": {
+          "LOW_INFORMATION": 24
+        },
+        "appended_run_history_count": 13
+      },
+      "commands": [
+        {
+          "name": "representative_replay_batch_5",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28",
+            "--batch-size",
+            "24",
+            "--start-index",
+            "0",
+            "--append-run-history"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:20:57.536737+00:00",
+          "finished_at": "2026-07-28T09:21:44.650657+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/weekend_training/weekend_representative_replay_2026-07-28.json\", \"completed\": 24, \"appended\": 13}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_research_progress_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_campaign_progress.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:21:44.650759+00:00",
+          "finished_at": "2026-07-28T09:21:46.320844+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33514, \"expanded_total\": 2866752, \"next_action\": \"RUN_NEXT_BATCH\", \"next_batch_size\": 200, \"output\": \"artifacts/autonomous_research/research_campaign_progress_2026-07-28.json\", \"processed\": 9645, \"progress\": \"#########...............\", \"status\": \"OK\", \"total\": 25596}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_fog_map_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_fog_map.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:21:46.320954+00:00",
+          "finished_at": "2026-07-28T09:21:48.178898+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33514, \"expanded_progress_pct\": 0.011691, \"expanded_universe_total\": 2866752, \"html\": \"artifacts/research_map/index.html\", \"latest\": \"artifacts/research_map/research_fog_map_latest.json\", \"payload\": \"artifacts/research_map/research_fog_map_2026-07-28.json\", \"processed_combos\": 9645, \"source_mode\": \"live\", \"status\": \"OK\", \"total_topics\": 316}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "verify_representative_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/verify_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:21:48.179055+00:00",
+          "finished_at": "2026-07-28T09:21:48.367802+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"failed_count\": 0, \"output\": \"artifacts/weekend_training/weekend_representative_replay_verification_latest.json\"}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "controlled_grid_linkage_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_controlled_grid_drain_host_runner.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:21:48.367906+00:00",
+          "finished_at": "2026-07-28T09:23:54.909952+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_status_2026-07-28.json\", \"summary\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_summary_2026-07-28.json\", \"gates\": \"artifacts/weekend_training/controlled_grid_drain_gates_2026-07-28.json\"}\n",
+          "stderr_tail": ""
+        }
+      ],
+      "queue_after": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56818,
+        "queue_count": 144
+      }
+    },
+    {
+      "batch": 6,
+      "status": "OK",
+      "queue_before": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56818,
+        "queue_count": 144
+      },
+      "representative_artifact": "artifacts/weekend_training/weekend_representative_replay_2026-07-28.json",
+      "representative_summary": {
+        "start_index": 0,
+        "batch_size": 24,
+        "selected_count": 24,
+        "completed_count": 24,
+        "failed_count": 0,
+        "decision_counts": {
+          "LOW_INFORMATION": 24
+        },
+        "appended_run_history_count": 11
+      },
+      "commands": [
+        {
+          "name": "representative_replay_batch_6",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28",
+            "--batch-size",
+            "24",
+            "--start-index",
+            "0",
+            "--append-run-history"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:23:54.912699+00:00",
+          "finished_at": "2026-07-28T09:24:38.123999+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/weekend_training/weekend_representative_replay_2026-07-28.json\", \"completed\": 24, \"appended\": 11}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_research_progress_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_campaign_progress.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:24:38.124166+00:00",
+          "finished_at": "2026-07-28T09:24:39.859373+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33524, \"expanded_total\": 2866752, \"next_action\": \"RUN_NEXT_BATCH\", \"next_batch_size\": 200, \"output\": \"artifacts/autonomous_research/research_campaign_progress_2026-07-28.json\", \"processed\": 9645, \"progress\": \"#########...............\", \"status\": \"OK\", \"total\": 25596}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "build_fog_map_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/build_research_fog_map.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:24:39.859557+00:00",
+          "finished_at": "2026-07-28T09:24:41.646602+00:00",
+          "stdout_tail": "{\"expanded_processed\": 33524, \"expanded_progress_pct\": 0.011694, \"expanded_universe_total\": 2866752, \"html\": \"artifacts/research_map/index.html\", \"latest\": \"artifacts/research_map/research_fog_map_latest.json\", \"payload\": \"artifacts/research_map/research_fog_map_2026-07-28.json\", \"processed_combos\": 9645, \"source_mode\": \"live\", \"status\": \"OK\", \"total_topics\": 316}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "verify_representative_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/verify_weekend_representative_replay.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:24:41.646840+00:00",
+          "finished_at": "2026-07-28T09:24:41.831525+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"failed_count\": 0, \"output\": \"artifacts/weekend_training/weekend_representative_replay_verification_latest.json\"}\n",
+          "stderr_tail": ""
+        },
+        {
+          "name": "controlled_grid_linkage_after_replay",
+          "command": [
+            "<repo-root>/.venv/bin/python",
+            "scripts/run_controlled_grid_drain_host_runner.py",
+            "--date",
+            "2026-07-28"
+          ],
+          "returncode": 0,
+          "status": "OK",
+          "started_at": "2026-07-28T09:24:41.831628+00:00",
+          "finished_at": "2026-07-28T09:27:12.921074+00:00",
+          "stdout_tail": "{\"status\": \"OK\", \"output\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_status_2026-07-28.json\", \"summary\": \"artifacts/host_runner/2026-07-28/controlled_grid_drain_host_runner_summary_2026-07-28.json\", \"gates\": \"artifacts/weekend_training/controlled_grid_drain_gates_2026-07-28.json\"}\n",
+          "stderr_tail": ""
+        }
+      ],
+      "queue_after": {
+        "queue_path": "artifacts/weekend_training/weekend_frontier_queue_2026-07-28.json",
+        "status": "OK",
+        "representative_replay_count": 144,
+        "deferred_low_priority_count": 56808,
+        "queue_count": 144
+      }
+    }
+  ],
+  "errors": []
+}

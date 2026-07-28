@@ -1,0 +1,105 @@
+{
+  "schema_version": "weekend-universe-inventory-verification.v1",
+  "generated_at": "2026-07-28T09:01:00.826162+00:00",
+  "date": "2026-07-28",
+  "status": "OK",
+  "artifact": "artifacts/weekend_training/weekend_universe_inventory_2026-07-28.json",
+  "summary": {
+    "check_count": 14,
+    "failed_count": 0
+  },
+  "checks": [
+    {
+      "name": "artifact_exists",
+      "ok": true,
+      "value": "artifacts/weekend_training/weekend_universe_inventory_2026-07-28.json"
+    },
+    {
+      "name": "schema",
+      "ok": true,
+      "value": "weekend-universe-inventory.v1"
+    },
+    {
+      "name": "inventory_count",
+      "ok": true,
+      "value": {
+        "records": 0,
+        "summary": 2866752,
+        "expected": 2866752
+      }
+    },
+    {
+      "name": "summary_count_matches_records",
+      "ok": true,
+      "value": {
+        "summary": 2866752,
+        "records": 0,
+        "records_inline": false
+      }
+    },
+    {
+      "name": "current_processed_matches_source_snapshot",
+      "ok": true,
+      "value": {
+        "inventory": 33358,
+        "source_snapshot": 33358
+      }
+    },
+    {
+      "name": "remaining_matches_source_snapshot",
+      "ok": true,
+      "value": {
+        "inventory": 2833394,
+        "source_snapshot": 2833394
+      }
+    },
+    {
+      "name": "latest_map_not_behind_inventory_snapshot",
+      "ok": true,
+      "value": {
+        "inventory_snapshot": 33358,
+        "latest_map": 33358
+      }
+    },
+    {
+      "name": "combo_ids_unique",
+      "ok": true,
+      "value": 0
+    },
+    {
+      "name": "all_have_equivalence_key",
+      "ok": true,
+      "value": 0
+    },
+    {
+      "name": "non_replay_have_reason",
+      "ok": true,
+      "value": []
+    },
+    {
+      "name": "unsupported_breakdown_fields_present",
+      "ok": true,
+      "value": []
+    },
+    {
+      "name": "unsupported_category_counts_sum",
+      "ok": true,
+      "value": {
+        "category_sum": 2423131,
+        "unsupported_rows": 0,
+        "burn_down_count": 2423131
+      }
+    },
+    {
+      "name": "unsupported_categories_known",
+      "ok": true,
+      "value": []
+    },
+    {
+      "name": "production_impact",
+      "ok": true,
+      "value": "NO_PRODUCTION_CHANGE"
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,4 @@
+fingerprint=8c998a81efea4563d55299a291bcad9fad2d3d1ecf3957a058f7d338e6cf696a
+attempts=3
+last_exit_code=1
+circuit_open=1

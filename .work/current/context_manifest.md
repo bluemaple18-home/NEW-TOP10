@@ -1,6 +1,6 @@
 ---
-id: FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-CONTEXT
-status: GO_LOCAL_DETERMINISTIC
+id: FOG-RUNTIME-TIME-AUTHORITY-01-I5-CONTEXT
+status: GO_LIVE_ACCEPTANCE
 type: mainline
 ---
 
@@ -8,34 +8,21 @@ type: mainline
 
 ## Read first
 
-- `docs/evidence/FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01/mainline_acceptance.md`
-- `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_REPAIR-1_symlink_authority.md`
-- `docs/tasks/2026-07-28_REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_REPAIR-1.md`
-- `docs/evidence/REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01/review.md`
-- `docs/evidence/REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01-REPAIR-1/review.md`
-- `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
+- `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/live_acceptance.md`
+- `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/scheduler_cycles.txt`
 - `docs/tasks/2026-07-28_FOG-RUNTIME-TIME-AUTHORITY-01_I5_live_acceptance.md`
-- `docs/tasks/2026-07-28_FOG-DAILY-SOURCE-LINEAGE-01.md`
-- `docs/evidence/FOG-DAILY-SOURCE-LINEAGE-01/verification.md`
+- `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/bounded_dry_repair_1.md`
+- `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/recovery_preflight.md`
 
-## Code only when needed
+## Runtime code
 
-- `scripts/run_autonomous_research.py`：
-  topic generation、eligibility與index／fallback／queue selection。
-- `scripts/run_backtest_strategy_matrix.py`：
-  只讀 exact-regime second-line guard；本卡禁止修改。
-- `tests/test_regime_research_autonomy.py`：
-  既有 ineligible selection regression。
-
-## Local-only runtime evidence
-
-- `artifacts/autonomous_research/run_2026-07-28_115728`
-
-此 artifact預設不進 Git，只用於重現已確認的 blocker。新對話不得重跑 live
-worker來替代 deterministic fixture。
+- `scripts/build_research_campaign_progress.py`
+- `scripts/research_map_linkage_smoke.py`
+- `tests/test_research_topic_date_wiring.py`
+- Runtime code commit：
+  `e6fc10a3251e61bb49ef0ae66e28d336f3a3adb1`
 
 ## Boundary
 
-- Exact-regime topic eligibility的 deterministic修復已完成本機整合。
-- 不處理 push、canary mode、production promotion或 I5 live acceptance。
-- 不載入舊產業／元大／Fundamental handoff；與本 root question無關。
+I5已完成三輪 acceptance。LaunchAgent保持 loaded；後續 interval run是正常
+production schedule，不得回寫成第四次 acceptance probe。

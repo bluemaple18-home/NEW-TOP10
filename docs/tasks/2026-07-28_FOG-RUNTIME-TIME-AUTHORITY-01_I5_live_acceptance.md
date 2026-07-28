@@ -1,6 +1,6 @@
 ---
 id: FOG-RUNTIME-TIME-AUTHORITY-01-I5
-status: BOUNDED_DRY_REPAIR_1_VERIFIED
+status: GO_LIVE_ACCEPTANCE
 type: acceptance
 ---
 
@@ -74,6 +74,7 @@ caller wiring修復；affected suite與 full suite皆通過。證據：
 - 本卡
 - `docs/AUTOMATION.md`
 - `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/**`
+- `.work/current/*.md`（完成後狀態同步）
 
 Live runtime可變更範圍：
 
@@ -94,6 +95,22 @@ Live runtime可變更範圍：
 7. 收集三輪跨 900 秒 scheduler interval receipts。
 8. 比對 circuit、queue、model、ranking、baseline before/after hashes。
 
+## Completion（2026-07-28）
+
+- Bounded dry Repair 1：`e6fc10a3251e61bb49ef0ae66e28d336f3a3adb1`，
+  full suite `589 passed`。
+- Explicit circuit recovery只執行一次；verifier 14 checks、0 failed，原
+  state/context已旋轉保留。
+- Scheduler三輪皆產生 fresh v3 receipt；第 2、3 輪均由
+  `StartInterval=900`自然啟動。
+- 三輪 worker皆 exit `0`；三輪 representative replay drain皆完成6批、
+  144 replays、0 failed。
+- Final LaunchAgent：loaded、not running、`runs=3`、last exit code `0`。
+- Protected model／baseline／ranking code／weights／promotion／regime history
+  hashes全部不變；queue依契約更新。
+- 完整證據：
+  `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/live_acceptance.md`。
+
 ## GO
 
 - Installed plist與 repo rendered plist byte-identical。
@@ -108,9 +125,10 @@ Live runtime可變更範圍：
 任一 gate失敗立即 unload job，保留失敗 artifacts與 state；不得恢復 legacy
 receipt、不得自動清 circuit或重放 queue。
 
-## Live blocker receipt
+## Historical live blocker receipt（resolved）
 
-- Installed plist已更新但保持 unloaded。
+- 下列內容保存第一次 I5 fail-closed時的歷史，不代表目前 runtime狀態。
+- 當時 installed plist已更新但保持 unloaded。
 - Canonical `market_regime_history.v2` 已由 repo builder建立，最新交易日
   `2026-07-27`、exact regime `RISK_OFF`。
 - Current main產生的 closed-regime daily artifact在
