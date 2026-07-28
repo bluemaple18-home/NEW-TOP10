@@ -1,17 +1,18 @@
 ---
 id: REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01
 chain_id: FOG-I5-EXACT-REGIME-ELIGIBILITY
-status: READY_FOR_REVIEW
+status: RUNNING
 type: review
 ownership: independent-reviewer
 thickness: strict
 risk: high
 model: gpt-5.6-sol
-reasoning: high
-model_reason: scheduler eligibility、canonical exact-regime date authority、candidate/baseline path boundary與 stacked source-lineage皆屬 production safety contract，需 strict maker-checker Review。
+reasoning: xhigh
+model_reason: scheduler eligibility、canonical exact-regime date authority、candidate/baseline path boundary與 stacked source-lineage皆屬 production safety contract；正式 thread繼承使用者設定的 gpt-5.6-sol xhigh，不降級。
 base_sha: 33aee4d
 candidate_sha: 684d3adf3916100a7eb9bb57c6164f3b67a58064
 implementation_sha: 3969aba5c62171ef52d5c54856f0c0821b750627
+reviewer_thread_id: 019fa76b-e568-7653-ade0-a399a3a1aa4a
 ---
 
 # REVIEW-FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01
