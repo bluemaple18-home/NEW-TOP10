@@ -104,6 +104,87 @@ class DailyResearchQuotaVerifierTest(unittest.TestCase):
 
         self.assertEqual(build_payload(artifact, min_quota=5)["status"], "FAILED")
 
+    def test_development_screen_requires_explicit_no_registry_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            contract_path = directory / "development_screen_contract.json"
+            contract_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "development-screen-contract.v1",
+                        "boundary": {
+                            "experiment_registry_write_allowed": False,
+                            "production_promotion_allowed": False,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            artifact = directory / "quota.json"
+            topic = {"topic_id": "topic:development:development_screen"}
+            matrix_command = [
+                ".venv/bin/python",
+                "scripts/run_backtest_strategy_matrix.py",
+                "--development-only",
+            ]
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "autonomous-research-run.v1",
+                        "status": "OK",
+                        "contract": {
+                            "research_only": True,
+                            "does_not_train_model": True,
+                            "does_not_write_models_latest_lgbm": True,
+                            "does_not_change_risk_adjusted_score": True,
+                            "does_not_change_production_ranking": True,
+                            "production_promotion_allowed": False,
+                            "development_screen_enabled": True,
+                            "development_screen_registry_write_allowed": False,
+                        },
+                        "inputs": {
+                            "execute": True,
+                            "from_queue": False,
+                            "execute_topic_count": 5,
+                        },
+                        "selected_topics": [topic],
+                        "topic_runs": [
+                            {
+                                "topic": topic,
+                                "status": "OK",
+                                "outcome": {
+                                    "decision": "DEVELOPMENT_CANDIDATE",
+                                    "research_stage": "DEVELOPMENT_SCREEN",
+                                    "promotion_allowed": False,
+                                },
+                                "steps": [
+                                    {"command": matrix_command},
+                                    {"command": matrix_command},
+                                ],
+                                "outputs": {
+                                    "development_screen_contract": str(contract_path),
+                                },
+                            }
+                        ],
+                        "outcome": {
+                            "decision": "DEVELOPMENT_CANDIDATE",
+                            "promotion_allowed": False,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = build_payload(artifact, min_quota=5)
+
+        boundary = next(
+            check
+            for check in payload["checks"]
+            if check["name"] == "development_screen_boundary"
+        )
+        self.assertTrue(boundary["ok"])
+        self.assertEqual(payload["summary"]["research_value_status"], "HAS_FOLLOWUP_SIGNAL")
+
     def test_quota_above_cap_is_blocked(self) -> None:
         artifact = self.build_artifact(5, quota=6)
         self.assertEqual(build_payload(artifact, min_quota=5)["status"], "BLOCKED")

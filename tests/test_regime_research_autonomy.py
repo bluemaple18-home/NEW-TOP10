@@ -658,6 +658,27 @@ def test_strategy_matrix_filters_ranking_files_before_replay(tmp_path: Path) -> 
     assert [path.name for path in paths] == ["ranking_2026-01-03.csv"]
 
 
+def test_strategy_matrix_excludes_episode_tail_without_complete_holding_window() -> None:
+    trade_dates = [
+        date(2026, 2, 2),
+        date(2026, 2, 3),
+        date(2026, 2, 4),
+        date(2026, 2, 5),
+        date(2026, 2, 6),
+    ]
+    episode_by_date = {item.isoformat(): "episode-a" for item in trade_dates}
+
+    safe = matrix.exact_horizon_safe_ranking_dates(
+        {item.isoformat() for item in trade_dates},
+        episode_by_date,
+        trade_dates,
+        horizon=3,
+        entry_delay_trade_days=1,
+    )
+
+    assert safe == {"2026-02-02", "2026-02-03"}
+
+
 def test_exact_match_replay_rejects_holding_window_crossing_episode(tmp_path: Path) -> None:
     (tmp_path / "ranking_2026-03-02.csv").write_text("stock_id\n2330\n", encoding="utf-8")
     price_frame = pd.DataFrame(
@@ -1444,6 +1465,16 @@ def _run_adversarial_matrix_payload(
         "exact_regime_context",
         lambda _: (EXACT, {"2026-01-02"}, {"2026-01-02": "episode-1"}),
     )
+    monkeypatch.setattr(
+        matrix,
+        "exact_horizon_safe_ranking_dates",
+        lambda allowed_dates, *_args, **_kwargs: allowed_dates,
+    )
+    monkeypatch.setattr(
+        matrix.run_portfolio_replay.run_backtest_replay,
+        "market_trade_dates",
+        lambda _: [date(2026, 1, 2)],
+    )
     repeated_trade = {
         "stock_id": "2330",
         "ranking_date": "2026-01-02",
@@ -1806,6 +1837,44 @@ def _closed_history_rows() -> list[dict]:
             rows.append({"trade_date": cursor.isoformat(), "as_of_date": cursor.isoformat(), **EXACT})
             cursor += timedelta(days=1)
     return rows
+
+
+def test_development_matrix_scope_accepts_only_authoritative_development_episodes(
+    tmp_path: Path,
+) -> None:
+    history_rows = _closed_history_rows()
+    history_path = tmp_path / "market_regime_history.json"
+    history_path.write_text(json.dumps({"rows": history_rows}), encoding="utf-8")
+    contract = json.loads(
+        (research.PROJECT_ROOT / "config/regime_research_contract.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    lineage = research.statistical_lineage_authority(
+        rows=history_rows,
+        contract=contract,
+        regime_id=research.regime_identity_id(EXACT),
+        horizons=[3, 5, 10],
+    )
+    args = SimpleNamespace(
+        development_only=True,
+        require_exact_regime=True,
+        pre_registration=None,
+        experiment_registry=None,
+        market_regime_history=str(history_path),
+        base_regime=EXACT["base_regime"],
+        family_tags=",".join(EXACT["family_tags"]),
+        allowed_episode_ids=",".join(lineage["development_episode_ids"]),
+        horizons="3,5,10",
+    )
+
+    accepted = matrix.validate_development_scope(args)
+    assert accepted is not None
+    assert accepted["reason_code"] == "DEVELOPMENT_EPISODES_ONLY"
+
+    args.allowed_episode_ids = ",".join(lineage["sealed_episode_ids"])
+    with pytest.raises(ValueError, match="DEVELOPMENT_EPISODE_SCOPE_MISMATCH"):
+        matrix.validate_development_scope(args)
 
 
 def test_closed_manager_cli_writes_registration_split_and_append_only_trace(

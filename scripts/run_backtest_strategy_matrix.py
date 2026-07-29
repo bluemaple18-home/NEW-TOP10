@@ -57,6 +57,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base-regime", default=None)
     parser.add_argument("--family-tags", default="")
     parser.add_argument("--allowed-episode-ids", default=None)
+    parser.add_argument(
+        "--development-only",
+        action="store_true",
+        help="只允許 immutable development episodes；不接受 pre-registration 或正式候選輸出",
+    )
     parser.add_argument("--pre-registration", default=None)
     parser.add_argument("--experiment-registry", default=None)
     parser.add_argument("--output", default=None)
@@ -180,6 +185,48 @@ def exact_ranking_file_scope(allowed_dates: set[str] | None):
         yield
     finally:
         replay_module.ranking_files = original
+
+
+def exact_horizon_safe_ranking_dates(
+    allowed_dates: set[str] | None,
+    episode_by_date: dict[str, str] | None,
+    trade_dates: list[Any],
+    *,
+    horizon: int,
+    entry_delay_trade_days: int = 1,
+) -> set[str] | None:
+    """排除會讓 D+N holding window 跨出 immutable episode 的 ranking date。"""
+
+    if allowed_dates is None:
+        return None
+    if episode_by_date is None:
+        raise ValueError("exact-match horizon scope 缺少 episode authority")
+    safe: set[str] = set()
+    for ranking_date in sorted(allowed_dates):
+        entry_date = run_portfolio_replay.run_backtest_replay.next_market_trade_date(
+            trade_dates,
+            ranking_date,
+            entry_delay_trade_days,
+        )
+        if entry_date is None:
+            continue
+        holding_dates = run_portfolio_replay.run_backtest_replay.market_holding_dates(
+            trade_dates,
+            entry_date,
+            horizon,
+        )
+        if holding_dates is None:
+            continue
+        episode_id = episode_by_date.get(ranking_date)
+        window_dates = [ranking_date, *(item.isoformat() for item in holding_dates)]
+        if episode_id and all(episode_by_date.get(item) == episode_id for item in window_dates):
+            safe.add(ranking_date)
+    if not safe:
+        raise ValueError(
+            "NO_HORIZON_SAFE_EXACT_REGIME_RANKING_DATE: "
+            f"horizon={horizon} allowed_date_count={len(allowed_dates)}"
+        )
+    return safe
 
 
 def event_counts(trades: list[dict[str, Any]]) -> dict[str, int]:
@@ -357,7 +404,11 @@ def score_sort_value(item: dict[str, Any]) -> float:
 
 
 def expected_statistical_family(args: argparse.Namespace) -> dict[str, Any] | None:
-    if not bool(args.require_exact_regime) or not getattr(args, "pre_registration", None):
+    if (
+        bool(getattr(args, "development_only", False))
+        or not bool(args.require_exact_regime)
+        or not getattr(args, "pre_registration", None)
+    ):
         return None
     path = run_portfolio_replay.resolve_path(args.pre_registration)
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -430,7 +481,68 @@ def expected_statistical_family(args: argparse.Namespace) -> dict[str, Any] | No
     }
 
 
+def validate_development_scope(args: argparse.Namespace) -> dict[str, Any] | None:
+    if not bool(getattr(args, "development_only", False)):
+        return None
+    if not bool(args.require_exact_regime):
+        raise ValueError("--development-only 必須搭配 --require-exact-regime")
+    if getattr(args, "pre_registration", None) or getattr(args, "experiment_registry", None):
+        raise ValueError("--development-only 禁止 pre-registration 與 experiment registry")
+    if not args.market_regime_history or not args.base_regime:
+        raise ValueError("--development-only 缺少 exact-regime authority")
+    history_path = run_portfolio_replay.resolve_path(args.market_regime_history)
+    history = json.loads(history_path.read_text(encoding="utf-8"))
+    history_rows = history.get("rows") if isinstance(history.get("rows"), list) else []
+    contract = json.loads(TRUSTED_RESEARCH_CONTRACT_PATH.read_text(encoding="utf-8"))
+    regime_id = regime_research.regime_identity_id(
+        {
+            "base_regime": args.base_regime,
+            "family_tags": [
+                item.strip()
+                for item in str(getattr(args, "family_tags", "") or "").split(",")
+                if item.strip()
+            ],
+        }
+    )
+    lineage = regime_research.statistical_lineage_authority(
+        rows=history_rows,
+        contract=contract,
+        regime_id=regime_id,
+        horizons=[
+            int(item.strip())
+            for item in str(args.horizons).split(",")
+            if item.strip()
+        ],
+    )
+    requested = {
+        item.strip()
+        for item in str(getattr(args, "allowed_episode_ids", "") or "").split(",")
+        if item.strip()
+    }
+    expected = set(lineage["development_episode_ids"])
+    if requested != expected:
+        raise ValueError(
+            "DEVELOPMENT_EPISODE_SCOPE_MISMATCH: "
+            f"expected={sorted(expected)} observed={sorted(requested)}"
+        )
+    excluded = (
+        set(lineage["validation_episode_ids"])
+        | set(lineage["embargo_episode_ids"])
+        | set(lineage["sealed_episode_ids"])
+    )
+    if requested & excluded:
+        raise ValueError("DEVELOPMENT_SCOPE_CONTAINS_NON_DEVELOPMENT_EPISODE")
+    return {
+        "ok": True,
+        "reason_code": "DEVELOPMENT_EPISODES_ONLY",
+        "development_episode_ids": sorted(expected),
+        "excluded_episode_ids_hash": regime_research.canonical_json_hash(sorted(excluded)),
+        "sealed_trade_date_hash": lineage["sealed_trade_date_hash"],
+    }
+
+
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
+    development_scope = validate_development_scope(args)
     price_frame = run_portfolio_replay.run_backtest_replay.load_price_frame(
         run_portfolio_replay.resolve_path(args.features)
     )
@@ -443,26 +555,59 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     expected_family = expected_statistical_family(args)
     regime_identity, allowed_dates, episode_by_date = exact_regime_context(args)
     args.exact_regime_episode_by_date = episode_by_date
+    trade_dates = run_portfolio_replay.run_backtest_replay.market_trade_dates(price_frame)
     rows: list[dict[str, Any]] = []
-    with exact_ranking_file_scope(allowed_dates):
-        for scenario in scenarios:
+    horizon_safe_ranking_date_counts: dict[str, int] = {}
+    for scenario in scenarios:
+        horizon_safe_dates = exact_horizon_safe_ranking_dates(
+            allowed_dates,
+            episode_by_date,
+            trade_dates,
+            horizon=int(scenario["horizon"]),
+            entry_delay_trade_days=1,
+        )
+        horizon_safe_ranking_date_counts[str(scenario["horizon"])] = len(
+            horizon_safe_dates or []
+        )
+        with exact_ranking_file_scope(horizon_safe_dates):
             replay = run_portfolio_replay.run_portfolio_from_price_frame(replay_args(args, scenario), price_frame)
             rows.append(matrix_row(scenario, bind_trade_episode_clusters(replay, episode_by_date)))
     correction_family_id = str((expected_family or {}).get("correction_family_id") or "")
     annotate_statistical_lineage(rows, correction_family_id=correction_family_id)
     ranked_rows = sorted(rows, key=lambda item: (item["score"] is not None, score_sort_value(item)), reverse=True)
     best = ranked_rows[0] if ranked_rows else None
-    statistical_gate = (
-        regime_research.multiple_testing_gate(ranked_rows, expected_family=expected_family)
-        if args.require_exact_regime
-        else None
+    if bool(getattr(args, "development_only", False)):
+        statistical_gate = {
+            "ok": False,
+            "reason_code": "DEVELOPMENT_ONLY_NO_FORMAL_GATE",
+            "eligible_ids": [],
+            "evidence_complete": False,
+        }
+    else:
+        statistical_gate = (
+            regime_research.multiple_testing_gate(ranked_rows, expected_family=expected_family)
+            if args.require_exact_regime
+            else None
+        )
+    research_stage = (
+        regime_research.DEVELOPMENT_SCREEN_STAGE
+        if bool(getattr(args, "development_only", False))
+        else "COARSE_SCREEN"
     )
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "contract": {
             "source": "portfolio_replay_matrix",
-            "research_stage": "COARSE_SCREEN",
+            "research_stage": research_stage,
+            "development_only": bool(getattr(args, "development_only", False)),
+            "development_episodes_only": bool(getattr(args, "development_only", False)),
+            "sealed_data_read_allowed": False
+            if bool(getattr(args, "development_only", False))
+            else None,
+            "experiment_registry_write_allowed": False
+            if bool(getattr(args, "development_only", False))
+            else True,
             "model_feature": False,
             "ranking_score_change": False,
             "resource_mode": "read_existing_artifacts_only",
@@ -472,6 +617,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "transition_and_unknown_excluded": bool(args.require_exact_regime),
             "production_promotion_allowed": False,
             "raw_best_is_diagnostic_only": bool(args.require_exact_regime),
+            "formal_candidate_allowed": not bool(getattr(args, "development_only", False)),
         },
         "inputs": {
             "rankings_dir": str(run_portfolio_replay.resolve_path(args.rankings_dir)),
@@ -482,6 +628,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "regime_identity": regime_identity,
             "exact_match_ranking_date_count": len(allowed_dates or []),
             "exact_match_episode_ids": sorted(set((episode_by_date or {}).values())),
+            "horizon_safe_ranking_date_counts": horizon_safe_ranking_date_counts,
             "market_regime_history": args.market_regime_history,
             "exact_match_dataset_hash": (
                 regime_research.canonical_json_hash(sorted(allowed_dates)) if allowed_dates is not None else None
@@ -495,6 +642,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                 (expected_family or {}).get("global_combination_ids_hash")
             ),
             "registry_record_hash": (expected_family or {}).get("registry_record_hash"),
+            "development_scope": development_scope,
             "tested_combination_ids_hash": (
                 (expected_family or {}).get("tested_combination_ids_hash")
                 if args.require_exact_regime
@@ -508,8 +656,15 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "positive_return_count": sum((row.get("total_return") or 0) > 0 for row in rows),
             "negative_return_count": sum((row.get("total_return") or 0) < 0 for row in rows),
             "statistical_gate": statistical_gate,
-            "formal_candidate_scenario_ids": (statistical_gate or {}).get("eligible_ids", []),
+            "formal_candidate_scenario_ids": (
+                []
+                if bool(getattr(args, "development_only", False))
+                else (statistical_gate or {}).get("eligible_ids", [])
+            ),
             "round_decision": (
+                "DEVELOPMENT_SIGNAL_ONLY"
+                if bool(getattr(args, "development_only", False))
+                else
                 regime_research.research_round_decision(
                     [{"passed": True} for _ in (statistical_gate or {}).get("eligible_ids", [])],
                     sufficient_evidence=bool((statistical_gate or {}).get("evidence_complete")),

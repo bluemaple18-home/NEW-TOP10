@@ -62,6 +62,9 @@ grep -q 'TOP10_RUN_DATE mismatches immutable context' scripts/run_fog_research_w
 grep -q 'TOP10_RESEARCH_DATE mismatches immutable time context' scripts/run_daily_research_quota.sh
 grep -q 'TOP10_RESEARCH_BASELINE_DIR' scripts/run_daily_research_quota.sh
 grep -q -- '--baseline-dir "$BASELINE_DIR"' scripts/run_daily_research_quota.sh
+grep -q 'TOP10_RESEARCH_DEVELOPMENT_SCREEN_ENABLED:-1' scripts/run_daily_research_quota.sh
+grep -q -- '--development-screen-on-sealed-exhaustion' scripts/run_daily_research_quota.sh
+grep -q -- '--development-screen-topic-count "$DEVELOPMENT_SCREEN_TOPIC_COUNT"' scripts/run_daily_research_quota.sh
 grep -q 'TOP10_RESEARCH_FROM_QUEUE:-0' scripts/run_fog_research_worker.sh
 
 if grep -Eq '<key>(TZ|TOP10_RUN_DATE|TOP10_RESEARCH_DATE|TOP10_.*(FRESH|AGE|TIMEZONE))</key>' \

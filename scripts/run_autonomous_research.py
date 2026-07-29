@@ -39,6 +39,10 @@ MANAGER_SCHEMA_VERSION = "autonomous-research-manager.v1"
 TOPIC_BANK_SCHEMA_VERSION = "autonomous-research-topic-bank.v1"
 RUNNER_REGISTRY_SCHEMA_VERSION = "autonomous-research-runner-registry.v1"
 REGIME_RESEARCH_SCHEMA_VERSION = "closed-regime-research.v1"
+DEVELOPMENT_SCREEN_SCHEMA_VERSION = "development-screen-contract.v1"
+DEVELOPMENT_SCREEN_STAGE = "DEVELOPMENT_SCREEN"
+SEALED_VALIDATION_STAGE = "SEALED_VALIDATION"
+DEVELOPMENT_TOPIC_SUFFIX = ":development_screen"
 BASE_REGIME_LABELS = {
     "BROAD_RISK_ON",
     "NARROW_LEADER",
@@ -185,6 +189,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--include-rejected", action="store_true", help="相容舊入口；rejected topic 仍不得重跑")
     parser.add_argument("--no-manager-update", action="store_true", help="只產生本次 run artifact，不更新管理層狀態")
     parser.add_argument("--closed-regime-research", action="store_true", help="啟用 default-off 的 exact-match 封閉盤勢研究契約")
+    parser.add_argument(
+        "--development-screen-on-sealed-exhaustion",
+        action="store_true",
+        help="sealed capacity 尚不可用時，僅用 development episodes 做自主初篩",
+    )
+    parser.add_argument(
+        "--development-screen-topic-count",
+        type=int,
+        default=1,
+        help="單次 development-only 初篩最多執行幾題",
+    )
     parser.add_argument("--market-regime-history", default=None, help="含 as_of_date/base_regime/family_tags 的盤勢歷史 artifact")
     parser.add_argument("--research-contract", default="config/regime_research_contract.json")
     parser.add_argument("--coverage-map", default=None, help="既有 exact-match coverage records JSON；未指定視為尚無研究紀錄")
@@ -1588,24 +1603,31 @@ def canonical_exact_regime_allowed_dates(
     """以 matrix 共用的 episode split authority 重建可執行 development dates。"""
 
     run_date = date.fromisoformat(as_of_date)
+    parsed_horizons = parse_positive_ints(horizons)
     lineage = statistical_lineage_authority(
         rows=rows,
         contract=contract,
         regime_id=regime_identity_id(regime_identity),
-        horizons=parse_positive_ints(horizons),
+        horizons=parsed_horizons,
     )
     development = lineage["split_artifact"].get("development")
     if not isinstance(development, list):
         raise ValueError("canonical development episode authority 缺失")
-    allowed_dates = {
-        str(trade_date)
-        for episode in development
-        if isinstance(episode, dict)
-        for trade_date in episode.get("trade_dates", [])
-        if date.fromisoformat(str(trade_date)) <= run_date
-    }
+    max_horizon = max(parsed_horizons)
+    allowed_dates: set[str] = set()
+    for episode in development:
+        if not isinstance(episode, dict):
+            continue
+        trade_dates = [
+            str(trade_date)
+            for trade_date in episode.get("trade_dates", [])
+            if date.fromisoformat(str(trade_date)) <= run_date
+        ]
+        if len(trade_dates) <= max_horizon:
+            continue
+        allowed_dates.update(trade_dates[:-max_horizon])
     if not allowed_dates:
-        raise ValueError("canonical exact-regime allowed dates 不可為空")
+        raise ValueError("canonical exact-regime horizon-safe development dates 不可為空")
     return allowed_dates
 
 
@@ -1979,6 +2001,7 @@ def matrix_command(
     allowed_episode_ids: list[str] | None = None,
     pre_registration_path: Path | None = None,
     experiment_registry_path: Path | None = None,
+    research_stage: str | None = None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -2005,10 +2028,6 @@ def matrix_command(
             raise ValueError("closed regime matrix 缺少 regime identity/history")
         if not allowed_episode_ids:
             raise ValueError("closed regime matrix 缺少 immutable development episode IDs")
-        if pre_registration_path is None:
-            raise ValueError("closed regime matrix 缺少 immutable pre-registration")
-        if experiment_registry_path is None:
-            raise ValueError("closed regime matrix 缺少 manager experiment registry")
         command.extend(
             [
                 "--require-exact-regime",
@@ -2020,12 +2039,23 @@ def matrix_command(
                 ",".join(topic.regime_identity["family_tags"]),
                 "--allowed-episode-ids",
                 ",".join(allowed_episode_ids),
-                "--pre-registration",
-                repo_path(pre_registration_path) or str(pre_registration_path),
-                "--experiment-registry",
-                repo_path(experiment_registry_path) or str(experiment_registry_path),
             ]
         )
+        if research_stage == DEVELOPMENT_SCREEN_STAGE:
+            command.append("--development-only")
+        else:
+            if pre_registration_path is None:
+                raise ValueError("closed regime matrix 缺少 immutable pre-registration")
+            if experiment_registry_path is None:
+                raise ValueError("closed regime matrix 缺少 manager experiment registry")
+            command.extend(
+                [
+                    "--pre-registration",
+                    repo_path(pre_registration_path) or str(pre_registration_path),
+                    "--experiment-registry",
+                    repo_path(experiment_registry_path) or str(experiment_registry_path),
+                ]
+            )
     return command
 
 
@@ -2148,7 +2178,13 @@ def topic_allowed_by_manager(
     status = str(current.get("manager_status") or "candidate")
     run_count = int(current.get("run_count") or 0)
     if run_count == 0:
-        return status in {"candidate", "confirmed_for_next_replay", "partial_needs_followup", "blocked_missing_evidence"}
+        return status in {
+            "candidate",
+            "runtime_failed_retryable",
+            "confirmed_for_next_replay",
+            "partial_needs_followup",
+            "blocked_missing_evidence",
+        }
     policy = CONTROLLED_RERUN_POLICIES.get(status)
     if policy is None or run_count >= policy["max_run_count"]:
         return False
@@ -2166,8 +2202,23 @@ def select_topics_for_run(topics: list[ResearchTopic], args: argparse.Namespace)
     if not topics:
         return []
     count = max(1, int(args.execute_topic_count or 1))
+    development_limit = max(1, int(getattr(args, "development_screen_topic_count", 1) or 1))
     registry = load_topic_registry()
     last_run_at_by_topic = load_last_run_at_by_topic()
+
+    def limit_selection(candidates: list[ResearchTopic]) -> list[ResearchTopic]:
+        selected: list[ResearchTopic] = []
+        development_count = 0
+        for candidate in candidates:
+            if topic_research_stage(candidate) == DEVELOPMENT_SCREEN_STAGE:
+                if development_count >= development_limit:
+                    continue
+                development_count += 1
+            selected.append(candidate)
+            if len(selected) >= count:
+                break
+        return selected
+
     if args.from_queue:
         by_topic_id = {topic.topic_id: topic for topic in topics}
         selected: list[ResearchTopic] = []
@@ -2183,16 +2234,14 @@ def select_topics_for_run(topics: list[ResearchTopic], args: argparse.Namespace)
                 continue
             selected.append(topic)
             seen.add(topic_id)
-            if len(selected) >= count:
-                break
-        return selected
+        return limit_selection(selected)
     if count > 1:
         selected = [
             topic
             for topic in topics
             if topic_allowed_by_manager(topic, registry, args, last_run_at_by_topic=last_run_at_by_topic)
         ]
-        return selected[:count]
+        return limit_selection(selected)
     topic = selected_topic(topics, args.topic_index)
     if topic is None:
         return []
@@ -2276,7 +2325,7 @@ def is_active_bank_topic(topic_id: str, registry_rows: dict[str, dict[str, Any]]
     if int(current.get("run_count") or 0) > 0:
         return False
     status = str(current.get("manager_status") or "candidate")
-    return status == "candidate"
+    return status in {"candidate", "runtime_failed_retryable"}
 
 
 def write_topic_bank(
@@ -2312,11 +2361,51 @@ def write_topic_bank(
     return path
 
 
-def outcome_from_comparison(path: Path | None) -> dict[str, Any]:
+def outcome_from_comparison(
+    path: Path | None,
+    *,
+    research_stage: str | None = None,
+) -> dict[str, Any]:
     payload = load_json(path)
     rows = {row.get("variant"): row for row in payload.get("summary", [])}
     baseline = rows.get("baseline") or {}
     candidate = rows.get("candidate") or {}
+    observed_stage = str(
+        research_stage
+        or candidate.get("research_stage")
+        or baseline.get("research_stage")
+        or ""
+    )
+    if observed_stage == DEVELOPMENT_SCREEN_STAGE:
+        score_delta = delta(candidate.get("best_score"), baseline.get("best_score"))
+        return_delta = delta(candidate.get("best_total_return"), baseline.get("best_total_return"))
+        drawdown_delta = delta(candidate.get("best_max_drawdown"), baseline.get("best_max_drawdown"))
+        if score_delta is None:
+            decision = "DEVELOPMENT_NO_COMPARISON_EVIDENCE"
+        elif (
+            score_delta > 0
+            and return_delta is not None
+            and return_delta >= 0
+            and drawdown_delta is not None
+            and drawdown_delta >= 0
+        ):
+            decision = "DEVELOPMENT_CANDIDATE"
+        elif score_delta > 0:
+            decision = "DEVELOPMENT_PARTIAL_SIGNAL"
+        else:
+            decision = "DEVELOPMENT_REJECTED"
+        return {
+            "decision": decision,
+            "research_stage": DEVELOPMENT_SCREEN_STAGE,
+            "score_delta": score_delta,
+            "return_delta": return_delta,
+            "drawdown_delta": drawdown_delta,
+            "baseline": baseline,
+            "candidate": candidate,
+            "sealed_validation_required": True,
+            "formal_candidate_allowed": False,
+            "promotion_allowed": False,
+        }
     if candidate.get("exact_match_regime_required") and candidate.get("statistical_gate_ok") is not True:
         matrix_path = resolve_path(candidate.get("path"))
         matrix_payload = load_json(matrix_path)
@@ -2367,6 +2456,14 @@ def outcome_from_comparison(path: Path | None) -> dict[str, Any]:
 def topic_manager_status(topic: dict[str, Any], run_outcome: dict[str, Any] | None = None) -> str:
     if run_outcome:
         decision = run_outcome.get("decision")
+        if decision == "DEVELOPMENT_CANDIDATE":
+            return "development_screen_passed"
+        if decision == "DEVELOPMENT_PARTIAL_SIGNAL":
+            return "development_screen_followup"
+        if decision == "DEVELOPMENT_REJECTED":
+            return "development_screen_rejected"
+        if decision == "DEVELOPMENT_NO_COMPARISON_EVIDENCE":
+            return "development_screen_inconclusive"
         if decision == "CONFIRMED_FOR_NEXT_REPLAY":
             return "confirmed_for_next_replay"
         if decision == "PARTIAL_SCORE_ONLY":
@@ -2388,6 +2485,11 @@ def next_action_for_status(status: str, topic: dict[str, Any]) -> str:
         "rejected": "archive_or_wait_for_new_evidence",
         "blocked_missing_evidence": "inspect_runner_outputs_and_missing_artifacts",
         "no_strategy": "wait_for_new_pre_registered_hypothesis",
+        "development_screen_passed": "wait_for_fresh_sealed_episode",
+        "development_screen_followup": "review_development_signal_before_sealed_validation",
+        "development_screen_rejected": "archive_development_hypothesis",
+        "development_screen_inconclusive": "inspect_development_screen_evidence",
+        "runtime_failed_retryable": "retry_after_runtime_fix",
     }
     return mapping.get(status, f"manual_review:{topic.get('topic_id')}")
 
@@ -2434,25 +2536,57 @@ def update_manager(payload: dict[str, Any], run_output: Path) -> dict[str, Any]:
         for run in topic_runs
         if run.get("topic", {}).get("topic_id")
     }
+    run_status_by_topic = {
+        run.get("topic", {}).get("topic_id"): str(run.get("status") or "FAILED")
+        for run in topic_runs
+        if run.get("topic", {}).get("topic_id")
+    }
     for topic in payload.get("topics", []):
         topic_id = topic.get("topic_id")
         if not topic_id:
             continue
         current = registry_rows.get(topic_id, {})
         run_outcome = outcome_by_topic.get(topic_id) if payload["inputs"].get("execute") else None
-        manager_status = topic_manager_status(current or topic, run_outcome)
+        successful_run = (
+            topic_id in selected_ids
+            and payload["inputs"].get("execute") is True
+            and run_status_by_topic.get(topic_id) == "OK"
+        )
+        failed_run = (
+            topic_id in selected_ids
+            and payload["inputs"].get("execute") is True
+            and run_status_by_topic.get(topic_id) != "OK"
+        )
+        manager_status = (
+            "runtime_failed_retryable"
+            if failed_run
+            else topic_manager_status(
+                current or topic,
+                run_outcome if successful_run else None,
+            )
+        )
         registry_rows[topic_id] = {
             **current,
             **topic,
             "manager_status": manager_status,
             "next_action": next_action_for_status(manager_status, topic),
             "last_seen_at": now,
-            "last_run_output": repo_path(run_output) if topic_id in selected_ids else current.get("last_run_output"),
-            "last_run_at": now
-            if topic_id in selected_ids and payload["inputs"].get("execute")
-            else current.get("last_run_at"),
-            "last_decision": (run_outcome or {}).get("decision") if topic_id in selected_ids else current.get("last_decision"),
-            "run_count": int(current.get("run_count") or 0) + (1 if topic_id in selected_ids and payload["inputs"].get("execute") else 0),
+            "last_run_output": repo_path(run_output)
+            if successful_run
+            else current.get("last_run_output"),
+            "last_run_at": now if successful_run else current.get("last_run_at"),
+            "last_decision": (run_outcome or {}).get("decision")
+            if successful_run
+            else current.get("last_decision"),
+            "run_count": int(current.get("run_count") or 0) + (1 if successful_run else 0),
+            "failure_count": int(current.get("failure_count") or 0) + (1 if failed_run else 0),
+            "last_failure_at": now if failed_run else current.get("last_failure_at"),
+            "last_failure_output": repo_path(run_output)
+            if failed_run
+            else current.get("last_failure_output"),
+            "last_failure_decision": (run_outcome or {}).get("decision")
+            if failed_run
+            else current.get("last_failure_decision"),
         }
 
     history = load_list_payload(paths["history"], "runs")
@@ -2629,6 +2763,60 @@ def closed_experiment_context(args: argparse.Namespace, topic: ResearchTopic) ->
     }
 
 
+def development_topic_id(topic_id: str) -> str:
+    return topic_id if topic_id.endswith(DEVELOPMENT_TOPIC_SUFFIX) else f"{topic_id}{DEVELOPMENT_TOPIC_SUFFIX}"
+
+
+def topic_research_stage(topic: ResearchTopic) -> str:
+    rationale = topic.selection_rationale or {}
+    stage = str(rationale.get("research_stage") or "")
+    if stage:
+        return stage
+    return DEVELOPMENT_SCREEN_STAGE if topic.topic_id.endswith(DEVELOPMENT_TOPIC_SUFFIX) else SEALED_VALIDATION_STAGE
+
+
+def as_development_screen_topic(
+    topic: ResearchTopic,
+    *,
+    lineage: dict[str, Any],
+    sealed_capacity: dict[str, Any] | None,
+) -> ResearchTopic:
+    rationale = dict(topic.selection_rationale or {})
+    rationale.update(
+        {
+            "research_stage": DEVELOPMENT_SCREEN_STAGE,
+            "parent_topic_id": topic.topic_id,
+            "sealed_capacity": {
+                "eligible": False,
+                **(sealed_capacity or {"reason_code": "DEVELOPMENT_SCREEN_REQUIRED"}),
+            },
+            "development_contract": {
+                "schema_version": DEVELOPMENT_SCREEN_SCHEMA_VERSION,
+                "exact_match_required": True,
+                "development_episode_ids": list(lineage.get("development_episode_ids") or []),
+                "excluded_validation_episode_ids": list(lineage.get("validation_episode_ids") or []),
+                "excluded_embargo_episode_ids": list(lineage.get("embargo_episode_ids") or []),
+                "excluded_sealed_episode_ids": list(lineage.get("sealed_episode_ids") or []),
+                "sealed_trade_date_hash": lineage.get("sealed_trade_date_hash"),
+                "experiment_registry_write_allowed": False,
+                "production_promotion_allowed": False,
+            },
+        }
+    )
+    return replace(
+        topic,
+        topic_id=development_topic_id(topic.topic_id),
+        title=f"{topic.title}｜development-only 初篩",
+        validation_plan=(
+            "只使用 immutable development episodes 執行 exact-regime strategy matrix；"
+            "validation／embargo／sealed episodes 全數排除，結果僅供候選排序。"
+        ),
+        eligible=True,
+        reason_code="DEVELOPMENT_SCREEN_ONLY",
+        selection_rationale=rationale,
+    )
+
+
 def apply_closed_experiment_capacity(
     topics: list[ResearchTopic],
     args: argparse.Namespace,
@@ -2662,6 +2850,15 @@ def apply_closed_experiment_capacity(
             sealed_dataset_slice_hash=str(lineage["sealed_dataset_slice_hash"]),
         )
         if reuse is not None:
+            if bool(getattr(args, "development_screen_on_sealed_exhaustion", False)):
+                result.append(
+                    as_development_screen_topic(
+                        topic,
+                        lineage=lineage,
+                        sealed_capacity=reuse,
+                    )
+                )
+                continue
             rationale = dict(topic.selection_rationale or {})
             rationale["sealed_capacity"] = {
                 "eligible": False,
@@ -2676,6 +2873,43 @@ def apply_closed_experiment_capacity(
                 )
             )
             continue
+        if bool(getattr(args, "development_screen_on_sealed_exhaustion", False)):
+            development_record = manager_registry.get(development_topic_id(topic.topic_id), {})
+            development_status = str(development_record.get("manager_status") or "")
+            if development_status != "development_screen_passed":
+                if int(development_record.get("run_count") or 0) == 0:
+                    result.append(
+                        as_development_screen_topic(
+                            topic,
+                            lineage=lineage,
+                            sealed_capacity=None,
+                        )
+                    )
+                else:
+                    rationale = dict(topic.selection_rationale or {})
+                    rationale["research_stage"] = SEALED_VALIDATION_STAGE
+                    rationale["development_screen"] = {
+                        "eligible": False,
+                        "reason_code": "DEVELOPMENT_SCREEN_NOT_PASSED",
+                        "manager_status": development_status,
+                    }
+                    result.append(
+                        replace(
+                            topic,
+                            eligible=False,
+                            reason_code="DEVELOPMENT_SCREEN_NOT_PASSED",
+                            selection_rationale=rationale,
+                        )
+                    )
+                continue
+            rationale = dict(topic.selection_rationale or {})
+            rationale["research_stage"] = SEALED_VALIDATION_STAGE
+            rationale["development_screen"] = {
+                "eligible": True,
+                "manager_status": development_status,
+                "source_topic_id": development_topic_id(topic.topic_id),
+            }
+            topic = replace(topic, selection_rationale=rationale)
         result.append(topic)
         if bool(getattr(args, "execute", False)) and topic_allowed_by_manager(
             topic,
@@ -2693,6 +2927,50 @@ def apply_closed_experiment_capacity(
                 }
             )
     return result
+
+
+def prepare_development_screen(
+    args: argparse.Namespace,
+    topic: ResearchTopic,
+    run_dir: Path,
+) -> dict[str, Any]:
+    context = closed_experiment_context(args, topic)
+    lineage = context["lineage"]
+    development_episode_ids = list(lineage.get("development_episode_ids") or [])
+    if not development_episode_ids:
+        raise ValueError("development screen 缺少 immutable development episode IDs")
+    contract = {
+        "schema_version": DEVELOPMENT_SCREEN_SCHEMA_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "research_stage": DEVELOPMENT_SCREEN_STAGE,
+        "topic_id": topic.topic_id,
+        "parent_topic_id": str((topic.selection_rationale or {}).get("parent_topic_id") or topic.topic_id),
+        "regime_id": context["regime_id"],
+        "dataset_hash": lineage.get("dataset_hash"),
+        "split_id": lineage.get("split_id"),
+        "split_artifact_hash": lineage.get("split_artifact_hash"),
+        "development_episode_ids": development_episode_ids,
+        "excluded_episode_ids": {
+            "validation": list(lineage.get("validation_episode_ids") or []),
+            "embargo": list(lineage.get("embargo_episode_ids") or []),
+            "sealed": list(lineage.get("sealed_episode_ids") or []),
+        },
+        "sealed_trade_date_hash": lineage.get("sealed_trade_date_hash"),
+        "boundary": {
+            "exact_match_required": True,
+            "sealed_data_read_allowed": False,
+            "experiment_registry_write_allowed": False,
+            "formal_candidate_allowed": False,
+            "production_promotion_allowed": False,
+        },
+    }
+    path = run_dir / f"{slugify(topic.topic_id)}_development_screen_contract.json"
+    write_text_atomic(path, json.dumps(contract, ensure_ascii=False, indent=2, allow_nan=False))
+    return {
+        "contract": contract,
+        "contract_path": path,
+        "development_episode_ids": development_episode_ids,
+    }
 
 
 def prepare_closed_experiment(
@@ -2809,12 +3087,26 @@ def parse_positive_ints(value: str) -> list[int]:
 def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, str]]:
     if not topic.eligible:
         raise ValueError(f"topic 不符合執行資格：{topic.topic_id} ({topic.reason_code})")
+    research_stage = topic_research_stage(topic)
+    development = (
+        prepare_development_screen(args, topic, run_dir)
+        if bool(getattr(args, "closed_regime_research", False))
+        and research_stage == DEVELOPMENT_SCREEN_STAGE
+        else None
+    )
     closed = (
         prepare_closed_experiment(args, topic, run_dir)
         if bool(getattr(args, "closed_regime_research", False))
+        and research_stage != DEVELOPMENT_SCREEN_STAGE
         else None
     )
-    allowed_episode_ids = closed["development_episode_ids"] if closed else None
+    allowed_episode_ids = (
+        development["development_episode_ids"]
+        if development
+        else closed["development_episode_ids"]
+        if closed
+        else None
+    )
     slug = slugify(topic.topic_id)
     baseline_output = run_dir / f"{slug}_baseline_strategy_matrix.json"
     candidate_output = run_dir / f"{slug}_candidate_strategy_matrix.json"
@@ -2830,6 +3122,7 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 allowed_episode_ids=allowed_episode_ids,
                 pre_registration_path=closed["registration_path"] if closed else None,
                 experiment_registry_path=closed["registry_path"] if closed else None,
+                research_stage=research_stage,
             ),
         ),
         (
@@ -2842,6 +3135,7 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 allowed_episode_ids=allowed_episode_ids,
                 pre_registration_path=closed["registration_path"] if closed else None,
                 experiment_registry_path=closed["registry_path"] if closed else None,
+                research_stage=research_stage,
             ),
         ),
         (
@@ -2875,12 +3169,19 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
         steps.append(step)
         if step["status"] != "OK":
             failed = name
-    outcome = outcome_from_comparison(comparison_output if comparison_output.exists() else None)
+    outcome = outcome_from_comparison(
+        comparison_output if comparison_output.exists() else None,
+        research_stage=research_stage,
+    )
     outputs = {
         "baseline_strategy_matrix": repo_path(baseline_output) or str(baseline_output),
         "candidate_strategy_matrix": repo_path(candidate_output) or str(candidate_output),
         "comparison": repo_path(comparison_output) or str(comparison_output),
     }
+    if development:
+        outputs["development_screen_contract"] = (
+            repo_path(development["contract_path"]) or str(development["contract_path"])
+        )
     if closed:
         execution_evidence_path = run_dir / f"{slug}_closed_execution_evidence.json"
         write_text_atomic(
@@ -2960,6 +3261,11 @@ def build_payload(
             "closed_regime_research": bool(getattr(args, "closed_regime_research", False)),
             "exact_match_required": bool(getattr(args, "closed_regime_research", False)),
             "sealed_oos_required_before_policy_candidate": bool(getattr(args, "closed_regime_research", False)),
+            "development_screen_enabled": bool(
+                getattr(args, "development_screen_on_sealed_exhaustion", False)
+            ),
+            "development_screen_uses_development_episodes_only": True,
+            "development_screen_registry_write_allowed": False,
         },
         "inputs": {
             "execute": args.execute,
@@ -2978,6 +3284,12 @@ def build_payload(
             "max_group_exposures": args.max_group_exposures,
             "manager_update": not args.no_manager_update,
             "closed_regime_research": bool(getattr(args, "closed_regime_research", False)),
+            "development_screen_on_sealed_exhaustion": bool(
+                getattr(args, "development_screen_on_sealed_exhaustion", False)
+            ),
+            "development_screen_topic_count": int(
+                getattr(args, "development_screen_topic_count", 1) or 1
+            ),
             "market_regime_history": getattr(args, "market_regime_history", None),
             "research_contract": getattr(args, "research_contract", None),
             "coverage_map": getattr(args, "coverage_map", None),

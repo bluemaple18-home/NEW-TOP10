@@ -22,8 +22,18 @@ from scripts.verify_closed_regime_runtime import verify_receipt
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "daily-research-quota-verification.v2"
 REPORT_SCHEMA = "autonomous-research-run.v1"
-FOLLOWUP_DECISIONS = {"CONFIRMED_FOR_NEXT_REPLAY", "PARTIAL_SCORE_ONLY"}
-REJECTION_DECISIONS = {"REJECTED_BY_STRATEGY_MATRIX", "NO_COMPARISON_EVIDENCE"}
+FOLLOWUP_DECISIONS = {
+    "CONFIRMED_FOR_NEXT_REPLAY",
+    "PARTIAL_SCORE_ONLY",
+    "DEVELOPMENT_CANDIDATE",
+    "DEVELOPMENT_PARTIAL_SIGNAL",
+}
+REJECTION_DECISIONS = {
+    "REJECTED_BY_STRATEGY_MATRIX",
+    "NO_COMPARISON_EVIDENCE",
+    "DEVELOPMENT_REJECTED",
+    "DEVELOPMENT_NO_COMPARISON_EVIDENCE",
+}
 SUCCESS_STATES = {"COMPLETED", "PARTIAL_NO_MORE_WORK"}
 
 
@@ -83,6 +93,43 @@ def build_payload(
     allowed_scripts = {"scripts/run_backtest_strategy_matrix.py", "scripts/compare_strategy_matrices.py"}
     decisions = [(run.get("outcome") or {}).get("decision") for run in topic_runs]
     outcome = payload.get("outcome") if isinstance(payload.get("outcome"), dict) else {}
+    development_runs = [
+        run
+        for run in topic_runs
+        if (run.get("outcome") or {}).get("research_stage") == "DEVELOPMENT_SCREEN"
+    ]
+    development_boundary_violations: list[dict[str, Any]] = []
+    for run in development_runs:
+        topic_id = str((run.get("topic") or {}).get("topic_id") or "")
+        commands = [
+            step.get("command")
+            for step in run.get("steps", [])
+            if isinstance(step.get("command"), list)
+        ]
+        matrix_commands = [
+            command
+            for command in commands
+            if len(command) > 1 and command[1] == "scripts/run_backtest_strategy_matrix.py"
+        ]
+        outputs = run.get("outputs") if isinstance(run.get("outputs"), dict) else {}
+        contract_path_value = outputs.get("development_screen_contract")
+        contract_path = resolve_path(contract_path_value)
+        reasons = []
+        if not matrix_commands or any("--development-only" not in command for command in matrix_commands):
+            reasons.append("MISSING_DEVELOPMENT_ONLY_RUNNER_FLAG")
+        if any(
+            "--pre-registration" in command or "--experiment-registry" in command
+            for command in matrix_commands
+        ):
+            reasons.append("DEVELOPMENT_RUN_REFERENCES_CLOSED_REGISTRY")
+        if contract_path is None or not contract_path.exists():
+            reasons.append("MISSING_DEVELOPMENT_SCREEN_CONTRACT")
+        if (run.get("outcome") or {}).get("promotion_allowed") is not False:
+            reasons.append("DEVELOPMENT_RUN_PROMOTION_NOT_BLOCKED")
+        if reasons:
+            development_boundary_violations.append(
+                {"topic_id": topic_id, "reason_codes": reasons}
+            )
     quota = int(inputs.get("execute_topic_count") or 0)
     queue_empty = inputs.get("from_queue") is True and outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs
     followup_count = sum(1 for decision in decisions if decision in FOLLOWUP_DECISIONS)
@@ -143,6 +190,21 @@ def build_payload(
             "name": "all_topic_runs_ok",
             "ok": all(run.get("status") == "OK" for run in topic_runs),
             "value": [{"topic_id": (run.get("topic") or {}).get("topic_id"), "status": run.get("status")} for run in topic_runs],
+        },
+        {
+            "name": "development_screen_boundary",
+            "ok": not development_boundary_violations
+            and (
+                not development_runs
+                or (
+                    contract.get("development_screen_enabled") is True
+                    and contract.get("development_screen_registry_write_allowed") is False
+                )
+            ),
+            "value": {
+                "development_run_count": len(development_runs),
+                "violations": development_boundary_violations,
+            },
         },
     ]
     runtime_receipt_result: dict[str, Any] | None = None

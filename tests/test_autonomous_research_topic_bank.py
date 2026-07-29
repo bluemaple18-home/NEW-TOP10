@@ -223,6 +223,356 @@ class AutonomousResearchTopicBankTests(unittest.TestCase):
             "experiment:used",
         )
 
+    def test_used_sealed_dataset_routes_to_development_screen(self):
+        topic = replace(
+            self.make_topic("used-sealed-development"),
+            regime_identity={"base_regime": "RISK_OFF", "family_tags": []},
+            reason_code="ELIGIBLE",
+        )
+        lineage = {
+            "dataset_hash": "sha256:dataset",
+            "split_id": "sha256:split",
+            "development_episode_ids": ["sha256:development-1", "sha256:development-2"],
+            "validation_episode_ids": ["sha256:validation"],
+            "embargo_episode_ids": ["sha256:embargo"],
+            "sealed_episode_ids": ["sha256:sealed-episode"],
+            "sealed_trade_dates": ["2026-07-22", "2026-07-23"],
+            "sealed_trade_date_hash": "sha256:sealed-dates",
+            "sealed_dataset_slice_hash": "sha256:sealed-slice",
+        }
+        registry = [
+            {
+                "experiment_id": "experiment:used",
+                "sealed_episode_ids": lineage["sealed_episode_ids"],
+                "sealed_trade_dates": lineage["sealed_trade_dates"],
+                "sealed_trade_date_hash": lineage["sealed_trade_date_hash"],
+                "sealed_dataset_slice_hash": lineage["sealed_dataset_slice_hash"],
+            }
+        ]
+        args = self.manager_args(
+            closed_regime_research=True,
+            development_screen_on_sealed_exhaustion=True,
+        )
+
+        with (
+            patch.object(research, "closed_experiment_context", return_value={"lineage": lineage}),
+            patch.object(research, "load_experiment_registry", return_value=registry),
+            patch.object(research, "load_topic_registry", return_value={}),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            topics = research.apply_closed_experiment_capacity([topic], args)
+
+        self.assertTrue(topics[0].eligible)
+        self.assertEqual(topics[0].reason_code, "DEVELOPMENT_SCREEN_ONLY")
+        self.assertTrue(topics[0].topic_id.endswith(":development_screen"))
+        self.assertEqual(
+            topics[0].selection_rationale["research_stage"],
+            "DEVELOPMENT_SCREEN",
+        )
+        self.assertFalse(
+            topics[0].selection_rationale["development_contract"]["experiment_registry_write_allowed"]
+        )
+
+    def test_fresh_sealed_capacity_requires_passed_development_screen(self):
+        topic = replace(
+            self.make_topic("fresh-after-development"),
+            regime_identity={"base_regime": "RISK_OFF", "family_tags": []},
+            reason_code="ELIGIBLE",
+        )
+        lineage = {
+            "dataset_hash": "sha256:dataset",
+            "split_id": "sha256:split",
+            "development_episode_ids": ["sha256:development-1", "sha256:development-2"],
+            "validation_episode_ids": ["sha256:validation"],
+            "embargo_episode_ids": ["sha256:embargo"],
+            "sealed_episode_ids": ["sha256:fresh-sealed"],
+            "sealed_trade_dates": ["2026-08-03", "2026-08-04"],
+            "sealed_trade_date_hash": "sha256:fresh-sealed-dates",
+            "sealed_dataset_slice_hash": "sha256:fresh-sealed-slice",
+        }
+        args = self.manager_args(
+            closed_regime_research=True,
+            development_screen_on_sealed_exhaustion=True,
+        )
+
+        with (
+            patch.object(research, "closed_experiment_context", return_value={"lineage": lineage}),
+            patch.object(research, "load_experiment_registry", return_value=[]),
+            patch.object(research, "load_topic_registry", return_value={}),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            before_screen = research.apply_closed_experiment_capacity([topic], args)
+
+        development_id = f"{topic.topic_id}:development_screen"
+        manager_registry = {
+            development_id: {
+                "topic_id": development_id,
+                "manager_status": "development_screen_passed",
+                "run_count": 1,
+            }
+        }
+        with (
+            patch.object(research, "closed_experiment_context", return_value={"lineage": lineage}),
+            patch.object(research, "load_experiment_registry", return_value=[]),
+            patch.object(research, "load_topic_registry", return_value=manager_registry),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            after_screen = research.apply_closed_experiment_capacity([topic], args)
+
+        self.assertEqual(before_screen[0].topic_id, development_id)
+        self.assertEqual(before_screen[0].reason_code, "DEVELOPMENT_SCREEN_ONLY")
+        self.assertEqual(after_screen[0].topic_id, topic.topic_id)
+        self.assertEqual(after_screen[0].reason_code, "ELIGIBLE")
+
+    def test_development_matrix_uses_exact_episode_scope_without_closed_registry(self):
+        topic = replace(
+            self.make_topic("development-command"),
+            regime_identity={"base_regime": "RISK_OFF", "family_tags": []},
+            reason_code="DEVELOPMENT_SCREEN_ONLY",
+            selection_rationale={"research_stage": "DEVELOPMENT_SCREEN"},
+        )
+        args = argparse.Namespace(
+            features="data/clean/features.parquet",
+            max_ranking_files=8,
+            horizons="3,5,10",
+            stop_loss_pcts="none,0.08,0.12",
+            take_profit_pcts="none,0.15,0.25",
+            max_group_exposures="none,0.35,0.55",
+            closed_regime_research=True,
+            market_regime_history="artifacts/market_regime_history.json",
+        )
+
+        command = research.matrix_command(
+            args,
+            topic.candidate_dir,
+            "out.json",
+            topic,
+            allowed_episode_ids=["sha256:development-1"],
+            research_stage="DEVELOPMENT_SCREEN",
+        )
+
+        self.assertIn("--require-exact-regime", command)
+        self.assertIn("--development-only", command)
+        self.assertNotIn("--pre-registration", command)
+        self.assertNotIn("--experiment-registry", command)
+
+    def test_development_selection_respects_its_own_batch_cap(self):
+        topics = [
+            replace(
+                self.make_topic(f"development-cap-{index}"),
+                reason_code="DEVELOPMENT_SCREEN_ONLY",
+                selection_rationale={"research_stage": "DEVELOPMENT_SCREEN"},
+            )
+            for index in range(3)
+        ]
+        args = self.manager_args(
+            from_queue=False,
+            execute_topic_count=5,
+            development_screen_topic_count=1,
+        )
+
+        with (
+            patch.object(research, "load_topic_registry", return_value={}),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            selected = research.select_topics_for_run(topics, args)
+
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0].topic_id, topics[0].topic_id)
+
+    def test_development_outcome_is_diagnostic_and_never_promotes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "comparison.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "summary": [
+                            {
+                                "variant": "baseline",
+                                "research_stage": "DEVELOPMENT_SCREEN",
+                                "best_score": 0.1,
+                                "best_total_return": 0.01,
+                                "best_max_drawdown": -0.10,
+                            },
+                            {
+                                "variant": "candidate",
+                                "research_stage": "DEVELOPMENT_SCREEN",
+                                "best_score": 0.2,
+                                "best_total_return": 0.02,
+                                "best_max_drawdown": -0.09,
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            outcome = research.outcome_from_comparison(
+                path,
+                research_stage="DEVELOPMENT_SCREEN",
+            )
+
+        self.assertEqual(outcome["decision"], "DEVELOPMENT_CANDIDATE")
+        self.assertTrue(outcome["sealed_validation_required"])
+        self.assertFalse(outcome["formal_candidate_allowed"])
+        self.assertFalse(outcome["promotion_allowed"])
+
+    def test_development_execution_writes_contract_without_closed_registry(self):
+        topic = replace(
+            self.make_topic("development-execution"),
+            topic_id="topic:development-execution:development_screen",
+            regime_identity={"base_regime": "RISK_OFF", "family_tags": []},
+            reason_code="DEVELOPMENT_SCREEN_ONLY",
+            selection_rationale={
+                "research_stage": "DEVELOPMENT_SCREEN",
+                "parent_topic_id": "topic:development-execution",
+            },
+        )
+        lineage = {
+            "dataset_hash": "sha256:dataset",
+            "split_id": "sha256:split",
+            "split_artifact_hash": "sha256:split-artifact",
+            "development_episode_ids": ["sha256:development-1", "sha256:development-2"],
+            "validation_episode_ids": ["sha256:validation"],
+            "embargo_episode_ids": ["sha256:embargo"],
+            "sealed_episode_ids": ["sha256:sealed"],
+            "sealed_trade_date_hash": "sha256:sealed-dates",
+        }
+        args = argparse.Namespace(
+            features="data/clean/features.parquet",
+            max_ranking_files=8,
+            horizons="3,5,10",
+            stop_loss_pcts="none,0.08,0.12",
+            take_profit_pcts="none,0.15,0.25",
+            max_group_exposures="none,0.35,0.55",
+            closed_regime_research=True,
+            market_regime_history="artifacts/market_regime_history.json",
+        )
+
+        def fake_run_step(name: str, command: list[str]):
+            output = Path(command[command.index("--output") + 1])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            if name == "compare.strategy_matrices":
+                output.write_text(
+                    json.dumps(
+                        {
+                            "summary": [
+                                {
+                                    "variant": "baseline",
+                                    "research_stage": "DEVELOPMENT_SCREEN",
+                                    "best_score": 0.1,
+                                    "best_total_return": 0.01,
+                                    "best_max_drawdown": -0.10,
+                                },
+                                {
+                                    "variant": "candidate",
+                                    "research_stage": "DEVELOPMENT_SCREEN",
+                                    "best_score": 0.2,
+                                    "best_total_return": 0.02,
+                                    "best_max_drawdown": -0.09,
+                                },
+                            ]
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            else:
+                output.write_text("{}", encoding="utf-8")
+            return {
+                "name": name,
+                "status": "OK",
+                "returncode": 0,
+                "started_at": "2026-07-29T00:00:00+00:00",
+                "ended_at": "2026-07-29T00:00:01+00:00",
+                "command": command,
+                "stdout_tail": "",
+                "stderr_tail": "",
+            }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / "manager"
+            run_dir = Path(tmp) / "run"
+            run_dir.mkdir()
+            with (
+                patch.object(research, "OUTPUT_DIR", output_dir),
+                patch.object(
+                    research,
+                    "closed_experiment_context",
+                    return_value={
+                        "lineage": lineage,
+                        "regime_id": "RISK_OFF|",
+                        "contract": {},
+                    },
+                ),
+                patch.object(research, "run_step", side_effect=fake_run_step),
+            ):
+                steps, outcome, outputs = research.execute_topic(args, topic, run_dir)
+
+            contract_path = Path(outputs["development_screen_contract"])
+            self.assertTrue(contract_path.exists())
+            self.assertFalse((output_dir / "closed_experiment_registry.jsonl").exists())
+
+        matrix_steps = [
+            step
+            for step in steps
+            if step["name"] in {"baseline.strategy_matrix", "candidate.strategy_matrix"}
+        ]
+        self.assertEqual(len(matrix_steps), 2)
+        for step in matrix_steps:
+            self.assertIn("--development-only", step["command"])
+            self.assertNotIn("--experiment-registry", step["command"])
+        self.assertEqual(outcome["decision"], "DEVELOPMENT_CANDIDATE")
+        self.assertFalse(outcome["promotion_allowed"])
+
+    def test_failed_development_run_stays_retryable_without_consuming_topic(self):
+        topic = replace(
+            self.make_topic("development-runtime-failure"),
+            topic_id="topic:development-runtime-failure:development_screen",
+            reason_code="DEVELOPMENT_SCREEN_ONLY",
+            selection_rationale={"research_stage": "DEVELOPMENT_SCREEN"},
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            original_output_dir = research.OUTPUT_DIR
+            try:
+                research.OUTPUT_DIR = Path(tmp)
+                output = Path(tmp) / "failed_run.json"
+                payload = {
+                    "date": "2026-07-29",
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "FAILED",
+                    "inputs": {"execute": True},
+                    "topics": [research.topic_to_json(topic)],
+                    "all_topics": [research.topic_to_json(topic)],
+                    "selected_topics": [research.topic_to_json(topic)],
+                    "topic_runs": [
+                        {
+                            "topic": research.topic_to_json(topic),
+                            "status": "FAILED",
+                            "outcome": {
+                                "decision": "DEVELOPMENT_NO_COMPARISON_EVIDENCE",
+                                "research_stage": "DEVELOPMENT_SCREEN",
+                                "promotion_allowed": False,
+                            },
+                        }
+                    ],
+                    "outcome": {
+                        "decision": "DEVELOPMENT_NO_COMPARISON_EVIDENCE",
+                        "promotion_allowed": False,
+                    },
+                }
+
+                research.update_manager(payload, output)
+                registered = research.load_topic_registry()[topic.topic_id]
+                active = research.load_active_topic_bank()
+
+                self.assertEqual(registered["manager_status"], "runtime_failed_retryable")
+                self.assertEqual(registered["run_count"], 0)
+                self.assertEqual(registered["failure_count"], 1)
+                self.assertEqual(research.load_next_action_queue(), [])
+                self.assertEqual([item.topic_id for item in active], [topic.topic_id])
+            finally:
+                research.OUTPUT_DIR = original_output_dir
+
     def test_closed_capacity_reserves_fresh_slice_for_one_topic_per_run(self):
         first = replace(
             self.make_topic("fresh-first"),

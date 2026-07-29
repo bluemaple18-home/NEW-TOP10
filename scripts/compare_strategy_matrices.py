@@ -90,6 +90,8 @@ def compare(variants: list[tuple[str, Path]]) -> dict[str, Any]:
         scenarios = payload.get("scenarios", [])
         best = scenarios[0] if scenarios else {}
         exact_match = bool((payload.get("contract") or {}).get("exact_match_regime_required"))
+        research_stage = str((payload.get("contract") or {}).get("research_stage") or "")
+        development_only = bool((payload.get("contract") or {}).get("development_only"))
         statistical_gate = (payload.get("summary") or {}).get("statistical_gate")
         summaries.append(
             {
@@ -105,6 +107,8 @@ def compare(variants: list[tuple[str, Path]]) -> dict[str, Any]:
                 "best_win_rate": safe_float(best.get("win_rate")),
                 "best_score": safe_float(best.get("score")),
                 "exact_match_regime_required": exact_match,
+                "research_stage": research_stage,
+                "development_only": development_only,
                 "statistical_gate_ok": bool((statistical_gate or {}).get("ok")) if exact_match else None,
                 "formal_candidate_scenario_ids": (payload.get("summary") or {}).get("formal_candidate_scenario_ids", []),
             }
