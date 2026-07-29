@@ -19,6 +19,8 @@ from typing import Any
 from research_map_contract import (
     apply_run_history,
     build_combo_registry,
+    canonicalize_lifecycle_history,
+    canonicalize_lifecycle_topics,
     completed_v2_expansion_count,
     dimension_schema_payload,
     expanded_universe_total,
@@ -111,7 +113,9 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     topics = module.generate_topics(topic_args)
     registry_rows = {
         row.get("topic_id"): row
-        for row in read_json(OUTPUT_DIR / "topic_registry.json").get("topics", [])
+        for row in canonicalize_lifecycle_topics(
+            read_json(OUTPUT_DIR / "topic_registry.json").get("topics", [])
+        )
         if row.get("topic_id")
     }
     topics_json = []
@@ -121,7 +125,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         topics_json.append({**topic_json, **current})
     combos = build_combo_registry(topics_json)
     history_jsonl_path = OUTPUT_DIR / "run_history.jsonl"
-    history_records = read_jsonl(history_jsonl_path)
+    history_records = canonicalize_lifecycle_history(read_jsonl(history_jsonl_path))
     scenarios = apply_run_history(combos, history_records)
     combo_summary = progress_summary(scenarios)
     dimension_schema = dimension_schema_payload()

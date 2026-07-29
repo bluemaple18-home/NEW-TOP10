@@ -13,6 +13,8 @@ from typing import Any
 from app.research.map_contract import (
     apply_run_history,
     build_combo_registry,
+    canonicalize_lifecycle_history,
+    canonicalize_lifecycle_topics,
     completed_v2_expansion_count,
     dimension_schema_payload,
     expanded_universe_total,
@@ -375,6 +377,7 @@ def build_nodes(topics: list[dict[str, Any]], outcomes: dict[str, dict[str, Any]
             nodes.append(
                 {
                     "topic_id": topic_id,
+                    "lifecycle_topic_id": topic.get("lifecycle_topic_id"),
                     "title": safe_text(topic.get("title"), topic_id),
                     "family": family_id,
                     "family_label": family["label"],
@@ -688,6 +691,8 @@ def build_payload(
     generated_at: str | None = None,
 ) -> dict[str, Any]:
     topics = registry.get("topics") if isinstance(registry.get("topics"), list) else []
+    topics = canonicalize_lifecycle_topics(topics)
+    history_records = canonicalize_lifecycle_history(history_records)
     source_mode = "live" if topics else "fixture"
     if not topics:
         topics = fixture_topics()

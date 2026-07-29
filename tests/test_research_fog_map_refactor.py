@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app.research import fog_map_domain, fog_map_render
+from app.research import fog_map_domain, fog_map_render, map_contract
 from scripts import build_research_fog_map as adapter
 
 
@@ -93,6 +93,58 @@ class ResearchFogMapRefactorTests(unittest.TestCase):
         self.assertEqual(actual, expected)
         self.assertEqual(actual["schema_version"], "research-fog-map.v2")
         self.assertTrue(actual["contract"]["does_not_change_production_ranking"])
+
+    def test_development_lifecycle_evidence_does_not_expand_fog_universe(self) -> None:
+        parent_id = "strategy-matrix:artifacts-backtest-shadow"
+        lifecycle_id = f"{parent_id}:development_screen"
+        dimensions = {
+            "horizon": "3",
+            "stop_loss": "none",
+            "take_profit": "none",
+            "group_exposure": "none",
+        }
+        lifecycle_topic = {
+            "topic_id": lifecycle_id,
+            "candidate_dir": "artifacts/backtest/shadow",
+            "manager_status": "development_screen_passed",
+            "selection_rationale": {"parent_topic_id": parent_id},
+        }
+        payload = fog_map_domain.build_payload(
+            "2099-01-01",
+            progress={},
+            registry={
+                "topics": [
+                    {
+                        "topic_id": parent_id,
+                        "candidate_dir": "artifacts/backtest/shadow",
+                        "manager_status": "candidate",
+                    },
+                    lifecycle_topic,
+                ]
+            },
+            queue={},
+            history={},
+            history_records=[
+                {
+                    "topic_id": lifecycle_id,
+                    "combo_id": map_contract.combo_id(lifecycle_topic, dimensions),
+                    "dimensions": dimensions,
+                    "status": "OK",
+                    "decision": "DEVELOPMENT_CANDIDATE",
+                    "finished_at": "2099-01-01T00:00:00+00:00",
+                }
+            ],
+            weekend_rollup=None,
+            weekend_rollup_source=None,
+            active_expansion_parent={},
+            active_expansion_parent_evidence=None,
+            source_paths={},
+        )
+
+        self.assertEqual(payload["summary"]["total_topics"], 1)
+        self.assertEqual(payload["summary"]["processed_combos"], 1)
+        self.assertEqual(payload["nodes"][0]["topic_id"], parent_id)
+        self.assertEqual(payload["nodes"][0]["lifecycle_topic_id"], lifecycle_id)
 
     def test_cli_writes_expected_json_and_html(self) -> None:
         date = "2099-01-01"

@@ -78,6 +78,51 @@ class ResearchMapContractBoundaryTests(unittest.TestCase):
             legacy.write_jsonl(path, replacement, replace_smoke=True)
             self.assertEqual(canonical.read_jsonl(path), [rows[0], replacement[0]])
 
+    def test_development_lifecycle_is_folded_into_parent_topic_and_history(self) -> None:
+        parent_id = "strategy-matrix:artifacts-backtest-shadow"
+        lifecycle_id = f"{parent_id}:development_screen"
+        topics = [
+            {
+                "topic_id": parent_id,
+                "candidate_dir": "artifacts/backtest/shadow",
+                "manager_status": "candidate",
+            },
+            {
+                "topic_id": lifecycle_id,
+                "candidate_dir": "artifacts/backtest/shadow",
+                "manager_status": "development_screen_passed",
+                "selection_rationale": {"parent_topic_id": parent_id},
+            },
+        ]
+        dimensions = {
+            "horizon": "3",
+            "stop_loss": "none",
+            "take_profit": "none",
+            "group_exposure": "none",
+        }
+        history = [
+            {
+                "topic_id": lifecycle_id,
+                "combo_id": canonical.combo_id(topics[1], dimensions),
+                "dimensions": dimensions,
+                "status": "OK",
+            }
+        ]
+
+        canonical_topics = canonical.canonicalize_lifecycle_topics(topics)
+        canonical_history = canonical.canonicalize_lifecycle_history(history)
+
+        self.assertEqual(len(canonical_topics), 1)
+        self.assertEqual(canonical_topics[0]["topic_id"], parent_id)
+        self.assertEqual(canonical_topics[0]["lifecycle_topic_id"], lifecycle_id)
+        self.assertEqual(canonical_topics[0]["manager_status"], "development_screen_passed")
+        self.assertEqual(canonical_history[0]["topic_id"], parent_id)
+        self.assertEqual(canonical_history[0]["lifecycle_topic_id"], lifecycle_id)
+        self.assertEqual(
+            canonical_history[0]["combo_id"],
+            canonical.combo_id(canonical_topics[0], dimensions),
+        )
+
     def test_top_level_legacy_import_works_in_subprocess(self) -> None:
         code = """
 import json

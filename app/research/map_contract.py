@@ -22,6 +22,8 @@ __all__ = [
     "apply_run_history",
     "base_scenarios_per_topic",
     "build_combo_registry",
+    "canonicalize_lifecycle_history",
+    "canonicalize_lifecycle_topics",
     "combo_id",
     "completed_v2_expansion_count",
     "default_v2_dimensions",
@@ -95,6 +97,8 @@ INSIGHT_TO_STATUS = {
     "next_stage": ("next_stage_candidate", "purple", "下階候選"),
     "breakthrough": ("breakthrough_candidate", "gold", "突破候選"),
 }
+
+DEVELOPMENT_TOPIC_SUFFIX = ":development_screen"
 
 
 def base_scenarios_per_topic() -> int:
@@ -170,6 +174,89 @@ def combo_id(topic: dict[str, Any], dimensions: dict[str, str]) -> str:
             f"group_exposure_{dimensions['group_exposure']}",
         ]
     )
+
+
+def lifecycle_parent_topic_id(row: dict[str, Any]) -> str | None:
+    topic_id = str(row.get("topic_id") or "").strip()
+    if not topic_id:
+        return None
+    rationale = row.get("selection_rationale")
+    is_development_lifecycle = topic_id.endswith(DEVELOPMENT_TOPIC_SUFFIX) or (
+        isinstance(rationale, dict)
+        and rationale.get("research_stage") == "DEVELOPMENT_SCREEN"
+    )
+    if not is_development_lifecycle:
+        return None
+    parent_topic_id = (
+        str(rationale.get("parent_topic_id") or "").strip()
+        if isinstance(rationale, dict)
+        else ""
+    )
+    if not parent_topic_id and topic_id.endswith(DEVELOPMENT_TOPIC_SUFFIX):
+        parent_topic_id = topic_id.removesuffix(DEVELOPMENT_TOPIC_SUFFIX)
+    return parent_topic_id or None
+
+
+def canonicalize_lifecycle_topics(topics: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """把 development lifecycle child 收斂回原 hypothesis，避免擴張研究宇宙。"""
+    canonical: dict[str, tuple[int, dict[str, Any]]] = {}
+    for row in topics:
+        if not isinstance(row, dict):
+            continue
+        topic_id = str(row.get("topic_id") or "").strip()
+        if not topic_id:
+            continue
+        parent_topic_id = lifecycle_parent_topic_id(row)
+        canonical_id = parent_topic_id or topic_id
+        is_lifecycle_child = canonical_id != topic_id
+        normalized = {
+            **row,
+            "topic_id": canonical_id,
+            **({"lifecycle_topic_id": topic_id} if is_lifecycle_child else {}),
+        }
+        priority = 1 if is_lifecycle_child else 0
+        current = canonical.get(canonical_id)
+        if current is None or priority >= current[0]:
+            canonical[canonical_id] = (priority, normalized)
+    return [row for _, row in canonical.values()]
+
+
+def canonicalize_lifecycle_history(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """把 lifecycle child 的 evidence 映射回 parent combo，保留 child ID 供稽核。"""
+    canonical: list[dict[str, Any]] = []
+    for row in records:
+        if not isinstance(row, dict):
+            continue
+        topic_id = str(row.get("topic_id") or "").strip()
+        parent_topic_id = lifecycle_parent_topic_id(row)
+        if not topic_id or not parent_topic_id or parent_topic_id == topic_id:
+            canonical.append(row)
+            continue
+        normalized = {
+            **row,
+            "topic_id": parent_topic_id,
+            "lifecycle_topic_id": topic_id,
+        }
+        dimensions = row.get("dimensions")
+        if isinstance(dimensions, dict) and all(key in dimensions for key in BASE_DIMENSION_KEYS):
+            topic = {
+                "topic_id": parent_topic_id,
+                "candidate_dir": row.get("candidate_dir"),
+            }
+            base_id = combo_id(topic, dimensions)
+            expanded_id = v2_combo_id(topic, dimensions)
+            is_v2 = (
+                row.get("map_version") == "v2"
+                or row.get("schema_version") == "research-map-run-history.v2"
+                or any(key in dimensions for key in V2_DEFAULT_COORDINATES)
+            )
+            normalized["combo_id"] = expanded_id if is_v2 else base_id
+            if row.get("base_combo_id"):
+                normalized["base_combo_id"] = base_id
+            if row.get("v2_combo_id"):
+                normalized["v2_combo_id"] = expanded_id
+        canonical.append(normalized)
+    return canonical
 
 
 def build_combo_registry(topics: list[dict[str, Any]]) -> list[dict[str, Any]]:
