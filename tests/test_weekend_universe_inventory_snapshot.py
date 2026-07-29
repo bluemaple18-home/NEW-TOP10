@@ -12,6 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 import build_weekend_universe_inventory as builder
+import weekend_training_common as common
 import verify_weekend_universe_inventory as verifier
 
 
@@ -38,6 +39,44 @@ def row(combo_id: str, status: str) -> dict[str, Any]:
         "priority_score": 0,
         "production_impact": "NO_PRODUCTION_CHANGE",
     }
+
+
+def test_development_lifecycle_topic_does_not_expand_hypothesis_universe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = tmp_path / "topic_registry.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "topics": [
+                    {
+                        "topic_id": "topic-1",
+                        "candidate_dir": "artifacts/backtest/candidate",
+                        "manager_status": "candidate",
+                    },
+                    {
+                        "topic_id": "topic-1:development_screen",
+                        "candidate_dir": "artifacts/backtest/candidate",
+                        "manager_status": "development_screen_passed",
+                        "selection_rationale": {
+                            "research_stage": "DEVELOPMENT_SCREEN",
+                            "parent_topic_id": "topic-1",
+                        },
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(common, "TOPIC_REGISTRY_PATH", registry)
+
+    topics = common.load_topics()
+
+    assert len(topics) == 1
+    assert topics[0]["topic_id"] == "topic-1"
+    assert topics[0]["lifecycle_topic_id"] == "topic-1:development_screen"
+    assert topics[0]["manager_status"] == "development_screen_passed"
 
 
 def fog_map(processed: int, total: int = 4) -> dict[str, Any]:

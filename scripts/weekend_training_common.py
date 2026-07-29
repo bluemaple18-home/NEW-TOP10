@@ -97,7 +97,33 @@ def write_text(path: Path, text: str) -> None:
 def load_topics() -> list[dict[str, Any]]:
     payload = read_json(TOPIC_REGISTRY_PATH)
     topics = payload.get("topics") if isinstance(payload.get("topics"), list) else []
-    return [row for row in topics if isinstance(row, dict)]
+    canonical: dict[str, tuple[int, dict[str, Any]]] = {}
+    for row in topics:
+        if not isinstance(row, dict):
+            continue
+        topic_id = str(row.get("topic_id") or "")
+        if not topic_id:
+            continue
+        rationale = (
+            row.get("selection_rationale")
+            if isinstance(row.get("selection_rationale"), dict)
+            else {}
+        )
+        parent_topic_id = str(rationale.get("parent_topic_id") or "")
+        if not parent_topic_id and topic_id.endswith(":development_screen"):
+            parent_topic_id = topic_id.removesuffix(":development_screen")
+        canonical_id = parent_topic_id or topic_id
+        is_lifecycle_child = canonical_id != topic_id
+        normalized = {
+            **row,
+            "topic_id": canonical_id,
+            **({"lifecycle_topic_id": topic_id} if is_lifecycle_child else {}),
+        }
+        priority = 1 if is_lifecycle_child else 0
+        current = canonical.get(canonical_id)
+        if current is None or priority >= current[0]:
+            canonical[canonical_id] = (priority, normalized)
+    return [row for _, row in canonical.values()]
 
 
 def load_map() -> dict[str, Any]:
