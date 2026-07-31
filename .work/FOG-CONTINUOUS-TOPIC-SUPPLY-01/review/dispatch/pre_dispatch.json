@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-07-31T03:16:57Z",
+  "card_id": "REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+  "card_path": "docs/tasks/2026-07-31_REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01.md",
+  "ownership": "reviewer",
+  "thickness": "strict",
+  "risk": "high",
+  "model": "gpt-5.6-sol",
+  "reasoning": "high",
+  "model_reason": "Candidate變更1,264行並觸及scheduler、worker terminal semantics、bounded supply與development/production邊界。",
+  "chain_id": "FOG-CONTINUOUS-RESEARCH-AVAILABILITY",
+  "cycle": 1,
+  "repo_identity": "github.com/bluemaple18-home/NEW-TOP10",
+  "project_id": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+  "base_ref": "codex/review-fog-continuous-topic-supply-20260731",
+  "required_base_sha": "253874667cfcab746aff9f02ed005c447aa277bd",
+  "reviewed_base_sha": "8cff3d0acbe2cea94f198166cc3a9a581b21319a",
+  "reviewed_candidate_sha": "1674e293daeb759888b950be59d8c30d6020e833",
+  "source_preflight": {
+    "branch_exists_local": true,
+    "branch_exists_remote": true,
+    "remote_sha_matches": true,
+    "source_commit_contains_card": true,
+    "main_worktree_clean_before_receipt": true,
+    "git_metadata_readable": true,
+    "index_lock_present": false
+  },
+  "scope": {
+    "allowlist_source": "review card Exact changed-file allowlist",
+    "forbidden_source": "review card Forbidden",
+    "verification_source": "review card Required independent verification",
+    "evidence_path": "docs/evidence/FOG-CONTINUOUS-TOPIC-SUPPLY-01/independent_review.md"
+  },
+  "gates": {
+    "gate_1_branch_ready": true,
+    "gate_2_thread_and_worktree_verified": false,
+    "activation_sent": false
+  },
+  "previous_card": {
+    "card_id": "FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+    "thread_id": "019fb60c-b45a-7481-a0ed-07cdbec315d8",
+    "candidate_sha": "1674e293daeb759888b950be59d8c30d6020e833"
+  },
+  "status": "READY_FOR_RESERVATION"
+}
