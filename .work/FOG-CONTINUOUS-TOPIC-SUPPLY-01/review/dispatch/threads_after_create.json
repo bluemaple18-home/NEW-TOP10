@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "pinnedThreads": [],
+  "threads": [
+    {
+      "projectId": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+      "id": "019fb62f-2ffe-7ee2-a39c-bac715e33d0e",
+      "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c",
+      "cwd": "/Users/mattkuo/.codex/worktrees/94034bb1-64f1-4d48-a64b-272ba00a9c26/TOP10new",
+      "title": "REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01｜Reviewer",
+      "createdAt": 1785467973,
+      "threadId": "019fb62f-2ffe-7ee2-a39c-bac715e33d0e",
+      "preview": "dispatch_key: v1:344d17b4f86e392877195f37ec0f3439958773a3659dbf22922fdcf687d56c4b\ndispatch_phase: BOOTSTRAP_ONLY\ncard_id: REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+      "status": "idle",
+      "updatedAt": 1785468017,
+      "thread": {
+        "threadId": "019fb62f-2ffe-7ee2-a39c-bac715e33d0e",
+        "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c"
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-STATUS
-status: READY_FOR_INDEPENDENT_REVIEW
+status: REVIEW_IN_PROGRESS
 type: mainline
 ---
 
@@ -21,5 +21,7 @@ type: mainline
 
 ## Next step
 
-Executor candidate `1674e293daeb759888b950be59d8c30d6020e833`已完成並
-push至可追溯 branch。下一步派出 strict獨立 Reviewer；不得直接整合 main。
+strict獨立 Reviewer已在正式 thread
+`019fb62f-2ffe-7ee2-a39c-bac715e33d0e`啟動，審查 candidate
+`1674e293daeb759888b950be59d8c30d6020e833`。Review verdict前不得整合
+main。
