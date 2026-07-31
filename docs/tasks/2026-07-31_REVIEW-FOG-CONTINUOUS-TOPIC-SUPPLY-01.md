@@ -1,6 +1,6 @@
 ---
 id: REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01
-status: REVIEW_NO_GO
+status: REVIEW_GO
 type: review
 ownership: reviewer
 thickness: strict
