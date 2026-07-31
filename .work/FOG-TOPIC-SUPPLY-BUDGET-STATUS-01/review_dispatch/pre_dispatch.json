@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "card_id": "FOG-TOPIC-SUPPLY-BUDGET-STATUS-01-REVIEW",
+  "card_path": "docs/tasks/2026-07-31_FOG-TOPIC-SUPPLY-BUDGET-STATUS-01_review.md",
+  "ownership": "reviewer",
+  "model": "gpt-5.5",
+  "reasoning": "medium",
+  "chain_id": "FOG-TOPIC-SUPPLY-BUDGET-STATUS",
+  "cycle": 1,
+  "repo_identity": "github.com/bluemaple18-home/NEW-TOP10",
+  "project_id": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+  "base_ref": "codex/fog-topic-supply-budget-status-review-20260731",
+  "required_base_sha": "30ff2e9417215043d53aa9278e5ca3f411758364",
+  "candidate_sha": "6af35c839f85040ba24648b226949dc31e584e6c",
+  "owner_token": "0E49B615-7C57-4895-8F31-17597424FAB0",
+  "dispatch_key": "v1:5285f9948f6ccb60715532f867f388103a31ee4a63317ec214f2ea195d58eca5",
+  "formal_thread_id": "019fb72b-d655-7f82-b4ae-b0b53f5c18af",
+  "worktree_path": "/Users/mattkuo/.codex/worktrees/f370b7d1-d33e-40c0-baca-ab3f5646a69f/TOP10new",
+  "status": "ACTIVATED",
+  "activation_token": "act-v1:e523c8445e64f668b81809a3abdab7f06e8137064ba8fade33ca7773dff511ab"
+}
