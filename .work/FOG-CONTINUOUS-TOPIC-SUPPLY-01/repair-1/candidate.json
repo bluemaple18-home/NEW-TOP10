@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "card_id": "FOG-CONTINUOUS-TOPIC-SUPPLY-01-REPAIR-1",
+  "repair_thread_id": "019fb653-b43f-7582-8035-952e40c51e5d",
+  "parent_review_sha": "21ff2a386f1563fa2be965c2ce20f85ac928df22",
+  "candidate_sha": "d166fa1483d2ca2288cda50ea204631cd8b0b972",
+  "candidate_branch": "codex/fog-continuous-topic-supply-repair-1-candidate-20260731",
+  "worktree_clean": true,
+  "targeted_result": "105 passed",
+  "full_result": "616 passed, 1 failed, 4 warnings, 246 subtests passed",
+  "full_failure_claim": "獨立 worktree 缺少未版控 research artifacts；交由原 Reviewer 重審判定",
+  "candidate_status": "READY_FOR_REREVIEW",
+  "review_thread_id": "019fb62f-2ffe-7ee2-a39c-bac715e33d0e"
+}

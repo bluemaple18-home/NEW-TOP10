@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-STATUS
-status: REPAIR_1_IN_PROGRESS
+status: REREVIEW_IN_PROGRESS
 type: mainline
 ---
 
@@ -27,5 +27,12 @@ type: mainline
 - P2：supply exhaustion scan重複I/O且缺明確attempt bound。
 - P2：`TOPIC_SUPPLY_EXHAUSTED`在quota verifier降級為`LOW_INFORMATION`。
 
-Repair-1已在正式thread `019fb653-b43f-7582-8035-952e40c51e5d`
-啟動；完成後回原Reviewer re-review。
+Repair-1 candidate `d166fa1483d2ca2288cda50ea204631cd8b0b972`
+已完成並推送：
+
+- Targeted：`105 passed`
+- Full：`616 passed, 1 failed, 4 warnings, 246 subtests passed`
+- 唯一 full failure為獨立worktree缺少未版控 research artifacts。
+
+原Reviewer thread `019fb62f-2ffe-7ee2-a39c-bac715e33d0e` 已沿用重審；
+尚未整合或部署。

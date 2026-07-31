@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-HANDOFF
-status: READY_TO_DISPATCH
+status: REREVIEW_IN_PROGRESS
 type: mainline
 ---
 
@@ -16,6 +16,11 @@ type: mainline
 ## Task
 
 `docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01.md`
+
+Repair-1 candidate：
+`d166fa1483d2ca2288cda50ea204631cd8b0b972`。
+
+沿用原Reviewer thread重審；`REVIEW_GO` 前不得整合。
 
 ## Boundary
 

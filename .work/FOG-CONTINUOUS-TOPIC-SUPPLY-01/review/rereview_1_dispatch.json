@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "review_card_id": "REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+  "review_thread_id": "019fb62f-2ffe-7ee2-a39c-bac715e33d0e",
+  "mode": "REUSE_EXISTING_REVIEWER_THREAD",
+  "original_review_sha": "21ff2a386f1563fa2be965c2ce20f85ac928df22",
+  "repair_candidate_sha": "d166fa1483d2ca2288cda50ea204631cd8b0b972",
+  "repair_candidate_branch": "codex/fog-continuous-topic-supply-repair-1-candidate-20260731",
+  "status": "REREVIEW_IN_PROGRESS"
+}
