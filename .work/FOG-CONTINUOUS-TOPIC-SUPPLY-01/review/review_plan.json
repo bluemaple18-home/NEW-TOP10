@@ -1,0 +1,92 @@
+{
+  "coordinator_policy": {
+    "approval_bias": "suggestions_and_single_non_production_warning_do_not_block",
+    "block_on": [
+      "P0",
+      "P1",
+      "production_safety_risk",
+      "exploitable_security_issue",
+      "repeated_warning_pattern"
+    ],
+    "dedupe_by": [
+      "path",
+      "line",
+      "category",
+      "risk"
+    ]
+  },
+  "diff_summary": {
+    "added_lines": 1213,
+    "agents_material_files": [],
+    "changed_lines": 1264,
+    "files_reviewable": 7,
+    "files_total": 7,
+    "filtered_noise_files": [],
+    "performance_sensitive_files": [
+      "scripts/run_fog_research_worker.sh"
+    ],
+    "release_sensitive_files": [],
+    "removed_lines": 51,
+    "security_sensitive_files": []
+  },
+  "generated_at": "2026-07-31T11:13:25.324644+08:00",
+  "outputs": {
+    "diff_entries": ".work/FOG-CONTINUOUS-TOPIC-SUPPLY-01/review/diff_entries.jsonl",
+    "finding_schema": ".work/FOG-CONTINUOUS-TOPIC-SUPPLY-01/review/finding_schema.json",
+    "review_plan_json": ".work/FOG-CONTINUOUS-TOPIC-SUPPLY-01/review/review_plan.json",
+    "review_plan_md": ".work/FOG-CONTINUOUS-TOPIC-SUPPLY-01/review/review_plan.md",
+    "review_state": ".work/FOG-CONTINUOUS-TOPIC-SUPPLY-01/review/review_state.jsonl"
+  },
+  "reviewers": [
+    {
+      "blocks": true,
+      "dispatch_card": "任務ID / review｜coordinator / 請讀 review_plan.json / 目的：統整所有 finding / 證據路徑：review_state.jsonl",
+      "id": "coordinator",
+      "purpose": "統整 finding、去重、校正嚴重度、輸出最終決策。"
+    },
+    {
+      "blocks": true,
+      "dispatch_card": "任務ID / review｜correctness / 請讀 diff_entries.jsonl / 目的：找主要流程錯誤 / 證據路徑：finding_schema.json",
+      "id": "correctness",
+      "purpose": "檢查行為、資料流、狀態、邊界條件與錯誤處理。"
+    },
+    {
+      "blocks": true,
+      "dispatch_card": "任務ID / review｜regression / 請讀 diff_entries.jsonl / 目的：找回歸風險 / 證據路徑：finding_schema.json",
+      "id": "regression",
+      "purpose": "檢查既有 API、CLI、檔案格式、環境契約與跨機路徑。"
+    },
+    {
+      "blocks": false,
+      "dispatch_card": "任務ID / review｜test_gap / 請讀 review_plan.json / 目的：找驗證缺口 / 證據路徑：finding_schema.json",
+      "id": "test_gap",
+      "purpose": "檢查風險點是否有足夠測試或驗收證據。"
+    },
+    {
+      "blocks": false,
+      "dispatch_card": "任務ID / review｜maintainability / 請讀 diff_entries.jsonl / 目的：找非阻塞維護風險 / 證據路徑：finding_schema.json",
+      "id": "maintainability",
+      "purpose": "檢查重複、抽象、命名、可讀性與既有模式一致性。"
+    },
+    {
+      "blocks": false,
+      "dispatch_card": "任務ID / review｜performance / 請讀 performance_sensitive_files / 目的：找可量測效能回歸 / 證據路徑：finding_schema.json",
+      "id": "performance",
+      "purpose": "檢查 N+1、快取、批次、併發、I/O 與排程熱點。"
+    },
+    {
+      "blocks": false,
+      "dispatch_card": "任務ID / review｜agents_md / 請讀 agents_material_files / 目的：找 agent instructions drift / 證據路徑：finding_schema.json",
+      "id": "agents_md",
+      "purpose": "檢查 AGENTS.md、skill、rules 是否因工具鏈或架構變更而需要同步。"
+    }
+  ],
+  "risk_reasons": [
+    "large_diff"
+  ],
+  "risk_tier": "full",
+  "root": "/Users/mattkuo/TOP10new",
+  "schema_version": "review.orchestrator.plan.v1",
+  "task_id": "REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+  "task_thickness": "strict"
+}

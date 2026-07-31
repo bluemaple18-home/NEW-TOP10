@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "card_id": "FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+  "executor_thread_id": "019fb60c-b45a-7481-a0ed-07cdbec315d8",
+  "base_sha": "8cff3d0acbe2cea94f198166cc3a9a581b21319a",
+  "candidate_sha": "1674e293daeb759888b950be59d8c30d6020e833",
+  "candidate_branch": "codex/fog-continuous-topic-supply-candidate-20260731",
+  "worktree_clean": true,
+  "targeted_result": "100 passed",
+  "full_result": "611 passed, 1 failed, 4 warnings, 246 subtests passed",
+  "full_failure_claim": "獨立 worktree缺少未版控 research artifacts；待 Reviewer獨立判定",
+  "candidate_status": "READY_FOR_INDEPENDENT_REVIEW",
+  "review_card_id": "REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01"
+}

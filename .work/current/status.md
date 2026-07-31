@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-STATUS
-status: DISPATCHED_EXECUTING
+status: READY_FOR_INDEPENDENT_REVIEW
 type: mainline
 ---
 
@@ -21,6 +21,5 @@ type: mainline
 
 ## Next step
 
-strict Executor已在正式 thread `019fb60c-b45a-7481-a0ed-07cdbec315d8`
-的獨立 clean worktree啟動。完成 candidate 後必須停在
-`READY_FOR_INDEPENDENT_REVIEW`。
+Executor candidate `1674e293daeb759888b950be59d8c30d6020e833`已完成並
+push至可追溯 branch。下一步派出 strict獨立 Reviewer；不得直接整合 main。

@@ -1,0 +1,7 @@
+{"added_lines": 203, "binary": false, "old_path": null, "path": "docs/evidence/FOG-CONTINUOUS-TOPIC-SUPPLY-01/verification.md", "removed_lines": 0, "status": "A", "untracked": false}
+{"added_lines": 22, "binary": false, "old_path": null, "path": "docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01.md", "removed_lines": 2, "status": "M", "untracked": false}
+{"added_lines": 458, "binary": false, "old_path": null, "path": "scripts/run_autonomous_research.py", "removed_lines": 42, "status": "M", "untracked": false}
+{"added_lines": 6, "binary": false, "old_path": null, "path": "scripts/run_fog_research_worker.sh", "removed_lines": 5, "status": "M", "untracked": false}
+{"added_lines": 117, "binary": false, "old_path": null, "path": "tests/test_autonomous_research_topic_bank.py", "removed_lines": 2, "status": "M", "untracked": false}
+{"added_lines": 406, "binary": false, "old_path": null, "path": "tests/test_fog_continuous_topic_supply.py", "removed_lines": 0, "status": "A", "untracked": false}
+{"added_lines": 1, "binary": false, "old_path": null, "path": "tests/test_fog_runtime_time_wiring.sh", "removed_lines": 0, "status": "M", "untracked": false}
