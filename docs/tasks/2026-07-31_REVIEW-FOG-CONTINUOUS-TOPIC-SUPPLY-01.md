@@ -1,6 +1,6 @@
 ---
 id: REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01
-status: READY_TO_DISPATCH
+status: REVIEW_NO_GO
 type: review
 ownership: reviewer
 thickness: strict
