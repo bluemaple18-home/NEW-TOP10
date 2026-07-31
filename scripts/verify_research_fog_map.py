@@ -153,6 +153,22 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
     burn_counts = burn_down.get("counts") if isinstance(burn_down.get("counts"), dict) else {}
     burn_source = resolve_path(burn_down.get("source")) if burn_down.get("source") else None
     burn_count_sum = sum(int(value or 0) for value in burn_counts.values())
+    burn_total_values = [
+        burn_down.get("full_universe_total"),
+        burn_down.get("classified_total"),
+        burn_down.get("classified_pending"),
+    ]
+    burn_totals_are_integers = all(isinstance(value, int) and not isinstance(value, bool) for value in burn_total_values)
+    burn_full_total = int(burn_total_values[0] or 0)
+    burn_classified_total = int(burn_total_values[1] or 0)
+    burn_classified_pending = int(burn_total_values[2] or 0)
+    burn_source_full_total_raw = burn_down.get("source_full_universe_total")
+    burn_source_scope_known = isinstance(burn_source_full_total_raw, int) and not isinstance(burn_source_full_total_raw, bool)
+    burn_source_full_total = int(burn_source_full_total_raw or 0)
+    burn_counts_non_negative = all(
+        isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        for value in burn_counts.values()
+    )
     artifact_blocker_count = int(burn_down.get("artifact_blocker_count") or 0)
     controlled_grid_drain = burn_down.get("controlled_grid_drain") if isinstance(burn_down.get("controlled_grid_drain"), dict) else {}
     baseline_blocker_cleared = burn_down.get("baseline_blocker_cleared") is True or controlled_grid_drain.get("baseline_blocker_cleared") is True
@@ -263,14 +279,24 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
         },
         {
             "name": "burn_down_counts_classify_full_universe",
-            "ok": int(burn_down.get("full_universe_total") or 0) == int(summary.get("expanded_universe_total") or 0)
-            and int(burn_down.get("classified_total") or 0) == int(summary.get("expanded_universe_total") or 0)
-            and burn_count_sum == int(burn_down.get("classified_total") or 0),
+            "ok": burn_full_total == int(summary.get("expanded_universe_total") or 0)
+            and burn_totals_are_integers
+            and burn_source_scope_known
+            and burn_source_full_total == burn_classified_total
+            and 0 <= burn_classified_total <= burn_full_total
+            and burn_classified_pending == burn_full_total - burn_classified_total
+            and burn_classified_pending >= 0
+            and burn_counts_non_negative
+            and burn_count_sum == burn_classified_total,
             "value": {
-                "full_universe_total": burn_down.get("full_universe_total"),
-                "classified_total": burn_down.get("classified_total"),
+                "source_full_universe_total": burn_down.get("source_full_universe_total"),
+                "full_universe_total": burn_full_total,
+                "classified_total": burn_classified_total,
+                "classified_pending": burn_classified_pending,
                 "expanded_universe_total": summary.get("expanded_universe_total"),
                 "count_sum": burn_count_sum,
+                "counts_non_negative": burn_counts_non_negative,
+                "totals_are_integers": burn_totals_are_integers,
             },
         },
         {
