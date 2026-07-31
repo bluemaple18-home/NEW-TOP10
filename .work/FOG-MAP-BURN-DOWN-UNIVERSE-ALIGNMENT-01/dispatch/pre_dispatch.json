@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-07-31T16:50:20Z",
+  "card_id": "FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01",
+  "card_path": "docs/tasks/2026-08-01_FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01.md",
+  "ownership": "executor",
+  "thickness": "strict",
+  "risk": "high",
+  "model": "gpt-5.6-sol",
+  "reasoning": "high",
+  "model_reason": "失敗已連續開啟 live research circuit，且跨 current topic universe、歷史 weekend rollup、map verifier 與 handoff exit 契約。",
+  "chain_id": "FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT",
+  "cycle": 1,
+  "repo_identity": "github.com/bluemaple18-home/NEW-TOP10",
+  "project_id": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+  "base_ref": "codex/fog-map-burn-down-universe-alignment-20260801",
+  "required_base_sha": "6c5faff42569d6bb3b345b5253bcb00a62f9f37b",
+  "owner_token_reference": "local dispatch registry only",
+  "source_preflight": {
+    "branch_exists_local": true,
+    "branch_exists_remote": true,
+    "remote_sha_matches": true,
+    "source_commit_contains_card": true,
+    "main_worktree_clean_before_receipt": true,
+    "git_metadata_readable": true,
+    "index_lock_present": false,
+    "traceability_verdict": "OK",
+    "codegraph_context_entry_points": [
+      "app/research/fog_map_domain.py:build_burn_down_progress",
+      "scripts/verify_research_fog_map.py:build_payload",
+      "app/research/map_contract.py:expanded_universe_total"
+    ]
+  },
+  "scope": {
+    "allowlist_source": "task card Exact changed-file allowlist",
+    "forbidden_source": "task card Forbidden",
+    "verification_source": "task card Verification",
+    "evidence_root": "docs/evidence/FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01/"
+  },
+  "status": "ACTIVATED",
+  "dispatch_key": "v1:dbb25fe1c5a65c49a001706a06d055ce37d8cfce722d38a07946b8bff852eb62",
+  "formal_thread_id": "019fb91d-def6-7df3-ad2e-11b502c54c0f",
+  "worktree_path": "/Users/mattkuo/.codex/worktrees/5d1efdb8-5852-4e51-af23-a2e6f3dceaa5/TOP10new",
+  "activation_token_hash": "81f186d1880726f54eef28205f379ddba6da17213c15cdb1a1e3021017aa2477"
+}

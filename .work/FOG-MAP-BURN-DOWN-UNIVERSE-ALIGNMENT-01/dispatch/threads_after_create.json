@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "pinnedThreads": [],
+  "threads": [
+    {
+      "thread": {
+        "threadId": "019fb91d-def6-7df3-ad2e-11b502c54c0f",
+        "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c"
+      },
+      "title": "FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01｜修復 universe 計數",
+      "threadId": "019fb91d-def6-7df3-ad2e-11b502c54c0f",
+      "preview": "dispatch_key: v1:dbb25fe1c5a65c49a001706a06d055ce37d8cfce722d38a07946b8bff852eb62\ndispatch_phase: BOOTSTRAP_ONLY\ncard_id: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01\ncard_path: docs/tasks/2026-08-01_FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01.md\nexpected_project_id: c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3\nrequired_base_ref: codex/fog-map-burn-down-universe-alignment-20260801\nrequired_base_sha: 6c5faff42569d6bb3b345b5253bcb00a62f9f37b\n\n只執行唯讀 preflight：回報 formal thread ID、projectId、cwd、HEAD 與 clean state。\n未收到與本 dispatch_key 對應的 activation_token 前，禁止改檔、跑測試、commit、push 或建立 replacement。\n完成 bootstrap 後停止，等待主線驗證與 activation。",
+      "projectId": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+      "cwd": "/Users/mattkuo/.codex/worktrees/5d1efdb8-5852-4e51-af23-a2e6f3dceaa5/TOP10new",
+      "updatedAt": 1785517647,
+      "id": "019fb91d-def6-7df3-ad2e-11b502c54c0f",
+      "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c",
+      "status": "active",
+      "createdAt": 1785517170
+    }
+  ],
+  "unavailableHosts": []
+}
