@@ -1,31 +1,26 @@
 ---
-id: FOG-RUNTIME-TIME-AUTHORITY-01-I5-STATUS
-status: GO_LIVE_ACCEPTANCE
+id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-STATUS
+status: READY_TO_DISPATCH
 type: mainline
 ---
 
 # Current Status
 
-## Root question
+## Evidence
 
-固定 main lineage是否能安全恢復 Fog circuit並連續產生三輪可信 v3 scheduler
-receipts？
+- Registry共 125 個 development child topics。
+- 已執行 33 題；未執行 candidate 92 題。
+- 依當日 exact-regime eligibility，42 題可用。
+- 其中 9 題為未執行 candidate，且 9 題都已在 next-action queue。
+- active topic bank為 0，因為 queued topic被刻意排除。
+- worker預設 `TOP10_RESEARCH_FROM_QUEUE=0`，不讀 queue。
 
 ## Verdict
 
-`GO`。
-
-- Bounded dry：GO；首次 fail-closed暴露的 explicit-date caller已由
-  `e6fc10a`修復。
-- Circuit：一次 verifier-gated recovery；active retry state/context不存在。
-- Scheduler：3/3 receipts通過；第 2、3 輪由 900 秒 interval自然啟動。
-- Replay drain：每輪6批、每輪144筆、0 failed。
-- LaunchAgent：loaded、not running、`runs=3`、last exit code `0`。
-- Protected hashes：model、baseline、ranking code、weights、promotion與 regime
-  history全部 unchanged。
-- Queue：依 research worker契約更新，final 10 actions。
+`NO_GO / ROUTING_DEADLOCK`，不是題目耗盡。
 
 ## Next step
 
-沒有未完成的 I5 gate。後續 Fog runs屬已部署的正常 production schedule，不是
-第四次 acceptance probe。
+派出 strict實作卡
+`docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01.md`，以獨立
+worktree修復並停在 `READY_FOR_INDEPENDENT_REVIEW`。

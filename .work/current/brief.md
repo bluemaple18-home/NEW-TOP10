@@ -1,19 +1,14 @@
 ---
-id: FOG-RUNTIME-TIME-AUTHORITY-01-I5-BRIEF
-status: GO_LIVE_ACCEPTANCE
+id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-BRIEF
+status: READY_TO_DISPATCH
 type: mainline
 ---
 
-# Current Brief
+# Brief
 
-`FOG-RUNTIME-TIME-AUTHORITY-01-I5`已完成 bounded dry、一次 explicit circuit
-recovery與三輪跨 900 秒 scheduler acceptance。
+Fog scheduler存在 queue ownership deadlock：目前有 9 題 exact-regime eligible、
+尚未執行且已排入 next-action queue，但 active topic bank會排除 queued topic，
+worker又預設不從 queue取題，因而回報 `NO_EXECUTABLE_TOPIC`。
 
-- Runtime code：`e6fc10a3251e61bb49ef0ae66e28d336f3a3adb1`
-- Full suite：`589 passed`
-- Receipts：3/3 v3、fresh、authority verified
-- Worker：3/3 exit `0`
-- LaunchAgent：loaded、not running、`runs=3`
-- Protected production hashes：全部不變
-- Evidence：
-  `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/live_acceptance.md`
+本卡先修 deterministic queue-first／active fallback，再補上有界、可重現且只限
+development範圍的持續產題機制。

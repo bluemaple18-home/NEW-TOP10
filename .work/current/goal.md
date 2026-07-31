@@ -1,17 +1,14 @@
 ---
-id: FOG-RUNTIME-TIME-AUTHORITY-01-I5-GOAL
-status: GO_LIVE_ACCEPTANCE
+id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-GOAL
+status: READY_TO_DISPATCH
 type: mainline
 ---
 
 # Goal
 
-讓 reviewed Fog time/data authority安全恢復本機排程，並以三輪實際 scheduler
-receipt證明 market date、daily source lineage與 exact-regime eligibility在
-runtime成立，同時不改動 production model、ranking、weights、baseline或
-promotion。
+當 Fog仍有可執行題目時不得空轉；先從 queue取題，queue沒有有效題目時才回退
+active bank。同時依 repo-owned research contract與覆蓋缺口，有界補充新穎、
+穩定且可重現的 development topics。
 
-## Result
-
-目標已完成。Circuit已透過既有 verifier gate恢復；三輪 receipt與 replay drain
-全部通過，production protected hashes保持不變。
+sealed registry、promotion、production ranking、weights與模型維持 fail-closed，
+不得由本卡改寫。

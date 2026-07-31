@@ -1,6 +1,6 @@
 ---
-id: FOG-RUNTIME-TIME-AUTHORITY-01-I5-CONTEXT
-status: GO_LIVE_ACCEPTANCE
+id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-CONTEXT
+status: READY_TO_DISPATCH
 type: mainline
 ---
 
@@ -8,21 +8,23 @@ type: mainline
 
 ## Read first
 
-- `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/live_acceptance.md`
-- `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/scheduler_cycles.txt`
-- `docs/tasks/2026-07-28_FOG-RUNTIME-TIME-AUTHORITY-01_I5_live_acceptance.md`
-- `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/bounded_dry_repair_1.md`
-- `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/recovery_preflight.md`
+- `AGENTS.md`
+- `.work/current/status.md`
+- `.work/current/handoff.md`
+- `docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01.md`
+- `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
+- `docs/tasks/2026-07-27_REGIME-RESEARCH-AUTONOMY-01_closed_regime_parameter_research.md`
 
-## Runtime code
+## Canonical source
 
-- `scripts/build_research_campaign_progress.py`
-- `scripts/research_map_linkage_smoke.py`
-- `tests/test_research_topic_date_wiring.py`
-- Runtime code commit：
-  `e6fc10a3251e61bb49ef0ae66e28d336f3a3adb1`
+- Code baseline：`ea25e532dde146aabfa376be06cf4348f00834e1`
+- Key routing：`scripts/run_autonomous_research.py`
+- Worker default：`scripts/run_fog_research_worker.sh`
+- Daily quota：`scripts/run_daily_research_quota.sh`
 
-## Boundary
+## Key symbols
 
-I5已完成三輪 acceptance。LaunchAgent保持 loaded；後續 interval run是正常
-production schedule，不得回寫成第四次 acceptance probe。
+- `is_active_bank_topic`
+- `write_topic_bank`
+- `select_topics_for_run`
+- `generate_research_topics`

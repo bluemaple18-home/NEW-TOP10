@@ -1,32 +1,23 @@
 ---
-id: FOG-RUNTIME-TIME-AUTHORITY-01-I5-HANDOFF
-status: GO_LIVE_ACCEPTANCE
+id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-HANDOFF
+status: READY_TO_DISPATCH
 type: mainline
 ---
 
-# Handoff: Fog I5 live acceptance
+# Handoff
 
-## Completed
+## Confirmed
 
-- Direct-push main policy已由專案擁有者明確確認，不使用 PR。
-- Bounded dry Repair 1已提交並推送：
-  `e6fc10a3251e61bb49ef0ae66e28d336f3a3adb1`。
-- Circuit recovery verifier：14 checks、0 failed；舊 state/context旋轉保存。
-- 三輪 scheduler receipt皆為 v3、fresh、market date/source lineage正確。
-- 三輪 worker與 replay drain全數 exit `0`／0 failed。
-- Final LaunchAgent loaded且 idle，排程間隔900秒。
-- Protected production hashes不變。
+- LaunchAgent排程與 circuit本身正常。
+- 空轉原因是 selection routing ownership錯位，不是 scheduler故障。
+- 現有固定 topic catalog由有限的 ranking artifacts與 validation profiles組合，
+  長期仍會耗盡，因此本卡同時補 bounded replenishment。
 
-## Evidence
+## Task
 
-- Summary：
-  `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/live_acceptance.md`
-- Machine receipts／verifiers／drains：
-  `docs/evidence/FOG-RUNTIME-TIME-AUTHORITY-01-I5/`
-- Task：
-  `docs/tasks/2026-07-28_FOG-RUNTIME-TIME-AUTHORITY-01_I5_live_acceptance.md`
+`docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01.md`
 
 ## Boundary
 
-沒有修改 model、ranking code、weights、baseline或 promotion；沒有由 I5執行
-external AI、Discord、交易或 PM harness queue mutation。
+只處理 development research topic routing與供應；不得操作 live worker、
+LaunchAgent、circuit、closed/sealed registry、promotion或 production ranking。
