@@ -32,8 +32,10 @@
   },
   "gates": {
     "gate_1_branch_ready": true,
-    "gate_2_thread_and_worktree_verified": false,
-    "activation_sent": false
+    "gate_2_thread_and_worktree_verified": true,
+    "activation_sent": true
   },
-  "status": "READY_FOR_RESERVATION"
+  "formal_thread_id": "019fb60c-b45a-7481-a0ed-07cdbec315d8",
+  "worktree_path": "/Users/mattkuo/.codex/worktrees/1d311ffa-78ed-4fb0-9904-01523f16dea3/TOP10new",
+  "status": "DISPATCHED_EXECUTING"
 }

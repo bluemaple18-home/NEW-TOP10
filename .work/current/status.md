@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-STATUS
-status: READY_TO_DISPATCH
+status: DISPATCHED_EXECUTING
 type: mainline
 ---
 
@@ -21,6 +21,6 @@ type: mainline
 
 ## Next step
 
-派出 strict實作卡
-`docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01.md`，以獨立
-worktree修復並停在 `READY_FOR_INDEPENDENT_REVIEW`。
+strict Executor已在正式 thread `019fb60c-b45a-7481-a0ed-07cdbec315d8`
+的獨立 clean worktree啟動。完成 candidate 後必須停在
+`READY_FOR_INDEPENDENT_REVIEW`。

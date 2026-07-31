@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "dispatch_key": "v1:38a858fa591c683a863c1342bff6fc62bf50ad247245f01cfd7c0a25dec96601",
+  "state": "BOUND",
+  "status": "activated",
+  "activation_status": "VERIFIED",
+  "formal_thread_id": "019fb60c-b45a-7481-a0ed-07cdbec315d8",
+  "project_id": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+  "base_ref": "codex/fog-continuous-topic-supply-20260731",
+  "head": "8cff3d0acbe2cea94f198166cc3a9a581b21319a",
+  "clean": true,
+  "worktree_path": "/Users/mattkuo/.codex/worktrees/1d311ffa-78ed-4fb0-9904-01523f16dea3/TOP10new",
+  "model": "gpt-5.6-sol",
+  "reasoning": "high",
+  "activation_prompt_sent": true,
+  "candidate_exit": "READY_FOR_INDEPENDENT_REVIEW"
+}

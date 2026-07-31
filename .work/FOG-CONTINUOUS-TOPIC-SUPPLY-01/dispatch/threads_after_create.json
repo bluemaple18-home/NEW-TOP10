@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "pinnedThreads": [],
+  "threads": [
+    {
+      "cwd": "/Users/mattkuo/.codex/worktrees/1d311ffa-78ed-4fb0-9904-01523f16dea3/TOP10new",
+      "updatedAt": 1785465813,
+      "id": "019fb60c-b45a-7481-a0ed-07cdbec315d8",
+      "createdAt": 1785465713,
+      "title": "FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+      "threadId": "019fb60c-b45a-7481-a0ed-07cdbec315d8",
+      "thread": {
+        "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c",
+        "threadId": "019fb60c-b45a-7481-a0ed-07cdbec315d8"
+      },
+      "projectId": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+      "preview": "dispatch_key: v1:38a858fa591c683a863c1342bff6fc62bf50ad247245f01cfd7c0a25dec96601\ndispatch_phase: BOOTSTRAP_ONLY\ncard_id: FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+      "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c",
+      "status": "idle"
+    }
+  ]
+}
