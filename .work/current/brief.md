@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-BRIEF
-status: READY_TO_DISPATCH
+status: ACCEPTED
 type: mainline
 ---
 
@@ -12,3 +12,5 @@ worker又預設不從 queue取題，因而回報 `NO_EXECUTABLE_TOPIC`。
 
 本卡先修 deterministic queue-first／active fallback，再補上有界、可重現且只限
 development範圍的持續產題機制。
+
+自然排程已由0題空轉改為選出並完成1個development topic；主卡已接受。

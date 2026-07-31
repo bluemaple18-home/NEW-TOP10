@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-GOAL
-status: READY_TO_DISPATCH
+status: ACCEPTED
 type: mainline
 ---
 
@@ -12,3 +12,5 @@ active bank。同時依 repo-owned research contract與覆蓋缺口，有界補�
 
 sealed registry、promotion、production ranking、weights與模型維持 fail-closed，
 不得由本卡改寫。
+
+結果：`ACCEPTED_MAINLINE_RUNTIME`。

@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-CONTEXT
-status: READY_TO_DISPATCH
+status: ACCEPTED
 type: mainline
 ---
 
@@ -17,7 +17,8 @@ type: mainline
 
 ## Canonical source
 
-- Code baseline：`ea25e532dde146aabfa376be06cf4348f00834e1`
+- Reviewed candidate：`d166fa1483d2ca2288cda50ea204631cd8b0b972`
+- Mainline merge：`b4db5a93989ff280db9f05f897e7b93c7a580ae5`
 - Key routing：`scripts/run_autonomous_research.py`
 - Worker default：`scripts/run_fog_research_worker.sh`
 - Daily quota：`scripts/run_daily_research_quota.sh`
@@ -28,3 +29,8 @@ type: mainline
 - `write_topic_bank`
 - `select_topics_for_run`
 - `generate_research_topics`
+
+## Acceptance evidence
+
+- `docs/evidence/FOG-CONTINUOUS-TOPIC-SUPPLY-01/runtime_acceptance.md`
+- `.work/FOG-CONTINUOUS-TOPIC-SUPPLY-01/runtime_acceptance.json`

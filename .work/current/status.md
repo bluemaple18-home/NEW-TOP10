@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-STATUS
-status: MAINLINE_RUNTIME_ACCEPTANCE_PENDING
+status: ACCEPTED_MAINLINE_RUNTIME
 type: mainline
 ---
 
@@ -24,4 +24,16 @@ type: mainline
 - P1-001、P2-003：resolved
 - P2-002：保留非阻塞 backlog（attempt-budget 狀態傳遞）
 
-已進入 mainline 整合；待 natural scheduler runtime acceptance 後關卡。
+Mainline merge：
+`b4db5a93989ff280db9f05f897e7b93c7a580ae5`。
+
+13:46:39 +0800 natural scheduler run：
+
+- `DEVELOPMENT_CANDIDATE`
+- selected topics：1
+- topic runs：1
+- verifier failed count：0
+- research value：`HAS_FOLLOWUP_SIGNAL`
+- retry state：不存在
+
+最終狀態：`ACCEPTED_MAINLINE_RUNTIME`。

@@ -182,3 +182,13 @@ Evidence：
 - `READY_FOR_REREVIEW`
 
 不得自審、關閉finding、整合main、deploy或操作live runtime。
+
+## Mainline closure
+
+- Repair candidate：
+  `d166fa1483d2ca2288cda50ea204631cd8b0b972`
+- 原Reviewer重審：`REVIEW_GO`
+- P1-001、P2-003：resolved
+- P2-002：nonblocking backlog
+- Mainline full：`617 passed, 4 warnings, 246 subtests passed`
+- 自然排程runtime acceptance：PASS

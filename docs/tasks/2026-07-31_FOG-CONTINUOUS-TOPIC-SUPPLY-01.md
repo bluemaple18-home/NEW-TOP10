@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01
-status: ACCEPTED_MAINLINE_RUNTIME_PENDING
+status: ACCEPTED
 type: implementation
 ownership: executor
 thickness: strict
@@ -253,3 +253,20 @@ Activation 後先執行：
   ranking/model/weights 均未操作。
 - Candidate SHA 由本卡單一 commit 完成後以 `git rev-parse HEAD` 取得。
 - 狀態：`READY_FOR_INDEPENDENT_REVIEW`。
+
+## Mainline acceptance
+
+- Repair-1 candidate：
+  `d166fa1483d2ca2288cda50ea204631cd8b0b972`
+- Independent re-review：
+  `REVIEW_GO`，commit
+  `b4c12b741b959b3f49bd90d827e53cce072b1f67`
+- Mainline merge：
+  `b4db5a93989ff280db9f05f897e7b93c7a580ae5`
+- Mainline targeted：`105 passed`
+- Mainline full：`617 passed, 4 warnings, 246 subtests passed`
+- 13:46:39 +0800 natural scheduler run：
+  `DEVELOPMENT_CANDIDATE`、1 selected、1 topic run、failed count 0、
+  `HAS_FOLLOWUP_SIGNAL`。
+- LaunchAgent未重啟、circuit未清、未執行人工live probe。
+- 最終狀態：`ACCEPTED_MAINLINE_RUNTIME`。

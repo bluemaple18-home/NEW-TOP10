@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-HANDOFF
-status: MAINLINE_RUNTIME_ACCEPTANCE_PENDING
+status: COMPLETE
 type: mainline
 ---
 
@@ -28,8 +28,11 @@ Mainline驗證：
 - Targeted：`105 passed`
 - Full：`617 passed, 4 warnings, 246 subtests passed`
 
-整合後以既有自然排程做 runtime acceptance；不得為驗收重啟 LaunchAgent、清
-circuit或製造人工 live probe。
+13:46:39 +0800 既有自然排程已完成 runtime acceptance：
+`DEVELOPMENT_CANDIDATE`、1 selected、1 topic run、failed count 0。
+
+主卡已完成。非阻塞P2另存：
+`docs/tasks/2026-07-31_FOG-TOPIC-SUPPLY-BUDGET-STATUS-01.md`。
 
 ## Boundary
 
