@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "pinnedThreads": [],
+  "threads": [
+    {
+      "id": "019fb710-3ad4-7b63-9606-46b5cee94ca9",
+      "threadId": "019fb710-3ad4-7b63-9606-46b5cee94ca9",
+      "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c",
+      "projectId": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+      "cwd": "/Users/mattkuo/.codex/worktrees/875e9224-9a5f-4bc4-b4ee-b3a58e889d25/TOP10new",
+      "createdAt": 1785482722,
+      "updatedAt": 1785482754,
+      "status": "idle",
+      "title": "FOG-TOPIC-SUPPLY-BUDGET-STATUS-01｜Executor",
+      "preview": "dispatch_key: v1:17fd9a4898943a87b322e6cf4803d13c701c7cc765dabe5ac82553b6d5a8a6eb\ndispatch_phase: BOOTSTRAP_ONLY\ncard_id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01",
+      "thread": {
+        "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c",
+        "threadId": "019fb710-3ad4-7b63-9606-46b5cee94ca9"
+      }
+    }
+  ],
+  "unavailableHosts": []
+}

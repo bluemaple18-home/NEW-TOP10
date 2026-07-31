@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "activated_at": "2026-07-31T07:27:30Z",
+  "dispatch_key": "v1:17fd9a4898943a87b322e6cf4803d13c701c7cc765dabe5ac82553b6d5a8a6eb",
+  "activation_token": "act-v1:84c387f69345a97d0141624995cb8c8db7627bd5a26782bbe5fea8ff215f87fd",
+  "owner_token": "FE41C81D-0ECB-469B-8B32-A20E724074D5",
+  "state": "BOUND",
+  "formal_thread_id": "019fb710-3ad4-7b63-9606-46b5cee94ca9",
+  "host_id": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c",
+  "project_id": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+  "worktree_path": "/Users/mattkuo/.codex/worktrees/875e9224-9a5f-4bc4-b4ee-b3a58e889d25/TOP10new",
+  "base_ref": "codex/fog-topic-supply-budget-status-20260731",
+  "head": "85ca3efb403519925d28afc8d94ed43f5111b2b3",
+  "clean": true
+}
