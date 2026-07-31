@@ -184,7 +184,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-group-exposures", default="none,0.35,0.55")
     parser.add_argument("--execute", action="store_true", help="實際執行 baseline/candidate strategy matrix 與 comparison")
     parser.add_argument("--execute-topic-count", type=int, default=1, help="單次 execute 最多執行幾個題目")
-    parser.add_argument("--from-queue", action="store_true", help="從 manager queue 選下一批題目，而不是只用 --topic-index")
+    parser.add_argument(
+        "--from-queue",
+        action="store_true",
+        help="相容舊入口；執行模式固定採 queue-first、active-bank fallback",
+    )
     parser.add_argument("--rerun", action="store_true", help="相容舊入口；不得繞過 manager 受控重跑政策")
     parser.add_argument("--include-rejected", action="store_true", help="相容舊入口；rejected topic 仍不得重跑")
     parser.add_argument("--no-manager-update", action="store_true", help="只產生本次 run artifact，不更新管理層狀態")
@@ -2197,7 +2201,12 @@ def topic_allowed_by_manager(
     return current_time - last_run_at >= timedelta(hours=policy["cooldown_hours"])
 
 
-def select_topics_for_run(topics: list[ResearchTopic], args: argparse.Namespace) -> list[ResearchTopic]:
+def select_topics_for_run(
+    topics: list[ResearchTopic],
+    args: argparse.Namespace,
+    *,
+    fallback_topics: list[ResearchTopic] | None = None,
+) -> list[ResearchTopic]:
     topics = [topic for topic in topics if topic.eligible]
     if not topics:
         return []
@@ -2219,40 +2228,48 @@ def select_topics_for_run(topics: list[ResearchTopic], args: argparse.Namespace)
                 break
         return selected
 
-    if args.from_queue:
-        by_topic_id = {topic.topic_id: topic for topic in topics}
-        selected: list[ResearchTopic] = []
-        seen: set[str] = set()
-        for action in load_next_action_queue():
-            topic_id = str(action.get("topic_id") or "")
-            if not topic_id or topic_id in seen:
-                continue
-            topic = by_topic_id.get(topic_id)
-            if topic is None:
-                continue
-            if not topic_allowed_by_manager(topic, registry, args, last_run_at_by_topic=last_run_at_by_topic):
-                continue
-            selected.append(topic)
-            seen.add(topic_id)
-        return limit_selection(selected)
-    if count > 1:
-        selected = [
-            topic
-            for topic in topics
-            if topic_allowed_by_manager(topic, registry, args, last_run_at_by_topic=last_run_at_by_topic)
-        ]
-        return limit_selection(selected)
-    topic = selected_topic(topics, args.topic_index)
-    if topic is None:
-        return []
-    if args.execute and not topic_allowed_by_manager(topic, registry, args, last_run_at_by_topic=last_run_at_by_topic):
-        fallback = [
-            item
-            for item in topics
-            if topic_allowed_by_manager(item, registry, args, last_run_at_by_topic=last_run_at_by_topic)
-        ]
-        return fallback[:1]
-    return [topic]
+    by_topic_id = {topic.topic_id: topic for topic in topics}
+    ordered: list[ResearchTopic] = []
+    seen: set[str] = set()
+
+    # Queue 是唯一的優先權來源，但不是唯一執行來源；失效 queue row 必須讓位給
+    # active-bank fallback，避免 queued topic 被 bank 排除後形成 ownership deadlock。
+    for action in load_next_action_queue():
+        topic_id = str(action.get("topic_id") or "")
+        if not topic_id or topic_id in seen:
+            continue
+        topic = by_topic_id.get(topic_id)
+        if topic is None or not topic_allowed_by_manager(
+            topic,
+            registry,
+            args,
+            last_run_at_by_topic=last_run_at_by_topic,
+        ):
+            continue
+        ordered.append(topic)
+        seen.add(topic_id)
+
+    fallback_candidates = (
+        [topic for topic in fallback_topics if topic.eligible]
+        if fallback_topics is not None
+        else topics
+    )
+    if not args.execute and not args.from_queue and count == 1:
+        indexed = selected_topic(fallback_candidates, args.topic_index)
+        fallback_candidates = [indexed] if indexed is not None else []
+    for topic in fallback_candidates:
+        if topic.topic_id in seen:
+            continue
+        if not topic_allowed_by_manager(
+            topic,
+            registry,
+            args,
+            last_run_at_by_topic=last_run_at_by_topic,
+        ):
+            continue
+        ordered.append(topic)
+        seen.add(topic.topic_id)
+    return limit_selection(ordered)
 
 
 def topic_to_json(topic: ResearchTopic) -> dict[str, Any]:
@@ -2359,6 +2376,344 @@ def write_topic_bank(
     }
     write_text_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False))
     return path
+
+
+def _matrix_parameter_value(value: Any) -> str:
+    if value is None:
+        return "none"
+    if isinstance(value, float):
+        return format(value, ".12g")
+    return str(value)
+
+
+def _topic_combination_ids(row: dict[str, Any]) -> set[str]:
+    fields = (
+        str(row.get("horizons") or ""),
+        str(row.get("stop_loss_pcts") or ""),
+        str(row.get("take_profit_pcts") or ""),
+        str(row.get("max_group_exposures") or ""),
+    )
+    if not all(fields):
+        return set()
+    try:
+        return {
+            canonical_json_hash(combination)
+            for combination in validation_profile_combinations(*fields)
+        }
+    except (TypeError, ValueError):
+        return set()
+
+
+def replenish_development_topics(
+    templates: list[ResearchTopic],
+    args: argparse.Namespace,
+    *,
+    registry_rows: dict[str, dict[str, Any]] | None = None,
+    history_rows: list[dict[str, Any]] | None = None,
+    queue_rows: list[dict[str, Any]] | None = None,
+    same_round_ids: set[str] | None = None,
+    limit: int | None = None,
+) -> tuple[list[ResearchTopic], dict[str, Any]]:
+    """從可執行 contract coverage gap 補出 bounded development-only 題目。"""
+
+    supply_limit = max(
+        1,
+        min(
+            int(
+                limit
+                if limit is not None
+                else getattr(args, "development_screen_topic_count", 1) or 1
+            ),
+            25,
+        ),
+    )
+    registry = registry_rows if registry_rows is not None else load_topic_registry()
+    history = (
+        history_rows
+        if history_rows is not None
+        else load_list_payload(manager_paths()["history"], "runs")
+    )
+    queue = queue_rows if queue_rows is not None else load_next_action_queue()
+    round_ids = set(same_round_ids or set())
+    registry_ids = {str(topic_id) for topic_id in registry if str(topic_id)}
+    history_ids = {
+        str(topic_id)
+        for row in history
+        for topic_id in (
+            row.get("selected_topic_ids")
+            or ([row.get("selected_topic_id")] if row.get("selected_topic_id") else [])
+        )
+        if str(topic_id)
+    }
+    queue_ids = {
+        str(row.get("topic_id"))
+        for row in queue
+        if str(row.get("topic_id") or "")
+    }
+    exclusion_counts = {
+        "coverage_processed": 0,
+        "registry_duplicate": 0,
+        "history_duplicate": 0,
+        "queue_duplicate": 0,
+        "same_round_duplicate": 0,
+        "invalid_current_regime_authority": 0,
+        "invalid_contract": 0,
+        "no_executable_ranking_template": 0,
+        "no_exact_regime_ranking_date": 0,
+    }
+    contract_path = resolve_path(getattr(args, "research_contract", None))
+    history_path = resolve_path(getattr(args, "market_regime_history", None))
+    coverage_path = resolve_path(getattr(args, "coverage_map", None))
+    evidence_refs = {
+        "research_contract": repo_path(contract_path),
+        "market_regime_history": repo_path(history_path),
+        "coverage_map": repo_path(coverage_path),
+        "topic_registry": repo_path(manager_paths()["registry"]),
+        "run_history": repo_path(manager_paths()["history"]),
+        "next_action_queue": repo_path(manager_paths()["queue"]),
+    }
+
+    def exhausted_receipt(candidate_count: int, **extra: Any) -> dict[str, Any]:
+        return {
+            "schema_version": "fog-continuous-topic-supply.v1",
+            "status": "TOPIC_SUPPLY_EXHAUSTED",
+            "candidate_count": candidate_count,
+            "supplied_count": 0,
+            "supply_limit": supply_limit,
+            "exclusion_counts": exclusion_counts,
+            "evidence_refs": evidence_refs,
+            "contract": {
+                "bounded": True,
+                "deterministic": True,
+                "development_only": True,
+                "sealed_data_read_allowed": False,
+                "experiment_registry_write_allowed": False,
+                "formal_candidate_allowed": False,
+                "production_promotion_allowed": False,
+            },
+            **extra,
+        }
+
+    contract = load_json(contract_path)
+    if not contract:
+        exclusion_counts["invalid_contract"] += 1
+        return [], exhausted_receipt(0)
+    combinations = parameter_combinations(contract)
+    try:
+        if history_path is None:
+            raise ValueError("market regime history missing")
+        history_payload = load_json(history_path)
+        regime_rows = (
+            history_payload.get("rows")
+            if isinstance(history_payload.get("rows"), list)
+            else []
+        )
+        current_identity = current_regime_context(
+            history_path,
+            str(args.date),
+        )["identity"]
+        regime_id = regime_identity_id(current_identity)
+    except (KeyError, TypeError, ValueError):
+        exclusion_counts["invalid_current_regime_authority"] += 1
+        return [], exhausted_receipt(len(combinations))
+
+    executable_templates: list[ResearchTopic] = []
+    for template in sorted(
+        templates,
+        key=lambda topic: (
+            topic.candidate_dir,
+            topic.baseline_dir,
+            topic.topic_id,
+        ),
+    ):
+        if (
+            not template.eligible
+            or template.runner not in RUNNER_SPECS
+            or not template.candidate_dir
+            or not template.baseline_dir
+            or template.regime_identity is None
+        ):
+            continue
+        try:
+            if canonical_regime_identity(template.regime_identity) != current_identity:
+                continue
+        except ValueError:
+            continue
+        executable_templates.append(template)
+    if not executable_templates:
+        exclusion_counts["no_executable_ranking_template"] += 1
+        return [], exhausted_receipt(len(combinations))
+
+    coverage_payload = load_json(coverage_path)
+    coverage_records = (
+        coverage_payload.get("records")
+        if isinstance(coverage_payload.get("records"), list)
+        else []
+    )
+    processed_combination_ids = {
+        str(row.get("combination_id"))
+        for row in coverage_records
+        if str(row.get("regime_id") or "") == regime_id
+        and str(row.get("status") or "") != "PENDING"
+        and str(row.get("combination_id") or "")
+    }
+    for row in registry.values():
+        if int(row.get("run_count") or 0) <= 0:
+            continue
+        try:
+            row_identity = canonical_regime_identity(row.get("regime_identity") or {})
+        except ValueError:
+            continue
+        if row_identity == current_identity:
+            processed_combination_ids.update(_topic_combination_ids(row))
+
+    allowed_date_cache: dict[str, set[str] | None] = {}
+    supplied: list[ResearchTopic] = []
+    supplied_ids: set[str] = set()
+    for combination in combinations:
+        combination_id = str(combination["combination_id"])
+        parameters = dict(combination["parameters"])
+        if combination_id in processed_combination_ids:
+            exclusion_counts["coverage_processed"] += 1
+            continue
+        horizon = _matrix_parameter_value(parameters["horizon"])
+        if horizon not in allowed_date_cache:
+            try:
+                allowed_date_cache[horizon] = canonical_exact_regime_allowed_dates(
+                    rows=regime_rows,
+                    contract=contract,
+                    regime_identity=current_identity,
+                    horizons=horizon,
+                    as_of_date=str(args.date),
+                )
+            except (KeyError, TypeError, ValueError):
+                allowed_date_cache[horizon] = None
+        for template in executable_templates:
+            hypothesis_key = {
+                "schema_version": "fog-continuous-topic-supply.v1",
+                "regime_id": regime_id,
+                "runner": template.runner,
+                "candidate_dir": template.candidate_dir,
+                "baseline_dir": template.baseline_dir,
+                "combination_id": combination_id,
+                "research_stage": DEVELOPMENT_SCREEN_STAGE,
+            }
+            digest = canonical_json_hash(hypothesis_key).split(":", 1)[1]
+            topic_id = development_topic_id(f"continuous-supply:{digest}")
+            if topic_id in registry_ids:
+                exclusion_counts["registry_duplicate"] += 1
+                continue
+            if topic_id in history_ids:
+                exclusion_counts["history_duplicate"] += 1
+                continue
+            if topic_id in queue_ids:
+                exclusion_counts["queue_duplicate"] += 1
+                continue
+            if topic_id in round_ids or topic_id in supplied_ids:
+                exclusion_counts["same_round_duplicate"] += 1
+                continue
+            ranking_eligibility = exact_regime_topic_ranking_eligibility(
+                candidate_dir=template.candidate_dir,
+                baseline_dir=template.baseline_dir,
+                allowed_dates=allowed_date_cache[horizon],
+                as_of_date=str(args.date),
+            )
+            if not ranking_eligibility["eligible"]:
+                exclusion_counts["no_exact_regime_ranking_date"] += 1
+                continue
+            rationale = {
+                "research_stage": DEVELOPMENT_SCREEN_STAGE,
+                "parent_topic_id": topic_id.removesuffix(DEVELOPMENT_TOPIC_SUFFIX),
+                "topic_supply": {
+                    "schema_version": "fog-continuous-topic-supply.v1",
+                    "hypothesis_key": hypothesis_key,
+                    "combination_id": combination_id,
+                    "parameters": parameters,
+                    "coverage_gap": True,
+                    "stable_id": True,
+                },
+                "ranking_eligibility": ranking_eligibility,
+                "development_contract": {
+                    "schema_version": DEVELOPMENT_SCREEN_SCHEMA_VERSION,
+                    "exact_match_required": True,
+                    "source_episode_role": "development",
+                    "excluded_episode_roles": [
+                        "validation",
+                        "embargo",
+                        "sealed",
+                    ],
+                    "sealed_data_read_allowed": False,
+                    "experiment_registry_write_allowed": False,
+                    "formal_candidate_allowed": False,
+                    "production_promotion_allowed": False,
+                },
+            }
+            supplied.append(
+                ResearchTopic(
+                    topic_id=topic_id,
+                    title=f"coverage gap development screen｜{Path(template.candidate_dir).name}",
+                    hypothesis=(
+                        f"exact regime {regime_id} 下，未覆蓋參數組合 {combination_id} "
+                        "可在 immutable development episodes 產生可重現的新資訊。"
+                    ),
+                    validation_plan=(
+                        "只使用 exact-match immutable development episodes 執行單一參數組合；"
+                        "排除 validation、embargo、sealed，且不寫 closed registry。"
+                    ),
+                    runner=template.runner,
+                    candidate_dir=template.candidate_dir,
+                    baseline_dir=template.baseline_dir,
+                    score=template.score,
+                    reasons=[
+                        "repo-owned parameter coverage gap",
+                        "deterministic bounded development-only supply",
+                    ],
+                    evidence_sources=sorted(
+                        {
+                            *template.evidence_sources,
+                            template.candidate_dir,
+                            template.baseline_dir,
+                            *[
+                                value
+                                for value in evidence_refs.values()
+                                if isinstance(value, str) and value
+                            ],
+                        }
+                    ),
+                    ranking_file_count=template.ranking_file_count,
+                    validation_profile="continuous_supply",
+                    horizons=horizon,
+                    stop_loss_pcts=_matrix_parameter_value(
+                        parameters["stop_loss_pct"]
+                    ),
+                    take_profit_pcts=_matrix_parameter_value(
+                        parameters["take_profit_pct"]
+                    ),
+                    max_group_exposures=_matrix_parameter_value(
+                        parameters["max_group_exposure"]
+                    ),
+                    regime_identity=current_identity,
+                    score_breakdown=template.score_breakdown,
+                    eligible=True,
+                    reason_code="DEVELOPMENT_SCREEN_ONLY",
+                    selection_rationale=rationale,
+                )
+            )
+            supplied_ids.add(topic_id)
+            if len(supplied) >= supply_limit:
+                break
+        if len(supplied) >= supply_limit:
+            break
+
+    if not supplied:
+        return [], exhausted_receipt(len(combinations))
+    receipt = {
+        **exhausted_receipt(len(combinations)),
+        "status": "TOPICS_SUPPLIED",
+        "supplied_count": len(supplied),
+        "supplied_topic_ids": [topic.topic_id for topic in supplied],
+    }
+    return supplied, receipt
 
 
 def outcome_from_comparison(
@@ -3266,6 +3621,12 @@ def build_payload(
             ),
             "development_screen_uses_development_episodes_only": True,
             "development_screen_registry_write_allowed": False,
+            "continuous_topic_supply_enabled": bool(
+                getattr(args, "closed_regime_research", False)
+                and getattr(args, "development_screen_on_sealed_exhaustion", False)
+            ),
+            "continuous_topic_supply_is_bounded": True,
+            "continuous_topic_supply_is_development_only": True,
         },
         "inputs": {
             "execute": args.execute,
@@ -3361,15 +3722,69 @@ def main() -> int:
         if bool(getattr(args, "closed_regime_research", False))
         else None
     )
-    all_topics = apply_closed_experiment_capacity(generate_all_topics(args), args)
-    topic_bank_path = write_topic_bank(all_topics, args, queued_ids=queued_topic_ids())
-    active_topics = load_active_topic_bank()
-    topics = all_topics[: args.max_topics] if args.from_queue else active_topics[: args.max_topics]
-    selected_topics_for_run = select_topics_for_run(topics, args)
+    generated_topics = generate_all_topics(args)
+    all_topics = apply_closed_experiment_capacity(generated_topics, args)
+    registry_rows = load_topic_registry()
+    queue_ids = queued_topic_ids()
+    active_topics = [
+        topic
+        for topic in all_topics
+        if topic.eligible
+        and is_active_bank_topic(topic.topic_id, registry_rows, queue_ids)
+    ]
+    selected_topics_for_run = select_topics_for_run(
+        all_topics,
+        args,
+        fallback_topics=active_topics,
+    )
+    topic_supply: dict[str, Any] | None = None
+    if (
+        not selected_topics_for_run
+        and bool(getattr(args, "closed_regime_research", False))
+        and bool(getattr(args, "development_screen_on_sealed_exhaustion", False))
+    ):
+        supplied_topics, topic_supply = replenish_development_topics(
+            generated_topics,
+            args,
+            same_round_ids=set(),
+        )
+        if supplied_topics:
+            all_topics = [*supplied_topics, *all_topics]
+            active_topics = [
+                topic
+                for topic in all_topics
+                if topic.eligible
+                and is_active_bank_topic(topic.topic_id, registry_rows, queue_ids)
+            ]
+            selected_topics_for_run = select_topics_for_run(
+                all_topics,
+                args,
+                fallback_topics=active_topics,
+            )
+    selected_ids = {topic.topic_id for topic in selected_topics_for_run}
+    topics = [
+        *selected_topics_for_run,
+        *(topic for topic in all_topics if topic.topic_id not in selected_ids),
+    ][: max(int(args.max_topics), len(selected_topics_for_run))]
+    topic_bank_path = write_topic_bank(
+        all_topics,
+        args,
+        registry_rows=registry_rows,
+        queued_ids=queue_ids,
+    )
     steps: list[dict[str, Any]] = []
     topic_runs: list[dict[str, Any]] = []
     first_topic = selected_topics_for_run[0] if selected_topics_for_run else None
-    outcome = {"decision": "DRY_RUN_TOPIC_SELECTED" if first_topic else "NO_EXECUTABLE_TOPIC", "promotion_allowed": False}
+    no_work_decision = (
+        "TOPIC_SUPPLY_EXHAUSTED"
+        if topic_supply and topic_supply.get("status") == "TOPIC_SUPPLY_EXHAUSTED"
+        else "NO_EXECUTABLE_TOPIC"
+    )
+    outcome = {
+        "decision": "DRY_RUN_TOPIC_SELECTED" if first_topic else no_work_decision,
+        "promotion_allowed": False,
+        **({"topic_supply": topic_supply} if topic_supply else {}),
+    }
     outputs: dict[str, str] = {"run_dir": repo_path(run_dir) or str(run_dir), "topic_bank": repo_path(topic_bank_path) or str(topic_bank_path)}
     if args.execute and selected_topics_for_run:
         decisions: list[str] = []
@@ -3398,6 +3813,7 @@ def main() -> int:
                 "all_topic_runs_ok": all(run["status"] == "OK" for run in topic_runs),
             },
             "promotion_allowed": False,
+            **({"topic_supply": topic_supply} if topic_supply else {}),
         }
     payload = build_payload(
         args,
