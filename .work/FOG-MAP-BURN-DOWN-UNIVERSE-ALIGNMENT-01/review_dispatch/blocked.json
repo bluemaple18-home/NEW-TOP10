@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "taskId": "FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01",
+  "dispatchIdentity": "FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01-REVIEW",
+  "dispatchKey": "v1:5998bb059a1dbc4f542cc0ed290171a4073cd97d46bb74431eae5a0f5ba1ba66",
+  "status": "BLOCKED",
+  "blocker": "REVIEW_THREAD_CREATE_NO_RECEIPT",
+  "sourceBranch": "codex/fog-map-burn-down-universe-alignment-review-20260801",
+  "sourceCommit": "0fc42a3c1571d1480df6d3a35efdaa6aa5b0ad55",
+  "candidateCommit": "980fa4f77f23522d6671bd15d09b62bfedc16c5b",
+  "createAttemptCount": 1,
+  "formalThreadId": null,
+  "clientThreadId": null,
+  "canonicalRegistryResult": "not_found",
+  "reviewWorktreePresent": false,
+  "runtimeMutation": false,
+  "detail": "唯一一次 Reviewer create 呼叫未回傳 receipt；canonical registry、rollout 與 Git worktree 均查無此 Review identity。",
+  "nextAction": "依 visible-thread-card-flow，須由使用者明確授權後，才可重試同一筆 Reviewer create 或建立 replacement。"
+}

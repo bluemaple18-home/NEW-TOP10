@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "projects": [
+    {
+      "label": "TOP10new",
+      "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c",
+      "path": "<repo-root>",
+      "isGitRepository": true,
+      "supportsWorktrees": true,
+      "projectKind": "remote"
+    }
+  ],
+  "inventory_source": "same-session validated list_projects; bounded refresh timed out before reservation"
+}
