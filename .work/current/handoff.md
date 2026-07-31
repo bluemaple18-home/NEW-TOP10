@@ -1,40 +1,33 @@
 ---
-id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-HANDOFF
+id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01-HANDOFF
 status: COMPLETE
 type: mainline
 ---
 
 # Handoff
 
-## Confirmed
-
-- LaunchAgent排程與 circuit本身正常。
-- 空轉原因是 selection routing ownership錯位，不是 scheduler故障。
-- 現有固定 topic catalog由有限的 ranking artifacts與 validation profiles組合，
-  長期仍會耗盡，因此本卡同時補 bounded replenishment。
-
 ## Task
 
-`docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01.md`
+`docs/tasks/2026-07-31_FOG-TOPIC-SUPPLY-BUDGET-STATUS-01.md`
 
-Repair-1 candidate：
-`d166fa1483d2ca2288cda50ea204631cd8b0b972`。
+## Accepted chain
 
-原Reviewer thread已重審為 `REVIEW_GO`；固定 review commit：
-`b4c12b741b959b3f49bd90d827e53cce072b1f67`。
+- Candidate：`6af35c839f85040ba24648b226949dc31e584e6c`
+- Review receipt：`81a024cb8fda1e8c398041a32af2f0135047f0b2`
+- Review verdict：`REVIEW_GO`
+- Mainline candidate：`5b543af`
+- Mainline review receipt：`c5908ab`
 
-Mainline驗證：
+## Verification
 
-- Targeted：`105 passed`
-- Full：`617 passed, 4 warnings, 246 subtests passed`
-
-13:46:39 +0800 既有自然排程已完成 runtime acceptance：
-`DEVELOPMENT_CANDIDATE`、1 selected、1 topic run、failed count 0。
-
-主卡已完成。非阻塞P2另存：
-`docs/tasks/2026-07-31_FOG-TOPIC-SUPPLY-BUDGET-STATUS-01.md`。
+- Affected：`21 passed`
+- Full：`619 passed, 4 warnings, 246 subtests passed`
+- Natural scheduler：
+  `fog-research-2026-07-31-20260731082601931846`
+- 1 selected／1 run、Fog map OK、replay drain 6/6、LaunchAgent exit 0
 
 ## Boundary
 
-只處理 development research topic routing與供應；不得操作 live worker、
-LaunchAgent、circuit、closed/sealed registry、promotion或 production ranking。
+未重啟LaunchAgent、未清circuit、未人工kickstart、未執行live probe。
+本卡只修attempt-budget incomplete狀態傳遞，不改ranking、model、
+promotion、attempt budget大小或topic eligibility。

@@ -5,11 +5,11 @@
 - Base SHA: `85ca3efb403519925d28afc8d94ed43f5111b2b3`
 - Worktree: isolated detached worktree, clean before activation changes.
 - Capability preflight:
-  - `bash /Users/mattkuo/ai-core/scripts/worktree_capability_preflight.sh --check --root .`
+  - `bash <ai-core>/scripts/worktree_capability_preflight.sh --check --root .`
     - `worktree_registered=true`
     - `python_tests=needs_prepare`
     - `codegraph=needs_prepare`
-  - `bash /Users/mattkuo/ai-core/scripts/worktree_capability_preflight.sh --prepare --require-python-tests --with-codegraph --root .`
+  - `bash <ai-core>/scripts/worktree_capability_preflight.sh --prepare --require-python-tests --with-codegraph --root .`
     - sandbox run: Python test prepare blocked by uv cache permission; CodeGraph indexed `85ca3efb403519925d28afc8d94ed43f5111b2b3`.
     - escalated rerun: `provisioning=ready`, `python_tests=ready`, `codegraph=ready`.
 - CodeGraph:
@@ -79,3 +79,36 @@ Production code was not changed before these RED checks.
 - FR-BUDGET-03: worker treats retryable topic supply as continue, not terminal/no-more-work.
 - SC-BUDGET-01: `TOPIC_SUPPLY_EXHAUSTED` and `NO_EXECUTABLE_TOPIC` targeted regressions remain terminal/no-more-work.
 - SC-BUDGET-02: main -> verifier -> worker observable regression is covered by targeted tests and shell wiring.
+
+## Independent Review
+
+- Fixed candidate：`6af35c839f85040ba24648b226949dc31e584e6c`。
+- Review receipt commit：`81a024cb8fda1e8c398041a32af2f0135047f0b2`。
+- Verdict：`REVIEW_GO`。
+- 未解 P0／P1：無。
+- Reviewer另以CLI probe確認attempt-budget retryable、true exhaustion與一般
+  no-executable三種狀態都維持exit 0。
+
+## Mainline Acceptance
+
+- Candidate整合commit：`5b543af`。
+- Review receipt整合commit：`c5908ab`。
+- Affected suites：`21 passed`。
+- Mainline full suite：`619 passed, 4 warnings, 246 subtests passed`。
+- Shell wiring／syntax、`py_compile`、`git diff --check`：PASS。
+
+2026-07-31 16:26:02 +0800 的下一次自然排程：
+
+- run id：`fog-research-2026-07-31-20260731082601931846`
+- decision：`DEVELOPMENT_CANDIDATE`
+- selected topics／topic runs：`1 / 1`
+- verifier：`PARTIAL_NO_MORE_WORK`、failed count `0`、
+  research value `HAS_FOLLOWUP_SIGNAL`
+- `TOP10_FOG_MAP_HANDOFF_OK`
+- representative replay drain：6 batches、144 completed、0 failed
+- worker完成時間：16:43:37 +0800
+- LaunchAgent：`LastExitStatus=0`
+
+16:11前一輪的replay drain失敗已確認為磁碟空間耗盡，不是本卡routing或
+queue regression。完成已結束worktree與暫存檔清理後，可用空間恢復；
+未重啟LaunchAgent、未清circuit、未人工kickstart或執行live probe。

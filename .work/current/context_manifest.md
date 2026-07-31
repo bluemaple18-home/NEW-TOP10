@@ -1,5 +1,5 @@
 ---
-id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-CONTEXT
+id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01-CONTEXT
 status: ACCEPTED
 type: mainline
 ---
@@ -11,26 +11,23 @@ type: mainline
 - `AGENTS.md`
 - `.work/current/status.md`
 - `.work/current/handoff.md`
-- `docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01.md`
-- `docs/tasks/2026-07-28_FOG-EXACT-REGIME-TOPIC-ELIGIBILITY-01_handoff.md`
-- `docs/tasks/2026-07-27_REGIME-RESEARCH-AUTONOMY-01_closed_regime_parameter_research.md`
+- `docs/tasks/2026-07-31_FOG-TOPIC-SUPPLY-BUDGET-STATUS-01.md`
+- `docs/evidence/FOG-TOPIC-SUPPLY-BUDGET-STATUS-01/verification.md`
+- `.work/FOG-TOPIC-SUPPLY-BUDGET-STATUS-01/review/review_receipt.md`
+- `.work/FOG-TOPIC-SUPPLY-BUDGET-STATUS-01/mainline_acceptance.md`
 
 ## Canonical source
 
-- Reviewed candidate：`d166fa1483d2ca2288cda50ea204631cd8b0b972`
-- Mainline merge：`b4db5a93989ff280db9f05f897e7b93c7a580ae5`
-- Key routing：`scripts/run_autonomous_research.py`
-- Worker default：`scripts/run_fog_research_worker.sh`
-- Daily quota：`scripts/run_daily_research_quota.sh`
+- Candidate：`6af35c839f85040ba24648b226949dc31e584e6c`
+- Review：`81a024cb8fda1e8c398041a32af2f0135047f0b2`
+- Mainline candidate：`5b543af`
+- Mainline review receipt：`c5908ab`
 
-## Key symbols
+## Key files
 
-- `is_active_bank_topic`
-- `write_topic_bank`
-- `select_topics_for_run`
-- `generate_research_topics`
-
-## Acceptance evidence
-
-- `docs/evidence/FOG-CONTINUOUS-TOPIC-SUPPLY-01/runtime_acceptance.md`
-- `.work/FOG-CONTINUOUS-TOPIC-SUPPLY-01/runtime_acceptance.json`
+- `scripts/run_autonomous_research.py`
+- `scripts/verify_daily_research_quota.py`
+- `scripts/run_fog_research_worker.sh`
+- `tests/test_fog_continuous_topic_supply.py`
+- `tests/test_daily_research_quota_verifier.py`
+- `tests/test_fog_runtime_time_wiring.sh`

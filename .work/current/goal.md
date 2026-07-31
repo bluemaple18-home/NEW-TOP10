@@ -1,16 +1,13 @@
 ---
-id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-GOAL
+id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01-GOAL
 status: ACCEPTED
 type: mainline
 ---
 
 # Goal
 
-當 Fog仍有可執行題目時不得空轉；先從 queue取題，queue沒有有效題目時才回退
-active bank。同時依 repo-owned research contract與覆蓋缺口，有界補充新穎、
-穩定且可重現的 development topics。
+當topic supply在單輪內達到attempt budget，但尚未證明真正耗盡時，完整保留
+`TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED`，使verifier與worker把它視為
+exit 0、可重試、非no-more-work，下一個bounded batch可以繼續。
 
-sealed registry、promotion、production ranking、weights與模型維持 fail-closed，
-不得由本卡改寫。
-
-結果：`ACCEPTED_MAINLINE_RUNTIME`。
+true exhaustion與一般no-executable語意維持不變。

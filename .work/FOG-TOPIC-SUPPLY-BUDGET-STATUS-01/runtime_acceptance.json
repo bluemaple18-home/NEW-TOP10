@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "card_id": "FOG-TOPIC-SUPPLY-BUDGET-STATUS-01",
+  "status": "ACCEPTED_MAINLINE_RUNTIME",
+  "candidate_sha": "6af35c839f85040ba24648b226949dc31e584e6c",
+  "review_verdict": "REVIEW_GO",
+  "mainline_candidate_commit": "5b543af",
+  "mainline_review_receipt_commit": "c5908ab",
+  "tests": {
+    "affected": "21 passed",
+    "full": "619 passed, 4 warnings, 246 subtests passed",
+    "shell_wiring": "PASS",
+    "shell_syntax": "PASS",
+    "py_compile": "PASS",
+    "diff_check": "PASS"
+  },
+  "natural_scheduler": {
+    "run_id": "fog-research-2026-07-31-20260731082601931846",
+    "started_at": "2026-07-31T16:26:02+08:00",
+    "finished_at": "2026-07-31T16:43:37+08:00",
+    "decision": "DEVELOPMENT_CANDIDATE",
+    "selected_topic_count": 1,
+    "topic_run_count": 1,
+    "verifier_status": "PARTIAL_NO_MORE_WORK",
+    "verifier_failed_count": 0,
+    "research_value_status": "HAS_FOLLOWUP_SIGNAL",
+    "fog_map_handoff": "OK",
+    "replay_drain_batches": 6,
+    "replay_completed_count": 144,
+    "replay_failed_batch_count": 0,
+    "launchagent_last_exit_status": 0
+  },
+  "forbidden_actions_performed": {
+    "launchagent_restart": false,
+    "circuit_clear": false,
+    "manual_kickstart": false,
+    "live_probe": false
+  }
+}

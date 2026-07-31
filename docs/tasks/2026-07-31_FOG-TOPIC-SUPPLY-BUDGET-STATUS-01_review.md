@@ -1,6 +1,6 @@
 ---
 id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01-REVIEW
-status: READY_TO_DISPATCH
+status: REVIEW_GO
 type: review
 ownership: reviewer
 thickness: standard
@@ -91,4 +91,3 @@ candidate 6af35c839f85040ba24648b226949dc31e584e6c
 - checks與結果
 - findings（含P2／P3 backlog）
 - `REVIEW_GO` 或 `REVIEW_NO_GO`
-

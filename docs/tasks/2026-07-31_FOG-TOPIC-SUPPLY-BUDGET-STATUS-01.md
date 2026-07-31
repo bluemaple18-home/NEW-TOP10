@@ -1,6 +1,6 @@
 ---
 id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01
-status: READY_FOR_INDEPENDENT_REVIEW
+status: ACCEPTED_MAINLINE_RUNTIME
 type: maintenance
 ownership: executor
 thickness: standard

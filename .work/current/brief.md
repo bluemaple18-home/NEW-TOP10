@@ -1,16 +1,15 @@
 ---
-id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-BRIEF
-status: ACCEPTED
+id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01-BRIEF
+status: ACCEPTED_MAINLINE_RUNTIME
 type: mainline
 ---
 
 # Brief
 
-Fog scheduler存在 queue ownership deadlock：目前有 9 題 exact-regime eligible、
-尚未執行且已排入 next-action queue，但 active topic bank會排除 queued topic，
-worker又預設不從 queue取題，因而回報 `NO_EXECUTABLE_TOPIC`。
+修正先前P2：main會把罕見的attempt-budget incomplete receipt降成
+`NO_EXECUTABLE_TOPIC`，verifier再標成`PARTIAL_NO_MORE_WORK`，使worker
+提早停止。
 
-本卡先修 deterministic queue-first／active fallback，再補上有界、可重現且只限
-development範圍的持續產題機制。
-
-自然排程已由0題空轉改為選出並完成1個development topic；主卡已接受。
+現在main保留decision，verifier輸出`PARTIAL_RETRYABLE_TOPIC_SUPPLY`，
+worker會繼續下一bounded batch。獨立Review為`REVIEW_GO`，自然排程已完成
+一題且LaunchAgent exit 0。
