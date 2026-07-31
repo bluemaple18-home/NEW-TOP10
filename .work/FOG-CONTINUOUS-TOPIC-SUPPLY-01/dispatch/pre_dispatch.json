@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-07-31T02:38:37Z",
+  "card_id": "FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+  "card_path": "docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01.md",
+  "ownership": "executor",
+  "thickness": "strict",
+  "risk": "high",
+  "model": "gpt-5.6-sol",
+  "reasoning": "high",
+  "model_reason": "Queue ownership、exact-regime eligibility、持續題目補充與 sealed/production 邊界跨越 scheduler、manager 與 research contract。",
+  "chain_id": "FOG-CONTINUOUS-RESEARCH-AVAILABILITY",
+  "cycle": 1,
+  "repo_identity": "github.com/bluemaple18-home/NEW-TOP10",
+  "project_id": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+  "base_ref": "codex/fog-continuous-topic-supply-20260731",
+  "required_base_sha": "8cff3d0acbe2cea94f198166cc3a9a581b21319a",
+  "source_preflight": {
+    "branch_exists_local": true,
+    "branch_exists_remote": true,
+    "remote_sha_matches": true,
+    "source_commit_contains_card": true,
+    "main_worktree_clean_before_receipt": true,
+    "git_metadata_readable": true,
+    "index_lock_present": false
+  },
+  "scope": {
+    "allowlist_source": "task card Exact changed-file allowlist",
+    "forbidden_source": "task card Forbidden scope",
+    "verification_source": "task card Verification",
+    "evidence_root": "docs/evidence/FOG-CONTINUOUS-TOPIC-SUPPLY-01/"
+  },
+  "gates": {
+    "gate_1_branch_ready": true,
+    "gate_2_thread_and_worktree_verified": false,
+    "activation_sent": false
+  },
+  "status": "READY_FOR_RESERVATION"
+}
