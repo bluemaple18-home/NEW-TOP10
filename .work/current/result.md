@@ -1,12 +1,12 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-RESULT
-status: REVIEW_IN_PROGRESS
+status: REVIEW_NO_GO_REPAIR_1_READY
 type: mainline
 ---
 
 # Result
 
-state：`REVIEW_IN_PROGRESS`
+state：`REVIEW_NO_GO_REPAIR_1_READY`
 
 Candidate：`1674e293daeb759888b950be59d8c30d6020e833`。
 

@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-STATUS
-status: REVIEW_IN_PROGRESS
+status: REVIEW_NO_GO_REPAIR_1_READY
 type: mainline
 ---
 
@@ -21,7 +21,11 @@ type: mainline
 
 ## Next step
 
-strict獨立 Reviewer已在正式 thread
-`019fb62f-2ffe-7ee2-a39c-bac715e33d0e`啟動，審查 candidate
-`1674e293daeb759888b950be59d8c30d6020e833`。Review verdict前不得整合
-main。
+獨立Review判定`REVIEW_NO_GO`：
+
+- P1：non-execute `--topic-index` preview被queue-first與manager gate覆蓋。
+- P2：supply exhaustion scan重複I/O且缺明確attempt bound。
+- P2：`TOPIC_SUPPLY_EXHAUSTED`在quota verifier降級為`LOW_INFORMATION`。
+
+下一步派出`FOG-CONTINUOUS-TOPIC-SUPPLY-01-REPAIR-1`；修後回原Reviewer
+re-review。
