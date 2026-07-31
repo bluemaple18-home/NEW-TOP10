@@ -3832,9 +3832,14 @@ def main() -> int:
     steps: list[dict[str, Any]] = []
     topic_runs: list[dict[str, Any]] = []
     first_topic = selected_topics_for_run[0] if selected_topics_for_run else None
+    topic_supply_status = str((topic_supply or {}).get("status") or "")
     no_work_decision = (
-        "TOPIC_SUPPLY_EXHAUSTED"
-        if topic_supply and topic_supply.get("status") == "TOPIC_SUPPLY_EXHAUSTED"
+        topic_supply_status
+        if topic_supply_status
+        in {
+            "TOPIC_SUPPLY_EXHAUSTED",
+            "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED",
+        }
         else "NO_EXECUTABLE_TOPIC"
     )
     outcome = {

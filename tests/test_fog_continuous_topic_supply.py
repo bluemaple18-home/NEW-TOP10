@@ -325,6 +325,59 @@ def test_main_reports_true_supply_exhaustion_and_exits_zero(
     ] == 720
 
 
+def test_main_preserves_attempt_budget_exceeded_topic_supply_status(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    template, supply_args, _contract = _fixture(tmp_path, monkeypatch)
+    args = _main_args(tmp_path, supply_args)
+    receipt = {
+        "status": "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED",
+        "candidate_count": 720,
+        "supplied_count": 0,
+        "attempt_budget": 1,
+        "attempt_budget_exhausted": True,
+        "reason_code": "ATTEMPT_BUDGET_EXCEEDED",
+        "exclusion_counts": {"no_exact_regime_ranking_date": 1},
+        "evidence_refs": {"research_contract": "config/regime_research_contract.json"},
+    }
+    captured: dict = {}
+    monkeypatch.setattr(research, "parse_args", lambda: args)
+    monkeypatch.setattr(research, "build_daily_source_lineage", lambda **_kwargs: {})
+    monkeypatch.setattr(research, "generate_all_topics", lambda _args: [template])
+    monkeypatch.setattr(
+        research,
+        "apply_closed_experiment_capacity",
+        lambda topics, _args: topics,
+    )
+    monkeypatch.setattr(
+        research,
+        "select_topics_for_run",
+        lambda _topics, _args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        research,
+        "replenish_development_topics",
+        lambda *_args, **_kwargs: ([], receipt),
+    )
+    monkeypatch.setattr(
+        research,
+        "write_topic_bank",
+        lambda *_args, **_kwargs: tmp_path / "topic_bank.json",
+    )
+    monkeypatch.setattr(research, "queued_topic_ids", lambda: set())
+    monkeypatch.setattr(
+        research,
+        "write_run_artifacts",
+        lambda payload, _output: captured.update(payload),
+    )
+
+    assert research.main() == 0
+    assert captured["status"] == "OK"
+    assert captured["outcome"]["decision"] == "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED"
+    assert captured["outcome"]["topic_supply"] == receipt
+
+
 def test_main_replenishes_when_existing_queue_and_active_routes_are_empty(
     tmp_path: Path,
     monkeypatch,

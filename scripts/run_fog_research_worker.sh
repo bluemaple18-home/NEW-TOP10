@@ -314,7 +314,12 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 outcome = payload.get("outcome") if isinstance(payload.get("outcome"), dict) else {}
 topic_runs = payload.get("topic_runs") if isinstance(payload.get("topic_runs"), list) else []
 decision = outcome.get("decision")
-terminal = decision in {"NO_EXECUTABLE_TOPIC", "TOPIC_SUPPLY_EXHAUSTED"}
+topic_supply = outcome.get("topic_supply") if isinstance(outcome.get("topic_supply"), dict) else {}
+budget_incomplete = (
+    decision == "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED"
+    or topic_supply.get("status") == "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED"
+)
+terminal = decision in {"NO_EXECUTABLE_TOPIC", "TOPIC_SUPPLY_EXHAUSTED"} and not budget_incomplete
 print("1" if terminal and not topic_runs else "0")
 PY
 )"
@@ -331,7 +336,9 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 print(payload.get("status") or "UNKNOWN")
 PY
 )"
-  if [ "$NO_MORE_WORK" = "1" ] || [ "$RESEARCH_STATE" = "PARTIAL_NO_MORE_WORK" ]; then
+  if [ "$RESEARCH_STATE" = "PARTIAL_RETRYABLE_TOPIC_SUPPLY" ]; then
+    echo "fog research worker continue; retryable_topic_supply state=$RESEARCH_STATE no_more_work=$NO_MORE_WORK after batch=$BATCH" | tee -a "$LOG_FILE"
+  elif [ "$NO_MORE_WORK" = "1" ] || [ "$RESEARCH_STATE" = "PARTIAL_NO_MORE_WORK" ]; then
     echo "fog research worker stop; terminal_state=$RESEARCH_STATE no_more_work=$NO_MORE_WORK after batch=$BATCH" | tee -a "$LOG_FILE"
     break
   fi

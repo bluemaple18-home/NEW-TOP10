@@ -1,6 +1,6 @@
 ---
 id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01
-status: READY_TO_DISPATCH
+status: READY_FOR_INDEPENDENT_REVIEW
 type: maintenance
 ownership: executor
 thickness: standard

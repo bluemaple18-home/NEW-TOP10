@@ -67,6 +67,8 @@ grep -q -- '--development-screen-on-sealed-exhaustion' scripts/run_daily_researc
 grep -q -- '--development-screen-topic-count "$DEVELOPMENT_SCREEN_TOPIC_COUNT"' scripts/run_daily_research_quota.sh
 grep -q 'TOP10_RESEARCH_FROM_QUEUE:-0' scripts/run_fog_research_worker.sh
 grep -q 'TOPIC_SUPPLY_EXHAUSTED' scripts/run_fog_research_worker.sh
+grep -q 'TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED' scripts/run_fog_research_worker.sh
+grep -q 'PARTIAL_RETRYABLE_TOPIC_SUPPLY' scripts/run_fog_research_worker.sh
 
 if grep -Eq '<key>(TZ|TOP10_RUN_DATE|TOP10_RESEARCH_DATE|TOP10_.*(FRESH|AGE|TIMEZONE))</key>' \
   scripts/com.new-top10.fog-research-worker.plist; then

@@ -34,7 +34,11 @@ REJECTION_DECISIONS = {
     "DEVELOPMENT_REJECTED",
     "DEVELOPMENT_NO_COMPARISON_EVIDENCE",
 }
-SUCCESS_STATES = {"COMPLETED", "PARTIAL_NO_MORE_WORK"}
+SUCCESS_STATES = {
+    "COMPLETED",
+    "PARTIAL_NO_MORE_WORK",
+    "PARTIAL_RETRYABLE_TOPIC_SUPPLY",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -133,7 +137,12 @@ def build_payload(
     quota = int(inputs.get("execute_topic_count") or 0)
     followup_count = sum(1 for decision in decisions if decision in FOLLOWUP_DECISIONS)
     rejection_count = sum(1 for decision in decisions if decision in REJECTION_DECISIONS)
-    if outcome.get("decision") == "TOPIC_SUPPLY_EXHAUSTED" and not topic_runs:
+    if (
+        outcome.get("decision") == "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED"
+        and not topic_runs
+    ):
+        research_value_status = "TOPIC_SUPPLY_ATTEMPT_BUDGET_RETRYABLE"
+    elif outcome.get("decision") == "TOPIC_SUPPLY_EXHAUSTED" and not topic_runs:
         research_value_status = "SUPPLY_EXHAUSTED"
     elif outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs:
         research_value_status = "NO_MORE_EXECUTABLE_TOPIC"
@@ -236,6 +245,11 @@ def build_payload(
         state = "FAILED"
     elif failed:
         state = "BLOCKED"
+    elif (
+        outcome.get("decision") == "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED"
+        and not topic_runs
+    ):
+        state = "PARTIAL_RETRYABLE_TOPIC_SUPPLY"
     elif len(topic_runs) >= quota:
         state = "COMPLETED"
     else:

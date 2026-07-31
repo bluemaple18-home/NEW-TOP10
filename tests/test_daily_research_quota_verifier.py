@@ -119,6 +119,49 @@ class DailyResearchQuotaVerifierTest(unittest.TestCase):
         self.assertEqual(payload["summary"]["failed_count"], 0)
         self.assertEqual(payload["summary"]["research_value_status"], "SUPPLY_EXHAUSTED")
 
+    def test_attempt_budget_exceeded_is_retryable_not_no_more_work(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = Path(tmp) / "quota.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "autonomous-research-run.v1",
+                        "status": "OK",
+                        "contract": {
+                            "research_only": True,
+                            "does_not_train_model": True,
+                            "does_not_write_models_latest_lgbm": True,
+                            "does_not_change_risk_adjusted_score": True,
+                            "does_not_change_production_ranking": True,
+                            "production_promotion_allowed": False,
+                        },
+                        "inputs": {"execute": True, "from_queue": False, "execute_topic_count": 5},
+                        "selected_topics": [],
+                        "topic_runs": [],
+                        "outcome": {
+                            "decision": "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED",
+                            "promotion_allowed": False,
+                            "topic_supply": {
+                                "status": "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED",
+                                "attempt_budget_exhausted": True,
+                                "reason_code": "ATTEMPT_BUDGET_EXCEEDED",
+                            },
+                        },
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            payload = build_payload(artifact, min_quota=5)
+
+        self.assertEqual(payload["status"], "PARTIAL_RETRYABLE_TOPIC_SUPPLY")
+        self.assertEqual(payload["summary"]["failed_count"], 0)
+        self.assertEqual(
+            payload["summary"]["research_value_status"],
+            "TOPIC_SUPPLY_ATTEMPT_BUDGET_RETRYABLE",
+        )
+
     def test_no_executable_topic_status_is_not_supply_exhausted(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             artifact = Path(tmp) / "quota.json"
