@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-07-31T03:54:50Z",
+  "card_id": "FOG-CONTINUOUS-TOPIC-SUPPLY-01-REPAIR-1",
+  "card_path": "docs/tasks/2026-07-31_FOG-CONTINUOUS-TOPIC-SUPPLY-01_REPAIR-1.md",
+  "ownership": "repairer",
+  "thickness": "standard",
+  "risk": "high",
+  "model": "gpt-5.5",
+  "reasoning": "medium",
+  "model_reason": "三個findings已有高信心重現與明確修復契約，但跨selection、bounded scan及quota verifier三個既有介面。",
+  "chain_id": "FOG-CONTINUOUS-RESEARCH-AVAILABILITY",
+  "cycle": 1,
+  "repo_identity": "github.com/bluemaple18-home/NEW-TOP10",
+  "project_id": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+  "base_ref": "codex/fog-continuous-topic-supply-repair-1-20260731",
+  "required_base_sha": "8f2c0c3a6ad19777103932029a85ef6a750fc6f0",
+  "parent_candidate_sha": "1674e293daeb759888b950be59d8c30d6020e833",
+  "review_sha": "21ff2a386f1563fa2be965c2ce20f85ac928df22",
+  "source_preflight": {
+    "branch_exists_local": true,
+    "branch_exists_remote": true,
+    "remote_sha_matches": true,
+    "source_commit_contains_card": true,
+    "main_worktree_clean_before_receipt": true,
+    "git_metadata_readable": true,
+    "index_lock_present": false
+  },
+  "scope": {
+    "allowlist_source": "Repair-1 card Exact changed-file allowlist",
+    "forbidden_source": "Repair-1 card Forbidden",
+    "verification_source": "Repair-1 card Verification",
+    "evidence_path": "docs/evidence/FOG-CONTINUOUS-TOPIC-SUPPLY-01/repair_1.md"
+  },
+  "findings": [
+    "FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P1-001",
+    "FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P2-002",
+    "FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P2-003"
+  ],
+  "gates": {
+    "gate_1_branch_ready": true,
+    "gate_2_thread_and_worktree_verified": false,
+    "activation_sent": false
+  },
+  "previous_card": {
+    "card_id": "REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01",
+    "thread_id": "019fb62f-2ffe-7ee2-a39c-bac715e33d0e",
+    "review_sha": "21ff2a386f1563fa2be965c2ce20f85ac928df22"
+  },
+  "status": "READY_FOR_RESERVATION"
+}
