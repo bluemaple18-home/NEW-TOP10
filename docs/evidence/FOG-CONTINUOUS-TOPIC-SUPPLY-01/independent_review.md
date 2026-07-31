@@ -172,3 +172,172 @@ Verdict: `UNRELATED_ENVIRONMENT_ARTIFACT_FAILURE`，不替candidate洗成全綠�
 `REVIEW_NO_GO`
 
 Blocking finding：`FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P1-001`。
+
+---
+
+# Repair-1 Independent Re-review
+
+## Identity and preflight
+
+- role: Independent Reviewer（沿用原 Reviewer thread）
+- original review source SHA:
+  `253874667cfcab746aff9f02ed005c447aa277bd`
+- fixed re-review candidate SHA:
+  `d166fa1483d2ca2288cda50ea204631cd8b0b972`
+- candidate branch:
+  `origin/codex/fog-continuous-topic-supply-repair-1-candidate-20260731`
+- detached-HEAD preflight: exact HEAD符合固定candidate；tracked與untracked均clean。
+- previous review evidence commit:
+  `21ff2a386f1563fa2be965c2ce20f85ac928df22`，已由local/remote
+  traceable review branches包含，重審前安全落盤。
+- capability preflight: worktree registered；Python tests ready；CodeGraph ready。
+- CodeGraph indexed SHA:
+  `d166fa1483d2ca2288cda50ea204631cd8b0b972`。
+- candidate source/tests modified by Reviewer: no。
+- live worker / LaunchAgent / retry circuit / promotion / production artifacts touched:
+  no。
+
+## Findings disposition
+
+### FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P1-001 — RESOLVED
+
+- severity: `P1`
+- category: `regression`
+- path:line: `scripts/run_autonomous_research.py:2215`
+- trigger: non-execute default single-topic preview，同時存在actionable queue、
+  non-zero topic index，或preview topic處於manager rejected/cooldown。
+- evidence:
+  - `select_topics_for_run`在queue與manager arbitration前保留
+    `not execute and not from_queue and count == 1`分支。
+  - 分支從`main`提供的active-bank `fallback_topics`依`topic_index`選題，
+    不受queue或執行用manager gate覆寫。
+  - execute default與explicit mode仍經queue-first、fallback與dedupe流程。
+  - focused regressions：`3 passed, 18 deselected`。
+- risk: 原CLI preview regression已解除；未發現修復導致execute routing退化。
+- suggested_fix: 已完成，無後續修補要求。
+- validation_gap: none；preview、manager-blocked preview與queue arbitration均有
+  observable regression。
+- confidence: `high`
+- status: `resolved`
+
+### FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P2-002 — PARTIALLY RESOLVED / P2 BACKLOG
+
+- severity: `P2`
+- category: `regression`
+- path:line: `scripts/run_autonomous_research.py:3835`
+- trigger: eligibility cache misses達attempt budget，且完整search尚未完成、未供應題目。
+- evidence:
+  - `replenish_development_topics`已用
+    `(candidate_dir, baseline_dir, horizon, as_of_date)`快取eligibility，並在receipt
+    保存attempt budget、cache hits/misses與budget exhaustion。
+  - hostile fixture `720` combinations、`3` templates、limit `1`已不再做
+    `2160`次重掃；focused regressions為`2 passed, 4 deselected`。
+  - function層在budget未完成search時回
+    `TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED`，不冒充true exhaustion。
+  - 但`main:3835-3838`只保留`TOPIC_SUPPLY_EXHAUSTED`，其他supply狀態一律
+    降為`NO_EXECUTABLE_TOPIC`。Reviewer獨立probe實測：
+    nested status=`TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED`，
+    top-level decision=`NO_EXECUTABLE_TOPIC`，
+    verifier=`PARTIAL_NO_MORE_WORK/NO_MORE_EXECUTABLE_TOPIC`，
+    worker terminal predicate=`true`。
+- risk: 掃描本身已bounded且沒有production/sealed safety風險；但罕見的budget
+  incomplete路徑會被營運層誤當成「確定無更多題目」並停止worker，失去Repair卡要求的
+  fail-safe observable outcome。
+- suggested_fix: 將`TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED`傳遞至top-level
+  outcome；verifier輸出專用非no-more-work狀態，worker不得把該狀態視為true
+  exhaustion terminal。補main→verifier→worker整合測試。
+- validation_gap: Candidate只測function receipt的budget狀態，未測該狀態經
+  `main`、quota verifier與worker terminal predicate的端到端傳遞。
+- confidence: `high`
+- status: `open`
+
+### FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P2-003 — RESOLVED
+
+- severity: `P2`
+- category: `regression`
+- path:line: `scripts/verify_daily_research_quota.py:136`
+- trigger: default或explicit mode、零topic runs，decision分別為
+  `TOPIC_SUPPLY_EXHAUSTED`或`NO_EXECUTABLE_TOPIC`。
+- evidence:
+  - verifier不再依賴`from_queue=true`。
+  - true exhaustion穩定映射為`SUPPLY_EXHAUSTED`；一般無可執行題映射為
+    `NO_MORE_EXECUTABLE_TOPIC`。
+  - 兩者仍維持`PARTIAL_NO_MORE_WORK`、failed count `0`、exit `0`；
+    `TOPIC_SUPPLY_EXHAUSTED`仍在worker terminal allowlist且不進retry/circuit。
+  - focused regressions：`3 passed, 10 deselected`；runtime wiring PASS。
+- risk: 原terminal原因降級問題已解除。
+- suggested_fix: 已完成；P2-002的budget-incomplete新狀態另列backlog。
+- validation_gap: none for原finding。
+- confidence: `high`
+- status: `resolved`
+
+## Spec axis
+
+Verdict: `PASS`
+
+- 原queue-first/default與explicit mode、stale fallback、dedupe、manager
+  lifecycle/cooldown與non-execute topic-index語意均通過source trace及targeted
+  tests。
+- stable ID、四路去重、exact-regime eligibility、bounded deterministic supply、
+  development-only與sealed/production fail-closed邊界未見直接regression。
+- true `TOPIC_SUPPLY_EXHAUSTED`仍為worker terminal、exit `0`、no retry/circuit。
+
+## Standards axis
+
+Verdict: `PASS_WITH_P2_BACKLOG`
+
+- P1 CLI相容性已恢復。
+- ranking eligibility重複I/O已由cache消除，scan有明確attempt bound與receipt。
+- true exhaustion與一般no-executable的verifier分類已分離。
+- 唯一residual為budget-incomplete狀態未跨`main`／verifier／worker完整傳遞；
+  定級P2，未發現P0/P1、production safety、security或repeated warning blocker。
+
+## Independent verification
+
+- focused findings:
+  - preview/queue：`3 passed, 18 deselected`
+  - cache/budget/exhaustion：`2 passed, 4 deselected`
+  - verifier classification：`3 passed, 10 deselected`
+- affected targeted suites:
+  - `105 passed in 1.73s`
+  - files:
+    `test_autonomous_research_topic_bank.py`、
+    `test_regime_research_autonomy.py`、
+    `test_fog_continuous_topic_supply.py`、
+    `test_daily_research_quota_verifier.py`
+- shell syntax、runtime wiring與`py_compile`: PASS。
+- `git diff --check review-source..fixed-candidate`: PASS。
+- Repair-1 commit changed-file audit: 7/7均在Repair卡allowlist。
+- changed source/tests `rg -n '\[DBG-'`: no matches。
+- full suite:
+  - `616 passed, 1 failed, 4 warnings, 246 subtests passed in 52.94s`
+
+## Full-suite failure disposition
+
+Verdict: `UNRELATED_ENVIRONMENT_ARTIFACT_FAILURE`，完整suite仍不可宣稱green。
+
+- 唯一失敗仍為
+  `ResearchComponentLedgerTest::test_verifier_accepts_generated_ledger`。
+- Reviewer獨立建立ledger並直接檢查verifier：唯一failed check為
+  `evidence_exists`，缺少12個未版控歷史artifact/reference files。
+- 缺失樣本包含：
+  `artifacts/model_experiments/long_candidate_validation_report_2026-06-10.json`、
+  `artifacts/market_context_2026-06-09.json`、
+  `data/clean/features.parquet`、
+  `data/reference/stock_industry_map.csv`與
+  `data/reference/stock_concept_membership.csv`。
+- ledger builder、verifier與test在review source..fixed candidate均無diff。
+- 因此沒有Repair-1造成此失敗的證據；需在artifact-rich環境另行關閉環境缺口。
+- 4個warnings仍來自SHAP/Starlette dependency deprecation；Repair-1未改依賴或
+  相關code，不構成candidate-induced repeated warning pattern。
+
+## Final decision
+
+`REVIEW_GO`
+
+- resolved:
+  `FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P1-001`、
+  `FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P2-003`
+- open P2 backlog:
+  `FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P2-002`
+- unresolved P0/P1: none

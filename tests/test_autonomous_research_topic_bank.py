@@ -139,7 +139,7 @@ class AutonomousResearchTopicBankTests(unittest.TestCase):
             args = self.manager_args(rerun=True, include_rejected=True)
             self.assertFalse(research.topic_allowed_by_manager(topic, registry, args, now=now), status)
 
-    def test_queue_selection_is_controlled_and_empty_queue_stops_safely(self):
+    def test_queue_selection_is_controlled_and_empty_queue_falls_back_safely(self):
         now = datetime.now(timezone.utc)
         eligible = self.make_topic("eligible")
         rejected = self.make_topic("rejected")
@@ -181,9 +181,195 @@ class AutonomousResearchTopicBankTests(unittest.TestCase):
                 self.assertEqual([topic.topic_id for topic in selected], [eligible.topic_id])
 
                 paths["queue"].write_text(json.dumps({"actions": []}), encoding="utf-8")
-                self.assertEqual(research.select_topics_for_run([eligible, rejected], self.manager_args()), [])
+                fallback = research.select_topics_for_run(
+                    [eligible, rejected],
+                    self.manager_args(),
+                )
+                self.assertEqual(
+                    [topic.topic_id for topic in fallback],
+                    [eligible.topic_id],
+                )
             finally:
                 research.OUTPUT_DIR = original_output_dir
+
+    def test_main_routes_nine_actionable_queue_topics_when_active_bank_is_empty(self):
+        queued_topics = [
+            self.make_topic(f"queued-actionable-{index}")
+            for index in range(9)
+        ]
+        args = argparse.Namespace(
+            date="2026-07-31",
+            output="ignored.json",
+            features="data/clean/features.parquet",
+            baseline_dir=research.BASELINE_RANKINGS_DIR,
+            candidate_dir=None,
+            topic_index=0,
+            max_topics=12,
+            min_ranking_files=3,
+            max_ranking_files=8,
+            horizons="3,5,10",
+            stop_loss_pcts="none,0.08,0.12",
+            take_profit_pcts="none,0.15,0.25",
+            max_group_exposures="none,0.35,0.55",
+            execute=True,
+            execute_topic_count=1,
+            from_queue=False,
+            rerun=False,
+            include_rejected=False,
+            no_manager_update=True,
+            closed_regime_research=False,
+            development_screen_on_sealed_exhaustion=False,
+            development_screen_topic_count=1,
+            market_regime_history=None,
+            research_contract="config/regime_research_contract.json",
+            coverage_map=None,
+        )
+        captured: dict[str, object] = {}
+
+        with (
+            patch.object(research, "parse_args", return_value=args),
+            patch.object(
+                research,
+                "generate_all_topics",
+                return_value=queued_topics,
+            ),
+            patch.object(research, "write_topic_bank", return_value=Path("topic_bank.json")),
+            patch.object(
+                research,
+                "queued_topic_ids",
+                return_value={topic.topic_id for topic in queued_topics},
+            ),
+            patch.object(research, "load_active_topic_bank", return_value=[]),
+            patch.object(
+                research,
+                "load_next_action_queue",
+                return_value=[
+                    {"topic_id": topic.topic_id}
+                    for topic in queued_topics
+                ],
+            ),
+            patch.object(research, "load_topic_registry", return_value={}),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+            patch.object(
+                research,
+                "execute_topic",
+                return_value=(
+                    [],
+                    {"decision": "REJECTED_BY_STRATEGY_MATRIX", "promotion_allowed": False},
+                    {},
+                ),
+            ),
+            patch.object(
+                research,
+                "write_run_artifacts",
+                side_effect=lambda payload, _output: captured.update(payload),
+            ),
+        ):
+            exit_code = research.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            [row["topic_id"] for row in captured["selected_topics"]],
+            [queued_topics[0].topic_id],
+        )
+
+    def test_queue_first_falls_back_and_deduplicates_for_all_cli_modes(self):
+        queued = self.make_topic("queue-first")
+        active = self.make_topic("active-fallback")
+        queue = [
+            {"topic_id": "topic:stale"},
+            {"topic_id": queued.topic_id},
+            {"topic_id": queued.topic_id},
+        ]
+
+        with (
+            patch.object(research, "load_next_action_queue", return_value=queue),
+            patch.object(research, "load_topic_registry", return_value={}),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            default_selected = research.select_topics_for_run(
+                [active, queued],
+                self.manager_args(from_queue=False, execute_topic_count=2),
+            )
+            explicit_selected = research.select_topics_for_run(
+                [active, queued],
+                self.manager_args(from_queue=True, execute_topic_count=2),
+            )
+
+        expected = [queued.topic_id, active.topic_id]
+        self.assertEqual([topic.topic_id for topic in default_selected], expected)
+        self.assertEqual([topic.topic_id for topic in explicit_selected], expected)
+
+    def test_non_execute_default_preview_preserves_topic_index_despite_queue(self):
+        queue_first = self.make_topic("queue-first")
+        indexed_second = self.make_topic("indexed-second")
+
+        with (
+            patch.object(
+                research,
+                "load_next_action_queue",
+                return_value=[{"topic_id": queue_first.topic_id}],
+            ),
+            patch.object(research, "load_topic_registry", return_value={}),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            selected = research.select_topics_for_run(
+                [queue_first, indexed_second],
+                self.manager_args(
+                    execute=False,
+                    from_queue=False,
+                    execute_topic_count=1,
+                    topic_index=1,
+                ),
+            )
+
+        self.assertEqual([topic.topic_id for topic in selected], [indexed_second.topic_id])
+
+    def test_non_execute_default_preview_ignores_manager_rejected_and_cooldown(self):
+        rejected = self.make_topic("rejected-preview")
+        cooldown = self.make_topic("cooldown-preview")
+        now = datetime(2026, 7, 31, 12, tzinfo=timezone.utc)
+        registry = {
+            rejected.topic_id: {
+                "topic_id": rejected.topic_id,
+                "manager_status": "rejected",
+                "run_count": 1,
+                "last_run_at": (now - timedelta(days=5)).isoformat(),
+            },
+            cooldown.topic_id: {
+                "topic_id": cooldown.topic_id,
+                "manager_status": "partial_needs_followup",
+                "run_count": 1,
+                "last_run_at": (now - timedelta(hours=1)).isoformat(),
+            },
+        }
+
+        with (
+            patch.object(research, "load_next_action_queue", return_value=[]),
+            patch.object(research, "load_topic_registry", return_value=registry),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            rejected_selected = research.select_topics_for_run(
+                [rejected, cooldown],
+                self.manager_args(
+                    execute=False,
+                    from_queue=False,
+                    execute_topic_count=1,
+                    topic_index=0,
+                ),
+            )
+            cooldown_selected = research.select_topics_for_run(
+                [rejected, cooldown],
+                self.manager_args(
+                    execute=False,
+                    from_queue=False,
+                    execute_topic_count=1,
+                    topic_index=1,
+                ),
+            )
+
+        self.assertEqual([topic.topic_id for topic in rejected_selected], [rejected.topic_id])
+        self.assertEqual([topic.topic_id for topic in cooldown_selected], [cooldown.topic_id])
 
     def test_closed_capacity_excludes_topics_with_used_sealed_dataset(self):
         topic = replace(

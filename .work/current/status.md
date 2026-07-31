@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-STATUS
-status: REREVIEW_IN_PROGRESS
+status: MAINLINE_RUNTIME_ACCEPTANCE_PENDING
 type: mainline
 ---
 
@@ -17,22 +17,11 @@ type: mainline
 
 ## Verdict
 
-`NO_GO / ROUTING_DEADLOCK`，不是題目耗盡。
-
-## Next step
-
-獨立Review判定`REVIEW_NO_GO`：
-
-- P1：non-execute `--topic-index` preview被queue-first與manager gate覆蓋。
-- P2：supply exhaustion scan重複I/O且缺明確attempt bound。
-- P2：`TOPIC_SUPPLY_EXHAUSTED`在quota verifier降級為`LOW_INFORMATION`。
-
-Repair-1 candidate `d166fa1483d2ca2288cda50ea204631cd8b0b972`
-已完成並推送：
+原 routing deadlock 已修復；獨立重審為 `REVIEW_GO`：
 
 - Targeted：`105 passed`
-- Full：`616 passed, 1 failed, 4 warnings, 246 subtests passed`
-- 唯一 full failure為獨立worktree缺少未版控 research artifacts。
+- mainline full suite：`617 passed, 4 warnings, 246 subtests passed`
+- P1-001、P2-003：resolved
+- P2-002：保留非阻塞 backlog（attempt-budget 狀態傳遞）
 
-原Reviewer thread `019fb62f-2ffe-7ee2-a39c-bac715e33d0e` 已沿用重審；
-尚未整合或部署。
+已進入 mainline 整合；待 natural scheduler runtime acceptance 後關卡。

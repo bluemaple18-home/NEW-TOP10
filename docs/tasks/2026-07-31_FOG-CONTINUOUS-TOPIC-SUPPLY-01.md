@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01
-status: READY_TO_DISPATCH
+status: ACCEPTED_MAINLINE_RUNTIME_PENDING
 type: implementation
 ownership: executor
 thickness: strict
@@ -9,7 +9,7 @@ model: gpt-5.6-sol
 reasoning: high
 model_reason: queue ownership、exact-regime eligibility、持續題目補充與 sealed/production 邊界跨越 scheduler、manager 與 research contract，需 strict 契約與獨立審查
 chain_id: FOG-CONTINUOUS-RESEARCH-AVAILABILITY
-base_sha: ea25e532dde146aabfa376be06cf4348f00834e1
+base_sha: 8cff3d0acbe2cea94f198166cc3a9a581b21319a
 ---
 
 # FOG-CONTINUOUS-TOPIC-SUPPLY-01
@@ -233,3 +233,23 @@ Activation 後先執行：
 - `READY_FOR_INDEPENDENT_REVIEW`
 
 不得自審、整合、push `main`、deploy 或操作 live runtime。
+
+## Executor result
+
+- Routing RED 已重現 9 個 queued actionable topics、active bank 為空時
+  `selected_topics=[]`／`NO_EXECUTABLE_TOPIC`。
+- Routing GREEN 改為 deterministic queue-first、active-bank fallback 與單輪
+  dedupe；worker default 與顯式 `--from-queue` 使用相同仲裁。
+- Supply RED 已證明既有流程沒有任何 coverage-gap replenishment 能力。
+- Supply GREEN 由 repo-owned contract、exact-regime ranking inventory 與 coverage
+  records 產生 bounded、stable-ID、development-only topics，並對 registry、
+  history、queue、same-round candidates 去重。
+- 真正耗盡時輸出 `TOPIC_SUPPLY_EXHAUSTED`、原因計數與 evidence refs，main
+  exit 0；worker 將其視為 terminal no-more-work，不進 retry circuit。
+- Targeted：`100 passed`；full：`611 passed, 1 failed, 4 warnings, 246 subtests
+  passed`。唯一失敗為獨立 worktree 缺少未版控 research component evidence
+  artifacts；相關 builder／verifier／test 相對 base SHA 無 diff。
+- Live worker、LaunchAgent、circuit、closed/sealed registry、promotion 與 production
+  ranking/model/weights 均未操作。
+- Candidate SHA 由本卡單一 commit 完成後以 `git rev-parse HEAD` 取得。
+- 狀態：`READY_FOR_INDEPENDENT_REVIEW`。

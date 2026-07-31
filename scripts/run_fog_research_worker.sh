@@ -301,7 +301,7 @@ while [ "$BATCH" -le "$MAX_BATCHES" ]; do
 
   echo "fog research batch finished batch=$BATCH run_id=$RUN_ID" | tee -a "$LOG_FILE"
 
-  QUEUE_EMPTY="$("$PYTHON_BIN" - "$RUN_DATE" <<'PY'
+  NO_MORE_WORK="$("$PYTHON_BIN" - "$RUN_DATE" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -311,10 +311,11 @@ if not path.exists():
     print("0")
     raise SystemExit
 payload = json.loads(path.read_text(encoding="utf-8"))
-inputs = payload.get("inputs") if isinstance(payload.get("inputs"), dict) else {}
 outcome = payload.get("outcome") if isinstance(payload.get("outcome"), dict) else {}
 topic_runs = payload.get("topic_runs") if isinstance(payload.get("topic_runs"), list) else []
-print("1" if inputs.get("from_queue") is True and outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs else "0")
+decision = outcome.get("decision")
+terminal = decision in {"NO_EXECUTABLE_TOPIC", "TOPIC_SUPPLY_EXHAUSTED"}
+print("1" if terminal and not topic_runs else "0")
 PY
 )"
   RESEARCH_STATE="$("$PYTHON_BIN" - "$RUN_DATE" <<'PY'
@@ -330,8 +331,8 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 print(payload.get("status") or "UNKNOWN")
 PY
 )"
-  if [ "$QUEUE_EMPTY" = "1" ] || [ "$RESEARCH_STATE" = "PARTIAL_NO_MORE_WORK" ]; then
-    echo "fog research worker stop; terminal_state=$RESEARCH_STATE queue_empty=$QUEUE_EMPTY after batch=$BATCH" | tee -a "$LOG_FILE"
+  if [ "$NO_MORE_WORK" = "1" ] || [ "$RESEARCH_STATE" = "PARTIAL_NO_MORE_WORK" ]; then
+    echo "fog research worker stop; terminal_state=$RESEARCH_STATE no_more_work=$NO_MORE_WORK after batch=$BATCH" | tee -a "$LOG_FILE"
     break
   fi
 

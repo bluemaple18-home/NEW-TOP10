@@ -1,19 +1,22 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-RESULT
-status: REREVIEW_IN_PROGRESS
+status: MAINLINE_RUNTIME_ACCEPTANCE_PENDING
 type: mainline
 ---
 
 # Result
 
-state：`REREVIEW_IN_PROGRESS`
+state：`MAINLINE_RUNTIME_ACCEPTANCE_PENDING`
 
 Original candidate：`1674e293daeb759888b950be59d8c30d6020e833`。
 Repair-1 candidate：`d166fa1483d2ca2288cda50ea204631cd8b0b972`。
 
+- Re-review：`REVIEW_GO`
 - Targeted：`105 passed`
-- Full：`616 passed, 1 failed, 4 warnings, 246 subtests passed`
-- 唯一 full failure由 Repairer判定為缺少未版控歷史 artifacts，已交由原
-  Reviewer重審。
+- Mainline full：`617 passed, 4 warnings, 246 subtests passed`
+- Shell wiring、syntax、compile、`git diff --check`：PASS
+- 未解 P0/P1：無
+- P2 backlog：attempt-budget incomplete 狀態尚未端到端傳遞。
 
-尚未整合或部署，未操作 LaunchAgent、circuit或 live probe。
+正在合併固定 Review commit；尚未重啟 LaunchAgent、清 circuit或執行人工 live
+probe。下一步只驗證既有排程自然觸發是否使用新 routing。

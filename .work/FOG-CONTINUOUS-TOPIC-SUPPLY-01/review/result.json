@@ -3,18 +3,19 @@
   "review_card_id": "REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01",
   "review_thread_id": "019fb62f-2ffe-7ee2-a39c-bac715e33d0e",
   "reviewed_base_sha": "8cff3d0acbe2cea94f198166cc3a9a581b21319a",
-  "reviewed_candidate_sha": "1674e293daeb759888b950be59d8c30d6020e833",
-  "review_sha": "21ff2a386f1563fa2be965c2ce20f85ac928df22",
-  "review_result_branch": "codex/review-fog-continuous-topic-supply-result-20260731",
-  "verdict": "REVIEW_NO_GO",
+  "reviewed_candidate_sha": "d166fa1483d2ca2288cda50ea204631cd8b0b972",
+  "review_sha": "b4c12b741b959b3f49bd90d827e53cce072b1f67",
+  "review_result_branch": "codex/review-fog-continuous-topic-supply-repair-1-result-20260731",
+  "verdict": "REVIEW_GO",
   "spec_axis": "PASS",
-  "standards_axis": "FAIL",
-  "blocking_findings": [
-    "FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P1-001"
-  ],
-  "nonblocking_findings": [
-    "FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P2-002",
+  "standards_axis": "PASS_WITH_P2_BACKLOG",
+  "blocking_findings": [],
+  "resolved_findings": [
+    "FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P1-001",
     "FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P2-003"
   ],
-  "next_card_id": "FOG-CONTINUOUS-TOPIC-SUPPLY-01-REPAIR-1"
+  "nonblocking_findings": [
+    "FOG-CONTINUOUS-TOPIC-SUPPLY-REVIEW-P2-002"
+  ],
+  "next_step": "MAINLINE_RUNTIME_ACCEPTANCE"
 }

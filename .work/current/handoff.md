@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-HANDOFF
-status: REREVIEW_IN_PROGRESS
+status: MAINLINE_RUNTIME_ACCEPTANCE_PENDING
 type: mainline
 ---
 
@@ -20,7 +20,16 @@ type: mainline
 Repair-1 candidate：
 `d166fa1483d2ca2288cda50ea204631cd8b0b972`。
 
-沿用原Reviewer thread重審；`REVIEW_GO` 前不得整合。
+原Reviewer thread已重審為 `REVIEW_GO`；固定 review commit：
+`b4c12b741b959b3f49bd90d827e53cce072b1f67`。
+
+Mainline驗證：
+
+- Targeted：`105 passed`
+- Full：`617 passed, 4 warnings, 246 subtests passed`
+
+整合後以既有自然排程做 runtime acceptance；不得為驗收重啟 LaunchAgent、清
+circuit或製造人工 live probe。
 
 ## Boundary
 
