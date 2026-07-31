@@ -156,15 +156,19 @@ def build_burn_down_progress(
         "representative_replay_pending_count",
     ]
     counts = {key: int(summary.get(key) or 0) for key in count_keys}
-    classified_total = int(summary.get("rollup_classified_total") or sum(counts.values()))
-    full_total = int(summary.get("full_universe_total") or expanded_total)
+    source_full_total_raw = summary.get("full_universe_total")
+    source_full_total = int(source_full_total_raw) if source_full_total_raw is not None else None
+    classified_total_raw = summary.get("rollup_classified_total")
+    classified_total = int(classified_total_raw) if classified_total_raw is not None else sum(counts.values())
+    full_total = int(expanded_total)
     return {
         "schema_version": "research-map-burn-down-progress.v1",
         "source": source,
         "source_date": rollup.get("date"),
+        "source_full_universe_total": source_full_total,
         "full_universe_total": full_total,
         "classified_total": classified_total,
-        "classified_pending": max(0, full_total - classified_total),
+        "classified_pending": full_total - classified_total,
         "classified_progress_pct": round(classified_total / full_total, 6) if full_total else 0.0,
         "executed_progress_count": executed_processed,
         "executed_progress_pct": round(executed_processed / max(1, expanded_total), 6),
