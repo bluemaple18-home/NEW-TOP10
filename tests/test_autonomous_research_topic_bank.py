@@ -300,6 +300,77 @@ class AutonomousResearchTopicBankTests(unittest.TestCase):
         self.assertEqual([topic.topic_id for topic in default_selected], expected)
         self.assertEqual([topic.topic_id for topic in explicit_selected], expected)
 
+    def test_non_execute_default_preview_preserves_topic_index_despite_queue(self):
+        queue_first = self.make_topic("queue-first")
+        indexed_second = self.make_topic("indexed-second")
+
+        with (
+            patch.object(
+                research,
+                "load_next_action_queue",
+                return_value=[{"topic_id": queue_first.topic_id}],
+            ),
+            patch.object(research, "load_topic_registry", return_value={}),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            selected = research.select_topics_for_run(
+                [queue_first, indexed_second],
+                self.manager_args(
+                    execute=False,
+                    from_queue=False,
+                    execute_topic_count=1,
+                    topic_index=1,
+                ),
+            )
+
+        self.assertEqual([topic.topic_id for topic in selected], [indexed_second.topic_id])
+
+    def test_non_execute_default_preview_ignores_manager_rejected_and_cooldown(self):
+        rejected = self.make_topic("rejected-preview")
+        cooldown = self.make_topic("cooldown-preview")
+        now = datetime(2026, 7, 31, 12, tzinfo=timezone.utc)
+        registry = {
+            rejected.topic_id: {
+                "topic_id": rejected.topic_id,
+                "manager_status": "rejected",
+                "run_count": 1,
+                "last_run_at": (now - timedelta(days=5)).isoformat(),
+            },
+            cooldown.topic_id: {
+                "topic_id": cooldown.topic_id,
+                "manager_status": "partial_needs_followup",
+                "run_count": 1,
+                "last_run_at": (now - timedelta(hours=1)).isoformat(),
+            },
+        }
+
+        with (
+            patch.object(research, "load_next_action_queue", return_value=[]),
+            patch.object(research, "load_topic_registry", return_value=registry),
+            patch.object(research, "load_last_run_at_by_topic", return_value={}),
+        ):
+            rejected_selected = research.select_topics_for_run(
+                [rejected, cooldown],
+                self.manager_args(
+                    execute=False,
+                    from_queue=False,
+                    execute_topic_count=1,
+                    topic_index=0,
+                ),
+            )
+            cooldown_selected = research.select_topics_for_run(
+                [rejected, cooldown],
+                self.manager_args(
+                    execute=False,
+                    from_queue=False,
+                    execute_topic_count=1,
+                    topic_index=1,
+                ),
+            )
+
+        self.assertEqual([topic.topic_id for topic in rejected_selected], [rejected.topic_id])
+        self.assertEqual([topic.topic_id for topic in cooldown_selected], [cooldown.topic_id])
+
     def test_closed_capacity_excludes_topics_with_used_sealed_dataset(self):
         topic = replace(
             self.make_topic("used-sealed"),

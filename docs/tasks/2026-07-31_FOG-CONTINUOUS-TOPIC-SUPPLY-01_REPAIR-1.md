@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-REPAIR-1
-status: READY_TO_DISPATCH
+status: READY_FOR_REREVIEW
 type: repair
 ownership: repairer
 thickness: standard

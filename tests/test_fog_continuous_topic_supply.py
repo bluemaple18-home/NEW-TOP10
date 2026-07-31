@@ -226,6 +226,53 @@ def test_supply_reports_exhaustion_with_reason_counts(
     assert receipt["evidence_refs"]["coverage_map"]
 
 
+def test_multi_template_no_exact_date_uses_cached_budgeted_inventory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    template, args, _contract = _fixture(tmp_path, monkeypatch)
+    templates = [
+        replace(template, topic_id=f"strategy-matrix:fixture:{index}")
+        for index in range(3)
+    ]
+    call_count = 0
+
+    def fake_eligibility(**_kwargs):
+        nonlocal call_count
+        call_count += 1
+        return {
+            "eligible": False,
+            "reason_code": "NO_EXACT_REGIME_RANKING_DATE",
+            "candidate_exact_date_count": 0,
+            "baseline_exact_date_count": 0,
+        }
+
+    monkeypatch.setattr(
+        research,
+        "exact_regime_topic_ranking_eligibility",
+        fake_eligibility,
+    )
+
+    topics, receipt = research.replenish_development_topics(
+        templates,
+        args,
+        registry_rows={},
+        history_rows=[],
+        queue_rows=[],
+        same_round_ids=set(),
+        limit=1,
+    )
+
+    assert topics == []
+    assert receipt["status"] == "TOPIC_SUPPLY_EXHAUSTED"
+    assert receipt["candidate_count"] == 720
+    assert receipt["attempt_budget"] < 2160
+    assert receipt["ranking_eligibility_cache_misses"] <= receipt["attempt_budget"]
+    assert receipt["ranking_eligibility_cache_hits"] > 0
+    assert call_count == receipt["ranking_eligibility_cache_misses"]
+    assert call_count <= 720
+
+
 def test_main_reports_true_supply_exhaustion_and_exits_zero(
     tmp_path: Path,
     monkeypatch,

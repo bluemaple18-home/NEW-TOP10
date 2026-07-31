@@ -2212,6 +2212,14 @@ def select_topics_for_run(
         return []
     count = max(1, int(args.execute_topic_count or 1))
     development_limit = max(1, int(getattr(args, "development_screen_topic_count", 1) or 1))
+    if not args.execute and not args.from_queue and count == 1:
+        preview_topics = (
+            [topic for topic in fallback_topics if topic.eligible]
+            if fallback_topics is not None
+            else topics
+        )
+        indexed = selected_topic(preview_topics, args.topic_index)
+        return [indexed] if indexed is not None else []
     registry = load_topic_registry()
     last_run_at_by_topic = load_last_run_at_by_topic()
 
@@ -2254,9 +2262,6 @@ def select_topics_for_run(
         if fallback_topics is not None
         else topics
     )
-    if not args.execute and not args.from_queue and count == 1:
-        indexed = selected_topic(fallback_candidates, args.topic_index)
-        fallback_candidates = [indexed] if indexed is not None else []
     for topic in fallback_candidates:
         if topic.topic_id in seen:
             continue
@@ -2472,14 +2477,23 @@ def replenish_development_topics(
         "run_history": repo_path(manager_paths()["history"]),
         "next_action_queue": repo_path(manager_paths()["queue"]),
     }
+    attempt_budget = supply_limit
+    ranking_eligibility_cache: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    ranking_eligibility_cache_hits = 0
+    ranking_eligibility_cache_misses = 0
+    attempt_budget_exhausted = False
 
-    def exhausted_receipt(candidate_count: int, **extra: Any) -> dict[str, Any]:
+    def supply_receipt(status: str, candidate_count: int, **extra: Any) -> dict[str, Any]:
         return {
             "schema_version": "fog-continuous-topic-supply.v1",
-            "status": "TOPIC_SUPPLY_EXHAUSTED",
+            "status": status,
             "candidate_count": candidate_count,
             "supplied_count": 0,
             "supply_limit": supply_limit,
+            "attempt_budget": attempt_budget,
+            "attempt_budget_exhausted": attempt_budget_exhausted,
+            "ranking_eligibility_cache_hits": ranking_eligibility_cache_hits,
+            "ranking_eligibility_cache_misses": ranking_eligibility_cache_misses,
             "exclusion_counts": exclusion_counts,
             "evidence_refs": evidence_refs,
             "contract": {
@@ -2494,11 +2508,15 @@ def replenish_development_topics(
             **extra,
         }
 
+    def exhausted_receipt(candidate_count: int, **extra: Any) -> dict[str, Any]:
+        return supply_receipt("TOPIC_SUPPLY_EXHAUSTED", candidate_count, **extra)
+
     contract = load_json(contract_path)
     if not contract:
         exclusion_counts["invalid_contract"] += 1
         return [], exhausted_receipt(0)
     combinations = parameter_combinations(contract)
+    attempt_budget = max(1, min(len(combinations), len(combinations) * supply_limit))
     try:
         if history_path is None:
             raise ValueError("market regime history missing")
@@ -2543,6 +2561,36 @@ def replenish_development_topics(
     if not executable_templates:
         exclusion_counts["no_executable_ranking_template"] += 1
         return [], exhausted_receipt(len(combinations))
+
+    def cached_ranking_eligibility(
+        *,
+        template: ResearchTopic,
+        horizon: str,
+        allowed_dates: set[str] | None,
+    ) -> dict[str, Any] | None:
+        nonlocal ranking_eligibility_cache_hits
+        nonlocal ranking_eligibility_cache_misses
+        nonlocal attempt_budget_exhausted
+        cache_key = (
+            template.candidate_dir,
+            template.baseline_dir,
+            horizon,
+            str(args.date),
+        )
+        if cache_key in ranking_eligibility_cache:
+            ranking_eligibility_cache_hits += 1
+            return ranking_eligibility_cache[cache_key]
+        if ranking_eligibility_cache_misses >= attempt_budget:
+            attempt_budget_exhausted = True
+            return None
+        ranking_eligibility_cache_misses += 1
+        ranking_eligibility_cache[cache_key] = exact_regime_topic_ranking_eligibility(
+            candidate_dir=template.candidate_dir,
+            baseline_dir=template.baseline_dir,
+            allowed_dates=allowed_dates,
+            as_of_date=str(args.date),
+        )
+        return ranking_eligibility_cache[cache_key]
 
     coverage_payload = load_json(coverage_path)
     coverage_records = (
@@ -2612,12 +2660,13 @@ def replenish_development_topics(
             if topic_id in round_ids or topic_id in supplied_ids:
                 exclusion_counts["same_round_duplicate"] += 1
                 continue
-            ranking_eligibility = exact_regime_topic_ranking_eligibility(
-                candidate_dir=template.candidate_dir,
-                baseline_dir=template.baseline_dir,
+            ranking_eligibility = cached_ranking_eligibility(
+                template=template,
+                horizon=horizon,
                 allowed_dates=allowed_date_cache[horizon],
-                as_of_date=str(args.date),
             )
+            if ranking_eligibility is None:
+                break
             if not ranking_eligibility["eligible"]:
                 exclusion_counts["no_exact_regime_ranking_date"] += 1
                 continue
@@ -2704,8 +2753,16 @@ def replenish_development_topics(
                 break
         if len(supplied) >= supply_limit:
             break
+        if attempt_budget_exhausted:
+            break
 
     if not supplied:
+        if attempt_budget_exhausted:
+            return [], supply_receipt(
+                "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED",
+                len(combinations),
+                reason_code="ATTEMPT_BUDGET_EXCEEDED",
+            )
         return [], exhausted_receipt(len(combinations))
     receipt = {
         **exhausted_receipt(len(combinations)),

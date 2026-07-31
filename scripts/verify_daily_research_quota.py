@@ -131,11 +131,12 @@ def build_payload(
                 {"topic_id": topic_id, "reason_codes": reasons}
             )
     quota = int(inputs.get("execute_topic_count") or 0)
-    queue_empty = inputs.get("from_queue") is True and outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs
     followup_count = sum(1 for decision in decisions if decision in FOLLOWUP_DECISIONS)
     rejection_count = sum(1 for decision in decisions if decision in REJECTION_DECISIONS)
-    if queue_empty:
-        research_value_status = "QUEUE_EMPTY"
+    if outcome.get("decision") == "TOPIC_SUPPLY_EXHAUSTED" and not topic_runs:
+        research_value_status = "SUPPLY_EXHAUSTED"
+    elif outcome.get("decision") == "NO_EXECUTABLE_TOPIC" and not topic_runs:
+        research_value_status = "NO_MORE_EXECUTABLE_TOPIC"
     elif followup_count > 0:
         research_value_status = "HAS_FOLLOWUP_SIGNAL"
     elif topic_runs and rejection_count == len(topic_runs):
