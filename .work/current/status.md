@@ -1,6 +1,6 @@
 ---
 id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-STATUS
-status: REVIEW_NO_GO_REPAIR_1_READY
+status: REPAIR_1_IN_PROGRESS
 type: mainline
 ---
 
@@ -27,5 +27,5 @@ type: mainline
 - P2：supply exhaustion scan重複I/O且缺明確attempt bound。
 - P2：`TOPIC_SUPPLY_EXHAUSTED`在quota verifier降級為`LOW_INFORMATION`。
 
-下一步派出`FOG-CONTINUOUS-TOPIC-SUPPLY-01-REPAIR-1`；修後回原Reviewer
-re-review。
+Repair-1已在正式thread `019fb653-b43f-7582-8035-952e40c51e5d`
+啟動；完成後回原Reviewer re-review。

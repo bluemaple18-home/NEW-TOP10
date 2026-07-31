@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "pinnedThreads": [],
+  "threads": [
+    {
+      "threadId": "019fb653-b43f-7582-8035-952e40c51e5d",
+      "preview": "dispatch_key: v1:37edc8402306d8c9f108ffcd37c83727fd3c4ac3ea4d914277b4186e56ccd83f\ndispatch_phase: BOOTSTRAP_ONLY\ncard_id: FOG-CONTINUOUS-TOPIC-SUPPLY-01-REPAIR-1",
+      "cwd": "/Users/mattkuo/.codex/worktrees/df76ca70-d3c9-42ef-84cf-a9ebbd1a38bf/TOP10new",
+      "title": "FOG-CONTINUOUS-TOPIC-SUPPLY-01-REPAIR-1｜Repairer",
+      "thread": {
+        "threadId": "019fb653-b43f-7582-8035-952e40c51e5d",
+        "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c"
+      },
+      "id": "019fb653-b43f-7582-8035-952e40c51e5d",
+      "projectId": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+      "hostId": "slingshot:env_e_6a17b3781858832daee8697c30fc7e7c",
+      "updatedAt": 1785470414,
+      "status": "idle",
+      "createdAt": 1785470366
+    }
+  ]
+}

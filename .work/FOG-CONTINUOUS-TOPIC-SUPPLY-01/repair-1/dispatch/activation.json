@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "dispatch_key": "v1:37edc8402306d8c9f108ffcd37c83727fd3c4ac3ea4d914277b4186e56ccd83f",
+  "state": "BOUND",
+  "status": "activated",
+  "activation_status": "VERIFIED",
+  "formal_thread_id": "019fb653-b43f-7582-8035-952e40c51e5d",
+  "project_id": "c2xpbmdzaG90OmVudl9lXzZhMTdiMzc4MTg1ODgzMmRhZWU4Njk3YzMwZmM3ZTdjCi9Vc2Vycy9tYXR0a3VvL1RPUDEwbmV3",
+  "source_ref": "codex/fog-continuous-topic-supply-repair-1-20260731",
+  "head": "8f2c0c3a6ad19777103932029a85ef6a750fc6f0",
+  "clean": true,
+  "worktree_path": "/Users/mattkuo/.codex/worktrees/df76ca70-d3c9-42ef-84cf-a9ebbd1a38bf/TOP10new",
+  "model": "gpt-5.5",
+  "reasoning": "medium",
+  "parent_candidate_sha": "1674e293daeb759888b950be59d8c30d6020e833",
+  "review_sha": "21ff2a386f1563fa2be965c2ce20f85ac928df22",
+  "activation_prompt_sent": true,
+  "candidate_exit": "READY_FOR_REREVIEW"
+}

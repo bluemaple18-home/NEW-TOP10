@@ -39,13 +39,15 @@
   ],
   "gates": {
     "gate_1_branch_ready": true,
-    "gate_2_thread_and_worktree_verified": false,
-    "activation_sent": false
+    "gate_2_thread_and_worktree_verified": true,
+    "activation_sent": true
   },
   "previous_card": {
     "card_id": "REVIEW-FOG-CONTINUOUS-TOPIC-SUPPLY-01",
     "thread_id": "019fb62f-2ffe-7ee2-a39c-bac715e33d0e",
     "review_sha": "21ff2a386f1563fa2be965c2ce20f85ac928df22"
   },
-  "status": "READY_FOR_RESERVATION"
+  "formal_thread_id": "019fb653-b43f-7582-8035-952e40c51e5d",
+  "worktree_path": "/Users/mattkuo/.codex/worktrees/df76ca70-d3c9-42ef-84cf-a9ebbd1a38bf/TOP10new",
+  "status": "REPAIR_IN_PROGRESS"
 }
