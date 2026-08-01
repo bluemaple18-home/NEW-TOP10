@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "taskId": "FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01",
+  "chainId": "FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT",
+  "role": "reviewer",
+  "cycle": 1,
+  "originalCardId": "FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01-REVIEW",
+  "replacementCardId": "FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01-REVIEW-RETRY-1",
+  "originalDispatchKey": "v1:5998bb059a1dbc4f542cc0ed290171a4073cd97d46bb74431eae5a0f5ba1ba66",
+  "originalBlocker": "REVIEW_THREAD_CREATE_NO_RECEIPT",
+  "originalFormalThreadId": null,
+  "originalClientThreadId": null,
+  "originalUniqueWork": false,
+  "candidateCommit": "980fa4f77f23522d6671bd15d09b62bfedc16c5b",
+  "authorization": "使用者於主線明確回覆「重試」",
+  "status": "REPLACEMENT_AUTHORIZED"
+}
