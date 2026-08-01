@@ -1,6 +1,6 @@
 ---
 id: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01-status
-status: integrated
+status: accepted_mainline_runtime
 type: task_status
 ---
 
@@ -28,4 +28,7 @@ type: task_status
 - Mainline acceptance：targeted `11 passed, 6 subtests passed`；full suite `626 passed, 4 warnings`；compile、allowlist與diff check通過。
 - Integration：candidate與review evidence已patch-equivalent整合到`main`，詳見`acceptance/mainline_acceptance.md`。
 - Recovery precheck：current inventory建立成功，recovery verifier `14/14 passed`，狀態為`GO_FOR_RECOVERY`。
-- Frontier：等待明確授權執行safe recovery；circuit仍開啟，尚未跑live Fog、重啟LaunchAgent或deploy。
+- Runtime recovery：使用者明確授權後完成單次safe recovery；worker exit `0`，舊circuit已旋轉且未重開。
+- Live acceptance：自動供應並完成1個exact-regime development topic；quota verifier `12/12 passed`、Fog map verifier `37/37 passed`、replay `144/144`且0失敗。
+- Scheduler：`com.new-top10.fog-research-worker`保持loaded、最近狀態碼`0`；未重啟LaunchAgent或deploy。
+- Frontier：`ACCEPTED_MAINLINE_RUNTIME`；representative queue因結果皆未追加run history而仍為144，列為非阻擋後續觀察。

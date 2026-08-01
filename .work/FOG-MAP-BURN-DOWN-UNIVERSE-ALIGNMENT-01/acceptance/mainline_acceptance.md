@@ -44,3 +44,7 @@ type: mainline_acceptance
 ## Boundary
 
 本次只完成code、tests、evidence與mainline integration。未操作circuit、LaunchAgent、live probe、人工Fog run或deploy；runtime恢復仍需自然排程證據或另行明確授權。
+
+## Runtime follow-up
+
+使用者其後明確授權單次safe recovery；runtime已於`2026-08-01 11:04:26 CST`驗收通過。詳見`acceptance/runtime_recovery.md`。

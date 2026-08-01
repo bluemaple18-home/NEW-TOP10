@@ -1,6 +1,6 @@
 ---
 id: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01
-status: INTEGRATED
+status: ACCEPTED_MAINLINE_RUNTIME
 type: repair
 ownership: executor
 thickness: strict
@@ -169,3 +169,16 @@ Evidence：
 - `READY_FOR_INDEPENDENT_REVIEW`
 
 不得自審、整合、deploy、清circuit或宣稱live流程已恢復。
+
+## Mainline runtime acceptance
+
+整合與獨立Review完成後，主線於使用者明確授權下執行一次safe recovery：
+
+- recovery inventory verifier：`14/14 passed`；舊circuit state/context已保留原hash並旋轉。
+- live Fog worker：exit `0`；continuous supply自行選到並完成1個exact-regime development topic。
+- daily quota verifier：`PARTIAL_NO_MORE_WORK`、`12/12 passed`、`failed_count=0`。
+- research Fog Map verifier：`OK`、`37/37 passed`、`failed_count=0`。
+- representative replay drain：6 batches、144 completed、0 failed，exit `0`。
+- LaunchAgent維持loaded且未重啟；未deploy或改production ranking/model/promotion。
+
+正式證據：`.work/FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01/acceptance/runtime_recovery.md`。
