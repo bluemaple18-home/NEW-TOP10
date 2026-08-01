@@ -1,6 +1,6 @@
 ---
 id: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01-REVIEW
-status: QUEUED
+status: BLOCKED
 type: review
 ownership: reviewer
 thickness: strict
@@ -11,6 +11,8 @@ model_reason: candidate改動current／historical universe scope與fail-closed v
 chain_id: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT
 parent_card_id: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01
 cycle: 1
+blocker: REVIEW_THREAD_CREATE_NO_RECEIPT
+superseded_by: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01-REVIEW-RETRY-1
 base_sha: 6c5faff42569d6bb3b345b5253bcb00a62f9f37b
 candidate_sha: 980fa4f77f23522d6671bd15d09b62bfedc16c5b
 ---
