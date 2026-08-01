@@ -1,6 +1,6 @@
 ---
 id: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01-REVIEW-RETRY-1
-status: QUEUED
+status: REVIEW_GO
 type: review
 ownership: reviewer
 thickness: strict
