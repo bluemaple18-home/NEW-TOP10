@@ -18,7 +18,9 @@
   "createRequestDigest": "f0095cbfc00070812b74e197beb25c4916d12ff136d835aefa596e46d6a636d5",
   "activationTokenHash": "49a0b370ada2a47a8085f0dd918f686581e1760339cb84b0f8e9831e7c582533",
   "activationStatus": "VERIFIED",
-  "state": "RUNNING",
+  "reviewCommit": "ef4c5da80dda8c3f16a9cd3e4c599611791b706c",
+  "verdict": "REVIEW_GO",
+  "state": "COMPLETED",
   "model": "gpt-5.6-sol",
   "reasoning": "high",
   "runtimeMutation": false

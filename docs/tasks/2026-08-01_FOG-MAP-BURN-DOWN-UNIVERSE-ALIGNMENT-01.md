@@ -1,6 +1,6 @@
 ---
 id: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01
-status: READY_FOR_INDEPENDENT_REVIEW
+status: INTEGRATED
 type: repair
 ownership: executor
 thickness: strict

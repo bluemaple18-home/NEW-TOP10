@@ -1,6 +1,6 @@
 ---
 id: FOG-MAP-BURN-DOWN-UNIVERSE-ALIGNMENT-01-status
-status: ready_for_independent_review
+status: integrated
 type: task_status
 ---
 
@@ -24,4 +24,7 @@ type: task_status
 - Fix：producer 固定以 current expanded total 作 map full total，另保存 historical source scope；verifier 改驗 current／source scope、pending 與 category conservation。
 - GREEN：targeted／affected `11 passed, 6 subtests passed`；322-topic integration map verifier report 為 `OK`。
 - Full suite：`624 passed, 2 failed`；兩個 failure 均位於 allowlist 外且與 Fog Map seam 無依賴，詳見 verification evidence。
-- Frontier：單一 candidate commit，交由獨立 Reviewer。
+- Independent Review：`REVIEW_GO`；P0/P1皆為0，P2 non-blocking finding 1項。
+- Mainline acceptance：targeted `11 passed, 6 subtests passed`；full suite `626 passed, 4 warnings`；compile、allowlist與diff check通過。
+- Integration：candidate與review evidence已patch-equivalent整合到`main`，詳見`acceptance/mainline_acceptance.md`。
+- Frontier：等待自然排程runtime acceptance；尚未操作circuit、LaunchAgent、live probe或deploy。
