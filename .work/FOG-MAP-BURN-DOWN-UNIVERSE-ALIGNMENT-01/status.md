@@ -27,4 +27,5 @@ type: task_status
 - Independent Review：`REVIEW_GO`；P0/P1皆為0，P2 non-blocking finding 1項。
 - Mainline acceptance：targeted `11 passed, 6 subtests passed`；full suite `626 passed, 4 warnings`；compile、allowlist與diff check通過。
 - Integration：candidate與review evidence已patch-equivalent整合到`main`，詳見`acceptance/mainline_acceptance.md`。
-- Frontier：等待自然排程runtime acceptance；尚未操作circuit、LaunchAgent、live probe或deploy。
+- Recovery precheck：current inventory建立成功，recovery verifier `14/14 passed`，狀態為`GO_FOR_RECOVERY`。
+- Frontier：等待明確授權執行safe recovery；circuit仍開啟，尚未跑live Fog、重啟LaunchAgent或deploy。
