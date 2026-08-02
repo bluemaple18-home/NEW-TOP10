@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01
-status: CANDIDATE_READY
+status: REPAIR_CANDIDATE_READY
 type: repair
 ownership: executor
 thickness: strict
@@ -121,3 +121,15 @@ Red-capable diagnostic：對上述artifact要求「多批成功時，queue ident
 - Drain batches now record representative identity sets and accept progress only from non-forced appended evidence or an identity-set change.
 - A zero-progress successful command batch terminates immediately as `NO_PROGRESS / no_progress`; forced duplicate append does not satisfy the invariant.
 - No live Fog run, artifact/log runtime write, schedule load, deploy, push, merge, ranking, model, weight, or promotion change was performed.
+
+## Repair cycle 2 receipt
+
+- default-v2 canonicalization now requires an exact raw topic/dimensions/combo match before
+  mapping to base; mismatched normal and lifecycle-child rows retain their raw combo identity.
+- The per-date progress artifact now durably blocks a later invocation with the same
+  representative identity before replay. Repeated blocked invocations remain blocked; an
+  identity-set change resumes the attempt.
+- Both review P1 probes were captured RED and turned GREEN using offline temp/mocks only.
+- Full suite: `633 passed, 254 subtests passed, 1` pre-existing isolated evidence-availability
+  failure, reproduced alone.
+- `READY_FOR_RE_REVIEW`.

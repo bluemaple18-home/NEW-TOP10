@@ -243,7 +243,26 @@ def completed_default_v2_base_combo_id(row: dict[str, Any]) -> str | None:
     if not expanded_combo_id.endswith(expanded_suffix):
         return None
     base_combo_id = expanded_combo_id[: -len(expanded_suffix)]
-    return base_combo_id or None
+    topic_id = str(row.get("topic_id") or "").strip()
+    if topic_id:
+        raw_topic = {
+            "topic_id": topic_id,
+            "candidate_dir": row.get("candidate_dir"),
+        }
+        if expanded_combo_id != v2_combo_id(raw_topic, dimensions):
+            return None
+        return combo_id(raw_topic, dimensions)
+
+    base_suffix = "".join(
+        [
+            f"|horizon_{dimensions['horizon']}",
+            f"|stop_{dimensions['stop_loss']}",
+            f"|take_profit_{dimensions['take_profit']}",
+            f"|group_exposure_{dimensions['group_exposure']}",
+        ]
+    )
+    topic_key = base_combo_id[: -len(base_suffix)] if base_combo_id.endswith(base_suffix) else ""
+    return base_combo_id if topic_key else None
 
 
 def canonicalize_lifecycle_history(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -273,22 +292,30 @@ def canonicalize_lifecycle_history(records: list[dict[str, Any]]) -> list[dict[s
             )
         dimensions = row.get("dimensions")
         if isinstance(dimensions, dict) and all(key in dimensions for key in BASE_DIMENSION_KEYS):
-            topic = {
+            raw_topic = {
+                "topic_id": topic_id,
+                "candidate_dir": row.get("candidate_dir"),
+            }
+            canonical_topic = {
                 "topic_id": canonical_topic_id,
                 "candidate_dir": row.get("candidate_dir"),
             }
-            base_id = combo_id(topic, dimensions)
-            expanded_id = v2_combo_id(topic, dimensions)
+            base_id = combo_id(canonical_topic, dimensions)
+            expanded_id = v2_combo_id(canonical_topic, dimensions)
             is_v2 = (
                 row.get("map_version") == "v2"
                 or row.get("schema_version") == "research-map-run-history.v2"
                 or any(key in dimensions for key in V2_DEFAULT_COORDINATES)
             )
-            if parent_topic_id or default_v2_base_id:
+            raw_v2_identity_matches = (
+                not is_v2
+                or str(row.get("combo_id") or "") == v2_combo_id(raw_topic, dimensions)
+            )
+            if default_v2_base_id or (parent_topic_id and raw_v2_identity_matches):
                 normalized["combo_id"] = base_id if default_v2_base_id or not is_v2 else expanded_id
-            if row.get("base_combo_id"):
+            if row.get("base_combo_id") and raw_v2_identity_matches:
                 normalized["base_combo_id"] = base_id
-            if row.get("v2_combo_id"):
+            if row.get("v2_combo_id") and raw_v2_identity_matches:
                 normalized["v2_combo_id"] = expanded_id
         canonical.append(normalized)
     return canonical

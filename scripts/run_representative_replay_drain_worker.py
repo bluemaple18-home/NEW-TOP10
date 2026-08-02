@@ -261,6 +261,41 @@ def batch_progress_evidence(
     }
 
 
+def representative_identity(queue: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            {
+                str(value)
+                for value in queue.get("representative_combo_ids") or []
+                if str(value)
+            }
+        )
+    )
+
+
+def unchanged_no_progress_identity(
+    previous_progress: dict[str, Any],
+    current_queue: dict[str, Any],
+    *,
+    run_date: str,
+) -> bool:
+    """以前次同日 NO_PROGRESS 身分集合阻擋昂貴 batch 重播。"""
+    previous_terminal = (
+        previous_progress.get("status") == "NO_PROGRESS"
+        and previous_progress.get("stop_reason") == "no_progress"
+    ) or (
+        previous_progress.get("status") == "BLOCKED"
+        and previous_progress.get("stop_reason") == "unchanged_no_progress_identity"
+    )
+    if previous_progress.get("date") != run_date or not previous_terminal:
+        return False
+    previous_queue = previous_progress.get("latest_queue")
+    if not isinstance(previous_queue, dict):
+        return False
+    previous_identity = representative_identity(previous_queue)
+    return bool(previous_identity) and previous_identity == representative_identity(current_queue)
+
+
 def write_progress(path: Path, payload: dict[str, Any]) -> None:
     write_json(path, payload)
 
@@ -319,6 +354,7 @@ def main() -> int:
     started_at = now_utc()
     deadline = time.monotonic() + max(0, args.max_seconds)
     progress = progress_path(artifacts_dir, run_date)
+    previous_progress = read_json(progress)
     batches: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
 
@@ -387,6 +423,53 @@ def main() -> int:
     latest_queue = initial_queue
     stop_reason = "not_started"
     status = "OK"
+
+    if unchanged_no_progress_identity(
+        previous_progress,
+        initial_queue,
+        run_date=run_date,
+    ):
+        status = "BLOCKED"
+        stop_reason = "unchanged_no_progress_identity"
+        payload = build_progress(
+            date=run_date,
+            run_id=run_id,
+            started_at=started_at,
+            status=status,
+            stop_reason=stop_reason,
+            initial_queue=initial_queue,
+            latest_queue=initial_queue,
+            batches=[],
+            errors=[],
+        )
+        payload["blocked_by_previous_identity"] = list(
+            representative_identity(previous_progress.get("latest_queue") or {})
+        )
+        write_progress(progress, payload)
+        write_research_worker_event(
+            artifacts_dir=artifacts_dir,
+            run_id=run_id,
+            run_date=run_date,
+            status="failed",
+            decision="stop",
+            started_at=started_at,
+            artifact_paths=[progress],
+            metrics=payload["summary"],
+            failure_reason=stop_reason,
+            next_action="wait for representative queue identity to change before replay",
+        )
+        print(
+            json.dumps(
+                {
+                    "status": status,
+                    "output": repo_path(progress),
+                    "stop_reason": stop_reason,
+                    **payload["summary"],
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 1
 
     for batch_number in range(1, max(0, args.max_batches) + 1):
         if time.monotonic() >= deadline:

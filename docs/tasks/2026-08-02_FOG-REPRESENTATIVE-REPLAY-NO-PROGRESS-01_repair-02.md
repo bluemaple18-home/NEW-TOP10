@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-REPAIR-02
-status: READY
+status: CANDIDATE_READY
 type: repair
 ownership: repairer
 thickness: strict
@@ -81,3 +81,13 @@ Review card／receipt 只讀，禁止修改。若需要 allowlist 外檔案，�
 
 回報固定 base／candidate SHA、兩個 P1 的 RED→GREEN、changed files、tests、remaining risks，
 並停在 `READY_FOR_RE_REVIEW`。不得 push、merge 或 deploy。
+
+## Execution receipt
+
+- P1-01 RED→GREEN：mismatched topic/default-v2 combo 不再誤映到 target base；lifecycle
+  child 的 default/non-default v2 先驗證 raw identity，再映 parent。
+- P1-02 RED→GREEN：第一次 no-progress 後，相同 identity 的第二次與第三次 invocation
+  都在 replay 前 `BLOCKED / unchanged_no_progress_identity`；identity 改變後恢復嘗試。
+- 驗證使用 temp/mocks，未讀寫真實 runtime artifacts/logs，未做 live、LaunchAgent、
+  circuit、deploy、push 或 merge。
+- `READY_FOR_RE_REVIEW`。

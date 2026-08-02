@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-status
-status: CANDIDATE_READY
+status: REPAIR_CANDIDATE_READY
 type: task_status
 ---
 
@@ -17,7 +17,7 @@ type: task_status
 
 # Frontier
 
-`READY_FOR_INDEPENDENT_REVIEW`
+`READY_FOR_RE_REVIEW`
 
 # History
 
@@ -29,3 +29,10 @@ type: task_status
 - Affected weekend/Fog suite: `38 passed, 6 subtests passed`.
 - Full suite: `629 passed, 252 subtests passed, 1 failed`; the isolated worktree lacks the pre-existing artifact/data evidence required by `test_verifier_accepts_generated_ledger`, and the same test fails alone on `evidence_exists`.
 - CodeGraph: indexed HEAD matched base; context/query localized the seam to `canonicalize_lifecycle_history()` → `apply_run_history()` → weekend inventory base lookup.
+- `REPAIR-02 P1-01` RED：mismatched raw topic/combo 被錯誤 canonicalize 到 target base；
+  GREEN：raw identity 不一致時保留原 combo，valid lifecycle default/non-default v2 維持契約。
+- `REPAIR-02 P1-02` RED：相同 queue identity 的第二次 invocation 再次執行 batch；
+  GREEN：第二次與後續相同 identity 在 replay 前 blocked，identity 改變才恢復。
+- Repair targeted：`17 passed, 2 subtests passed`；affected：`38 passed, 6 subtests passed`。
+- Repair full：`633 passed, 254 subtests passed, 1 failed`；既有 isolated evidence
+  availability failure 已單獨重現。

@@ -158,6 +158,135 @@ class RepresentativeReplayDrainWorkerTest(unittest.TestCase):
         self.assertEqual(written_payloads[-1]["stop_reason"], "no_progress")
         self.assertEqual(written_payloads[-1]["summary"]["batch_count"], 1)  # type: ignore[index]
 
+    def test_no_progress_blocks_same_identity_across_invocations_and_recovers_on_change(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            artifacts_dir = temp_root / "artifacts"
+            representative_json = temp_root / "representative.json"
+            representative_json.write_text(
+                json.dumps(
+                    {
+                        "summary": {
+                            "selected_count": 24,
+                            "completed_count": 24,
+                            "appended_run_history_count": 0,
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            args = Namespace(
+                date="2099-01-06",
+                run_id="cross-invocation-fixture",
+                artifacts_dir=artifacts_dir,
+                batch_size=24,
+                max_batches=6,
+                max_seconds=3600,
+                rerun=False,
+                force_append=False,
+                skip_initial_linkage=True,
+                lock_dir=temp_root / "representative_replay_drain.lock",
+                no_lock=True,
+            )
+            current_queue = {
+                "queue_path": str(temp_root / "queue.json"),
+                "status": "OK",
+                "representative_replay_count": 144,
+                "deferred_low_priority_count": 3906,
+                "queue_count": 144,
+                "representative_combo_ids": [
+                    f"combo-{index:03d}" for index in range(144)
+                ],
+            }
+            original_identity = current_queue["representative_combo_ids"].copy()
+            successful_command = worker.CommandResult(
+                name="fixture",
+                command=["fixture"],
+                returncode=0,
+                stdout="",
+                stderr="",
+                started_at="2099-01-06T00:00:00+00:00",
+                finished_at="2099-01-06T00:00:01+00:00",
+            )
+
+            with (
+                patch.object(worker, "parse_args", return_value=args),
+                patch.object(
+                    worker,
+                    "resolve_path",
+                    side_effect=lambda value: Path(value),
+                ),
+                patch.object(
+                    worker,
+                    "queue_summary",
+                    side_effect=lambda _date: current_queue.copy(),
+                ),
+                patch.object(
+                    worker,
+                    "run_command",
+                    return_value=successful_command,
+                ) as run_command,
+                patch.object(
+                    worker,
+                    "representative_paths",
+                    return_value=(representative_json, representative_json.with_suffix(".md")),
+                ),
+                patch.object(worker, "write_research_worker_event"),
+            ):
+                first_exit = worker.main()
+                second_exit = worker.main()
+                replay_calls_after_second = [
+                    entry
+                    for entry in run_command.call_args_list
+                    if str(entry.args[0]).startswith("representative_replay_batch_")
+                ]
+                blocked_payload = json.loads(
+                    worker.progress_path(artifacts_dir, args.date).read_text(encoding="utf-8")
+                )
+
+                third_exit = worker.main()
+                replay_calls_after_third = [
+                    entry
+                    for entry in run_command.call_args_list
+                    if str(entry.args[0]).startswith("representative_replay_batch_")
+                ]
+                repeated_blocked_payload = json.loads(
+                    worker.progress_path(artifacts_dir, args.date).read_text(encoding="utf-8")
+                )
+
+                current_queue["representative_combo_ids"] = [
+                    *current_queue["representative_combo_ids"][1:],
+                    "combo-new",
+                ]
+                fourth_exit = worker.main()
+                replay_calls_after_fourth = [
+                    entry
+                    for entry in run_command.call_args_list
+                    if str(entry.args[0]).startswith("representative_replay_batch_")
+                ]
+
+        self.assertEqual(
+            (first_exit, second_exit, third_exit, fourth_exit),
+            (1, 1, 1, 1),
+        )
+        self.assertEqual(len(replay_calls_after_second), 1)
+        self.assertEqual(blocked_payload["status"], "BLOCKED")
+        self.assertEqual(
+            blocked_payload["stop_reason"],
+            "unchanged_no_progress_identity",
+        )
+        self.assertEqual(
+            blocked_payload["blocked_by_previous_identity"],
+            original_identity,
+        )
+        self.assertEqual(len(replay_calls_after_third), 1)
+        self.assertEqual(repeated_blocked_payload["status"], "BLOCKED")
+        self.assertEqual(
+            repeated_blocked_payload["blocked_by_previous_identity"],
+            original_identity,
+        )
+        self.assertEqual(len(replay_calls_after_fourth), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
