@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-status
-status: REPAIR_CANDIDATE_READY
+status: INTEGRATED_OFFLINE
 type: task_status
 ---
 
@@ -12,12 +12,12 @@ type: task_status
 
 - RED-capable artifact diagnostic：exit 1。
 - 根因候選已定位於history canonicalization與drain progress invariant。
-- 主worktree有兩個overlap dirty files，實作必須使用獨立clean worktree。
-- Runtime：LaunchAgent未載入；容量閘門`NO-GO`，本卡禁止啟用。
+- Repair 02 candidate `62c31c3` 已經 re-review `GO` 並 fast-forward 至 `main`。
+- Runtime：LaunchAgent未載入；容量閘門仍為 `NO-GO`，本卡未啟用。
 
 # Frontier
 
-`READY_FOR_RE_REVIEW`
+`READY_FOR_CAPACITY_ACCEPTANCE`
 
 # History
 
@@ -36,3 +36,6 @@ type: task_status
 - Repair targeted：`17 passed, 2 subtests passed`；affected：`38 passed, 6 subtests passed`。
 - Repair full：`633 passed, 254 subtests passed, 1 failed`；既有 isolated evidence
   availability failure 已單獨重現。
+- Re-review 02：`GO`；原兩個 P1 均關閉。保留非阻塞 P2：損壞／缺 identity 的 prior
+  progress 尚缺一致的結構化降級處理。
+- Mainline：已離線整合，尚未 deploy、載入排程、live probe 或做容量驗收。

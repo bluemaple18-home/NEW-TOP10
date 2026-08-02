@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01
-status: REPAIR_CANDIDATE_READY
+status: INTEGRATED_OFFLINE
 type: repair
 ownership: executor
 thickness: strict
@@ -118,6 +118,10 @@ Red-capable diagnostic：對上述artifact要求「多批成功時，queue ident
 ## Execution receipt
 
 - Completed default-v2 records now canonicalize to the base combo even when raw replay history omits `topic_id`; non-default v2 records retain expansion identity.
+- 第一版 candidate `33309e9` 經獨立 Review 判定 `NO_GO`；Repair 02 candidate
+  `62c31c3` 已關閉 identity confusion 與 cross-invocation replay 兩個 P1。
+- Re-review receipt `22c0102` 結論 `GO`；修復已 fast-forward 至 `main`，但只屬離線整合。
+- Runtime 仍停用；容量安全閘門與 controlled live acceptance 留待清理容量後另行授權。
 - Drain batches now record representative identity sets and accept progress only from non-forced appended evidence or an identity-set change.
 - A zero-progress successful command batch terminates immediately as `NO_PROGRESS / no_progress`; forced duplicate append does not satisfy the invariant.
 - No live Fog run, artifact/log runtime write, schedule load, deploy, push, merge, ranking, model, weight, or promotion change was performed.

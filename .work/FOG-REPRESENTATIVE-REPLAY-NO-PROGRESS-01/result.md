@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-result
-status: REPAIR_CANDIDATE_READY
+status: INTEGRATED_OFFLINE
 type: result
 ---
 
@@ -20,4 +20,9 @@ Targeted and affected suites are green. The full suite has one pre-existing isol
 evidence availability failure unrelated to the changed seams; it reproduces alone and is recorded
 in `evidence/repair-02.md`.
 
-`READY_FOR_RE_REVIEW`
+Independent re-review is `GO`; repair candidate `62c31c3` is integrated on `main`.
+
+Remaining boundary: runtime stays disabled until host capacity is cleaned and the storage safety
+gate plus controlled live acceptance are explicitly authorized.
+
+`READY_FOR_CAPACITY_ACCEPTANCE`

@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-RE-REVIEW-02
-status: READY
+status: COMPLETE
 type: re_review
 ownership: reviewer
 thickness: strict

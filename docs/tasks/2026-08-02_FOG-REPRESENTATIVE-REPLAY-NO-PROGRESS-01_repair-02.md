@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-REPAIR-02
-status: CANDIDATE_READY
+status: ACCEPTED
 type: repair
 ownership: repairer
 thickness: strict

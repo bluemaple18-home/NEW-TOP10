@@ -1,13 +1,15 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-current-status
-status: CARD_DRAFTED
+status: INTEGRATED_OFFLINE
 type: mainline
 ---
 
 # Current Status
 
 - Card：`docs/tasks/2026-08-02_FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01.md`
-- Root cause：default-v2 history未終結base/default queue；drain缺少no-progress stoploss。
-- RED-capable diagnostic：exit 1。
-- Runtime：LaunchAgent未載入；容量閘門`NO-GO`。
-- Frontier：`SLICE-RED`。
+- Root cause 已修：default-v2 evidence 以 exact identity 終結 base/default；zero-progress
+  queue 會跨同日 invocation 阻擋重播。
+- Candidate：`62c31c3`；Re-review：`22c0102`，結論 `GO`。
+- Offline verification：targeted `17 passed, 2 subtests`；affected `38 passed, 6 subtests`。
+- Runtime：LaunchAgent未載入；容量閘門仍為 `NO-GO`。
+- Frontier：`READY_FOR_CAPACITY_ACCEPTANCE`。
