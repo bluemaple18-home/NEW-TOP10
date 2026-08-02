@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-status
-status: CARD_DRAFTED
+status: CANDIDATE_READY
 type: task_status
 ---
 
@@ -17,4 +17,15 @@ type: task_status
 
 # Frontier
 
-`SLICE-RED`
+`READY_FOR_INDEPENDENT_REVIEW`
+
+# History
+
+- `SLICE-RED`: target-symptom fixture executed RED (exit `1`); completed default-v2 evidence retained expanded identity and did not close base/default.
+- `SLICE-CANONICALIZATION`: minimal identity mapping passed the target test and research-map boundary suite (`7 passed`).
+- `SLICE-DRAIN-STOPLOSS` RED: unchanged 144-ID queue plus `appended_run_history_count=0` replayed six batches and returned `OK / max_batches_reached` (exit `1` assertion failure).
+- `SLICE-DRAIN-STOPLOSS` GREEN: unchanged identity plus zero append stops after batch `1` as `NO_PROGRESS / no_progress`; forced append is ignored as progress.
+- Targeted contract/lifecycle/drain suite: `13 passed`.
+- Affected weekend/Fog suite: `38 passed, 6 subtests passed`.
+- Full suite: `629 passed, 252 subtests passed, 1 failed`; the isolated worktree lacks the pre-existing artifact/data evidence required by `test_verifier_accepts_generated_ledger`, and the same test fails alone on `evidence_exists`.
+- CodeGraph: indexed HEAD matched base; context/query localized the seam to `canonicalize_lifecycle_history()` → `apply_run_history()` → weekend inventory base lookup.

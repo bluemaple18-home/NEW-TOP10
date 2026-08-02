@@ -142,10 +142,20 @@ def queue_summary(date: str) -> dict[str, Any]:
             for row in items
             if row.get("queue_type") == "REPRESENTATIVE_REPLAY" and row.get("current_status") == "PENDING"
         )
+    representative_combo_ids = sorted(
+        {
+            str(row.get("representative_combo_id") or row.get("combo_id"))
+            for row in items
+            if row.get("queue_type") == "REPRESENTATIVE_REPLAY"
+            and row.get("current_status") == "PENDING"
+            and (row.get("representative_combo_id") or row.get("combo_id"))
+        }
+    )
     return {
         "queue_path": repo_path(queue_path),
         "status": payload.get("status"),
         "representative_replay_count": representative_count,
+        "representative_combo_ids": representative_combo_ids,
         "deferred_low_priority_count": int(summary.get("deferred_low_priority_count") or 0),
         "queue_count": int(summary.get("queue_count") or len(items)),
     }
@@ -225,6 +235,30 @@ def build_progress(
 
 def idle_stop_reason(latest_queue: dict[str, Any]) -> str:
     return "queue_empty" if int(latest_queue.get("representative_replay_count") or 0) <= 0 else "max_batches_reached"
+
+
+def batch_progress_evidence(
+    queue_before: dict[str, Any],
+    queue_after: dict[str, Any],
+    representative_summary: dict[str, Any],
+    *,
+    force_append: bool,
+) -> dict[str, Any]:
+    """只接受新 history evidence 或代表集合變化，避免重播同一批。"""
+    appended_count = int(representative_summary.get("appended_run_history_count") or 0)
+    before_ids = tuple(str(value) for value in queue_before.get("representative_combo_ids") or [])
+    after_ids = tuple(str(value) for value in queue_after.get("representative_combo_ids") or [])
+    identity_changed = before_ids != after_ids
+    new_history_evidence = appended_count > 0 and not force_append
+    return {
+        "progressed": new_history_evidence or identity_changed,
+        "new_run_history_evidence": new_history_evidence,
+        "appended_run_history_count": appended_count,
+        "force_append_ignored_as_progress": bool(force_append and appended_count > 0),
+        "representative_identity_changed": identity_changed,
+        "representative_combo_ids_before": list(before_ids),
+        "representative_combo_ids_after": list(after_ids),
+    }
 
 
 def write_progress(path: Path, payload: dict[str, Any]) -> None:
@@ -385,14 +419,26 @@ def main() -> int:
         representative_json, _ = representative_paths(run_date)
         representative_payload = read_json(representative_json)
         batch_status = "OK" if replay.ok and all(result.ok for result in map_refresh) and verify.ok and linkage.ok else "FAILED"
+        representative_summary = representative_payload.get("summary") if isinstance(representative_payload.get("summary"), dict) else {}
+        queue_after = queue_summary(run_date)
+        progress_evidence = batch_progress_evidence(
+            latest_queue,
+            queue_after,
+            representative_summary,
+            force_append=args.force_append,
+        )
+        if batch_status == "OK" and not progress_evidence["progressed"]:
+            batch_status = "NO_PROGRESS"
         batch = {
             "batch": batch_number,
             "status": batch_status,
             "queue_before": latest_queue,
             "representative_artifact": repo_path(representative_json),
-            "representative_summary": representative_payload.get("summary") if isinstance(representative_payload.get("summary"), dict) else {},
+            "representative_summary": representative_summary,
+            "progressed": progress_evidence["progressed"],
+            "progress_evidence": progress_evidence,
             "commands": [command_payload(replay), *[command_payload(result) for result in map_refresh], command_payload(verify), command_payload(linkage)],
-            "queue_after": queue_summary(run_date),
+            "queue_after": queue_after,
         }
         batches.append(batch)
         latest_queue = batch["queue_after"]
@@ -400,8 +446,8 @@ def main() -> int:
             date=run_date,
             run_id=run_id,
             started_at=started_at,
-            status="RUNNING" if batch_status == "OK" else "FAILED",
-            stop_reason="running" if batch_status == "OK" else "batch_failed",
+            status="RUNNING" if batch_status == "OK" else batch_status,
+            stop_reason="running" if batch_status == "OK" else ("no_progress" if batch_status == "NO_PROGRESS" else "batch_failed"),
             initial_queue=initial_queue,
             latest_queue=latest_queue,
             batches=batches,
@@ -409,8 +455,8 @@ def main() -> int:
         )
         write_progress(progress, payload)
         if batch_status != "OK":
-            status = "FAILED"
-            stop_reason = "batch_failed"
+            status = batch_status
+            stop_reason = "no_progress" if batch_status == "NO_PROGRESS" else "batch_failed"
             errors.append(batch)
             break
 

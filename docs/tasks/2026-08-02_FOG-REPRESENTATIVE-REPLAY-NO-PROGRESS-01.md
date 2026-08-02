@@ -1,6 +1,6 @@
 ---
 id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01
-status: CARD_DRAFTED
+status: CANDIDATE_READY
 type: repair
 ownership: executor
 thickness: strict
@@ -10,7 +10,7 @@ reasoning: high
 model_reason: 跨 run-history canonicalization、weekend inventory 與 unattended drain 停損；錯誤會造成排程反覆寫入且容量風險升高
 chain_id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS
 cycle: 1
-code_base_sha: 642da70dba1e59296c7a75fd427e074aa62a92f1
+code_base_sha: ae187d286d70f1c5ffed86798e9a4a53abfb5103
 ---
 
 # FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01
@@ -114,3 +114,10 @@ Red-capable diagnostic：對上述artifact要求「多批成功時，queue ident
 
 交付exact base／candidate SHA、RED→GREEN、changed files、完整驗證、remaining risks與
 `READY_FOR_INDEPENDENT_REVIEW`；不得merge或deploy。
+
+## Execution receipt
+
+- Completed default-v2 records now canonicalize to the base combo even when raw replay history omits `topic_id`; non-default v2 records retain expansion identity.
+- Drain batches now record representative identity sets and accept progress only from non-forced appended evidence or an identity-set change.
+- A zero-progress successful command batch terminates immediately as `NO_PROGRESS / no_progress`; forced duplicate append does not satisfy the invariant.
+- No live Fog run, artifact/log runtime write, schedule load, deploy, push, merge, ranking, model, weight, or promotion change was performed.

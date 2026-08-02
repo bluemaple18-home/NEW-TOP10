@@ -221,26 +221,60 @@ def canonicalize_lifecycle_topics(topics: list[dict[str, Any]]) -> list[dict[str
     return [row for _, row in canonical.values()]
 
 
+def completed_default_v2_base_combo_id(row: dict[str, Any]) -> str | None:
+    """從 completed default-v2 evidence 還原 base combo；history 不保證帶 topic_id。"""
+    dimensions = row.get("dimensions") if isinstance(row.get("dimensions"), dict) else {}
+    is_v2 = row.get("map_version") == "v2" or row.get("schema_version") == "research-map-run-history.v2"
+    if (
+        not is_v2
+        or row.get("status") != "completed"
+        or not row.get("artifact_path")
+        or not all(key in dimensions for key in BASE_DIMENSION_KEYS)
+        or not all(
+            key in dimensions and str(dimensions.get(key)) == default
+            for key, default in V2_DEFAULT_COORDINATES.items()
+        )
+    ):
+        return None
+    expanded_suffix = "".join(
+        f"|{key}_{dimensions[key]}" for key in V2_DEFAULT_COORDINATES
+    )
+    expanded_combo_id = str(row.get("combo_id") or "")
+    if not expanded_combo_id.endswith(expanded_suffix):
+        return None
+    base_combo_id = expanded_combo_id[: -len(expanded_suffix)]
+    return base_combo_id or None
+
+
 def canonicalize_lifecycle_history(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """把 lifecycle child 的 evidence 映射回 parent combo，保留 child ID 供稽核。"""
+    """把 lifecycle child 與 default-v2 evidence 映射回 canonical base combo。"""
     canonical: list[dict[str, Any]] = []
     for row in records:
         if not isinstance(row, dict):
             continue
         topic_id = str(row.get("topic_id") or "").strip()
         parent_topic_id = lifecycle_parent_topic_id(row)
-        if not topic_id or not parent_topic_id or parent_topic_id == topic_id:
-            canonical.append(row)
+        canonical_topic_id = parent_topic_id or topic_id
+        default_v2_base_id = completed_default_v2_base_combo_id(row)
+        if not canonical_topic_id:
+            canonical.append(
+                {**row, "combo_id": default_v2_base_id}
+                if default_v2_base_id
+                else row
+            )
             continue
-        normalized = {
-            **row,
-            "topic_id": parent_topic_id,
-            "lifecycle_topic_id": topic_id,
-        }
+        normalized = dict(row)
+        if parent_topic_id and parent_topic_id != topic_id:
+            normalized.update(
+                {
+                    "topic_id": parent_topic_id,
+                    "lifecycle_topic_id": topic_id,
+                }
+            )
         dimensions = row.get("dimensions")
         if isinstance(dimensions, dict) and all(key in dimensions for key in BASE_DIMENSION_KEYS):
             topic = {
-                "topic_id": parent_topic_id,
+                "topic_id": canonical_topic_id,
                 "candidate_dir": row.get("candidate_dir"),
             }
             base_id = combo_id(topic, dimensions)
@@ -250,7 +284,8 @@ def canonicalize_lifecycle_history(records: list[dict[str, Any]]) -> list[dict[s
                 or row.get("schema_version") == "research-map-run-history.v2"
                 or any(key in dimensions for key in V2_DEFAULT_COORDINATES)
             )
-            normalized["combo_id"] = expanded_id if is_v2 else base_id
+            if parent_topic_id or default_v2_base_id:
+                normalized["combo_id"] = base_id if default_v2_base_id or not is_v2 else expanded_id
             if row.get("base_combo_id"):
                 normalized["base_combo_id"] = base_id
             if row.get("v2_combo_id"):
