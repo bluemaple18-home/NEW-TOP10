@@ -1,15 +1,10 @@
 ---
-id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01-BRIEF
-status: ACCEPTED_MAINLINE_RUNTIME
+id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-current-brief
+status: CARD_DRAFTED
 type: mainline
 ---
 
 # Brief
 
-修正先前P2：main會把罕見的attempt-budget incomplete receipt降成
-`NO_EXECUTABLE_TOPIC`，verifier再標成`PARTIAL_NO_MORE_WORK`，使worker
-提早停止。
-
-現在main保留decision，verifier輸出`PARTIAL_RETRYABLE_TOPIC_SUPPLY`，
-worker會繼續下一bounded batch。獨立Review為`REVIEW_GO`，自然排程已完成
-一題且LaunchAgent exit 0。
+修正default-v2 replay完成證據未終結queue，以及drain零進度仍重播同一批的問題。
+Runtime保持關閉；容量清理與重新載入不在本卡範圍。

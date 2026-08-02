@@ -1,33 +1,13 @@
 ---
-id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01-HANDOFF
-status: COMPLETE
+id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-current-handoff
+status: CARD_DRAFTED
 type: mainline
 ---
 
 # Handoff
 
-## Task
-
-`docs/tasks/2026-07-31_FOG-TOPIC-SUPPLY-BUDGET-STATUS-01.md`
-
-## Accepted chain
-
-- Candidate：`6af35c839f85040ba24648b226949dc31e584e6c`
-- Review receipt：`81a024cb8fda1e8c398041a32af2f0135047f0b2`
-- Review verdict：`REVIEW_GO`
-- Mainline candidate：`5b543af`
-- Mainline review receipt：`c5908ab`
-
-## Verification
-
-- Affected：`21 passed`
-- Full：`619 passed, 4 warnings, 246 subtests passed`
-- Natural scheduler：
-  `fog-research-2026-07-31-20260731082601931846`
-- 1 selected／1 run、Fog map OK、replay drain 6/6、LaunchAgent exit 0
-
-## Boundary
-
-未重啟LaunchAgent、未清circuit、未人工kickstart、未執行live probe。
-本卡只修attempt-budget incomplete狀態傳遞，不改ranking、model、
-promotion、attempt budget大小或topic eligibility。
+- Task：`docs/tasks/2026-08-02_FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01.md`
+- Changed files：本次卡片與`.work`指標；code尚未修改。
+- Do not touch：主worktree未提交的inventory builder與snapshot test。
+- Verification：現有artifact diagnostic exit 1；candidate尚未驗證。
+- Runtime boundary：LaunchAgent未載入；禁止deploy／live run。

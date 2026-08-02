@@ -1,27 +1,13 @@
 ---
-id: FOG-TOPIC-SUPPLY-BUDGET-STATUS-01-STATUS
-status: ACCEPTED_MAINLINE_RUNTIME
+id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-current-status
+status: CARD_DRAFTED
 type: mainline
 ---
 
 # Current Status
 
-## Contract
-
-- main：保留`TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED`與完整receipt。
-- verifier：`PARTIAL_RETRYABLE_TOPIC_SUPPLY`、
-  `TOPIC_SUPPLY_ATTEMPT_BUDGET_RETRYABLE`、exit 0。
-- worker：retryable state非terminal，可進下一bounded batch。
-- true exhaustion／一般no-executable：terminal語意不變。
-
-## Evidence
-
-- Independent Review：`REVIEW_GO`
-- Affected：`21 passed`
-- Full：`619 passed, 4 warnings, 246 subtests passed`
-- 16:26:02自然排程：`DEVELOPMENT_CANDIDATE`、1 selected／1 run
-- Fog map handoff：OK
-- Replay drain：6 batches／144 completed／0 failed
-- 16:43:37完成；LaunchAgent `LastExitStatus=0`
-
-最終狀態：`ACCEPTED_MAINLINE_RUNTIME`。
+- Card：`docs/tasks/2026-08-02_FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01.md`
+- Root cause：default-v2 history未終結base/default queue；drain缺少no-progress stoploss。
+- RED-capable diagnostic：exit 1。
+- Runtime：LaunchAgent未載入；容量閘門`NO-GO`。
+- Frontier：`SLICE-RED`。
