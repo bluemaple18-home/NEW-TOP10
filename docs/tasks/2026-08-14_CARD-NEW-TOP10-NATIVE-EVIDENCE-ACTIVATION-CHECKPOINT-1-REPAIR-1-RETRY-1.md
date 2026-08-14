@@ -1,5 +1,5 @@
 ---
-id: CARD-NEW-TOP10-BATCH-OWNER-INTEGRATION-AND-ISOLATED-CANARY-REPAIR-RETRY-1
+id: CARD-NEW-TOP10-NATIVE-EVIDENCE-ACTIVATION-CHECKPOINT-1-REPAIR-1-RETRY-1
 chain_id: NEW-TOP10-RESEARCH-SPINE-V1
 status: ready
 type: repair
@@ -19,7 +19,7 @@ replacement_authorized: true
 replaces_thread_id: 019fff51-1922-7530-8861-5f0b7c55cbbd
 ---
 
-# Batch Owner Integration and Isolated Canary Repair Retry 1
+# Native Evidence Activation Repair 1 Retry 1
 
 ## Replacement 原因
 
