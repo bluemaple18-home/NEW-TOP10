@@ -1,12 +1,13 @@
 ---
-id: CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1
+id: CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1-RETRY-1
 chain_id: NEW-TOP10-RESEARCH-SPINE-V1
+retry_of: CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1
 status: ready
 type: architecture-implementation
 priority: P1
 owner: TOP10new research platform
 role: implementation
-cycle: 4
+cycle: 5
 thickness: strict
 risk: high
 model: gpt-5.5
@@ -17,7 +18,7 @@ production_change_allowed: false
 live_activation_allowed: false
 scheduler_change_allowed: false
 canonical_queue_change_allowed: false
-evidence_path: docs/evidence/CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1/
+evidence_path: docs/evidence/CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1-RETRY-1/
 ---
 
 # 建立 Adaptive Research Shadow Queue
