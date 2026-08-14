@@ -6,6 +6,7 @@ type: architecture-implementation
 priority: P1
 owner: TOP10new research platform
 role: implementation
+cycle: 0
 thickness: strict
 risk: high
 model: gpt-5.5
