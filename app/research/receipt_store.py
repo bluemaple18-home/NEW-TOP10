@@ -14,7 +14,7 @@ from app.research.contracts import canonical_json_bytes
 
 
 Validator = Callable[[Mapping[str, Any]], list[str]]
-_ENTITIES = {"trial_specs", "intents", "attempts", "receipts", "reconciliations"}
+_ENTITIES = {"trial_specs", "intents", "attempts", "receipts", "reconciliations", "batch_intents"}
 
 
 class SchemaValidationError(ValueError):

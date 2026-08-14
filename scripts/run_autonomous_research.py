@@ -36,6 +36,10 @@ from app.research.parameter_catalog import (  # noqa: E402
     legacy_parameter_universe_projection,
     validation_profiles_compatibility,
 )
+from app.research.batch_owner import (  # noqa: E402
+    BatchOwnerAuthorityError,
+    verify_batch_owner_authority,
+)
 from app.research.run_receipts import (  # noqa: E402
     begin_topic_attempt,
     finish_topic_attempt,
@@ -47,6 +51,7 @@ from scripts.fog_daily_source_lineage import build_daily_source_lineage  # noqa:
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 OUTPUT_DIR = ARTIFACTS_DIR / "autonomous_research"
 LEDGER_PATH = ARTIFACTS_DIR / "model_experiments" / "model_experiment_ledger.json"
+RESEARCH_LEDGER_PATH = PROJECT_ROOT / "data" / "research" / "research_ledger.duckdb"
 SCHEMA_VERSION = "autonomous-research-run.v1"
 MANAGER_SCHEMA_VERSION = "autonomous-research-manager.v1"
 TOPIC_BANK_SCHEMA_VERSION = "autonomous-research-topic-bank.v1"
@@ -148,6 +153,11 @@ def parse_args() -> argparse.Namespace:
         "--research-batch-id", default="UNSCOPED",
         help="daily invocation correlation identity；不影響選題或研究參數",
     )
+    parser.add_argument(
+        "--research-batch-intent",
+        default=None,
+        help="immutable daily Batch Intent id/path；canonical write 前必須驗證",
+    )
     parser.add_argument("--features", default="data/clean/features.parquet")
     parser.add_argument("--baseline-dir", default=BASELINE_RANKINGS_DIR)
     parser.add_argument("--candidate-dir", default=None, help="指定候選 ranking 目錄；未指定時由 autopilot 自己選")
@@ -213,6 +223,12 @@ def slugify(value: str) -> str:
         return text
     digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
     return f"{text[:80]}-{digest}"
+
+
+def batch_owner_requested_stage(args: argparse.Namespace) -> str:
+    return DEVELOPMENT_SCREEN_STAGE if bool(
+        getattr(args, "development_screen_on_sealed_exhaustion", False)
+    ) else "COARSE_SCREEN"
 
 
 def load_json(path: Path | None) -> dict[str, Any]:
@@ -3820,6 +3836,34 @@ def render_markdown(payload: dict[str, Any]) -> str:
 def main() -> int:
     args = parse_args()
     output = resolve_path(args.output) or OUTPUT_DIR / f"autonomous_research_{args.date}.json"
+    if args.execute:
+        try:
+            verify_batch_owner_authority(
+                project_root=PROJECT_ROOT,
+                corpus_root=OUTPUT_DIR / "research_spine",
+                batch_id=str(args.research_batch_id),
+                batch_intent_reference=args.research_batch_intent,
+                runtime_argv=sys.argv,
+                output_path=output,
+                ledger_path=RESEARCH_LEDGER_PATH,
+                manager_root=OUTPUT_DIR,
+                requested_research_stage=batch_owner_requested_stage(args),
+                execution_epoch=str(args.date),
+            )
+        except BatchOwnerAuthorityError as error:
+            print(
+                json.dumps(
+                    {
+                        "status": "FAIL",
+                        "reason_code": str(error).split(":", 1)[0],
+                        "research_batch_id": str(args.research_batch_id),
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                file=sys.stderr,
+            )
+            return 1
     run_dir = output.parent / f"run_{args.date}_{datetime.now().strftime('%H%M%S')}"
     output.parent.mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=True, exist_ok=True)
