@@ -46,6 +46,21 @@ PARITY_PATHS = (
 )
 
 
+def resolve_output_dir(value: Path) -> Path:
+    if ".." in value.parts:
+        raise ValueError("OUTPUT_DIR_TRAVERSAL")
+    raw = value.expanduser()
+    candidate = raw if raw.is_absolute() else PROJECT_ROOT / raw
+    resolved = candidate.resolve(strict=False)
+    try:
+        relative = resolved.relative_to(PROJECT_ROOT.resolve(strict=True))
+    except ValueError as exc:
+        raise ValueError("OUTPUT_DIR_OUTSIDE_PROJECT") from exc
+    if not relative.parts:
+        raise ValueError("OUTPUT_DIR_PROJECT_ROOT")
+    return resolved
+
+
 def _tree_identity(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"exists": False}
@@ -430,7 +445,19 @@ def main() -> int:
         report = verify_bundle(_load_bundle(args.verify), project_root=PROJECT_ROOT)
         print(json.dumps(report, ensure_ascii=False, sort_keys=True))
         return 0 if report["status"] == "PASS" else 2
-    manifest = run(args.output_dir.resolve())
+    try:
+        output_dir = resolve_output_dir(args.output_dir)
+    except ValueError as error:
+        print(
+            json.dumps(
+                {"status": "FAIL", "reason_code": str(error)},
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        return 2
+    manifest = run(output_dir)
     print(json.dumps(manifest, ensure_ascii=False, sort_keys=True))
     return 0
 

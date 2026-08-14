@@ -1,0 +1,64 @@
+{
+  "bundle_id": "sha256:8bc0dcd896192d5dd907d9dce8cb09ff5df43f2c87bef622b85b69400bf02387",
+  "bundle_path": "docs/evidence/REPAIR-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/canary/bundle.json",
+  "bundle_sha256": "sha256:2bdf1f90850d2a35f8fb81f9ed96e7e6896dd672109d8e287093e4fea17bd9e0",
+  "capacity": {
+    "max_bytes_per_cycle": 67108864,
+    "max_files_per_cycle": 250,
+    "observed_cycles": [
+      {
+        "bytes": 7920006,
+        "cycle_identity": "native-evidence-replay-cycle-1",
+        "file_count": 19
+      },
+      {
+        "bytes": 15864418,
+        "cycle_identity": "native-evidence-replay-cycle-2",
+        "file_count": 39
+      }
+    ],
+    "status": "PASS"
+  },
+  "cleanup": {
+    "bundle_verified_after_cleanup": true,
+    "isolated_root_removed": true,
+    "status": "PASS"
+  },
+  "deterministic_verification_runs": 2,
+  "generated_at": "2026-08-14T17:25:55.169324Z",
+  "parity": {
+    "after_cleanup_hash": "sha256:4bb5d0e883ccb4a7f705a12f3f7f6431a9c14633f41f411188e60911a5d17532",
+    "after_cycles_hash": "sha256:4bb5d0e883ccb4a7f705a12f3f7f6431a9c14633f41f411188e60911a5d17532",
+    "before_hash": "sha256:4bb5d0e883ccb4a7f705a12f3f7f6431a9c14633f41f411188e60911a5d17532",
+    "paths": [
+      "artifacts/autonomous_research/next_action_queue.json",
+      "artifacts/autonomous_research/research_spine",
+      "data/research/research_ledger.duckdb",
+      "models/baseline_stats.json",
+      "models/latest_lgbm.pkl",
+      "app/modeling/model_runtime_promotion.py",
+      "app/agent_b_ranking.py",
+      "config/signals.yaml",
+      "scripts/com.new-top10.pm-research-harness.plist",
+      "scripts/com.new-top10.fog-research-worker.plist"
+    ],
+    "unchanged": true
+  },
+  "schema_version": "native-evidence-replay-manifest.v1",
+  "status": "PASS",
+  "verification": {
+    "bundle_id": "sha256:8bc0dcd896192d5dd907d9dce8cb09ff5df43f2c87bef622b85b69400bf02387",
+    "errors": [],
+    "recomputed_counts": {
+      "adaptive_eligible": 8,
+      "cycles": 2,
+      "distinct_lineages": 4,
+      "execution_units": 8,
+      "matched_contrasts": 4,
+      "observations": 8
+    },
+    "schema_version": "native-evidence-replay-verification.v1",
+    "status": "PASS",
+    "verification_hash": "sha256:dc217fa5d9b3e84f5dd4eeec950f1c8dadff50d64a0897508d43974690f1a8ba"
+  }
+}

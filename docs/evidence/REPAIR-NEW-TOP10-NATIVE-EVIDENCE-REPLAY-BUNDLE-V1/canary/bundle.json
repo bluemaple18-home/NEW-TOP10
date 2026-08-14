@@ -1,0 +1,1000 @@
+{
+  "admission": {
+    "required_distinct_lineages": 2,
+    "required_matched_contrasts": 3,
+    "status": "PASS"
+  },
+  "boundary": {
+    "canonical_queue_write_allowed": false,
+    "development_only": true,
+    "isolated_root_retained": false,
+    "manual_only": true,
+    "production_promotion_allowed": false,
+    "scheduler_write_allowed": false
+  },
+  "bundle_id": "sha256:8bc0dcd896192d5dd907d9dce8cb09ff5df43f2c87bef622b85b69400bf02387",
+  "counts": {
+    "adaptive_eligible": 8,
+    "cycles": 2,
+    "distinct_lineages": 4,
+    "execution_units": 8,
+    "matched_contrasts": 4,
+    "observations": 8
+  },
+  "cycles": [
+    {
+      "action": "RUN_DEVELOPMENT_SCREEN",
+      "cycle_identity": "native-evidence-replay-cycle-1",
+      "execution_unit_count": 2,
+      "first_ingest_observations_inserted": 2,
+      "identity_match_status": "EXACT",
+      "intent_id": "intent-84887932651c46208c917584296e7fb9",
+      "isolated_file_count": 19,
+      "isolated_storage_bytes": 7920006,
+      "observation_status": "OBSERVED",
+      "receipt_id": "sha256:38688cb4fd089e3d02b08df49394090fac246b469149ba0c9e8c02f49b5d199d",
+      "regime_id": "RISK_OFF|",
+      "research_batch_id": "research-2026-08-14-120001-9101",
+      "run_id": "run-b55e1570fffb48a88f83f57607137349",
+      "second_ingest_observations_inserted": 0,
+      "terminal_status": "SUCCEEDED"
+    },
+    {
+      "action": "RUN_DEVELOPMENT_SCREEN",
+      "cycle_identity": "native-evidence-replay-cycle-2",
+      "execution_unit_count": 6,
+      "first_ingest_observations_inserted": 6,
+      "identity_match_status": "EXACT",
+      "intent_id": "intent-25062e71d0834b9db362b1f72666286a",
+      "isolated_file_count": 39,
+      "isolated_storage_bytes": 15864418,
+      "observation_status": "OBSERVED",
+      "receipt_id": "sha256:198575b58784d26d9a72e482cbaae5c8f895ab697df3d31bf60ea655b620ffaa",
+      "regime_id": "NARROW_LEADER|BIG_BULL",
+      "research_batch_id": "research-2026-08-14-120002-9102",
+      "run_id": "run-4eafc99a8cd24f16946a0590d2167082",
+      "second_ingest_observations_inserted": 0,
+      "terminal_status": "SUCCEEDED"
+    }
+  ],
+  "eligibility_projection": {
+    "counts": {
+      "ADAPTIVE_ELIGIBLE": 8
+    },
+    "projection_id": "sha256:5915b952b3df83251df26ff0789d54aec6244f43e1b10ee3b4fb87aa7aee806e",
+    "replay_semantic_hash": "sha256:f279c6c0811c01897adfd97a3a4029cad9ddbac1d4fd46faca11e3e6d998ea37",
+    "source_semantic_hash": "sha256:8ede2b73815252291b2aa41de6ee4d0b4e3b6f9e797b7b319933446fc50d31b3"
+  },
+  "generated_at": "2026-08-14T17:25:55.169324Z",
+  "learning_projection": {
+    "counts": {
+      "eligible_observations": 8,
+      "matched_contrasts": 4,
+      "parameter_findings": 8
+    },
+    "matched_contrasts": [
+      {
+        "contrast_id": "sha256:182d1bbb3f0384d2f612ff7f3ebce75157f0c5e99646b1fca0bcd8bd2a996693",
+        "delta_max_drawdown": 0.009999999999999981,
+        "delta_score": 0.04999999999999999,
+        "delta_total_return": 0.024999999999999994,
+        "lineage_id": "sha256:6dae958286175e1209d10e45be7f4809576ec4a9eb923f6c38dfa9784edf3f5b",
+        "lower": 5.0,
+        "parameter": "horizon",
+        "regime_id": "NARROW_LEADER|BIG_BULL",
+        "risk_return_tradeoff": false,
+        "topic_family_id": "native_evidence_replay",
+        "upper": 10.0
+      },
+      {
+        "contrast_id": "sha256:414bbd8bed15c8ea476240b6e2b16e5662c56ac242b8885757c2eeefba1a427b",
+        "delta_max_drawdown": 0.009999999999999981,
+        "delta_score": 0.05000000000000002,
+        "delta_total_return": 0.02500000000000001,
+        "lineage_id": "sha256:de4b7a29665025eec36ec69171b915473839c86571d561f055d8cabbc45a4e77",
+        "lower": 5.0,
+        "parameter": "horizon",
+        "regime_id": "NARROW_LEADER|BIG_BULL",
+        "risk_return_tradeoff": false,
+        "topic_family_id": "native_evidence_replay",
+        "upper": 10.0
+      },
+      {
+        "contrast_id": "sha256:5e0b6522477aa5f9d64a6dba5d05fc7b8888f0d677c76ebc089d20089677a5bd",
+        "delta_max_drawdown": 0.0040000000000000036,
+        "delta_score": 0.020000000000000004,
+        "delta_total_return": 0.010000000000000002,
+        "lineage_id": "sha256:6dae958286175e1209d10e45be7f4809576ec4a9eb923f6c38dfa9784edf3f5b",
+        "lower": 3.0,
+        "parameter": "horizon",
+        "regime_id": "NARROW_LEADER|BIG_BULL",
+        "risk_return_tradeoff": false,
+        "topic_family_id": "native_evidence_replay",
+        "upper": 5.0
+      },
+      {
+        "contrast_id": "sha256:8ee14c6d2aee2060b0db0345139be2ba047f6e99f2445a75289bb8296ecc9eee",
+        "delta_max_drawdown": 0.0040000000000000036,
+        "delta_score": 0.01999999999999999,
+        "delta_total_return": 0.009999999999999995,
+        "lineage_id": "sha256:de4b7a29665025eec36ec69171b915473839c86571d561f055d8cabbc45a4e77",
+        "lower": 3.0,
+        "parameter": "horizon",
+        "regime_id": "NARROW_LEADER|BIG_BULL",
+        "risk_return_tradeoff": false,
+        "topic_family_id": "native_evidence_replay",
+        "upper": 5.0
+      }
+    ],
+    "projection_id": "sha256:6964b2e1a4cd87b64ab60c9c25070726553d460f311f5ac6e4b2585187965cb4",
+    "replay_semantic_hash": "sha256:4a2383503f892d8f522b17dd7a3414b126781cd373433fd5477f8c63607d1721",
+    "scope_evidence": [
+      {
+        "distinct_lineage_count": 2,
+        "matched_contrast_count": 4,
+        "parameter": "horizon",
+        "regime_id": "NARROW_LEADER|BIG_BULL",
+        "topic_family_id": "native_evidence_replay"
+      }
+    ],
+    "source_projection_parity": true,
+    "source_semantic_hash": "sha256:5172dc8059df03334ea63b7acf7088ab9edacb7db245b61b32f0129948146e6a"
+  },
+  "observations": [
+    {
+      "artifact_refs": [
+        "sha256:fbc2730be52938d05947b78910f80cf19989c6387e3ee467fe3aa7933b3d6dae",
+        "sha256:6a8840acc33e0675c84120f33d17979ed8a221874d0cf555fc4c1b968b6cdc00"
+      ],
+      "attempt_inclusion_policy_version": "terminal-receipts-all-statuses.v1",
+      "dataset_hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+      "eligibility": {
+        "evidence_weight": 1,
+        "reason_codes": [
+          "ALL_ELIGIBILITY_GATES_PASSED"
+        ],
+        "status": "ADAPTIVE_ELIGIBLE"
+      },
+      "episode_ids": [
+        "episode-dev-1"
+      ],
+      "evidence_unit_id": "sha256:5177e8590a1f65c948120c5a699e91ece3536e90d8b5c7b7e31a7b050002839c",
+      "executed_trial_spec_id": "sha256:1abfbe35d90afbd60c11bd57e2a5659f09af8ab2e8b0af8059205a97dc629235",
+      "execution_profile": {
+        "dataset_manifest": {
+          "files": [
+            {
+              "hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+              "name": "features.parquet"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "execution_settings": {
+          "fee_rate": "0.001425",
+          "max_gross_exposure": "0.65",
+          "max_position_weight": "0.2",
+          "max_ranking_files": 8,
+          "runner_policy_version": "strategy-matrix-replay.v1",
+          "same_day_hit_priority": "stop_loss",
+          "slippage_rate": "0.001",
+          "tax_rate": "0.003",
+          "top_n": 10
+        },
+        "profile": "native_evidence_replay",
+        "ranking_manifest": {
+          "files": [
+            {
+              "hash": "sha256:ec64e93d78bfe8a4ba9cc0ae0bad48b22a844843f884c182ca2b816656bd9eb7",
+              "name": "ranking_2026-01-02.csv"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "runner": "strategy_matrix_comparison",
+        "variant_role": "candidate"
+      },
+      "execution_unit_id": "sha256:d29703c7b727283471f5ad325521b1c555e5e140abc2153f162e5c30df2da3b7",
+      "identity_match_status": "EXACT",
+      "identity_policy_version": "executed-trial-lineage-result-unit.v1",
+      "intent_id": "intent-84887932651c46208c917584296e7fb9",
+      "lineage_id": "sha256:b2695330c7785863e6c75a93e23663b2ff5340bc8ad2c7692c07a560ef61657a",
+      "lineage_resolution_status": "VALID",
+      "metric_policy_version": "strategy-matrix-metrics.v1",
+      "observation_id": "sha256:574dcd20b1d735a6b72f6c1ffc598a8ba982876af99513fff77a35b28d5e1878",
+      "observation_status": "OBSERVED",
+      "parameters": {
+        "entry_filter": null,
+        "horizon": 5,
+        "max_group_exposure": "0.35",
+        "regime_gate": null,
+        "risk_guard": null,
+        "stop_loss_pct": "0.08",
+        "take_profit_pct": "0.15"
+      },
+      "provenance_paths": [
+        "source_corpus/sha256/fbc2730be52938d05947b78910f80cf19989c6387e3ee467fe3aa7933b3d6dae"
+      ],
+      "ranking_source_hash": "sha256:2b100bcc0633a172c0eb8de7e564c06ad282596eaa72254a7c2025e210a489f1",
+      "receipt_id": "sha256:38688cb4fd089e3d02b08df49394090fac246b469149ba0c9e8c02f49b5d199d",
+      "regime_id": "RISK_OFF|",
+      "regime_scope": {
+        "regime_id": "RISK_OFF|"
+      },
+      "requested_trial_spec_id": "sha256:1abfbe35d90afbd60c11bd57e2a5659f09af8ab2e8b0af8059205a97dc629235",
+      "research_stage": "DEVELOPMENT_SCREEN",
+      "result": {
+        "avg_trade_return": 0.0075,
+        "max_drawdown": -0.15,
+        "p_value": 0.04,
+        "robust_neighbor_pass_count": 0,
+        "scenario_id": "h5_sl0p08_tp0p15_gc0p35",
+        "score": 0.15,
+        "total_return": 0.075,
+        "trade_count": 30,
+        "win_rate": 0.515
+      },
+      "result_semantic_hash": "sha256:b7c9922353efd34d94323f2ef71c21886763120ffb909c01591a9d218a1df6fa",
+      "result_unit_id": "h5_sl0p08_tp0p15_gc0p35",
+      "run_id": "run-b55e1570fffb48a88f83f57607137349",
+      "sealed_usage_status": "PROVEN_NON_SEALED",
+      "source_result_payload_hash": "sha256:e62f0ab8abf2a646a54a01e2a5753b81850bcad64b59da09c6f3005859f4b1ad",
+      "terminal_status": "SUCCEEDED",
+      "topic_family_id": "native_evidence_replay",
+      "topic_id": "native_evidence_replay:representative"
+    },
+    {
+      "artifact_refs": [
+        "sha256:38d81d175158dc9e1ec4da64e023d13576bdd87c22e82b5f4e46dbceeade45ff",
+        "sha256:726f8c6fbfa90a5379cb134bcb5f916e57e4c621c06b9fda0caa2807207c801f"
+      ],
+      "attempt_inclusion_policy_version": "terminal-receipts-all-statuses.v1",
+      "dataset_hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+      "eligibility": {
+        "evidence_weight": 1,
+        "reason_codes": [
+          "ALL_ELIGIBILITY_GATES_PASSED"
+        ],
+        "status": "ADAPTIVE_ELIGIBLE"
+      },
+      "episode_ids": [
+        "episode-dev-2"
+      ],
+      "evidence_unit_id": "sha256:26639d7badee1d5c48a272c9933b17c7b682bba3631cddacddc3937c3c840441",
+      "executed_trial_spec_id": "sha256:39f623076bd174c0c22de1ea8250518cdf08c20f24e370ed95667d60fc795988",
+      "execution_profile": {
+        "dataset_manifest": {
+          "files": [
+            {
+              "hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+              "name": "features.parquet"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "execution_settings": {
+          "fee_rate": "0.001425",
+          "max_gross_exposure": "0.65",
+          "max_position_weight": "0.2",
+          "max_ranking_files": 8,
+          "runner_policy_version": "strategy-matrix-replay.v1",
+          "same_day_hit_priority": "stop_loss",
+          "slippage_rate": "0.001",
+          "tax_rate": "0.003",
+          "top_n": 10
+        },
+        "profile": "native_evidence_replay",
+        "ranking_manifest": {
+          "files": [
+            {
+              "hash": "sha256:245b4f10ddcc451743ca0efe0272b572e3215e7ccaf1e5167645a360f4ad0229",
+              "name": "ranking_2026-01-02.csv"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "runner": "strategy_matrix_comparison",
+        "variant_role": "baseline"
+      },
+      "execution_unit_id": "sha256:05188f9d946783fad1072a64e798f16a5893f435f0123512afb5cbc7e941500c",
+      "identity_match_status": "EXACT",
+      "identity_policy_version": "executed-trial-lineage-result-unit.v1",
+      "intent_id": "intent-25062e71d0834b9db362b1f72666286a",
+      "lineage_id": "sha256:6dae958286175e1209d10e45be7f4809576ec4a9eb923f6c38dfa9784edf3f5b",
+      "lineage_resolution_status": "VALID",
+      "metric_policy_version": "strategy-matrix-metrics.v1",
+      "observation_id": "sha256:8985932194cea2fd4a28f83cf9052c85d2d3bee0d8923ce1150e19d5a1d653fb",
+      "observation_status": "OBSERVED",
+      "parameters": {
+        "entry_filter": null,
+        "horizon": 5,
+        "max_group_exposure": "0.35",
+        "regime_gate": null,
+        "risk_guard": null,
+        "stop_loss_pct": "0.08",
+        "take_profit_pct": "0.15"
+      },
+      "provenance_paths": [
+        "source_corpus/sha256/38d81d175158dc9e1ec4da64e023d13576bdd87c22e82b5f4e46dbceeade45ff"
+      ],
+      "ranking_source_hash": "sha256:9306bc345ceb8d48f6645e2ef005dd76b6ab77d7813528f3091cfc5d3b7a50a3",
+      "receipt_id": "sha256:198575b58784d26d9a72e482cbaae5c8f895ab697df3d31bf60ea655b620ffaa",
+      "regime_id": "NARROW_LEADER|BIG_BULL",
+      "regime_scope": {
+        "regime_id": "NARROW_LEADER|BIG_BULL"
+      },
+      "requested_trial_spec_id": "sha256:39f623076bd174c0c22de1ea8250518cdf08c20f24e370ed95667d60fc795988",
+      "research_stage": "DEVELOPMENT_SCREEN",
+      "result": {
+        "avg_trade_return": 0.0065,
+        "max_drawdown": -0.15,
+        "p_value": 0.04,
+        "robust_neighbor_pass_count": 0,
+        "scenario_id": "h5_sl0p08_tp0p15_gc0p35",
+        "score": 0.13,
+        "total_return": 0.065,
+        "trade_count": 30,
+        "win_rate": 0.515
+      },
+      "result_semantic_hash": "sha256:b66a9882f836a50cf6fea5246c0012c94ba8a18eff3ecea2691c1191d21b704f",
+      "result_unit_id": "h5_sl0p08_tp0p15_gc0p35",
+      "run_id": "run-4eafc99a8cd24f16946a0590d2167082",
+      "sealed_usage_status": "PROVEN_NON_SEALED",
+      "source_result_payload_hash": "sha256:d9e7ce20a0d27df4dad15435fb8758b3a305759fd4feee2efb061f7d7234a4ae",
+      "terminal_status": "SUCCEEDED",
+      "topic_family_id": "native_evidence_replay",
+      "topic_id": "native_evidence_replay:representative"
+    },
+    {
+      "artifact_refs": [
+        "sha256:c99dc163ddcc8c0052e5c867666189815b8cca745f1973285a8c61bb84a0d635",
+        "sha256:726f8c6fbfa90a5379cb134bcb5f916e57e4c621c06b9fda0caa2807207c801f"
+      ],
+      "attempt_inclusion_policy_version": "terminal-receipts-all-statuses.v1",
+      "dataset_hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+      "eligibility": {
+        "evidence_weight": 1,
+        "reason_codes": [
+          "ALL_ELIGIBILITY_GATES_PASSED"
+        ],
+        "status": "ADAPTIVE_ELIGIBLE"
+      },
+      "episode_ids": [
+        "episode-dev-2"
+      ],
+      "evidence_unit_id": "sha256:90186fbfa626ca94394b591563ed2e6d200644e14f0b81efbddf595cd082abb8",
+      "executed_trial_spec_id": "sha256:424afb72c6c1beb8c6718f63f8d1bc891d6499ccdd3b49d9f2ec573155680099",
+      "execution_profile": {
+        "dataset_manifest": {
+          "files": [
+            {
+              "hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+              "name": "features.parquet"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "execution_settings": {
+          "fee_rate": "0.001425",
+          "max_gross_exposure": "0.65",
+          "max_position_weight": "0.2",
+          "max_ranking_files": 8,
+          "runner_policy_version": "strategy-matrix-replay.v1",
+          "same_day_hit_priority": "stop_loss",
+          "slippage_rate": "0.001",
+          "tax_rate": "0.003",
+          "top_n": 10
+        },
+        "profile": "native_evidence_replay",
+        "ranking_manifest": {
+          "files": [
+            {
+              "hash": "sha256:ec64e93d78bfe8a4ba9cc0ae0bad48b22a844843f884c182ca2b816656bd9eb7",
+              "name": "ranking_2026-01-02.csv"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "runner": "strategy_matrix_comparison",
+        "variant_role": "candidate"
+      },
+      "execution_unit_id": "sha256:463c2bea803d0fb594b6788840d85f30327e15700707ec4c82466f0aded9d890",
+      "identity_match_status": "EXACT",
+      "identity_policy_version": "executed-trial-lineage-result-unit.v1",
+      "intent_id": "intent-25062e71d0834b9db362b1f72666286a",
+      "lineage_id": "sha256:de4b7a29665025eec36ec69171b915473839c86571d561f055d8cabbc45a4e77",
+      "lineage_resolution_status": "VALID",
+      "metric_policy_version": "strategy-matrix-metrics.v1",
+      "observation_id": "sha256:8c648389189c7ad96726f4b81322e0a70b0230d96785744e8e15ea39bb77986a",
+      "observation_status": "OBSERVED",
+      "parameters": {
+        "entry_filter": null,
+        "horizon": 5,
+        "max_group_exposure": "0.35",
+        "regime_gate": null,
+        "risk_guard": null,
+        "stop_loss_pct": "0.08",
+        "take_profit_pct": "0.15"
+      },
+      "provenance_paths": [
+        "source_corpus/sha256/c99dc163ddcc8c0052e5c867666189815b8cca745f1973285a8c61bb84a0d635"
+      ],
+      "ranking_source_hash": "sha256:2b100bcc0633a172c0eb8de7e564c06ad282596eaa72254a7c2025e210a489f1",
+      "receipt_id": "sha256:198575b58784d26d9a72e482cbaae5c8f895ab697df3d31bf60ea655b620ffaa",
+      "regime_id": "NARROW_LEADER|BIG_BULL",
+      "regime_scope": {
+        "regime_id": "NARROW_LEADER|BIG_BULL"
+      },
+      "requested_trial_spec_id": "sha256:424afb72c6c1beb8c6718f63f8d1bc891d6499ccdd3b49d9f2ec573155680099",
+      "research_stage": "DEVELOPMENT_SCREEN",
+      "result": {
+        "avg_trade_return": 0.0075,
+        "max_drawdown": -0.15,
+        "p_value": 0.04,
+        "robust_neighbor_pass_count": 0,
+        "scenario_id": "h5_sl0p08_tp0p15_gc0p35",
+        "score": 0.15,
+        "total_return": 0.075,
+        "trade_count": 30,
+        "win_rate": 0.515
+      },
+      "result_semantic_hash": "sha256:b7c9922353efd34d94323f2ef71c21886763120ffb909c01591a9d218a1df6fa",
+      "result_unit_id": "h5_sl0p08_tp0p15_gc0p35",
+      "run_id": "run-4eafc99a8cd24f16946a0590d2167082",
+      "sealed_usage_status": "PROVEN_NON_SEALED",
+      "source_result_payload_hash": "sha256:e62f0ab8abf2a646a54a01e2a5753b81850bcad64b59da09c6f3005859f4b1ad",
+      "terminal_status": "SUCCEEDED",
+      "topic_family_id": "native_evidence_replay",
+      "topic_id": "native_evidence_replay:representative"
+    },
+    {
+      "artifact_refs": [
+        "sha256:38d81d175158dc9e1ec4da64e023d13576bdd87c22e82b5f4e46dbceeade45ff",
+        "sha256:726f8c6fbfa90a5379cb134bcb5f916e57e4c621c06b9fda0caa2807207c801f"
+      ],
+      "attempt_inclusion_policy_version": "terminal-receipts-all-statuses.v1",
+      "dataset_hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+      "eligibility": {
+        "evidence_weight": 1,
+        "reason_codes": [
+          "ALL_ELIGIBILITY_GATES_PASSED"
+        ],
+        "status": "ADAPTIVE_ELIGIBLE"
+      },
+      "episode_ids": [
+        "episode-dev-2"
+      ],
+      "evidence_unit_id": "sha256:d235ae11b04f5c4558f18c0965d3f04a962368c6f265e12d221c54fa44cef00e",
+      "executed_trial_spec_id": "sha256:e386ca59db98968ef7691b190fb05a4206eb374ee06a965ac43f88ec32c50388",
+      "execution_profile": {
+        "dataset_manifest": {
+          "files": [
+            {
+              "hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+              "name": "features.parquet"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "execution_settings": {
+          "fee_rate": "0.001425",
+          "max_gross_exposure": "0.65",
+          "max_position_weight": "0.2",
+          "max_ranking_files": 8,
+          "runner_policy_version": "strategy-matrix-replay.v1",
+          "same_day_hit_priority": "stop_loss",
+          "slippage_rate": "0.001",
+          "tax_rate": "0.003",
+          "top_n": 10
+        },
+        "profile": "native_evidence_replay",
+        "ranking_manifest": {
+          "files": [
+            {
+              "hash": "sha256:245b4f10ddcc451743ca0efe0272b572e3215e7ccaf1e5167645a360f4ad0229",
+              "name": "ranking_2026-01-02.csv"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "runner": "strategy_matrix_comparison",
+        "variant_role": "baseline"
+      },
+      "execution_unit_id": "sha256:287b49e4320a5b673a7b2ec177e7862f6ae5b18e32b365449667ff650c6fe108",
+      "identity_match_status": "EXACT",
+      "identity_policy_version": "executed-trial-lineage-result-unit.v1",
+      "intent_id": "intent-25062e71d0834b9db362b1f72666286a",
+      "lineage_id": "sha256:6dae958286175e1209d10e45be7f4809576ec4a9eb923f6c38dfa9784edf3f5b",
+      "lineage_resolution_status": "VALID",
+      "metric_policy_version": "strategy-matrix-metrics.v1",
+      "observation_id": "sha256:c1b4acfd751b80937095208017f8a2fd5b4fdb511afbcc4533f9f20c4bb72206",
+      "observation_status": "OBSERVED",
+      "parameters": {
+        "entry_filter": null,
+        "horizon": 3,
+        "max_group_exposure": "0.35",
+        "regime_gate": null,
+        "risk_guard": null,
+        "stop_loss_pct": "0.08",
+        "take_profit_pct": "0.15"
+      },
+      "provenance_paths": [
+        "source_corpus/sha256/38d81d175158dc9e1ec4da64e023d13576bdd87c22e82b5f4e46dbceeade45ff"
+      ],
+      "ranking_source_hash": "sha256:9306bc345ceb8d48f6645e2ef005dd76b6ab77d7813528f3091cfc5d3b7a50a3",
+      "receipt_id": "sha256:198575b58784d26d9a72e482cbaae5c8f895ab697df3d31bf60ea655b620ffaa",
+      "regime_id": "NARROW_LEADER|BIG_BULL",
+      "regime_scope": {
+        "regime_id": "NARROW_LEADER|BIG_BULL"
+      },
+      "requested_trial_spec_id": "sha256:e386ca59db98968ef7691b190fb05a4206eb374ee06a965ac43f88ec32c50388",
+      "research_stage": "DEVELOPMENT_SCREEN",
+      "result": {
+        "avg_trade_return": 0.0055,
+        "max_drawdown": -0.154,
+        "p_value": 0.04,
+        "robust_neighbor_pass_count": 0,
+        "scenario_id": "h3_sl0p08_tp0p15_gc0p35",
+        "score": 0.11,
+        "total_return": 0.055,
+        "trade_count": 28,
+        "win_rate": 0.509
+      },
+      "result_semantic_hash": "sha256:e2056230adb2514d87ebfbc7c1b94554a501424253f67d3e2e0521dfd7cd42b3",
+      "result_unit_id": "h3_sl0p08_tp0p15_gc0p35",
+      "run_id": "run-4eafc99a8cd24f16946a0590d2167082",
+      "sealed_usage_status": "PROVEN_NON_SEALED",
+      "source_result_payload_hash": "sha256:b903cf7048d1e0aa21dd15c4a66407cbd62add13b3ea4e4cf50915ebc0b15329",
+      "terminal_status": "SUCCEEDED",
+      "topic_family_id": "native_evidence_replay",
+      "topic_id": "native_evidence_replay:representative"
+    },
+    {
+      "artifact_refs": [
+        "sha256:c99dc163ddcc8c0052e5c867666189815b8cca745f1973285a8c61bb84a0d635",
+        "sha256:726f8c6fbfa90a5379cb134bcb5f916e57e4c621c06b9fda0caa2807207c801f"
+      ],
+      "attempt_inclusion_policy_version": "terminal-receipts-all-statuses.v1",
+      "dataset_hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+      "eligibility": {
+        "evidence_weight": 1,
+        "reason_codes": [
+          "ALL_ELIGIBILITY_GATES_PASSED"
+        ],
+        "status": "ADAPTIVE_ELIGIBLE"
+      },
+      "episode_ids": [
+        "episode-dev-2"
+      ],
+      "evidence_unit_id": "sha256:9c520770a7ee4adef10df476d9d722a9dd9603ebba6a6553bb952e86385fb594",
+      "executed_trial_spec_id": "sha256:9f741f4a0aaf2effb6d84ec04af3a03e68a9fd911afaec47b0ff00af506c673d",
+      "execution_profile": {
+        "dataset_manifest": {
+          "files": [
+            {
+              "hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+              "name": "features.parquet"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "execution_settings": {
+          "fee_rate": "0.001425",
+          "max_gross_exposure": "0.65",
+          "max_position_weight": "0.2",
+          "max_ranking_files": 8,
+          "runner_policy_version": "strategy-matrix-replay.v1",
+          "same_day_hit_priority": "stop_loss",
+          "slippage_rate": "0.001",
+          "tax_rate": "0.003",
+          "top_n": 10
+        },
+        "profile": "native_evidence_replay",
+        "ranking_manifest": {
+          "files": [
+            {
+              "hash": "sha256:ec64e93d78bfe8a4ba9cc0ae0bad48b22a844843f884c182ca2b816656bd9eb7",
+              "name": "ranking_2026-01-02.csv"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "runner": "strategy_matrix_comparison",
+        "variant_role": "candidate"
+      },
+      "execution_unit_id": "sha256:8b0b11b10ddc7c3fd3541a2e2c4cfa3630388cec63dab0e8baedb8372dbaff7e",
+      "identity_match_status": "EXACT",
+      "identity_policy_version": "executed-trial-lineage-result-unit.v1",
+      "intent_id": "intent-25062e71d0834b9db362b1f72666286a",
+      "lineage_id": "sha256:de4b7a29665025eec36ec69171b915473839c86571d561f055d8cabbc45a4e77",
+      "lineage_resolution_status": "VALID",
+      "metric_policy_version": "strategy-matrix-metrics.v1",
+      "observation_id": "sha256:c52c1085c297f511377432c7bd781739294896e5a12633eabfca191f8761b33d",
+      "observation_status": "OBSERVED",
+      "parameters": {
+        "entry_filter": null,
+        "horizon": 10,
+        "max_group_exposure": "0.35",
+        "regime_gate": null,
+        "risk_guard": null,
+        "stop_loss_pct": "0.08",
+        "take_profit_pct": "0.15"
+      },
+      "provenance_paths": [
+        "source_corpus/sha256/c99dc163ddcc8c0052e5c867666189815b8cca745f1973285a8c61bb84a0d635"
+      ],
+      "ranking_source_hash": "sha256:2b100bcc0633a172c0eb8de7e564c06ad282596eaa72254a7c2025e210a489f1",
+      "receipt_id": "sha256:198575b58784d26d9a72e482cbaae5c8f895ab697df3d31bf60ea655b620ffaa",
+      "regime_id": "NARROW_LEADER|BIG_BULL",
+      "regime_scope": {
+        "regime_id": "NARROW_LEADER|BIG_BULL"
+      },
+      "requested_trial_spec_id": "sha256:9f741f4a0aaf2effb6d84ec04af3a03e68a9fd911afaec47b0ff00af506c673d",
+      "research_stage": "DEVELOPMENT_SCREEN",
+      "result": {
+        "avg_trade_return": 0.01,
+        "max_drawdown": -0.14,
+        "p_value": 0.04,
+        "robust_neighbor_pass_count": 0,
+        "scenario_id": "h10_sl0p08_tp0p15_gc0p35",
+        "score": 0.2,
+        "total_return": 0.1,
+        "trade_count": 35,
+        "win_rate": 0.53
+      },
+      "result_semantic_hash": "sha256:c97c0292c940541bf71ed72a8b19087281a97247d45c45738dcae4e6a8934b01",
+      "result_unit_id": "h10_sl0p08_tp0p15_gc0p35",
+      "run_id": "run-4eafc99a8cd24f16946a0590d2167082",
+      "sealed_usage_status": "PROVEN_NON_SEALED",
+      "source_result_payload_hash": "sha256:56790b3c9a3aad8e2f5ef90b4a42387c31a39dd3df771af31e48f8a178583d68",
+      "terminal_status": "SUCCEEDED",
+      "topic_family_id": "native_evidence_replay",
+      "topic_id": "native_evidence_replay:representative"
+    },
+    {
+      "artifact_refs": [
+        "sha256:c07801e6b1fac21ffe7f08b92618d1404748e0653527b4fd90db7fd6405893bd",
+        "sha256:6a8840acc33e0675c84120f33d17979ed8a221874d0cf555fc4c1b968b6cdc00"
+      ],
+      "attempt_inclusion_policy_version": "terminal-receipts-all-statuses.v1",
+      "dataset_hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+      "eligibility": {
+        "evidence_weight": 1,
+        "reason_codes": [
+          "ALL_ELIGIBILITY_GATES_PASSED"
+        ],
+        "status": "ADAPTIVE_ELIGIBLE"
+      },
+      "episode_ids": [
+        "episode-dev-1"
+      ],
+      "evidence_unit_id": "sha256:57d5ed5656a1691b28a547c6f3be0e5f081f7564dbd9c5aef32838b9a6b6faec",
+      "executed_trial_spec_id": "sha256:201bf93eb6b6ed35c06f617a3356aaf13f4ccfd1976f5ef791a4d71f60336cb3",
+      "execution_profile": {
+        "dataset_manifest": {
+          "files": [
+            {
+              "hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+              "name": "features.parquet"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "execution_settings": {
+          "fee_rate": "0.001425",
+          "max_gross_exposure": "0.65",
+          "max_position_weight": "0.2",
+          "max_ranking_files": 8,
+          "runner_policy_version": "strategy-matrix-replay.v1",
+          "same_day_hit_priority": "stop_loss",
+          "slippage_rate": "0.001",
+          "tax_rate": "0.003",
+          "top_n": 10
+        },
+        "profile": "native_evidence_replay",
+        "ranking_manifest": {
+          "files": [
+            {
+              "hash": "sha256:245b4f10ddcc451743ca0efe0272b572e3215e7ccaf1e5167645a360f4ad0229",
+              "name": "ranking_2026-01-02.csv"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "runner": "strategy_matrix_comparison",
+        "variant_role": "baseline"
+      },
+      "execution_unit_id": "sha256:bf16c5082ea2f06e803ff45e3783cf2bbefed0a844a09459957eb367a1098876",
+      "identity_match_status": "EXACT",
+      "identity_policy_version": "executed-trial-lineage-result-unit.v1",
+      "intent_id": "intent-84887932651c46208c917584296e7fb9",
+      "lineage_id": "sha256:3659ad8a534153f1765a664f7ed6e918ecbb48fec612559e9c7a6a11df8b2995",
+      "lineage_resolution_status": "VALID",
+      "metric_policy_version": "strategy-matrix-metrics.v1",
+      "observation_id": "sha256:d68411e86ee5b29b1a359c7a97fe507a9253558c6a936c7f6825d79e8fd2d345",
+      "observation_status": "OBSERVED",
+      "parameters": {
+        "entry_filter": null,
+        "horizon": 5,
+        "max_group_exposure": "0.35",
+        "regime_gate": null,
+        "risk_guard": null,
+        "stop_loss_pct": "0.08",
+        "take_profit_pct": "0.15"
+      },
+      "provenance_paths": [
+        "source_corpus/sha256/c07801e6b1fac21ffe7f08b92618d1404748e0653527b4fd90db7fd6405893bd"
+      ],
+      "ranking_source_hash": "sha256:9306bc345ceb8d48f6645e2ef005dd76b6ab77d7813528f3091cfc5d3b7a50a3",
+      "receipt_id": "sha256:38688cb4fd089e3d02b08df49394090fac246b469149ba0c9e8c02f49b5d199d",
+      "regime_id": "RISK_OFF|",
+      "regime_scope": {
+        "regime_id": "RISK_OFF|"
+      },
+      "requested_trial_spec_id": "sha256:201bf93eb6b6ed35c06f617a3356aaf13f4ccfd1976f5ef791a4d71f60336cb3",
+      "research_stage": "DEVELOPMENT_SCREEN",
+      "result": {
+        "avg_trade_return": 0.0065,
+        "max_drawdown": -0.15,
+        "p_value": 0.04,
+        "robust_neighbor_pass_count": 0,
+        "scenario_id": "h5_sl0p08_tp0p15_gc0p35",
+        "score": 0.13,
+        "total_return": 0.065,
+        "trade_count": 30,
+        "win_rate": 0.515
+      },
+      "result_semantic_hash": "sha256:b66a9882f836a50cf6fea5246c0012c94ba8a18eff3ecea2691c1191d21b704f",
+      "result_unit_id": "h5_sl0p08_tp0p15_gc0p35",
+      "run_id": "run-b55e1570fffb48a88f83f57607137349",
+      "sealed_usage_status": "PROVEN_NON_SEALED",
+      "source_result_payload_hash": "sha256:d9e7ce20a0d27df4dad15435fb8758b3a305759fd4feee2efb061f7d7234a4ae",
+      "terminal_status": "SUCCEEDED",
+      "topic_family_id": "native_evidence_replay",
+      "topic_id": "native_evidence_replay:representative"
+    },
+    {
+      "artifact_refs": [
+        "sha256:38d81d175158dc9e1ec4da64e023d13576bdd87c22e82b5f4e46dbceeade45ff",
+        "sha256:726f8c6fbfa90a5379cb134bcb5f916e57e4c621c06b9fda0caa2807207c801f"
+      ],
+      "attempt_inclusion_policy_version": "terminal-receipts-all-statuses.v1",
+      "dataset_hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+      "eligibility": {
+        "evidence_weight": 1,
+        "reason_codes": [
+          "ALL_ELIGIBILITY_GATES_PASSED"
+        ],
+        "status": "ADAPTIVE_ELIGIBLE"
+      },
+      "episode_ids": [
+        "episode-dev-2"
+      ],
+      "evidence_unit_id": "sha256:d7db3cf50221f4e96544e0fcf9f040d2768ae2370c35256968b22ff97b2fb91e",
+      "executed_trial_spec_id": "sha256:d038f1523946e330e1b3041006daae79cde107537e37e24d52fe834c9ca51c11",
+      "execution_profile": {
+        "dataset_manifest": {
+          "files": [
+            {
+              "hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+              "name": "features.parquet"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "execution_settings": {
+          "fee_rate": "0.001425",
+          "max_gross_exposure": "0.65",
+          "max_position_weight": "0.2",
+          "max_ranking_files": 8,
+          "runner_policy_version": "strategy-matrix-replay.v1",
+          "same_day_hit_priority": "stop_loss",
+          "slippage_rate": "0.001",
+          "tax_rate": "0.003",
+          "top_n": 10
+        },
+        "profile": "native_evidence_replay",
+        "ranking_manifest": {
+          "files": [
+            {
+              "hash": "sha256:245b4f10ddcc451743ca0efe0272b572e3215e7ccaf1e5167645a360f4ad0229",
+              "name": "ranking_2026-01-02.csv"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "runner": "strategy_matrix_comparison",
+        "variant_role": "baseline"
+      },
+      "execution_unit_id": "sha256:904395a3bb5cb366e10abb279d81cb6b499d7e9367115a7ebb228d7a0c15d497",
+      "identity_match_status": "EXACT",
+      "identity_policy_version": "executed-trial-lineage-result-unit.v1",
+      "intent_id": "intent-25062e71d0834b9db362b1f72666286a",
+      "lineage_id": "sha256:6dae958286175e1209d10e45be7f4809576ec4a9eb923f6c38dfa9784edf3f5b",
+      "lineage_resolution_status": "VALID",
+      "metric_policy_version": "strategy-matrix-metrics.v1",
+      "observation_id": "sha256:e633db093e32ae4969ed779c8d0ca1f236fc9d5c64ee95917cc70c75d9807733",
+      "observation_status": "OBSERVED",
+      "parameters": {
+        "entry_filter": null,
+        "horizon": 10,
+        "max_group_exposure": "0.35",
+        "regime_gate": null,
+        "risk_guard": null,
+        "stop_loss_pct": "0.08",
+        "take_profit_pct": "0.15"
+      },
+      "provenance_paths": [
+        "source_corpus/sha256/38d81d175158dc9e1ec4da64e023d13576bdd87c22e82b5f4e46dbceeade45ff"
+      ],
+      "ranking_source_hash": "sha256:9306bc345ceb8d48f6645e2ef005dd76b6ab77d7813528f3091cfc5d3b7a50a3",
+      "receipt_id": "sha256:198575b58784d26d9a72e482cbaae5c8f895ab697df3d31bf60ea655b620ffaa",
+      "regime_id": "NARROW_LEADER|BIG_BULL",
+      "regime_scope": {
+        "regime_id": "NARROW_LEADER|BIG_BULL"
+      },
+      "requested_trial_spec_id": "sha256:d038f1523946e330e1b3041006daae79cde107537e37e24d52fe834c9ca51c11",
+      "research_stage": "DEVELOPMENT_SCREEN",
+      "result": {
+        "avg_trade_return": 0.009,
+        "max_drawdown": -0.14,
+        "p_value": 0.04,
+        "robust_neighbor_pass_count": 0,
+        "scenario_id": "h10_sl0p08_tp0p15_gc0p35",
+        "score": 0.18,
+        "total_return": 0.09,
+        "trade_count": 35,
+        "win_rate": 0.53
+      },
+      "result_semantic_hash": "sha256:0d35d3d95ce756624e0a5aae449c87cd01bf7278c11b04d93340f0c3b0645d03",
+      "result_unit_id": "h10_sl0p08_tp0p15_gc0p35",
+      "run_id": "run-4eafc99a8cd24f16946a0590d2167082",
+      "sealed_usage_status": "PROVEN_NON_SEALED",
+      "source_result_payload_hash": "sha256:1b45d408b844a64e008fa24314c2979334b117a24eb1b27f9d04e3be774088b1",
+      "terminal_status": "SUCCEEDED",
+      "topic_family_id": "native_evidence_replay",
+      "topic_id": "native_evidence_replay:representative"
+    },
+    {
+      "artifact_refs": [
+        "sha256:c99dc163ddcc8c0052e5c867666189815b8cca745f1973285a8c61bb84a0d635",
+        "sha256:726f8c6fbfa90a5379cb134bcb5f916e57e4c621c06b9fda0caa2807207c801f"
+      ],
+      "attempt_inclusion_policy_version": "terminal-receipts-all-statuses.v1",
+      "dataset_hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+      "eligibility": {
+        "evidence_weight": 1,
+        "reason_codes": [
+          "ALL_ELIGIBILITY_GATES_PASSED"
+        ],
+        "status": "ADAPTIVE_ELIGIBLE"
+      },
+      "episode_ids": [
+        "episode-dev-2"
+      ],
+      "evidence_unit_id": "sha256:0f889157eff3aa9603b4ae267bad64cb154d4a1b0d6ede6a9d26cb2fb2c99a24",
+      "executed_trial_spec_id": "sha256:f0d26eb7bfb53128b5477fc5e13099859d462d736e3b20dba12113f1dbc881c5",
+      "execution_profile": {
+        "dataset_manifest": {
+          "files": [
+            {
+              "hash": "sha256:057ca4c8448723428fc9a4e0ee00e031ba5c9c57c698ba956ea91a5c0b0c013b",
+              "name": "features.parquet"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "execution_settings": {
+          "fee_rate": "0.001425",
+          "max_gross_exposure": "0.65",
+          "max_position_weight": "0.2",
+          "max_ranking_files": 8,
+          "runner_policy_version": "strategy-matrix-replay.v1",
+          "same_day_hit_priority": "stop_loss",
+          "slippage_rate": "0.001",
+          "tax_rate": "0.003",
+          "top_n": 10
+        },
+        "profile": "native_evidence_replay",
+        "ranking_manifest": {
+          "files": [
+            {
+              "hash": "sha256:ec64e93d78bfe8a4ba9cc0ae0bad48b22a844843f884c182ca2b816656bd9eb7",
+              "name": "ranking_2026-01-02.csv"
+            }
+          ],
+          "resolution_status": "RESOLVED"
+        },
+        "runner": "strategy_matrix_comparison",
+        "variant_role": "candidate"
+      },
+      "execution_unit_id": "sha256:21bf26e5b869221a2858f0cb7b54e7be51fbe8509d5350755ea6e82cd566e3c5",
+      "identity_match_status": "EXACT",
+      "identity_policy_version": "executed-trial-lineage-result-unit.v1",
+      "intent_id": "intent-25062e71d0834b9db362b1f72666286a",
+      "lineage_id": "sha256:de4b7a29665025eec36ec69171b915473839c86571d561f055d8cabbc45a4e77",
+      "lineage_resolution_status": "VALID",
+      "metric_policy_version": "strategy-matrix-metrics.v1",
+      "observation_id": "sha256:ed12b96cff91c194c0772fb102afef634889bf6865135eb09fe186894b788fba",
+      "observation_status": "OBSERVED",
+      "parameters": {
+        "entry_filter": null,
+        "horizon": 3,
+        "max_group_exposure": "0.35",
+        "regime_gate": null,
+        "risk_guard": null,
+        "stop_loss_pct": "0.08",
+        "take_profit_pct": "0.15"
+      },
+      "provenance_paths": [
+        "source_corpus/sha256/c99dc163ddcc8c0052e5c867666189815b8cca745f1973285a8c61bb84a0d635"
+      ],
+      "ranking_source_hash": "sha256:2b100bcc0633a172c0eb8de7e564c06ad282596eaa72254a7c2025e210a489f1",
+      "receipt_id": "sha256:198575b58784d26d9a72e482cbaae5c8f895ab697df3d31bf60ea655b620ffaa",
+      "regime_id": "NARROW_LEADER|BIG_BULL",
+      "regime_scope": {
+        "regime_id": "NARROW_LEADER|BIG_BULL"
+      },
+      "requested_trial_spec_id": "sha256:f0d26eb7bfb53128b5477fc5e13099859d462d736e3b20dba12113f1dbc881c5",
+      "research_stage": "DEVELOPMENT_SCREEN",
+      "result": {
+        "avg_trade_return": 0.0065,
+        "max_drawdown": -0.154,
+        "p_value": 0.04,
+        "robust_neighbor_pass_count": 0,
+        "scenario_id": "h3_sl0p08_tp0p15_gc0p35",
+        "score": 0.13,
+        "total_return": 0.065,
+        "trade_count": 28,
+        "win_rate": 0.509
+      },
+      "result_semantic_hash": "sha256:19bb65bc67a2b2a0750ec710aa1a4af0ec35a2f6e99ff35da31936eea4648c77",
+      "result_unit_id": "h3_sl0p08_tp0p15_gc0p35",
+      "run_id": "run-4eafc99a8cd24f16946a0590d2167082",
+      "sealed_usage_status": "PROVEN_NON_SEALED",
+      "source_result_payload_hash": "sha256:78c8e80cf40247dea1629536a751718666411bafe66de169ca62e0ff74555b4f",
+      "terminal_status": "SUCCEEDED",
+      "topic_family_id": "native_evidence_replay",
+      "topic_id": "native_evidence_replay:representative"
+    }
+  ],
+  "policies": {
+    "eligibility_policy_hash": "sha256:ad03e6b9b3f5cf082aaf66d872f422284208bd3361ae7ef175875baa2a7611e2",
+    "learning_policy": {
+      "direction_consistency_threshold": 0.7,
+      "effect_deadbands": {
+        "avg_trade_return": 0.001,
+        "max_drawdown": 0.01,
+        "score": 0.01,
+        "total_return": 0.005,
+        "win_rate": 0.02
+      },
+      "flat_consistency_threshold": 0.8,
+      "min_distinct_lineages": 2,
+      "min_global_regimes": 2,
+      "min_independent_matched_contrasts": 3,
+      "min_interaction_contrasts": 2,
+      "min_robust_region_points": 3,
+      "numeric_parameters": [
+        "horizon",
+        "stop_loss_pct",
+        "take_profit_pct",
+        "max_group_exposure"
+      ],
+      "policy_version": "matched-parameter-learning.v1",
+      "robust_basin": {
+        "max_drawdown_limit": -0.25,
+        "minimum_total_return": 0.0,
+        "score_range_tolerance": 0.02
+      },
+      "schema_version": "research-learning-policy.v1",
+      "sharp_peak": {
+        "minimum_score_drop_each_side": 0.03
+      }
+    },
+    "learning_policy_hash": "sha256:39f97f66678550c802d1c6a2e2290e7ee99cfb58aa69f4dfa62d309bc46ce656",
+    "parameter_catalog_hash": "sha256:49be0593c9f2be2025761e1e14a086dde2a8a8ac55bd0006e4c9b42aed1f0f4c"
+  },
+  "schema_version": "native-evidence-replay-bundle.v1",
+  "source_commit": "9e5af2ed81449403feb2144bcb69fa2b633cdd5c"
+}

@@ -36,6 +36,14 @@ METRIC_FIELDS = (
     "p_value",
     "robust_neighbor_pass_count",
 )
+EXPECTED_BOUNDARY = {
+    "development_only": True,
+    "manual_only": True,
+    "production_promotion_allowed": False,
+    "canonical_queue_write_allowed": False,
+    "scheduler_write_allowed": False,
+    "isolated_root_retained": False,
+}
 
 
 def file_sha256(path: Path) -> str:
@@ -74,8 +82,8 @@ def _eligibility_for(row: Mapping[str, Any]) -> tuple[str, list[str]]:
         "REQUESTED_EXECUTED_IDENTITY_NOT_EXACT": row.get("identity_match_status") != "EXACT",
         "INVALID_LINEAGE": row.get("lineage_resolution_status") != "VALID",
         "NON_SEALED_STATUS_NOT_PROVEN": row.get("sealed_usage_status") != "PROVEN_NON_SEALED",
-        "RESEARCH_STAGE_NOT_ALLOWED": row.get("research_stage")
-        not in {"DEVELOPMENT_SCREEN", "COARSE_SCREEN"},
+        "REPLAY_RESEARCH_STAGE_NOT_DEVELOPMENT": row.get("research_stage")
+        != "DEVELOPMENT_SCREEN",
         "REGIME_IDENTITY_INVALID": row.get("regime_id") in {None, "", "UNKNOWN", "UNSCOPED"},
     }
     parameters = row.get("parameters") if isinstance(row.get("parameters"), dict) else {}
@@ -387,6 +395,8 @@ def verify_bundle(
         errors.append("INVALID_SCHEMA")
     if payload.get("bundle_id") != content_hash(payload, omit={"bundle_id", "generated_at"}):
         errors.append("BUNDLE_HASH_MISMATCH")
+    if payload.get("boundary") != EXPECTED_BOUNDARY:
+        errors.append("BOUNDARY_MISMATCH")
     observations = payload.get("observations")
     cycles = payload.get("cycles")
     if not isinstance(observations, list) or not isinstance(cycles, list):
