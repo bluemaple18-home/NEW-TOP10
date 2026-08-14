@@ -153,11 +153,21 @@ def _native_decisions(connection: duckdb.DuckDBPyConnection, policy: dict[str, A
             }
             regime = json.loads(row["regime_scope_json"])
             regime_id = str(regime.get("regime_id") or "")
+            if not regime_id and isinstance(regime.get("base_regime"), str) and isinstance(
+                regime.get("family_tags"), list
+            ):
+                regime_id = (
+                    f"{regime['base_regime']}|"
+                    f"{'+'.join(sorted(str(tag) for tag in regime['family_tags']))}"
+                )
             checks["REGIME_IDENTITY_INVALID"] = regime_id in policy["forbidden_regime_ids"]
             parameters = json.loads(row["parameters_json"])
-            checks["PARAMETER_IDENTITY_INCOMPLETE"] = any(
-                parameters.get(key) is None
-                for key in ("horizon", "stop_loss_pct", "take_profit_pct", "max_group_exposure")
+            checks["PARAMETER_IDENTITY_INCOMPLETE"] = (
+                parameters.get("horizon") is None
+                or any(
+                    key not in parameters
+                    for key in ("stop_loss_pct", "take_profit_pct", "max_group_exposure")
+                )
             )
             checks["COVERAGE_ONLY_DIMENSION_EXECUTED"] = any(
                 parameters.get(key) is not None for key in ("regime_gate", "risk_guard", "entry_filter")

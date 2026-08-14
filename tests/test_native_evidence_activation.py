@@ -18,14 +18,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = PROJECT_ROOT / "config" / "native_evidence_activation_policy_v1.json"
 
 
-def test_repository_policy_is_strict_and_capacity_unknown_is_no_go() -> None:
+def test_repository_policy_is_strict_and_bounded_canary_is_go() -> None:
     policy = load_activation_policy(POLICY_PATH)
 
     assert validate_activation_policy(policy) == []
     readiness = assess_activation_readiness(policy)
-    assert readiness["status"] == "NO-GO"
-    assert "CAPACITY_BUDGET_UNKNOWN" in readiness["reason_codes"]
-    assert "ACTIVATION_DISABLED" in readiness["reason_codes"]
+    assert readiness == {"status": "GO", "reason_codes": [], "validation_errors": []}
+    assert policy["enabled"] is True
+    assert policy["activation_mode"] == "CANARY"
+    assert policy["capacity_budget"]["status"] == "KNOWN"
+    storage = {row["role"]: row for row in policy["baseline_inventory"]["storage_write_paths"]}
+    assert storage["RESEARCH_SPINE_CORPUS"]["retention_class"] == "PERMANENT"
+    assert storage["RESEARCH_SPINE_CORPUS"]["rebuildable"] is False
+    assert storage["RUN_OUTPUT_ARCHIVE"]["retention_class"] == "30_DAYS_ROTATING"
+    assert storage["RUN_OUTPUT_ARCHIVE"]["rebuildable"] is True
+    assert storage["DAILY_RESEARCH_LOGS"]["retention_class"] == "30_DAYS_ROTATING"
+    assert storage["DAILY_RESEARCH_LOGS"]["rebuildable"] is True
 
 
 def test_policy_rejects_unknown_fields_and_partial_capacity_budget() -> None:
@@ -85,7 +93,7 @@ def test_policy_rejects_lowered_reserve_bool_nonfinite_and_semantic_inversion() 
     assert "capacity_budget.burst_window_minutes must not exceed stabilization_minutes" in semantic_errors
 
     policy = load_activation_policy(POLICY_PATH)
-    policy["enabled"] = True
+    policy["activation_mode"] = "DISABLED"
     assert "enabled policy must use DRY_RUN or CANARY activation_mode" in validate_activation_policy(policy)
 
 
@@ -221,7 +229,7 @@ def test_baseline_builder_hashes_surfaces_and_only_reads(tmp_path: Path) -> None
 
     after = sorted(path.relative_to(tmp_path) for path in tmp_path.rglob("*") if path.is_file())
     assert after == before
-    assert baseline["status"] == "NO-GO"
+    assert baseline["status"] == "GO"
     assert baseline["locks"]["queue"][0]["content_hash"].startswith("sha256:")
     assert all(row["exists"] for row in baseline["locks"]["production"])
     assert baseline["locks"]["runner_argv_contract_hash"].startswith("sha256:")
@@ -249,3 +257,26 @@ def test_baseline_fails_closed_for_missing_lock_and_symlink_escape(tmp_path: Pat
         assert "path escapes project root" in str(exc)
     else:
         raise AssertionError("symlink escape must fail closed")
+
+
+def test_baseline_fails_closed_when_storage_budget_is_exceeded(tmp_path: Path) -> None:
+    policy = load_activation_policy(POLICY_PATH)
+    surface_rows = []
+    for key in ("queue_paths", "runner_argv_sources", "scheduler_paths", "production_paths"):
+        surface_rows.extend(policy["baseline_inventory"][key])
+    for row in surface_rows:
+        path = tmp_path / row["path"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(row["role"], encoding="utf-8")
+    spine = tmp_path / "artifacts/autonomous_research/research_spine/oversized.json"
+    spine.parent.mkdir(parents=True, exist_ok=True)
+    spine.write_bytes(b"1234")
+    policy["capacity_budget"]["max_bytes"] = 1
+    policy["capacity_budget"]["max_bytes_per_cycle"] = 1
+    policy_path = tmp_path / "policy.json"
+    policy_path.write_text(json.dumps(policy), encoding="utf-8")
+
+    baseline = build_baseline_inventory(project_root=tmp_path, policy_path=policy_path)
+
+    assert baseline["status"] == "NO-GO"
+    assert "STORAGE_BYTES_BUDGET_EXCEEDED" in baseline["reason_codes"]

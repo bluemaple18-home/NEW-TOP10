@@ -1,21 +1,21 @@
 {
   "schema_version": "native-evidence-activation-policy.v1",
-  "policy_version": "native-evidence-activation-policy.v1",
-  "enabled": false,
-  "activation_mode": "DISABLED",
+  "policy_version": "native-evidence-activation-policy.v1.1",
+  "enabled": true,
+  "activation_mode": "CANARY",
   "capacity_budget": {
-    "status": "UNKNOWN",
-    "max_bytes": null,
-    "max_file_count": null,
-    "max_bytes_per_cycle": null,
-    "max_files_per_cycle": null,
-    "normal_growth_bytes_per_hour": null,
-    "burst_window_minutes": null,
-    "stabilization_minutes": null,
-    "retention_days": null,
-    "sampling_interval_seconds": null,
-    "rss_growth_limit_bytes": null,
-    "swap_growth_limit_bytes": null,
+    "status": "KNOWN",
+    "max_bytes": 2147483648,
+    "max_file_count": 20000,
+    "max_bytes_per_cycle": 67108864,
+    "max_files_per_cycle": 250,
+    "normal_growth_bytes_per_hour": 67108864,
+    "burst_window_minutes": 15,
+    "stabilization_minutes": 60,
+    "retention_days": 30,
+    "sampling_interval_seconds": 300,
+    "rss_growth_limit_bytes": 805306368,
+    "swap_growth_limit_bytes": 67108864,
     "minimum_host_free_percent": 10,
     "minimum_host_reserve_bytes": 21474836480
   },
@@ -57,15 +57,15 @@
         "role": "RUN_OUTPUT_ARCHIVE",
         "path": "artifacts/autonomous_research/run_outputs",
         "category": "RUN_OUTPUTS",
-        "retention_class": "UNDEFINED",
-        "rebuildable": false
+        "retention_class": "30_DAYS_ROTATING",
+        "rebuildable": true
       },
       {
         "role": "DAILY_RESEARCH_LOGS",
         "path": "logs/daily_research",
         "category": "OPERATIONAL_LOGS",
-        "retention_class": "UNDEFINED",
-        "rebuildable": false
+        "retention_class": "30_DAYS_ROTATING",
+        "rebuildable": true
       }
     ]
   },

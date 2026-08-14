@@ -1,0 +1,103 @@
+{
+  "schema_version": "native-evidence-capacity-and-real-canary.v1",
+  "generated_at": "2026-08-14T11:20:00Z",
+  "source_commit": "fbdfc51bcf2ca4886b535e0816fd487a8e852383",
+  "status": "PASS",
+  "execution_boundary": {
+    "manual_only": true,
+    "development_only": true,
+    "scheduler_enabled": false,
+    "production_promotion_allowed": false,
+    "canonical_write_set_used": false,
+    "isolated_root": "<isolated-tmp-root>/nea-formal-real-j_scm2lz"
+  },
+  "capacity_budget": {
+    "max_bytes": 2147483648,
+    "max_file_count": 20000,
+    "max_bytes_per_cycle": 67108864,
+    "max_files_per_cycle": 250,
+    "normal_growth_bytes_per_hour": 67108864,
+    "burst_window_minutes": 15,
+    "stabilization_minutes": 60,
+    "retention_days": 30,
+    "sampling_interval_seconds": 300,
+    "rss_growth_limit_bytes": 805306368,
+    "swap_growth_limit_bytes": 67108864,
+    "minimum_host_free_percent": 10,
+    "minimum_host_reserve_bytes": 21474836480
+  },
+  "startup_baseline": {
+    "status": "GO",
+    "storage_bytes": 780944293,
+    "storage_file_count": 7229,
+    "host_total_bytes": 245107195904,
+    "host_free_bytes": 71746109440,
+    "host_free_percent": 29.271319,
+    "artifact_sha256": "ed6d87d7e7bb6732db1ec7e460beaa45d6629e1df55f757c9774792b47d30994"
+  },
+  "representative_cycles": [
+    {
+      "cycle": 1,
+      "regime_id": "RISK_OFF|",
+      "elapsed_seconds": 1.85,
+      "peak_rss_bytes": 645169152,
+      "isolated_storage_bytes": 9854594,
+      "isolated_file_count": 31,
+      "receipt_status": "SUCCEEDED",
+      "observation_status": "OBSERVED",
+      "identity_status": "EXACT",
+      "valid_proven_non_sealed_units": 2,
+      "adaptive_eligible_observations": 2,
+      "second_ingest_inserted": 0,
+      "receipt_sha256": "716363af7d9515b44f730fb27ca6e8eebe1936b3a3640c3772cd9201ecb0fde7",
+      "eligibility_sha256": "135b94c29fb635365e9ecbe9244c7d6249df10bfe4a994f94e3d31234ea7a861"
+    },
+    {
+      "cycle": 2,
+      "regime_id": "NARROW_LEADER|BIG_BULL",
+      "elapsed_seconds": 2.842,
+      "peak_rss_bytes": 649871360,
+      "isolated_storage_bytes": 9899989,
+      "isolated_file_count": 29,
+      "receipt_status": "SUCCEEDED",
+      "observation_status": "OBSERVED",
+      "identity_status": "EXACT",
+      "valid_proven_non_sealed_units": 6,
+      "adaptive_eligible_observations": 6,
+      "second_ingest_inserted": 0,
+      "receipt_sha256": "c1da5d23599036a343945d32caaf0c0bd3abee76d38cf28cb316483254a3fab5",
+      "eligibility_sha256": "e017a0e71f0aa56d9636354d9acc59f970e06f8637ca14b09ffb1e2be4f057ad"
+    }
+  ],
+  "memory_and_swap": {
+    "swap_used_before_mib": 10107.06,
+    "swap_used_after_mib": 10099.06,
+    "swap_delta_mib": -8.0,
+    "peak_rss_within_budget": true,
+    "swap_growth_within_budget": true
+  },
+  "peak_projection": {
+    "manual_canary_max_authorized_cycles_per_hour": 1,
+    "worst_hour_growth_bytes": 67108864,
+    "worst_day_growth_bytes_if_manually_repeated_hourly": 1610612736,
+    "total_storage_stop_loss_bytes": 2147483648,
+    "host_reserve_after_total_budget_fill_bytes": 70379570085,
+    "host_reserve_gate_pass": true
+  },
+  "recovery_drill": {
+    "status": "PASS",
+    "allowlist": "<isolated-tmp-root>/nea_* probe outputs owned by this canary",
+    "reclaimed_bytes": 62931,
+    "canonical_immutable_corpus_deleted": false
+  },
+  "stop_loss_drill": {
+    "status": "PASS",
+    "test": "tests/test_native_evidence_activation.py::test_baseline_fails_closed_when_storage_budget_is_exceeded",
+    "expected_reason_code": "STORAGE_BYTES_BUDGET_EXCEEDED",
+    "automatic_restart_enabled": false
+  },
+  "parity": {
+    "production_and_queue_hashes_unchanged": true,
+    "formal_summary_sha256": "0548455e00f459e5cf2b2fb3f50270ed9a612ef1508e7ea6bb4c296fc422cf60"
+  }
+}

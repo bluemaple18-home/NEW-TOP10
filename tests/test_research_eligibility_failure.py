@@ -25,6 +25,45 @@ def test_valid_development_observations_are_eligible_and_reproducible(tmp_path: 
     assert all(item["evidence_weight"] == 1 for item in first["decisions"])
 
 
+def test_exact_regime_components_and_legal_null_parameters_are_eligible(
+    tmp_path: Path,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    connection = duckdb.connect(str(ledger))
+    try:
+        connection.execute(
+            "UPDATE trial_specs SET regime_scope_json=?",
+            [json.dumps({"base_regime": "RISK_OFF", "family_tags": []})],
+        )
+        connection.execute(
+            "UPDATE trial_specs SET parameters_json=?",
+            [
+                json.dumps(
+                    {
+                        "horizon": 5,
+                        "stop_loss_pct": None,
+                        "take_profit_pct": None,
+                        "max_group_exposure": None,
+                        "regime_gate": None,
+                        "risk_guard": None,
+                        "entry_filter": None,
+                    }
+                )
+            ],
+        )
+    finally:
+        connection.close()
+
+    result = build_eligibility(
+        ledger_path=ledger,
+        output_root=tmp_path / "projection",
+    )
+
+    assert result["counts"] == {"ADAPTIVE_ELIGIBLE": 2}
+
+
 def test_sealed_and_unknown_never_become_eligible(tmp_path: Path) -> None:
     corpus, _ = corpus_with_receipt(tmp_path)
     ledger = tmp_path / "ledger.duckdb"

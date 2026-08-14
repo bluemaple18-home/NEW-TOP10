@@ -537,6 +537,19 @@ def build_baseline_inventory(*, project_root: Path | str, policy_path: Path | st
     if not host_gate:
         readiness["reason_codes"] = sorted(set(readiness["reason_codes"] + ["HOST_CAPACITY_BELOW_RESERVE"]))
         readiness["status"] = "NO-GO"
+    storage_bytes = sum(int(row["bytes"]) for row in storage)
+    storage_file_count = sum(int(row["file_count"]) for row in storage)
+    if capacity.get("status") == "KNOWN":
+        if storage_bytes > int(capacity["max_bytes"]):
+            readiness["reason_codes"] = sorted(
+                set(readiness["reason_codes"] + ["STORAGE_BYTES_BUDGET_EXCEEDED"])
+            )
+            readiness["status"] = "NO-GO"
+        if storage_file_count > int(capacity["max_file_count"]):
+            readiness["reason_codes"] = sorted(
+                set(readiness["reason_codes"] + ["STORAGE_FILE_COUNT_BUDGET_EXCEEDED"])
+            )
+            readiness["status"] = "NO-GO"
     payload: dict[str, Any] = {
         "schema_version": BASELINE_SCHEMA,
         "baseline_id": "",
@@ -570,6 +583,10 @@ def build_baseline_inventory(*, project_root: Path | str, policy_path: Path | st
             "production": production,
         },
         "storage_write_inventory": storage,
+        "storage_totals": {
+            "bytes": storage_bytes,
+            "file_count": storage_file_count,
+        },
     }
     payload["baseline_id"] = content_hash(payload, omit={"baseline_id", "generated_at"})
     return payload
