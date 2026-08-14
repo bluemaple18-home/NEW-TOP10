@@ -424,8 +424,9 @@ def _write_observed_matrix(path: Path, context: object, role: str) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def test_isolated_batch_owner_native_evidence_canary_is_exact_idempotent_and_noncanonical(
+def test_isolated_native_evidence_batch_owner_canary_is_exact_idempotent_and_noncanonical(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     before = _canonical_research_inventory()
     root = tmp_path / "canary"
@@ -438,6 +439,13 @@ def test_isolated_batch_owner_native_evidence_canary_is_exact_idempotent_and_non
     eligibility_root = root / "eligibility"
     for directory in (output_root, logs, matrix_root, comparison_root, eligibility_root):
         directory.mkdir(parents=True, exist_ok=True)
+    (root / "features.parquet").write_bytes(b"fixture")
+    baseline_dir = root / "baseline"
+    candidate_dir = root / "candidate"
+    baseline_dir.mkdir()
+    candidate_dir.mkdir()
+    (baseline_dir / "ranking_2026-01-02.csv").write_text("symbol,score\nA,1\n", encoding="utf-8")
+    (candidate_dir / "ranking_2026-01-02.csv").write_text("symbol,score\nA,2\n", encoding="utf-8")
 
     batch_id = "research-2026-08-14-010203-123"
     output = output_root / "autonomous_research_daily_quota_2026-08-14.json"
@@ -452,6 +460,14 @@ def test_isolated_batch_owner_native_evidence_canary_is_exact_idempotent_and_non
         "--development-screen-on-sealed-exhaustion",
         "--output",
         str(output),
+        "--features",
+        str(root / "features.parquet"),
+        "--execute-topic-count",
+        "1",
+        "--development-screen-topic-count",
+        "1",
+        "--max-topics",
+        "1",
     ]
     batch_intent = build_batch_intent(
         project_root=PROJECT_ROOT,
@@ -469,62 +485,86 @@ def test_isolated_batch_owner_native_evidence_canary_is_exact_idempotent_and_non
         created_at="2026-08-14T00:00:00Z",
     )
     publish_batch_intent(corpus_root=corpus, payload=batch_intent)
-    authority = verify_batch_owner_authority(
-        project_root=PROJECT_ROOT,
-        corpus_root=corpus,
-        batch_id=batch_id,
-        batch_intent_reference=str(batch_intent["batch_intent_id"]),
-        runtime_argv=[*runner_argv, "--research-batch-intent", str(batch_intent["batch_intent_id"])],
-        output_path=output,
-        ledger_path=ledger,
-        manager_root=output_root,
-        requested_research_stage="DEVELOPMENT_SCREEN",
-        execution_epoch="2026-08-14",
-    )
-    assert authority.reason_code == "CANONICAL_BATCH_INTENT"
 
-    (root / "features.parquet").write_bytes(b"fixture")
-    context = begin_topic_attempt(
-        corpus_root=corpus,
-        project_root=root,
-        topic=topic(root),
-        scenarios=[scenario()],
-        research_stage="DEVELOPMENT_SCREEN",
-        regime_scope={"regime_id": "RISK_OFF|"},
-        features_path="features.parquet",
-        execution_settings={
-            "max_ranking_files": 8,
-            "top_n": 10,
-            "max_gross_exposure": 0.65,
-            "max_position_weight": 0.2,
-            "fee_rate": 0.001425,
-            "tax_rate": 0.003,
-            "slippage_rate": 0.001,
-            "same_day_hit_priority": "stop_loss",
-            "runner_policy_version": "strategy-matrix-replay.v1",
-        },
-        research_batch_id=batch_id,
+    selected_topic = runner.ResearchTopic(
+        topic_id="test:receipt:development_screen",
+        title="Native evidence canary",
+        hypothesis="tmp-root evidence closes through the real Runner",
+        validation_plan="stub only expensive matrix subprocesses",
+        runner="strategy_matrix_comparison",
+        candidate_dir=str(candidate_dir),
+        baseline_dir=str(baseline_dir),
+        score=1.0,
+        reasons=["canary"],
+        evidence_sources=[],
+        ranking_file_count=1,
+        validation_profile="canary",
+        horizons="5",
+        stop_loss_pcts="0.08",
+        take_profit_pcts="0.15",
+        max_group_exposures="0.35",
+        regime_identity={"regime_id": "RISK_OFF|"},
+        selection_rationale={"research_stage": "DEVELOPMENT_SCREEN"},
     )
-    baseline = matrix_root / "baseline_strategy_matrix.json"
-    candidate = matrix_root / "candidate_strategy_matrix.json"
-    development_authority = comparison_root / "development_authority.json"
-    _write_observed_matrix(baseline, context, "baseline")
-    _write_observed_matrix(candidate, context, "candidate")
-    write_development_authority(development_authority, context)
-    receipt = finish_topic_attempt(
-        context,
-        terminal_status="SUCCEEDED",
-        matrix_paths=[baseline, candidate],
-        lineage_authority_paths=[development_authority],
+
+    def fake_execute_topic(args, active_topic, run_dir, *, on_execution_started=None, receipt_attempt=None):
+        assert receipt_attempt is not None
+        assert active_topic.topic_id == selected_topic.topic_id
+        if on_execution_started is not None:
+            on_execution_started()
+        run_dir.mkdir(parents=True, exist_ok=True)
+        slug = runner.slugify(active_topic.topic_id)
+        baseline = run_dir / f"{slug}_baseline_strategy_matrix.json"
+        candidate = run_dir / f"{slug}_candidate_strategy_matrix.json"
+        development_authority = run_dir / f"{slug}_development_screen_contract.json"
+        _write_observed_matrix(baseline, receipt_attempt, "baseline")
+        _write_observed_matrix(candidate, receipt_attempt, "candidate")
+        write_development_authority(development_authority, receipt_attempt)
+        return (
+            [
+                {"name": "baseline.strategy_matrix", "status": "OK"},
+                {"name": "candidate.strategy_matrix", "status": "OK"},
+                {"name": "compare.strategy_matrices", "status": "OK"},
+            ],
+            {"decision": "PARTIAL_SCORE_ONLY", "promotion_allowed": False},
+            {
+                "baseline_strategy_matrix": str(baseline),
+                "candidate_strategy_matrix": str(candidate),
+                "development_screen_contract": str(development_authority),
+            },
+        )
+
+    monkeypatch.setattr(runner, "build_daily_source_lineage", lambda **_: {"source": "canary"})
+    monkeypatch.setattr(runner, "generate_all_topics", lambda args: [selected_topic])
+    monkeypatch.setattr(runner, "apply_closed_experiment_capacity", lambda topics, args: topics)
+    monkeypatch.setattr(runner, "execute_topic", fake_execute_topic)
+    monkeypatch.setattr(runner, "OUTPUT_DIR", runner.OUTPUT_DIR)
+    monkeypatch.setattr(runner, "RESEARCH_LEDGER_PATH", runner.RESEARCH_LEDGER_PATH)
+    monkeypatch.setattr(runner, "RESEARCH_SPINE_ROOT", runner.RESEARCH_SPINE_ROOT)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            *runner_argv,
+            "--research-batch-intent",
+            str(corpus / "batch_intents" / f"{str(batch_intent['batch_intent_id']).removeprefix('sha256:')}.json"),
+        ],
     )
+    assert runner.main() == 0
 
     assert len(list((corpus / "batch_intents").glob("*.json"))) == 1
     assert len(list((corpus / "intents").glob("*.json"))) == 1
     assert len(list((corpus / "attempts").glob("*.started.json"))) == 1
     assert len(list((corpus / "receipts").glob("*.json"))) == 1
+    attempt = json.loads(
+        next((corpus / "attempts").glob("*.started.json")).read_text(encoding="utf-8")
+    )
+    receipt = json.loads(next((corpus / "receipts").glob("*.json")).read_text(encoding="utf-8"))
     assert receipt["terminal_status"] == "SUCCEEDED"
     assert receipt["execution_observation_status"] == "OBSERVED"
     assert receipt["identity_match_status"] == "EXACT"
+    assert attempt["executor"]["research_batch_id"] == batch_id
+    assert len(receipt["executed_units"]) == 2
     assert set(receipt["requested"]["trial_spec_ids"]) == {
         unit["requested_trial_spec_id"] for unit in receipt["executed_units"]
     }
