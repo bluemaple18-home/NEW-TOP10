@@ -108,6 +108,30 @@ echo "runtime=$RUNTIME_LABEL" | tee -a "$LOG_FILE"
 echo "refresh_research_map=$REFRESH_RESEARCH_MAP" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
+REQUESTED_RESEARCH_STAGE="COARSE_SCREEN"
+if [ "$DEVELOPMENT_SCREEN_ENABLED" = "1" ] || [ "$DEVELOPMENT_SCREEN_ENABLED" = "true" ] || [ "$DEVELOPMENT_SCREEN_ENABLED" = "TRUE" ]; then
+  REQUESTED_RESEARCH_STAGE="DEVELOPMENT_SCREEN"
+fi
+
+set +e
+BATCH_INTENT_ID="$("${RUNNER_CMD[@]}" scripts/publish_research_batch_intent.py \
+  --batch-id "$RESEARCH_BATCH_ID" \
+  --execution-epoch "$RUN_DATE" \
+  --requested-research-stage "$REQUESTED_RESEARCH_STAGE" \
+  --allowed-research-stage DEVELOPMENT_SCREEN \
+  --allowed-research-stage COARSE_SCREEN \
+  --output "$OUTPUT" \
+  --corpus-root artifacts/autonomous_research/research_spine \
+  --ledger "$RESEARCH_LEDGER" \
+  -- "${RUN_ARGS[@]}" 2>> "$LOG_FILE")"
+BATCH_INTENT_EXIT_CODE=$?
+set -e
+if [ "$BATCH_INTENT_EXIT_CODE" -ne 0 ]; then
+  echo "❌ research batch intent publication failed exit_code=$BATCH_INTENT_EXIT_CODE" | tee -a "$LOG_FILE"
+  exit "$BATCH_INTENT_EXIT_CODE"
+fi
+RUN_ARGS+=(--research-batch-intent "$BATCH_INTENT_ID")
+
 set +e
 "${RUNNER_CMD[@]}" "${RUN_ARGS[@]}" >> "$LOG_FILE" 2>&1
 RUN_EXIT_CODE=$?

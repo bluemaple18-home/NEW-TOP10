@@ -36,6 +36,11 @@ from app.research.parameter_catalog import (  # noqa: E402
     legacy_parameter_universe_projection,
     validation_profiles_compatibility,
 )
+from app.research.batch_owner import (  # noqa: E402
+    BatchOwnerAuthorityError,
+    load_batch_intent_reference,
+    verify_batch_owner_authority,
+)
 from app.research.run_receipts import (  # noqa: E402
     begin_topic_attempt,
     finish_topic_attempt,
@@ -46,7 +51,9 @@ from scripts.fog_daily_source_lineage import build_daily_source_lineage  # noqa:
 
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 OUTPUT_DIR = ARTIFACTS_DIR / "autonomous_research"
+RESEARCH_SPINE_ROOT = OUTPUT_DIR / "research_spine"
 LEDGER_PATH = ARTIFACTS_DIR / "model_experiments" / "model_experiment_ledger.json"
+RESEARCH_LEDGER_PATH = PROJECT_ROOT / "data" / "research" / "research_ledger.duckdb"
 SCHEMA_VERSION = "autonomous-research-run.v1"
 MANAGER_SCHEMA_VERSION = "autonomous-research-manager.v1"
 TOPIC_BANK_SCHEMA_VERSION = "autonomous-research-topic-bank.v1"
@@ -111,6 +118,14 @@ RANKING_FILE_NAME_PATTERN = re.compile(r"ranking_(\d{4}-\d{2}-\d{2})\.csv")
 
 
 @dataclass(frozen=True)
+class RunnerWriteSet:
+    output: Path
+    spine_root: Path
+    ledger_path: Path
+    manager_root: Path
+
+
+@dataclass(frozen=True)
 class ResearchTopic:
     topic_id: str
     title: str
@@ -147,6 +162,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--research-batch-id", default="UNSCOPED",
         help="daily invocation correlation identity；不影響選題或研究參數",
+    )
+    parser.add_argument(
+        "--research-batch-intent",
+        default=None,
+        help="immutable daily Batch Intent id/path；canonical write 前必須驗證",
     )
     parser.add_argument("--features", default="data/clean/features.parquet")
     parser.add_argument("--baseline-dir", default=BASELINE_RANKINGS_DIR)
@@ -196,6 +216,56 @@ def resolve_path(value: str | Path | None) -> Path | None:
     return path if path.is_absolute() else PROJECT_ROOT / path
 
 
+def _intent_path_reference(value: str | None) -> Path | None:
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if path.is_absolute() or "/" in value or "\\" in value:
+        return path.resolve(strict=False)
+    return None
+
+
+def _single_manager_root(paths: dict[str, Any]) -> Path:
+    manager_paths = paths.get("manager_paths") if isinstance(paths.get("manager_paths"), dict) else {}
+    roots: set[str] = set()
+    for name in ("topic_bank", "registry", "history", "queue", "summary", "runner_registry"):
+        record = manager_paths.get(name) if isinstance(manager_paths.get(name), dict) else {}
+        resolved = record.get("resolved_path")
+        if not isinstance(resolved, str) or not resolved:
+            raise BatchOwnerAuthorityError("MANAGER_PATH_MISMATCH")
+        roots.add(str(Path(resolved).expanduser().resolve(strict=False).parent))
+    if len(roots) != 1:
+        raise BatchOwnerAuthorityError("MANAGER_PATH_MISMATCH")
+    return Path(next(iter(roots)))
+
+
+def resolve_runner_write_set(args: argparse.Namespace, output: Path) -> RunnerWriteSet:
+    reference_path = _intent_path_reference(getattr(args, "research_batch_intent", None))
+    if reference_path is None:
+        return RunnerWriteSet(
+            output=output,
+            spine_root=RESEARCH_SPINE_ROOT,
+            ledger_path=RESEARCH_LEDGER_PATH,
+            manager_root=OUTPUT_DIR,
+        )
+    if reference_path.parent.name != "batch_intents":
+        raise BatchOwnerAuthorityError("BATCH_INTENT_PATH_ESCAPE")
+    spine_root = reference_path.parent.parent
+    _, payload = load_batch_intent_reference(spine_root, str(reference_path))
+    paths = payload.get("paths") if isinstance(payload.get("paths"), dict) else {}
+    spine_record = paths.get("spine_root") if isinstance(paths.get("spine_root"), dict) else {}
+    ledger_record = paths.get("ledger_path") if isinstance(paths.get("ledger_path"), dict) else {}
+    output_record = paths.get("output_root") if isinstance(paths.get("output_root"), dict) else {}
+    if output_record.get("resolved_path") != str(output.parent.resolve(strict=False)):
+        raise BatchOwnerAuthorityError("OUTPUT_ROOT_MISMATCH")
+    return RunnerWriteSet(
+        output=output,
+        spine_root=Path(str(spine_record.get("resolved_path") or spine_root)).expanduser(),
+        ledger_path=Path(str(ledger_record.get("resolved_path") or RESEARCH_LEDGER_PATH)).expanduser(),
+        manager_root=_single_manager_root(paths),
+    )
+
+
 def repo_path(path: Path | None) -> str | None:
     if path is None:
         return None
@@ -213,6 +283,12 @@ def slugify(value: str) -> str:
         return text
     digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
     return f"{text[:80]}-{digest}"
+
+
+def batch_owner_requested_stage(args: argparse.Namespace) -> str:
+    return DEVELOPMENT_SCREEN_STAGE if bool(
+        getattr(args, "development_screen_on_sealed_exhaustion", False)
+    ) else "COARSE_SCREEN"
 
 
 def load_json(path: Path | None) -> dict[str, Any]:
@@ -3818,8 +3894,42 @@ def render_markdown(payload: dict[str, Any]) -> str:
 
 
 def main() -> int:
+    global OUTPUT_DIR, RESEARCH_LEDGER_PATH, RESEARCH_SPINE_ROOT
     args = parse_args()
     output = resolve_path(args.output) or OUTPUT_DIR / f"autonomous_research_{args.date}.json"
+    if args.execute:
+        try:
+            write_set = resolve_runner_write_set(args, output)
+            output = write_set.output
+            OUTPUT_DIR = write_set.manager_root
+            RESEARCH_LEDGER_PATH = write_set.ledger_path
+            RESEARCH_SPINE_ROOT = write_set.spine_root
+            verify_batch_owner_authority(
+                project_root=PROJECT_ROOT,
+                corpus_root=RESEARCH_SPINE_ROOT,
+                batch_id=str(args.research_batch_id),
+                batch_intent_reference=args.research_batch_intent,
+                runtime_argv=sys.argv,
+                output_path=output,
+                ledger_path=RESEARCH_LEDGER_PATH,
+                manager_root=OUTPUT_DIR,
+                requested_research_stage=batch_owner_requested_stage(args),
+                execution_epoch=str(args.date),
+            )
+        except BatchOwnerAuthorityError as error:
+            print(
+                json.dumps(
+                    {
+                        "status": "FAIL",
+                        "reason_code": str(error).split(":", 1)[0],
+                        "research_batch_id": str(args.research_batch_id),
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                file=sys.stderr,
+            )
+            return 1
     run_dir = output.parent / f"run_{args.date}_{datetime.now().strftime('%H%M%S')}"
     output.parent.mkdir(parents=True, exist_ok=True)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -3902,7 +4012,7 @@ def main() -> int:
     }
     outputs: dict[str, str] = {"run_dir": repo_path(run_dir) or str(run_dir), "topic_bank": repo_path(topic_bank_path) or str(topic_bank_path)}
     if args.execute and selected_topics_for_run:
-        reconcile_orphan_attempts(OUTPUT_DIR / "research_spine")
+        reconcile_orphan_attempts(RESEARCH_SPINE_ROOT)
         decisions: list[str] = []
         for index, topic in enumerate(selected_topics_for_run, start=1):
             research_stage = topic_research_stage(topic)
@@ -3912,7 +4022,7 @@ def main() -> int:
                 topic.take_profit_pcts or args.take_profit_pcts,
                 topic.max_group_exposures or args.max_group_exposures,
             )
-            receipt_corpus = OUTPUT_DIR / "research_spine"
+            receipt_corpus = RESEARCH_SPINE_ROOT
             attempt = begin_topic_attempt(
                 corpus_root=receipt_corpus,
                 project_root=PROJECT_ROOT,
