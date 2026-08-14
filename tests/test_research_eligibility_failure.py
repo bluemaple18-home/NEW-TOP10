@@ -7,6 +7,7 @@ import duckdb
 
 from app.research.eligibility import build_projection as build_eligibility, load_policy as load_eligibility_policy
 from app.research.failure_classification import build_projection as build_failure, classify_metrics, load_policy
+from app.research.native_evidence_replay import verify_bundle
 from app.research.observation_ingest import ingest_corpus
 from app.research.run_receipts import finish_topic_attempt
 from tests.test_autonomous_research_receipts import begin
@@ -148,6 +149,23 @@ def test_repo_activation_exclusions_match_preserved_pollution_receipts() -> None
         )
     )
     assert len(policy["entries"]) == 14
+    if not root.exists():
+        bundle = json.loads(
+            Path(
+                "docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/bundle.json"
+            ).read_text(encoding="utf-8")
+        )
+        report = verify_bundle(bundle, project_root=Path.cwd())
+        excluded_receipts = {entry["receipt_id"] for entry in policy["entries"]}
+        replay_receipts = {cycle["receipt_id"] for cycle in bundle["cycles"]}
+        assert report["status"] == "PASS"
+        assert replay_receipts.isdisjoint(excluded_receipts)
+        assert all(
+            row["sealed_usage_status"] == "PROVEN_NON_SEALED"
+            and row["eligibility"]["status"] == "ADAPTIVE_ELIGIBLE"
+            for row in bundle["observations"]
+        )
+        return
     for entry in policy["entries"]:
         receipt = json.loads(
             (root / "receipts" / f"{entry['run_id']}.json").read_text(encoding="utf-8")

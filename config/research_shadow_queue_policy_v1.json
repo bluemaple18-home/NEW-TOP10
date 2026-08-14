@@ -1,0 +1,47 @@
+{
+  "schema_version": "adaptive-shadow-queue-policy.v1",
+  "policy_version": "adaptive-shadow-queue-policy.v1",
+  "admission": {
+    "required_cycles": 2,
+    "required_receipt_gate_percent": 100,
+    "required_distinct_lineages": 2,
+    "required_matched_contrasts": 3,
+    "required_capacity_status": "PASS",
+    "required_parity_unchanged": true
+  },
+  "priority_bands": [
+    {
+      "band": "HIGH",
+      "directions": ["HIGHER_LOOKS_BETTER", "LOWER_LOOKS_BETTER"],
+      "min_matched_contrasts": 3,
+      "min_distinct_lineages": 2,
+      "forbidden_flags": ["INSUFFICIENT_EVIDENCE", "UNSTABLE", "SHARP_PEAK", "OVERFIT_RISK", "RISK_RETURN_TRADEOFF"]
+    },
+    {
+      "band": "OBSERVE",
+      "directions": ["FLAT", "NON_MONOTONIC", "INTERIOR_PEAK", "UNSTABLE", "INSUFFICIENT_EVIDENCE"],
+      "min_matched_contrasts": 0,
+      "min_distinct_lineages": 0,
+      "forbidden_flags": []
+    }
+  ],
+  "actions": {
+    "HIGHER_LOOKS_BETTER": "RESEARCH_PARAMETER_EXTENSION_UPWARD",
+    "LOWER_LOOKS_BETTER": "RESEARCH_PARAMETER_EXTENSION_DOWNWARD",
+    "FLAT": "OBSERVE_LOW_SENSITIVITY",
+    "NON_MONOTONIC": "NO_GO_NON_MONOTONIC",
+    "INTERIOR_PEAK": "NO_GO_INTERIOR_PEAK",
+    "UNSTABLE": "NO_GO_UNSTABLE",
+    "INSUFFICIENT_EVIDENCE": "NO_GO_INSUFFICIENT_EVIDENCE"
+  },
+  "boundary": {
+    "shadow_only": true,
+    "canonical_queue_write_allowed": false,
+    "manager_selection_change_allowed": false,
+    "scheduler_change_allowed": false,
+    "production_change_allowed": false,
+    "synthetic_fallback_allowed": false,
+    "legacy_fallback_allowed": false,
+    "sealed_or_unknown_fallback_allowed": false
+  }
+}
