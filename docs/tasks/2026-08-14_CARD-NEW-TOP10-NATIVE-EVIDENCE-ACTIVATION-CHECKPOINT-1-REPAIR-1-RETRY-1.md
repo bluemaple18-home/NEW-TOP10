@@ -5,7 +5,7 @@ status: ready
 type: repair
 priority: P1
 owner: TOP10new research platform
-role: repair
+role: repairer
 cycle: 1
 thickness: strict
 risk: high
