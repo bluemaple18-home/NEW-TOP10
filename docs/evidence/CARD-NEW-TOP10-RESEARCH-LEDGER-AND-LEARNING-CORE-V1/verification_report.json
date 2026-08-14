@@ -1,0 +1,22 @@
+{
+  "date": "2026-08-14",
+  "errors": [],
+  "knowledge_id": "sha256:04e72b42973ae641326037d560da56101cddffd0fee0a9fded668dfa394247d7",
+  "observation_funnel": {
+    "adaptive_eligible": 0,
+    "deduplicated_evidence_units": 0,
+    "independent_matched_contrasts": 0,
+    "invalid_lineage": 8,
+    "legacy_diagnostic_only": 96979,
+    "legacy_source_record_occurrences": 207871,
+    "native_execution_units": 0,
+    "native_receipts": 8,
+    "raw_result_observations": 0,
+    "sealed_validation_only": 0,
+    "topic_level_not_parameter_evidence": 110892,
+    "unique_legacy_records": 207871,
+    "unsupported_not_an_observation": 0
+  },
+  "schema_version": "adaptive-learning-verification.v1",
+  "status": "PASS"
+}

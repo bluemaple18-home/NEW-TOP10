@@ -14,8 +14,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.research.parameter_catalog import entrypoint_cli_defaults  # noqa: E402
+
+
 SCHEMA_VERSION = "weekend-research-matrix-run.v1"
 RECENT_WINDOW = "2026-04-08_2026-05-13"
 VARIANTS = {
@@ -98,6 +103,7 @@ def strategy_variant_args() -> list[str]:
 
 def matrix_commands(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
     python = sys.executable
+    weekend_defaults = entrypoint_cli_defaults("weekend_research_matrix")
     commands: list[tuple[str, list[str]]] = [
         ("dataset_coverage", [python, "scripts/audit_research_dataset_coverage.py"]),
         ("factor_monitor", [python, "scripts/monitor_factors.py"]),
@@ -118,13 +124,13 @@ def matrix_commands(args: argparse.Namespace) -> list[tuple[str, list[str]]]:
                         "--max-ranking-files",
                         str(args.max_ranking_files),
                         "--horizons",
-                        "3,5,10",
+                        weekend_defaults["horizon"],
                         "--stop-loss-pcts",
-                        "none,0.06,0.08",
+                        weekend_defaults["stop_loss_pct"],
                         "--take-profit-pcts",
-                        "none,0.12,0.15",
+                        weekend_defaults["take_profit_pct"],
                         "--max-group-exposures",
-                        "none,0.35,0.5",
+                        weekend_defaults["max_group_exposure"],
                         "--output",
                         strategy_output(label),
                     ],

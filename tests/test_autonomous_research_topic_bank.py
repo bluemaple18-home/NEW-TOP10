@@ -226,46 +226,54 @@ class AutonomousResearchTopicBankTests(unittest.TestCase):
         )
         captured: dict[str, object] = {}
 
-        with (
-            patch.object(research, "parse_args", return_value=args),
-            patch.object(
-                research,
-                "generate_all_topics",
-                return_value=queued_topics,
-            ),
-            patch.object(research, "write_topic_bank", return_value=Path("topic_bank.json")),
-            patch.object(
-                research,
-                "queued_topic_ids",
-                return_value={topic.topic_id for topic in queued_topics},
-            ),
-            patch.object(research, "load_active_topic_bank", return_value=[]),
-            patch.object(
-                research,
-                "load_next_action_queue",
-                return_value=[
-                    {"topic_id": topic.topic_id}
-                    for topic in queued_topics
-                ],
-            ),
-            patch.object(research, "load_topic_registry", return_value={}),
-            patch.object(research, "load_last_run_at_by_topic", return_value={}),
-            patch.object(
-                research,
-                "execute_topic",
-                return_value=(
-                    [],
-                    {"decision": "REJECTED_BY_STRATEGY_MATRIX", "promotion_allowed": False},
-                    {},
+        with tempfile.TemporaryDirectory() as tmp:
+            isolated_output = Path(tmp) / "autonomous_research"
+            with (
+                patch.object(research, "OUTPUT_DIR", isolated_output),
+                patch.object(research, "parse_args", return_value=args),
+                patch.object(
+                    research,
+                    "generate_all_topics",
+                    return_value=queued_topics,
                 ),
-            ),
-            patch.object(
-                research,
-                "write_run_artifacts",
-                side_effect=lambda payload, _output: captured.update(payload),
-            ),
-        ):
-            exit_code = research.main()
+                patch.object(research, "write_topic_bank", return_value=Path("topic_bank.json")),
+                patch.object(
+                    research,
+                    "queued_topic_ids",
+                    return_value={topic.topic_id for topic in queued_topics},
+                ),
+                patch.object(research, "load_active_topic_bank", return_value=[]),
+                patch.object(
+                    research,
+                    "load_next_action_queue",
+                    return_value=[
+                        {"topic_id": topic.topic_id}
+                        for topic in queued_topics
+                    ],
+                ),
+                patch.object(research, "load_topic_registry", return_value={}),
+                patch.object(research, "load_last_run_at_by_topic", return_value={}),
+                patch.object(
+                    research,
+                    "execute_topic",
+                    return_value=(
+                        [],
+                        {"decision": "REJECTED_BY_STRATEGY_MATRIX", "promotion_allowed": False},
+                        {},
+                    ),
+                ),
+                patch.object(
+                    research,
+                    "write_run_artifacts",
+                    side_effect=lambda payload, _output: captured.update(payload),
+                ),
+            ):
+                exit_code = research.main()
+
+            isolated_receipts = list(
+                (isolated_output / "research_spine" / "receipts").glob("*.json")
+            )
+            self.assertEqual(len(isolated_receipts), 1)
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(

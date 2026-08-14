@@ -66,9 +66,13 @@
     "inventory_status": "PARTIAL_BLOCKED_SOURCE_UNKNOWN",
     "declared_complete": false,
     "inventory_source": [
-      "scripts/run_backtest_strategy_matrix.py",
-      "scripts/run_autonomous_research.py::VALIDATION_PROFILES"
+      "config/research_parameter_catalog.json"
     ],
+    "dimensions_projection": {
+      "source": "config/research_parameter_catalog.json",
+      "generator": "app.research.parameter_catalog.executable_parameter_dimensions",
+      "status": "GENERATED_COMPATIBILITY_PROJECTION"
+    },
     "dimensions": [
       {
         "id": "horizon",

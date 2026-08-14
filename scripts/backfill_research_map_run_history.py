@@ -33,6 +33,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--date", default=datetime.now(timezone.utc).date().isoformat())
     parser.add_argument("--output", default=str(RUN_HISTORY_JSONL))
     parser.add_argument("--replace-existing", action="store_true", help="remove previous smoke/backfill rows before writing")
+    parser.add_argument(
+        "--migration-only", action="store_true", required=True,
+        help="必填安全旗標；本工具只允許一次性legacy migration，不得進daily正常路徑",
+    )
     return parser.parse_args()
 
 

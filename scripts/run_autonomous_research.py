@@ -20,7 +20,7 @@ import sys
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +28,19 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.modeling.sealed_oos import build_regime_episode_split  # noqa: E402
+from app.research.parameter_catalog import (  # noqa: E402
+    assert_legacy_parameter_projection,
+    entrypoint_cli_defaults,
+    executable_parameter_dimensions,
+    parameter_catalog_hash,
+    legacy_parameter_universe_projection,
+    validation_profiles_compatibility,
+)
+from app.research.run_receipts import (  # noqa: E402
+    begin_topic_attempt,
+    finish_topic_attempt,
+    reconcile_orphan_attempts,
+)
 from scripts.fog_daily_source_lineage import build_daily_source_lineage  # noqa: E402
 
 
@@ -123,54 +136,18 @@ class ResearchTopic:
     selection_rationale: dict[str, Any] | None = None
 
 
-VALIDATION_PROFILES = [
-    {
-        "name": "standard",
-        "title_suffix": "standard matrix",
-        "hypothesis_suffix": "使用標準 horizons / stop-loss / take-profit / group exposure matrix。",
-        "score_bonus": 0.0,
-        "horizons": "3,5,10",
-        "stop_loss_pcts": "none,0.08,0.12",
-        "take_profit_pcts": "none,0.15,0.25",
-        "max_group_exposures": "none,0.35,0.55",
-    },
-    {
-        "name": "risk_guard",
-        "title_suffix": "risk guard matrix",
-        "hypothesis_suffix": "加強 stop-loss 與 group exposure 壓力檢查，驗證報酬是否不是靠集中風險撐起來。",
-        "score_bonus": 6.0,
-        "horizons": "3,5,10",
-        "stop_loss_pcts": "0.06,0.08,0.10",
-        "take_profit_pcts": "none,0.15,0.25",
-        "max_group_exposures": "0.25,0.35,0.45",
-    },
-    {
-        "name": "long_horizon",
-        "title_suffix": "long horizon matrix",
-        "hypothesis_suffix": "拉長持有 horizon，驗證候選策略是否只在短線噪音有效。",
-        "score_bonus": 4.0,
-        "horizons": "5,10,20",
-        "stop_loss_pcts": "none,0.08,0.12",
-        "take_profit_pcts": "none,0.20,0.30",
-        "max_group_exposures": "none,0.35,0.55",
-    },
-    {
-        "name": "tight_exit",
-        "title_suffix": "tight exit matrix",
-        "hypothesis_suffix": "使用較緊停損與較早停利，驗證候選策略是否能降低回撤。",
-        "score_bonus": 3.0,
-        "horizons": "3,5,10",
-        "stop_loss_pcts": "0.05,0.08",
-        "take_profit_pcts": "0.10,0.15,0.20",
-        "max_group_exposures": "none,0.35",
-    },
-]
+VALIDATION_PROFILES = validation_profiles_compatibility()
+AUTONOMOUS_CLI_DEFAULTS = entrypoint_cli_defaults("autonomous_research")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="generate autonomous research topics and optionally run safe backtests")
     parser.add_argument("--date", default=date.today().isoformat())
     parser.add_argument("--output", default=None)
+    parser.add_argument(
+        "--research-batch-id", default="UNSCOPED",
+        help="daily invocation correlation identity；不影響選題或研究參數",
+    )
     parser.add_argument("--features", default="data/clean/features.parquet")
     parser.add_argument("--baseline-dir", default=BASELINE_RANKINGS_DIR)
     parser.add_argument("--candidate-dir", default=None, help="指定候選 ranking 目錄；未指定時由 autopilot 自己選")
@@ -178,10 +155,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-topics", type=int, default=12)
     parser.add_argument("--min-ranking-files", type=int, default=3)
     parser.add_argument("--max-ranking-files", type=int, default=8)
-    parser.add_argument("--horizons", default="3,5,10")
-    parser.add_argument("--stop-loss-pcts", default="none,0.08,0.12")
-    parser.add_argument("--take-profit-pcts", default="none,0.15,0.25")
-    parser.add_argument("--max-group-exposures", default="none,0.35,0.55")
+    parser.add_argument("--horizons", default=AUTONOMOUS_CLI_DEFAULTS["horizon"])
+    parser.add_argument("--stop-loss-pcts", default=AUTONOMOUS_CLI_DEFAULTS["stop_loss_pct"])
+    parser.add_argument("--take-profit-pcts", default=AUTONOMOUS_CLI_DEFAULTS["take_profit_pct"])
+    parser.add_argument(
+        "--max-group-exposures", default=AUTONOMOUS_CLI_DEFAULTS["max_group_exposure"]
+    )
     parser.add_argument("--execute", action="store_true", help="實際執行 baseline/candidate strategy matrix 與 comparison")
     parser.add_argument("--execute-topic-count", type=int, default=1, help="單次 execute 最多執行幾個題目")
     parser.add_argument(
@@ -250,6 +229,14 @@ def canonical_json_hash(value: Any) -> str:
 
     encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def file_content_hash(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def canonical_trade_dates(values: Any) -> list[str]:
@@ -427,7 +414,8 @@ def score_regime_research_topic(
 
 
 def parameter_combinations(contract: dict[str, Any]) -> list[dict[str, Any]]:
-    dimensions = contract.get("parameter_universe", {}).get("dimensions", [])
+    assert_legacy_parameter_projection(contract)
+    dimensions = executable_parameter_dimensions()
     executable = [row for row in dimensions if row.get("execution_status") == "EXECUTABLE"]
     names = [str(row["id"]) for row in executable]
     values = [list(row.get("allowed_values") or []) for row in executable]
@@ -481,17 +469,14 @@ def parameter_universe_summary(contract: dict[str, Any]) -> dict[str, Any]:
     return {
         "inventory_status": contract.get("parameter_universe", {}).get("inventory_status"),
         "declared_complete": bool(contract.get("parameter_universe", {}).get("declared_complete")),
-        "executable_dimension_count": len(
-            [
-                row
-                for row in contract.get("parameter_universe", {}).get("dimensions", [])
-                if row.get("execution_status") == "EXECUTABLE"
-            ]
-        ),
+        "executable_dimension_count": len(executable_parameter_dimensions()),
         "legal_combination_count": len(combinations),
         "legal_combination_ids": ids,
         "combination_id_hash": canonical_json_hash(ids),
-        "parameter_space_hash": canonical_json_hash(contract.get("parameter_universe", {})),
+        "parameter_space_hash": canonical_json_hash(
+            legacy_parameter_universe_projection(contract.get("parameter_universe", {}))
+        ),
+        "parameter_catalog_hash": parameter_catalog_hash(),
         "blocked_dimensions": contract.get("parameter_universe", {}).get("blocked_dimensions", []),
     }
 
@@ -531,6 +516,7 @@ def statistical_family_contract(contract: dict[str, Any]) -> dict[str, Any]:
     return {
         "contract_hash": canonical_json_hash(contract),
         "parameter_space_hash": universe["parameter_space_hash"],
+        "parameter_catalog_hash": universe["parameter_catalog_hash"],
         "global_combination_ids": global_ids,
         "global_combination_ids_hash": universe["combination_id_hash"],
         "global_family_id": global_family_id,
@@ -803,6 +789,11 @@ def deterministic_experiment_id(candidate: dict[str, Any]) -> str:
 def build_experiment_pre_registration(values: dict[str, Any]) -> dict[str, Any]:
     candidate = {key: value for key, value in values.items() if key != "experiment_id"}
     candidate.setdefault("state", "REGISTERED")
+    candidate.setdefault("parameter_catalog_hash", parameter_catalog_hash())
+    if isinstance(candidate.get("partition_policy"), dict):
+        partition_policy = dict(candidate["partition_policy"])
+        partition_policy.setdefault("parameter_catalog_hash", candidate["parameter_catalog_hash"])
+        candidate["partition_policy"] = partition_policy
     if candidate.get("sealed_trade_dates") is not None:
         trade_dates = canonical_trade_dates(candidate["sealed_trade_dates"])
         candidate["sealed_trade_dates"] = trade_dates
@@ -908,6 +899,7 @@ def validate_experiment_registration(candidate: dict[str, Any], registry: list[d
         "dataset_hash",
         "split_id",
         "parameter_space_hash",
+        "parameter_catalog_hash",
         "metric_policy_hash",
         "sealed_trade_date_hash",
         "sealed_dataset_slice_hash",
@@ -941,6 +933,8 @@ def validate_statistical_family_registration(
         return {"ok": False, "reason_code": "UNKNOWN_CONTRACT"}
     if str(candidate.get("parameter_space_hash") or "") != authority["parameter_space_hash"]:
         return {"ok": False, "reason_code": "PARAMETER_SPACE_HASH_MISMATCH"}
+    if str(candidate.get("parameter_catalog_hash") or "") != authority["parameter_catalog_hash"]:
+        return {"ok": False, "reason_code": "PARAMETER_CATALOG_HASH_MISMATCH"}
     global_combination_ids = [
         str(item)
         for item in candidate.get("global_combination_ids") or []
@@ -995,6 +989,7 @@ def validate_statistical_family_registration(
     if (
         partition_policy.get("correction_scope") != "global_parameter_universe"
         or partition_policy.get("parameter_space_hash") != authority["parameter_space_hash"]
+        or partition_policy.get("parameter_catalog_hash") != authority["parameter_catalog_hash"]
         or int(partition_policy.get("tested_combination_count") or 0)
         != partition["tested_combination_count"]
         or partition_policy.get("tested_combination_ids_hash")
@@ -2006,6 +2001,8 @@ def matrix_command(
     pre_registration_path: Path | None = None,
     experiment_registry_path: Path | None = None,
     research_stage: str | None = None,
+    receipt_attempt: Any | None = None,
+    variant_role: str | None = None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -2024,9 +2021,36 @@ def matrix_command(
         topic.take_profit_pcts if topic and topic.take_profit_pcts else args.take_profit_pcts,
         "--max-group-exposures",
         topic.max_group_exposures if topic and topic.max_group_exposures else args.max_group_exposures,
+        "--top-n",
+        "10",
+        "--max-gross-exposure",
+        "0.65",
+        "--max-position-weight",
+        "0.2",
+        "--fee-rate",
+        "0.001425",
+        "--tax-rate",
+        "0.003",
+        "--slippage-rate",
+        "0.001",
+        "--same-day-hit-priority",
+        "stop_loss",
         "--output",
         output,
     ]
+    if receipt_attempt is not None and variant_role is not None:
+        command.extend(
+            [
+                "--research-run-id",
+                receipt_attempt.run_id,
+                "--research-intent-id",
+                receipt_attempt.intent_id,
+                "--research-variant-role",
+                variant_role,
+                "--requested-trial-spec-ids",
+                json.dumps(sorted(receipt_attempt.trial_ids_by_role[variant_role])),
+            ]
+        )
     if bool(getattr(args, "closed_regime_research", False)):
         if topic is None or topic.regime_identity is None or not getattr(args, "market_regime_history", None):
             raise ValueError("closed regime matrix 缺少 regime identity/history")
@@ -3172,6 +3196,8 @@ def closed_experiment_context(args: argparse.Namespace, topic: ResearchTopic) ->
         "lineage": lineage,
         "regime_id": regime_id,
         "rows": rows,
+        "research_contract_hash": canonical_json_hash(contract),
+        "regime_history_hash": canonical_json_hash(rows),
     }
 
 
@@ -3351,6 +3377,12 @@ def prepare_development_screen(
     development_episode_ids = list(lineage.get("development_episode_ids") or [])
     if not development_episode_ids:
         raise ValueError("development screen 缺少 immutable development episode IDs")
+    features_authority_path = resolve_path(args.features)
+    execution_dataset_hash = (
+        file_content_hash(features_authority_path)
+        if features_authority_path is not None and features_authority_path.is_file()
+        else lineage.get("dataset_hash")
+    )
     contract = {
         "schema_version": DEVELOPMENT_SCREEN_SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -3359,8 +3391,13 @@ def prepare_development_screen(
         "parent_topic_id": str((topic.selection_rationale or {}).get("parent_topic_id") or topic.topic_id),
         "regime_id": context["regime_id"],
         "dataset_hash": lineage.get("dataset_hash"),
+        "execution_dataset_hash": execution_dataset_hash,
         "split_id": lineage.get("split_id"),
         "split_artifact_hash": lineage.get("split_artifact_hash"),
+        "research_contract_hash": context.get("research_contract_hash")
+        or canonical_json_hash(context.get("contract") or {}),
+        "regime_history_hash": context.get("regime_history_hash")
+        or canonical_json_hash(context.get("rows") or []),
         "development_episode_ids": development_episode_ids,
         "excluded_episode_ids": {
             "validation": list(lineage.get("validation_episode_ids") or []),
@@ -3424,6 +3461,7 @@ def prepare_closed_experiment(
         "partition_id": topic.validation_profile,
         "correction_scope": "global_parameter_universe",
         "parameter_space_hash": universe["parameter_space_hash"],
+        "parameter_catalog_hash": universe["parameter_catalog_hash"],
         "tested_combination_count": len(tested_combination_ids),
         "tested_combination_ids_hash": tested_combination_ids_hash,
         "correction_family_id": correction_family_id,
@@ -3439,6 +3477,7 @@ def prepare_closed_experiment(
             "split_id": lineage["split_id"],
             "split_artifact_hash": lineage["split_artifact_hash"],
             "parameter_space_hash": universe["parameter_space_hash"],
+            "parameter_catalog_hash": universe["parameter_catalog_hash"],
             "contract_hash": authority["contract_hash"],
             "global_combination_ids": authority["global_combination_ids"],
             "global_combination_ids_hash": authority["global_combination_ids_hash"],
@@ -3496,7 +3535,14 @@ def parse_positive_ints(value: str) -> list[int]:
     return values
 
 
-def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, str]]:
+def execute_topic(
+    args: argparse.Namespace,
+    topic: ResearchTopic,
+    run_dir: Path,
+    *,
+    on_execution_started: Callable[[], None] | None = None,
+    receipt_attempt: Any | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, str]]:
     if not topic.eligible:
         raise ValueError(f"topic 不符合執行資格：{topic.topic_id} ({topic.reason_code})")
     research_stage = topic_research_stage(topic)
@@ -3535,6 +3581,8 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 pre_registration_path=closed["registration_path"] if closed else None,
                 experiment_registry_path=closed["registry_path"] if closed else None,
                 research_stage=research_stage,
+                receipt_attempt=receipt_attempt,
+                variant_role="baseline",
             ),
         ),
         (
@@ -3548,6 +3596,8 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 pre_registration_path=closed["registration_path"] if closed else None,
                 experiment_registry_path=closed["registry_path"] if closed else None,
                 research_stage=research_stage,
+                receipt_attempt=receipt_attempt,
+                variant_role="candidate",
             ),
         ),
         (
@@ -3577,6 +3627,8 @@ def execute_topic(args: argparse.Namespace, topic: ResearchTopic, run_dir: Path)
                 }
             )
             continue
+        if command_allowed(command) and on_execution_started is not None:
+            on_execution_started()
         step = run_step(name, command)
         steps.append(step)
         if step["status"] != "OK":
@@ -3686,6 +3738,7 @@ def build_payload(
             "continuous_topic_supply_is_development_only": True,
         },
         "inputs": {
+            "research_batch_id": getattr(args, "research_batch_id", "UNSCOPED"),
             "execute": args.execute,
             "features": args.features,
             "baseline_dir": args.baseline_dir,
@@ -3849,19 +3902,111 @@ def main() -> int:
     }
     outputs: dict[str, str] = {"run_dir": repo_path(run_dir) or str(run_dir), "topic_bank": repo_path(topic_bank_path) or str(topic_bank_path)}
     if args.execute and selected_topics_for_run:
+        reconcile_orphan_attempts(OUTPUT_DIR / "research_spine")
         decisions: list[str] = []
         for index, topic in enumerate(selected_topics_for_run, start=1):
-            topic_steps, topic_outcome, step_outputs = execute_topic(args, topic, run_dir)
+            research_stage = topic_research_stage(topic)
+            scenarios = validation_profile_combinations(
+                topic.horizons or args.horizons,
+                topic.stop_loss_pcts or args.stop_loss_pcts,
+                topic.take_profit_pcts or args.take_profit_pcts,
+                topic.max_group_exposures or args.max_group_exposures,
+            )
+            receipt_corpus = OUTPUT_DIR / "research_spine"
+            attempt = begin_topic_attempt(
+                corpus_root=receipt_corpus,
+                project_root=PROJECT_ROOT,
+                topic=topic,
+                scenarios=scenarios,
+                research_stage=research_stage,
+                regime_scope=topic.regime_identity or {"regime_id": "UNSCOPED"},
+                features_path=args.features,
+                execution_settings={
+                    "max_ranking_files": args.max_ranking_files,
+                    "top_n": 10,
+                    "max_gross_exposure": 0.65,
+                    "max_position_weight": 0.2,
+                    "fee_rate": 0.001425,
+                    "tax_rate": 0.003,
+                    "slippage_rate": 0.001,
+                    "same_day_hit_priority": "stop_loss",
+                    "runner_policy_version": "strategy-matrix-replay.v1",
+                },
+                selection_reason_codes=(
+                    ["EXISTING_QUEUE"]
+                    if topic.topic_id in queue_ids
+                    else ["CONTINUOUS_TOPIC_SUPPLY"]
+                    if topic_supply
+                    else ["ACTIVE_BANK_FALLBACK"]
+                ),
+                research_batch_id=getattr(args, "research_batch_id", "UNSCOPED"),
+            )
+            slug = slugify(topic.topic_id)
+            lineage_authority_paths = [
+                run_dir / attempt.run_id / f"{slug}_development_screen_contract.json"
+            ]
+            matrix_paths = [
+                run_dir / attempt.run_id / f"{slug}_baseline_strategy_matrix.json",
+                run_dir / attempt.run_id / f"{slug}_candidate_strategy_matrix.json",
+            ]
+            execution_started = False
+
+            def mark_execution_started() -> None:
+                nonlocal execution_started
+                execution_started = True
+
+            try:
+                topic_steps, topic_outcome, step_outputs = execute_topic(
+                    args,
+                    topic,
+                    run_dir / attempt.run_id,
+                    on_execution_started=mark_execution_started,
+                    receipt_attempt=attempt,
+                )
+            except KeyboardInterrupt:
+                finish_topic_attempt(
+                    attempt,
+                    terminal_status="CANCELLED",
+                    matrix_paths=matrix_paths,
+                    lineage_authority_paths=lineage_authority_paths,
+                    failure_reason="INTERRUPTED_BY_USER",
+                )
+                raise
+            except Exception as error:
+                finish_topic_attempt(
+                    attempt,
+                    terminal_status="FAILED" if execution_started else "REJECTED_BEFORE_EXECUTION",
+                    matrix_paths=matrix_paths,
+                    lineage_authority_paths=lineage_authority_paths,
+                    failure_reason=type(error).__name__.upper(),
+                )
+                raise
+            all_steps_ok = all(step["status"] == "OK" for step in topic_steps)
+            receipt = finish_topic_attempt(
+                attempt,
+                terminal_status="SUCCEEDED" if all_steps_ok else "FAILED",
+                matrix_paths=matrix_paths,
+                lineage_authority_paths=lineage_authority_paths,
+                failure_reason=None if all_steps_ok else "RUNNER_STEP_FAILED",
+            )
             prefixed_steps = [{**step, "name": f"topic{index}.{step['name']}", "topic_id": topic.topic_id} for step in topic_steps]
             steps.extend(prefixed_steps)
             decisions.append(str(topic_outcome.get("decision")))
             topic_runs.append(
                 {
                     "topic": topic_to_json(topic),
-                    "status": "OK" if all(step["status"] == "OK" for step in topic_steps) else "FAILED",
+                    "status": "OK" if receipt["terminal_status"] == "SUCCEEDED" else "FAILED",
                     "outcome": topic_outcome,
                     "steps": topic_steps,
                     "outputs": step_outputs,
+                    "research_spine": {
+                        "run_id": attempt.run_id,
+                        "intent_id": attempt.intent_id,
+                        "receipt_id": receipt["receipt_id"],
+                        "receipt_path": repo_path(
+                            receipt_corpus / "receipts" / f"{attempt.run_id}.json"
+                        ),
+                    },
                 }
             )
             if index == 1:

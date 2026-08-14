@@ -33,6 +33,7 @@ if ! "${RUNNER_CMD[@]}" scripts/fog_runtime_time_authority.py --context "$RUN_CO
   exit 1
 fi
 RUN_DATE="$("${RUNNER_CMD[@]}" scripts/fog_runtime_time_authority.py --context "$RUN_CONTEXT" --field market_run_date)"
+RESEARCH_BATCH_ID="research-${RUN_DATE}-$(date +%H%M%S)-$$"
 if [ -n "${TOP10_RESEARCH_DATE:-}" ] && [ "$TOP10_RESEARCH_DATE" != "$RUN_DATE" ]; then
   echo "❌ TOP10_RESEARCH_DATE mismatches immutable time context"
   exit 1
@@ -55,6 +56,9 @@ REFRESH_RESEARCH_MAP="${TOP10_REFRESH_RESEARCH_MAP:-1}"
 LOG_DIR="$PROJECT_DIR/logs"
 OUTPUT="artifacts/autonomous_research/autonomous_research_daily_quota_${RUN_DATE}.json"
 RUNTIME_RECEIPT="artifacts/autonomous_research/closed_regime_runtime_receipt_${RUN_DATE}.json"
+BATCH_VERIFICATION="artifacts/autonomous_research/research_spine_batch_verification_${RESEARCH_BATCH_ID}.json"
+LEDGER_BATCH_VERIFICATION="artifacts/autonomous_research/research_ledger_batch_verification_${RESEARCH_BATCH_ID}.json"
+RESEARCH_LEDGER="data/research/research_ledger.duckdb"
 RUN_ARCHIVE_DIR="artifacts/autonomous_research/run_outputs"
 RUN_ARCHIVE_STEM="autonomous_research_daily_quota_${RUN_DATE}_$(date +%H%M%S)"
 LOG_FILE="$LOG_DIR/daily_research_quota_${RUN_DATE//-/}.log"
@@ -67,6 +71,7 @@ fi
 RUN_ARGS=(
   scripts/run_autonomous_research.py
   --date "$RUN_DATE"
+  --research-batch-id "$RESEARCH_BATCH_ID"
   --execute
   --closed-regime-research
   --market-regime-history artifacts/market_regime_history.json
@@ -108,8 +113,44 @@ set +e
 RUN_EXIT_CODE=$?
 set -e
 
+set +e
+"${RUNNER_CMD[@]}" scripts/verify_research_spine_batch.py \
+  --batch-id "$RESEARCH_BATCH_ID" \
+  --corpus-root artifacts/autonomous_research/research_spine \
+  --run-artifact "$OUTPUT" \
+  --output "$BATCH_VERIFICATION" >> "$LOG_FILE" 2>&1
+BATCH_VERIFY_EXIT_CODE=$?
+set -e
+if [ "$BATCH_VERIFY_EXIT_CODE" -ne 0 ]; then
+  echo "❌ research spine batch verification failed exit_code=$BATCH_VERIFY_EXIT_CODE" | tee -a "$LOG_FILE"
+  exit "$BATCH_VERIFY_EXIT_CODE"
+fi
+
+set +e
+"${RUNNER_CMD[@]}" -m app.research.observation_ingest \
+  --date "$RUN_DATE" \
+  --ledger "$RESEARCH_LEDGER" >> "$LOG_FILE" 2>&1
+INGEST_EXIT_CODE=$?
+set -e
+if [ "$INGEST_EXIT_CODE" -ne 0 ]; then
+  echo "❌ research ledger ingest failed exit_code=$INGEST_EXIT_CODE" | tee -a "$LOG_FILE"
+  exit "$INGEST_EXIT_CODE"
+fi
+
+set +e
+"${RUNNER_CMD[@]}" scripts/verify_research_ledger_batch.py \
+  --batch-verification "$BATCH_VERIFICATION" \
+  --ledger "$RESEARCH_LEDGER" \
+  --output "$LEDGER_BATCH_VERIFICATION" >> "$LOG_FILE" 2>&1
+LEDGER_VERIFY_EXIT_CODE=$?
+set -e
+if [ "$LEDGER_VERIFY_EXIT_CODE" -ne 0 ]; then
+  echo "❌ research ledger batch verification failed exit_code=$LEDGER_VERIFY_EXIT_CODE" | tee -a "$LOG_FILE"
+  exit "$LEDGER_VERIFY_EXIT_CODE"
+fi
+
 if [ "$RUN_EXIT_CODE" -ne 0 ]; then
-  echo "❌ autonomous research quota run failed exit_code=$RUN_EXIT_CODE" | tee -a "$LOG_FILE"
+  echo "❌ autonomous research quota run failed after receipt ingest exit_code=$RUN_EXIT_CODE" | tee -a "$LOG_FILE"
   exit "$RUN_EXIT_CODE"
 fi
 
@@ -147,14 +188,15 @@ fi
 
 if [ "$REFRESH_RESEARCH_MAP" = "1" ] || [ "$REFRESH_RESEARCH_MAP" = "true" ] || [ "$REFRESH_RESEARCH_MAP" = "TRUE" ]; then
   set +e
-  "${RUNNER_CMD[@]}" scripts/backfill_research_map_run_history.py \
-    --date "$RUN_DATE" \
-    --replace-existing >> "$LOG_FILE" 2>&1
+  "${RUNNER_CMD[@]}" -m app.research.history_compatibility_projection \
+    --ledger "$RESEARCH_LEDGER" \
+    --output artifacts/autonomous_research/run_history.jsonl \
+    --manifest-output artifacts/autonomous_research/run_history_projection_manifest.json >> "$LOG_FILE" 2>&1
   BACKFILL_EXIT_CODE=$?
   set -e
 
   if [ "$BACKFILL_EXIT_CODE" -ne 0 ]; then
-    echo "❌ research map backfill failed exit_code=$BACKFILL_EXIT_CODE" | tee -a "$LOG_FILE"
+    echo "❌ research history compatibility projection failed exit_code=$BACKFILL_EXIT_CODE" | tee -a "$LOG_FILE"
     exit "$BACKFILL_EXIT_CODE"
   fi
 

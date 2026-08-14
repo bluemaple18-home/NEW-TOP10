@@ -1,0 +1,189 @@
+{
+  "schema_version": "research-parameter-catalog.v1",
+  "catalog_version": "research-parameter-catalog.v1",
+  "canonicalization_version": "research-canonical-json.v1",
+  "authority_mode": "SOLE_AUTHORING_AUTHORITY",
+  "dimensions": [
+    {
+      "id": "horizon",
+      "name": "持有交易日",
+      "research_level": "exit",
+      "product_semantics": "中期波段持有上限",
+      "data_type": "integer",
+      "coverage_values": [3, 5, 10],
+      "executable_values": [3, 5, 10, 20],
+      "categorical_baselines": [],
+      "execution_support": "SUPPORTED",
+      "runner_mapping": "horizon",
+      "default_value": 5,
+      "coverage_default_only": false,
+      "stage_allowlist": ["DEVELOPMENT_SCREEN", "SEALED_VALIDATION"],
+      "regime_allowlist": ["ANY_EXACT_REGIME"],
+      "dynamic_execution_allowed": false
+    },
+    {
+      "id": "stop_loss_pct",
+      "name": "停損幅度",
+      "research_level": "risk",
+      "product_semantics": "控制單筆下行風險；null 表示不用事件停損",
+      "data_type": "decimal",
+      "coverage_values": [null, "0.08", "0.12"],
+      "executable_values": [null, "0.05", "0.06", "0.08", "0.10", "0.12"],
+      "categorical_baselines": [null],
+      "execution_support": "SUPPORTED",
+      "runner_mapping": "stop_loss_pct",
+      "default_value": null,
+      "coverage_default_only": false,
+      "stage_allowlist": ["DEVELOPMENT_SCREEN", "SEALED_VALIDATION"],
+      "regime_allowlist": ["ANY_EXACT_REGIME"],
+      "dynamic_execution_allowed": false
+    },
+    {
+      "id": "take_profit_pct",
+      "name": "停利幅度",
+      "research_level": "exit",
+      "product_semantics": "控制單筆獲利了結；null 表示不用事件停利",
+      "data_type": "decimal",
+      "coverage_values": [null, "0.15", "0.25"],
+      "executable_values": [null, "0.10", "0.15", "0.20", "0.25", "0.30"],
+      "categorical_baselines": [null],
+      "execution_support": "SUPPORTED",
+      "runner_mapping": "take_profit_pct",
+      "default_value": null,
+      "coverage_default_only": false,
+      "stage_allowlist": ["DEVELOPMENT_SCREEN", "SEALED_VALIDATION"],
+      "regime_allowlist": ["ANY_EXACT_REGIME"],
+      "dynamic_execution_allowed": false
+    },
+    {
+      "id": "max_group_exposure",
+      "name": "同族群曝險上限",
+      "research_level": "portfolio",
+      "product_semantics": "控制產業集中風險；null 表示只受 gross exposure 限制",
+      "data_type": "decimal",
+      "coverage_values": [null, "0.35", "0.55"],
+      "executable_values": [null, "0.25", "0.35", "0.45", "0.55"],
+      "categorical_baselines": [null],
+      "execution_support": "SUPPORTED",
+      "runner_mapping": "max_group_exposure",
+      "default_value": null,
+      "coverage_default_only": false,
+      "stage_allowlist": ["DEVELOPMENT_SCREEN", "SEALED_VALIDATION"],
+      "regime_allowlist": ["ANY_EXACT_REGIME"],
+      "dynamic_execution_allowed": false
+    },
+    {
+      "id": "regime_gate",
+      "name": "盤勢閘門",
+      "research_level": "coverage",
+      "product_semantics": "Fog Map V2 coverage coordinate；非正式 executable evidence",
+      "data_type": "categorical",
+      "coverage_values": ["ALL", "BIG_BULL_ONLY", "BIG_BULL_HIGH_CHOPPY", "EXCLUDE_RISK_OFF_PANIC", "RISK_OFF_ONLY", "PANIC_SELLING_ONLY", "NEUTRAL_ONLY"],
+      "executable_values": [],
+      "categorical_baselines": [],
+      "execution_support": "CONTRACT_DEPENDENT",
+      "runner_mapping": "regime_gate",
+      "default_value": "ALL",
+      "coverage_default_only": true,
+      "stage_allowlist": [],
+      "regime_allowlist": [],
+      "dynamic_execution_allowed": false
+    },
+    {
+      "id": "risk_guard",
+      "name": "風險防護",
+      "research_level": "coverage",
+      "product_semantics": "Fog Map V2 coverage coordinate；非正式 executable evidence",
+      "data_type": "categorical",
+      "coverage_values": ["NONE", "RISK_OFF_CASH_RAISE", "RISK_OFF_DISABLE", "PANIC_DISABLE"],
+      "executable_values": [],
+      "categorical_baselines": ["NONE"],
+      "execution_support": "CONTRACT_DEPENDENT",
+      "runner_mapping": "risk_guard",
+      "default_value": "NONE",
+      "coverage_default_only": true,
+      "stage_allowlist": [],
+      "regime_allowlist": [],
+      "dynamic_execution_allowed": false
+    },
+    {
+      "id": "entry_filter",
+      "name": "進場過濾",
+      "research_level": "coverage",
+      "product_semantics": "Fog Map V2 coverage coordinate；非正式 executable evidence",
+      "data_type": "categorical",
+      "coverage_values": ["TOPIC_DEFAULT", "LOG_GATE", "PERCENTILE_GATE", "LOG_GATE_NON_WORSENING"],
+      "executable_values": [],
+      "categorical_baselines": ["TOPIC_DEFAULT"],
+      "execution_support": "CONTRACT_DEPENDENT",
+      "runner_mapping": "entry_filter",
+      "default_value": "TOPIC_DEFAULT",
+      "coverage_default_only": true,
+      "stage_allowlist": [],
+      "regime_allowlist": [],
+      "dynamic_execution_allowed": false
+    }
+  ],
+  "validation_profiles": [
+    {
+      "id": "standard",
+      "title_suffix": "standard matrix",
+      "hypothesis_suffix": "使用標準 horizons / stop-loss / take-profit / group exposure matrix。",
+      "horizon": [3, 5, 10],
+      "stop_loss_pct": [null, "0.08", "0.12"],
+      "take_profit_pct": [null, "0.15", "0.25"],
+      "max_group_exposure": [null, "0.35", "0.55"],
+      "score_bonus": "0"
+    },
+    {
+      "id": "risk_guard",
+      "title_suffix": "risk guard matrix",
+      "hypothesis_suffix": "加強 stop-loss 與 group exposure 壓力檢查，驗證報酬是否不是靠集中風險撐起來。",
+      "horizon": [3, 5, 10],
+      "stop_loss_pct": ["0.06", "0.08", "0.10"],
+      "take_profit_pct": [null, "0.15", "0.25"],
+      "max_group_exposure": ["0.25", "0.35", "0.45"],
+      "score_bonus": "6"
+    },
+    {
+      "id": "long_horizon",
+      "title_suffix": "long horizon matrix",
+      "hypothesis_suffix": "拉長持有 horizon，驗證候選策略是否只在短線噪音有效。",
+      "horizon": [5, 10, 20],
+      "stop_loss_pct": [null, "0.08", "0.12"],
+      "take_profit_pct": [null, "0.20", "0.30"],
+      "max_group_exposure": [null, "0.35", "0.55"],
+      "score_bonus": "4"
+    },
+    {
+      "id": "tight_exit",
+      "title_suffix": "tight exit matrix",
+      "hypothesis_suffix": "使用較緊停損與較早停利，驗證候選策略是否能降低回撤。",
+      "horizon": [3, 5, 10],
+      "stop_loss_pct": ["0.05", "0.08"],
+      "take_profit_pct": ["0.10", "0.15", "0.20"],
+      "max_group_exposure": [null, "0.35"],
+      "score_bonus": "3"
+    }
+  ],
+  "entrypoint_defaults": {
+    "autonomous_research": {
+      "horizon": [3, 5, 10],
+      "stop_loss_pct": [null, "0.08", "0.12"],
+      "take_profit_pct": [null, "0.15", "0.25"],
+      "max_group_exposure": [null, "0.35", "0.55"]
+    },
+    "strategy_matrix": {
+      "horizon": [3, 5, 10],
+      "stop_loss_pct": [null, "0.08"],
+      "take_profit_pct": [null, "0.15"],
+      "max_group_exposure": [null, "0.35"]
+    },
+    "weekend_research_matrix": {
+      "horizon": [3, 5, 10],
+      "stop_loss_pct": [null, "0.06", "0.08"],
+      "take_profit_pct": [null, "0.10", "0.15"],
+      "max_group_exposure": [null, "0.35", "0.55"]
+    }
+  }
+}

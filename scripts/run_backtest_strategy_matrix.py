@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import sys
@@ -22,6 +23,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts import run_portfolio_replay  # noqa: E402
 from scripts import run_autonomous_research as regime_research  # noqa: E402
+from app.research.parameter_catalog import (  # noqa: E402
+    entrypoint_cli_defaults,
+    validate_executable_parameters,
+)
 
 
 SCHEMA_VERSION = "backtest-strategy-matrix.v1"
@@ -29,6 +34,31 @@ MAX_DRAWDOWN_LIMIT = -0.25
 NEIGHBOR_P_VALUE_LIMIT = 0.05
 SCENARIO_PARAMETER_FIELDS = ("horizon", "stop_loss_pct", "take_profit_pct", "max_group_exposure")
 TRUSTED_RESEARCH_CONTRACT_PATH = PROJECT_ROOT / "config" / "regime_research_contract.json"
+MATRIX_CLI_DEFAULTS = entrypoint_cli_defaults("strategy_matrix")
+
+
+def _file_sha256(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def _execution_settings(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "max_ranking_files": args.max_ranking_files,
+        "top_n": args.top_n,
+        "max_gross_exposure": args.max_gross_exposure,
+        "max_position_weight": args.max_position_weight,
+        "fee_rate": args.fee_rate,
+        "tax_rate": args.tax_rate,
+        "slippage_rate": args.slippage_rate,
+        "same_day_hit_priority": args.same_day_hit_priority,
+        "runner_policy_version": "strategy-matrix-replay.v1",
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,10 +72,12 @@ def parse_args() -> argparse.Namespace:
         help="限制處理最近 N 份 ranking；預設跑完整期間，避免正式研究誤用抽樣結果",
     )
     parser.add_argument("--top-n", type=int, default=10)
-    parser.add_argument("--horizons", default="3,5,10")
-    parser.add_argument("--stop-loss-pcts", default="none,0.08")
-    parser.add_argument("--take-profit-pcts", default="none,0.15")
-    parser.add_argument("--max-group-exposures", default="none,0.35")
+    parser.add_argument("--horizons", default=MATRIX_CLI_DEFAULTS["horizon"])
+    parser.add_argument("--stop-loss-pcts", default=MATRIX_CLI_DEFAULTS["stop_loss_pct"])
+    parser.add_argument("--take-profit-pcts", default=MATRIX_CLI_DEFAULTS["take_profit_pct"])
+    parser.add_argument(
+        "--max-group-exposures", default=MATRIX_CLI_DEFAULTS["max_group_exposure"]
+    )
     parser.add_argument("--max-gross-exposure", type=float, default=0.65)
     parser.add_argument("--max-position-weight", type=float, default=0.2)
     parser.add_argument("--fee-rate", type=float, default=0.001425)
@@ -65,6 +97,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pre-registration", default=None)
     parser.add_argument("--experiment-registry", default=None)
     parser.add_argument("--output", default=None)
+    parser.add_argument("--research-run-id", default=None)
+    parser.add_argument("--research-intent-id", default=None)
+    parser.add_argument("--research-variant-role", choices=["baseline", "candidate"], default=None)
+    parser.add_argument("--requested-trial-spec-ids", default=None)
     return parser.parse_args()
 
 
@@ -542,15 +578,21 @@ def validate_development_scope(args: argparse.Namespace) -> dict[str, Any] | Non
 
 
 def build_payload(args: argparse.Namespace) -> dict[str, Any]:
-    development_scope = validate_development_scope(args)
-    price_frame = run_portfolio_replay.run_backtest_replay.load_price_frame(
-        run_portfolio_replay.resolve_path(args.features)
-    )
     scenarios = regime_research.validation_profile_combinations(
         args.horizons,
         args.stop_loss_pcts,
         args.take_profit_pcts,
         args.max_group_exposures,
+    )
+    validate_executable_parameters(
+        {
+            parameter: list(dict.fromkeys(row[parameter] for row in scenarios))
+            for parameter in SCENARIO_PARAMETER_FIELDS
+        }
+    )
+    development_scope = validate_development_scope(args)
+    price_frame = run_portfolio_replay.run_backtest_replay.load_price_frame(
+        run_portfolio_replay.resolve_path(args.features)
     )
     expected_family = expected_statistical_family(args)
     regime_identity, allowed_dates, episode_by_date = exact_regime_context(args)
@@ -570,8 +612,61 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             horizon_safe_dates or []
         )
         with exact_ranking_file_scope(horizon_safe_dates):
+            try:
+                resolved_rankings = run_portfolio_replay.run_backtest_replay.ranking_files(
+                    run_portfolio_replay.resolve_path(args.rankings_dir),
+                    args.max_ranking_files,
+                )
+            except FileNotFoundError:
+                # replay 本身仍會依既有語意 fail；这里只避免 provenance 探查先改變例外時機。
+                resolved_rankings = []
             replay = run_portfolio_replay.run_portfolio_from_price_frame(replay_args(args, scenario), price_frame)
-            rows.append(matrix_row(scenario, bind_trade_episode_clusters(replay, episode_by_date)))
+            row = matrix_row(scenario, bind_trade_episode_clusters(replay, episode_by_date))
+            features_path = run_portfolio_replay.resolve_path(args.features)
+            dataset_manifest = {
+                "resolution_status": "RESOLVED" if features_path.is_file() else "UNRESOLVED",
+                "files": (
+                    [{"name": features_path.name, "hash": _file_sha256(features_path)}]
+                    if features_path.is_file()
+                    else []
+                ),
+            }
+            episode_authority = development_scope or {"episode_ids": []}
+            actual_episode_ids = sorted(
+                {
+                    str((episode_by_date or {}).get(
+                        run_portfolio_replay.run_backtest_replay.ranking_date(path)
+                    ))
+                    for path in resolved_rankings
+                    if (episode_by_date or {}).get(
+                        run_portfolio_replay.run_backtest_replay.ranking_date(path)
+                    )
+                }
+            )
+            row["execution_authority"] = {
+                "research_stage": (
+                    regime_research.DEVELOPMENT_SCREEN_STAGE
+                    if bool(getattr(args, "development_only", False))
+                    else "COARSE_SCREEN"
+                ),
+                "regime_scope": regime_identity or {"regime_id": "UNSCOPED"},
+                "episode_ids": actual_episode_ids,
+                "episode_authority_hash": regime_research.canonical_json_hash(
+                    episode_authority
+                ),
+                "episode_authority": episode_authority,
+                "dataset_hash": _file_sha256(features_path),
+                "dataset_manifest": dataset_manifest,
+                "ranking_manifest": {
+                    "resolution_status": "RESOLVED",
+                    "files": [
+                        {"name": path.name, "hash": _file_sha256(path)}
+                        for path in resolved_rankings
+                    ],
+                },
+                "execution_settings": _execution_settings(args),
+            }
+            rows.append(row)
     correction_family_id = str((expected_family or {}).get("correction_family_id") or "")
     annotate_statistical_lineage(rows, correction_family_id=correction_family_id)
     ranked_rows = sorted(rows, key=lambda item: (item["score"] is not None, score_sort_value(item)), reverse=True)
@@ -597,6 +692,16 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "research_spine": {
+            "run_id": getattr(args, "research_run_id", None),
+            "intent_id": getattr(args, "research_intent_id", None),
+            "variant_role": getattr(args, "research_variant_role", None),
+            "requested_trial_spec_ids": (
+                json.loads(getattr(args, "requested_trial_spec_ids", ""))
+                if getattr(args, "requested_trial_spec_ids", None)
+                else []
+            ),
+        },
         "contract": {
             "source": "portfolio_replay_matrix",
             "research_stage": research_stage,
@@ -643,6 +748,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "registry_record_hash": (expected_family or {}).get("registry_record_hash"),
             "development_scope": development_scope,
+            "execution_settings": _execution_settings(args),
             "tested_combination_ids_hash": (
                 (expected_family or {}).get("tested_combination_ids_hash")
                 if args.require_exact_regime

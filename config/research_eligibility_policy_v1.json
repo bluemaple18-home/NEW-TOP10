@@ -1,0 +1,10 @@
+{
+  "schema_version": "research-eligibility-policy.v1",
+  "policy_version": "research-eligibility.v1",
+  "allowed_research_stages": ["DEVELOPMENT_SCREEN", "COARSE_SCREEN"],
+  "required_identity_match_status": "EXACT",
+  "required_lineage_resolution_status": "VALID",
+  "required_sealed_usage_status": "PROVEN_NON_SEALED",
+  "forbidden_regime_ids": ["", "UNKNOWN", "UNSCOPED"],
+  "legacy_adaptive_eligible_allowed": false
+}

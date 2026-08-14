@@ -11,6 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.research.parameter_catalog import (
+    base_scenario_dimension_grid,
+    v2_default_coordinates,
+    v2_dimension_values,
+)
+
 
 __all__ = [
     "BASE_DIMENSION_KEYS",
@@ -44,49 +50,12 @@ __all__ = [
 ]
 
 
-SCENARIO_DIMENSION_GRID = [
-    {
-        "horizon": horizon,
-        "stop_loss": stop_loss,
-        "take_profit": take_profit,
-        "group_exposure": group_exposure,
-    }
-    for horizon in ["3", "5", "10"]
-    for stop_loss in ["none", "0.08", "0.12"]
-    for take_profit in ["none", "0.15", "0.25"]
-    for group_exposure in ["none", "0.35", "0.55"]
-]
+SCENARIO_DIMENSION_GRID = base_scenario_dimension_grid()
 
 BASE_DIMENSION_KEYS = ("horizon", "stop_loss", "take_profit", "group_exposure")
 V2_DIMENSION_SCHEMA_VERSION = "research-map-dimensions.v2"
-V2_DEFAULT_COORDINATES = {
-    "regime_gate": "ALL",
-    "risk_guard": "NONE",
-    "entry_filter": "TOPIC_DEFAULT",
-}
-V2_DIMENSION_VALUES = {
-    "regime_gate": [
-        "ALL",
-        "BIG_BULL_ONLY",
-        "BIG_BULL_HIGH_CHOPPY",
-        "EXCLUDE_RISK_OFF_PANIC",
-        "RISK_OFF_ONLY",
-        "PANIC_SELLING_ONLY",
-        "NEUTRAL_ONLY",
-    ],
-    "risk_guard": [
-        "NONE",
-        "RISK_OFF_CASH_RAISE",
-        "RISK_OFF_DISABLE",
-        "PANIC_DISABLE",
-    ],
-    "entry_filter": [
-        "TOPIC_DEFAULT",
-        "LOG_GATE",
-        "PERCENTILE_GATE",
-        "LOG_GATE_NON_WORSENING",
-    ],
-}
+V2_DEFAULT_COORDINATES = v2_default_coordinates()
+V2_DIMENSION_VALUES = v2_dimension_values()
 
 INSIGHT_TO_STATUS = {
     "unexplored": ("pending", "fog_gray", "未探索"),

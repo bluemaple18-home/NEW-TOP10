@@ -158,11 +158,16 @@ def build_report(contract: dict[str, Any], *, base: str, candidate: str) -> dict
     )
     drifted = json.loads(json.dumps(contract))
     drifted["parameter_universe"]["dimensions"][0]["allowed_values"].append(99)
+    try:
+        research.parameter_universe_summary(drifted)
+        projection_drift_rejected = False
+    except ValueError:
+        projection_drift_rejected = True
     checks.append(
         check(
             "parameter_universe.synthetic_negative",
-            research.parameter_universe_summary(drifted)["legal_combination_count"] != expected_count,
-            "count drift rejected",
+            projection_drift_rejected,
+            "catalog projection drift rejected",
         )
     )
     authority = research.statistical_family_contract(contract)

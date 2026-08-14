@@ -1,0 +1,11 @@
+{
+  "schema_version": "research-failure-policy.v1",
+  "policy_version": "research-failure-classifier.v1",
+  "negative_return_threshold": 0.0,
+  "max_drawdown_limit": -0.25,
+  "low_win_rate_threshold": 0.5,
+  "min_trade_count": 20,
+  "familywise_alpha": 0.05,
+  "min_robust_neighbor_pass_count": 2,
+  "robustness_requires_explicit_complete_evaluation": true
+}

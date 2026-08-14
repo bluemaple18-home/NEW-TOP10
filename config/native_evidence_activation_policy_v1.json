@@ -1,0 +1,79 @@
+{
+  "schema_version": "native-evidence-activation-policy.v1",
+  "policy_version": "native-evidence-activation-policy.v1",
+  "enabled": false,
+  "activation_mode": "DISABLED",
+  "capacity_budget": {
+    "status": "UNKNOWN",
+    "max_bytes": null,
+    "max_file_count": null,
+    "max_bytes_per_cycle": null,
+    "max_files_per_cycle": null,
+    "normal_growth_bytes_per_hour": null,
+    "burst_window_minutes": null,
+    "stabilization_minutes": null,
+    "retention_days": null,
+    "sampling_interval_seconds": null,
+    "rss_growth_limit_bytes": null,
+    "swap_growth_limit_bytes": null,
+    "minimum_host_free_percent": 10,
+    "minimum_host_reserve_bytes": 21474836480
+  },
+  "baseline_inventory": {
+    "queue_paths": [
+      {"role": "AUTONOMOUS_NEXT_ACTION_QUEUE", "path": "artifacts/autonomous_research/next_action_queue.json"}
+    ],
+    "runner_argv_sources": [
+      {"role": "DAILY_RESEARCH_QUOTA_ENTRYPOINT", "path": "scripts/run_daily_research_quota.sh"},
+      {"role": "AUTONOMOUS_RESEARCH_RUNNER", "path": "scripts/run_autonomous_research.py"}
+    ],
+    "scheduler_paths": [
+      {"role": "PM_RESEARCH_HARNESS_SCHEDULER", "path": "scripts/com.new-top10.pm-research-harness.plist"},
+      {"role": "FOG_RESEARCH_WORKER_SCHEDULER", "path": "scripts/com.new-top10.fog-research-worker.plist"}
+    ],
+    "production_paths": [
+      {"role": "PRODUCTION_BASELINE", "path": "models/baseline_stats.json"},
+      {"role": "PRODUCTION_MODEL", "path": "models/latest_lgbm.pkl"},
+      {"role": "PRODUCTION_PROMOTION_CODE", "path": "app/modeling/model_runtime_promotion.py"},
+      {"role": "PRODUCTION_RANKING_CODE", "path": "app/agent_b_ranking.py"},
+      {"role": "PRODUCTION_SIGNAL_WEIGHTS", "path": "config/signals.yaml"}
+    ],
+    "storage_write_paths": [
+      {
+        "role": "RESEARCH_SPINE_CORPUS",
+        "path": "artifacts/autonomous_research/research_spine",
+        "category": "IMMUTABLE_FACTS",
+        "retention_class": "PERMANENT",
+        "rebuildable": false
+      },
+      {
+        "role": "RESEARCH_LEDGER",
+        "path": "data/research/research_ledger.duckdb",
+        "category": "REBUILDABLE_PROJECTION",
+        "retention_class": "REBUILDABLE",
+        "rebuildable": true
+      },
+      {
+        "role": "RUN_OUTPUT_ARCHIVE",
+        "path": "artifacts/autonomous_research/run_outputs",
+        "category": "RUN_OUTPUTS",
+        "retention_class": "UNDEFINED",
+        "rebuildable": false
+      },
+      {
+        "role": "DAILY_RESEARCH_LOGS",
+        "path": "logs/daily_research",
+        "category": "OPERATIONAL_LOGS",
+        "retention_class": "UNDEFINED",
+        "rebuildable": false
+      }
+    ]
+  },
+  "safety": {
+    "does_not_train_model": true,
+    "does_not_change_production_ranking": true,
+    "production_promotion_allowed": false,
+    "does_not_change_queue_selection": true,
+    "does_not_change_scheduler": true
+  }
+}

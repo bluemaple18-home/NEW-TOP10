@@ -1407,6 +1407,11 @@ def test_statistical_authority_rejects_unknown_contract_global_hash_and_registry
         contract=contract,
         registry=registry,
     )
+    wrong_catalog_hash = research.validate_statistical_family_registration(
+        {**registration, "parameter_catalog_hash": "sha256:wrong"},
+        contract=contract,
+        registry=registry,
+    )
     wrong_global_ids = research.validate_statistical_family_registration(
         {**registration, "global_combination_ids": registration["global_combination_ids"][:-1]},
         contract=contract,
@@ -1421,6 +1426,7 @@ def test_statistical_authority_rejects_unknown_contract_global_hash_and_registry
     assert unknown_contract["reason_code"] == "UNKNOWN_CONTRACT"
     assert wrong_global_ids["reason_code"] == "GLOBAL_COMBINATION_IDS_MISMATCH"
     assert wrong_global_hash["reason_code"] == "GLOBAL_COMBINATION_IDS_HASH_MISMATCH"
+    assert wrong_catalog_hash["reason_code"] == "PARAMETER_CATALOG_HASH_MISMATCH"
     assert wrong_registry_hash["reason_code"] == "REGISTRY_RECORD_HASH_MISMATCH"
 
 
