@@ -1,7 +1,7 @@
 ---
 id: CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1
 chain_id: NEW-TOP10-RESEARCH-SPINE-V1
-status: ready
+status: delivered_candidate
 type: evidence-replay
 priority: P1
 owner: TOP10new research platform
@@ -110,3 +110,12 @@ evidence_path: docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/
 - 實際 cycle、unit、eligibility、lineage、contrast counts。
 - Parity與cleanup receipt。
 - 明示：未 merge、未 push、未 production mutation。
+
+## 交付結果
+
+- Bundle：`docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/bundle.json`。
+- Manifest／parity／cleanup receipt：`docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/manifest.json`。
+- Verifier：`app/research/native_evidence_replay.py` 與 `scripts/native_evidence_replay_bundle.py --verify`。
+- Focused tests：`tests/test_native_evidence_replay.py`。
+- 實際結果：2 cycles、8 valid units、8 adaptive-eligible observations、4 distinct lineages、4 matched contrasts；admission `PASS`。
+- 邊界：未 merge、未 push、未 deploy、未啟 scheduler，canonical queue／production／主 ledger 零變更。
