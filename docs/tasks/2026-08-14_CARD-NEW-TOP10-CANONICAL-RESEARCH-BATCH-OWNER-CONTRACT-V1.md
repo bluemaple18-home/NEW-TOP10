@@ -6,7 +6,7 @@ type: architecture_contract
 priority: P1
 owner: TOP10new research platform
 role: implementer
-cycle: 1
+cycle: 2
 thickness: strict
 risk: high
 model: gpt-5.5
