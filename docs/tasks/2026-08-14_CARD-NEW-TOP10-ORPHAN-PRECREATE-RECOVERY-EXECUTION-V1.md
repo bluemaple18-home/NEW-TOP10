@@ -2,7 +2,7 @@
 
 ## 狀態
 
-READY
+COMPLETED
 
 ## 目標
 
@@ -47,3 +47,14 @@ READY
 - 官方 SQLite 與備份均通過 `integrity_check=ok`。
 - 再次 recovery 為 idempotent。
 - TOP10 使用者既有未提交變更保持不動。
+
+## 執行結果
+
+- 官方 DB schema 已用核准的 `bootstrap-v1` 補齊。
+- 兩筆指定 reservation 均由 exact owner 轉為 `ABORTED_PRECREATE`。
+- 兩筆重複 recovery 均回 `idempotent`。
+- 修改前後 reservation row count 均為 `335`；無新增或刪除 row。
+- common columns 只有兩筆指定 row 的 `state`、`blocker_code`、`blocker_detail` 改變。
+- 新增 schema 欄位只有 `precreate_recovery_receipt_json`。
+- 官方 DB 與修改前 SQLite 備份均通過 `PRAGMA integrity_check=ok`。
+- 正式 Reviewer role slot 已釋放，後續由獨立 Retry-3 卡重新 `prepare-create`。
