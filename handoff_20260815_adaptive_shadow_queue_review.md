@@ -30,7 +30,7 @@ Candidate `8915a382a93d512235915a5400edfc78e62ea238` 是否能只用 committed d
 
 ## Active State
 
-- Main HEAD：`f7c5791af11f44059103cca4f176197bb5ebd1ec`。
+- Main HEAD：`7fa78a9`（`f7c5791` 加本交接快照）。
 - Card B candidate：`8915a382a93d512235915a5400edfc78e62ea238`，candidate worktree clean。
 - Review source：`d72dc49`，Reviewer worktree clean。
 - Reviewer目前正在反證 builder output path、external JSON與 canonical alias。
@@ -47,7 +47,7 @@ Candidate `8915a382a93d512235915a5400edfc78e62ea238` 是否能只用 committed d
 
 ## Candidate Fork
 
-- `APPROVED`：核對 main dirty paths無重疊後，`git merge --ff-only 8915a382...`；不合併 review card commit `d72dc49`，除非另有需求。
+- `APPROVED`：核對 main dirty paths無重疊後，cherry-pick單一 candidate commit `8915a382...` 到 main；不合併 review card commit `d72dc49`。
 - `CHANGES_REQUIRED`：建立實體 repair card；用同一 Repair thread `019fffca...`；修復後回 Reviewer `019fff37...` targeted re-review。
 
 ## In Progress / Remaining Work
