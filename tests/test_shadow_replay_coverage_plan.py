@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -155,3 +157,70 @@ def test_materialization_contract_binds_inputs_and_bounded_argv(tmp_path: Path) 
     assert materialization["baseline"]["argv"].count(selected_date) == 2
     assert materialization["candidate"]["argv"][-2:] == ["--limit", "1"]
     assert not any(Path(value).is_absolute() for value in materialization["baseline"]["argv"])
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["symlink_alias", "traversal", "nested_symlink", "path_escape"],
+)
+def test_cli_rejects_raw_authority_root_bypass_without_writes(
+    tmp_path: Path,
+    case: str,
+) -> None:
+    main_root = coverage.discover_authority_root()
+    evidence = coverage.PROJECT_ROOT / coverage.EVIDENCE_RELATIVE
+    before = evidence.read_bytes()
+    if case == "symlink_alias":
+        authority_root = tmp_path / "main-alias"
+        authority_root.symlink_to(main_root, target_is_directory=True)
+    elif case == "traversal":
+        authority_root = main_root / "docs" / ".."
+    elif case == "nested_symlink":
+        parent_alias = tmp_path / "parent-alias"
+        parent_alias.symlink_to(main_root.parent, target_is_directory=True)
+        authority_root = parent_alias / main_root.name
+    else:
+        authority_root = tmp_path
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.research.shadow_replay_coverage_plan",
+            "--authority-root",
+            str(authority_root),
+            "--verify",
+            coverage.EVIDENCE_RELATIVE.as_posix(),
+        ],
+        cwd=coverage.PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode != 0, completed.stdout
+    result = json.loads(completed.stdout)
+    assert result["status"] == "FAIL"
+    assert any("AUTHORITY_ROOT" in error for error in result["errors"])
+    assert evidence.read_bytes() == before
+
+
+def test_cli_accepts_exact_main_authority_root() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.research.shadow_replay_coverage_plan",
+            "--authority-root",
+            str(coverage.discover_authority_root()),
+            "--verify",
+            coverage.EVIDENCE_RELATIVE.as_posix(),
+        ],
+        cwd=coverage.PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stdout
+    assert json.loads(completed.stdout) == {"errors": [], "status": "PASS"}

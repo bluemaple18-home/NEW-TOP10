@@ -110,6 +110,36 @@ def discover_authority_root(project_root: Path = PROJECT_ROOT) -> Path:
     return candidates[0]
 
 
+def authorize_explicit_authority_root(
+    project_root: Path,
+    authority_root: Path,
+) -> Path:
+    raw = authority_root.as_posix()
+    if not authority_root.is_absolute() or ".." in PurePosixPath(raw).parts:
+        raise CoveragePlanError("AUTHORITY_ROOT_PATH_ESCAPE")
+
+    lexical = authority_root.absolute()
+    cursor = Path(lexical.anchor)
+    for part in lexical.parts[1:]:
+        cursor /= part
+        if cursor.is_symlink():
+            raise CoveragePlanError("AUTHORITY_ROOT_SYMLINK_ALIAS")
+    try:
+        resolved = lexical.resolve(strict=True)
+    except OSError as error:
+        raise CoveragePlanError("AUTHORITY_ROOT_SYMLINK_OR_MISSING") from error
+    if resolved != lexical or not lexical.is_dir():
+        raise CoveragePlanError("AUTHORITY_ROOT_SYMLINK_OR_MISSING")
+
+    try:
+        availability._bind_authority_root(project_root, lexical)
+    except availability.AvailabilityAuditError as error:
+        raise CoveragePlanError(f"AUTHORITY_ROOT_REJECTED:{error}") from error
+    if lexical != discover_authority_root(project_root):
+        raise CoveragePlanError("AUTHORITY_ROOT_NOT_MAIN")
+    return lexical
+
+
 def _committed_source(relative: Path, *, project_root: Path) -> dict[str, str]:
     path = _safe_path(project_root, relative)
     working_bytes = path.read_bytes()
@@ -382,8 +412,13 @@ def _base_payload(
 def build_plan(
     *, project_root: Path = PROJECT_ROOT, authority_root: Path | None = None
 ) -> dict[str, Any]:
+    if authority_root is not None:
+        authority_root = authorize_explicit_authority_root(
+            project_root,
+            authority_root,
+        )
     project_root = project_root.resolve()
-    authority_root = (authority_root or discover_authority_root(project_root)).resolve()
+    authority_root = authority_root or discover_authority_root(project_root)
     before_sources, before_protected = _snapshot_hashes(authority_root)
     audit_record, _ = _audit_record(
         project_root=project_root, authority_root=authority_root
