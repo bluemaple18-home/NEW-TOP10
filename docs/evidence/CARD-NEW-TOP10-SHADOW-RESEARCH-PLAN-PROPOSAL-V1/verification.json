@@ -1,0 +1,1 @@
+{"checks":{"authoritative_recompute":true,"deterministic_identity":true,"proposal_only_boundary":true,"protected_surface_parity":true,"two_run_byte_equality":true},"errors":[],"proposal_set_id":"sha256:1e0640306cfea5a0d5324b83482343a9e1f651a7d249ced2f30dd8a60fd84e22","schema_version":"shadow-research-plan-proposal-verification.v1","status":"PASS"}
