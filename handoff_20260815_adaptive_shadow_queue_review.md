@@ -30,7 +30,7 @@ Candidate `8915a382a93d512235915a5400edfc78e62ea238` 是否能只用 committed d
 
 ## Active State
 
-- Main HEAD：`7fa78a9`（`f7c5791` 加本交接快照）。
+- Main已包含 `f7c5791` 與本交接快照 commits；接手時以 `git rev-parse main` 取得最新 HEAD。
 - Card B candidate：`8915a382a93d512235915a5400edfc78e62ea238`，candidate worktree clean。
 - Review source：`d72dc49`，Reviewer worktree clean。
 - Reviewer目前正在反證 builder output path、external JSON與 canonical alias。
