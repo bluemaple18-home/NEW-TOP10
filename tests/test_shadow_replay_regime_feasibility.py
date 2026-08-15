@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import json
+import shutil
+import subprocess
+import sys
 from datetime import date
+from pathlib import Path
+
+import pytest
 
 from app.research import shadow_replay_regime_feasibility as feasibility
 from app.research.contracts import content_hash
@@ -62,3 +69,120 @@ def test_canonical_encoder_is_byte_deterministic() -> None:
     payload["audit_id"] = content_hash(payload, omit={"audit_id"})
 
     assert feasibility.encode_audit(payload) == feasibility.encode_audit(dict(payload))
+
+
+def _git(root: Path, *args: str) -> None:
+    completed = subprocess.run(
+        ["git", "-C", str(root), *args],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def _nested_committed_symlink(
+    tmp_path: Path,
+    *,
+    external: bool,
+) -> tuple[Path, Path]:
+    root = tmp_path / "repo"
+    nested = root / "nested"
+    nested.mkdir(parents=True)
+    relative = Path("nested/source.json")
+    (root / relative).write_text('{"status":"committed"}\n', encoding="utf-8")
+    _git(root, "init", "-q")
+    _git(root, "add", relative.as_posix())
+    _git(
+        root,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "commit",
+        "-qm",
+        "fixture",
+    )
+    target = (
+        tmp_path / "external-target"
+        if external
+        else root / "internal-target"
+    )
+    target.mkdir()
+    (target / "source.json").write_text(
+        '{"status":"committed"}\n',
+        encoding="utf-8",
+    )
+    shutil.rmtree(nested)
+    nested.symlink_to(target, target_is_directory=True)
+    return root, relative
+
+
+@pytest.mark.parametrize("external", [False, True])
+def test_committed_record_rejects_nested_symlink(
+    tmp_path: Path,
+    external: bool,
+) -> None:
+    root, relative = _nested_committed_symlink(tmp_path, external=external)
+
+    with pytest.raises(feasibility.RegimeFeasibilityError, match="SOURCE_SYMLINK"):
+        feasibility._committed_record(root, relative)
+
+
+@pytest.mark.parametrize("external", [False, True])
+def test_authority_record_rejects_nested_symlink(
+    tmp_path: Path,
+    external: bool,
+) -> None:
+    root, relative = _nested_committed_symlink(tmp_path, external=external)
+
+    with pytest.raises(feasibility.RegimeFeasibilityError, match="SOURCE_SYMLINK"):
+        feasibility._authority_record(root, relative)
+
+
+@pytest.mark.parametrize("external", [False, True])
+def test_authorized_evidence_rejects_nested_symlink(
+    tmp_path: Path,
+    external: bool,
+) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    target = (
+        tmp_path / "external-docs"
+        if external
+        else root / "internal-docs"
+    )
+    evidence = target / feasibility.EVIDENCE_RELATIVE.relative_to("docs")
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("{}\n", encoding="utf-8")
+    (root / "docs").symlink_to(target, target_is_directory=True)
+
+    with pytest.raises(feasibility.RegimeFeasibilityError, match="SOURCE_SYMLINK"):
+        feasibility._authorized_evidence(feasibility.EVIDENCE_RELATIVE, root)
+
+
+def test_cli_invalid_authority_root_is_structured_and_path_free(
+    tmp_path: Path,
+) -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.research.shadow_replay_regime_feasibility",
+            "--authority-root",
+            str(tmp_path),
+            "--verify",
+            feasibility.EVIDENCE_RELATIVE.as_posix(),
+        ],
+        cwd=feasibility.PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    result = json.loads(completed.stdout)
+    assert result == {"errors": ["AUTHORITY_ROOT_INVALID"], "status": "FAIL"}
+    combined = completed.stdout + completed.stderr
+    assert "Traceback" not in combined
+    assert str(tmp_path) not in combined

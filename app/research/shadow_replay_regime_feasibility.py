@@ -50,11 +50,25 @@ def _sha256_file(path: Path) -> str:
 def _safe_path(root: Path, relative: Path) -> Path:
     if relative.is_absolute() or ".." in PurePosixPath(relative.as_posix()).parts:
         raise RegimeFeasibilityError("PATH_ESCAPE")
-    path = root.resolve() / relative
-    if path.is_symlink():
+
+    lexical_root = root.absolute()
+    if lexical_root.is_symlink():
         raise RegimeFeasibilityError("SOURCE_SYMLINK")
     try:
-        path.resolve(strict=False).relative_to(root.resolve())
+        resolved_root = lexical_root.resolve(strict=True)
+    except OSError as error:
+        raise RegimeFeasibilityError("PATH_ESCAPE") from error
+    if resolved_root != lexical_root:
+        raise RegimeFeasibilityError("SOURCE_SYMLINK")
+
+    path = lexical_root / relative
+    cursor = lexical_root
+    for part in relative.parts:
+        cursor /= part
+        if cursor.is_symlink():
+            raise RegimeFeasibilityError("SOURCE_SYMLINK")
+    try:
+        path.resolve(strict=False).relative_to(resolved_root)
     except ValueError as error:
         raise RegimeFeasibilityError("PATH_ESCAPE") from error
     return path
@@ -160,9 +174,12 @@ def build_audit(
     *, project_root: Path = PROJECT_ROOT, authority_root: Path | None = None
 ) -> dict[str, Any]:
     project_root = project_root.resolve()
-    authority_root = coverage.authorize_explicit_authority_root(
-        project_root, authority_root or discover_authority_root(project_root)
-    )
+    try:
+        authority_root = coverage.authorize_explicit_authority_root(
+            project_root, authority_root or discover_authority_root(project_root)
+        )
+    except coverage.CoveragePlanError as error:
+        raise RegimeFeasibilityError("AUTHORITY_ROOT_INVALID") from error
     before_sources, before_protected = _snapshot_hashes(authority_root)
     market_regime, market_conflicts = _authority_record(authority_root, availability.REGIME_RELATIVE)
     features, feature_conflicts = _authority_record(authority_root, availability.FEATURES_RELATIVE)
