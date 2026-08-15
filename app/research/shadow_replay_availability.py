@@ -101,13 +101,9 @@ def _bind_authority_root(execution_root: Path, authority_root: Path) -> dict[str
             "object_format": _git(execution, "rev-parse", "--show-object-format"),
         }
     )
-    branch = _git(authority, "symbolic-ref", "-q", "HEAD", allow_empty=True)
     identity = {
         "authority_role": "registered_local_development_worktree",
         "repository_id": repository_id,
-        "authority_head": _git(authority, "rev-parse", "HEAD"),
-        "authority_tree": _git(authority, "rev-parse", "HEAD^{tree}"),
-        "authority_branch": branch or "DETACHED",
         "registered_worktree": True,
         "same_repository_as_execution": True,
     }

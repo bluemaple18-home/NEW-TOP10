@@ -112,6 +112,9 @@ def test_build_audit_reuses_canonical_helper_and_can_go(tmp_path: Path, monkeypa
     assert audit["authority_root_identity"]["authority_role"] == (
         "registered_local_development_worktree"
     )
+    assert "authority_head" not in audit["authority_root_identity"]
+    assert "authority_tree" not in audit["authority_root_identity"]
+    assert "authority_branch" not in audit["authority_root_identity"]
     assert "authority_root" not in audit["authority_root_identity"]
     assert not (execution / availability.FEATURES_RELATIVE).exists()
     assert calls == [10, 20]
@@ -170,6 +173,66 @@ def test_output_is_byte_deterministic_and_verifiable(tmp_path: Path) -> None:
     assert authority.as_posix() not in output.read_text(encoding="utf-8")
 
 
+def test_verifier_allows_unrelated_authority_commit(tmp_path: Path) -> None:
+    authority, execution = _repository_with_isolated_worktree(tmp_path)
+    _write_fixture(authority)
+    availability.write_audit(
+        availability.EVIDENCE_RELATIVE,
+        project_root=execution,
+        authority_root=authority,
+    )
+    (authority / "README.md").write_text(
+        "fixture after integration\n", encoding="utf-8"
+    )
+    _git(authority, "add", "README.md")
+    _git(authority, "commit", "-m", "unrelated integration commit")
+
+    assert availability.verify_audit(
+        availability.EVIDENCE_RELATIVE,
+        project_root=execution,
+        authority_root=authority,
+    ) == {"status": "PASS", "errors": []}
+
+
+@pytest.mark.parametrize("source_kind", ["ranking", "features", "regime", "card_d"])
+def test_verifier_rejects_fixed_source_drift(
+    tmp_path: Path, source_kind: str
+) -> None:
+    authority, execution = _repository_with_isolated_worktree(tmp_path)
+    _write_fixture(authority)
+    availability.write_audit(
+        availability.EVIDENCE_RELATIVE,
+        project_root=execution,
+        authority_root=authority,
+    )
+
+    if source_kind == "ranking":
+        ranking = next(
+            (authority / availability.RANKING_ROOTS["baseline"]).glob("*.csv")
+        )
+        ranking.write_text("stock_id,score\n2330,2\n", encoding="utf-8")
+    elif source_kind == "features":
+        features = authority / availability.FEATURES_RELATIVE
+        frame = pd.read_parquet(features)
+        frame["fixed_source_drift"] = True
+        frame.to_parquet(features, index=False)
+    elif source_kind == "regime":
+        regime = authority / availability.REGIME_RELATIVE
+        regime.write_text(regime.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    else:
+        card_d = authority / availability.CARD_D_RELATIVE
+        card_d.write_text(card_d.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+    result = availability.verify_audit(
+        availability.EVIDENCE_RELATIVE,
+        project_root=execution,
+        authority_root=authority,
+    )
+
+    assert result["status"] == "FAIL"
+    assert "AUDIT_RECOMPUTE_MISMATCH" in result["errors"]
+
+
 def test_symlink_source_fails_closed(tmp_path: Path) -> None:
     authority, execution = _repository_with_isolated_worktree(tmp_path)
     _write_fixture(authority, with_sources=False)
@@ -224,11 +287,17 @@ def test_authority_root_rejects_different_repo_symlink_and_escape(tmp_path: Path
     _git(other, "commit", "-m", "other")
     alias = tmp_path / "authority-alias"
     alias.symlink_to(authority, target_is_directory=True)
+    unregistered = tmp_path / "unregistered"
+    unregistered.mkdir()
+    (unregistered / ".git").write_text(
+        f"gitdir: {(authority / '.git').as_posix()}\n", encoding="utf-8"
+    )
 
     cases = [
         (other, "AUTHORITY_ROOT_REPOSITORY_MISMATCH"),
         (alias, "AUTHORITY_ROOT_SYMLINK_OR_MISSING"),
         (authority / ".." / authority.name, "AUTHORITY_ROOT_PATH_ESCAPE"),
+        (unregistered, "AUTHORITY_ROOT_NOT_REGISTERED_WORKTREE"),
     ]
     for root, reason in cases:
         with pytest.raises(availability.AvailabilityAuditError, match=reason):
