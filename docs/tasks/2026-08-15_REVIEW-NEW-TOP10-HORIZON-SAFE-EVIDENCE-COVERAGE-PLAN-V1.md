@@ -10,6 +10,7 @@ thickness: strict
 risk: medium
 model: gpt-5.5
 reasoning: high
+model_reason: 714 行 evidence gate candidate 屬 full strict review；使用固定 candidate 的 GPT-5.5 high 檢查 correctness、authority、regression 與 test gap。
 base_sha: c7b7d890995ae51aec83374f7168e5087c922fef
 candidate_sha: e8755ba96ca662cf76383cfdb870ad1c9931acec
 production_change_allowed: false
