@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
@@ -39,6 +40,81 @@ MAX_INVENTORY_FILES = 1000
 
 class AvailabilityAuditError(RuntimeError):
     """表示 authority 邊界或內容衝突，必須 fail closed。"""
+
+
+def _git(root: Path, *args: str, allow_empty: bool = False) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(root), *args],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    value = result.stdout.strip()
+    if result.returncode != 0:
+        if allow_empty and not value:
+            return ""
+        raise AvailabilityAuditError(f"AUTHORITY_GIT_IDENTITY_FAILED:{args[0]}")
+    if not value and not allow_empty:
+        raise AvailabilityAuditError(f"AUTHORITY_GIT_IDENTITY_FAILED:{args[0]}")
+    return value
+
+
+def _git_path(root: Path, value: str) -> Path:
+    path = Path(value)
+    return path.resolve() if path.is_absolute() else (root / path).resolve()
+
+
+def _bind_authority_root(execution_root: Path, authority_root: Path) -> dict[str, Any]:
+    raw = authority_root.as_posix()
+    if not authority_root.is_absolute() or ".." in PurePosixPath(raw).parts:
+        raise AvailabilityAuditError("AUTHORITY_ROOT_PATH_ESCAPE")
+    execution = execution_root.absolute()
+    authority = authority_root.absolute()
+    if (
+        not authority.is_dir()
+        or authority.is_symlink()
+        or authority.resolve() != authority
+    ):
+        raise AvailabilityAuditError("AUTHORITY_ROOT_SYMLINK_OR_MISSING")
+    execution_top = Path(_git(execution, "rev-parse", "--show-toplevel")).resolve()
+    authority_top = Path(_git(authority, "rev-parse", "--show-toplevel")).resolve()
+    if execution_top != execution.resolve() or authority_top != authority.resolve():
+        raise AvailabilityAuditError("AUTHORITY_ROOT_NOT_REPOSITORY_TOPLEVEL")
+    execution_common = _git_path(
+        execution, _git(execution, "rev-parse", "--git-common-dir")
+    )
+    authority_common = _git_path(
+        authority, _git(authority, "rev-parse", "--git-common-dir")
+    )
+    if execution_common != authority_common:
+        raise AvailabilityAuditError("AUTHORITY_ROOT_REPOSITORY_MISMATCH")
+    registered = {
+        Path(line.removeprefix("worktree ")).resolve()
+        for line in _git(execution, "worktree", "list", "--porcelain").splitlines()
+        if line.startswith("worktree ")
+    }
+    if authority.resolve() not in registered:
+        raise AvailabilityAuditError("AUTHORITY_ROOT_NOT_REGISTERED_WORKTREE")
+    repository_id = content_hash(
+        {
+            "root_commit": _git(execution, "rev-list", "--max-parents=0", "HEAD"),
+            "object_format": _git(execution, "rev-parse", "--show-object-format"),
+        }
+    )
+    branch = _git(authority, "symbolic-ref", "-q", "HEAD", allow_empty=True)
+    identity = {
+        "authority_role": "registered_local_development_worktree",
+        "repository_id": repository_id,
+        "authority_head": _git(authority, "rev-parse", "HEAD"),
+        "authority_tree": _git(authority, "rev-parse", "HEAD^{tree}"),
+        "authority_branch": branch or "DETACHED",
+        "registered_worktree": True,
+        "same_repository_as_execution": True,
+    }
+    return {
+        **identity,
+        "registered_worktree_proof": content_hash(identity),
+    }
 
 
 def _sha256_file(path: Path) -> str:
@@ -360,16 +436,20 @@ def _source_snapshot(project_root: Path) -> dict[str, Any]:
     return {"ranking_roots": rankings, "features": features, "regime": regime, "card_d": card_d}
 
 
-def build_audit(*, project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
+def build_audit(
+    *, project_root: Path = PROJECT_ROOT, authority_root: Path
+) -> dict[str, Any]:
     project_root = project_root.resolve()
-    before_sources = _source_snapshot(project_root)
-    before_protected = snapshot_protected_surfaces(project_root=project_root)
+    root_binding = _bind_authority_root(project_root, authority_root)
+    authority_root = authority_root.resolve()
+    before_sources = _source_snapshot(authority_root)
+    before_protected = snapshot_protected_surfaces(project_root=authority_root)
     rankings = before_sources["ranking_roots"]
-    features, trade_dates = _feature_inventory(project_root)
-    regime = _file_inventory(project_root, REGIME_RELATIVE)
-    card_d_inventory, card_d = _load_card_d(project_root)
+    features, trade_dates = _feature_inventory(authority_root)
+    regime = _file_inventory(authority_root, REGIME_RELATIVE)
+    card_d_inventory, card_d = _load_card_d(authority_root)
     exact_regime, allowed_dates, episode_by_date = _exact_regime_authority(
-        project_root, regime, card_d
+        authority_root, regime, card_d
     )
     matrix, accepted = _availability_matrix(
         rankings, allowed_dates, episode_by_date, trade_dates
@@ -383,8 +463,8 @@ def build_audit(*, project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
     }
     lineages = _proven_lineages(card_d)
     gap = _minimum_gap(rankings, features, exact_regime, lineages, matched)
-    after_sources = _source_snapshot(project_root)
-    after_protected = snapshot_protected_surfaces(project_root=project_root)
+    after_sources = _source_snapshot(authority_root)
+    after_protected = snapshot_protected_surfaces(project_root=authority_root)
     conflicts = sorted(
         {
             reason
@@ -406,6 +486,7 @@ def build_audit(*, project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "audit_id": "",
+        "authority_root_identity": root_binding,
         "scope": "NARROW_LEADER|BIG_BULL",
         "horizons": list(HORIZONS),
         "verdict": verdict,
@@ -448,22 +529,33 @@ def _authorized_evidence_path(path: Path, project_root: Path) -> Path:
     return target
 
 
-def write_audit(path: Path, *, project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
+def write_audit(
+    path: Path, *, project_root: Path = PROJECT_ROOT, authority_root: Path
+) -> dict[str, Any]:
     target = _authorized_evidence_path(path, project_root)
-    payload = build_audit(project_root=project_root)
+    payload = build_audit(project_root=project_root, authority_root=authority_root)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(canonical_json_bytes(payload) + b"\n")
     return payload
 
 
-def verify_audit(path: Path, *, project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
+def verify_audit(
+    path: Path,
+    *,
+    project_root: Path = PROJECT_ROOT,
+    authority_root: Path | None = None,
+) -> dict[str, Any]:
     try:
+        if authority_root is None:
+            raise AvailabilityAuditError("AUTHORITY_ROOT_REQUIRED")
         target = _authorized_evidence_path(path, project_root)
         payload = json.loads(target.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise AvailabilityAuditError("EVIDENCE_NOT_OBJECT")
         expected_id = content_hash(payload, omit={"audit_id"})
-        rebuilt = build_audit(project_root=project_root)
+        rebuilt = build_audit(
+            project_root=project_root, authority_root=authority_root
+        )
         errors = []
         if payload.get("schema_version") != SCHEMA_VERSION:
             errors.append("SCHEMA_VERSION_MISMATCH")
@@ -478,6 +570,7 @@ def verify_audit(path: Path, *, project_root: Path = PROJECT_ROOT) -> dict[str, 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="audit horizon-safe replay input availability")
+    parser.add_argument("--authority-root", type=Path)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--output", type=Path)
     group.add_argument("--verify", type=Path)
@@ -487,10 +580,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
+        if args.authority_root is None:
+            raise AvailabilityAuditError("AUTHORITY_ROOT_REQUIRED")
         result = (
-            verify_audit(args.verify)
+            verify_audit(args.verify, authority_root=args.authority_root)
             if args.verify is not None
-            else write_audit(args.output)
+            else write_audit(args.output, authority_root=args.authority_root)
         )
     except AvailabilityAuditError as error:
         print(json.dumps({"status": "FAIL", "errors": [str(error)]}, sort_keys=True))

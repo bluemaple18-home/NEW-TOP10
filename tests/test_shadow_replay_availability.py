@@ -1,13 +1,33 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from app.research import shadow_replay_availability as availability
 from app.research.contracts import canonical_json_bytes
 from scripts import run_autonomous_research
+
+
+def _git(root: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True)
+
+
+def _repository_with_isolated_worktree(tmp_path: Path) -> tuple[Path, Path]:
+    authority = tmp_path / "authority"
+    execution = tmp_path / "execution"
+    authority.mkdir()
+    _git(authority, "init", "-b", "main")
+    _git(authority, "config", "user.name", "Availability Test")
+    _git(authority, "config", "user.email", "availability@example.test")
+    (authority / "README.md").write_text("fixture\n", encoding="utf-8")
+    _git(authority, "add", "README.md")
+    _git(authority, "commit", "-m", "fixture")
+    _git(authority, "worktree", "add", "--detach", str(execution), "HEAD")
+    return authority, execution
 
 
 def _write_fixture(root: Path, *, with_sources: bool = True) -> None:
@@ -72,7 +92,8 @@ def _write_fixture(root: Path, *, with_sources: bool = True) -> None:
 
 
 def test_build_audit_reuses_canonical_helper_and_can_go(tmp_path: Path, monkeypatch) -> None:
-    _write_fixture(tmp_path)
+    authority, execution = _repository_with_isolated_worktree(tmp_path)
+    _write_fixture(authority)
     calls: list[int] = []
     original = availability.strategy_matrix.exact_horizon_safe_ranking_dates
 
@@ -83,9 +104,16 @@ def test_build_audit_reuses_canonical_helper_and_can_go(tmp_path: Path, monkeypa
     monkeypatch.setattr(
         availability.strategy_matrix, "exact_horizon_safe_ranking_dates", tracked
     )
-    audit = availability.build_audit(project_root=tmp_path)
+    audit = availability.build_audit(
+        project_root=execution, authority_root=authority
+    )
 
     assert audit["verdict"] == "GO_REPLAY_INPUTS_AVAILABLE"
+    assert audit["authority_root_identity"]["authority_role"] == (
+        "registered_local_development_worktree"
+    )
+    assert "authority_root" not in audit["authority_root_identity"]
+    assert not (execution / availability.FEATURES_RELATIVE).exists()
     assert calls == [10, 20]
     assert audit["minimum_gap"] is None
     assert all(audit["matched_intersection_by_horizon"][str(item)] for item in (10, 20))
@@ -98,9 +126,12 @@ def test_build_audit_reuses_canonical_helper_and_can_go(tmp_path: Path, monkeypa
 
 
 def test_missing_fixed_inputs_are_auditable_no_go(tmp_path: Path) -> None:
-    _write_fixture(tmp_path, with_sources=False)
+    authority, execution = _repository_with_isolated_worktree(tmp_path)
+    _write_fixture(authority, with_sources=False)
 
-    audit = availability.build_audit(project_root=tmp_path)
+    audit = availability.build_audit(
+        project_root=execution, authority_root=authority
+    )
 
     assert audit["verdict"] == "NO-GO_EVIDENCE_UNAVAILABLE"
     assert audit["minimum_gap"]["primary_reason_code"] == "MISSING_RANKING_DATE"
@@ -109,35 +140,49 @@ def test_missing_fixed_inputs_are_auditable_no_go(tmp_path: Path) -> None:
 
 
 def test_output_is_byte_deterministic_and_verifiable(tmp_path: Path) -> None:
-    _write_fixture(tmp_path)
-    output = tmp_path / availability.EVIDENCE_RELATIVE
+    authority, execution = _repository_with_isolated_worktree(tmp_path)
+    _write_fixture(authority)
+    output = execution / availability.EVIDENCE_RELATIVE
     output.parent.mkdir(parents=True, exist_ok=True)
 
     first = availability.write_audit(
-        availability.EVIDENCE_RELATIVE, project_root=tmp_path
+        availability.EVIDENCE_RELATIVE,
+        project_root=execution,
+        authority_root=authority,
     )
     first_bytes = output.read_bytes()
     second = availability.write_audit(
-        availability.EVIDENCE_RELATIVE, project_root=tmp_path
+        availability.EVIDENCE_RELATIVE,
+        project_root=execution,
+        authority_root=authority,
     )
 
     assert first == second
     assert output.read_bytes() == first_bytes == canonical_json_bytes(first) + b"\n"
     assert availability.verify_audit(
-        availability.EVIDENCE_RELATIVE, project_root=tmp_path
+        availability.EVIDENCE_RELATIVE,
+        project_root=execution,
+        authority_root=authority,
     ) == {"status": "PASS", "errors": []}
+    assert availability.verify_audit(
+        availability.EVIDENCE_RELATIVE, project_root=execution
+    ) == {"status": "FAIL", "errors": ["AUTHORITY_ROOT_REQUIRED"]}
+    assert authority.as_posix() not in output.read_text(encoding="utf-8")
 
 
 def test_symlink_source_fails_closed(tmp_path: Path) -> None:
-    _write_fixture(tmp_path, with_sources=False)
+    authority, execution = _repository_with_isolated_worktree(tmp_path)
+    _write_fixture(authority, with_sources=False)
     outside = tmp_path.parent / f"{tmp_path.name}-outside"
     outside.mkdir()
-    ranking = tmp_path / availability.RANKING_ROOTS["baseline"]
+    ranking = authority / availability.RANKING_ROOTS["baseline"]
     ranking.parent.mkdir(parents=True, exist_ok=True)
     ranking.symlink_to(outside, target_is_directory=True)
 
     try:
-        availability.build_audit(project_root=tmp_path)
+        availability.build_audit(
+            project_root=execution, authority_root=authority
+        )
     except availability.AvailabilityAuditError as error:
         assert str(error).startswith("SOURCE_SYMLINK")
     else:
@@ -145,16 +190,48 @@ def test_symlink_source_fails_closed(tmp_path: Path) -> None:
 
 
 def test_verifier_rejects_tampered_identity(tmp_path: Path) -> None:
-    _write_fixture(tmp_path)
-    availability.write_audit(availability.EVIDENCE_RELATIVE, project_root=tmp_path)
-    output = tmp_path / availability.EVIDENCE_RELATIVE
+    authority, execution = _repository_with_isolated_worktree(tmp_path)
+    _write_fixture(authority)
+    availability.write_audit(
+        availability.EVIDENCE_RELATIVE,
+        project_root=execution,
+        authority_root=authority,
+    )
+    output = execution / availability.EVIDENCE_RELATIVE
     payload = json.loads(output.read_text(encoding="utf-8"))
     payload["verdict"] = "NO-GO_EVIDENCE_UNAVAILABLE"
     output.write_text(json.dumps(payload), encoding="utf-8")
 
     result = availability.verify_audit(
-        availability.EVIDENCE_RELATIVE, project_root=tmp_path
+        availability.EVIDENCE_RELATIVE,
+        project_root=execution,
+        authority_root=authority,
     )
 
     assert result["status"] == "FAIL"
     assert "AUDIT_ID_MISMATCH" in result["errors"]
+
+
+def test_authority_root_rejects_different_repo_symlink_and_escape(tmp_path: Path) -> None:
+    authority, execution = _repository_with_isolated_worktree(tmp_path)
+    other = tmp_path / "other"
+    other.mkdir()
+    _git(other, "init", "-b", "main")
+    _git(other, "config", "user.name", "Availability Test")
+    _git(other, "config", "user.email", "availability@example.test")
+    (other / "README.md").write_text("other\n", encoding="utf-8")
+    _git(other, "add", "README.md")
+    _git(other, "commit", "-m", "other")
+    alias = tmp_path / "authority-alias"
+    alias.symlink_to(authority, target_is_directory=True)
+
+    cases = [
+        (other, "AUTHORITY_ROOT_REPOSITORY_MISMATCH"),
+        (alias, "AUTHORITY_ROOT_SYMLINK_OR_MISSING"),
+        (authority / ".." / authority.name, "AUTHORITY_ROOT_PATH_ESCAPE"),
+    ]
+    for root, reason in cases:
+        with pytest.raises(availability.AvailabilityAuditError, match=reason):
+            availability.build_audit(
+                project_root=execution, authority_root=root
+            )
