@@ -19,21 +19,78 @@ SCHEMA_VERSION = "adaptive-shadow-queue.v1"
 COMPARISON_SCHEMA_VERSION = "adaptive-shadow-queue-comparison.v1"
 VERIFICATION_SCHEMA_VERSION = "adaptive-shadow-queue-verification.v1"
 DEFAULT_POLICY = PROJECT_ROOT / "config/research_shadow_queue_policy_v1.json"
+DEFAULT_POLICY_RELATIVE = Path("config/research_shadow_queue_policy_v1.json")
 DEFAULT_BUNDLE = (
     PROJECT_ROOT
     / "docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/bundle.json"
+)
+DEFAULT_BUNDLE_RELATIVE = Path(
+    "docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/bundle.json"
 )
 DEFAULT_MANIFEST = (
     PROJECT_ROOT
     / "docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/manifest.json"
 )
+DEFAULT_MANIFEST_RELATIVE = Path(
+    "docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/manifest.json"
+)
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT
     / "docs/evidence/CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1-RETRY-1"
 )
+DEFAULT_OUTPUT_ROOT_RELATIVE = Path(
+    "docs/evidence/CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1-RETRY-1"
+)
 DEFAULT_CANONICAL_QUEUE = (
     PROJECT_ROOT / "artifacts/autonomous_research/next_action_queue.json"
 )
+DEFAULT_CANONICAL_QUEUE_RELATIVE = Path(
+    "artifacts/autonomous_research/next_action_queue.json"
+)
+DEFAULT_PROJECTION_RELATIVE = DEFAULT_OUTPUT_ROOT_RELATIVE / "adaptive_shadow_queue_projection.json"
+EXPECTED_INPUT_FILE_SHA256 = {
+    "bundle": "sha256:d18d64df3d0614bd6c717e16ab175bcce61d504d8e8e72adfb1319e822c85400",
+    "manifest": "sha256:eebe754cc802e10584ff341ef2c6e06272bb90b7ea943ffd6cf1ac0c52532514",
+    "policy": "sha256:5d39a8c771f93d42e20ea573098a5567a0aff361a4981c13724489eb360f4537",
+}
+EXPECTED_POLICY_HASH = "sha256:cd9737434aa65ad64f57424d39286b63f1abdad528f8bc6bf47ed2d344dd25f1"
+EXPECTED_PRIORITY_BANDS = [
+    {
+        "band": "HIGH",
+        "directions": ["HIGHER_LOOKS_BETTER", "LOWER_LOOKS_BETTER"],
+        "min_matched_contrasts": 3,
+        "min_distinct_lineages": 2,
+        "forbidden_flags": [
+            "INSUFFICIENT_EVIDENCE",
+            "UNSTABLE",
+            "SHARP_PEAK",
+            "OVERFIT_RISK",
+            "RISK_RETURN_TRADEOFF",
+        ],
+    },
+    {
+        "band": "OBSERVE",
+        "directions": [
+            "FLAT",
+            "NON_MONOTONIC",
+            "INTERIOR_PEAK",
+            "UNSTABLE",
+            "INSUFFICIENT_EVIDENCE",
+        ],
+        "min_matched_contrasts": 0,
+        "min_distinct_lineages": 0,
+        "forbidden_flags": [],
+    },
+]
+EXPECTED_ACTIONS = {
+    "HIGHER_LOOKS_BETTER": "RESEARCH_PARAMETER_EXTENSION_UPWARD",
+    "LOWER_LOOKS_BETTER": "RESEARCH_PARAMETER_EXTENSION_DOWNWARD",
+    "FLAT": "OBSERVE_LOW_SENSITIVITY",
+    "NON_MONOTONIC": "NO_GO_NON_MONOTONIC",
+    "INTERIOR_PEAK": "NO_GO_INTERIOR_PEAK",
+    "UNSTABLE": "NO_GO_UNSTABLE",
+    "INSUFFICIENT_EVIDENCE": "NO_GO_INSUFFICIENT_EVIDENCE",
+}
 DISQUALIFY_HIGH = {
     "INSUFFICIENT_EVIDENCE",
     "UNSTABLE",
@@ -42,6 +99,106 @@ DISQUALIFY_HIGH = {
     "RISK_RETURN_TRADEOFF",
 }
 FORBIDDEN_SOURCE_MARKERS = ("synthetic", "legacy", "sealed", "unknown")
+
+
+class ShadowQueueBoundaryError(ValueError):
+    """表示 shadow queue 的固定路徑或內容權限邊界被拒絕。"""
+
+
+def _authorize_exact_repo_path(
+    path: Path,
+    *,
+    expected_relative: Path,
+    field: str,
+    project_root: Path,
+    require_repo_relative: bool,
+) -> Path:
+    raw = path.as_posix()
+    if ".." in PurePosixPath(raw).parts:
+        raise ShadowQueueBoundaryError(f"{field}_TRAVERSAL")
+    if require_repo_relative and (
+        path.is_absolute() or raw != expected_relative.as_posix()
+    ):
+        raise ShadowQueueBoundaryError(f"{field}_NOT_COMMITTED_PATH")
+
+    expected = project_root / expected_relative
+    lexical = path if path.is_absolute() else project_root / path
+    if lexical != expected:
+        raise ShadowQueueBoundaryError(f"{field}_NOT_COMMITTED_PATH")
+    if expected.resolve() != expected.absolute():
+        raise ShadowQueueBoundaryError(f"{field}_SYMLINK_ESCAPE")
+    return expected
+
+
+def authorize_committed_input(
+    path: Path,
+    *,
+    kind: str,
+    project_root: Path = PROJECT_ROOT,
+    require_repo_relative: bool = False,
+) -> Path:
+    relative_paths = {
+        "bundle": DEFAULT_BUNDLE_RELATIVE,
+        "manifest": DEFAULT_MANIFEST_RELATIVE,
+        "policy": DEFAULT_POLICY_RELATIVE,
+    }
+    if kind not in relative_paths:
+        raise ShadowQueueBoundaryError("INPUT_KIND_INVALID")
+    expected = _authorize_exact_repo_path(
+        path,
+        expected_relative=relative_paths[kind],
+        field=f"INPUT_{kind.upper()}",
+        project_root=project_root,
+        require_repo_relative=require_repo_relative,
+    )
+    if file_sha256_or_absent(expected) != EXPECTED_INPUT_FILE_SHA256[kind]:
+        raise ShadowQueueBoundaryError(f"INPUT_{kind.upper()}_CONTENT_DRIFT")
+    return expected
+
+
+def authorize_canonical_queue_path(
+    path: Path,
+    *,
+    project_root: Path = PROJECT_ROOT,
+    require_repo_relative: bool = False,
+) -> Path:
+    return _authorize_exact_repo_path(
+        path,
+        expected_relative=DEFAULT_CANONICAL_QUEUE_RELATIVE,
+        field="CANONICAL_QUEUE",
+        project_root=project_root,
+        require_repo_relative=require_repo_relative,
+    )
+
+
+def authorize_projection_path(
+    path: Path,
+    *,
+    project_root: Path = PROJECT_ROOT,
+    require_repo_relative: bool = False,
+) -> Path:
+    return _authorize_exact_repo_path(
+        path,
+        expected_relative=DEFAULT_PROJECTION_RELATIVE,
+        field="PROJECTION",
+        project_root=project_root,
+        require_repo_relative=require_repo_relative,
+    )
+
+
+def authorize_output_root(
+    path: Path,
+    *,
+    project_root: Path = PROJECT_ROOT,
+    require_repo_relative: bool = False,
+) -> Path:
+    return _authorize_exact_repo_path(
+        path,
+        expected_relative=DEFAULT_OUTPUT_ROOT_RELATIVE,
+        field="OUTPUT_ROOT",
+        project_root=project_root,
+        require_repo_relative=require_repo_relative,
+    )
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -118,6 +275,10 @@ def load_policy(path: Path = DEFAULT_POLICY) -> dict[str, Any]:
         raise ValueError("INVALID_SHADOW_QUEUE_PRIORITY_BANDS")
     if not isinstance(policy["actions"], dict) or not policy["actions"]:
         raise ValueError("INVALID_SHADOW_QUEUE_ACTIONS")
+    if policy["priority_bands"] != EXPECTED_PRIORITY_BANDS:
+        raise ValueError("SHADOW_QUEUE_PRIORITY_BANDS_NOT_COMMITTED")
+    if policy["actions"] != EXPECTED_ACTIONS:
+        raise ValueError("SHADOW_QUEUE_ACTIONS_NOT_COMMITTED")
     return policy
 
 
@@ -381,6 +542,25 @@ def build_projection(
     canonical_queue_path: Path = DEFAULT_CANONICAL_QUEUE,
     project_root: Path = PROJECT_ROOT,
 ) -> dict[str, Any]:
+    bundle_path = authorize_committed_input(
+        bundle_path,
+        kind="bundle",
+        project_root=project_root,
+    )
+    manifest_path = authorize_committed_input(
+        manifest_path,
+        kind="manifest",
+        project_root=project_root,
+    )
+    policy_path = authorize_committed_input(
+        policy_path,
+        kind="policy",
+        project_root=project_root,
+    )
+    canonical_queue_path = authorize_canonical_queue_path(
+        canonical_queue_path,
+        project_root=project_root,
+    )
     policy = load_policy(policy_path)
     bundle = load_json(bundle_path)
     manifest = load_json(manifest_path)
@@ -582,6 +762,10 @@ def write_outputs(
     canonical_queue_path: Path = DEFAULT_CANONICAL_QUEUE,
     project_root: Path = PROJECT_ROOT,
 ) -> dict[str, str]:
+    output_root = authorize_output_root(
+        output_root,
+        project_root=project_root,
+    )
     output_root.mkdir(parents=True, exist_ok=True)
     projection_path = output_root / "adaptive_shadow_queue_projection.json"
     comparison = compare_with_canonical(
@@ -622,6 +806,10 @@ def build_and_write(
     canonical_queue_path: Path = DEFAULT_CANONICAL_QUEUE,
     project_root: Path = PROJECT_ROOT,
 ) -> dict[str, Any]:
+    output_root = authorize_output_root(
+        output_root,
+        project_root=project_root,
+    )
     projection = build_projection(
         bundle_path=bundle_path,
         manifest_path=manifest_path,
@@ -653,6 +841,8 @@ def verify_projection(payload: Mapping[str, Any]) -> dict[str, Any]:
     )
     if payload.get("projection_id") != expected_projection_id:
         errors.append("PROJECTION_ID_MISMATCH")
+    if (payload.get("policy") or {}).get("policy_hash") != EXPECTED_POLICY_HASH:
+        errors.append("POLICY_HASH_NOT_COMMITTED")
     boundary = payload.get("boundary") if isinstance(payload.get("boundary"), dict) else {}
     if boundary.get("shadow_only") is not True:
         errors.append("BOUNDARY_NOT_SHADOW_ONLY")
@@ -688,6 +878,10 @@ def verify_projection(payload: Mapping[str, Any]) -> dict[str, Any]:
             or DISQUALIFY_HIGH.intersection(set(row.get("flags") or []))
         ):
             errors.append(f"ROW_{index}:DISQUALIFIED_HIGH_PRIORITY")
+        if row.get("priority_band") not in {item["band"] for item in EXPECTED_PRIORITY_BANDS}:
+            errors.append(f"ROW_{index}:PRIORITY_BAND_NOT_COMMITTED")
+        if row.get("action") != EXPECTED_ACTIONS.get(str(row.get("direction"))):
+            errors.append(f"ROW_{index}:ACTION_NOT_COMMITTED")
         for field in ("supporting_evidence_unit_ids", "supporting_observation_ids", "supporting_contrast_ids"):
             values = row.get(field)
             if not isinstance(values, list) or not values or values != sorted(set(values)):

@@ -15,11 +15,17 @@ if __package__ in {None, ""}:
 
 from app.research.adaptive_shadow_queue import (
     DEFAULT_BUNDLE,
-    DEFAULT_CANONICAL_QUEUE,
+    DEFAULT_BUNDLE_RELATIVE,
+    DEFAULT_CANONICAL_QUEUE_RELATIVE,
     DEFAULT_MANIFEST,
-    DEFAULT_OUTPUT_ROOT,
-    DEFAULT_POLICY,
+    DEFAULT_MANIFEST_RELATIVE,
+    DEFAULT_POLICY_RELATIVE,
+    DEFAULT_PROJECTION_RELATIVE,
     PROJECT_ROOT,
+    ShadowQueueBoundaryError,
+    authorize_canonical_queue_path,
+    authorize_committed_input,
+    authorize_projection_path,
     build_projection,
     load_json,
     verify_projection,
@@ -71,8 +77,11 @@ def _self_test() -> dict:
         for name, payload in cases:
             path = tmp_path / f"{name}.json"
             path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
-            candidate = build_projection(bundle_path=path)
-            if candidate["status"] != "NO-GO" or candidate["rows"]:
+            try:
+                build_projection(bundle_path=path)
+            except ShadowQueueBoundaryError:
+                pass
+            else:
                 errors.append(f"NEGATIVE_FIXTURE_DID_NOT_FAIL_CLOSED:{name}")
 
         manifest = load_json(DEFAULT_MANIFEST)
@@ -83,8 +92,11 @@ def _self_test() -> dict:
             json.dumps(capacity, ensure_ascii=False, sort_keys=True),
             encoding="utf-8",
         )
-        capacity_candidate = build_projection(manifest_path=capacity_path)
-        if "CAPACITY_NOT_PASS" not in capacity_candidate["reason_codes"]:
+        try:
+            build_projection(manifest_path=capacity_path)
+        except ShadowQueueBoundaryError:
+            pass
+        else:
             errors.append("NEGATIVE_FIXTURE_DID_NOT_FAIL_CLOSED:CAPACITY_DRIFT")
 
         parity = copy.deepcopy(manifest)
@@ -94,8 +106,11 @@ def _self_test() -> dict:
             json.dumps(parity, ensure_ascii=False, sort_keys=True),
             encoding="utf-8",
         )
-        parity_candidate = build_projection(manifest_path=parity_path)
-        if "PARITY_DRIFT" not in parity_candidate["reason_codes"]:
+        try:
+            build_projection(manifest_path=parity_path)
+        except ShadowQueueBoundaryError:
+            pass
+        else:
             errors.append("NEGATIVE_FIXTURE_DID_NOT_FAIL_CLOSED:QUEUE_PARITY_DRIFT")
 
     return {
@@ -110,26 +125,65 @@ def _self_test() -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--self-test", action="store_true")
-    parser.add_argument("--projection", type=Path, default=DEFAULT_OUTPUT_ROOT / "adaptive_shadow_queue_projection.json")
-    parser.add_argument("--bundle", type=Path, default=DEFAULT_BUNDLE)
-    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
-    parser.add_argument("--canonical-queue", type=Path, default=DEFAULT_CANONICAL_QUEUE)
+    parser.add_argument("--projection", type=Path, default=DEFAULT_PROJECTION_RELATIVE)
+    parser.add_argument("--bundle", type=Path, default=DEFAULT_BUNDLE_RELATIVE)
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST_RELATIVE)
+    parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY_RELATIVE)
+    parser.add_argument("--canonical-queue", type=Path, default=DEFAULT_CANONICAL_QUEUE_RELATIVE)
     args = parser.parse_args()
-    if args.self_test:
-        result = _self_test()
-    elif args.projection.is_file():
-        result = verify_projection(load_json(args.projection))
-    else:
-        result = verify_projection(
-            build_projection(
-                bundle_path=args.bundle,
-                manifest_path=args.manifest,
-                policy_path=args.policy,
-                canonical_queue_path=args.canonical_queue,
-                project_root=PROJECT_ROOT,
-            )
+    try:
+        projection_path = authorize_projection_path(
+            args.projection,
+            project_root=PROJECT_ROOT,
+            require_repo_relative=True,
         )
+        bundle_path = authorize_committed_input(
+            args.bundle,
+            kind="bundle",
+            project_root=PROJECT_ROOT,
+            require_repo_relative=True,
+        )
+        manifest_path = authorize_committed_input(
+            args.manifest,
+            kind="manifest",
+            project_root=PROJECT_ROOT,
+            require_repo_relative=True,
+        )
+        policy_path = authorize_committed_input(
+            args.policy,
+            kind="policy",
+            project_root=PROJECT_ROOT,
+            require_repo_relative=True,
+        )
+        canonical_queue_path = authorize_canonical_queue_path(
+            args.canonical_queue,
+            project_root=PROJECT_ROOT,
+            require_repo_relative=True,
+        )
+        if args.self_test:
+            result = _self_test()
+        elif projection_path.is_file():
+            result = verify_projection(load_json(projection_path))
+        else:
+            result = verify_projection(
+                build_projection(
+                    bundle_path=bundle_path,
+                    manifest_path=manifest_path,
+                    policy_path=policy_path,
+                    canonical_queue_path=canonical_queue_path,
+                    project_root=PROJECT_ROOT,
+                )
+            )
+    except ShadowQueueBoundaryError as exc:
+        print(
+            json.dumps(
+                {"status": "FAIL", "reason_code": str(exc)},
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        return 2
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0 if result["status"] == "PASS" else 1
 

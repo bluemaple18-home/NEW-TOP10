@@ -1,0 +1,54 @@
+{
+  "schema_version": "adaptive-shadow-queue-repair-verification.v1",
+  "status": "PASS",
+  "source_sha": "8915a382a93d512235915a5400edfc78e62ea238",
+  "review_sha": "d72dc4913b8a3aba429e046e80fb2c0e25832fe3",
+  "codegraph": {
+    "status": "CONTEXT_DEGRADED",
+    "reason": "CodeGraph not initialized in repair worktree"
+  },
+  "red": {
+    "output_path_boundary": "4 failed, 5 deselected",
+    "uncommitted_input_authority": "9 failed, 9 deselected"
+  },
+  "green": {
+    "focused_tests": "23 passed",
+    "related_regressions": "41 passed",
+    "self_test": "PASS",
+    "committed_verifier": "PASS",
+    "py_compile": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "identity": {
+    "projection_id": "sha256:78d6f694a2db7ba8a26cc75da5ff263b145614343269a2a9a52cc016d518fbfd",
+    "semantic_hash": "sha256:b188e17bc30487c897a67e2723b1f6f63433f3c4ad3ed2d3c295475a56846051",
+    "rows": 1,
+    "priority_bands": {
+      "HIGH": 1
+    }
+  },
+  "repros": {
+    "absolute_output": {
+      "exit_code": 2,
+      "reason_code": "OUTPUT_ROOT_NOT_COMMITTED_PATH",
+      "target_created": false
+    },
+    "same_content_external_policy": {
+      "exit_code": 2,
+      "reason_code": "INPUT_POLICY_NOT_COMMITTED_PATH"
+    }
+  },
+  "committed_artifacts": {
+    "projection_git_blob_before_after": "74abc7f4f62eb59c7ba0aa0db6e1c5149b528b23",
+    "comparison_git_blob_before_after": "77104b99fcab2f5c6e27f81442a6b72120cc35ee",
+    "receipt_git_blob_before_after": "5d4833f44e0269531afaa83a59934e4ccb4f6c0f"
+  },
+  "forbidden_surfaces": {
+    "canonical_queue_before_after": "ABSENT",
+    "batch_owner_git_blob_before_after": "252d03c505413189c71bf4d4896e89fe0ff96507",
+    "scheduler_entrypoint_git_blob_before_after": "7c20605f1f9750c0b3e1c2207f3acd8d0f77f767",
+    "runner_git_blob_before_after": "b8c7955277c066944dfc43cd74fd80f79da04b50",
+    "production_policy_git_blob_before_after": "d0671a4227a3f6d7b3a78d3e0dc6856adf44db0c",
+    "diff": "EMPTY"
+  }
+}
