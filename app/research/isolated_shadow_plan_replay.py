@@ -20,6 +20,7 @@ import duckdb
 from app.research.batch_owner import (
     build_batch_intent,
     publish_batch_intent,
+    validate_batch_intent,
     verify_batch_owner_authority,
 )
 from app.research.contracts import canonical_json_bytes, content_hash, validate_run_receipt
@@ -270,7 +271,11 @@ def validate_execution_plan(plan: Mapping[str, Any]) -> list[str]:
             continue
         if row.get("scope") != EXPECTED_SCOPE:
             errors.append("SCOPE_EXPANDED")
-        if any(row.get(key) != value for key, value in FIXED_PARAMETERS.items()):
+        if any(
+            canonical_json_bytes({"value": row.get(key)})
+            != canonical_json_bytes({"value": value})
+            for key, value in FIXED_PARAMETERS.items()
+        ):
             errors.append("NON_HORIZON_PARAMETER_DRIFT")
         if row.get("unit_id") != content_hash(row, omit={"unit_id"}):
             errors.append("UNIT_ID_MISMATCH")
@@ -669,6 +674,14 @@ def run(args: argparse.Namespace, runtime_argv: Sequence[str]) -> dict[str, Any]
         parity_before=parity_before,
         parity_after=parity_after,
     )
+    if any(
+        "NO_HORIZON_SAFE_EXACT_REGIME_RANKING_DATE"
+        in str(step.get("stderr_tail") or "")
+        for step in steps
+    ):
+        result["reason_codes"] = sorted(
+            {*result["reason_codes"], "NO_HORIZON_SAFE_EXACT_REGIME_RANKING_DATE"}
+        )
     result.update(
         {
             "proposal_path": PROPOSAL_RELATIVE.as_posix(),
@@ -706,6 +719,7 @@ def verify_evidence(path: Path) -> dict[str, Any]:
     if payload.get("schema_version") != SCHEMA_VERSION:
         errors.append("INVALID_SCHEMA")
     status = payload.get("status")
+    unavailable = False
     if status == "DELIVERED_CANDIDATE":
         if payload.get("unit_count") != MAX_UNITS or payload.get("lineage_count") != 2:
             errors.append("RESULT_MATRIX_INCOMPLETE")
@@ -722,7 +736,12 @@ def verify_evidence(path: Path) -> dict[str, Any]:
         )
         if not unavailable:
             errors.append("NO_GO_RUNNER_EVIDENCE_MISSING")
-        if payload.get("unit_count") != 0 or payload.get("matched_contrasts"):
+        if (
+            payload.get("unit_count") != 0
+            or payload.get("lineage_count") != 0
+            or payload.get("units")
+            or payload.get("matched_contrasts")
+        ):
             errors.append("NO_GO_MUST_NOT_CLAIM_COMPARISON")
     else:
         errors.append("RESULT_STATUS_INVALID")
@@ -733,6 +752,106 @@ def verify_evidence(path: Path) -> dict[str, Any]:
     observed = capacity.get("observed") or {}
     if int(observed.get("bytes") or 0) > MAX_BYTES or int(observed.get("file_count") or 0) > MAX_FILES:
         errors.append("RESULT_CAPACITY_EXCEEDED")
+    plan_path = path.parent / "execution_plan.json"
+    run_receipt_path = path.parent / "run_receipt.json"
+    batch_intent_path = path.parent / "batch_intent.json"
+    plan = load_json(plan_path) if plan_path.is_file() else {}
+    run_receipt = load_json(run_receipt_path) if run_receipt_path.is_file() else {}
+    batch_intent = load_json(batch_intent_path) if batch_intent_path.is_file() else {}
+    if not plan:
+        errors.append("RESULT_EXECUTION_PLAN_MISSING")
+    else:
+        errors.extend(f"EXECUTION_PLAN_INVALID:{error}" for error in validate_execution_plan(plan))
+        if plan.get("plan_id") != payload.get("plan_id"):
+            errors.append("RESULT_EXECUTION_PLAN_MISMATCH")
+        if status == "NO-GO_EVIDENCE_UNAVAILABLE":
+            recomputed = verify_result(
+                plan=plan,
+                units=payload.get("units") or [],
+                capacity=capacity,
+                parity_before=parity.get("before") or {},
+                parity_after=parity.get("after") or {},
+            )
+            expected_reasons = set(recomputed["reason_codes"])
+            if unavailable:
+                expected_reasons.add("NO_HORIZON_SAFE_EXACT_REGIME_RANKING_DATE")
+            if payload.get("classification") != recomputed["classification"]:
+                errors.append("RESULT_CLASSIFICATION_MISMATCH")
+            if set(payload.get("reason_codes") or []) != expected_reasons:
+                errors.append("RESULT_REASON_CODES_MISMATCH")
+    if not run_receipt:
+        errors.append("RESULT_RUN_RECEIPT_MISSING")
+    else:
+        errors.extend(f"RUN_RECEIPT_INVALID:{error}" for error in validate_run_receipt(run_receipt))
+        for field in ("run_id", "intent_id"):
+            if run_receipt.get(field) != payload.get(field):
+                errors.append(f"RESULT_RUN_RECEIPT_{field.upper()}_MISMATCH")
+        if run_receipt.get("receipt_id") != payload.get("receipt_id"):
+            errors.append("RESULT_RUN_RECEIPT_ID_MISMATCH")
+    if not batch_intent:
+        errors.append("RESULT_BATCH_INTENT_MISSING")
+    else:
+        errors.extend(f"BATCH_INTENT_INVALID:{error}" for error in validate_batch_intent(batch_intent))
+        for field in ("batch_id", "batch_intent_id"):
+            if batch_intent.get(field) != payload.get(field):
+                errors.append(f"RESULT_BATCH_INTENT_{field.upper()}_MISMATCH")
+        runner = payload.get("runner") if isinstance(payload.get("runner"), Mapping) else {}
+        batch_runner = (
+            batch_intent.get("runner")
+            if isinstance(batch_intent.get("runner"), Mapping)
+            else {}
+        )
+        if batch_runner.get("argv") != runner.get("argv"):
+            errors.append("RESULT_BATCH_INTENT_RUNNER_MISMATCH")
+    if plan and run_receipt:
+        requested = (
+            run_receipt.get("requested")
+            if isinstance(run_receipt.get("requested"), Mapping)
+            else {}
+        )
+        if requested.get("research_stage") != plan.get("research_stage"):
+            errors.append("PLAN_RUN_RECEIPT_STAGE_MISMATCH")
+        if (requested.get("regime_scope") or {}).get("regime_id") != plan.get("scope"):
+            errors.append("PLAN_RUN_RECEIPT_SCOPE_MISMATCH")
+        dataset_hashes = {
+            row.get("dataset_hash")
+            for row in plan.get("matrix", [])
+            if isinstance(row, Mapping)
+        }
+        if dataset_hashes != {(requested.get("dataset_authority") or {}).get("dataset_hash")}:
+            errors.append("PLAN_RUN_RECEIPT_DATASET_MISMATCH")
+        requested_parameters = requested.get("parameters_by_trial") or {}
+        execution_profiles = requested.get("execution_profile_by_trial") or {}
+        run_matrix = sorted(
+            (
+                (execution_profiles.get(trial_id) or {}).get("variant_role"),
+                parameters.get("horizon"),
+                str(parameters.get("stop_loss_pct")),
+                str(parameters.get("take_profit_pct")),
+                str(parameters.get("max_group_exposure")),
+            )
+            for trial_id, parameters in requested_parameters.items()
+            if isinstance(parameters, Mapping)
+        )
+        plan_matrix = sorted(
+            (
+                row.get("role"),
+                row.get("horizon"),
+                str(row.get("stop_loss_pct")),
+                str(row.get("take_profit_pct")),
+                str(row.get("max_group_exposure")),
+            )
+            for row in plan.get("matrix", [])
+            if isinstance(row, Mapping)
+        )
+        if run_matrix != plan_matrix:
+            errors.append("PLAN_RUN_RECEIPT_MATRIX_MISMATCH")
+    if plan and batch_intent:
+        research = batch_intent.get("research") or {}
+        if batch_intent.get("execution_epoch") != plan.get("execution_date"):
+            errors.append("PLAN_BATCH_INTENT_DATE_MISMATCH")
+        if research.get("requested_stage") != plan.get("research_stage"):
+            errors.append("PLAN_BATCH_INTENT_STAGE_MISMATCH")
     execution_receipt_path = path.parent / "execution_receipt.json"
     if execution_receipt_path.is_file():
         execution_receipt = load_json(execution_receipt_path)
@@ -747,17 +866,77 @@ def verify_evidence(path: Path) -> dict[str, Any]:
             errors.append("RESULT_EXECUTION_RECEIPT_BATCH_INTENT_MISMATCH")
         if execution_receipt.get("research_receipt_id") != payload.get("receipt_id"):
             errors.append("RESULT_EXECUTION_RECEIPT_RESEARCH_RECEIPT_MISMATCH")
+        if execution_receipt.get("execution_receipt_id") != payload.get("execution_receipt_id"):
+            errors.append("RESULT_EXECUTION_RECEIPT_ID_MISMATCH")
+        if run_receipt:
+            receipt_bindings = {
+                "run_id": "RUN",
+                "intent_id": "INTENT",
+                "attempt_event_id": "ATTEMPT",
+                "terminal_status": "TERMINAL_STATUS",
+            }
+            for field, label in receipt_bindings.items():
+                if execution_receipt.get(field) != run_receipt.get(field):
+                    errors.append(f"RUN_EXECUTION_RECEIPT_{label}_MISMATCH")
+            if execution_receipt.get("research_receipt_id") != run_receipt.get("receipt_id"):
+                errors.append("RUN_EXECUTION_RECEIPT_ID_MISMATCH")
         commands = execution_receipt.get("commands") or []
         result_steps = (payload.get("runner") or {}).get("steps") or []
+        if len(commands) != len(result_steps):
+            errors.append("RESULT_EXECUTION_RECEIPT_COMMAND_COUNT_MISMATCH")
+        command_trial_ids: set[str] = set()
         for index, (command, step) in enumerate(zip(commands, result_steps, strict=False)):
             if (
                 command.get("argv") != step.get("command")
+                or command.get("name") != step.get("name")
                 or command.get("status") != step.get("status")
                 or command.get("return_code") != step.get("returncode")
+                or command.get("started_at") != step.get("started_at")
+                or command.get("ended_at") != step.get("ended_at")
             ):
                 errors.append(f"RESULT_EXECUTION_RECEIPT_COMMAND_{index}_MISMATCH")
+            argv = command.get("argv") if isinstance(command.get("argv"), list) else []
+            is_strategy_command = any(
+                str(argument).endswith("run_backtest_strategy_matrix.py")
+                for argument in argv
+            )
+            for option, field, label in (
+                ("--research-run-id", "run_id", "RUN"),
+                ("--research-intent-id", "intent_id", "INTENT"),
+            ):
+                if option not in argv:
+                    if is_strategy_command:
+                        errors.append(f"RESULT_COMMAND_{index}_{label}_MISSING")
+                    continue
+                option_index = argv.index(option)
+                value = argv[option_index + 1] if option_index + 1 < len(argv) else None
+                if value != run_receipt.get(field):
+                    errors.append(f"RESULT_RUN_RECEIPT_COMMAND_{label}_MISMATCH")
+            trial_option = "--requested-trial-spec-ids"
+            if is_strategy_command and trial_option not in argv:
+                errors.append(f"RESULT_COMMAND_{index}_TRIAL_IDS_MISSING")
+            elif trial_option in argv:
+                option_index = argv.index(trial_option)
+                value = argv[option_index + 1] if option_index + 1 < len(argv) else ""
+                try:
+                    trial_ids = json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    trial_ids = None
+                if not isinstance(trial_ids, list) or not all(
+                    isinstance(trial_id, str) for trial_id in trial_ids
+                ):
+                    errors.append(f"RESULT_COMMAND_{index}_TRIAL_IDS_INVALID")
+                else:
+                    command_trial_ids.update(trial_ids)
+        requested = run_receipt.get("requested") if isinstance(run_receipt, Mapping) else {}
+        if command_trial_ids != set((requested or {}).get("trial_spec_ids") or []):
+            errors.append("RESULT_RUN_RECEIPT_COMMAND_TRIAL_IDS_MISMATCH")
     else:
         errors.append("RESULT_EXECUTION_RECEIPT_MISSING")
+    sibling_name = "result.json" if path.name == "final_result.json" else "final_result.json"
+    sibling_path = path.parent / sibling_name
+    if sibling_path.is_file() and load_json(sibling_path) != payload:
+        errors.append("RESULT_FINAL_RESULT_MISMATCH")
     return {"status": "PASS" if not errors else "FAIL", "errors": errors}
 
 

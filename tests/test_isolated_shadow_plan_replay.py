@@ -9,6 +9,24 @@ import pytest
 from app.research import isolated_shadow_plan_replay as replay
 
 
+EVIDENCE_NAMES = (
+    "execution_plan.json",
+    "run_receipt.json",
+    "batch_intent.json",
+    "execution_receipt.json",
+    "result.json",
+    "final_result.json",
+)
+
+
+def _copy_committed_evidence(tmp_path: Path) -> Path:
+    source = replay.PROJECT_ROOT / replay.EVIDENCE_RELATIVE
+    for name in EVIDENCE_NAMES:
+        payload = replay.load_json(source / name)
+        (tmp_path / name).write_text(json.dumps(payload), encoding="utf-8")
+    return tmp_path / "final_result.json"
+
+
 def _real_inputs(tmp_path: Path) -> dict[str, Path]:
     baseline = tmp_path / "baseline"
     candidate = tmp_path / "candidate"
@@ -211,71 +229,105 @@ def test_evidence_verifier_rejects_tampered_summary(tmp_path: Path) -> None:
 
 
 def test_evidence_verifier_accepts_formal_runner_no_go(tmp_path: Path) -> None:
-    path = tmp_path / "result.json"
-    run_receipt = {
-        "run_id": "run-" + "a" * 32,
-        "intent_id": "intent-" + "b" * 32,
-        "attempt_event_id": "sha256:" + "c" * 64,
-        "receipt_id": "sha256:" + "d" * 64,
-        "terminal_status": "FAILED",
-    }
-    steps = [
-        {
-            "name": "baseline.strategy_matrix",
-            "status": "FAILED",
-            "command": ["python", "scripts/run_backtest_strategy_matrix.py"],
-            "returncode": 1,
-            "started_at": "2026-08-15T00:00:00+00:00",
-            "ended_at": "2026-08-15T00:00:01+00:00",
-            "stderr_tail": "NO_HORIZON_SAFE_EXACT_REGIME_RANKING_DATE: horizon=10",
-        },
-        *[
-            {
-                "name": name,
-                "status": "SKIPPED",
-                "command": ["python", script],
-                "returncode": None,
-                "started_at": "2026-08-15T00:00:01+00:00",
-                "ended_at": "2026-08-15T00:00:01+00:00",
-            }
-            for name, script in (
-                ("candidate.strategy_matrix", "scripts/run_backtest_strategy_matrix.py"),
-                ("compare.strategy_matrices", "scripts/compare_strategy_matrices.py"),
-            )
-        ],
-    ]
-    plan_id = "sha256:" + "e" * 64
-    batch_id = "research-2026-05-12-000000-1"
-    batch_intent_id = "sha256:" + "f" * 64
-    execution_receipt = replay.build_execution_receipt(
-        plan_id=plan_id,
-        batch_id=batch_id,
-        batch_intent_id=batch_intent_id,
-        run_receipt=run_receipt,
-        steps=steps,
+    path = _copy_committed_evidence(tmp_path)
+
+    assert replay.verify_evidence(path) == {"status": "PASS", "errors": []}
+
+
+def test_evidence_verifier_rejects_zero_unit_classification_and_reason_tampering(
+    tmp_path: Path,
+) -> None:
+    path = _copy_committed_evidence(tmp_path)
+
+    payload = replay.load_json(path)
+    payload["classification"] = "HORIZON_20_BETTER"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    report = replay.verify_evidence(path)
+    assert "RESULT_CLASSIFICATION_MISMATCH" in report["errors"]
+
+    payload["classification"] = "NO_COMPARISON"
+    payload["reason_codes"] = []
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    report = replay.verify_evidence(path)
+    assert "RESULT_REASON_CODES_MISMATCH" in report["errors"]
+
+    path.write_text(json.dumps(replay.load_json(tmp_path / "result.json")), encoding="utf-8")
+    sibling = replay.load_json(tmp_path / "result.json")
+    sibling["classification"] = "MIXED_LINEAGES"
+    (tmp_path / "result.json").write_text(json.dumps(sibling), encoding="utf-8")
+    report = replay.verify_evidence(path)
+    assert "RESULT_FINAL_RESULT_MISMATCH" in report["errors"]
+
+
+def test_evidence_verifier_rejects_synchronized_identifier_forgery(
+    tmp_path: Path,
+) -> None:
+    path = _copy_committed_evidence(tmp_path)
+    run_receipt = replay.load_json(tmp_path / "run_receipt.json")
+    run_receipt["run_id"] = "run-" + "f" * 32
+    run_receipt["receipt_id"] = replay.content_hash(run_receipt, omit={"receipt_id"})
+    (tmp_path / "run_receipt.json").write_text(
+        json.dumps(run_receipt), encoding="utf-8"
+    )
+
+    execution_receipt = replay.load_json(tmp_path / "execution_receipt.json")
+    execution_receipt["run_id"] = run_receipt["run_id"]
+    execution_receipt["research_receipt_id"] = run_receipt["receipt_id"]
+    execution_receipt["execution_receipt_id"] = replay.content_hash(
+        execution_receipt, omit={"execution_receipt_id"}
     )
     (tmp_path / "execution_receipt.json").write_text(
         json.dumps(execution_receipt), encoding="utf-8"
     )
-    path.write_text(
-        json.dumps(
-            {
-                "schema_version": replay.SCHEMA_VERSION,
-                "status": "NO-GO_EVIDENCE_UNAVAILABLE",
-                "plan_id": plan_id,
-                "batch_id": batch_id,
-                "batch_intent_id": batch_intent_id,
-                "run_id": run_receipt["run_id"],
-                "receipt_id": run_receipt["receipt_id"],
-                "unit_count": 0,
-                "lineage_count": 0,
-                "matched_contrasts": [],
-                "runner": {"steps": steps},
-                "capacity": {"observed": {"bytes": 1, "file_count": 1}},
-                "protected_surface_parity": {"unchanged": True, "before": {}, "after": {}},
-            }
-        ),
-        encoding="utf-8",
-    )
 
-    assert replay.verify_evidence(path) == {"status": "PASS", "errors": []}
+    for name in ("result.json", "final_result.json"):
+        result = replay.load_json(tmp_path / name)
+        result["run_id"] = run_receipt["run_id"]
+        result["receipt_id"] = run_receipt["receipt_id"]
+        result["execution_receipt_id"] = execution_receipt["execution_receipt_id"]
+        (tmp_path / name).write_text(json.dumps(result), encoding="utf-8")
+
+    report = replay.verify_evidence(path)
+
+    assert "RESULT_RUN_RECEIPT_COMMAND_RUN_MISMATCH" in report["errors"]
+
+
+@pytest.mark.parametrize(
+    ("artifact", "expected_error"),
+    [
+        ("execution_plan.json", "RESULT_EXECUTION_PLAN_MISSING"),
+        ("run_receipt.json", "RESULT_RUN_RECEIPT_MISSING"),
+        ("batch_intent.json", "RESULT_BATCH_INTENT_MISSING"),
+        ("execution_receipt.json", "RESULT_EXECUTION_RECEIPT_MISSING"),
+    ],
+)
+def test_evidence_verifier_requires_complete_sibling_chain(
+    tmp_path: Path, artifact: str, expected_error: str
+) -> None:
+    path = _copy_committed_evidence(tmp_path)
+    (tmp_path / artifact).unlink()
+
+    report = replay.verify_evidence(path)
+
+    assert expected_error in report["errors"]
+
+
+@pytest.mark.parametrize(
+    ("artifact", "field", "value"),
+    [
+        ("execution_plan.json", "execution_date", "2026-05-13"),
+        ("run_receipt.json", "run_id", "run-" + "e" * 32),
+        ("batch_intent.json", "batch_id", "research-2026-05-12-000000-1"),
+        ("execution_receipt.json", "terminal_status", "SUCCEEDED"),
+    ],
+)
+def test_evidence_verifier_rejects_tampered_sibling_identity(
+    tmp_path: Path, artifact: str, field: str, value: str
+) -> None:
+    path = _copy_committed_evidence(tmp_path)
+    sibling_path = tmp_path / artifact
+    sibling = replay.load_json(sibling_path)
+    sibling[field] = value
+    sibling_path.write_text(json.dumps(sibling), encoding="utf-8")
+
+    assert replay.verify_evidence(path)["status"] == "FAIL"
