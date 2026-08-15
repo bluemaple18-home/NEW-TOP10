@@ -1,12 +1,12 @@
 ---
-id: CARD-NEW-TOP10-SHADOW-RESEARCH-PLAN-PROPOSAL-V1
+id: CARD-NEW-TOP10-SHADOW-RESEARCH-PLAN-PROPOSAL-V1-RETRY-1
 chain_id: NEW-TOP10-RESEARCH-SPINE-V1
 status: ready
 type: implementation
 priority: P1
 owner: TOP10new research platform
 role: implementation
-cycle: 10
+cycle: 11
 thickness: standard
 risk: medium
 model: gpt-5.6-terra
