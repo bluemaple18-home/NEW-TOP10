@@ -41,7 +41,7 @@ _RECEIPT_FIELDS = {
 _MANIFEST_FIELDS = {
     "schema_version", "status", "run_identity", "batch_plan_id", "scenario",
     "producer_entrypoint", "capture_mode", "entries", "input_hashes_before",
-    "input_hashes_after", "manifest_identity",
+    "input_hashes_after", "planned_rankings", "manifest_identity",
 }
 _STRICT_INPUT_NAMES = {"market_regime_history", "industry_map", "calendar_schedule_source"}
 
@@ -310,6 +310,14 @@ def batch_plan_id(*, run_identity: str, scenario: str, producer_entrypoint: str,
     })
 
 
+def _ranking_basename(date_text: str) -> str:
+    return f"ranking_{date_text}.csv"
+
+
+def _receipt_basename(date_text: str) -> str:
+    return f"ranking_{date_text}.receipt.json"
+
+
 def build_receipt(
     *, project_root: Path, scenario: str, ranking_date: str, run_identity: str,
     batch_plan: str, ranking_path: Path, producer_entrypoint: str,
@@ -488,10 +496,35 @@ class BundleRun:
         path.mkdir(parents=True, exist_ok=True)
         return path
 
+    def _published_ranking_path(self, date_text: str) -> Path:
+        return self.output_dir / _ranking_basename(date_text)
+
+    def _published_receipt_path(self, date_text: str) -> Path:
+        return self.final_dir / "receipts" / _receipt_basename(date_text)
+
+    def _validate_receipt_binding(self, date_text: str, receipt: Mapping[str, Any]) -> None:
+        expected_artifact = _repo_relative(self.project_root, self._published_ranking_path(date_text))
+        if (
+            date_text not in self.planned_dates
+            or receipt.get("ranking_date") != date_text
+            or receipt.get("ranking_artifact", {}).get("path") != expected_artifact
+            or Path(str(receipt.get("ranking_artifact", {}).get("path", ""))).name != _ranking_basename(date_text)
+            or receipt.get("scenario") != self.scenario
+            or receipt.get("run_identity") != self.run_identity
+            or receipt.get("capture_mode") != self.capture_mode
+            or receipt.get("batch_plan_id") != self.plan_id
+            or receipt.get("producer", {}).get("entrypoint") != self.producer_entrypoint
+        ):
+            raise RankingProvenanceError("receipt 與 planned ranking identity 不一致")
+
     def add_receipt(self, date_text: str, receipt: dict[str, Any]) -> Path:
-        if date_text not in self.planned_dates or receipt.get("batch_plan_id") != self.plan_id:
-            raise RankingProvenanceError("receipt 與 batch plan 不一致")
-        path = self.staging_dir / "receipts" / f"ranking_{date_text}.receipt.json"
+        errors = validate_receipt(receipt)
+        if errors:
+            raise RankingProvenanceError("receipt 不合法：" + ", ".join(errors))
+        self._validate_receipt_binding(date_text, receipt)
+        if any(existing.get("ranking_date") == date_text for _, existing in self._receipts):
+            raise RankingProvenanceError("planned ranking receipt 不可重複")
+        path = self.staging_dir / "receipts" / _receipt_basename(date_text)
         _atomic_create(path, canonical_encode(receipt))
         self._receipts.append((path, receipt))
         return path
@@ -507,8 +540,17 @@ class BundleRun:
             raise RankingProvenanceError("receipt 數量與預定日期不一致")
         if (self.staging_dir / "FAILED.json").exists():
             raise RankingProvenanceError("FAILED run 不可完成")
+        receipt_by_date = {str(receipt.get("ranking_date")): (path, receipt) for path, receipt in self._receipts}
+        if set(receipt_by_date) != set(self.planned_dates):
+            raise RankingProvenanceError("planned ranking 與 receipt date 集合不一致")
+        planned_rankings = [_ranking_basename(date_text) for date_text in self.planned_dates]
         manifest_entries = []
-        for receipt_path, receipt in sorted(self._receipts, key=lambda item: item[0].name):
+        for date_text in self.planned_dates:
+            receipt_path, receipt = receipt_by_date[date_text]
+            errors = validate_receipt(receipt)
+            if errors:
+                raise RankingProvenanceError("receipt 不合法：" + ", ".join(errors))
+            self._validate_receipt_binding(date_text, receipt)
             artifact_path = _safe_repo_path(self.project_root, receipt["ranking_artifact"]["path"])
             staged_artifact = self.staging_dir / "rankings" / Path(str(receipt["ranking_artifact"]["path"])).name
             if artifact_path.exists():
@@ -522,7 +564,7 @@ class BundleRun:
                 "ranking_date": receipt["ranking_date"], "ranking_artifact": receipt["ranking_artifact"],
                 "receipt": {
                     "path": _repo_relative(
-                        self.project_root, self.final_dir / "receipts" / receipt_path.name
+                        self.project_root, self._published_receipt_path(date_text)
                     ),
                     "sha256": sha256_file(receipt_path),
                     "receipt_identity": receipt["receipt_identity"],
@@ -531,7 +573,7 @@ class BundleRun:
         manifest = {
             "schema_version": MANIFEST_SCHEMA_VERSION, "status": "COMPLETE", "run_identity": self.run_identity,
             "batch_plan_id": self.plan_id, "scenario": self.scenario, "producer_entrypoint": self.producer_entrypoint,
-            "capture_mode": self.capture_mode, "entries": manifest_entries,
+            "capture_mode": self.capture_mode, "planned_rankings": planned_rankings, "entries": manifest_entries,
             "input_hashes_before": dict(before_inputs), "input_hashes_after": dict(after_inputs),
         }
         manifest["manifest_identity"] = content_hash(manifest)
@@ -571,6 +613,14 @@ def validate_complete_manifest(payload: Mapping[str, Any]) -> list[str]:
         errors.append("manifest_fields")
     if payload.get("schema_version") != MANIFEST_SCHEMA_VERSION or payload.get("status") != "COMPLETE":
         errors.append("manifest_status")
+    planned_rankings = payload.get("planned_rankings")
+    if (
+        not isinstance(planned_rankings, list)
+        or not planned_rankings
+        or any(not isinstance(item, str) or not item.startswith("ranking_") or not item.endswith(".csv") for item in planned_rankings)
+        or len(set(planned_rankings)) != len(planned_rankings)
+    ):
+        errors.append("planned_rankings")
     entries = payload.get("entries")
     if not isinstance(entries, list) or not entries:
         errors.append("entries")
@@ -607,6 +657,9 @@ def validate_complete_manifest(payload: Mapping[str, Any]) -> list[str]:
         errors.append("manifest_identity")
     if not isinstance(payload.get("input_hashes_before"), Mapping) or payload.get("input_hashes_before") != payload.get("input_hashes_after"):
         errors.append("input_hash_drift")
+    if isinstance(planned_rankings, list) and isinstance(entries, list):
+        if [str(item.get("ranking_artifact", {}).get("path", "")).split("/")[-1] if isinstance(item, Mapping) else "" for item in entries] != planned_rankings:
+            errors.append("planned_ranking_entry_mismatch")
     return errors
 
 
@@ -622,10 +675,41 @@ def verify_complete_bundle(project_root: Path, manifest_path: Path) -> list[str]
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return ["manifest_unreadable"]
     errors.extend(validate_complete_manifest(manifest))
-    for entry in manifest.get("entries", []):
+    try:
+        if (
+            manifest_path.name != "COMPLETE.manifest.json"
+            or manifest_path.parent.parent.name != "runs"
+            or manifest_path.parent.parent.parent.name != ".ranking-provenance-v1"
+        ):
+            raise RankingProvenanceError("manifest path 不符合 bundle layout")
+        output_dir = manifest_path.parent.parent.parent.parent
+        planned_rankings = list(manifest["planned_rankings"])
+        expected_plan = batch_plan_id(
+            run_identity=str(manifest["run_identity"]),
+            scenario=str(manifest["scenario"]),
+            producer_entrypoint=str(manifest["producer_entrypoint"]),
+            planned_rankings=planned_rankings,
+        )
+        if manifest.get("batch_plan_id") != expected_plan:
+            errors.append("batch_plan_recompute_mismatch")
+    except (KeyError, RankingProvenanceError):
+        return sorted(set(errors + ["manifest_bundle_layout"]))
+    for index, entry in enumerate(manifest.get("entries", [])):
         if not isinstance(entry, Mapping):
             continue
         try:
+            expected_basename = planned_rankings[index]
+            expected_date = expected_basename.removeprefix("ranking_").removesuffix(".csv")
+            expected_artifact = _repo_relative(project_root, output_dir / expected_basename)
+            expected_receipt = _repo_relative(
+                project_root, manifest_path.parent / "receipts" / _receipt_basename(expected_date)
+            )
+            if (
+                entry.get("ranking_date") != expected_date
+                or entry.get("ranking_artifact", {}).get("path") != expected_artifact
+                or entry.get("receipt", {}).get("path") != expected_receipt
+            ):
+                errors.append("manifest_planned_binding_mismatch")
             artifact_path = _safe_repo_path(project_root, entry["ranking_artifact"]["path"])
             receipt_path = _safe_repo_path(project_root, entry["receipt"]["path"])
             if sha256_file(artifact_path) != entry["ranking_artifact"]["sha256"]:
@@ -643,6 +727,9 @@ def verify_complete_bundle(project_root: Path, manifest_path: Path) -> list[str]
                 or receipt.get("run_identity") != manifest.get("run_identity")
                 or receipt.get("scenario") != manifest.get("scenario")
                 or receipt.get("capture_mode") != manifest.get("capture_mode")
+                or receipt.get("ranking_date") != expected_date
+                or receipt.get("ranking_artifact", {}).get("path") != expected_artifact
+                or receipt.get("producer", {}).get("entrypoint") != manifest.get("producer_entrypoint")
             ):
                 errors.append("receipt_manifest_identity_mismatch")
             model_path = _safe_repo_path(project_root, receipt.get("model", {}).get("path", ""))

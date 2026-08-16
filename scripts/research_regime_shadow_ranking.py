@@ -372,7 +372,16 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
         PROJECT_ROOT / "scripts/research_feature_group_ablation_by_regime.py",
         PROJECT_ROOT / "app/agent_b_ranking.py",
         PROJECT_ROOT / "app/research/ranking_provenance_receipt.py",
+        PROJECT_ROOT / "app/research/contracts.py",
         PROJECT_ROOT / "app/trading",
+        PROJECT_ROOT / "app/modeling",
+        PROJECT_ROOT / "app/data",
+        PROJECT_ROOT / "app/fundamentals",
+        PROJECT_ROOT / "app/monitoring/factor_monitor.py",
+        PROJECT_ROOT / "app/stock_names.py",
+        PROJECT_ROOT / "app/labels.py",
+        PROJECT_ROOT / "app/report_generator.py",
+        PROJECT_ROOT / "app/reports",
     ]
     producer_lineage = producer_source_lineage(PROJECT_ROOT, producer_dependencies)
     strict_input_paths: dict[str, Path] = {
