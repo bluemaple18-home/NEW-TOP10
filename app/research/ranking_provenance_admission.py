@@ -47,8 +47,15 @@ FORBIDDEN_KEY_TOKENS = (
     "sharpe",
     "alpha",
     "target",
+    "profit",
+    "roi",
+    "performance",
 )
 FALLBACK_TOKENS = ("latest", "default", "fallback")
+# V1 沒有已註冊的逐日同期 receipt registry；不得由 availability schema 擴充欄位取代。
+RECEIPT_AUTHORITY_CONFIGURED = False
+RECEIPT_AUTHORITY_RELATIVE: Path | None = None
+RECEIPT_AUTHORITY_SCHEMA: str | None = None
 
 
 class RankingProvenanceAdmissionError(RuntimeError):
@@ -191,52 +198,33 @@ def _proven_field(value: Mapping[str, Any]) -> dict[str, Any]:
     return {"status": "PROVEN", "evidence": dict(value)}
 
 
-def _receipt_fields(receipt: Mapping[str, Any], artifact: Mapping[str, str]) -> tuple[dict[str, dict[str, Any]], list[str]]:
-    """只接受明示為同期、同 artifact identity 的 immutable per-date receipt。"""
+def _conflict_fields(reason_code: str) -> dict[str, dict[str, str]]:
+    return {name: {"status": "CONFLICT", "reason_code": reason_code} for name in LINEAGE_FIELDS}
 
+
+def _receipt_schema_errors(receipt: Mapping[str, Any]) -> list[str]:
+    """未來可註冊 receipt 的欄位形狀；V1 只用它辨識不受支持的偽 authority。"""
+
+    expected = {
+        "scenario", "ranking_date", "contemporaneous_at_generation",
+        "immutable_committed_receipt", "receipt_identity", "receipt_commit",
+        "ranking_artifact", "producer", "model", "config", "universe", "top_n_policy",
+    }
+    if set(receipt) != expected:
+        return ["RECEIPT_SCHEMA_INVALID"]
     if _contains_forbidden_key(receipt):
-        return {}, ["OUTCOME_KEY_FORBIDDEN"]
-    if receipt.get("contemporaneous_at_generation") is not True:
-        return {}, ["RECEIPT_NOT_CONTEMPORANEOUS"]
-    if receipt.get("immutable_committed_receipt") is not True:
-        return {}, ["RECEIPT_NOT_IMMUTABLE"]
-    if not _safe_text(receipt.get("receipt_identity")) or not _safe_text(receipt.get("receipt_commit")):
-        return {}, ["RECEIPT_IDENTITY_OR_COMMIT_MISSING"]
-    observed_artifact = receipt.get("ranking_artifact")
-    if not isinstance(observed_artifact, Mapping):
-        return {}, ["RANKING_ARTIFACT_RECEIPT_MISSING"]
-    if observed_artifact.get("path") != artifact["path"] or observed_artifact.get("sha256") != artifact["sha256"]:
-        return {}, ["RECEIPT_ARTIFACT_IDENTITY_CONFLICT"]
-    values: dict[str, Mapping[str, Any]] = {
-        "ranking_artifact": observed_artifact,
-        "producer": receipt.get("producer") if isinstance(receipt.get("producer"), Mapping) else {},
-        "model": receipt.get("model") if isinstance(receipt.get("model"), Mapping) else {},
-        "config": receipt.get("config") if isinstance(receipt.get("config"), Mapping) else {},
-        "universe": receipt.get("universe") if isinstance(receipt.get("universe"), Mapping) else {},
-        "top_n_policy": receipt.get("top_n_policy") if isinstance(receipt.get("top_n_policy"), Mapping) else {},
+        return ["OUTCOME_KEY_FORBIDDEN"]
+    nested = {
+        "ranking_artifact": {"path", "sha256"},
+        "producer": {"entrypoint", "source_commit", "source_sha256"},
+        "model": {"artifact_path", "version", "sha256"},
+        "config": {"sha256"},
+        "universe": {"snapshot_path", "sha256"},
+        "top_n_policy": {"top_n", "sort_policy", "tie_break_policy"},
     }
-    required = {
-        "ranking_artifact": ("path", "sha256"),
-        "producer": ("entrypoint", "source_commit", "source_sha256"),
-        "model": ("artifact_path", "version", "sha256"),
-        "config": ("sha256",),
-        "universe": ("snapshot_path", "sha256"),
-        "top_n_policy": ("top_n", "sort_policy", "tie_break_policy"),
-    }
-    fields: dict[str, dict[str, Any]] = {}
-    errors: list[str] = []
-    for name in LINEAGE_FIELDS:
-        value = values[name]
-        if not value or any(not _safe_text(value.get(key)) and not isinstance(value.get(key), int) for key in required[name]):
-            fields[name] = _missing_field(f"{name.upper()}_RECEIPT_FIELD_MISSING")
-            continue
-        if name in {"ranking_artifact", "producer", "model", "config", "universe"}:
-            for key, item in value.items():
-                if key.endswith("sha256") or key == "sha256":
-                    if not _hash(item):
-                        errors.append(f"{name.upper()}_HASH_INVALID")
-        fields[name] = _proven_field(value)
-    return fields, errors
+    if any(not _exact_keys(receipt.get(key), fields) for key, fields in nested.items()):
+        return ["RECEIPT_SCHEMA_INVALID"]
+    return []
 
 
 def evaluate_admission(
@@ -245,8 +233,6 @@ def evaluate_admission(
 ) -> dict[str, Any]:
     """將現有 committed evidence 轉為逐 scenario/date 的 fail-closed admission。"""
 
-    if _contains_forbidden_key(availability_payload) or _contains_forbidden_key(feasibility_payload):
-        raise RankingProvenanceAdmissionError("OUTCOME_KEY_FORBIDDEN")
     artifacts, conflicts = _availability_artifacts(availability_payload)
     feasibility_sources = feasibility_payload.get("sources")
     manifest = feasibility_sources.get("ranking_manifest") if isinstance(feasibility_sources, Mapping) else None
@@ -265,22 +251,24 @@ def evaluate_admission(
     if not isinstance(raw_receipts, list) or not all(isinstance(item, Mapping) for item in raw_receipts):
         conflicts.append("RECEIPT_COLLECTION_INVALID")
         raw_receipts = []
-    receipt_by_key: dict[tuple[str, str], Mapping[str, Any]] = {}
+    receipt_conflict_by_key: dict[tuple[str, str], str] = {}
+    global_receipt_conflicts: list[str] = []
     for receipt in raw_receipts:
+        schema_errors = _receipt_schema_errors(receipt)
         scenario = receipt.get("scenario")
         date = receipt.get("ranking_date")
         key = (str(scenario), str(date))
-        if not _safe_text(scenario) or not _safe_text(date) or key not in artifacts or key in receipt_by_key:
-            conflicts.append("RECEIPT_SCENARIO_DATE_ALIAS_OR_UNKNOWN")
+        if not _safe_text(scenario) or not _safe_text(date) or key not in artifacts or key in receipt_conflict_by_key:
+            global_receipt_conflicts.append("RECEIPT_SCENARIO_DATE_ALIAS_OR_UNKNOWN")
             continue
-        receipt_by_key[key] = receipt
+        receipt_conflict_by_key[key] = schema_errors[0] if schema_errors else "UNSUPPORTED_OR_UNREGISTERED_RECEIPT_AUTHORITY"
 
     records: list[dict[str, Any]] = []
     missing_count = 0
     for scenario, date in sorted(artifacts):
         artifact = artifacts[(scenario, date)]
-        receipt = receipt_by_key.get((scenario, date))
-        if receipt is None:
+        receipt_conflict = receipt_conflict_by_key.get((scenario, date))
+        if receipt_conflict is None and not global_receipt_conflicts:
             fields = {
                 name: _missing_field(
                     "CURRENT_AVAILABILITY_HASH_NOT_CONTEMPORANEOUS_PROVENANCE"
@@ -290,13 +278,9 @@ def evaluate_admission(
                 for name in LINEAGE_FIELDS
             }
         else:
-            fields, receipt_errors = _receipt_fields(receipt, artifact)
-            if receipt_errors:
-                conflicts.extend(receipt_errors)
-                fields = {
-                    name: _missing_field("RECEIPT_CONFLICT_OR_INVALID")
-                    for name in LINEAGE_FIELDS
-                }
+            reason_code = receipt_conflict or global_receipt_conflicts[0]
+            fields = _conflict_fields(reason_code)
+            conflicts.append(reason_code)
         missing_count += sum(field["status"] != "PROVEN" for field in fields.values())
         records.append(
             {
@@ -342,6 +326,7 @@ def build_audit(*, project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
             "runtime_change_allowed": False,
             "current_hash_backfill_allowed": False,
             "latest_or_default_fallback_allowed": False,
+            "receipt_authority_configured": RECEIPT_AUTHORITY_CONFIGURED,
         },
         "sources": {
             "availability": availability_source,
@@ -382,8 +367,64 @@ def _contains_fallback_reference(value: Any) -> bool:
     return False
 
 
+def _exact_keys(value: Any, expected: set[str]) -> bool:
+    return isinstance(value, Mapping) and set(value) == expected
+
+
+def _proven_evidence_valid(
+    field: str,
+    evidence: Any,
+    *,
+    scenario: str,
+    ranking_date: str,
+    artifact: Mapping[str, Any],
+) -> bool:
+    if not _exact_keys(
+        evidence,
+        {"scenario", "ranking_date", "receipt_identity", "artifact_path", "artifact_sha256", "value"},
+    ):
+        return False
+    if (
+        evidence.get("scenario") != scenario
+        or evidence.get("ranking_date") != ranking_date
+        or not _safe_text(evidence.get("receipt_identity"))
+        or evidence.get("artifact_path") != artifact.get("path")
+        or evidence.get("artifact_sha256") != artifact.get("sha256")
+    ):
+        return False
+    value = evidence.get("value")
+    expected_value_keys = {
+        "ranking_artifact": {"path", "sha256"},
+        "producer": {"entrypoint", "source_commit", "source_sha256"},
+        "model": {"artifact_path", "version", "sha256"},
+        "config": {"sha256"},
+        "universe": {"snapshot_path", "sha256"},
+        "top_n_policy": {"top_n", "sort_policy", "tie_break_policy"},
+    }[field]
+    if not _exact_keys(value, expected_value_keys):
+        return False
+    if field != "top_n_policy" and any(
+        not _safe_text(item) for item in value.values()
+    ):
+        return False
+    if field == "top_n_policy" and (
+        not isinstance(value.get("top_n"), int)
+        or value["top_n"] <= 0
+        or not _safe_text(value.get("sort_policy"))
+        or not _safe_text(value.get("tie_break_policy"))
+    ):
+        return False
+    return all(_hash(item) for key, item in value.items() if key.endswith("sha256") or key == "sha256")
+
+
 def validate_audit(payload: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
+    root_fields = {
+        "schema_version", "audit_id", "status", "reason_codes", "record_count",
+        "missing_lineage_field_count", "records", "contract", "sources",
+    }
+    if not _exact_keys(payload, root_fields):
+        errors.append("AUDIT_SCHEMA_EXTRAS_OR_MISSING")
     if payload.get("schema_version") != SCHEMA_VERSION:
         errors.append("SCHEMA_VERSION_INVALID")
     status = payload.get("status")
@@ -401,27 +442,39 @@ def validate_audit(payload: Mapping[str, Any]) -> list[str]:
         "runtime_change_allowed": False,
         "current_hash_backfill_allowed": False,
         "latest_or_default_fallback_allowed": False,
+        "receipt_authority_configured": False,
     }
     if contract != expected_contract:
         errors.append("CONTRACT_INVALID")
+    sources = payload.get("sources")
+    if not _exact_keys(sources, {"availability", "feasibility"}):
+        errors.append("SOURCES_SCHEMA_INVALID")
+    elif any(
+        not _exact_keys(source, {"path", "sha256", "commit_status"})
+        or source.get("commit_status") != "MATCHED"
+        or not _safe_text(source.get("path"))
+        or not _hash(source.get("sha256"))
+        for source in sources.values()
+    ):
+        errors.append("SOURCES_SCHEMA_INVALID")
     records = payload.get("records")
     if not isinstance(records, list) or not records:
         errors.append("RECORDS_INVALID")
         records = []
     identities: set[tuple[str, str]] = set()
     missing = 0
-    conflicts = False
+    conflict_codes: set[str] = set()
     for record in records:
-        if not isinstance(record, Mapping):
+        if not _exact_keys(record, {"scenario", "ranking_date", "artifact_identity", "lineage", "admission"}):
             errors.append("RECORD_INVALID")
             continue
         key = (str(record.get("scenario") or ""), str(record.get("ranking_date") or ""))
-        if not all(key) or key in identities:
+        if not all(key) or not all(_safe_text(item) for item in key) or key in identities:
             errors.append("SCENARIO_DATE_ALIAS")
         identities.add(key)
         artifact = record.get("artifact_identity")
         lineage = record.get("lineage")
-        if not isinstance(artifact, Mapping) or not _safe_text(artifact.get("path")) or not _hash(artifact.get("sha256")):
+        if not _exact_keys(artifact, {"path", "sha256"}) or not _safe_text(artifact.get("path")) or not _hash(artifact.get("sha256")):
             errors.append("ARTIFACT_IDENTITY_INVALID")
         if not isinstance(lineage, Mapping) or set(lineage) != set(LINEAGE_FIELDS):
             errors.append("LINEAGE_FIELDS_INVALID")
@@ -433,20 +486,41 @@ def validate_audit(payload: Mapping[str, Any]) -> list[str]:
                 errors.append("LINEAGE_STATUS_INVALID")
                 proven = False
                 continue
-            if item.get("status") != "PROVEN":
+            item_status = item.get("status")
+            if item_status == "PROVEN":
+                if not _exact_keys(item, {"status", "evidence"}) or not _proven_evidence_valid(
+                    field, item.get("evidence"), scenario=key[0], ranking_date=key[1], artifact=artifact
+                ):
+                    errors.append("LINEAGE_PROVEN_EVIDENCE_INVALID")
+                    proven = False
+                if not RECEIPT_AUTHORITY_CONFIGURED:
+                    errors.append("ADMISSION_AUTHORITY_NOT_CONFIGURED")
+                    proven = False
+            else:
+                if not _exact_keys(item, {"status", "reason_code"}) or not _safe_text(item.get("reason_code")):
+                    errors.append("LINEAGE_NONPROVEN_SCHEMA_INVALID")
                 missing += 1
                 proven = False
-                conflicts = conflicts or item.get("status") == "CONFLICT"
+                if item_status == "CONFLICT":
+                    conflict_codes.add(str(item.get("reason_code") or ""))
         if record.get("admission") != ("ADMIT" if proven else "REJECT"):
             errors.append("FALSE_ADMISSION")
     if payload.get("record_count") != len(records) or payload.get("missing_lineage_field_count") != missing:
         errors.append("RECORD_COUNT_MISMATCH")
-    if status == "ADMITTED_RANKING_PROVENANCE_COMPLETE" and (missing or conflicts):
+    if status == "ADMITTED_RANKING_PROVENANCE_COMPLETE" and not RECEIPT_AUTHORITY_CONFIGURED:
+        errors.append("ADMISSION_AUTHORITY_NOT_CONFIGURED")
+    if status == "ADMITTED_RANKING_PROVENANCE_COMPLETE" and (missing or conflict_codes):
         errors.append("FALSE_ADMISSION")
     if status == "NO_GO_RANKING_PROVENANCE_INCOMPLETE" and not missing:
         errors.append("FALSE_NO_GO")
-    if status == "BLOCKED_EVIDENCE_CONFLICT" and not (conflicts or payload.get("reason_codes")):
+    reason_codes = payload.get("reason_codes")
+    if not isinstance(reason_codes, list) or not all(_safe_text(item) for item in reason_codes):
+        errors.append("REASON_CODES_INVALID")
+        reason_codes = []
+    if status == "BLOCKED_EVIDENCE_CONFLICT" and not conflict_codes:
         errors.append("FALSE_BLOCKED")
+    if status == "BLOCKED_EVIDENCE_CONFLICT" and not conflict_codes.intersection(set(reason_codes)):
+        errors.append("BLOCKED_REASON_NOT_RECORD_BOUND")
     if _contains_fallback_reference(payload):
         errors.append("LATEST_OR_DEFAULT_FALLBACK_FORBIDDEN")
     if _contains_forbidden_key(payload):
