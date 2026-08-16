@@ -104,17 +104,36 @@ def load_trade_dates(data_dir: Path, start_date: str, end_date: str, stride: int
     return selected
 
 
-def load_universe(data_dir: Path, features: pd.DataFrame) -> pd.DataFrame:
+def load_universe(data_dir: Path, features: pd.DataFrame, *, strict: bool = False) -> pd.DataFrame:
     universe_path = data_dir / "universe.parquet"
     if universe_path.exists():
         universe = pd.read_parquet(universe_path)
         if not universe.empty:
+            if "stock_id" not in universe.columns:
+                raise ValueError("universe.parquet 缺 stock_id")
             universe["stock_id"] = universe["stock_id"].astype(str).str.strip()
             if "date" in universe.columns:
                 universe["date"] = pd.to_datetime(universe["date"], errors="coerce")
                 universe["trade_date"] = universe["date"].dt.normalize()
             return universe
+    if strict:
+        raise ValueError("receipt mode 要求 universe.parquet 存在且非空")
     return pd.DataFrame({"stock_id": features["stock_id"].astype(str).str.strip().unique()})
+
+
+def validate_universe_coverage(universe: pd.DataFrame, planned_dates: list[str]) -> None:
+    """receipt mode 禁止以 features fallback 補 universe，逐日必須有股票。"""
+
+    if universe.empty or "stock_id" not in universe.columns:
+        raise ValueError("receipt mode universe 不可為空")
+    ids = universe["stock_id"].astype(str).str.strip()
+    if ids.eq("").all():
+        raise ValueError("receipt mode universe 沒有有效 stock_id")
+    if "trade_date" in universe.columns:
+        dates = pd.to_datetime(universe["trade_date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        for date_text in planned_dates:
+            if not ((dates == date_text) & ids.ne("")).any():
+                raise ValueError(f"receipt mode universe 缺 {date_text} 股票")
 
 
 def prepare_batch_frames(ranker: StockRanker) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -136,7 +155,7 @@ def prepare_batch_frames(ranker: StockRanker) -> tuple[pd.DataFrame, pd.DataFram
     # 歷史研究一次算完整壓力線，避免逐日重建 rolling feature frame。
     features["ref_high_20d"] = features.groupby("stock_id")["high"].transform(lambda x: x.shift(1).rolling(20).max())
     features["ref_high_60d"] = features.groupby("stock_id")["high"].transform(lambda x: x.shift(1).rolling(60).max())
-    universe = load_universe(ranker.data_dir, features)
+    universe = load_universe(ranker.data_dir, features, strict=True)
     ranker._ensure_unique_trade_keys(universe, "universe.parquet")
     return features, universe
 
@@ -239,10 +258,12 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         max_dates=args.max_dates,
     )
     capture_mode = "FORWARD_CAPTURE" if args.forward_capture else "REPLAY_GENERATED"
+    trusted_capture_trade_date = date.today().isoformat()
     admission_eligible, _ = ensure_capture_mode(
         capture_mode=capture_mode,
         ranking_dates=dates,
         capture_trade_date=args.capture_trade_date,
+        trusted_capture_trade_date=trusted_capture_trade_date,
     )
     # admission_eligible 在 REPLAY 時固定 False；forward 只保留待獨立 registration 審查的狀態。
     admission_value: bool | str = "pending_registration" if admission_eligible else False
@@ -252,6 +273,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         PROJECT_ROOT / "app/modeling/feature_contract.py",
         PROJECT_ROOT / "app/research/ranking_provenance_receipt.py",
         PROJECT_ROOT / "app/signals/price_patterns.py",
+        PROJECT_ROOT / "app/trading",
     ]
     producer_lineage = producer_source_lineage(PROJECT_ROOT, producer_dependencies)
     features_path = data_dir / "features.parquet"
@@ -264,6 +286,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "model_source": source_model_path,
     }
     inputs_before = snapshot_inputs(PROJECT_ROOT, strict_input_paths)
+    strict_universe = load_universe(data_dir, pd.DataFrame({"stock_id": []}), strict=True)
+    validate_universe_coverage(strict_universe, dates)
     bundle = BundleRun(
         project_root=PROJECT_ROOT,
         output_dir=output_dir,
@@ -272,6 +296,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         planned_dates=dates,
         capture_mode=capture_mode,
         capture_trade_date=args.capture_trade_date,
+        trusted_capture_trade_date=trusted_capture_trade_date,
         run_identity=args.run_identity or uuid.uuid4().hex,
     )
     try:
@@ -293,6 +318,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     ranker.top_n = args.top_n
     ranker.load_model(snapshot_path.name)
     batch_frames = None if args.legacy_per_date_load else prepare_batch_frames(ranker)
+    if batch_frames is not None:
+        validate_universe_coverage(batch_frames[1], dates)
     outputs: list[dict[str, Any]] = []
     failures: list[dict[str, str]] = []
     for date_text in dates:
@@ -326,6 +353,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                 top_n=args.top_n,
                 capture_mode=capture_mode,
                 admission_eligible=admission_value,
+                score_column="risk_adjusted_score",
             )
             bundle.add_receipt(date_text, receipt)
             outputs.append({

@@ -27,16 +27,21 @@ def test_manifest_records_current_model_source_lineage(tmp_path, monkeypatch):
 
     monkeypatch.setattr(ranking_set, "StockRanker", FakeRanker)
     monkeypatch.setattr(ranking_set, "load_trade_dates", lambda **_kwargs: ["2026-03-13"])
-    monkeypatch.setattr(ranking_set, "prepare_batch_frames", lambda _ranker: (object(), object()))
+    universe = ranking_set.pd.DataFrame({"stock_id": ["1101"]})
+    monkeypatch.setattr(ranking_set, "load_universe", lambda *_args, **_kwargs: universe)
+    monkeypatch.setattr(ranking_set, "prepare_batch_frames", lambda _ranker: (object(), universe))
     monkeypatch.setattr(
         ranking_set,
         "producer_source_lineage",
         lambda *_args: {"source_commit": "a" * 40, "dependencies": [{"path": "scripts/producer.py", "sha256": "sha256:" + "1" * 64}]},
     )
+    ranking_csv = "rank,stock_id,risk_adjusted_score\n" + "".join(
+        f"{index},{1000 + index},{11 - index}\n" for index in range(1, 11)
+    )
     monkeypatch.setattr(
         ranking_set,
         "run_batch_ranking_for_date",
-        lambda ranker, *_args: (ranker.artifact_dir.mkdir(parents=True, exist_ok=True), (ranker.artifact_dir / "ranking_2026-03-13.csv").write_text("rank,stock_id,score\n1,1101,1\n", encoding="utf-8"), ranker.artifact_dir / "ranking_2026-03-13.csv")[-1],
+        lambda ranker, *_args: (ranker.artifact_dir.mkdir(parents=True, exist_ok=True), (ranker.artifact_dir / "ranking_2026-03-13.csv").write_text(ranking_csv, encoding="utf-8"), ranker.artifact_dir / "ranking_2026-03-13.csv")[-1],
     )
 
     payload = ranking_set.build_payload(

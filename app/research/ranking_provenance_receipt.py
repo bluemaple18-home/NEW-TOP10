@@ -7,16 +7,16 @@ bundle；receipt 本身不授予 admission。
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
 import shutil
 import subprocess
 import uuid
-import argparse
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
@@ -30,8 +30,20 @@ REPLAY_GENERATED = "REPLAY_GENERATED"
 _CAPTURE_MODES = {FORWARD_CAPTURE, REPLAY_GENERATED}
 _FORBIDDEN_TOKENS = (
     "outcome", "return", "pnl", "win_rate", "winrate", "sharpe", "alpha",
-    "profit", "roi", "performance", "target",
+    "profit", "roi", "performance", "target", "future", "price", "ohlc",
 )
+_RECEIPT_FIELDS = {
+    "schema_version", "scenario", "ranking_date", "run_identity", "batch_plan_id",
+    "capture_mode", "admission_eligible", "ranking_artifact", "producer", "model",
+    "config", "universe", "feature_calendar", "top_n_policy", "strict_inputs",
+    "receipt_identity",
+}
+_MANIFEST_FIELDS = {
+    "schema_version", "status", "run_identity", "batch_plan_id", "scenario",
+    "producer_entrypoint", "capture_mode", "entries", "input_hashes_before",
+    "input_hashes_after", "manifest_identity",
+}
+_STRICT_INPUT_NAMES = {"market_regime_history", "industry_map", "calendar_schedule_source"}
 
 
 class RankingProvenanceError(RuntimeError):
@@ -67,8 +79,16 @@ def _repo_relative(project_root: Path, path: Path) -> str:
     resolved_root = project_root.resolve(strict=True)
     if resolved_root.is_symlink():
         raise RankingProvenanceError("專案根目錄不可為 symlink")
-    if path.is_symlink():
-        raise RankingProvenanceError(f"不接受 symlink：{path}")
+    lexical = path.absolute()
+    cursor = project_root.absolute()
+    try:
+        relative_lexical = lexical.relative_to(cursor)
+    except ValueError as error:
+        raise RankingProvenanceError(f"路徑不可離開專案：{path}") from error
+    for part in relative_lexical.parts:
+        cursor /= part
+        if cursor.exists() and cursor.is_symlink():
+            raise RankingProvenanceError(f"不接受 symlink：{cursor}")
     try:
         relative = path.resolve(strict=False).relative_to(resolved_root)
     except ValueError as error:
@@ -77,6 +97,35 @@ def _repo_relative(project_root: Path, path: Path) -> str:
     if not value or PurePosixPath(value).is_absolute() or ".." in PurePosixPath(value).parts:
         raise RankingProvenanceError(f"不合法 repo-relative path：{path}")
     return value
+
+
+def _safe_repo_path(project_root: Path, value: object) -> Path:
+    if not isinstance(value, str) or not value:
+        raise RankingProvenanceError("path 必須是非空 repo-relative string")
+    relative = PurePosixPath(value)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise RankingProvenanceError("path 不可為絕對路徑或包含 ..")
+    path = project_root.joinpath(*relative.parts)
+    _repo_relative(project_root, path)
+    return path
+
+
+def _valid_relative_path(value: object) -> bool:
+    try:
+        relative = PurePosixPath(str(value))
+    except TypeError:
+        return False
+    return isinstance(value, str) and bool(value) and not relative.is_absolute() and ".." not in relative.parts
+
+
+def _valid_hash(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 71 and value.startswith("sha256:") and all(
+        char in "0123456789abcdef" for char in value[7:]
+    )
+
+
+def _exact_keys(payload: object, fields: set[str]) -> bool:
+    return isinstance(payload, Mapping) and set(payload) == fields
 
 
 def _git(project_root: Path, *args: str) -> str:
@@ -97,7 +146,18 @@ def producer_source_lineage(project_root: Path, dependencies: Sequence[Path]) ->
     commit = _git(project_root, "rev-parse", "HEAD")
     files: list[dict[str, str]] = []
     seen: set[str] = set()
+    expanded: list[Path] = []
     for path in dependencies:
+        relative = _repo_relative(project_root, path)
+        if path.is_dir():
+            tracked = _git(project_root, "ls-files", "--", relative).splitlines()
+            selected = [item for item in tracked if item.endswith(".py")]
+            if not selected:
+                raise RankingProvenanceError(f"producer dependency 目錄沒有 tracked Python：{relative}")
+            expanded.extend(project_root / item for item in selected)
+        else:
+            expanded.append(path)
+    for path in expanded:
         relative = _repo_relative(project_root, path)
         if relative in seen:
             continue
@@ -133,13 +193,20 @@ def assert_same_inputs(before: Mapping[str, Any], after: Mapping[str, Any]) -> N
 
 def ensure_capture_mode(
     *, capture_mode: str, ranking_dates: Sequence[str], capture_trade_date: str | None,
+    trusted_capture_trade_date: str | None = None,
 ) -> tuple[bool, str | bool]:
     if capture_mode not in _CAPTURE_MODES:
         raise RankingProvenanceError("capture_mode 僅允許 FORWARD_CAPTURE 或 REPLAY_GENERATED")
     if capture_mode == REPLAY_GENERATED:
         return False, False
-    if len(ranking_dates) != 1 or not capture_trade_date or ranking_dates[0] != capture_trade_date:
-        raise RankingProvenanceError("FORWARD_CAPTURE 只允許 capture trade date 的單一 ranking date")
+    if (
+        len(ranking_dates) != 1
+        or not capture_trade_date
+        or not trusted_capture_trade_date
+        or ranking_dates[0] != capture_trade_date
+        or capture_trade_date != trusted_capture_trade_date
+    ):
+        raise RankingProvenanceError("FORWARD_CAPTURE 必須是 trusted capture trade date 的單一 ranking date")
     return True, "pending_registration"
 
 
@@ -163,6 +230,42 @@ def stable_ranked_top_n(frame: pd.DataFrame, *, score_column: str, top_n: int) -
         raise RankingProvenanceError("ranking row count 必須恰等於 top-N")
     selected.insert(0, "rank", range(1, top_n + 1))
     return selected
+
+
+def verify_ranking_semantics(path: Path, policy: Mapping[str, Any]) -> list[str]:
+    """驗證 CSV 的 row/rank/stock/score 排序，不能只相信 receipt 宣告。"""
+
+    errors: list[str] = []
+    if not isinstance(policy, Mapping):
+        return ["ranking_policy"]
+    top_n = policy.get("top_n")
+    score_column = policy.get("score_column")
+    if not isinstance(top_n, int) or top_n < 1 or not isinstance(score_column, str) or not score_column:
+        return ["ranking_policy"]
+    try:
+        frame = pd.read_csv(path, dtype={"stock_id": str}, encoding="utf-8-sig")
+    except (OSError, UnicodeDecodeError, pd.errors.ParserError):
+        return ["ranking_csv_unreadable"]
+    if len(frame) != top_n:
+        errors.append("ranking_row_count")
+    if not {"rank", "stock_id", score_column}.issubset(frame.columns):
+        return errors + ["ranking_required_columns"]
+    ranks = pd.to_numeric(frame["rank"], errors="coerce")
+    if ranks.isna().any() or ranks.astype(int).tolist() != list(range(1, len(frame) + 1)):
+        errors.append("ranking_rank_sequence")
+    stock_ids = frame["stock_id"].astype(str).str.strip()
+    if stock_ids.eq("").any() or stock_ids.duplicated().any():
+        errors.append("ranking_stock_id")
+    scores = pd.to_numeric(frame[score_column], errors="coerce")
+    if scores.isna().any():
+        errors.append("ranking_score")
+    else:
+        ordered = frame.assign(__stock=stock_ids, __score=scores).sort_values(
+            ["__score", "__stock"], ascending=[False, True], kind="mergesort"
+        )
+        if ordered.index.tolist() != frame.index.tolist():
+            errors.append("ranking_sort_policy")
+    return errors
 
 
 def _atomic_create(path: Path, raw: bytes) -> None:
@@ -213,7 +316,7 @@ def build_receipt(
     producer_lineage: Mapping[str, Any], model: Mapping[str, str], config: Mapping[str, str],
     universe: Mapping[str, str], feature_calendar: Mapping[str, str], top_n: int,
     capture_mode: str, admission_eligible: bool | str, extra_inputs: Mapping[str, Mapping[str, str]] | None = None,
-    published_ranking_path: Path | None = None,
+    published_ranking_path: Path | None = None, score_column: str = "",
 ) -> dict[str, Any]:
     if not scenario or not ranking_date or not run_identity or not batch_plan:
         raise RankingProvenanceError("receipt identity 不完整")
@@ -221,6 +324,8 @@ def build_receipt(
         raise RankingProvenanceError("REPLAY_GENERATED 永遠不可 admission")
     if capture_mode == FORWARD_CAPTURE and admission_eligible != "pending_registration":
         raise RankingProvenanceError("FORWARD_CAPTURE 必須為 pending_registration")
+    if not score_column:
+        raise RankingProvenanceError("top-N score column 不可為空")
     artifact = {
         "path": _repo_relative(project_root, published_ranking_path or ranking_path),
         "sha256": sha256_file(ranking_path),
@@ -248,6 +353,7 @@ def build_receipt(
             "sort_policy": "score_desc",
             "tie_break_policy": "stock_id_asc",
             "rank_policy": "continuous_1_based",
+            "score_column": score_column,
         },
         "strict_inputs": dict(extra_inputs or {}),
     }
@@ -262,6 +368,8 @@ def build_receipt(
 
 def validate_receipt(payload: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
+    if not _exact_keys(payload, _RECEIPT_FIELDS):
+        errors.append("receipt_fields")
     if payload.get("schema_version") != SCHEMA_VERSION:
         errors.append("schema_version")
     if payload.get("capture_mode") not in _CAPTURE_MODES:
@@ -274,38 +382,57 @@ def validate_receipt(payload: Mapping[str, Any]) -> list[str]:
         if not isinstance(payload.get(field), str) or not payload[field]:
             errors.append(field)
     artifact = payload.get("ranking_artifact")
-    if not isinstance(artifact, Mapping) or not isinstance(artifact.get("path"), str) or artifact["path"].startswith("/"):
-        errors.append("ranking_artifact.path")
-    if not isinstance(artifact, Mapping) or not isinstance(artifact.get("sha256"), str) or not artifact["sha256"].startswith("sha256:"):
-        errors.append("ranking_artifact.sha256")
+    if not _exact_keys(artifact, {"path", "sha256"}) or not _valid_relative_path(artifact.get("path")) or not _valid_hash(artifact.get("sha256")):
+        errors.append("ranking_artifact")
     policy = payload.get("top_n_policy")
-    if not isinstance(policy, Mapping) or policy.get("sort_policy") != "score_desc" or policy.get("tie_break_policy") != "stock_id_asc" or policy.get("rank_policy") != "continuous_1_based":
+    if (
+        not _exact_keys(policy, {"top_n", "sort_policy", "tie_break_policy", "rank_policy", "score_column"})
+        or not isinstance(policy.get("top_n"), int)
+        or policy.get("top_n", 0) < 1
+        or policy.get("sort_policy") != "score_desc"
+        or policy.get("tie_break_policy") != "stock_id_asc"
+        or policy.get("rank_policy") != "continuous_1_based"
+        or not isinstance(policy.get("score_column"), str)
+        or not policy.get("score_column")
+    ):
         errors.append("top_n_policy")
     model = payload.get("model")
-    if not isinstance(model, Mapping) or not isinstance(model.get("path"), str) or "latest" in str(model.get("path")).lower() or not str(model.get("sha256", "")).startswith("sha256:"):
+    if (
+        not _exact_keys(model, {"path", "version", "sha256"})
+        or not _valid_relative_path(model.get("path"))
+        or "latest" in str(model.get("path")).lower()
+        or not isinstance(model.get("version"), str)
+        or not model.get("version")
+        or not _valid_hash(model.get("sha256"))
+    ):
         errors.append("model")
     for name in ("config", "universe", "feature_calendar"):
         item = payload.get(name)
-        if not isinstance(item, Mapping) or not isinstance(item.get("path"), str) or item["path"].startswith("/") or not str(item.get("sha256", "")).startswith("sha256:"):
+        if not _exact_keys(item, {"path", "sha256"}) or not _valid_relative_path(item.get("path")) or not _valid_hash(item.get("sha256")):
             errors.append(name)
     producer = payload.get("producer")
-    if not isinstance(producer, Mapping) or not isinstance(producer.get("source_commit"), str) or len(str(producer.get("source_commit"))) != 40 or not isinstance(producer.get("dependencies"), list) or not producer["dependencies"]:
+    if (
+        not _exact_keys(producer, {"entrypoint", "source_commit", "dependencies"})
+        or not _valid_relative_path(producer.get("entrypoint"))
+        or not isinstance(producer.get("source_commit"), str)
+        or len(str(producer.get("source_commit"))) != 40
+        or not isinstance(producer.get("dependencies"), list)
+        or not producer["dependencies"]
+    ):
         errors.append("producer")
     elif any(
-        not isinstance(item, Mapping)
-        or not isinstance(item.get("path"), str)
-        or item["path"].startswith("/")
-        or ".." in PurePosixPath(item["path"]).parts
-        or not str(item.get("sha256", "")).startswith("sha256:")
+        not _exact_keys(item, {"path", "sha256"})
+        or not _valid_relative_path(item.get("path"))
+        or not _valid_hash(item.get("sha256"))
         for item in producer["dependencies"]
     ):
         errors.append("producer_dependencies")
     strict_inputs = payload.get("strict_inputs")
-    if not isinstance(strict_inputs, Mapping):
+    if not isinstance(strict_inputs, Mapping) or set(strict_inputs) - _STRICT_INPUT_NAMES:
         errors.append("strict_inputs")
     else:
         for name, item in strict_inputs.items():
-            if not isinstance(name, str) or not isinstance(item, Mapping) or not isinstance(item.get("path"), str) or item["path"].startswith("/") or not str(item.get("sha256", "")).startswith("sha256:"):
+            if not isinstance(name, str) or not _exact_keys(item, {"path", "sha256"}) or not _valid_relative_path(item.get("path")) or not _valid_hash(item.get("sha256")):
                 errors.append("strict_inputs")
                 break
     if _contains_forbidden_key(payload):
@@ -327,6 +454,7 @@ class BundleRun:
     planned_dates: Sequence[str]
     capture_mode: str
     capture_trade_date: str | None
+    trusted_capture_trade_date: str | None = None
     run_identity: str = field(default_factory=lambda: uuid.uuid4().hex)
     staging_dir: Path = field(init=False)
     final_dir: Path = field(init=False)
@@ -335,7 +463,10 @@ class BundleRun:
 
     def __post_init__(self) -> None:
         eligible, _ = ensure_capture_mode(
-            capture_mode=self.capture_mode, ranking_dates=list(self.planned_dates), capture_trade_date=self.capture_trade_date
+            capture_mode=self.capture_mode,
+            ranking_dates=list(self.planned_dates),
+            capture_trade_date=self.capture_trade_date,
+            trusted_capture_trade_date=self.trusted_capture_trade_date,
         )
         del eligible
         if len(set(self.planned_dates)) != len(self.planned_dates):
@@ -378,12 +509,15 @@ class BundleRun:
             raise RankingProvenanceError("FAILED run 不可完成")
         manifest_entries = []
         for receipt_path, receipt in sorted(self._receipts, key=lambda item: item[0].name):
-            artifact_path = self.project_root / str(receipt["ranking_artifact"]["path"])
-            staged_artifact = self.staging_dir / "rankings" / Path(receipt["ranking_artifact"]["path"]).name
+            artifact_path = _safe_repo_path(self.project_root, receipt["ranking_artifact"]["path"])
+            staged_artifact = self.staging_dir / "rankings" / Path(str(receipt["ranking_artifact"]["path"])).name
             if artifact_path.exists():
                 raise RankingProvenanceError("最終 ranking artifact 已存在，不可覆寫")
             if not staged_artifact.is_file() or sha256_file(staged_artifact) != receipt["ranking_artifact"]["sha256"]:
                 raise RankingProvenanceError("staged ranking artifact hash 不一致")
+            semantic_errors = verify_ranking_semantics(staged_artifact, receipt["top_n_policy"])
+            if semantic_errors:
+                raise RankingProvenanceError("staged ranking semantic 不一致：" + ", ".join(semantic_errors))
             manifest_entries.append({
                 "ranking_date": receipt["ranking_date"], "ranking_artifact": receipt["ranking_artifact"],
                 "receipt": {
@@ -407,22 +541,34 @@ class BundleRun:
         self.final_dir.parent.mkdir(parents=True, exist_ok=True)
         if self.final_dir.exists():
             raise RankingProvenanceError("final run 目錄已存在")
-        # 先發布不可覆寫 ranking；沒有 COMPLETE manifest 的半成品不具 bundle authority。
-        for entry in manifest_entries:
-            staged = self.staging_dir / "rankings" / Path(entry["ranking_artifact"]["path"]).name
-            final = self.project_root / entry["ranking_artifact"]["path"]
-            final.parent.mkdir(parents=True, exist_ok=True)
-            os.link(staged, final)
-        shutil.copytree(self.staging_dir / "model_snapshots", self.final_dir / "model_snapshots", dirs_exist_ok=False)
-        shutil.copytree(self.staging_dir / "receipts", self.final_dir / "receipts", dirs_exist_ok=False)
-        manifest_path = self.final_dir / "COMPLETE.manifest.json"
-        _atomic_create(manifest_path, canonical_encode(manifest))
+        created_rankings: list[Path] = []
+        try:
+            # 先發布不可覆寫 ranking；若後續失敗，清掉本 run 的全部硬連結。
+            for entry in manifest_entries:
+                staged = self.staging_dir / "rankings" / Path(entry["ranking_artifact"]["path"]).name
+                final = _safe_repo_path(self.project_root, entry["ranking_artifact"]["path"])
+                final.parent.mkdir(parents=True, exist_ok=True)
+                os.link(staged, final)
+                created_rankings.append(final)
+            shutil.copytree(self.staging_dir / "model_snapshots", self.final_dir / "model_snapshots", dirs_exist_ok=False)
+            shutil.copytree(self.staging_dir / "receipts", self.final_dir / "receipts", dirs_exist_ok=False)
+            manifest_path = self.final_dir / "COMPLETE.manifest.json"
+            _atomic_create(manifest_path, canonical_encode(manifest))
+        except Exception as error:
+            for path in reversed(created_rankings):
+                path.unlink(missing_ok=True)
+            if self.final_dir.exists():
+                shutil.rmtree(self.final_dir)
+            self.fail("publish_failed")
+            raise RankingProvenanceError("bundle publish failed and rolled back") from error
         shutil.rmtree(self.staging_dir)
         return manifest_path
 
 
 def validate_complete_manifest(payload: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
+    if not _exact_keys(payload, _MANIFEST_FIELDS):
+        errors.append("manifest_fields")
     if payload.get("schema_version") != MANIFEST_SCHEMA_VERSION or payload.get("status") != "COMPLETE":
         errors.append("manifest_status")
     entries = payload.get("entries")
@@ -442,12 +588,18 @@ def validate_complete_manifest(payload: Mapping[str, Any]) -> list[str]:
             if not isinstance(date_text, str) or date_text in dates:
                 errors.append("duplicate_date")
             dates.add(str(date_text))
-            if not isinstance(artifact, Mapping) or not isinstance(artifact.get("path"), str) or artifact["path"] in artifacts:
+            if not _exact_keys(artifact, {"path", "sha256"}) or not _valid_relative_path(artifact.get("path")) or artifact["path"] in artifacts:
                 errors.append("artifact")
-            elif not str(artifact.get("sha256", "")).startswith("sha256:"):
+            elif not _valid_hash(artifact.get("sha256")):
                 errors.append("artifact_hash")
             artifacts.add(str(artifact.get("path")))
-            if not isinstance(receipt, Mapping) or not isinstance(receipt.get("path"), str) or receipt["path"] in receipts or not str(receipt.get("sha256", "")).startswith("sha256:"):
+            if (
+                not _exact_keys(receipt, {"path", "sha256", "receipt_identity"})
+                or not _valid_relative_path(receipt.get("path"))
+                or receipt["path"] in receipts
+                or not _valid_hash(receipt.get("sha256"))
+                or not _valid_hash(receipt.get("receipt_identity"))
+            ):
                 errors.append("receipt")
             receipts.add(str(receipt.get("path")))
     expected = content_hash({key: value for key, value in payload.items() if key != "manifest_identity"})
@@ -474,8 +626,8 @@ def verify_complete_bundle(project_root: Path, manifest_path: Path) -> list[str]
         if not isinstance(entry, Mapping):
             continue
         try:
-            artifact_path = project_root / str(entry["ranking_artifact"]["path"])
-            receipt_path = project_root / str(entry["receipt"]["path"])
+            artifact_path = _safe_repo_path(project_root, entry["ranking_artifact"]["path"])
+            receipt_path = _safe_repo_path(project_root, entry["receipt"]["path"])
             if sha256_file(artifact_path) != entry["ranking_artifact"]["sha256"]:
                 errors.append("artifact_hash_drift")
             if sha256_file(receipt_path) != entry["receipt"]["sha256"]:
@@ -493,9 +645,10 @@ def verify_complete_bundle(project_root: Path, manifest_path: Path) -> list[str]
                 or receipt.get("capture_mode") != manifest.get("capture_mode")
             ):
                 errors.append("receipt_manifest_identity_mismatch")
-            model_path = project_root / str(receipt.get("model", {}).get("path", ""))
+            model_path = _safe_repo_path(project_root, receipt.get("model", {}).get("path", ""))
             if not model_path.is_file() or sha256_file(model_path) != receipt.get("model", {}).get("sha256"):
                 errors.append("model_snapshot_hash_drift")
+            errors.extend(verify_ranking_semantics(artifact_path, receipt.get("top_n_policy", {})))
             if receipt.get("ranking_artifact") != entry.get("ranking_artifact") or receipt.get("receipt_identity") != entry["receipt"].get("receipt_identity"):
                 errors.append("manifest_receipt_mismatch")
         except (KeyError, OSError, UnicodeDecodeError, json.JSONDecodeError, RankingProvenanceError):

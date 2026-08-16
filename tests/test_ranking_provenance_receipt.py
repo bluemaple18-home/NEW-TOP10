@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pandas as pd
@@ -46,11 +47,18 @@ def test_forward_mode_requires_explicit_single_matching_capture_date() -> None:
         capture_mode=receipts.REPLAY_GENERATED, ranking_dates=["2026-08-16", "2026-08-17"], capture_trade_date=None
     ) == (False, False)
     assert receipts.ensure_capture_mode(
-        capture_mode=receipts.FORWARD_CAPTURE, ranking_dates=["2026-08-16"], capture_trade_date="2026-08-16"
+        capture_mode=receipts.FORWARD_CAPTURE, ranking_dates=["2026-08-16"], capture_trade_date="2026-08-16",
+        trusted_capture_trade_date="2026-08-16",
     ) == (True, "pending_registration")
     with pytest.raises(receipts.RankingProvenanceError, match="單一"):
         receipts.ensure_capture_mode(
-            capture_mode=receipts.FORWARD_CAPTURE, ranking_dates=["2026-08-16", "2026-08-17"], capture_trade_date="2026-08-16"
+            capture_mode=receipts.FORWARD_CAPTURE, ranking_dates=["2026-08-16", "2026-08-17"], capture_trade_date="2026-08-16",
+            trusted_capture_trade_date="2026-08-16",
+        )
+    with pytest.raises(receipts.RankingProvenanceError, match="trusted"):
+        receipts.ensure_capture_mode(
+            capture_mode=receipts.FORWARD_CAPTURE, ranking_dates=["2026-08-15"], capture_trade_date="2026-08-15",
+            trusted_capture_trade_date="2026-08-16",
         )
 
 
@@ -70,7 +78,7 @@ def test_complete_bundle_is_canonical_create_only_and_verifiable(tmp_path: Path)
         batch_plan=bundle.plan_id, ranking_path=staged, published_ranking_path=output / staged.name,
         producer_entrypoint="scripts/producer.py", producer_lineage=lineage, model=model, config=config,
         universe=universe, feature_calendar=features, top_n=1, capture_mode=receipts.REPLAY_GENERATED,
-        admission_eligible=False,
+        admission_eligible=False, score_column="score",
     )
     bundle.add_receipt("2026-08-16", receipt)
     before = {"features": features}
@@ -95,16 +103,87 @@ def test_receipt_rejects_false_admission_absolute_path_outcome_and_noncanonical_
             project_root=project, scenario="baseline", ranking_date="2026-08-16", run_identity="run", batch_plan="sha256:" + "1" * 64,
             ranking_path=ranking, producer_entrypoint="scripts/producer.py", producer_lineage=lineage, model=model,
             config=config, universe=universe, feature_calendar=features, top_n=1,
-            capture_mode=receipts.REPLAY_GENERATED, admission_eligible="pending_registration",
+            capture_mode=receipts.REPLAY_GENERATED, admission_eligible="pending_registration", score_column="score",
         )
     receipt = receipts.build_receipt(
         project_root=project, scenario="baseline", ranking_date="2026-08-16", run_identity="run", batch_plan="sha256:" + "1" * 64,
         ranking_path=ranking, producer_entrypoint="scripts/producer.py", producer_lineage=lineage, model=model,
         config=config, universe=universe, feature_calendar=features, top_n=1,
-        capture_mode=receipts.REPLAY_GENERATED, admission_eligible=False,
+        capture_mode=receipts.REPLAY_GENERATED, admission_eligible=False, score_column="score",
     )
     receipt["model"]["path"] = "/tmp/latest_lgbm.pkl"
     receipt["profit"] = 1
     assert "model" in receipts.validate_receipt(receipt)
     assert "outcome_key" in receipts.validate_receipt(receipt)
     assert "receipt_identity" in receipts.validate_receipt(receipt)
+
+
+def test_semantic_verifier_rejects_short_top_n_and_unstable_score_order(tmp_path: Path) -> None:
+    short = _write(tmp_path / "short.csv", "rank,stock_id,score\n1,1101,1\n")
+    policy = {"top_n": 10, "score_column": "score"}
+    assert "ranking_row_count" in receipts.verify_ranking_semantics(short, policy)
+    unordered = _write(tmp_path / "unordered.csv", "rank,stock_id,score\n1,2330,1\n2,1101,1\n")
+    assert "ranking_sort_policy" in receipts.verify_ranking_semantics(
+        unordered, {"top_n": 2, "score_column": "score"}
+    )
+
+
+def test_unknown_receipt_extra_is_rejected_even_when_rehashed(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    model, config, universe, features, lineage = _metadata(project)
+    ranking = _write(project / "artifacts/out/ranking_2026-08-16.csv", "rank,stock_id,score\n1,1101,1\n")
+    receipt = receipts.build_receipt(
+        project_root=project, scenario="baseline", ranking_date="2026-08-16", run_identity="run", batch_plan="sha256:" + "1" * 64,
+        ranking_path=ranking, producer_entrypoint="scripts/producer.py", producer_lineage=lineage, model=model,
+        config=config, universe=universe, feature_calendar=features, top_n=1,
+        capture_mode=receipts.REPLAY_GENERATED, admission_eligible=False, score_column="score",
+    )
+    receipt["strict_inputs"] = {"future_price": {"path": "x.csv", "sha256": "sha256:" + "2" * 64}}
+    receipt["receipt_identity"] = receipts.content_hash({key: value for key, value in receipt.items() if key != "receipt_identity"})
+    errors = receipts.validate_receipt(receipt)
+    assert "strict_inputs" in errors
+    assert "outcome_key" in errors
+
+
+def test_publish_failure_rolls_back_hardlinked_ranking(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = tmp_path / "project"
+    output = project / "artifacts/out"
+    model, config, universe, features, lineage = _metadata(project)
+    bundle = receipts.BundleRun(
+        project_root=project, output_dir=output, scenario="baseline", producer_entrypoint="scripts/producer.py",
+        planned_dates=["2026-08-16"], capture_mode=receipts.REPLAY_GENERATED, capture_trade_date=None,
+        run_identity="rollback",
+    )
+    _write(bundle.staging_dir / "model_snapshots/model-a.pkl", "model")
+    staged = _write(bundle.ranking_dir / "ranking_2026-08-16.csv", "rank,stock_id,score\n1,1101,1\n")
+    receipt = receipts.build_receipt(
+        project_root=project, scenario="baseline", ranking_date="2026-08-16", run_identity="rollback",
+        batch_plan=bundle.plan_id, ranking_path=staged, published_ranking_path=output / staged.name,
+        producer_entrypoint="scripts/producer.py", producer_lineage=lineage, model=model, config=config,
+        universe=universe, feature_calendar=features, top_n=1, capture_mode=receipts.REPLAY_GENERATED,
+        admission_eligible=False, score_column="score",
+    )
+    bundle.add_receipt("2026-08-16", receipt)
+    monkeypatch.setattr(receipts.shutil, "copytree", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("injected")))
+    with pytest.raises(receipts.RankingProvenanceError, match="rolled back"):
+        bundle.complete(before_inputs={"x": 1}, after_inputs={"x": 1})
+    assert not (output / "ranking_2026-08-16.csv").exists()
+    assert not bundle.final_dir.exists()
+    assert (bundle.staging_dir / "FAILED.json").is_file()
+
+
+def test_source_lineage_expands_tracked_trading_and_ignores_unrelated_dirty(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    producer = _write(project / "scripts/producer.py", "print('ok')\n")
+    policy = _write(project / "app/trading/ranking_policy.py", "VALUE = 1\n")
+    _write(project / "README.md", "clean\n")
+    for command in (("init",), ("config", "user.email", "test@example.com"), ("config", "user.name", "test"), ("add", "."), ("commit", "-m", "fixture")):
+        subprocess.run(["git", "-C", str(project), *command], check=True, capture_output=True)
+    lineage = receipts.producer_source_lineage(project, [producer, project / "app/trading"])
+    assert {row["path"] for row in lineage["dependencies"]} == {"app/trading/ranking_policy.py", "scripts/producer.py"}
+    policy.write_text("VALUE = 2\n", encoding="utf-8")
+    with pytest.raises(receipts.RankingProvenanceError, match="非 HEAD"):
+        receipts.producer_source_lineage(project, [producer, project / "app/trading"])
+    policy.write_text("VALUE = 1\n", encoding="utf-8")
+    (project / "README.md").write_text("unrelated dirty\n", encoding="utf-8")
+    assert receipts.producer_source_lineage(project, [producer, project / "app/trading"])["source_commit"] == lineage["source_commit"]

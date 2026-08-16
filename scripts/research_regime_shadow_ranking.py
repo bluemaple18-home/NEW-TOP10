@@ -12,7 +12,7 @@ import csv
 import json
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -129,6 +129,25 @@ def ranking_dates(path: Path, limit: int | None) -> list[str]:
         if len(name) == len("ranking_YYYY-MM-DD.csv"):
             dates.append(name.removeprefix("ranking_").removesuffix(".csv"))
     return dates[-limit:] if limit else dates
+
+
+def validate_receipt_universe(path: Path, planned_dates: list[str]) -> None:
+    """shadow receipt mode 在建立 StockRanker 前鎖定 universe，禁止 fallback。"""
+
+    if not path.is_file():
+        raise ValueError("receipt mode 要求 universe.parquet")
+    universe = pd.read_parquet(path)
+    if universe.empty or "stock_id" not in universe.columns:
+        raise ValueError("receipt mode universe 不可為空且必須含 stock_id")
+    stock_ids = universe["stock_id"].astype(str).str.strip()
+    if stock_ids.eq("").all():
+        raise ValueError("receipt mode universe 沒有有效 stock_id")
+    date_column = "trade_date" if "trade_date" in universe.columns else "date" if "date" in universe.columns else None
+    if date_column:
+        available_dates = pd.to_datetime(universe[date_column], errors="coerce").dt.strftime("%Y-%m-%d")
+        for date_text in planned_dates:
+            if not ((available_dates == date_text) & stock_ids.ne("")).any():
+                raise ValueError(f"receipt mode universe 缺 {date_text} 股票")
 
 
 def load_regime_map(path: Path) -> dict[str, str]:
@@ -340,10 +359,12 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
     if not dates:
         raise FileNotFoundError(f"找不到 ranking_*.csv 日期：{source_dir}")
     capture_mode = "FORWARD_CAPTURE" if args.forward_capture else "REPLAY_GENERATED"
+    trusted_capture_trade_date = date.today().isoformat()
     admission_eligible, _ = ensure_capture_mode(
         capture_mode=capture_mode,
         ranking_dates=dates,
         capture_trade_date=args.capture_trade_date,
+        trusted_capture_trade_date=trusted_capture_trade_date,
     )
     admission_value: bool | str = "pending_registration" if admission_eligible else False
     producer_dependencies = [
@@ -351,6 +372,7 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
         PROJECT_ROOT / "scripts/research_feature_group_ablation_by_regime.py",
         PROJECT_ROOT / "app/agent_b_ranking.py",
         PROJECT_ROOT / "app/research/ranking_provenance_receipt.py",
+        PROJECT_ROOT / "app/trading",
     ]
     producer_lineage = producer_source_lineage(PROJECT_ROOT, producer_dependencies)
     strict_input_paths: dict[str, Path] = {
@@ -365,6 +387,7 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
         # dates-from-dir 的 ranking 僅是排程日期來源，絕不作為 scoring lineage。
         strict_input_paths[f"calendar_schedule_{date_text}"] = source_dir / f"ranking_{date_text}.csv"
     inputs_before = snapshot_inputs(PROJECT_ROOT, strict_input_paths)
+    validate_receipt_universe(data_dir / "universe.parquet", dates)
     bundle = BundleRun(
         project_root=PROJECT_ROOT,
         output_dir=output_dir,
@@ -373,6 +396,7 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
         planned_dates=dates,
         capture_mode=capture_mode,
         capture_trade_date=args.capture_trade_date,
+        trusted_capture_trade_date=trusted_capture_trade_date,
         run_identity=args.run_identity or uuid.uuid4().hex,
     )
     try:
@@ -446,6 +470,7 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
                 top_n=args.top_n,
                 capture_mode=capture_mode,
                 admission_eligible=admission_value,
+                score_column="shadow_score",
                 extra_inputs={
                     "market_regime_history": inputs_before["market_regime_history"],
                     "industry_map": inputs_before["industry_map"],
