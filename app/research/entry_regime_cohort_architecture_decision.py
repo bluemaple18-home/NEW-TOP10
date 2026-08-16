@@ -23,17 +23,44 @@ EVIDENCE_RELATIVE = Path(
 )
 COMMITTED_SOURCE_RELATIVES = (
     phase_closure.EVIDENCE_RELATIVE,
+    ARCHITECTURE_RELATIVE,
     Path("scripts/run_backtest_strategy_matrix.py"),
     Path("scripts/run_backtest_replay.py"),
     Path("scripts/run_autonomous_research.py"),
     Path("app/modeling/sealed_oos.py"),
     Path("config/regime_research_contract.json"),
 )
-READINESS_FIELDS = {
-    "replay_ready",
-    "promotion_ready",
-    "production_ready",
-    "runtime_change_allowed",
+EXPECTED_INVARIANTS = {
+    "horizon_trade_bars": 20,
+    "entry_delay_trade_days": 1,
+    "entry_identity_as_of_ranking_date": True,
+    "future_path_is_descriptive_only": True,
+    "global_chronological_split": True,
+    "outcome_interval_purge_at_both_boundaries": True,
+    "minimum_embargo_trade_days": 20,
+    "old_episode_split_reuse_allowed": False,
+    "sealed_outcome_access_allowed": False,
+}
+EXPECTED_STATISTICAL_CONTRACT = {
+    "observation_grain": "ranking_date_x_scenario_x_top_n_portfolio",
+    "dependence_unit": "overlap_component",
+    "family_grain": "scenario_x_entry_cohort_x_primary_endpoint",
+    "multiplicity": "BONFERRONI",
+    "minimum_independent_components": "max(20,ceil(log2(M/0.05)))",
+    "claim_boundary": "associational_h20_outcome_conditional_on_entry_cohort",
+}
+EXPECTED_SUCCESSOR = {
+    "card_id": SUCCESSOR_CARD,
+    "authorized_action": "OUTCOME_FREE_CAPACITY_FEASIBILITY_AUDIT_ONLY",
+    "only_go_status": "FEASIBLE_FOR_PREREGISTRATION",
+    "no_go_status": "NO_GO_INSUFFICIENT_ENTRY_COHORT_CAPACITY",
+}
+EXPECTED_SAFETY = {
+    "research_only": True,
+    "replay_ready": False,
+    "promotion_ready": False,
+    "production_ready": False,
+    "runtime_change_allowed": False,
 }
 
 
@@ -85,15 +112,6 @@ def _committed_source(root: Path, relative: Path) -> tuple[bytes, dict[str, str]
     }
 
 
-def _architecture_source(root: Path) -> tuple[bytes, dict[str, str]]:
-    path = _safe_path(root, ARCHITECTURE_RELATIVE)
-    try:
-        raw = path.read_bytes()
-    except OSError as error:
-        raise ArchitectureDecisionError("ARCHITECTURE_UNREADABLE") from error
-    return raw, {"path": ARCHITECTURE_RELATIVE.as_posix(), "sha256": _sha256(raw)}
-
-
 def _closure_from_bytes(raw: bytes) -> dict[str, Any]:
     try:
         payload = json.loads(raw)
@@ -137,7 +155,7 @@ def build_decision(*, project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
         source_records[relative.as_posix()] = record
 
     closure = _closure_from_bytes(committed_bytes[phase_closure.EVIDENCE_RELATIVE])
-    architecture_raw, architecture_record = _architecture_source(root)
+    architecture_raw = committed_bytes[ARCHITECTURE_RELATIVE]
     missing_markers = _required_architecture_markers(architecture_raw)
     if missing_markers:
         raise ArchitectureDecisionError(
@@ -156,40 +174,11 @@ def build_decision(*, project_root: Path = PROJECT_ROOT) -> dict[str, Any]:
             {"candidate": "DILUTED_OR_POOLED_IDENTITY", "decision": "REJECT_SEMANTIC_DILUTION"},
             {"candidate": "ENTRY_REGIME_COHORT", "decision": "SELECT_FOR_FEASIBILITY"},
         ],
-        "invariants": {
-            "horizon_trade_bars": 20,
-            "entry_delay_trade_days": 1,
-            "entry_identity_as_of_ranking_date": True,
-            "future_path_is_descriptive_only": True,
-            "global_chronological_split": True,
-            "outcome_interval_purge_at_both_boundaries": True,
-            "minimum_embargo_trade_days": 20,
-            "old_episode_split_reuse_allowed": False,
-            "sealed_outcome_access_allowed": False,
-        },
-        "statistical_contract": {
-            "observation_grain": "ranking_date_x_scenario_x_top_n_portfolio",
-            "dependence_unit": "overlap_component",
-            "family_grain": "scenario_x_entry_cohort_x_primary_endpoint",
-            "multiplicity": "BONFERRONI",
-            "minimum_independent_components": "max(20,ceil(log2(M/0.05)))",
-            "claim_boundary": "associational_h20_outcome_conditional_on_entry_cohort",
-        },
-        "successor": {
-            "card_id": SUCCESSOR_CARD,
-            "authorized_action": "OUTCOME_FREE_CAPACITY_FEASIBILITY_AUDIT_ONLY",
-            "only_go_status": "FEASIBLE_FOR_PREREGISTRATION",
-            "no_go_status": "NO_GO_INSUFFICIENT_ENTRY_COHORT_CAPACITY",
-        },
-        "safety": {
-            "research_only": True,
-            "replay_ready": False,
-            "promotion_ready": False,
-            "production_ready": False,
-            "runtime_change_allowed": False,
-        },
+        "invariants": EXPECTED_INVARIANTS,
+        "statistical_contract": EXPECTED_STATISTICAL_CONTRACT,
+        "successor": EXPECTED_SUCCESSOR,
+        "safety": EXPECTED_SAFETY,
         "sources": {
-            "architecture": architecture_record,
             "committed": [source_records[key] for key in sorted(source_records)],
         },
     }
@@ -217,32 +206,14 @@ def validate_decision(payload: Mapping[str, Any]) -> list[str]:
         errors.append("STATUS_INVALID")
     if payload.get("decision_id") != content_hash(payload, omit={"decision_id"}):
         errors.append("DECISION_ID_MISMATCH")
-    successor = payload.get("successor")
-    if not isinstance(successor, Mapping) or successor.get("card_id") != SUCCESSOR_CARD:
+    if payload.get("successor") != EXPECTED_SUCCESSOR:
         errors.append("SUCCESSOR_INVALID")
-    safety = payload.get("safety")
-    if not isinstance(safety, Mapping):
+    if payload.get("safety") != EXPECTED_SAFETY:
         errors.append("SAFETY_INVALID")
-        safety = {}
-    if safety.get("research_only") is not True:
-        errors.append("RESEARCH_ONLY_REQUIRED")
-    for field in READINESS_FIELDS:
-        if safety.get(field) is not False:
-            errors.append(f"FALSE_READINESS:{field}")
-    invariants = payload.get("invariants")
-    if not isinstance(invariants, Mapping):
+    if payload.get("invariants") != EXPECTED_INVARIANTS:
         errors.append("INVARIANTS_INVALID")
-        invariants = {}
-    required_true = {
-        "entry_identity_as_of_ranking_date",
-        "future_path_is_descriptive_only",
-        "global_chronological_split",
-        "outcome_interval_purge_at_both_boundaries",
-    }
-    if any(invariants.get(field) is not True for field in required_true):
-        errors.append("REQUIRED_INVARIANT_FALSE")
-    if invariants.get("minimum_embargo_trade_days") != 20:
-        errors.append("EMBARGO_INVALID")
+    if payload.get("statistical_contract") != EXPECTED_STATISTICAL_CONTRACT:
+        errors.append("STATISTICAL_CONTRACT_INVALID")
     if any(value.startswith("/") for value in _strings(payload)):
         errors.append("ABSOLUTE_PATH_FORBIDDEN")
     if any(value in {"generated_at", "timestamp", "mtime"} for value in _strings(payload)):

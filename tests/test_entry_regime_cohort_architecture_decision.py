@@ -19,19 +19,8 @@ def _rehash(payload: dict) -> dict:
 def test_actual_sources_select_only_outcome_free_feasibility() -> None:
     payload = decision.build_decision()
     assert payload["status"] == decision.SELECTED_STATUS
-    assert payload["successor"] == {
-        "card_id": decision.SUCCESSOR_CARD,
-        "authorized_action": "OUTCOME_FREE_CAPACITY_FEASIBILITY_AUDIT_ONLY",
-        "only_go_status": "FEASIBLE_FOR_PREREGISTRATION",
-        "no_go_status": "NO_GO_INSUFFICIENT_ENTRY_COHORT_CAPACITY",
-    }
-    assert payload["safety"] == {
-        "research_only": True,
-        "replay_ready": False,
-        "promotion_ready": False,
-        "production_ready": False,
-        "runtime_change_allowed": False,
-    }
+    assert payload["successor"] == decision.EXPECTED_SUCCESSOR
+    assert payload["safety"] == decision.EXPECTED_SAFETY
     assert decision.validate_decision(payload) == []
 
 
@@ -70,6 +59,18 @@ def test_committed_source_rejects_worktree_drift(tmp_path: Path) -> None:
         decision._committed_source(tmp_path, Path("source.py"))
 
 
+def test_build_rejects_architecture_worktree_drift(tmp_path: Path) -> None:
+    source_root = decision.PROJECT_ROOT
+    subprocess.run(["git", "clone", "-q", "--no-hardlinks", str(source_root), str(tmp_path)], check=True)
+    architecture = tmp_path / decision.ARCHITECTURE_RELATIVE
+    architecture.write_text(
+        architecture.read_text(encoding="utf-8") + "\nFuture path可改 selection。\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(decision.ArchitectureDecisionError, match="SOURCE_WORKTREE_DRIFT"):
+        decision.build_decision(project_root=tmp_path)
+
+
 @pytest.mark.parametrize(
     "field",
     ["replay_ready", "promotion_ready", "production_ready", "runtime_change_allowed"],
@@ -78,7 +79,26 @@ def test_validation_rejects_false_readiness(field: str) -> None:
     payload = copy.deepcopy(decision.build_decision())
     payload["safety"][field] = True
     _rehash(payload)
-    assert f"FALSE_READINESS:{field}" in decision.validate_decision(payload)
+    assert "SAFETY_INVALID" in decision.validate_decision(payload)
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "value", "expected_error"),
+    [
+        ("invariants", "future_path_is_descriptive_only", False, "INVARIANTS_INVALID"),
+        ("invariants", "old_episode_split_reuse_allowed", True, "INVARIANTS_INVALID"),
+        ("invariants", "minimum_embargo_trade_days", 10, "INVARIANTS_INVALID"),
+        ("successor", "authorized_action", "REPLAY", "SUCCESSOR_INVALID"),
+        ("statistical_contract", "dependence_unit", "stock_trade", "STATISTICAL_CONTRACT_INVALID"),
+    ],
+)
+def test_validation_rejects_contract_dilution(
+    section: str, field: str, value: object, expected_error: str
+) -> None:
+    payload = copy.deepcopy(decision.build_decision())
+    payload[section][field] = value
+    _rehash(payload)
+    assert expected_error in decision.validate_decision(payload)
 
 
 def test_decision_is_deterministic_and_portable() -> None:
