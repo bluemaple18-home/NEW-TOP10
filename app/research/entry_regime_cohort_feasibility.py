@@ -135,15 +135,15 @@ def _manifest(availability_payload: Mapping[str, Any]) -> tuple[dict[str, dict[s
             "ranking_dates": list(dates),
             "date_fingerprints": by_date,
         }
-    shared = sorted(set.intersection(*(set(row["ranking_dates"]) for row in manifests.values())))
-    if not shared:
-        raise EntryCohortFeasibilityError("RANKING_MANIFEST_NO_SHARED_DATES")
-    return manifests, shared
+    scenario_dates = [row["ranking_dates"] for row in manifests.values()]
+    if any(dates != scenario_dates[0] for dates in scenario_dates[1:]):
+        raise EntryCohortFeasibilityError("RANKING_MANIFEST_SCENARIO_DATE_CONFLICT")
+    return manifests, list(scenario_dates[0])
 
 
 def _entry_rows(
     *, ranking_dates: Sequence[str], regime_rows: Sequence[Mapping[str, Any]], trade_dates: Sequence[date], scenarios: Mapping[str, Mapping[str, Any]]
-) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, str]]]:
     row_by_date: dict[str, Mapping[str, Any]] = {}
     duplicate_dates: set[str] = set()
     for row in regime_rows:
@@ -152,6 +152,7 @@ def _entry_rows(
             duplicate_dates.add(trade_date)
         else:
             row_by_date[trade_date] = row
+    selections: list[dict[str, Any]] = []
     observations: list[dict[str, Any]] = []
     exclusions: list[dict[str, str]] = []
     for ranking_date in sorted(ranking_dates):
@@ -176,6 +177,22 @@ def _entry_rows(
         if identity.startswith("UNKNOWN|"):
             exclusions.append({"ranking_date": ranking_date, "reason_code": "D_UNKNOWN"})
             continue
+        selection_rows: list[dict[str, Any]] = []
+        for scenario, manifest in sorted(scenarios.items()):
+            fingerprint = manifest["date_fingerprints"].get(ranking_date)
+            if not isinstance(fingerprint, str):
+                exclusions.append({"ranking_date": ranking_date, "reason_code": "SCENARIO_FINGERPRINT_MISSING"})
+                continue
+            selection = {
+                "ranking_date": ranking_date,
+                "scenario": scenario,
+                "entry_cohort_id": identity,
+                "portfolio_fingerprint": content_hash(
+                    {"scenario": scenario, "ranking_date": ranking_date, "ranking_file": fingerprint}
+                ),
+            }
+            selections.append(selection)
+            selection_rows.append(selection)
         entry = replay.next_market_trade_date(list(trade_dates), ranking_date, delay_trade_days=1)
         if entry is None:
             exclusions.append({"ranking_date": ranking_date, "reason_code": "ENTRY_D1_MISSING"})
@@ -184,24 +201,15 @@ def _entry_rows(
         if holding is None or len(holding) != HORIZON:
             exclusions.append({"ranking_date": ranking_date, "reason_code": "H20_CALENDAR_INCOMPLETE"})
             continue
-        for scenario, manifest in sorted(scenarios.items()):
-            fingerprint = manifest["date_fingerprints"].get(ranking_date)
-            if not isinstance(fingerprint, str):
-                exclusions.append({"ranking_date": ranking_date, "reason_code": "SCENARIO_FINGERPRINT_MISSING"})
-                continue
+        for selection in selection_rows:
             observations.append(
                 {
-                    "ranking_date": ranking_date,
-                    "scenario": scenario,
-                    "entry_cohort_id": identity,
+                    **selection,
                     "entry_date": entry.isoformat(),
                     "exit_date": holding[-1].isoformat(),
-                    "portfolio_fingerprint": content_hash(
-                        {"scenario": scenario, "ranking_date": ranking_date, "ranking_file": fingerprint}
-                    ),
                 }
             )
-    return observations, exclusions
+    return selections, observations, exclusions
 
 
 def overlap_components(observations: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -244,11 +252,15 @@ def _component(items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
-def build_global_split(observations: Sequence[Mapping[str, Any]], trade_dates: Sequence[date]) -> dict[str, Any]:
+def build_global_split(
+    selections: Sequence[Mapping[str, Any]],
+    observations: Sequence[Mapping[str, Any]],
+    trade_dates: Sequence[date],
+) -> dict[str, Any]:
     """先全域切點，再以 h20 closed interval 與 embargo purge。"""
 
     by_ranking: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
-    for item in observations:
+    for item in selections:
         by_ranking[str(item["ranking_date"])].append(item)
     dates = sorted(by_ranking)
     third = len(dates) // 3
@@ -257,6 +269,7 @@ def build_global_split(observations: Sequence[Mapping[str, Any]], trade_dates: S
             "schema_version": "entry-cohort-calendar-split.v1",
             "status": "INSUFFICIENT_GLOBAL_DATES",
             "roles": {role: [] for role in ROLES},
+            "selection_roles": {role: [] for role in ROLES},
             "boundaries": [],
             "purged_observation_count": 0,
         }
@@ -266,6 +279,15 @@ def build_global_split(observations: Sequence[Mapping[str, Any]], trade_dates: S
     if validation_cut not in index or sealed_cut not in index:
         raise EntryCohortFeasibilityError("SPLIT_CUTOFF_NOT_IN_CALENDAR")
     role_rows = {role: [] for role in ROLES}
+    selection_roles = {role: [] for role in ROLES}
+    for item in selections:
+        ranking_date = str(item["ranking_date"])
+        role = (
+            "development"
+            if ranking_date < validation_cut
+            else "validation" if ranking_date < sealed_cut else "sealed"
+        )
+        selection_roles[role].append(dict(item))
     purged = 0
     for item in observations:
         ranking_date = str(item["ranking_date"])
@@ -291,6 +313,7 @@ def build_global_split(observations: Sequence[Mapping[str, Any]], trade_dates: S
         "schema_version": "entry-cohort-calendar-split.v1",
         "status": "ALLOCATED",
         "roles": {role: sorted(rows, key=lambda item: (item["ranking_date"], item["scenario"])) for role, rows in role_rows.items()},
+        "selection_roles": {role: sorted(rows, key=lambda item: (item["ranking_date"], item["scenario"])) for role, rows in selection_roles.items()},
         "boundaries": [
             {"from": "development", "to": "validation", "cutoff": validation_cut, "embargo_trade_days": EMBARGO},
             {"from": "validation", "to": "sealed", "cutoff": sealed_cut, "embargo_trade_days": EMBARGO},
@@ -306,10 +329,14 @@ def _capacity(split: Mapping[str, Any], all_cohorts: Sequence[str], scenarios: S
     for cohort in sorted(all_cohorts):
         capacities[cohort] = {}
         for role in ROLES:
+            selected_rows = [
+                item for item in split["selection_roles"][role]
+                if item["entry_cohort_id"] == cohort
+            ]
             rows = [item for item in split["roles"][role] if item["entry_cohort_id"] == cohort]
             components = overlap_components(rows)
             capacities[cohort][role] = {
-                "selection_count": len(rows),
+                "selection_count": len(selected_rows),
                 "calendar_complete_count": len(rows),
                 "independent_component_count": len(components),
             }
@@ -326,6 +353,16 @@ def _strings(value: Any):
             yield from _strings(child)
     elif isinstance(value, str):
         yield value
+
+
+def _mapping_keys(value: Any):
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            yield str(key).lower()
+            yield from _mapping_keys(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _mapping_keys(child)
 
 
 def build_audit(*, project_root: Path = PROJECT_ROOT, authority_root: Path | None = None) -> dict[str, Any]:
@@ -359,15 +396,22 @@ def build_audit(*, project_root: Path = PROJECT_ROOT, authority_root: Path | Non
         or not trade_dates
     ):
         raise EntryCohortFeasibilityError("CALENDAR_HASH_OR_COVERAGE_CONFLICT")
-    observations, exclusions = _entry_rows(
+    selections, observations, exclusions = _entry_rows(
         ranking_dates=ranking_dates,
         regime_rows=rows,
         trade_dates=trade_dates,
         scenarios=manifests,
     )
-    cohorts = sorted({str(item["entry_cohort_id"]) for item in observations})
-    split = build_global_split(observations, trade_dates)
-    capacities, family_size, minimum = _capacity(split, cohorts, sorted(manifests))
+    cohorts = sorted({str(item["entry_cohort_id"]) for item in selections})
+    working_split = build_global_split(selections, observations, trade_dates)
+    capacities, family_size, minimum = _capacity(working_split, cohorts, sorted(manifests))
+    split = {
+        **{key: value for key, value in working_split.items() if key != "selection_roles"},
+        "selection_role_counts": {
+            role: len(working_split["selection_roles"][role]) for role in ROLES
+        },
+        "authoritative": False,
+    }
     provenance_reasons = [
         "RANKING_MODEL_CONFIG_UNBOUND_IN_COMMITTED_MANIFEST",
         "RANKING_UNIVERSE_UNBOUND_IN_COMMITTED_MANIFEST",
@@ -415,7 +459,8 @@ def build_audit(*, project_root: Path = PROJECT_ROOT, authority_root: Path | Non
             "observation_grain": "ranking_date_x_scenario_x_top_n_portfolio",
             "ranking_date_count": len(ranking_dates),
             "scenario_count": len(manifests),
-            "selected_observation_count": len(observations),
+            "selected_count": len(selections),
+            "calendar_complete_observation_count": len(observations),
             "cohorts": cohorts,
             "exclusions": exclusions,
             "overlap_component_count": len(overlap_components(observations)),
@@ -458,17 +503,68 @@ def validate_audit(payload: Mapping[str, Any]) -> list[str]:
         errors.append("SPLIT_SCHEMA_INVALID")
     elif split.get("status") == "ALLOCATED":
         boundaries = split.get("boundaries")
-        if not isinstance(boundaries, list) or len(boundaries) != 2 or any(item.get("embargo_trade_days") != EMBARGO for item in boundaries if isinstance(item, Mapping)):
+        if (
+            not isinstance(boundaries, list)
+            or len(boundaries) != 2
+            or any(not isinstance(item, Mapping) or item.get("embargo_trade_days") != EMBARGO for item in boundaries)
+            or not isinstance(split.get("roles"), Mapping)
+            or set(split["roles"]) != set(ROLES)
+            or not isinstance(split.get("selection_role_counts"), Mapping)
+            or set(split["selection_role_counts"]) != set(ROLES)
+        ):
             errors.append("SPLIT_EMBARGO_INVALID")
     sources = payload.get("sources")
     provenance = ((sources or {}).get("ranking_manifest") or {}) if isinstance(sources, Mapping) else {}
-    if payload.get("status") == "FEASIBLE_FOR_PREREGISTRATION" and provenance.get("provenance_complete") is not True:
-        errors.append("FALSE_GO_PROVENANCE_INCOMPLETE")
+    if payload.get("status") == "FEASIBLE_FOR_PREREGISTRATION":
+        if provenance.get("provenance_complete") is not True:
+            errors.append("FALSE_GO_PROVENANCE_INCOMPLETE")
+        if not isinstance(split, Mapping) or split.get("status") != "ALLOCATED" or split.get("authoritative") is not True:
+            errors.append("FALSE_GO_SPLIT_NOT_AUTHORITATIVE")
+        family = payload.get("family")
+        if not isinstance(family, Mapping):
+            errors.append("FALSE_GO_FAMILY_INVALID")
+        else:
+            cohorts = family.get("predeclared_cohorts")
+            scenarios = family.get("predeclared_scenarios")
+            expected_size = len(cohorts) * len(scenarios) if isinstance(cohorts, list) and isinstance(scenarios, list) else 0
+            expected_minimum = max(20, math.ceil(math.log2(max(1, expected_size) / 0.05)))
+            if (
+                not isinstance(cohorts, list)
+                or not cohorts
+                or len(cohorts) != len(set(cohorts))
+                or not isinstance(scenarios, list)
+                or not scenarios
+                or len(scenarios) != len(set(scenarios))
+                or family.get("family_size") != expected_size
+                or family.get("minimum_independent_components") != expected_minimum
+            ):
+                errors.append("FALSE_GO_FAMILY_INVALID")
+            capacity = payload.get("capacity")
+            if not isinstance(capacity, Mapping) or not any(
+                isinstance(capacity.get(cohort), Mapping)
+                and all(
+                    isinstance(capacity[cohort].get(role), Mapping)
+                    and capacity[cohort][role].get("independent_component_count") >= expected_minimum
+                    for role in ROLES
+                )
+                for cohort in cohorts
+            ):
+                errors.append("FALSE_GO_CAPACITY_INVALID")
+        if not isinstance(sources, Mapping) or any(
+            not isinstance(sources.get(key), Mapping)
+            or sources[key].get("commit_status") != "MATCHED"
+            for key in ("architecture_decision", "availability_manifest", "reconciliation")
+        ):
+            errors.append("FALSE_GO_SOURCES_INVALID")
     if payload.get("status") == "BLOCKED_EVIDENCE_OR_CONTRACT_CONFLICT" and not payload.get("reason_codes"):
         errors.append("BLOCKED_REASON_MISSING")
     if any(value.startswith("/") for value in _strings(payload)):
         errors.append("ABSOLUTE_PATH_FORBIDDEN")
-    if any(token in value.lower() for value in _strings(payload) for token in FORBIDDEN_METRIC_TOKENS):
+    forbidden_keys = {"return", "pnl", "sharpe", "win_rate", "alpha", "promotion_score", "outcome_metric"}
+    if (
+        any(token in value.lower() for value in _strings(payload) for token in FORBIDDEN_METRIC_TOKENS)
+        or any(key in forbidden_keys for key in _mapping_keys(payload))
+    ):
         errors.append("OUTCOME_METRIC_FORBIDDEN")
     return sorted(set(errors))
 
