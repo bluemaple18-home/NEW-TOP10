@@ -108,6 +108,7 @@ def test_global_split_purges_both_boundaries_with_twenty_trade_day_embargo() -> 
 
     assert split["status"] == "ALLOCATED"
     assert [item["embargo_trade_days"] for item in split["boundaries"]] == [20, 20]
+    assert split["boundaries"][0]["cutoff_trade_index"] < split["boundaries"][1]["cutoff_trade_index"]
     for item in split["roles"]["development"]:
         assert item["exit_date"] < split["boundaries"][0]["cutoff"]
     for item in split["roles"]["validation"]:
@@ -193,6 +194,70 @@ def test_validator_rejects_synthetic_go_without_capacity_or_authoritative_split(
     errors = feasibility.validate_audit(payload)
 
     assert "FALSE_GO_SPLIT_NOT_AUTHORITATIVE" in errors
+    assert "FALSE_GO_CAPACITY_INVALID" in errors
+
+
+def test_validator_rejects_authoritative_but_empty_or_forged_go_split() -> None:
+    payload = {
+        "schema_version": feasibility.SCHEMA_VERSION,
+        "audit_id": "",
+        "status": "FEASIBLE_FOR_PREREGISTRATION",
+        "reason_codes": [],
+        "contract": {
+            "research_only": True, "horizon_trade_bars": 20, "entry_delay_trade_days": 1,
+            "future_path_controls_selection": False, "old_episode_split_reuse_allowed": False,
+            "sealed_outcome_access_allowed": False,
+        },
+        "sources": {
+            "architecture_decision": {"commit_status": "MATCHED"},
+            "availability_manifest": {"commit_status": "MATCHED"},
+            "reconciliation": {"commit_status": "MATCHED"},
+            "ranking_manifest": {"provenance_complete": True},
+        },
+        "split": {
+            "schema_version": "entry-cohort-calendar-split.v1", "status": "ALLOCATED", "authoritative": True,
+            "calendar_trade_date_count": 100, "purged_observation_count": 0,
+            "roles": {role: [] for role in feasibility.ROLES},
+            "selection_role_counts": {role: 0 for role in feasibility.ROLES},
+            "boundaries": [
+                {"from": "development", "to": "validation", "cutoff": "2026-03-01", "cutoff_trade_index": 60, "embargo_trade_days": 20},
+                {"from": "validation", "to": "sealed", "cutoff": "2026-02-01", "cutoff_trade_index": 40, "embargo_trade_days": 20},
+            ],
+        },
+        "family": {"predeclared_scenarios": ["candidate"], "predeclared_cohorts": ["A"], "family_size": 1, "minimum_independent_components": 20},
+        "capacity": {"A": {role: {"independent_component_count": 20} for role in feasibility.ROLES}},
+    }
+    payload["audit_id"] = content_hash(payload, omit={"audit_id"})
+
+    errors = feasibility.validate_audit(payload)
+
+    assert "SPLIT_BOUNDARY_ORDER_INVALID" in errors
+    assert "SPLIT_GO_ROLE_EMPTY" in errors
+    assert "FALSE_GO_SPLIT_INVALID" in errors
+    assert "FALSE_GO_CAPACITY_INVALID" in errors
+
+
+def test_validator_handles_malformed_go_family_without_type_error() -> None:
+    payload = {
+        "schema_version": feasibility.SCHEMA_VERSION,
+        "audit_id": "",
+        "status": "FEASIBLE_FOR_PREREGISTRATION",
+        "reason_codes": [],
+        "contract": {
+            "research_only": True, "horizon_trade_bars": 20, "entry_delay_trade_days": 1,
+            "future_path_controls_selection": False, "old_episode_split_reuse_allowed": False,
+            "sealed_outcome_access_allowed": False,
+        },
+        "sources": {"ranking_manifest": {"provenance_complete": True}},
+        "split": {"schema_version": "entry-cohort-calendar-split.v1", "status": "ALLOCATED", "authoritative": True, "roles": [], "selection_role_counts": [], "boundaries": [], "purged_observation_count": "bad"},
+        "family": {"predeclared_scenarios": [{"bad": "value"}], "predeclared_cohorts": [{"bad": "value"}], "family_size": "bad", "minimum_independent_components": "bad"},
+        "capacity": [],
+    }
+    payload["audit_id"] = content_hash(payload, omit={"audit_id"})
+
+    errors = feasibility.validate_audit(payload)
+
+    assert "FALSE_GO_FAMILY_INVALID" in errors
     assert "FALSE_GO_CAPACITY_INVALID" in errors
 
 

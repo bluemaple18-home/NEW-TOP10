@@ -155,7 +155,11 @@ def _entry_rows(
     selections: list[dict[str, Any]] = []
     observations: list[dict[str, Any]] = []
     exclusions: list[dict[str, str]] = []
+    calendar_dates = {item.isoformat() for item in trade_dates}
     for ranking_date in sorted(ranking_dates):
+        if ranking_date not in calendar_dates:
+            exclusions.append({"ranking_date": ranking_date, "reason_code": "D_NOT_MARKET_TRADE_DATE"})
+            continue
         row = row_by_date.get(ranking_date)
         if ranking_date in duplicate_dates:
             exclusions.append({"ranking_date": ranking_date, "reason_code": "D_REGIME_DUPLICATE"})
@@ -297,16 +301,31 @@ def build_global_split(
             raise EntryCohortFeasibilityError("OBSERVATION_CALENDAR_CONFLICT")
         if ranking_date < validation_cut:
             if exit_index < index[validation_cut] - EMBARGO:
-                role_rows["development"].append(dict(item))
+                role_rows["development"].append({
+                    **item,
+                    "ranking_trade_index": index[ranking_date],
+                    "entry_trade_index": entry_index,
+                    "exit_trade_index": exit_index,
+                })
             else:
                 purged += 1
         elif ranking_date < sealed_cut:
             if entry_index >= index[validation_cut] + EMBARGO and exit_index < index[sealed_cut] - EMBARGO:
-                role_rows["validation"].append(dict(item))
+                role_rows["validation"].append({
+                    **item,
+                    "ranking_trade_index": index[ranking_date],
+                    "entry_trade_index": entry_index,
+                    "exit_trade_index": exit_index,
+                })
             else:
                 purged += 1
         elif entry_index >= index[sealed_cut] + EMBARGO:
-            role_rows["sealed"].append(dict(item))
+            role_rows["sealed"].append({
+                **item,
+                "ranking_trade_index": index[ranking_date],
+                "entry_trade_index": entry_index,
+                "exit_trade_index": exit_index,
+            })
         else:
             purged += 1
     return {
@@ -315,9 +334,10 @@ def build_global_split(
         "roles": {role: sorted(rows, key=lambda item: (item["ranking_date"], item["scenario"])) for role, rows in role_rows.items()},
         "selection_roles": {role: sorted(rows, key=lambda item: (item["ranking_date"], item["scenario"])) for role, rows in selection_roles.items()},
         "boundaries": [
-            {"from": "development", "to": "validation", "cutoff": validation_cut, "embargo_trade_days": EMBARGO},
-            {"from": "validation", "to": "sealed", "cutoff": sealed_cut, "embargo_trade_days": EMBARGO},
+            {"from": "development", "to": "validation", "cutoff": validation_cut, "cutoff_trade_index": index[validation_cut], "embargo_trade_days": EMBARGO},
+            {"from": "validation", "to": "sealed", "cutoff": sealed_cut, "cutoff_trade_index": index[sealed_cut], "embargo_trade_days": EMBARGO},
         ],
+        "calendar_trade_date_count": len(trade_dates),
         "purged_observation_count": purged,
     }
 
@@ -363,6 +383,107 @@ def _mapping_keys(value: Any):
     elif isinstance(value, list):
         for child in value:
             yield from _mapping_keys(child)
+
+
+def _valid_iso_date(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
+def _nonnegative_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _allocated_split_errors(split: Mapping[str, Any], *, require_nonempty_roles: bool) -> list[str]:
+    errors: list[str] = []
+    boundaries = split.get("boundaries")
+    roles = split.get("roles")
+    selection_counts = split.get("selection_role_counts")
+    expected_edges = (("development", "validation"), ("validation", "sealed"))
+    if not isinstance(boundaries, list) or len(boundaries) != 2:
+        return ["SPLIT_BOUNDARIES_INVALID"]
+    boundary_indices: list[int] = []
+    for item, edge in zip(boundaries, expected_edges):
+        if (
+            not isinstance(item, Mapping)
+            or (item.get("from"), item.get("to")) != edge
+            or not _valid_iso_date(item.get("cutoff"))
+            or not _nonnegative_int(item.get("cutoff_trade_index"))
+            or item.get("embargo_trade_days") != EMBARGO
+        ):
+            errors.append("SPLIT_BOUNDARY_INVALID")
+            continue
+        boundary_indices.append(int(item["cutoff_trade_index"]))
+    if len(boundary_indices) == 2 and boundary_indices[0] >= boundary_indices[1]:
+        errors.append("SPLIT_BOUNDARY_ORDER_INVALID")
+    if not _nonnegative_int(split.get("calendar_trade_date_count")):
+        errors.append("SPLIT_CALENDAR_INDEX_INVALID")
+    elif boundary_indices and any(index >= split["calendar_trade_date_count"] for index in boundary_indices):
+        errors.append("SPLIT_CALENDAR_INDEX_INVALID")
+    if not _nonnegative_int(split.get("purged_observation_count")):
+        errors.append("SPLIT_PURGED_COUNT_INVALID")
+    if not isinstance(selection_counts, Mapping) or set(selection_counts) != set(ROLES) or any(
+        not _nonnegative_int(value) for value in selection_counts.values()
+    ):
+        errors.append("SPLIT_SELECTION_COUNTS_INVALID")
+    if not isinstance(roles, Mapping) or set(roles) != set(ROLES):
+        return errors + ["SPLIT_ROLES_INVALID"]
+    if require_nonempty_roles and any(not roles[role] for role in ROLES):
+        errors.append("SPLIT_GO_ROLE_EMPTY")
+    if len(boundary_indices) != 2:
+        return errors
+    validation_index, sealed_index = boundary_indices
+    required_fields = {
+        "ranking_date", "entry_date", "exit_date", "scenario", "entry_cohort_id",
+        "portfolio_fingerprint", "ranking_trade_index", "entry_trade_index", "exit_trade_index",
+    }
+    seen: set[tuple[str, str]] = set()
+    for role in ROLES:
+        rows = roles[role]
+        if not isinstance(rows, list):
+            errors.append("SPLIT_ROLE_ROWS_INVALID")
+            continue
+        for row in rows:
+            if not isinstance(row, Mapping) or not required_fields.issubset(row):
+                errors.append("SPLIT_ROW_FIELDS_INVALID")
+                continue
+            if (
+                not all(_valid_iso_date(row.get(field)) for field in ("ranking_date", "entry_date", "exit_date"))
+                or not all(isinstance(row.get(field), str) and row[field] for field in ("scenario", "entry_cohort_id", "portfolio_fingerprint"))
+                or not all(_nonnegative_int(row.get(field)) for field in ("ranking_trade_index", "entry_trade_index", "exit_trade_index"))
+            ):
+                errors.append("SPLIT_ROW_VALUE_INVALID")
+                continue
+            ranking_date, entry_date, exit_date = (str(row[field]) for field in ("ranking_date", "entry_date", "exit_date"))
+            ranking_index, entry_index, exit_index = (int(row[field]) for field in ("ranking_trade_index", "entry_trade_index", "exit_trade_index"))
+            if ranking_date > entry_date or entry_date > exit_date or ranking_index > entry_index or entry_index > exit_index:
+                errors.append("SPLIT_ROW_CHRONOLOGY_INVALID")
+            identity = (ranking_date, str(row["scenario"]))
+            if identity in seen:
+                errors.append("SPLIT_PORTFOLIO_ALIAS_INVALID")
+            seen.add(identity)
+            allowed = (
+                (role == "development" and exit_index < validation_index - EMBARGO)
+                or (role == "validation" and entry_index >= validation_index + EMBARGO and exit_index < sealed_index - EMBARGO)
+                or (role == "sealed" and entry_index >= sealed_index + EMBARGO)
+            )
+            if not allowed:
+                errors.append("SPLIT_ROW_PURGE_OR_EMBARGO_INVALID")
+    return sorted(set(errors))
+
+
+def _component_count_for_cohort(rows: object, cohort: str) -> int:
+    if not isinstance(rows, list):
+        return -1
+    selected = [row for row in rows if isinstance(row, Mapping) and row.get("entry_cohort_id") == cohort]
+    try:
+        return len(overlap_components(selected))
+    except (EntryCohortFeasibilityError, KeyError):
+        return -1
 
 
 def build_audit(*, project_root: Path = PROJECT_ROOT, authority_root: Path | None = None) -> dict[str, Any]:
@@ -502,17 +623,7 @@ def validate_audit(payload: Mapping[str, Any]) -> list[str]:
     if not isinstance(split, Mapping) or split.get("schema_version") != "entry-cohort-calendar-split.v1":
         errors.append("SPLIT_SCHEMA_INVALID")
     elif split.get("status") == "ALLOCATED":
-        boundaries = split.get("boundaries")
-        if (
-            not isinstance(boundaries, list)
-            or len(boundaries) != 2
-            or any(not isinstance(item, Mapping) or item.get("embargo_trade_days") != EMBARGO for item in boundaries)
-            or not isinstance(split.get("roles"), Mapping)
-            or set(split["roles"]) != set(ROLES)
-            or not isinstance(split.get("selection_role_counts"), Mapping)
-            or set(split["selection_role_counts"]) != set(ROLES)
-        ):
-            errors.append("SPLIT_EMBARGO_INVALID")
+        errors.extend(_allocated_split_errors(split, require_nonempty_roles=False))
     sources = payload.get("sources")
     provenance = ((sources or {}).get("ranking_manifest") or {}) if isinstance(sources, Mapping) else {}
     if payload.get("status") == "FEASIBLE_FOR_PREREGISTRATION":
@@ -520,19 +631,26 @@ def validate_audit(payload: Mapping[str, Any]) -> list[str]:
             errors.append("FALSE_GO_PROVENANCE_INCOMPLETE")
         if not isinstance(split, Mapping) or split.get("status") != "ALLOCATED" or split.get("authoritative") is not True:
             errors.append("FALSE_GO_SPLIT_NOT_AUTHORITATIVE")
+        else:
+            go_split_errors = _allocated_split_errors(split, require_nonempty_roles=True)
+            if go_split_errors:
+                errors.extend(go_split_errors)
+                errors.append("FALSE_GO_SPLIT_INVALID")
         family = payload.get("family")
         if not isinstance(family, Mapping):
             errors.append("FALSE_GO_FAMILY_INVALID")
         else:
             cohorts = family.get("predeclared_cohorts")
             scenarios = family.get("predeclared_scenarios")
-            expected_size = len(cohorts) * len(scenarios) if isinstance(cohorts, list) and isinstance(scenarios, list) else 0
+            valid_cohorts = isinstance(cohorts, list) and all(isinstance(item, str) and item for item in cohorts)
+            valid_scenarios = isinstance(scenarios, list) and all(isinstance(item, str) and item for item in scenarios)
+            expected_size = len(cohorts) * len(scenarios) if valid_cohorts and valid_scenarios else 0
             expected_minimum = max(20, math.ceil(math.log2(max(1, expected_size) / 0.05)))
             if (
-                not isinstance(cohorts, list)
+                not valid_cohorts
                 or not cohorts
                 or len(cohorts) != len(set(cohorts))
-                or not isinstance(scenarios, list)
+                or not valid_scenarios
                 or not scenarios
                 or len(scenarios) != len(set(scenarios))
                 or family.get("family_size") != expected_size
@@ -540,15 +658,21 @@ def validate_audit(payload: Mapping[str, Any]) -> list[str]:
             ):
                 errors.append("FALSE_GO_FAMILY_INVALID")
             capacity = payload.get("capacity")
-            if not isinstance(capacity, Mapping) or not any(
+            role_rows = split.get("roles") if isinstance(split, Mapping) and isinstance(split.get("roles"), Mapping) else {}
+            capacity_ready = isinstance(capacity, Mapping) and valid_cohorts and any(
                 isinstance(capacity.get(cohort), Mapping)
                 and all(
                     isinstance(capacity[cohort].get(role), Mapping)
-                    and capacity[cohort][role].get("independent_component_count") >= expected_minimum
+                    and isinstance(capacity[cohort][role].get("independent_component_count"), int)
+                    and not isinstance(capacity[cohort][role].get("independent_component_count"), bool)
+                    and capacity[cohort][role]["independent_component_count"] >= expected_minimum
+                    and _component_count_for_cohort(role_rows.get(role), cohort)
+                    == capacity[cohort][role]["independent_component_count"]
                     for role in ROLES
                 )
                 for cohort in cohorts
-            ):
+            )
+            if not capacity_ready:
                 errors.append("FALSE_GO_CAPACITY_INVALID")
         if not isinstance(sources, Mapping) or any(
             not isinstance(sources.get(key), Mapping)
