@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import sys
+import uuid
 from contextlib import redirect_stdout
 from datetime import date, datetime, timezone
 from io import StringIO
@@ -25,6 +26,17 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.agent_b_ranking import StockRanker
 from app.modeling.feature_contract import load_m4_feature_frame
+from app.research.ranking_provenance_receipt import (
+    BundleRun,
+    RankingProvenanceError,
+    assert_same_inputs,
+    build_receipt,
+    create_content_addressed_model_snapshot,
+    ensure_capture_mode,
+    producer_source_lineage,
+    snapshot_inputs,
+    stable_ranked_top_n,
+)
 from app.signals.price_patterns import PRICE_PATTERN_COLUMNS, add_price_patterns
 
 
@@ -41,6 +53,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-n", type=int, default=10, help="每個交易日輸出的候選檔列數；Top50 用於 entry overlay 研究")
     parser.add_argument("--legacy-per-date-load", action="store_true", help="使用舊版逐日重載 feature frame；只保留作回歸對照")
     parser.add_argument("--manifest", default=None)
+    parser.add_argument("--scenario", default="baseline_research")
+    parser.add_argument("--forward-capture", action="store_true", help="只允許明示單日的 forward research capture")
+    parser.add_argument("--capture-trade-date", default=None, help="forward capture 當日已驗證的交易日")
+    parser.add_argument("--run-identity", default=None, help="測試或外部排程提供的唯一 run identity")
     return parser.parse_args()
 
 
@@ -163,13 +179,12 @@ def run_batch_ranking_for_date(
     target_for_regime = df["date"].max() if "date" in df else target_trade_date
     market_regime = ranker.market_regime_service.evaluate(history_df, target_date=target_for_regime)
     rank_df = ranker.ranking_policy.apply(rank_df, market_regime)
-    selected = rank_df.head(top_n).copy()
+    selected = stable_ranked_top_n(rank_df, score_column="risk_adjusted_score", top_n=top_n)
     # 正式投組政策只定義 Top10 權重；Top50 研究池只保留候選排序，不灌入假權重。
     if top_n <= 10:
         selected = ranker.portfolio_policy.apply(selected, market_regime)
     if "stock_name" not in selected.columns or selected["stock_name"].isnull().any():
         selected["stock_name"] = stock_names(selected["stock_id"])
-    selected.insert(0, "rank", range(1, len(selected) + 1))
     today_str = pd.Timestamp(selected["trade_date"].max()).strftime("%Y-%m-%d") if "trade_date" in selected.columns else date_text
     path = ranker.artifact_dir / f"ranking_{today_str}.csv"
     out_cols = [
@@ -209,6 +224,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     output_dir = resolve_path(args.output_dir) or PROJECT_ROOT / "artifacts" / "research_rankings" / f"current_model_{args.start_date}_{args.end_date}"
     manifest_path = resolve_path(args.manifest) or output_dir / "manifest.json"
     output_dir.mkdir(parents=True, exist_ok=True)
+    if manifest_path.exists():
+        raise RankingProvenanceError(f"manifest 不可覆寫：{manifest_path}")
     if args.top_n < 1:
         raise ValueError("--top-n 必須大於 0")
     if args.legacy_per_date_load and args.top_n != 10:
@@ -221,22 +238,61 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         stride=max(args.stride, 1),
         max_dates=args.max_dates,
     )
+    capture_mode = "FORWARD_CAPTURE" if args.forward_capture else "REPLAY_GENERATED"
+    admission_eligible, _ = ensure_capture_mode(
+        capture_mode=capture_mode,
+        ranking_dates=dates,
+        capture_trade_date=args.capture_trade_date,
+    )
+    # admission_eligible 在 REPLAY 時固定 False；forward 只保留待獨立 registration 審查的狀態。
+    admission_value: bool | str = "pending_registration" if admission_eligible else False
+    producer_dependencies = [
+        PROJECT_ROOT / "scripts/build_historical_ranking_replay_set.py",
+        PROJECT_ROOT / "app/agent_b_ranking.py",
+        PROJECT_ROOT / "app/modeling/feature_contract.py",
+        PROJECT_ROOT / "app/research/ranking_provenance_receipt.py",
+        PROJECT_ROOT / "app/signals/price_patterns.py",
+    ]
+    producer_lineage = producer_source_lineage(PROJECT_ROOT, producer_dependencies)
+    features_path = data_dir / "features.parquet"
+    universe_path = data_dir / "universe.parquet"
+    source_model_path = model_dir / "latest_lgbm.pkl"
+    strict_input_paths = {
+        "features": features_path,
+        "universe": universe_path,
+        "config": config_path,
+        "model_source": source_model_path,
+    }
+    inputs_before = snapshot_inputs(PROJECT_ROOT, strict_input_paths)
+    bundle = BundleRun(
+        project_root=PROJECT_ROOT,
+        output_dir=output_dir,
+        scenario=args.scenario,
+        producer_entrypoint="scripts/build_historical_ranking_replay_set.py",
+        planned_dates=dates,
+        capture_mode=capture_mode,
+        capture_trade_date=args.capture_trade_date,
+        run_identity=args.run_identity or uuid.uuid4().hex,
+    )
+    try:
+        snapshot_path, snapshot_meta = create_content_addressed_model_snapshot(
+            project_root=PROJECT_ROOT, source_model=source_model_path, staging_dir=bundle.staging_dir
+        )
+    except Exception as error:
+        bundle.fail("model_snapshot_failed")
+        raise error
 
     ranker = StockRanker(
         data_dir=str(data_dir),
-        model_dir=str(model_dir),
-        artifact_dir=str(output_dir),
+        model_dir=str(snapshot_path.parent),
+        artifact_dir=str(bundle.ranking_dir),
         config_path=str(config_path),
         generate_report=False,
         explain_top_n=0,
     )
     ranker.top_n = args.top_n
-    ranker.load_model()
+    ranker.load_model(snapshot_path.name)
     batch_frames = None if args.legacy_per_date_load else prepare_batch_frames(ranker)
-    features_path = data_dir / "features.parquet"
-    universe_path = data_dir / "universe.parquet"
-    model_path = model_dir / "latest_lgbm.pkl"
-
     outputs: list[dict[str, Any]] = []
     failures: list[dict[str, str]] = []
     for date_text in dates:
@@ -248,10 +304,50 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                 else:
                     features, universe = batch_frames
                     path = run_batch_ranking_for_date(ranker, features, universe, date_text, args.top_n)
-            outputs.append({"date": date_text, "path": repo_path(Path(path)), "stdout_tail": captured_stdout.getvalue()[-1000:]})
+            staged_path = Path(path)
+            receipt = build_receipt(
+                project_root=PROJECT_ROOT,
+                scenario=args.scenario,
+                ranking_date=date_text,
+                run_identity=bundle.run_identity,
+                batch_plan=bundle.plan_id,
+                ranking_path=staged_path,
+                published_ranking_path=output_dir / staged_path.name,
+                producer_entrypoint="scripts/build_historical_ranking_replay_set.py",
+                producer_lineage=producer_lineage,
+                model={
+                    "path": repo_path(bundle.final_dir / "model_snapshots" / snapshot_path.name),
+                    "version": snapshot_path.name,
+                    "sha256": snapshot_meta["sha256"],
+                },
+                config=inputs_before["config"],
+                universe=inputs_before["universe"],
+                feature_calendar=inputs_before["features"],
+                top_n=args.top_n,
+                capture_mode=capture_mode,
+                admission_eligible=admission_value,
+            )
+            bundle.add_receipt(date_text, receipt)
+            outputs.append({
+                "date": date_text,
+                "path": repo_path(output_dir / staged_path.name),
+                "receipt": repo_path(bundle.final_dir / "receipts" / f"ranking_{date_text}.receipt.json"),
+                "stdout_tail": captured_stdout.getvalue()[-1000:],
+            })
         except Exception as exc:
             failures.append({"date": date_text, "error": str(exc)})
 
+    inputs_after = snapshot_inputs(PROJECT_ROOT, strict_input_paths)
+    if failures:
+        bundle.fail("ranking_generation_failed")
+        manifest_repo_path = None
+    else:
+        # 再查一次 dependency，避免 producer source 在 run 中漂移。
+        if producer_lineage != producer_source_lineage(PROJECT_ROOT, producer_dependencies):
+            bundle.fail("producer_source_drift")
+            raise RankingProvenanceError("producer source 在 run 中漂移")
+        assert_same_inputs(inputs_before, inputs_after)
+        manifest_repo_path = repo_path(bundle.complete(before_inputs=inputs_before, after_inputs=inputs_after))
     payload = {
         "schema_version": "historical-ranking-replay-set.v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -268,8 +364,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             "features_sha256": sha256_file(features_path),
             "universe_path": repo_path(universe_path),
             "universe_sha256": sha256_file(universe_path),
-            "model_path": repo_path(model_path),
-            "model_sha256": sha256_file(model_path),
+            "model_path": repo_path(source_model_path),
+            "model_sha256": sha256_file(source_model_path),
             "config_path": repo_path(config_path),
             "config_sha256": sha256_file(config_path),
         },
@@ -287,6 +383,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "outputs": {
             "output_dir": repo_path(output_dir),
             "manifest": repo_path(manifest_path),
+            "provenance_manifest": manifest_repo_path,
             "ranking_count": len(outputs),
             "rankings": outputs,
         },

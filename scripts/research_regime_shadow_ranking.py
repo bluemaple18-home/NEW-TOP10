@@ -11,6 +11,7 @@ import argparse
 import csv
 import json
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,17 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.agent_b_ranking import StockRanker  # noqa: E402
+from app.research.ranking_provenance_receipt import (  # noqa: E402
+    BundleRun,
+    RankingProvenanceError,
+    assert_same_inputs,
+    build_receipt,
+    create_content_addressed_model_snapshot,
+    ensure_capture_mode,
+    producer_source_lineage,
+    snapshot_inputs,
+    stable_ranked_top_n,
+)
 from app.stock_names import get_stock_name  # noqa: E402
 from scripts.research_feature_group_ablation_by_regime import attach_industry_factors  # noqa: E402
 
@@ -30,6 +42,7 @@ from scripts.research_feature_group_ablation_by_regime import attach_industry_fa
 SCHEMA_VERSION = "regime-shadow-ranking.v1"
 RESEARCH_OUTPUT_ROOT = PROJECT_ROOT / "artifacts" / "backtest"
 OUT_COLS = [
+    "rank",
     "stock_id",
     "stock_name",
     "close",
@@ -71,6 +84,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-sector-count", type=int, default=None, help="研究用 group cap；每個 group 最多保留 N 檔")
     parser.add_argument("--sector-cap-column", default="industry_name", help="研究用 group cap 欄位；預設對齊 portfolio replay 的 industry_name")
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--data-dir", default="data/clean")
+    parser.add_argument("--model-dir", default="models")
+    parser.add_argument("--config", default="config/signals.yaml")
+    parser.add_argument("--scenario", default="regime_shadow_research")
+    parser.add_argument("--forward-capture", action="store_true", help="只允許明示單日的 forward research capture")
+    parser.add_argument("--capture-trade-date", default=None, help="forward capture 當日已驗證的交易日")
+    parser.add_argument("--run-identity", default=None, help="測試或外部排程提供的唯一 run identity")
     return parser.parse_args()
 
 
@@ -310,44 +330,146 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
     output_dir = validate_research_output_dir(source_dir, resolve_path(args.output_dir))
     regime_path = resolve_path(args.market_regime_history)
     industry_path = resolve_path(args.industry_map)
+    data_dir = resolve_path(args.data_dir)
+    model_dir = resolve_path(args.model_dir)
+    config_path = resolve_path(args.config)
+    summary_path = resolve_path(args.output_dir) / "regime_shadow_ranking.json"
+    if summary_path.exists():
+        raise RankingProvenanceError(f"summary 不可覆寫：{summary_path}")
     dates = ranking_dates(source_dir, args.limit)
     if not dates:
         raise FileNotFoundError(f"找不到 ranking_*.csv 日期：{source_dir}")
+    capture_mode = "FORWARD_CAPTURE" if args.forward_capture else "REPLAY_GENERATED"
+    admission_eligible, _ = ensure_capture_mode(
+        capture_mode=capture_mode,
+        ranking_dates=dates,
+        capture_trade_date=args.capture_trade_date,
+    )
+    admission_value: bool | str = "pending_registration" if admission_eligible else False
+    producer_dependencies = [
+        PROJECT_ROOT / "scripts/research_regime_shadow_ranking.py",
+        PROJECT_ROOT / "scripts/research_feature_group_ablation_by_regime.py",
+        PROJECT_ROOT / "app/agent_b_ranking.py",
+        PROJECT_ROOT / "app/research/ranking_provenance_receipt.py",
+    ]
+    producer_lineage = producer_source_lineage(PROJECT_ROOT, producer_dependencies)
+    strict_input_paths: dict[str, Path] = {
+        "features": data_dir / "features.parquet",
+        "universe": data_dir / "universe.parquet",
+        "config": config_path,
+        "model_source": model_dir / "latest_lgbm.pkl",
+        "market_regime_history": regime_path,
+        "industry_map": industry_path,
+    }
+    for date_text in dates:
+        # dates-from-dir 的 ranking 僅是排程日期來源，絕不作為 scoring lineage。
+        strict_input_paths[f"calendar_schedule_{date_text}"] = source_dir / f"ranking_{date_text}.csv"
+    inputs_before = snapshot_inputs(PROJECT_ROOT, strict_input_paths)
+    bundle = BundleRun(
+        project_root=PROJECT_ROOT,
+        output_dir=output_dir,
+        scenario=args.scenario,
+        producer_entrypoint="scripts/research_regime_shadow_ranking.py",
+        planned_dates=dates,
+        capture_mode=capture_mode,
+        capture_trade_date=args.capture_trade_date,
+        run_identity=args.run_identity or uuid.uuid4().hex,
+    )
+    try:
+        snapshot_path, snapshot_meta = create_content_addressed_model_snapshot(
+            project_root=PROJECT_ROOT,
+            source_model=model_dir / "latest_lgbm.pkl",
+            staging_dir=bundle.staging_dir,
+        )
+    except Exception as error:
+        bundle.fail("model_snapshot_failed")
+        raise error
     regime_map = load_regime_map(regime_path)
 
-    ranker = StockRanker(artifact_dir=str(output_dir))
-    ranker.load_model()
+    ranker = StockRanker(
+        data_dir=str(data_dir),
+        model_dir=str(snapshot_path.parent),
+        artifact_dir=str(bundle.ranking_dir),
+        config_path=str(config_path),
+        generate_report=False,
+        explain_top_n=0,
+    )
+    ranker.load_model(snapshot_path.name)
     ranker._enrich_with_shap = lambda df, top_n=20: df
 
     outputs = []
     regimes_used: dict[str, int] = {}
     for date_text in dates:
-        daily, history = ranker.load_daily_data(date_text)
-        if daily.empty:
-            raise ValueError(f"{date_text} 無 ranking 資料")
-        base = ranker.calculate_scores(daily)
-        factors = factor_columns(history, date_text, industry_path)
-        merge_keys = ["stock_id"]
-        base = base.merge(factors.drop(columns=["trade_date"], errors="ignore"), on=merge_keys, how="left")
-        regime = ranker.market_regime_service.evaluate(history, target_date=base["date"].max() if "date" in base else None)
-        scored = ranker.ranking_policy.apply(base, regime)
-        shadow_regime = regime_map.get(date_text, "UNKNOWN")
-        shadow = apply_regime_shadow_score(scored, shadow_regime).copy()
-        shadow = apply_sector_count_cap(
-            shadow,
-            industry_path,
-            top_n=args.top_n,
-            max_sector_count=args.max_sector_count,
-            group_column=args.sector_cap_column,
-        )
-        shadow = ranker.portfolio_policy.apply(shadow, regime)
-        shadow = apply_shadow_regime_risk_profile(shadow, shadow_regime, args.risk_profile)
-        shadow = ensure_names(shadow)
-        out_path = output_dir / f"ranking_{date_text}.csv"
-        write_ranking(out_path, shadow)
-        outputs.append(repo_path(out_path))
-        regimes_used[shadow_regime] = regimes_used.get(shadow_regime, 0) + 1
-        print(f"REGIME_SHADOW_RANKING {shadow_regime} {date_text} {out_path}")
+        try:
+            daily, history = ranker.load_daily_data(date_text)
+            if daily.empty:
+                raise ValueError(f"{date_text} 無 ranking 資料")
+            base = ranker.calculate_scores(daily)
+            factors = factor_columns(history, date_text, industry_path)
+            merge_keys = ["stock_id"]
+            base = base.merge(factors.drop(columns=["trade_date"], errors="ignore"), on=merge_keys, how="left")
+            regime = ranker.market_regime_service.evaluate(history, target_date=base["date"].max() if "date" in base else None)
+            scored = ranker.ranking_policy.apply(base, regime)
+            shadow_regime = regime_map.get(date_text, "UNKNOWN")
+            shadow = apply_regime_shadow_score(scored, shadow_regime).copy()
+            shadow = apply_sector_count_cap(
+                shadow,
+                industry_path,
+                top_n=args.top_n,
+                max_sector_count=args.max_sector_count,
+                group_column=args.sector_cap_column,
+            )
+            shadow = ranker.portfolio_policy.apply(shadow, regime)
+            shadow = apply_shadow_regime_risk_profile(shadow, shadow_regime, args.risk_profile)
+            shadow = ensure_names(shadow)
+            shadow = stable_ranked_top_n(shadow, score_column="shadow_score", top_n=args.top_n)
+            out_path = bundle.ranking_dir / f"ranking_{date_text}.csv"
+            write_ranking(out_path, shadow)
+            receipt = build_receipt(
+                project_root=PROJECT_ROOT,
+                scenario=args.scenario,
+                ranking_date=date_text,
+                run_identity=bundle.run_identity,
+                batch_plan=bundle.plan_id,
+                ranking_path=out_path,
+                published_ranking_path=output_dir / out_path.name,
+                producer_entrypoint="scripts/research_regime_shadow_ranking.py",
+                producer_lineage=producer_lineage,
+                model={
+                    "path": repo_path(bundle.final_dir / "model_snapshots" / snapshot_path.name),
+                    "version": snapshot_path.name,
+                    "sha256": snapshot_meta["sha256"],
+                },
+                config=inputs_before["config"],
+                universe=inputs_before["universe"],
+                feature_calendar=inputs_before["features"],
+                top_n=args.top_n,
+                capture_mode=capture_mode,
+                admission_eligible=admission_value,
+                extra_inputs={
+                    "market_regime_history": inputs_before["market_regime_history"],
+                    "industry_map": inputs_before["industry_map"],
+                    "calendar_schedule_source": inputs_before[f"calendar_schedule_{date_text}"],
+                },
+            )
+            bundle.add_receipt(date_text, receipt)
+            outputs.append({
+                "ranking": repo_path(output_dir / out_path.name),
+                "receipt": repo_path(bundle.final_dir / "receipts" / f"ranking_{date_text}.receipt.json"),
+                "calendar_schedule_source": inputs_before[f"calendar_schedule_{date_text}"],
+            })
+            regimes_used[shadow_regime] = regimes_used.get(shadow_regime, 0) + 1
+            print(f"REGIME_SHADOW_RANKING {shadow_regime} {date_text} {out_path}")
+        except Exception as error:
+            bundle.fail("ranking_generation_failed")
+            raise error
+
+    inputs_after = snapshot_inputs(PROJECT_ROOT, strict_input_paths)
+    if producer_lineage != producer_source_lineage(PROJECT_ROOT, producer_dependencies):
+        bundle.fail("producer_source_drift")
+        raise RankingProvenanceError("producer source 在 run 中漂移")
+    assert_same_inputs(inputs_before, inputs_after)
+    provenance_manifest = bundle.complete(before_inputs=inputs_before, after_inputs=inputs_after)
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -359,6 +481,8 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
             "uses_market_regime_history": True,
             "risk_profile": args.risk_profile,
             "top_n": args.top_n,
+            "capture_mode": capture_mode,
+            "admission_eligible": admission_value,
             "max_sector_count": args.max_sector_count,
             "sector_cap_column": args.sector_cap_column,
             "anti_overfit_note": "這是 shadow ranking replay，不可直接轉成 production 權重。",
@@ -370,9 +494,11 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
             "industry_map": repo_path(industry_path),
             "date_count": len(dates),
             "dates": dates,
+            "calendar_schedule_source_only": True,
         },
         "regimes_used": regimes_used,
         "outputs": outputs,
+        "provenance_manifest": repo_path(provenance_manifest),
     }
 
 
