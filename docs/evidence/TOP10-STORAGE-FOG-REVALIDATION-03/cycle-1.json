@@ -1,0 +1,138 @@
+{
+  "schema_version": "top10-storage-fog-revalidation-cycle.v1",
+  "cycle": 1,
+  "job": "fog-research-worker",
+  "status": "STOPPED",
+  "reasons": [
+    "MISSING_VALID_LIVE_RESOURCE_SAMPLE"
+  ],
+  "child_exit_code": 0,
+  "command": [
+    "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2/.venv/bin/python",
+    "-I",
+    "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2/scripts/storage_validation/fog_research_worker.py",
+    "--runner-sha256",
+    "2780a484e51950b2a6c30089d16111051f5bb3db71fe14e4be74d71923c8ae17"
+  ],
+  "launch_verified": false,
+  "validation_only": true,
+  "max_runtime_seconds": 14400,
+  "limits": {
+    "expected_growth_bytes_per_hour": 16777216,
+    "max_bytes": 2147483648,
+    "max_file_count": 30000,
+    "max_process_tree_rss_bytes": 4294967296,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "spike_window_seconds": 14400,
+    "stabilize_after_seconds": 18000
+  },
+  "samples": [
+    {
+      "host_free_bytes": 46572802048,
+      "host_total_bytes": 245107195904,
+      "phase": "preflight",
+      "project_bytes": 711514382,
+      "project_file_count": 13886,
+      "rss_bytes": 0,
+      "swap_bytes": 5011668992,
+      "timestamp": 1785744497.366379
+    },
+    {
+      "host_free_bytes": 46744391680,
+      "host_total_bytes": 245107195904,
+      "phase": "final",
+      "project_bytes": 559830178,
+      "project_file_count": 7923,
+      "rss_bytes": 0,
+      "swap_bytes": 5011668992,
+      "timestamp": 1785744499.537451
+    },
+    {
+      "host_free_bytes": 46744387584,
+      "host_total_bytes": 245107195904,
+      "phase": "final",
+      "project_bytes": 559830712,
+      "project_file_count": 7924,
+      "rss_bytes": 0,
+      "swap_bytes": 5011668992,
+      "timestamp": 1785744499.757966
+    }
+  ],
+  "summary": {
+    "elapsed_seconds": 2.391587018966675,
+    "host_free_bytes_delta": 171585536,
+    "observed_growth_bytes_per_hour": 0,
+    "peak_rss_bytes": null,
+    "project_bytes_delta": -151683670,
+    "project_file_count_delta": -5962,
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "card_id": "TOP10-STORAGE-FOG-REVALIDATION-03",
+      "jobs": [
+        "fog-research-worker"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2",
+      "schema_version": "top10-storage-validation-root.v1",
+      "source_head": "80d9160be0347680688f6dbc62bf45a5d1dffb1e",
+      "trusted_entrypoints": {
+        "fog-research-worker": {
+          "contract_path": "validation/fog-entrypoint-contract.json",
+          "contract_sha256": "06e868d086e22ebcecb056bc48f167e69b2f8a07aa2801ca1c9e828f397ba45d"
+        }
+      }
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2/logs/storage_safety/runtime/fog-research-worker/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2/logs/storage_safety/runtime/fog-research-worker/cache/matplotlib",
+      "TMPDIR": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2/logs/storage_safety/runtime/fog-research-worker/tmp",
+      "UV_CACHE_DIR": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2/logs/storage_safety/runtime/fog-research-worker/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2/logs/storage_safety/runtime/fog-research-worker/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2",
+    "sandbox_output_root": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2",
+    "source_input_root": "/Users/mattkuo/.codex/worktrees/1800/TOP10new",
+    "trusted_entrypoint": {
+      "argv": [
+        "--runner-sha256",
+        "2780a484e51950b2a6c30089d16111051f5bb3db71fe14e4be74d71923c8ae17"
+      ],
+      "contract_path": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2/validation/fog-entrypoint-contract.json",
+      "contract_sha256": "06e868d086e22ebcecb056bc48f167e69b2f8a07aa2801ca1c9e828f397ba45d",
+      "entrypoint_path": "/private/tmp/TOP10-STORAGE-FOG-REVALIDATION-03.ZzRlh2/scripts/storage_validation/fog_research_worker.py",
+      "entrypoint_sha256": "81954c2b41e33d255dfcd5d12413659431c3d5cfba95e4b0f5de53f9b5227d2a"
+    }
+  },
+  "reclaim": {
+    "bytes_before": 288277126,
+    "bytes_after": 136592922,
+    "file_count_before": 8808,
+    "file_count_after": 2844,
+    "removed_path_count": 5964,
+    "removed_paths_sha256": "36d32d036203a7fc6f3ea74a8650ec05b57ccbbb0c1b5f2a033ae5ed13eb48dd"
+  },
+  "representative_complete": false,
+  "cycle_2_authorized": false,
+  "group_quiescence": {
+    "target_process_scan": "none",
+    "open_deleted": false
+  },
+  "failure_observation": {
+    "stderr": [
+      "scripts/run_fog_research_worker.sh: line 49: /dev/null: Operation not permitted",
+      "scripts/run_fog_research_worker.sh: line 65: /dev/null: Operation not permitted",
+      "fog research worker skipped; cannot acquire lock"
+    ],
+    "interpretation": "Seatbelt denied runner stderr redirection to /dev/null; child exited before a valid live RSS/swap sample."
+  },
+  "artifact_digests": {
+    "raw_receipt_sha256": "f701d3ba54be91e758fae2d7f3f6932540598913e36182391c5b3c45d9ee1156",
+    "guard_log_sha256": "0b5c7b508d54bca14a1cf2d9e66abc158cff426e12f5ec424ba0977e82ff4993",
+    "restart_denied_sha256": "eea4c1027f1b944b96ffba9c9ee7abcedaacb81fedaf35d10919d17409ea91bb"
+  }
+}

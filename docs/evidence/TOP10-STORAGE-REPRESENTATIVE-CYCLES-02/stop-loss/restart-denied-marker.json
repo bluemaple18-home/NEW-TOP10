@@ -1,0 +1,8 @@
+{
+  "automatic_clear_allowed": false,
+  "job": "daily",
+  "reasons": [
+    "PROCESS_TREE_RSS_BUDGET_EXCEEDED"
+  ],
+  "schema_version": "top10-storage-restart-denied.v1"
+}

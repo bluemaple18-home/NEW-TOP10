@@ -1,0 +1,157 @@
+{
+  "schema_version": "top10-storage-fog-revalidation-cycle.v2",
+  "card_id": "TOP10-STORAGE-FOG-REVALIDATION-04",
+  "cycle": 1,
+  "job": "fog-research-worker",
+  "status": "STOPPED",
+  "reasons": [
+    "SWAP_GROWTH_BUDGET_EXCEEDED"
+  ],
+  "child_exit_code": 0,
+  "guard_exit_code": 70,
+  "launch_verified": false,
+  "validation_only": true,
+  "max_runtime_seconds": 14400.0,
+  "command_contract": {
+    "interpreter": "<fresh-sandbox>/.venv/bin/python",
+    "isolated_mode": true,
+    "entrypoint": "<fresh-sandbox>/scripts/storage_validation/fog_research_worker.py",
+    "argv": [
+      "--runner-sha256",
+      "2780a484e51950b2a6c30089d16111051f5bb3db71fe14e4be74d71923c8ae17"
+    ],
+    "marker_sha256": "9fbe2790dd164b6f4d6484c1a4452c92cea5faa79a1ed6b0b2426d0b4b1bb968",
+    "contract_sha256": "d010144130c0cac4f6dca0155d172147977b8b2c6e227105b743874e87f9b0b8",
+    "entrypoint_sha256": "661b9a1b10dc8f932eb7c99afa7502cea34f416c07758ccb8cbe8615494427cd",
+    "runner_sha256": "2780a484e51950b2a6c30089d16111051f5bb3db71fe14e4be74d71923c8ae17",
+    "reviewed_source": "001e2dbe7f3a5743a3542c2a36680a3fac8a9fc9",
+    "provisioning_source": "1789132101b8e252cbd4cc5881709ee8b4029d6e"
+  },
+  "resolved_roots": {
+    "source_input_root": "<repo-root>",
+    "sandbox_input_root": "<fresh-sandbox>",
+    "sandbox_output_root": "<fresh-sandbox>",
+    "sandbox_basename": "TOP10-STORAGE-FOG-REVALIDATION-04.6MlpK9"
+  },
+  "limits": {
+    "expected_growth_bytes_per_hour": 16777216,
+    "max_bytes": 2147483648,
+    "max_file_count": 30000,
+    "max_process_tree_rss_bytes": 4294967296,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "spike_window_seconds": 14400,
+    "stabilize_after_seconds": 18000
+  },
+  "samples": [
+    {
+      "timestamp": 1785749201.715452,
+      "phase": "preflight",
+      "project_bytes": 711514382,
+      "project_file_count": 13886,
+      "host_free_bytes": 41330040832,
+      "host_total_bytes": 245107195904,
+      "rss_bytes": 0,
+      "swap_bytes": 5934017413
+    },
+    {
+      "timestamp": 1785749203.927166,
+      "phase": "live",
+      "project_bytes": 559830178,
+      "project_file_count": 7923,
+      "host_free_bytes": 41500012544,
+      "host_total_bytes": 245107195904,
+      "rss_bytes": 46972928,
+      "swap_bytes": 5934017413
+    },
+    {
+      "timestamp": 1785749264.41261,
+      "phase": "live",
+      "project_bytes": 625212642,
+      "project_file_count": 7945,
+      "host_free_bytes": 41430147072,
+      "host_total_bytes": 245107195904,
+      "rss_bytes": 1085718528,
+      "swap_bytes": 5934017413
+    },
+    {
+      "timestamp": 1785749326.1313229,
+      "phase": "live",
+      "project_bytes": 625212642,
+      "project_file_count": 7945,
+      "host_free_bytes": 39277539328,
+      "host_total_bytes": 245107195904,
+      "rss_bytes": 129466368,
+      "swap_bytes": 8888254464
+    },
+    {
+      "timestamp": 1785749327.386351,
+      "phase": "final",
+      "project_bytes": 625251267,
+      "project_file_count": 7944,
+      "host_free_bytes": 39276392448,
+      "host_total_bytes": 245107195904,
+      "rss_bytes": 0,
+      "swap_bytes": 8898866053
+    }
+  ],
+  "summary": {
+    "elapsed_seconds": 125.67089915275574,
+    "project_bytes_delta": -86263115,
+    "project_file_count_delta": -5942,
+    "host_free_bytes_delta": -2053648384,
+    "peak_process_tree_rss_bytes": 1085718528,
+    "swap_bytes_delta": 2964848640,
+    "observed_growth_bytes_per_hour": 0.0,
+    "unknown_changed_paths": [],
+    "registered_unmetered_changed_paths": []
+  },
+  "reclaim": {
+    "bytes_before": 288277126,
+    "bytes_after": 136592922,
+    "file_count_before": 8808,
+    "file_count_after": 2844,
+    "removed_path_count": 5964,
+    "removed_paths_sha256": "36d32d036203a7fc6f3ea74a8650ec05b57ccbbb0c1b5f2a033ae5ed13eb48dd"
+  },
+  "representative_complete": false,
+  "cycle_2_authorized": false,
+  "retry_authorized": false,
+  "group_quiescence": {
+    "leader_pgid": 36672,
+    "post_guard_member_count": 0,
+    "target_process_scan": "none",
+    "open_deleted": false
+  },
+  "restart_denial": {
+    "present": true,
+    "automatic_clear_allowed": false,
+    "reasons": [
+      "SWAP_GROWTH_BUDGET_EXCEEDED"
+    ]
+  },
+  "raw_local_evidence": {
+    "guard_receipt_size_bytes": 1049535,
+    "guard_receipt_sha256": "8addb6729eddf0cca4efccd303c2c81daa951878ce3cc6c746d810a5891c7781",
+    "guard_log_size_bytes": 963,
+    "guard_log_sha256": "1c69cd8a85b40ba1bd2fe25a766bad398a0fe7f724d4029c237eb4dec4e92082",
+    "restart_denied_size_bytes": 180,
+    "restart_denied_sha256": "5d926ebd12a574b30a287f6940fc250bf218f85c932db6e0d8d8bc2b263dd557"
+  },
+  "post_run_findings": {
+    "live_sample_cadence": {
+      "status": "FAILED",
+      "reason": "LIVE_SAMPLE_CADENCE_EXCEEDED",
+      "policy_interval_seconds": 60,
+      "consecutive_live_sample_gaps_seconds": [
+        60.485444,
+        61.7187129
+      ],
+      "max_gap_seconds": 61.7187129,
+      "source": "derived_after_run_from_committed_live_sample_timestamps",
+      "raw_guard_reason_unchanged": true
+    }
+  },
+  "interpretation": "Cycle 1 在代表性 batch 1 中取得三筆有效 live RSS/swap sample；swap growth 2,964,848,640 bytes 超過固定 2,147,483,648-byte ceiling，guard 終止 target PGID 並留下 fresh restart denial。Workload 未完整完成，cycle 2 與 retry 均禁止。"
+}

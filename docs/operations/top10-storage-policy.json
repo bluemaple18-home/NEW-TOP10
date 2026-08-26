@@ -1,0 +1,234 @@
+{
+  "schema_version": "top10-storage-policy.v1",
+  "host": {
+    "start_min_free_bytes": 32212254720,
+    "start_min_free_percent": 0.15,
+    "runtime_min_free_bytes": 21474836480,
+    "runtime_min_free_percent": 0.10,
+    "require_swap_metric": true
+  },
+  "logging": {
+    "max_bytes": 8388608,
+    "backups": 3
+  },
+  "retention_rules": {
+    "runtime_workspace": {
+      "base_path": "logs/storage_safety/runtime/{job}",
+      "pattern": "**/*",
+      "retention_seconds": 86400,
+      "max_files": 20000,
+      "max_bytes": 2147483648,
+      "protect_newest": 16
+    },
+    "logs": {
+      "base_path": "logs",
+      "pattern": "*.log",
+      "retention_seconds": 1209600,
+      "max_files": 160,
+      "max_bytes": 268435456,
+      "protect_newest": 8
+    },
+    "log_errors": {
+      "base_path": "logs",
+      "pattern": "*.err",
+      "retention_seconds": 1209600,
+      "max_files": 80,
+      "max_bytes": 67108864,
+      "protect_newest": 8
+    },
+    "research_snapshots": {
+      "base_path": "artifacts/autonomous_research/run_outputs",
+      "pattern": "*",
+      "retention_seconds": 1209600,
+      "max_files": 28,
+      "max_bytes": 134217728,
+      "protect_newest": 2
+    },
+    "autonomous_run_dirs": {
+      "base_path": "artifacts/autonomous_research",
+      "pattern": "run_????-??-??_??????/*",
+      "retention_seconds": 1209600,
+      "max_files": 5000,
+      "max_bytes": 536870912,
+      "protect_newest": 30
+    },
+    "pm_research_outputs": {
+      "base_path": "artifacts/autonomous_research",
+      "pattern": "pm_research_*.json",
+      "retention_seconds": 1209600,
+      "max_files": 28,
+      "max_bytes": 67108864,
+      "protect_newest": 2
+    },
+    "harness_status": {
+      "base_path": "artifacts/harness_status",
+      "pattern": "**/*",
+      "retention_seconds": 1209600,
+      "max_files": 4000,
+      "max_bytes": 134217728,
+      "protect_newest": 20
+    },
+    "weekend_replay_runs": {
+      "base_path": "artifacts/weekend_training",
+      "pattern": "replay_runs_*/*",
+      "retention_seconds": 604800,
+      "max_files": 2500,
+      "max_bytes": 268435456,
+      "protect_newest": 96
+    },
+    "baseline_outputs": {
+      "base_path": "artifacts/weekend_training",
+      "pattern": "baseline_harness_medium_window_replay_*",
+      "retention_seconds": 1209600,
+      "max_files": 120,
+      "max_bytes": 67108864,
+      "protect_newest": 8
+    },
+    "external_review_outputs": {
+      "base_path": "artifacts/external_review",
+      "pattern": "**/*",
+      "retention_seconds": 2592000,
+      "max_files": 1000,
+      "max_bytes": 134217728,
+      "protect_newest": 20
+    }
+  },
+  "jobs": {
+    "daily": {
+      "launch_verified": false,
+      "verification_basis": "2026-08-03 validation source preflight 確認 production daily wrapper 會呼叫 Clawd 與 ops report --send，卡片邊界內沒有不觸碰外部控制面的代表性入口；未執行週期，維持 NO-GO / EXTERNAL_AUTHORITY_REQUIRED。",
+      "meter_paths": ["logs", "artifacts", "data", "models"],
+      "registered_write_paths": ["logs", "artifacts", "data", "models"],
+      "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "harness_status"],
+      "max_bytes": 6442450944,
+      "max_file_count": 60000,
+      "max_process_tree_rss_bytes": 4294967296,
+      "max_swap_growth_bytes": 2147483648,
+      "expected_growth_bytes_per_hour": 536870912,
+      "spike_window_seconds": 7200,
+      "stabilize_after_seconds": 14400,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 14,
+      "sample_interval_seconds": 60
+    },
+    "retrain": {
+      "launch_verified": false,
+      "verification_basis": "2026-08-03 兩個 scheduled monitor 週期均 OK：project delta 11030/1997 bytes、peak RSS 231112704/170065920 bytes、swap delta 1832323645/0 bytes；但兩次 PSI 都未觸發實際 retrain，重型分支未驗證，維持 NO-GO / HEAVY_BRANCH_NOT_EXERCISED。",
+      "meter_paths": ["logs", "artifacts", "data", "models"],
+      "registered_write_paths": ["logs", "artifacts", "data", "models"],
+      "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors"],
+      "max_bytes": 8589934592,
+      "max_file_count": 75000,
+      "max_process_tree_rss_bytes": 4294967296,
+      "max_swap_growth_bytes": 2147483648,
+      "expected_growth_bytes_per_hour": 1073741824,
+      "spike_window_seconds": 14400,
+      "stabilize_after_seconds": 21600,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 14,
+      "sample_interval_seconds": 60
+    },
+    "reference": {
+      "launch_verified": false,
+      "verification_basis": "2026-08-03 第一週期由 guard 以 PROJECT_FILE_COUNT_BUDGET_EXCEEDED 停止：uv runtime/cache 使 file count 29414→53734，超過 45000；未跑第二週期，維持 NO-GO。",
+      "meter_paths": ["logs", "artifacts", "data/reference", "data/raw/reference"],
+      "registered_write_paths": ["logs", "artifacts", "data"],
+      "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors"],
+      "max_bytes": 4294967296,
+      "max_file_count": 45000,
+      "max_process_tree_rss_bytes": 2147483648,
+      "max_swap_growth_bytes": 1073741824,
+      "expected_growth_bytes_per_hour": 268435456,
+      "spike_window_seconds": 7200,
+      "stabilize_after_seconds": 14400,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 30,
+      "sample_interval_seconds": 60
+    },
+    "fog-research-worker": {
+      "launch_verified": false,
+      "verification_basis": "2026-08-03 第一週期在代表性 grid/replay 工作負載中觀測 peak RSS 3191783424 bytes、swap delta 594081219 bytes；因當時 policy 缺 hard RSS/swap ceiling 而人工送 TERM，guard 隔離停止並拒絕重啟。hard ceilings 已補但未再跑完整週期，維持 NO-GO。",
+      "meter_paths": ["logs", "artifacts/autonomous_research", "artifacts/weekend_training", "artifacts/harness_status", "artifacts/research_map", "artifacts/research_reviews", "artifacts/host_runner"],
+      "registered_write_paths": ["logs", "artifacts"],
+      "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "research_snapshots", "autonomous_run_dirs", "harness_status", "weekend_replay_runs"],
+      "max_bytes": 2147483648,
+      "max_file_count": 30000,
+      "max_process_tree_rss_bytes": 4294967296,
+      "max_swap_growth_bytes": 2147483648,
+      "expected_growth_bytes_per_hour": 16777216,
+      "spike_window_seconds": 14400,
+      "stabilize_after_seconds": 18000,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 14,
+      "sample_interval_seconds": 60
+    },
+    "pm-research-harness": {
+      "launch_verified": false,
+      "verification_basis": "2026-08-03 provider-disabled cycle exit 0，但 topic_runs=0、沒有 PM review workload；空週期不得取代代表性週期，未跑第二週期，維持 NO-GO / REPRESENTATIVE_WORKLOAD_EMPTY。",
+      "meter_paths": ["logs", "artifacts/autonomous_research", "artifacts/weekend_training", "artifacts/harness_status", "artifacts/research_map", "artifacts/pm_review_cards", "artifacts/research_decisions"],
+      "registered_write_paths": ["logs", "artifacts"],
+      "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "research_snapshots", "autonomous_run_dirs", "pm_research_outputs", "harness_status", "weekend_replay_runs"],
+      "max_bytes": 2147483648,
+      "max_file_count": 30000,
+      "max_process_tree_rss_bytes": 4294967296,
+      "max_swap_growth_bytes": 2147483648,
+      "expected_growth_bytes_per_hour": 33554432,
+      "spike_window_seconds": 14400,
+      "stabilize_after_seconds": 18000,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 14,
+      "sample_interval_seconds": 60
+    },
+    "external-review": {
+      "launch_verified": false,
+      "verification_basis": "2026-08-03 source 確認正式模式會送 ChatGPT/Gemini browser/API；既有 API dry-run 只產生 fixture raw，不具代表性。卡片禁止 provider 寫入，未執行，維持 NO-GO / EXTERNAL_AUTHORITY_REQUIRED。",
+      "meter_paths": ["logs", "artifacts/external_review", "artifacts/autonomous_research", "artifacts/weekend_training", "artifacts/harness_status", "artifacts/research_map"],
+      "registered_write_paths": ["logs", "artifacts"],
+      "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "external_review_outputs", "research_snapshots", "autonomous_run_dirs", "harness_status", "weekend_replay_runs"],
+      "max_bytes": 2684354560,
+      "max_file_count": 35000,
+      "max_process_tree_rss_bytes": 2147483648,
+      "max_swap_growth_bytes": 1073741824,
+      "expected_growth_bytes_per_hour": 67108864,
+      "spike_window_seconds": 14400,
+      "stabilize_after_seconds": 18000,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 30,
+      "sample_interval_seconds": 60
+    },
+    "external-review-preflight": {
+      "launch_verified": false,
+      "verification_basis": "2026-08-03 source 確認 preflight 直接 probe ChatGPT/Gemini Chrome session，沒有 offline representative mode；未執行，維持 NO-GO / EXTERNAL_AUTHORITY_REQUIRED。",
+      "meter_paths": ["logs", "artifacts/external_review"],
+      "registered_write_paths": ["logs", "artifacts"],
+      "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "external_review_outputs"],
+      "max_bytes": 536870912,
+      "max_file_count": 5000,
+      "max_process_tree_rss_bytes": 1073741824,
+      "max_swap_growth_bytes": 536870912,
+      "expected_growth_bytes_per_hour": 8388608,
+      "spike_window_seconds": 3600,
+      "stabilize_after_seconds": 7200,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 30,
+      "sample_interval_seconds": 60
+    },
+    "baseline-harness": {
+      "launch_verified": false,
+      "verification_basis": "2026-08-03 發現 baseline_outputs reclaim 過廣會刪 unlock policy，已限縮並補 regression；修後第一個完整嘗試仍因 medium-window review artifact 非 OK 失敗，未跑第二週期，維持 NO-GO / REPRESENTATIVE_REVIEW_NOT_OK。",
+      "meter_paths": ["logs", "artifacts/weekend_training", "artifacts/backtest", "artifacts/harness_status"],
+      "registered_write_paths": ["logs", "artifacts"],
+      "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "weekend_replay_runs", "baseline_outputs", "harness_status"],
+      "max_bytes": 2147483648,
+      "max_file_count": 25000,
+      "max_process_tree_rss_bytes": 4294967296,
+      "max_swap_growth_bytes": 2147483648,
+      "expected_growth_bytes_per_hour": 268435456,
+      "spike_window_seconds": 14400,
+      "stabilize_after_seconds": 18000,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 14,
+      "sample_interval_seconds": 60
+    }
+  }
+}

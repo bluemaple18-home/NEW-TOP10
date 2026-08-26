@@ -1,0 +1,91 @@
+{
+  "child_exit_code": 1,
+  "command": [
+    "/bin/bash",
+    "scripts/run_baseline_harness_host_runner.sh"
+  ],
+  "job": "baseline-harness",
+  "launch_verified": false,
+  "max_runtime_seconds": 1200.0,
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 117912461,
+    "bytes_before": 117912461,
+    "dry_run": false,
+    "file_count_after": 2081,
+    "file_count_before": 2081,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 60115365888,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 505467330,
+      "project_file_count": 11698,
+      "rss_bytes": 0,
+      "swap_bytes": 4274981437,
+      "timestamp": 1785732628.547339
+    },
+    {
+      "host_free_bytes": 60114833408,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 505316509,
+      "project_file_count": 11649,
+      "rss_bytes": 0,
+      "swap_bytes": 4274981437,
+      "timestamp": 1785732630.321147
+    },
+    {
+      "host_free_bytes": 60114800640,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 505316889,
+      "project_file_count": 11649,
+      "rss_bytes": 0,
+      "swap_bytes": 4274981437,
+      "timestamp": 1785732630.644693
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "CHILD_FAILED",
+  "summary": {
+    "elapsed_seconds": 2.097353935241699,
+    "host_free_bytes_delta": -565248,
+    "observed_growth_bytes_per_hour": 0.0,
+    "peak_rss_bytes": 0,
+    "project_bytes_delta": -150441,
+    "project_file_count_delta": -49,
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "card_id": "TOP10-STORAGE-REPRESENTATIVE-CYCLES-02",
+      "jobs": [
+        "daily",
+        "retrain",
+        "reference",
+        "fog-research-worker",
+        "pm-research-harness",
+        "external-review",
+        "external-review-preflight",
+        "baseline-harness"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf",
+      "schema_version": "top10-storage-validation-root.v1",
+      "source_head": "93fb825138774a206a27792f1cbec75e0dd65abb"
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/logs/storage_safety/runtime/baseline-harness/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/logs/storage_safety/runtime/baseline-harness/cache/matplotlib",
+      "TMPDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/logs/storage_safety/runtime/baseline-harness/tmp",
+      "UV_CACHE_DIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/logs/storage_safety/runtime/baseline-harness/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/logs/storage_safety/runtime/baseline-harness/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf",
+    "sandbox_output_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf",
+    "source_input_root": "/Users/mattkuo/TOP10new"
+  },
+  "validation_only": true,
+  "verification_basis": "weekend_training 現況約 205 MiB／5415 檔，曾有單日 replay_runs 109123320 bytes；本修復版尚未跑兩週期。"
+}

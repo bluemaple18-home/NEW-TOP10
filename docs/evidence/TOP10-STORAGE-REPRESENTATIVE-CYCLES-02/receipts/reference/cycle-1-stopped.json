@@ -1,0 +1,95 @@
+{
+  "child_exit_code": -15,
+  "command": [
+    "/bin/bash",
+    "scripts/run_reference_update.sh"
+  ],
+  "job": "reference",
+  "launch_verified": false,
+  "max_runtime_seconds": 900.0,
+  "reasons": [
+    "PROJECT_FILE_COUNT_BUDGET_EXCEEDED"
+  ],
+  "reclaim": {
+    "bytes_after": 0,
+    "bytes_before": 0,
+    "dry_run": false,
+    "file_count_after": 0,
+    "file_count_before": 0,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 60027326464,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 1719677793,
+      "project_file_count": 29414,
+      "rss_bytes": 0,
+      "swap_bytes": 4266592829,
+      "timestamp": 1785732940.5650601
+    },
+    {
+      "host_free_bytes": 60027248640,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 1719677793,
+      "project_file_count": 29415,
+      "rss_bytes": 49364992,
+      "swap_bytes": 4266592829,
+      "timestamp": 1785732942.294762
+    },
+    {
+      "host_free_bytes": 59491700736,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2157145851,
+      "project_file_count": 52984,
+      "rss_bytes": 113803264,
+      "swap_bytes": 4266592829,
+      "timestamp": 1785733005.673644
+    },
+    {
+      "host_free_bytes": 59484774400,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2180982799,
+      "project_file_count": 53734,
+      "rss_bytes": 0,
+      "swap_bytes": 4266592829,
+      "timestamp": 1785733009.4729128
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "STOPPED",
+  "summary": {
+    "elapsed_seconds": 68.90785264968872,
+    "host_free_bytes_delta": -542552064,
+    "observed_growth_bytes_per_hour": 24100272432.557102,
+    "peak_rss_bytes": 113803264,
+    "project_bytes_delta": 461305006,
+    "project_file_count_delta": 24320,
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "card_id": "TOP10-STORAGE-REPRESENTATIVE-CYCLES-02",
+      "jobs": [
+        "reference"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-reference.rm5Whw",
+      "schema_version": "top10-storage-validation-root.v1",
+      "source_head": "93fb825138774a206a27792f1cbec75e0dd65abb"
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-reference.rm5Whw/logs/storage_safety/runtime/reference/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-reference.rm5Whw/logs/storage_safety/runtime/reference/cache/matplotlib",
+      "TMPDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-reference.rm5Whw/logs/storage_safety/runtime/reference/tmp",
+      "UV_CACHE_DIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-reference.rm5Whw/logs/storage_safety/runtime/reference/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-reference.rm5Whw/logs/storage_safety/runtime/reference/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-reference.rm5Whw",
+    "sandbox_output_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-reference.rm5Whw",
+    "source_input_root": "/Users/mattkuo/TOP10new"
+  },
+  "validation_only": true,
+  "verification_basis": "reference 現況僅有靜態檔案盤點，未完成本修復版兩週期 probe／import 與回收實測。"
+}

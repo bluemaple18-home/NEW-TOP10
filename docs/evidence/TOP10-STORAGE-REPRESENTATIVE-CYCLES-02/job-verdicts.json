@@ -1,0 +1,53 @@
+{
+  "schema_version": "top10-storage-representative-cycle-verdicts.v1",
+  "card_id": "TOP10-STORAGE-REPRESENTATIVE-CYCLES-02",
+  "global_verdict": "NO-GO",
+  "launchd_enabled": false,
+  "jobs": {
+    "daily": {
+      "verdict": "NO-GO",
+      "reason_code": "EXTERNAL_AUTHORITY_REQUIRED",
+      "completed_cycles": 0
+    },
+    "retrain": {
+      "verdict": "NO-GO",
+      "reason_code": "HEAVY_BRANCH_NOT_EXERCISED",
+      "completed_cycles": 2,
+      "partial_evidence": "scheduled monitor branch completed twice"
+    },
+    "reference": {
+      "verdict": "NO-GO",
+      "reason_code": "PROJECT_FILE_COUNT_BUDGET_EXCEEDED",
+      "completed_cycles": 0,
+      "stopped_cycles": 1
+    },
+    "fog-research-worker": {
+      "verdict": "NO-GO",
+      "reason_code": "HARD_MEMORY_CEILING_WAS_MISSING_DURING_CYCLE",
+      "completed_cycles": 0,
+      "stopped_cycles": 1
+    },
+    "pm-research-harness": {
+      "verdict": "NO-GO",
+      "reason_code": "REPRESENTATIVE_WORKLOAD_EMPTY",
+      "completed_cycles": 0,
+      "empty_cycles": 1
+    },
+    "external-review": {
+      "verdict": "NO-GO",
+      "reason_code": "EXTERNAL_AUTHORITY_REQUIRED",
+      "completed_cycles": 0
+    },
+    "external-review-preflight": {
+      "verdict": "NO-GO",
+      "reason_code": "EXTERNAL_AUTHORITY_REQUIRED",
+      "completed_cycles": 0
+    },
+    "baseline-harness": {
+      "verdict": "NO-GO",
+      "reason_code": "REPRESENTATIVE_REVIEW_NOT_OK",
+      "completed_cycles": 0,
+      "failed_cycles": 1
+    }
+  }
+}

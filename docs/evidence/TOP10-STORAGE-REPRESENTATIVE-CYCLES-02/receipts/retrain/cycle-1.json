@@ -1,0 +1,96 @@
+{
+  "child_exit_code": 0,
+  "command": [
+    "/bin/bash",
+    "scripts/daily_retrain.sh",
+    "monitor",
+    "--trigger",
+    "scheduled"
+  ],
+  "job": "retrain",
+  "launch_verified": false,
+  "max_runtime_seconds": 1800.0,
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 1460,
+    "bytes_before": 1460,
+    "dry_run": false,
+    "file_count_after": 1,
+    "file_count_before": 1,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 59479076864,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2581990256,
+      "project_file_count": 32081,
+      "rss_bytes": 0,
+      "swap_bytes": 4266592829,
+      "timestamp": 1785733075.9299772
+    },
+    {
+      "host_free_bytes": 59483000832,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2581990256,
+      "project_file_count": 32082,
+      "rss_bytes": 55001088,
+      "swap_bytes": 4266592829,
+      "timestamp": 1785733077.7190762
+    },
+    {
+      "host_free_bytes": 58404896768,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2581991032,
+      "project_file_count": 32083,
+      "rss_bytes": 231112704,
+      "swap_bytes": 6098916474,
+      "timestamp": 1785733139.952801
+    },
+    {
+      "host_free_bytes": 58404708352,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2582001286,
+      "project_file_count": 32084,
+      "rss_bytes": 0,
+      "swap_bytes": 6098916474,
+      "timestamp": 1785733141.857716
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "OK",
+  "summary": {
+    "elapsed_seconds": 65.927738904953,
+    "host_free_bytes_delta": -1074368512,
+    "observed_growth_bytes_per_hour": 602295.7962694035,
+    "peak_rss_bytes": 231112704,
+    "project_bytes_delta": 11030,
+    "project_file_count_delta": 3,
+    "swap_bytes_delta": 1832323645,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "card_id": "TOP10-STORAGE-REPRESENTATIVE-CYCLES-02",
+      "jobs": [
+        "retrain"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP",
+      "schema_version": "top10-storage-validation-root.v1",
+      "source_head": "93fb825138774a206a27792f1cbec75e0dd65abb"
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/cache/matplotlib",
+      "TMPDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/tmp",
+      "UV_CACHE_DIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP",
+    "sandbox_output_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP",
+    "source_input_root": "/Users/mattkuo/TOP10new"
+  },
+  "validation_only": true,
+  "verification_basis": "既有 models／model_experiments 只有靜態基線，尚未以本 guard 跑兩週期 retrain；預算未核准。"
+}

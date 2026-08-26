@@ -1,0 +1,24 @@
+{
+  "schema_version": "baseline-harness-host-runner-status.v1",
+  "generated_at": "2026-08-03T04:50:30.054020+00:00",
+  "run_date": "2026-08-03",
+  "status": "FAILED",
+  "dry_run": false,
+  "action_id": "baseline_harness_medium_window_replay_100D",
+  "policy_path": "artifacts/weekend_training/baseline_harness_unlock_policy_review_2026-06-21.json",
+  "policy_verified": false,
+  "action": null,
+  "runner_command": null,
+  "verifier_command": null,
+  "runner_result": null,
+  "verifier_result": null,
+  "replay_artifact": null,
+  "replay_verification": null,
+  "target_production_path_created": false,
+  "production_impact": null,
+  "host_runner_status_path": "artifacts/host_runner/2026-08-03/baseline_harness_host_runner_status_2026-08-03.json",
+  "host_runner_summary_path": "artifacts/host_runner/2026-08-03/baseline_harness_host_runner_summary_2026-08-03.json",
+  "notes": [
+    "policy schema mismatch"
+  ]
+}

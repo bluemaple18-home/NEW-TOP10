@@ -60,7 +60,9 @@ BATCH_VERIFICATION="artifacts/autonomous_research/research_spine_batch_verificat
 LEDGER_BATCH_VERIFICATION="artifacts/autonomous_research/research_ledger_batch_verification_${RESEARCH_BATCH_ID}.json"
 RESEARCH_LEDGER="data/research/research_ledger.duckdb"
 RUN_ARCHIVE_DIR="artifacts/autonomous_research/run_outputs"
-RUN_ARCHIVE_STEM="autonomous_research_daily_quota_${RUN_DATE}_$(date +%H%M%S)"
+# 同一交易日的 15 分鐘 worker 週期只保留一組最新快照，避免每次都複製
+# 約 1 MiB 的相同 JSON 而形成單向增長；跨日保留由 storage policy 回收。
+RUN_ARCHIVE_STEM="autonomous_research_daily_quota_${RUN_DATE}"
 LOG_FILE="$LOG_DIR/daily_research_quota_${RUN_DATE//-/}.log"
 declare -a RERUN_ARGS=()
 

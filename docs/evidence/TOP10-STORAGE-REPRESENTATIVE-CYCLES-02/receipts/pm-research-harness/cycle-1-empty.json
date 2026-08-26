@@ -1,0 +1,84 @@
+{
+  "child_exit_code": 0,
+  "command": [
+    "/bin/bash",
+    "scripts/run_pm_research_harness_loop.sh"
+  ],
+  "job": "pm-research-harness",
+  "launch_verified": false,
+  "max_runtime_seconds": 1800.0,
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 138017939,
+    "bytes_before": 138017939,
+    "dry_run": false,
+    "file_count_after": 2847,
+    "file_count_before": 2847,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 57022812160,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 643769513,
+      "project_file_count": 13911,
+      "rss_bytes": 0,
+      "swap_bytes": 6634277437,
+      "timestamp": 1785733627.71973
+    },
+    {
+      "host_free_bytes": 57026306048,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 423219224,
+      "project_file_count": 7583,
+      "rss_bytes": 32292864,
+      "swap_bytes": 6634277437,
+      "timestamp": 1785733630.096298
+    },
+    {
+      "host_free_bytes": 57026121728,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 423220803,
+      "project_file_count": 7585,
+      "rss_bytes": 0,
+      "swap_bytes": 6634277437,
+      "timestamp": 1785733630.372149
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "OK",
+  "summary": {
+    "elapsed_seconds": 2.652419090270996,
+    "host_free_bytes_delta": 3309568,
+    "observed_growth_bytes_per_hour": 0.0,
+    "peak_rss_bytes": 32292864,
+    "project_bytes_delta": -220548710,
+    "project_file_count_delta": -6326,
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "card_id": "TOP10-STORAGE-REPRESENTATIVE-CYCLES-02",
+      "jobs": [
+        "pm-research-harness"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-pm.h0HlE5",
+      "schema_version": "top10-storage-validation-root.v1",
+      "source_head": "93fb825138774a206a27792f1cbec75e0dd65abb"
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-pm.h0HlE5/logs/storage_safety/runtime/pm-research-harness/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-pm.h0HlE5/logs/storage_safety/runtime/pm-research-harness/cache/matplotlib",
+      "TMPDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-pm.h0HlE5/logs/storage_safety/runtime/pm-research-harness/tmp",
+      "UV_CACHE_DIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-pm.h0HlE5/logs/storage_safety/runtime/pm-research-harness/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-pm.h0HlE5/logs/storage_safety/runtime/pm-research-harness/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-pm.h0HlE5",
+    "sandbox_output_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-pm.h0HlE5",
+    "source_input_root": "/Users/mattkuo/TOP10new"
+  },
+  "validation_only": true,
+  "verification_basis": "PM harness 歷史單檔約 0.7 MiB 且曾密集累積；目前 plist 雖預設停用，仍未完成修復版兩週期與回收驗證。"
+}

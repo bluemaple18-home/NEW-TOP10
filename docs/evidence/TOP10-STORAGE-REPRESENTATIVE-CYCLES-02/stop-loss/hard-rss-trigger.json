@@ -1,0 +1,96 @@
+{
+  "child_exit_code": -15,
+  "command": [
+    ".venv/bin/python",
+    "-c",
+    "import time; payload = bytearray(64 * 1024 * 1024); time.sleep(30)"
+  ],
+  "job": "daily",
+  "launch_verified": false,
+  "max_runtime_seconds": 30.0,
+  "reasons": [
+    "PROCESS_TREE_RSS_BUDGET_EXCEEDED"
+  ],
+  "reclaim": {
+    "bytes_after": 0,
+    "bytes_before": 0,
+    "dry_run": false,
+    "file_count_after": 0,
+    "file_count_before": 0,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 56980451328,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2581990256,
+      "project_file_count": 32081,
+      "rss_bytes": 0,
+      "swap_bytes": 6625888829,
+      "timestamp": 1785733773.426498
+    },
+    {
+      "host_free_bytes": 56980422656,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2581990256,
+      "project_file_count": 32082,
+      "rss_bytes": 82853888,
+      "swap_bytes": 6625888829,
+      "timestamp": 1785733775.255939
+    },
+    {
+      "host_free_bytes": 56980299776,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2581990256,
+      "project_file_count": 32082,
+      "rss_bytes": 82853888,
+      "swap_bytes": 6625888829,
+      "timestamp": 1785733777.1603498
+    },
+    {
+      "host_free_bytes": 56980144128,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2581990256,
+      "project_file_count": 32082,
+      "rss_bytes": 0,
+      "swap_bytes": 6625888829,
+      "timestamp": 1785733778.9686909
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "STOPPED",
+  "summary": {
+    "elapsed_seconds": 5.5421929359436035,
+    "host_free_bytes_delta": -307200,
+    "observed_growth_bytes_per_hour": 0.0,
+    "peak_rss_bytes": 82853888,
+    "project_bytes_delta": 0,
+    "project_file_count_delta": 1,
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "card_id": "TOP10-STORAGE-REPRESENTATIVE-CYCLES-02",
+      "jobs": [
+        "daily"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-stoploss2.cvs6ob",
+      "schema_version": "top10-storage-validation-root.v1",
+      "source_head": "93fb825138774a206a27792f1cbec75e0dd65abb"
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-stoploss2.cvs6ob/logs/storage_safety/runtime/daily/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-stoploss2.cvs6ob/logs/storage_safety/runtime/daily/cache/matplotlib",
+      "TMPDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-stoploss2.cvs6ob/logs/storage_safety/runtime/daily/tmp",
+      "UV_CACHE_DIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-stoploss2.cvs6ob/logs/storage_safety/runtime/daily/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-stoploss2.cvs6ob/logs/storage_safety/runtime/daily/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-stoploss2.cvs6ob",
+    "sandbox_output_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-stoploss2.cvs6ob",
+    "source_input_root": "/Users/mattkuo/TOP10new"
+  },
+  "validation_only": true,
+  "verification_basis": "2026-08-03 只完成既有資料盤點；尚無本修復版兩個代表性 daily 週期，因此數值為 provisional、不得 live 啟動。"
+}

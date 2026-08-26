@@ -1,0 +1,87 @@
+{
+  "child_exit_code": 0,
+  "command": [
+    "/bin/bash",
+    "scripts/daily_retrain.sh",
+    "monitor",
+    "--trigger",
+    "scheduled"
+  ],
+  "job": "retrain",
+  "launch_verified": false,
+  "max_runtime_seconds": 1800.0,
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 2920,
+    "bytes_before": 2920,
+    "dry_run": false,
+    "file_count_after": 1,
+    "file_count_before": 1,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 58403934208,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2582004686,
+      "project_file_count": 32085,
+      "rss_bytes": 0,
+      "swap_bytes": 6098916474,
+      "timestamp": 1785733165.1493518
+    },
+    {
+      "host_free_bytes": 58402627584,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2582004686,
+      "project_file_count": 32085,
+      "rss_bytes": 170065920,
+      "swap_bytes": 6098916474,
+      "timestamp": 1785733167.2277498
+    },
+    {
+      "host_free_bytes": 58403741696,
+      "host_total_bytes": 245107195904,
+      "project_bytes": 2582006683,
+      "project_file_count": 32085,
+      "rss_bytes": 0,
+      "swap_bytes": 6098916474,
+      "timestamp": 1785733191.364977
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "OK",
+  "summary": {
+    "elapsed_seconds": 26.215625047683716,
+    "host_free_bytes_delta": -192512,
+    "observed_growth_bytes_per_hour": 274233.4003833032,
+    "peak_rss_bytes": 170065920,
+    "project_bytes_delta": 1997,
+    "project_file_count_delta": 0,
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "card_id": "TOP10-STORAGE-REPRESENTATIVE-CYCLES-02",
+      "jobs": [
+        "retrain"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP",
+      "schema_version": "top10-storage-validation-root.v1",
+      "source_head": "93fb825138774a206a27792f1cbec75e0dd65abb"
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/cache/matplotlib",
+      "TMPDIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/tmp",
+      "UV_CACHE_DIR": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP/logs/storage_safety/runtime/retrain/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP",
+    "sandbox_output_root": "/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02-retrain.rkjPeP",
+    "source_input_root": "/Users/mattkuo/TOP10new"
+  },
+  "validation_only": true,
+  "verification_basis": "既有 models／model_experiments 只有靜態基線，尚未以本 guard 跑兩週期 retrain；預算未核准。"
+}

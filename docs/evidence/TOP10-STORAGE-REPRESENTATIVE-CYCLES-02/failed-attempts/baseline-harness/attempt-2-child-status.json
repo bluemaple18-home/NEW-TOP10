@@ -1,0 +1,53 @@
+{
+  "schema_version": "baseline-harness-host-runner-status.v1",
+  "generated_at": "2026-08-03T04:52:21.897811+00:00",
+  "run_date": "2026-08-03",
+  "status": "FAILED",
+  "dry_run": false,
+  "action_id": "baseline_harness_medium_window_replay_100D",
+  "policy_path": "artifacts/weekend_training/baseline_harness_unlock_policy_review_2026-06-21.json",
+  "policy_verified": true,
+  "action": {
+    "action_id": "baseline_harness_medium_window_replay_100D",
+    "runner": "scripts/run_baseline_harness_medium_window_replay.py",
+    "verifier": "scripts/verify_baseline_harness_medium_window_replay.py",
+    "target_baseline_path": "artifacts/backtest/production_baseline_harness_medium_window",
+    "start_date": "2025-12-24",
+    "end_date": "2026-05-15"
+  },
+  "runner_command": [
+    ".venv/bin/python",
+    "scripts/run_baseline_harness_medium_window_replay.py",
+    "--date",
+    "2026-08-03"
+  ],
+  "verifier_command": [
+    ".venv/bin/python",
+    "scripts/verify_baseline_harness_medium_window_replay.py",
+    "--date",
+    "2026-08-03"
+  ],
+  "runner_result": {
+    "command": [
+      ".venv/bin/python",
+      "scripts/run_baseline_harness_medium_window_replay.py",
+      "--date",
+      "2026-08-03"
+    ],
+    "exit_code": 1,
+    "started_at": "2026-08-03T04:52:21.898903+00:00",
+    "finished_at": "2026-08-03T04:53:16.514212+00:00",
+    "stdout_tail": "",
+    "stderr_tail": "Matplotlib is building the font cache; this may take a moment.\nTraceback (most recent call last):\n  File \"/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/app/agent_b_ranking.py\", line 42, in <module>\n    from app.modeling.feature_contract import load_m4_feature_frame\n  File \"/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/app/modeling/__init__.py\", line 6, in <module>\n    from .feature_contract import (\n  File \"/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/app/modeling/feature_contract.py\", line 16, in <module>\n    from app.data.fundamental_repository import FundamentalRepository\nModuleNotFoundError: No module named 'app.data'\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/scripts/run_baseline_harness_medium_window_replay.py\", line 25, in <module>\n    from scripts import build_production_baseline_harness, run_backtest_replay, run_capital_aware_replay  # noqa: E402\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/scripts/build_production_baseline_harness.py\", line 27, in <module>\n    import build_historical_ranking_replay_set  # noqa: E402\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/scripts/build_historical_ranking_replay_set.py\", line 26, in <module>\n    from app.agent_b_ranking import StockRanker\n  File \"/private/tmp/TOP10-STORAGE-REPRESENTATIVE-CYCLES-02.6H6zkf/app/agent_b_ranking.py\", line 44, in <module>\n    from modeling.feature_contract import load_m4_feature_frame\nModuleNotFoundError: No module named 'modeling'"
+  },
+  "verifier_result": null,
+  "replay_artifact": null,
+  "replay_verification": null,
+  "target_production_path_created": false,
+  "production_impact": null,
+  "host_runner_status_path": "artifacts/host_runner/2026-08-03/baseline_harness_host_runner_status_2026-08-03.json",
+  "host_runner_summary_path": "artifacts/host_runner/2026-08-03/baseline_harness_host_runner_summary_2026-08-03.json",
+  "notes": [
+    "runner failed exit_code=1"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "schema_version": "baseline-harness-host-runner-status.v1",
+  "generated_at": "2026-08-03T04:54:06.238117+00:00",
+  "run_date": "2026-08-03",
+  "status": "FAILED",
+  "dry_run": false,
+  "action_id": "baseline_harness_medium_window_replay_100D",
+  "policy_path": "artifacts/weekend_training/baseline_harness_unlock_policy_review_2026-06-21.json",
+  "policy_verified": true,
+  "action": {
+    "action_id": "baseline_harness_medium_window_replay_100D",
+    "runner": "scripts/run_baseline_harness_medium_window_replay.py",
+    "verifier": "scripts/verify_baseline_harness_medium_window_replay.py",
+    "target_baseline_path": "artifacts/backtest/production_baseline_harness_medium_window",
+    "start_date": "2025-12-24",
+    "end_date": "2026-05-15"
+  },
+  "runner_command": [
+    ".venv/bin/python",
+    "scripts/run_baseline_harness_medium_window_replay.py",
+    "--date",
+    "2026-08-03"
+  ],
+  "verifier_command": [
+    ".venv/bin/python",
+    "scripts/verify_baseline_harness_medium_window_replay.py",
+    "--date",
+    "2026-08-03"
+  ],
+  "runner_result": {
+    "command": [
+      ".venv/bin/python",
+      "scripts/run_baseline_harness_medium_window_replay.py",
+      "--date",
+      "2026-08-03"
+    ],
+    "exit_code": 1,
+    "started_at": "2026-08-03T04:54:06.239207+00:00",
+    "finished_at": "2026-08-03T04:54:11.621190+00:00",
+    "stdout_tail": "",
+    "stderr_tail": "BASELINE_HARNESS_MEDIUM_WINDOW_REPLAY_FAILED medium-window review artifact is not OK"
+  },
+  "verifier_result": null,
+  "replay_artifact": null,
+  "replay_verification": null,
+  "target_production_path_created": false,
+  "production_impact": null,
+  "host_runner_status_path": "artifacts/host_runner/2026-08-03/baseline_harness_host_runner_status_2026-08-03.json",
+  "host_runner_summary_path": "artifacts/host_runner/2026-08-03/baseline_harness_host_runner_summary_2026-08-03.json",
+  "notes": [
+    "runner failed exit_code=1"
+  ]
+}

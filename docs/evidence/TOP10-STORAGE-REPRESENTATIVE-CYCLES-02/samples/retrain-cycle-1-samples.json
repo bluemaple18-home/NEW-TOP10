@@ -1,0 +1,38 @@
+[
+  {
+    "host_free_bytes": 59479076864,
+    "host_total_bytes": 245107195904,
+    "project_bytes": 2581990256,
+    "project_file_count": 32081,
+    "rss_bytes": 0,
+    "swap_bytes": 4266592829,
+    "timestamp": 1785733075.9299772
+  },
+  {
+    "host_free_bytes": 59483000832,
+    "host_total_bytes": 245107195904,
+    "project_bytes": 2581990256,
+    "project_file_count": 32082,
+    "rss_bytes": 55001088,
+    "swap_bytes": 4266592829,
+    "timestamp": 1785733077.7190762
+  },
+  {
+    "host_free_bytes": 58404896768,
+    "host_total_bytes": 245107195904,
+    "project_bytes": 2581991032,
+    "project_file_count": 32083,
+    "rss_bytes": 231112704,
+    "swap_bytes": 6098916474,
+    "timestamp": 1785733139.952801
+  },
+  {
+    "host_free_bytes": 58404708352,
+    "host_total_bytes": 245107195904,
+    "project_bytes": 2582001286,
+    "project_file_count": 32084,
+    "rss_bytes": 0,
+    "swap_bytes": 6098916474,
+    "timestamp": 1785733141.857716
+  }
+]
