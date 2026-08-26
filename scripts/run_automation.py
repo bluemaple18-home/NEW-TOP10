@@ -13,7 +13,7 @@ import os
 import pickle
 import shutil
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -46,6 +46,65 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATUS_PATH = PROJECT_ROOT / "artifacts" / "automation_status.json"
 
 
+@dataclass(frozen=True)
+class RuntimePaths:
+    """每日驗證用 root contract；production 預設仍全部指向 checkout。"""
+
+    source_root: Path
+    output_root: Path
+    runtime_root: Path
+
+    @classmethod
+    def defaults(cls) -> "RuntimePaths":
+        return cls(PROJECT_ROOT, PROJECT_ROOT, PROJECT_ROOT)
+
+    @classmethod
+    def resolve(
+        cls,
+        *,
+        source_root: Path | str | None = None,
+        output_root: Path | str | None = None,
+        runtime_root: Path | str | None = None,
+    ) -> "RuntimePaths":
+        source = Path(source_root).resolve() if source_root is not None else PROJECT_ROOT
+        default_output = source if source_root is not None else STATUS_PATH.parent.parent
+        output = Path(output_root).resolve() if output_root is not None else default_output
+        runtime = Path(runtime_root).resolve() if runtime_root is not None else output
+        return cls(source, output, runtime)
+
+    @property
+    def uses_production_defaults(self) -> bool:
+        return self.source_root == PROJECT_ROOT and self.output_root == PROJECT_ROOT and self.runtime_root == PROJECT_ROOT
+
+    @property
+    def artifacts_dir(self) -> Path:
+        return self.output_root / "artifacts"
+
+    @property
+    def logs_dir(self) -> Path:
+        return self.output_root / "logs"
+
+    @property
+    def data_dir(self) -> Path:
+        return self.output_root / "data"
+
+    @property
+    def clean_data_dir(self) -> Path:
+        return self.data_dir / "clean"
+
+    @property
+    def source_config_dir(self) -> Path:
+        return self.source_root / "config"
+
+    @property
+    def source_models_dir(self) -> Path:
+        return self.source_root / "models"
+
+    @property
+    def status_path(self) -> Path:
+        return self.artifacts_dir / "automation_status.json"
+
+
 class _DailyActions:
     """把既有 domain methods 接到純順序 orchestrator。"""
 
@@ -71,13 +130,30 @@ class _DailyActions:
         self.runner._run_command("etl", self.runner._pipeline_run_command())
 
     def validate_data(self) -> None:
-        self.runner._run_command("data.validate", ["python", "-m", "app.pipeline_cli", "validate"])
+        command = ["python", "-m", "app.pipeline_cli", "validate"]
+        if not self.runner.runtime_paths.uses_production_defaults:
+            command.extend(["--data-dir", str(self.runner.runtime_paths.data_dir)])
+        self.runner._run_command("data.validate", command)
 
     def record_data_freshness(self) -> None:
         self.runner._record_data_freshness("data.freshness.after_etl")
 
     def run_ranking(self) -> None:
-        self.runner._run_command("ranking", ["python", "-m", "app.agent_b_ranking"])
+        command = ["python", "-m", "app.agent_b_ranking"]
+        if not self.runner.runtime_paths.uses_production_defaults:
+            command.extend(
+                [
+                    "--data-dir",
+                    str(self.runner.runtime_paths.clean_data_dir),
+                    "--model-dir",
+                    str(self.runner.runtime_paths.source_models_dir),
+                    "--artifact-dir",
+                    str(self.runner.runtime_paths.artifacts_dir),
+                    "--config",
+                    str(self.runner.runtime_paths.source_config_dir / "signals.yaml"),
+                ]
+            )
+        self.runner._run_command("ranking", command)
 
     def record_ranking(self) -> None:
         self.runner._record_latest_ranking("ranking.artifact")
@@ -152,11 +228,23 @@ class AutomationRunner:
         trigger: str = "manual",
         resource_profile: str | None = None,
         run_date: str | None = None,
+        source_root: Path | str | None = None,
+        output_root: Path | str | None = None,
+        runtime_root: Path | str | None = None,
+        validation_mode: bool = False,
     ):
         self.mode = mode
         self.dry_run = dry_run
         self.trigger = trigger
+        self.runtime_paths = RuntimePaths.resolve(
+            source_root=source_root,
+            output_root=output_root,
+            runtime_root=runtime_root,
+        )
+        self.validation_mode = validation_mode
         self.config = self._load_config()
+        if self.validation_mode:
+            self._apply_validation_mode_config()
         self.resource_profile = self._resolve_resource_profile(resource_profile)
         self.tz = ZoneInfo(self.config.get("timezone", "Asia/Taipei"))
         self._run_date_override = self._normalize_run_date(run_date or os.environ.get("TOP10_RUN_DATE"))
@@ -171,6 +259,10 @@ class AutomationRunner:
             run_date=self.run_date,
             metadata={
                 "project_root": str(PROJECT_ROOT),
+                "source_root": str(self.runtime_paths.source_root),
+                "output_root": str(self.runtime_paths.output_root),
+                "runtime_root": str(self.runtime_paths.runtime_root),
+                "validation_mode": self.validation_mode,
                 "trigger": trigger,
                 "resource_profile": self.resource_profile,
                 "run_date_source": run_date_source,
@@ -215,6 +307,38 @@ class AutomationRunner:
     def _run_daily_final_artifacts(self) -> None:
         daily_config = self.config.get("daily", {})
         run_daily_final_artifacts(_DailyActions(self), daily_config)
+
+    def _apply_validation_mode_config(self) -> None:
+        """Storage validation 只跑 canonical daily core，外部副作用在 code 層關閉。"""
+
+        daily_config = self.config.setdefault("daily", {})
+        daily_config.update(
+            {
+                "enabled": True,
+                "weekend_enabled": True,
+                "candidate_persistence_enabled": False,
+                "weekly_snapshot_enabled": False,
+                "tskg_t86_enabled": False,
+                "market_context_enabled": False,
+                "daily_recommendation_performance_enabled": False,
+                "decision_quality_enabled": False,
+                "daily_performance_review_enabled": False,
+                "gross55_shadow_monitor_enabled": False,
+                "gross55_shadow_monitor_batch_enabled": False,
+                "capital_entry_quality_shadow_monitor_enabled": False,
+                "capital_entry_quality_shadow_monitor_batch_enabled": False,
+                "candidate_trail10_shadow_monitor_enabled": False,
+                "overlap_first_recommendation_shadow_enabled": False,
+                "shadow_historical_evidence_report_enabled": False,
+                "overlay_append_only_shadow_enabled": False,
+                "daily_shadow_status_report_enabled": False,
+                "postcheck_enabled": False,
+                "daily_report_enabled": True,
+                "clawd_payload_enabled": True,
+            }
+        )
+        notify_config = self.config.setdefault("notify", {})
+        notify_config["llm_rewrite_enabled"] = False
 
     def _run_monitor(self) -> None:
         if not self.config.get("monitor", {}).get("enabled", True):
@@ -286,7 +410,17 @@ class AutomationRunner:
         self._record_step("status", "OK", message="狀態檢查完成")
 
     def _pipeline_run_command(self) -> list[str]:
-        return list(pipeline_run_command(self._pipeline_window()))
+        command = list(pipeline_run_command(self._pipeline_window()))
+        if not self.runtime_paths.uses_production_defaults:
+            command.extend(
+                [
+                    "--data-dir",
+                    str(self.runtime_paths.data_dir),
+                    "--artifacts-dir",
+                    str(self.runtime_paths.artifacts_dir),
+                ]
+            )
+        return command
 
     def _pipeline_window(self) -> dict[str, str]:
         window = self._pipeline_window_override()
@@ -419,13 +553,22 @@ class AutomationRunner:
         self._run_command("candidate.persistence", command)
 
     def _run_daily_report(self, daily_config: dict[str, Any], ranking_path: Path) -> Path | None:
-        report_path = PROJECT_ROOT / "artifacts" / f"daily_report_{self._latest_feature_date()}.json"
+        report_path = self.runtime_paths.artifacts_dir / f"daily_report_{self._latest_feature_date()}.json"
         self.status.metadata["expected_daily_report_artifact"] = str(report_path)
         if not daily_config.get("daily_report_enabled", True):
             self._record_step("daily.report", "SKIPPED", message="config daily.daily_report_enabled=false")
             return None
 
         command = ["python", "scripts/generate_daily_report.py", "--ranking", str(ranking_path)]
+        if not self.runtime_paths.uses_production_defaults:
+            command.extend(
+                [
+                    "--status",
+                    str(self._status_output_path()),
+                    "--artifacts-dir",
+                    str(self.runtime_paths.artifacts_dir),
+                ]
+            )
         self._run_command("daily.report", command)
         if not self.dry_run:
             if not report_path.exists():
@@ -437,7 +580,7 @@ class AutomationRunner:
 
     def _run_tskg_t86(self, daily_config: dict[str, Any]) -> Path | None:
         trade_date = self._latest_feature_date()
-        output_path = PROJECT_ROOT / "artifacts" / "tskg" / "t86" / f"twse_t86_{trade_date}.json"
+        output_path = self.runtime_paths.artifacts_dir / "tskg" / "t86" / f"twse_t86_{trade_date}.json"
         self.status.metadata["expected_tskg_t86_artifact"] = str(output_path)
         if not daily_config.get("tskg_t86_enabled", True):
             self._record_step("tskg.t86", "SKIPPED", message="config daily.tskg_t86_enabled=false")
@@ -491,7 +634,7 @@ class AutomationRunner:
         daily_config: dict[str, Any],
         t86_path: Path | None = None,
     ) -> Path | None:
-        output_path = PROJECT_ROOT / "artifacts" / f"market_context_{self._latest_feature_date()}.json"
+        output_path = self.runtime_paths.artifacts_dir / f"market_context_{self._latest_feature_date()}.json"
         self.status.metadata["expected_market_context_artifact"] = str(output_path)
         if not daily_config.get("market_context_enabled", True):
             self._record_step("market.context", "SKIPPED", message="config daily.market_context_enabled=false")
@@ -511,7 +654,7 @@ class AutomationRunner:
 
     def _run_daily_recommendation_performance(self, daily_config: dict[str, Any]) -> Path | None:
         date_text = self._latest_feature_date()
-        output_path = PROJECT_ROOT / "artifacts" / f"daily_recommendation_performance_{date_text}.json"
+        output_path = self.runtime_paths.artifacts_dir / f"daily_recommendation_performance_{date_text}.json"
         self.status.metadata["expected_daily_recommendation_performance_artifact"] = str(output_path)
         if not daily_config.get("daily_recommendation_performance_enabled", True):
             self._record_step(
@@ -558,13 +701,13 @@ class AutomationRunner:
         return output_path
 
     def _run_decision_quality(self, daily_config: dict[str, Any], ranking_path: Path) -> Path | None:
-        output_path = PROJECT_ROOT / "artifacts" / f"decision_quality_{self._latest_feature_date()}.json"
+        output_path = self.runtime_paths.artifacts_dir / f"decision_quality_{self._latest_feature_date()}.json"
         self.status.metadata["expected_decision_quality_artifact"] = str(output_path)
         if not daily_config.get("decision_quality_enabled", True):
             self._record_step("decision.quality", "SKIPPED", message="config daily.decision_quality_enabled=false")
             return None
 
-        performance_path = PROJECT_ROOT / "artifacts" / f"daily_recommendation_performance_{self._latest_feature_date()}.json"
+        performance_path = self.runtime_paths.artifacts_dir / f"daily_recommendation_performance_{self._latest_feature_date()}.json"
         command = ["python", "scripts/build_decision_quality.py", "--ranking", str(ranking_path)]
         if performance_path.exists():
             command.extend(["--performance", str(performance_path)])
@@ -579,7 +722,7 @@ class AutomationRunner:
 
     def _run_daily_performance_review(self, daily_config: dict[str, Any]) -> Path | None:
         date_text = self._latest_feature_date()
-        output_path = PROJECT_ROOT / "artifacts" / f"daily_performance_review_{date_text}.json"
+        output_path = self.runtime_paths.artifacts_dir / f"daily_performance_review_{date_text}.json"
         self.status.metadata["expected_daily_performance_review_artifact"] = str(output_path)
         if not daily_config.get("daily_performance_review_enabled", True):
             self._record_step(
@@ -627,8 +770,8 @@ class AutomationRunner:
 
     def _run_gross55_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
         date_text = self._latest_feature_date()
-        monitor_path = PROJECT_ROOT / "artifacts" / "model_experiments" / f"gross55_daily_shadow_monitor_{date_text}.json"
-        batch_path = PROJECT_ROOT / "artifacts" / "model_experiments" / f"gross55_daily_shadow_monitor_batch_{date_text}.json"
+        monitor_path = self.runtime_paths.artifacts_dir / "model_experiments" / f"gross55_daily_shadow_monitor_{date_text}.json"
+        batch_path = self.runtime_paths.artifacts_dir / "model_experiments" / f"gross55_daily_shadow_monitor_batch_{date_text}.json"
         self.status.metadata["expected_gross55_shadow_monitor"] = str(monitor_path)
         self.status.metadata["expected_gross55_shadow_monitor_batch"] = str(batch_path)
 
@@ -675,14 +818,12 @@ class AutomationRunner:
     def _run_capital_entry_quality_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
         date_text = self._latest_feature_date()
         monitor_path = (
-            PROJECT_ROOT
-            / "artifacts"
+            self.runtime_paths.artifacts_dir
             / "model_experiments"
             / f"capital_entry_quality_daily_shadow_monitor_{date_text}.json"
         )
         batch_path = (
-            PROJECT_ROOT
-            / "artifacts"
+            self.runtime_paths.artifacts_dir
             / "model_experiments"
             / f"capital_entry_quality_daily_shadow_monitor_batch_{date_text}.json"
         )
@@ -732,8 +873,7 @@ class AutomationRunner:
     def _run_candidate_trail10_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
         date_text = self._latest_feature_date()
         monitor_path = (
-            PROJECT_ROOT
-            / "artifacts"
+            self.runtime_paths.artifacts_dir
             / "model_experiments"
             / f"candidate_trail10_daily_shadow_monitor_{date_text}.json"
         )
@@ -763,14 +903,12 @@ class AutomationRunner:
     def _run_overlap_first_recommendation_shadow(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
         date_text = self._latest_feature_date()
         output_path = (
-            PROJECT_ROOT
-            / "artifacts"
+            self.runtime_paths.artifacts_dir
             / "model_experiments"
             / f"overlap_first_daily_recommendation_shadow_{date_text}.json"
         )
         candidate_monitor_path = (
-            PROJECT_ROOT
-            / "artifacts"
+            self.runtime_paths.artifacts_dir
             / "model_experiments"
             / f"candidate_trail10_daily_shadow_monitor_{date_text}.json"
         )
@@ -801,7 +939,7 @@ class AutomationRunner:
 
     def _run_daily_shadow_status_report(self, daily_config: dict[str, Any]) -> None:
         date_text = self._latest_feature_date()
-        output_path = PROJECT_ROOT / "artifacts" / "model_experiments" / f"daily_shadow_status_{date_text}.json"
+        output_path = self.runtime_paths.artifacts_dir / "model_experiments" / f"daily_shadow_status_{date_text}.json"
         self.status.metadata["expected_daily_shadow_status_report"] = str(output_path)
         if not daily_config.get("daily_shadow_status_report_enabled", False):
             self._record_step(
@@ -823,7 +961,7 @@ class AutomationRunner:
             self._record_step("daily_shadow.status_report.artifact", "OK", message=str(output_path))
 
     def _run_overlay_append_only_shadow(self, daily_config: dict[str, Any]) -> None:
-        output_path = PROJECT_ROOT / "artifacts" / "model_experiments" / "overlay_shadow_daily_status.json"
+        output_path = self.runtime_paths.artifacts_dir / "model_experiments" / "overlay_shadow_daily_status.json"
         self.status.metadata["expected_overlay_append_only_shadow_status"] = str(output_path)
         if not daily_config.get("overlay_append_only_shadow_enabled", False):
             self._record_step(
@@ -859,7 +997,7 @@ class AutomationRunner:
 
     def _run_shadow_historical_evidence_report(self, daily_config: dict[str, Any]) -> None:
         date_text = self._latest_feature_date()
-        output_path = PROJECT_ROOT / "artifacts" / "model_experiments" / f"shadow_historical_evidence_{date_text}.json"
+        output_path = self.runtime_paths.artifacts_dir / "model_experiments" / f"shadow_historical_evidence_{date_text}.json"
         self.status.metadata["expected_shadow_historical_evidence_report"] = str(output_path)
         if not daily_config.get("shadow_historical_evidence_report_enabled", False):
             self._record_step(
@@ -881,8 +1019,8 @@ class AutomationRunner:
             self._record_step("shadow_historical.evidence_report.artifact", "OK", message=str(output_path))
 
     def _run_clawd_payload(self, daily_config: dict[str, Any], report_path: Path | None) -> None:
-        payload_path = PROJECT_ROOT / "artifacts" / f"clawd_publish_payload_{self._latest_feature_date()}.json"
-        message_path = PROJECT_ROOT / "artifacts" / f"clawd_publish_message_{self._latest_feature_date()}.md"
+        payload_path = self.runtime_paths.artifacts_dir / f"clawd_publish_payload_{self._latest_feature_date()}.json"
+        message_path = self.runtime_paths.artifacts_dir / f"clawd_publish_message_{self._latest_feature_date()}.md"
         self.status.metadata["expected_clawd_publish_payload"] = str(payload_path)
         self.status.metadata["expected_clawd_publish_message"] = str(message_path)
         if not daily_config.get("clawd_payload_enabled", True):
@@ -894,6 +1032,8 @@ class AutomationRunner:
 
         notify_config = self.config.get("notify", {})
         command = ["python", "scripts/build_clawd_publish_payload.py", "--report", str(report_path)]
+        if not self.runtime_paths.uses_production_defaults:
+            command.extend(["--artifacts-dir", str(self.runtime_paths.artifacts_dir)])
         channel = notify_config.get("clawd_channel")
         target = notify_config.get("clawd_to")
         if channel:
@@ -906,7 +1046,14 @@ class AutomationRunner:
             if missing:
                 self._record_step("clawd.payload.artifact", "FAILED", message=f"missing expected Clawd artifacts: {missing}")
                 raise RuntimeError(f"clawd payload completed but expected artifacts are missing: {missing}")
-            self._run_clawd_llm_rewrite(notify_config, payload_path, message_path)
+            if self.validation_mode:
+                self._record_step(
+                    "clawd.payload.llm_rewrite",
+                    "SKIPPED",
+                    message="storage validation mode hard-disables external rewrite",
+                )
+            else:
+                self._run_clawd_llm_rewrite(notify_config, payload_path, message_path)
             self.status.metadata["clawd_publish_payload"] = str(payload_path)
             self.status.metadata["clawd_publish_message"] = str(message_path)
             self._record_step("clawd.payload.artifact", "OK", message=str(payload_path))
@@ -942,14 +1089,26 @@ class AutomationRunner:
 
     def _preflight(self) -> None:
         self._record_step("preflight.project_root", "OK", message=str(PROJECT_ROOT))
+        self._record_step("preflight.source_root", "OK", message=str(self.runtime_paths.source_root))
+        self._record_step("preflight.output_root", "OK", message=str(self.runtime_paths.output_root))
         if shutil.which("uv") is None:
             raise RuntimeError("找不到 uv，請先安裝 uv 或修正 PATH")
-        for path in [PROJECT_ROOT / "config" / "automation.yaml", PROJECT_ROOT / "requirements.txt"]:
+        for path in [self.runtime_paths.source_config_dir / "automation.yaml", self.runtime_paths.source_root / "requirements.txt"]:
             if not path.exists():
                 raise RuntimeError(f"必要檔案不存在：{path}")
-        (PROJECT_ROOT / "artifacts").mkdir(exist_ok=True)
-        (PROJECT_ROOT / "logs").mkdir(exist_ok=True)
-        (PROJECT_ROOT / "models" / "backup").mkdir(parents=True, exist_ok=True)
+        self.runtime_paths.artifacts_dir.mkdir(parents=True, exist_ok=True)
+        self.runtime_paths.logs_dir.mkdir(parents=True, exist_ok=True)
+        if self.validation_mode:
+            for path in (
+                self.runtime_paths.runtime_root / "tmp",
+                self.runtime_paths.runtime_root / "cache" / "uv",
+                self.runtime_paths.runtime_root / "cache" / "xdg",
+                self.runtime_paths.runtime_root / "cache" / "matplotlib",
+                self.runtime_paths.runtime_root / "tmp" / "joblib",
+            ):
+                path.mkdir(parents=True, exist_ok=True)
+        if self.runtime_paths.uses_production_defaults or self.mode == "retrain":
+            (self.runtime_paths.source_models_dir / "backup").mkdir(parents=True, exist_ok=True)
 
     def _daily_preflight(self) -> None:
         self._record_step("daily.schema", "OK", message=STATUS_SCHEMA_VERSION)
@@ -957,14 +1116,14 @@ class AutomationRunner:
         self._record_model_existence()
         self._record_data_freshness(
             "data.freshness.preflight",
-            fail_on_error=not self._has_pipeline_window(),
+            fail_on_error=False if self.validation_mode else not self._has_pipeline_window(),
         )
 
     def _retrain_preflight(self) -> None:
         self._record_step("retrain.schema", "OK", message=STATUS_SCHEMA_VERSION)
         self._record_step("retrain.run_date", "OK", message=self.run_date)
         self._record_model_existence()
-        model_path = PROJECT_ROOT / "models" / "latest_lgbm.pkl"
+        model_path = self.runtime_paths.source_models_dir / "latest_lgbm.pkl"
         self.status.metadata.setdefault("retrain", {})["previous_model"] = self._model_snapshot(model_path)
         self._record_data_freshness("data.freshness.retrain_preflight")
         self._run_command("data.validate", ["python", "-m", "app.pipeline_cli", "validate"])
@@ -977,7 +1136,7 @@ class AutomationRunner:
         return weekday >= 5 and not weekend_enabled
 
     def _record_model_existence(self) -> None:
-        model_path = PROJECT_ROOT / "models" / "latest_lgbm.pkl"
+        model_path = self.runtime_paths.source_models_dir / "latest_lgbm.pkl"
         if model_path.exists():
             self._record_step("model.exists", "OK", message=str(model_path))
             self.status.metadata["model"] = {
@@ -996,7 +1155,7 @@ class AutomationRunner:
         except ImportError as exc:
             raise RuntimeError(f"缺少 pandas，無法檢查 data freshness: {exc}") from exc
 
-        clean_dir = PROJECT_ROOT / "data" / "clean"
+        clean_dir = self.runtime_paths.clean_data_dir
         required = ["features.parquet", "events.parquet", "universe.parquet"]
         freshness: dict[str, Any] = {"datasets": {}, "max_lag_days": self._daily_max_data_lag_days()}
         stale_errors: list[str] = []
@@ -1005,7 +1164,15 @@ class AutomationRunner:
         for filename in required:
             path = clean_dir / filename
             if not path.exists():
-                raise RuntimeError(f"必要資料不存在：{path}")
+                message = f"必要資料不存在：{path}"
+                if not fail_on_error:
+                    freshness["datasets"][filename] = {
+                        "path": str(path),
+                        "exists": False,
+                    }
+                    stale_errors.append(message)
+                    continue
+                raise RuntimeError(message)
             df = pd.read_parquet(path, columns=None)
             date_col = "trade_date" if "trade_date" in df.columns else "date" if "date" in df.columns else None
             if date_col is None:
@@ -1130,7 +1297,7 @@ class AutomationRunner:
         }
 
     def _expected_market_counts(self, pd: Any, required_markets: list[str]) -> dict[str, int]:
-        universe_path = PROJECT_ROOT / "data" / "reference" / "tradable_universe.csv"
+        universe_path = self.runtime_paths.source_root / "data" / "reference" / "tradable_universe.csv"
         if not universe_path.exists():
             return {market: 0 for market in required_markets}
         universe = pd.read_csv(universe_path, dtype={"stock_id": str})
@@ -1145,7 +1312,7 @@ class AutomationRunner:
         return {market: int(counts.get(market, 0)) for market in required_markets}
 
     def _stock_market_map(self, pd: Any) -> dict[str, str]:
-        universe_path = PROJECT_ROOT / "data" / "reference" / "tradable_universe.csv"
+        universe_path = self.runtime_paths.source_root / "data" / "reference" / "tradable_universe.csv"
         if not universe_path.exists():
             return {}
         universe = pd.read_csv(universe_path, dtype={"stock_id": str})
@@ -1209,7 +1376,7 @@ class AutomationRunner:
 
         horizon = int(retrain_config.get("horizon", 10))
         config = SealedOOSConfig.from_mapping(sealed_mapping, horizon=horizon)
-        features_path = PROJECT_ROOT / "data" / "clean" / "features.parquet"
+        features_path = self.runtime_paths.clean_data_dir / "features.parquet"
         if not features_path.exists():
             self._record_step(step_name, "FAILED", message=f"找不到訓練特徵檔：{features_path}")
             raise RuntimeError(f"找不到訓練特徵檔：{features_path}")
@@ -1386,7 +1553,7 @@ class AutomationRunner:
         return payload
 
     def _expected_ranking_path(self) -> Path:
-        return PROJECT_ROOT / "artifacts" / f"ranking_{self._latest_feature_date()}.csv"
+        return self.runtime_paths.artifacts_dir / f"ranking_{self._latest_feature_date()}.csv"
 
     def _latest_feature_date(self) -> str:
         freshness = self.status.metadata.get("data_freshness", {})
@@ -1525,7 +1692,7 @@ class AutomationRunner:
             command,
             python_executable=sys.executable,
             dry_run=self.dry_run,
-            cwd=PROJECT_ROOT,
+            cwd=self.runtime_paths.source_root,
             env=self._subprocess_env(),
             now=self._now,
         )
@@ -1557,7 +1724,7 @@ class AutomationRunner:
         serialized_payload = json.dumps(payload, ensure_ascii=False, indent=2)
         if self.mode == "daily":
             snapshot_path = daily_status_snapshot_path(
-                STATUS_PATH,
+                self.runtime_paths.status_path,
                 run_date=self.run_date,
                 dry_run=self.dry_run,
             )
@@ -1567,7 +1734,7 @@ class AutomationRunner:
             status_path.write_text(serialized_payload, encoding="utf-8")
         if self.mode == "daily":
             summary_suffix = "_dry_run" if self.dry_run else ""
-            summary_path = PROJECT_ROOT / "artifacts" / f"daily_run_summary_{self.run_date}{summary_suffix}.json"
+            summary_path = self.runtime_paths.artifacts_dir / f"daily_run_summary_{self.run_date}{summary_suffix}.json"
             summary_path.write_text(
                 json.dumps(self._daily_summary_payload(payload), ensure_ascii=False, indent=2),
                 encoding="utf-8",
@@ -1591,7 +1758,7 @@ class AutomationRunner:
 
     def _status_output_path(self) -> Path:
         """daily 狀態是下游 publish / external-review 的契約；其他模式不能覆蓋。"""
-        return status_output_path(STATUS_PATH, mode=self.mode, dry_run=self.dry_run)
+        return status_output_path(self.runtime_paths.status_path, mode=self.mode, dry_run=self.dry_run)
 
     def _daily_summary_payload(self, status_payload: dict[str, Any]) -> dict[str, Any]:
         return self._automation_summary_payload(status_payload)
@@ -1627,7 +1794,7 @@ class AutomationRunner:
         return digest.hexdigest()
 
     def _load_config(self) -> dict[str, Any]:
-        config_path = PROJECT_ROOT / "config" / "automation.yaml"
+        config_path = self.runtime_paths.source_config_dir / "automation.yaml"
         if not config_path.exists():
             return {}
         return yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
@@ -1635,6 +1802,20 @@ class AutomationRunner:
     def _subprocess_env(self) -> dict[str, str]:
         env = os.environ.copy()
         env["TOP10_RESOURCE_PROFILE"] = self.resource_profile
+        env["TOP10_SOURCE_ROOT"] = str(self.runtime_paths.source_root)
+        env["TOP10_OUTPUT_ROOT"] = str(self.runtime_paths.output_root)
+        env["TOP10_RUNTIME_ROOT"] = str(self.runtime_paths.runtime_root)
+        if self.validation_mode:
+            env["TOP10_STORAGE_VALIDATION_MODE"] = "1"
+            env["TOP10_LLM_REWRITE_ENABLED"] = "0"
+            cache_root = self.runtime_paths.runtime_root / "cache"
+            tmp_root = self.runtime_paths.runtime_root / "tmp"
+            env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+            env.setdefault("TMPDIR", str(tmp_root))
+            env.setdefault("UV_CACHE_DIR", str(cache_root / "uv"))
+            env.setdefault("XDG_CACHE_HOME", str(cache_root / "xdg"))
+            env.setdefault("MPLCONFIGDIR", str(cache_root / "matplotlib"))
+            env.setdefault("JOBLIB_TEMP_FOLDER", str(tmp_root / "joblib"))
         if self._is_local_safe():
             for name in ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"]:
                 env.setdefault(name, "1")

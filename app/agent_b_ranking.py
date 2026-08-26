@@ -5,6 +5,7 @@ import lightgbm as lgb
 import yaml
 import json
 import os
+import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 import pickle
@@ -833,12 +834,36 @@ class StockRanker:
             traceback.print_exc()
             raise
 
-if __name__ == "__main__":
-    ranker = StockRanker()
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="NEW-TOP10 ranking runner")
+    parser.add_argument("--date", default=None)
+    parser.add_argument("--data-dir", default="data/clean")
+    parser.add_argument("--model-dir", default="models")
+    parser.add_argument("--artifact-dir", default="artifacts")
+    parser.add_argument("--config", default="config/signals.yaml")
+    parser.add_argument("--no-report", action="store_true")
+    parser.add_argument("--explain-top-n", type=int, default=20)
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    ranker = StockRanker(
+        data_dir=args.data_dir,
+        model_dir=args.model_dir,
+        artifact_dir=args.artifact_dir,
+        config_path=args.config,
+        generate_report=not args.no_report,
+        explain_top_n=args.explain_top_n,
+    )
     try:
         ranker.load_model()
     except Exception as e:
         print(f"注意: {e}")
-        
-    ranker.run_ranking()
-    raise SystemExit(0)
+
+    ranker.run_ranking(args.date)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
