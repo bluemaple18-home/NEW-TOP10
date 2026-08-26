@@ -1,0 +1,21 @@
+{
+  "schema_version": "top10-storage-validation-entrypoint.v1",
+  "job": "daily",
+  "interpreter": "python-isolated",
+  "entrypoint": "scripts/storage_validation/daily.py",
+  "entrypoint_sha256": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8",
+  "argv": [
+    "--source-root",
+    "/private/tmp/top10-daily-storage-validation-20260827",
+    "--output-root",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1",
+    "--runtime-root",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/logs/storage_safety/runtime/daily/cycle-1",
+    "--run-date",
+    "2026-08-27",
+    "--cycle-id",
+    "cycle-1",
+    "--snapshot-input",
+    "/private/tmp/top10-daily-storage-validation-20260827/data/clean/features.parquet"
+  ]
+}

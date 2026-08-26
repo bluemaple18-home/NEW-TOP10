@@ -1,0 +1,112 @@
+{
+  "schema_version": "top10-storage-daily-validation-evidence.v1",
+  "status": "NO-GO",
+  "reason": "REPRESENTATIVE_SNAPSHOT_MISSING",
+  "source_checkout": {
+    "path": "/private/tmp/top10-daily-storage-validation-20260827",
+    "head": "f6f514fd7b2f31c434e2aef1492bb89b269955be",
+    "git_status_before_validation": "clean",
+    "git_status_after_reclaim": "clean",
+    "requested_snapshot": "data/clean/features.parquet",
+    "snapshot_search_result": {
+      "data_clean_features_parquet_exists": false,
+      "data_reference_tradable_universe_csv_exists": false,
+      "source_data_files": [
+        "data/clean/.gitkeep",
+        "data/fixtures/tskg/graph_diffusion_v1.json",
+        "data/fixtures/tskg/identity_v1.json",
+        "data/fixtures/tskg/security_flow_observations_v1.json",
+        "data/fixtures/tskg/source_policy_v1.json",
+        "data/fixtures/tskg/theme_membership_v1.json",
+        "data/fundamentals/.gitkeep",
+        "data/raw/.gitkeep",
+        "data/raw/reference/.gitkeep",
+        "data/reference/.gitkeep",
+        "data/test/.gitkeep",
+        "data/test_async/.gitkeep"
+      ]
+    }
+  },
+  "rule24_preflight": {
+    "host_total_bytes": 245107195904,
+    "host_free_bytes": 42452979712,
+    "start_min_free_bytes": 32212254720,
+    "start_min_free_percent": 0.15,
+    "computed_start_threshold_bytes": 36766079385,
+    "start_headroom_bytes": 5686900327,
+    "swapusage": "total = 13312.00M  used = 12842.12M  free = 469.88M  (encrypted)",
+    "source_scope_bytes_by_du_kib": {
+      "logs": 4,
+      "artifacts": 188,
+      "data": 56,
+      "models": 3992
+    },
+    "source_scope_file_count": 44
+  },
+  "launchd_read_only_evidence": {
+    "domain": "gui/501",
+    "all_new_top10_jobs_disabled": true,
+    "daily_not_loaded": true,
+    "daily_print_result": "Could not find service \"com.new-top10.daily\" in domain for user gui: 501"
+  },
+  "validation_cycle_1": {
+    "sandbox_root": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1",
+    "command_exit_code": 1,
+    "guard_receipt_path": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/cycle-1-guard-receipt.json",
+    "child_log_path": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/cycle-1-child.log",
+    "guard_status": "CHILD_FAILED",
+    "child_error": "validation snapshot input 必須是存在且非 symlink 的一般檔案",
+    "cycle_2_executed": false,
+    "stop_reason": "cycle-1 receipt was not OK",
+    "receipt_summary": {
+      "elapsed_seconds": 0.1394968032836914,
+      "project_bytes_delta": 72,
+      "project_file_count_delta": 1,
+      "host_free_bytes_delta": -45056,
+      "peak_rss_bytes": 3997696,
+      "swap_bytes_delta": 0,
+      "observed_growth_bytes_per_hour": 1858107.0956362418,
+      "unknown_changed_paths": [],
+      "registered_unmetered_changed_paths": []
+    },
+    "samples_present": ["preflight", "live", "final"]
+  },
+  "sandbox_reclaim_drill": {
+    "scope": "sandbox allowlist only",
+    "first_reclaim_removed_nothing_reason": "logs cleanup rule protects newest 8 matching log files",
+    "executed_result": {
+      "bytes_before": 393,
+      "bytes_after": 288,
+      "bytes_reclaimed": 105,
+      "file_count_before": 11,
+      "file_count_after": 8,
+      "files_reclaimed": 3,
+      "removed_paths": [
+        "logs/stale_reclaim_probe.log",
+        "logs/stale_reclaim_probe_01.log",
+        "logs/stale_reclaim_probe_02.log"
+      ]
+    },
+    "sandbox_logs_du_kib_before": 56,
+    "sandbox_logs_du_kib_after": 44,
+    "source_checkout_unchanged_after_reclaim": true
+  },
+  "peak_projection": {
+    "valid_for_launch_promotion": false,
+    "reason": "cycle-1 did not execute representative daily workload because the real-data snapshot was missing",
+    "failed_attempt_observed_growth_bytes_per_hour": 1858107.0956362418,
+    "failed_attempt_project_bytes_delta": 72,
+    "failed_attempt_peak_rss_bytes": 3997696,
+    "runtime_reserve_threshold_bytes": 24510719590,
+    "final_host_free_bytes": 42452934656,
+    "runtime_headroom_after_failed_attempt_bytes": 17942215066,
+    "one_hour_worst_peak_bytes": null,
+    "one_day_worst_peak_bytes": null,
+    "fourteen_day_worst_peak_bytes": null
+  },
+  "policy_proposal": {
+    "daily_launch_verified_candidate": false,
+    "verification_basis": "2026-08-27 NO-GO / REPRESENTATIVE_SNAPSHOT_MISSING：source checkout f6f514fd7b2f31c434e2aef1492bb89b269955be 在 data/clean、data/raw、data/reference 未包含符合 ValidationSnapshotProvider gates 的 real-data snapshot；cycle-1 digest-pinned validate-run 在 sandbox 中 fail closed，child log 為 validation snapshot input 必須是存在且非 symlink 的一般檔案；未跑 cycle-2，不得提升 launch_verified。",
+    "other_jobs_launch_verified_remain_false": true
+  }
+}

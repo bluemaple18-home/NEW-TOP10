@@ -114,3 +114,42 @@ Production defaults 維持未傳 roots 時的 checkout 行為；`python -m app.a
 未 live reclaim、未 push。正式代表性容量驗證仍須由後續 fresh sandbox 透過
 `scripts/storage_safety.py validate-run` 執行兩個 real cycles 後，才能更新
 `daily.launch_verified` 判定。
+
+## 2026-08-27 Operator acceptance attempt
+
+`NO-GO / REPRESENTATIVE_SNAPSHOT_MISSING`
+
+本輪在 source checkout
+`/private/tmp/top10-daily-storage-validation-20260827`
+（HEAD `f6f514fd7b2f31c434e2aef1492bb89b269955be`）執行 strict acceptance。起始
+Rule24 host free/swap gate 通過，且 read-only launchd evidence 顯示八個
+`com.new-top10.*` job 均 disabled、`com.new-top10.daily` not loaded。
+
+但 source root 內沒有可交給 `ValidationSnapshotProvider` 的 real-data snapshot：
+`data/clean/features.parquet` 不存在，`data/reference/tradable_universe.csv` 不存在，
+`data/clean`、`data/raw`、`data/reference` 只有 `.gitkeep` 或非行情 fixture。依任務邊界，
+不得改用 bounded fixture、不得觸發 provider network、不得從其他 checkout 借資料。
+
+已建立 fresh no-`.git` sandbox：
+`/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1`。第一次使用 `/tmp/...`
+contract path 時被 lexical symlink guard 拒絕，修正為 `/private/tmp/...` 後，cycle-1
+以 digest-pinned contract 進入 `validate-run`，並 fail closed：
+
+- guard receipt: `docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/cycle-1-guard-receipt.json`
+- child log: `docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/cycle-1-child.log`
+- child error: `validation snapshot input 必須是存在且非 symlink 的一般檔案`
+- guard status: `CHILD_FAILED`
+- samples: `preflight` / `live` / `final`
+- peak RSS: `3997696` bytes
+- swap delta: `0` bytes
+- unknown writes: `[]`
+- registered-unmetered writes: `[]`
+
+依 acceptance 指示，cycle-1 非 OK 後停止，未執行 cycle-2。sandbox-only reclaim drill
+已執行；在 allowlist `logs/*.log` 中加入 stale probes 後，`reclaim --execute` 回收
+`105` bytes / `3` files，removed paths 全部位於 sandbox logs。source checkout 在
+validation 與 reclaim 後均維持 clean，核心 source/config/model SHA 前後一致。
+
+本輪不提出 `daily.launch_verified=true` candidate；policy 只能維持 fail closed，並記錄
+`REPRESENTATIVE_SNAPSHOT_MISSING` 作為新的 verification basis。完整 machine summary 見
+`docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/no-go-summary.json`。

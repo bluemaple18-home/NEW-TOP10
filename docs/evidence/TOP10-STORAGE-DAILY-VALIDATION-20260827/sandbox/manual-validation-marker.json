@@ -1,0 +1,12 @@
+{
+  "schema_version": "top10-storage-validation-root.v1",
+  "sandbox_root": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1",
+  "manual_only": true,
+  "jobs": ["daily"],
+  "trusted_entrypoints": {
+    "daily": {
+      "contract_path": "daily-cycle-1-entrypoint-contract.json",
+      "contract_sha256": "e69e912eb6ae924f89cbd281c1e6b0ba9234399efd9b3aec2106f893a4904c33"
+    }
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "child_exit_code": 1,
+  "command": [
+    "/private/tmp/top10-daily-storage-validation-20260827/.venv/bin/python",
+    "-I",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/scripts/storage_validation/daily.py",
+    "--source-root",
+    "/private/tmp/top10-daily-storage-validation-20260827",
+    "--output-root",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1",
+    "--runtime-root",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/logs/storage_safety/runtime/daily/cycle-1",
+    "--run-date",
+    "2026-08-27",
+    "--cycle-id",
+    "cycle-1",
+    "--snapshot-input",
+    "/private/tmp/top10-daily-storage-validation-20260827/data/clean/features.parquet"
+  ],
+  "job": "daily",
+  "launch_verified": false,
+  "limits": {
+    "expected_growth_bytes_per_hour": 536870912,
+    "max_bytes": 6442450944,
+    "max_file_count": 60000,
+    "max_process_tree_rss_bytes": 4294967296,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 7200,
+    "stabilize_after_seconds": 14400
+  },
+  "max_runtime_seconds": 1800.0,
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 0,
+    "bytes_before": 0,
+    "dry_run": false,
+    "file_count_after": 0,
+    "file_count_before": 0,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 42452979712,
+      "host_total_bytes": 245107195904,
+      "phase": "preflight",
+      "project_bytes": 0,
+      "project_file_count": 1,
+      "rss_bytes": 0,
+      "swap_bytes": 13398829957,
+      "timestamp": 1787768195.883549
+    },
+    {
+      "host_free_bytes": 42452942848,
+      "host_total_bytes": 245107195904,
+      "phase": "live",
+      "project_bytes": 0,
+      "project_file_count": 2,
+      "rss_bytes": 3997696,
+      "swap_bytes": 13398829957,
+      "timestamp": 1787768195.976759
+    },
+    {
+      "host_free_bytes": 42452934656,
+      "host_total_bytes": 245107195904,
+      "phase": "final",
+      "project_bytes": 72,
+      "project_file_count": 2,
+      "rss_bytes": 0,
+      "swap_bytes": 13398829957,
+      "timestamp": 1787768196.0230458
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "CHILD_FAILED",
+  "summary": {
+    "elapsed_seconds": 0.1394968032836914,
+    "host_free_bytes_delta": -45056,
+    "observed_growth_bytes_per_hour": 1858107.0956362418,
+    "peak_rss_bytes": 3997696,
+    "project_bytes_delta": 72,
+    "project_file_count_delta": 1,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "jobs": [
+        "daily"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1",
+      "schema_version": "top10-storage-validation-root.v1",
+      "trusted_entrypoints": {
+        "daily": {
+          "contract_path": "daily-cycle-1-entrypoint-contract.json",
+          "contract_sha256": "e69e912eb6ae924f89cbd281c1e6b0ba9234399efd9b3aec2106f893a4904c33"
+        }
+      }
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/logs/storage_safety/runtime/daily/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/logs/storage_safety/runtime/daily/cache/matplotlib",
+      "TMPDIR": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/logs/storage_safety/runtime/daily/tmp",
+      "UV_CACHE_DIR": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/logs/storage_safety/runtime/daily/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/logs/storage_safety/runtime/daily/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/data/raw",
+    "sandbox_output_root": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1",
+    "source_input_root": "/private/tmp/top10-daily-storage-validation-20260827",
+    "trusted_entrypoint": {
+      "argv": [
+        "--source-root",
+        "/private/tmp/top10-daily-storage-validation-20260827",
+        "--output-root",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1",
+        "--runtime-root",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/logs/storage_safety/runtime/daily/cycle-1",
+        "--run-date",
+        "2026-08-27",
+        "--cycle-id",
+        "cycle-1",
+        "--snapshot-input",
+        "/private/tmp/top10-daily-storage-validation-20260827/data/clean/features.parquet"
+      ],
+      "contract_path": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/daily-cycle-1-entrypoint-contract.json",
+      "contract_sha256": "e69e912eb6ae924f89cbd281c1e6b0ba9234399efd9b3aec2106f893a4904c33",
+      "entrypoint_path": "/private/tmp/top10-daily-validation-sandbox-20260827-no-go-1/scripts/storage_validation/daily.py",
+      "entrypoint_sha256": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8"
+    }
+  },
+  "validation_only": true,
+  "verification_basis": "2026-08-03 validation source preflight 確認 production daily wrapper 會呼叫 Clawd 與 ops report --send，卡片邊界內沒有不觸碰外部控制面的代表性入口；未執行週期，維持 NO-GO / EXTERNAL_AUTHORITY_REQUIRED。"
+}

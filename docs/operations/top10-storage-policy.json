@@ -96,7 +96,7 @@
   "jobs": {
     "daily": {
       "launch_verified": false,
-      "verification_basis": "2026-08-03 validation source preflight 確認 production daily wrapper 會呼叫 Clawd 與 ops report --send，卡片邊界內沒有不觸碰外部控制面的代表性入口；未執行週期，維持 NO-GO / EXTERNAL_AUTHORITY_REQUIRED。",
+      "verification_basis": "2026-08-27 NO-GO / REPRESENTATIVE_SNAPSHOT_MISSING：source checkout f6f514fd7b2f31c434e2aef1492bb89b269955be 在 data/clean、data/raw、data/reference 未包含符合 ValidationSnapshotProvider gates 的 real-data snapshot；cycle-1 digest-pinned validate-run 在 sandbox 中 fail closed，child log 為 validation snapshot input 必須是存在且非 symlink 的一般檔案；未跑 cycle-2，不得提升 launch_verified。",
       "meter_paths": ["logs", "artifacts", "data", "models"],
       "registered_write_paths": ["logs", "artifacts", "data", "models"],
       "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "harness_status"],
