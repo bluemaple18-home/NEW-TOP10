@@ -22,6 +22,7 @@ import threading
 import time
 from collections import defaultdict, deque
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
@@ -1081,6 +1082,10 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _receipt_payload(
     *,
     policy: JobPolicy,
@@ -1095,6 +1100,9 @@ def _receipt_payload(
     unknown_paths: Sequence[str],
     validation_context: dict[str, Any] | None,
     registered_unmetered_paths: Sequence[str] = (),
+    process_group_identity: ProcessGroupIdentity | None = None,
+    final_process_group_quiescent: bool | None = None,
+    final_process_group_checked_at: str | None = None,
 ) -> dict[str, Any]:
     first = samples[0] if samples else None
     last = samples[-1] if samples else None
@@ -1157,6 +1165,20 @@ def _receipt_payload(
         "validation_context": validation_context,
         "reasons": list(reasons),
         "child_exit_code": child_exit_code,
+        "process_group_identity": (
+            asdict(process_group_identity) if process_group_identity is not None else None
+        ),
+        "final_process_group_quiescent": final_process_group_quiescent,
+        "final_process_group_checked_at": final_process_group_checked_at,
+        "process_group": {
+            "verified_identity": (
+                asdict(process_group_identity)
+                if process_group_identity is not None
+                else None
+            ),
+            "final_quiescent": final_process_group_quiescent,
+            "final_checked_at": final_process_group_checked_at,
+        },
         "reclaim": asdict(reclaimed) if reclaimed else None,
     }
 
@@ -1204,6 +1226,8 @@ def run_guarded_job(
     protected_root: Path | None = None
     trusted_entrypoint_runtime: tempfile.TemporaryDirectory[str] | None = None
     previous_signal_handlers: dict[int, Any] = {}
+    final_process_group_quiescent: bool | None = None
+    final_process_group_checked_at: str | None = None
 
     if denied_path.exists():
         _atomic_json(
@@ -1662,8 +1686,24 @@ def run_guarded_job(
                 stop_reasons = tuple(
                     dict.fromkeys((*stop_reasons, "PROTECTED_ROOT_MUTATED"))
                 )
+        if process_group is None:
+            stop_reasons = tuple(
+                dict.fromkeys((*stop_reasons, "PROCESS_GROUP_IDENTITY_MISSING"))
+            )
+        else:
+            final_process_group_checked_at = _utc_timestamp()
+            final_process_group_quiescent = process_group_is_quiescent(process_group)
+            if final_process_group_quiescent is not True:
+                stop_reasons = tuple(
+                    dict.fromkeys(
+                        (*stop_reasons, "PROCESS_GROUP_NOT_QUIESCENT_AT_FINAL_CHECK")
+                    )
+                )
         if stop_reasons:
             terminate_process_group(process, identity=process_group)
+            if process_group is not None:
+                final_process_group_checked_at = _utc_timestamp()
+                final_process_group_quiescent = process_group_is_quiescent(process_group)
             _atomic_json(
                 denied_path,
                 {
@@ -1688,6 +1728,9 @@ def run_guarded_job(
                     unknown_paths=observed_unknown_paths,
                     validation_context=validation_context,
                     registered_unmetered_paths=observed_registered_unmetered_paths,
+                    process_group_identity=process_group,
+                    final_process_group_quiescent=final_process_group_quiescent,
+                    final_process_group_checked_at=final_process_group_checked_at,
                 ),
             )
             return 70
@@ -1708,6 +1751,9 @@ def run_guarded_job(
                 unknown_paths=observed_unknown_paths,
                 validation_context=validation_context,
                 registered_unmetered_paths=observed_registered_unmetered_paths,
+                process_group_identity=process_group,
+                final_process_group_quiescent=final_process_group_quiescent,
+                final_process_group_checked_at=final_process_group_checked_at,
             ),
         )
         return int(process.returncode or 0)
@@ -1720,6 +1766,8 @@ def run_guarded_job(
         if process is not None and process_group is not None:
             try:
                 terminate_process_group(process, identity=process_group)
+                final_process_group_checked_at = _utc_timestamp()
+                final_process_group_quiescent = process_group_is_quiescent(process_group)
             except (OSError, RuntimeError, subprocess.TimeoutExpired):
                 reasons = (*reasons, "PROCESS_GROUP_TERMINATION_FAILED")
         _atomic_json(
@@ -1745,6 +1793,9 @@ def run_guarded_job(
                 max_runtime_seconds=max_runtime_seconds,
                 unknown_paths=(),
                 validation_context=validation_context,
+                process_group_identity=process_group,
+                final_process_group_quiescent=final_process_group_quiescent,
+                final_process_group_checked_at=final_process_group_checked_at,
             ),
         )
         return 70

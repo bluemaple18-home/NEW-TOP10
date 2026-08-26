@@ -2052,11 +2052,67 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertEqual(receipt["status"], "OK")
             self.assertEqual(receipt["child_exit_code"], 0)
             self.assertEqual(receipt["reasons"], [])
+            self.assertIsNotNone(receipt["process_group_identity"])
+            self.assertEqual(
+                receipt["process_group_identity"]["leader_pid"],
+                receipt["process_group_identity"]["group_id"],
+            )
+            self.assertEqual(
+                receipt["process_group"]["verified_identity"],
+                receipt["process_group_identity"],
+            )
+            self.assertIs(receipt["final_process_group_quiescent"], True)
+            self.assertEqual(receipt["process_group"]["final_quiescent"], True)
+            self.assertIsNotNone(receipt["final_process_group_checked_at"])
             self.assertFalse(denial_path.exists())
             self.assertEqual(
                 [sample["phase"] for sample in receipt["samples"]],
                 ["preflight", "live", "final"],
             )
+
+    def test_ok_receipt_requires_verified_final_process_group_quiescence(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-quiescent-required-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+
+            with mock.patch(
+                "app.storage_safety.process_group_is_quiescent",
+                side_effect=[True, False, True, True, True],
+            ):
+                result = run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(),
+                    (),
+                    ["/bin/sh", "-c", "sleep 0.1"],
+                    sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                )
+
+            receipt = json.loads(
+                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            denial = json.loads(
+                (
+                    root
+                    / "logs"
+                    / "storage_safety"
+                    / "restart_denied"
+                    / "daily.json"
+                ).read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(result, 70)
+            self.assertEqual(receipt["status"], "STOPPED")
+            self.assertIn(
+                "PROCESS_GROUP_NOT_QUIESCENT_AT_FINAL_CHECK",
+                receipt["reasons"],
+            )
+            self.assertEqual(denial["reasons"], receipt["reasons"])
+            self.assertIs(receipt["final_process_group_quiescent"], True)
+            self.assertIsNotNone(receipt["process_group_identity"])
 
     def test_live_sampling_cadence_overrun_stops_verified_group_and_denies_restart(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-cadence-stop-") as tmp:

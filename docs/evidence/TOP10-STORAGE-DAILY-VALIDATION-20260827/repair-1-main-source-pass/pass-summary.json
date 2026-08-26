@@ -1,0 +1,160 @@
+{
+  "schema_version": "top10-storage-daily-validation-evidence.v1",
+  "status": "PASS",
+  "repair": {
+    "finding_addressed": [
+      "P1: two-cycle-child.log trailing whitespace caused diff-check failure",
+      "P1: guard receipts did not preserve independently verifiable PGID/leader identity/final quiescent and retained old NO-GO verification_basis"
+    ],
+    "parent_candidate": "a1a8768",
+    "basis": "fresh repair revalidation after guard receipt schema hardening"
+  },
+  "source_selection": {
+    "source_root": "/Users/mattkuo/TOP10new",
+    "head": "f6f514fd7b2f31c434e2aef1492bb89b269955be",
+    "head_policy": "exact requested main HEAD, read-only source",
+    "dirty_files_protected_by_hash": {
+      "scripts/build_weekend_universe_inventory.py": "c1ff76dcdc125248b3c5aa137ba1344eaa84c8ca2fd08b1c404be58a1fdef538",
+      "tests/test_weekend_universe_inventory_snapshot.py": "ef233dd7b3814044134457d928f3bef0cb7b098b80c457b985b7d290af0961c9"
+    }
+  },
+  "snapshot_gate": {
+    "row_count": 532255,
+    "stock_count": 1967,
+    "trade_date_count": 282,
+    "start_date": "2025-06-06",
+    "end_date": "2026-07-31",
+    "latest_date": "2026-07-31",
+    "latest_stock_count": 1947,
+    "latest_stock_coverage": 0.9898322318251144,
+    "markets": [
+      "TPEX",
+      "TWSE"
+    ],
+    "path": "/Users/mattkuo/TOP10new/data/clean/features.parquet",
+    "regular_file": true,
+    "symlink": false,
+    "sha256": "6dfeed9a54ff5513c516e4aa1e0a6258bd7a8e1f7c61036459d72da96b64d7c9",
+    "size_bytes": 129171862
+  },
+  "tradable_universe_gate": {
+    "path": "/Users/mattkuo/TOP10new/data/reference/tradable_universe.csv",
+    "regular_file": true,
+    "symlink": false,
+    "sha256": "50579b4cc975e82b4f1211129fba3724962d70417f465515110f74b098f556a4",
+    "size_bytes": 107281
+  },
+  "sandbox": {
+    "path": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX",
+    "has_git_directory": false,
+    "guard_code_sha256": {
+      "app/storage_safety.py": "30d8b4faac5ee71fc7ddd14b8319fc86ad7f5d359ab3abfc88f3dea7472990f1",
+      "scripts/storage_safety.py": "7c2a3344b7c6a27a0a2d35ee03c3609929b3bbc78559cfd1ac2d6d68026dab55",
+      "scripts/storage_validation/daily.py": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8"
+    }
+  },
+  "cycles": {
+    "cycle_1": {
+      "guard_receipt": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/repair-1-main-source-pass/cycle-1-guard-receipt.json",
+      "child_receipt": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/repair-1-main-source-pass/cycle-1-child-receipt.json",
+      "guard_status": "OK",
+      "child_exit_code": 0,
+      "process_group_identity": {
+        "group_id": 80818,
+        "leader_pid": 80818,
+        "leader_start_token": "Thu Aug 27 02:52:29 2026",
+        "session_id": 80818
+      },
+      "final_process_group_quiescent": true,
+      "final_process_group_checked_at": "2026-08-26T18:53:35.817653+00:00",
+      "process_group_gate_pass": true,
+      "project_bytes_delta": 344531867,
+      "project_file_count_delta": 21,
+      "host_free_bytes_delta": -340951040,
+      "peak_rss_bytes": 1854685184,
+      "swap_bytes_delta": 51055166,
+      "unknown_changed_paths": [],
+      "registered_unmetered_changed_paths": [],
+      "source_identity_unchanged": true
+    },
+    "cycle_2": {
+      "guard_receipt": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/repair-1-main-source-pass/cycle-2-guard-receipt.json",
+      "child_receipt": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/repair-1-main-source-pass/cycle-2-child-receipt.json",
+      "guard_status": "OK",
+      "child_exit_code": 0,
+      "process_group_identity": {
+        "group_id": 81022,
+        "leader_pid": 81022,
+        "leader_start_token": "Thu Aug 27 02:54:05 2026",
+        "session_id": 81022
+      },
+      "final_process_group_quiescent": true,
+      "final_process_group_checked_at": "2026-08-26T18:55:04.092804+00:00",
+      "process_group_gate_pass": true,
+      "project_bytes_delta": 129214853,
+      "project_file_count_delta": 2,
+      "host_free_bytes_delta": -149311488,
+      "peak_rss_bytes": 4014080,
+      "swap_bytes_delta": 141169786,
+      "unknown_changed_paths": [],
+      "registered_unmetered_changed_paths": [],
+      "source_identity_unchanged": true
+    }
+  },
+  "artifact_hashes": {
+    "automation_status_2026-07-31.json": "aa489841b2430100a5711b6723905287d508fc127e1624f32045f03036580f2c",
+    "clawd_publish_message_2026-07-31.md": "92a0dd2dd21fe1fc53cf0af5c55a9367689254ae639ae61e60708302d2a671b4",
+    "clawd_publish_payload_2026-07-31.json": "3d8472993b78034e893b227e002e4130da24910c4a4d030290fd3842f529d213",
+    "daily_report_2026-07-31.json": "56c8675d37a1d3d0fd0fbe5600e6de4704ca67adf507fcd916caf3527d18a038",
+    "daily_report_2026-07-31.md": "fb63f212c75c66a3583e8b14710b8a7cfb7c20ac9acd6593fa65e3c8b441b689",
+    "daily_run_summary_2026-07-31.json": "ac510eaa46caf592b68b3906ff2e94b98e1ad63d4506b2d6ecd2a6eab245f3d8",
+    "ranking_2026-07-31.csv": "f0907e89a68c7a2a152d116df1a5d7587cdcc02932678cb727146812915c74a6"
+  },
+  "external_send_contract": {
+    "validation_mode": true,
+    "clawd_send_enabled": false,
+    "ops_send_enabled": false,
+    "discord_send_enabled": false,
+    "llm_rewrite_enabled": false,
+    "blocked_scripts": [
+      "scripts/run_daily_publish.sh",
+      "scripts/send_daily_ops_report.py"
+    ]
+  },
+  "sandbox_reclaim_drill": {
+    "scope": "sandbox allowlist only",
+    "bytes_before": 394676,
+    "bytes_after": 394630,
+    "bytes_reclaimed": 46,
+    "file_count_before": 13,
+    "file_count_after": 11,
+    "files_reclaimed": 2,
+    "removed_paths": [
+      "logs/repair_reclaim_probe_00.log",
+      "logs/repair_reclaim_probe_01.log"
+    ],
+    "source_hashes_unchanged_after_reclaim": true
+  },
+  "projection": {
+    "basis": "worst complete-cycle project_bytes_delta retained for 14 daily cycles",
+    "max_observed_cycle_delta_bytes": 344531867,
+    "observed_two_cycle_peak_project_bytes": 473753103,
+    "one_hour_worst_peak_bytes": 344531867,
+    "one_day_worst_peak_bytes": 344531867,
+    "fourteen_day_worst_peak_bytes": 4823446138,
+    "daily_policy_max_bytes": 6442450944,
+    "daily_policy_max_file_count": 60000,
+    "daily_policy_max_rss_bytes": 4294967296,
+    "daily_policy_max_swap_growth_bytes": 2147483648,
+    "final_host_free_bytes": 39036534784,
+    "projected_free_after_fourteen_day_peak_bytes": 34213088646,
+    "runtime_reserve_threshold_bytes": 24510719590,
+    "projected_headroom_after_fourteen_day_peak_bytes": 9702369056,
+    "pass": true
+  },
+  "policy_proposal": {
+    "daily_launch_verified_candidate": true,
+    "verification_basis": "2026-08-27 REPAIR PASS：main source /Users/mattkuo/TOP10new @ f6f514fd7b2f31c434e2aef1492bb89b269955be 的 data/clean/features.parquet 通過 ValidationSnapshotProvider gates（532255 rows、1967 stocks、282 trade dates、TWSE/TPEX、latest 2026-07-31 coverage 98.98%）；fresh no-.git sandbox 以 repair guard code digest-pinned validate-run 連續兩個 daily representative cycles 均 OK；兩輪 guard receipts 均保存 verified process group identity（leader_pid=pgid=session_id、start token）與 final_process_group_quiescent=true；無 unknown writes、source identity unchanged、peak project 473753103 bytes、worst cycle delta 344531867 bytes、peak RSS 1854685184 bytes、max swap delta 141169786 bytes；sandbox-only reclaim drill 回收 46 bytes / 2 files；14d projected peak 4823446138 bytes < 6442450944 bytes cap，projected host headroom 9702369056 bytes above runtime reserve。",
+    "other_jobs_launch_verified_remain_false": true
+  }
+}

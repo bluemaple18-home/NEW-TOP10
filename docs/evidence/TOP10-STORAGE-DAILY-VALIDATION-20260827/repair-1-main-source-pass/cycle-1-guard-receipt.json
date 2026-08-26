@@ -1,0 +1,165 @@
+{
+  "child_exit_code": 0,
+  "command": [
+    "/private/tmp/top10-daily-storage-validation-20260827/.venv/bin/python",
+    "-I",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/scripts/storage_validation/daily.py",
+    "--source-root",
+    "/Users/mattkuo/TOP10new",
+    "--output-root",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX",
+    "--runtime-root",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/logs/storage_safety/runtime/daily/cycle-1",
+    "--run-date",
+    "2026-07-31",
+    "--cycle-id",
+    "cycle-1",
+    "--snapshot-input",
+    "/Users/mattkuo/TOP10new/data/clean/features.parquet"
+  ],
+  "final_process_group_checked_at": "2026-08-26T18:53:35.817653+00:00",
+  "final_process_group_quiescent": true,
+  "job": "daily",
+  "launch_verified": false,
+  "limits": {
+    "expected_growth_bytes_per_hour": 536870912,
+    "max_bytes": 6442450944,
+    "max_file_count": 60000,
+    "max_process_tree_rss_bytes": 4294967296,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 7200,
+    "stabilize_after_seconds": 14400
+  },
+  "max_runtime_seconds": 600.0,
+  "process_group": {
+    "final_checked_at": "2026-08-26T18:53:35.817653+00:00",
+    "final_quiescent": true,
+    "verified_identity": {
+      "group_id": 80818,
+      "leader_pid": 80818,
+      "leader_start_token": "Thu Aug 27 02:52:29 2026",
+      "session_id": 80818
+    }
+  },
+  "process_group_identity": {
+    "group_id": 80818,
+    "leader_pid": 80818,
+    "leader_start_token": "Thu Aug 27 02:52:29 2026",
+    "session_id": 80818
+  },
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 372355,
+    "bytes_before": 372355,
+    "dry_run": false,
+    "file_count_after": 2,
+    "file_count_before": 2,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 39528497152,
+      "host_total_bytes": 245107195904,
+      "phase": "preflight",
+      "project_bytes": 0,
+      "project_file_count": 1,
+      "rss_bytes": 0,
+      "swap_bytes": 16718034370,
+      "timestamp": 1787770348.793561
+    },
+    {
+      "host_free_bytes": 39528435712,
+      "host_total_bytes": 245107195904,
+      "phase": "live",
+      "project_bytes": 0,
+      "project_file_count": 2,
+      "rss_bytes": 3997696,
+      "swap_bytes": 16718034370,
+      "timestamp": 1787770349.94336
+    },
+    {
+      "host_free_bytes": 39188156416,
+      "host_total_bytes": 245107195904,
+      "phase": "live",
+      "project_bytes": 344241478,
+      "project_file_count": 9,
+      "rss_bytes": 1854685184,
+      "swap_bytes": 16769089536,
+      "timestamp": 1787770406.9539251
+    },
+    {
+      "host_free_bytes": 39187546112,
+      "host_total_bytes": 245107195904,
+      "phase": "final",
+      "project_bytes": 344531867,
+      "project_file_count": 22,
+      "rss_bytes": 0,
+      "swap_bytes": 16769089536,
+      "timestamp": 1787770414.672592
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "OK",
+  "summary": {
+    "elapsed_seconds": 65.87903094291687,
+    "host_free_bytes_delta": -340951040,
+    "observed_growth_bytes_per_hour": 18827154914.812164,
+    "peak_rss_bytes": 1854685184,
+    "project_bytes_delta": 344531867,
+    "project_file_count_delta": 21,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": 51055166,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "jobs": [
+        "daily"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX",
+      "schema_version": "top10-storage-validation-root.v1",
+      "trusted_entrypoints": {
+        "daily": {
+          "contract_path": "daily-cycle-1-entrypoint-contract.json",
+          "contract_sha256": "4277c3662861fbc2fa6138e2dbcbd198385b107f55ace2c5b845df6a8c379275"
+        }
+      }
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/logs/storage_safety/runtime/daily/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/logs/storage_safety/runtime/daily/cache/matplotlib",
+      "TMPDIR": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/logs/storage_safety/runtime/daily/tmp",
+      "UV_CACHE_DIR": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/logs/storage_safety/runtime/daily/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/logs/storage_safety/runtime/daily/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX",
+    "sandbox_output_root": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX",
+    "source_input_root": "/Users/mattkuo/TOP10new",
+    "trusted_entrypoint": {
+      "argv": [
+        "--source-root",
+        "/Users/mattkuo/TOP10new",
+        "--output-root",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX",
+        "--runtime-root",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/logs/storage_safety/runtime/daily/cycle-1",
+        "--run-date",
+        "2026-07-31",
+        "--cycle-id",
+        "cycle-1",
+        "--snapshot-input",
+        "/Users/mattkuo/TOP10new/data/clean/features.parquet"
+      ],
+      "contract_path": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/daily-cycle-1-entrypoint-contract.json",
+      "contract_sha256": "4277c3662861fbc2fa6138e2dbcbd198385b107f55ace2c5b845df6a8c379275",
+      "entrypoint_path": "/private/tmp/top10-daily-validation-sandbox-20260827-repair-final-KjtEaX/scripts/storage_validation/daily.py",
+      "entrypoint_sha256": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8"
+    }
+  },
+  "validation_only": true,
+  "verification_basis": "2026-08-27 REPAIR_REVALIDATION_PENDING：舊 PASS guard receipts 缺 verified process group identity 與 final quiescent receipt evidence，daily promotion 暫停；repair 必須用 main source fresh no-.git sandbox 重新跑兩個 digest-pinned representative cycles 並保存新 guard/child receipts 後才可恢復 true。"
+}
