@@ -1,0 +1,149 @@
+{
+  "schema_version": "top10-storage-daily-validation-evidence.v1",
+  "status": "PASS",
+  "source_selection": {
+    "source_root": "/Users/mattkuo/TOP10new",
+    "head": "f6f514fd7b2f31c434e2aef1492bb89b269955be",
+    "head_policy": "exact requested main HEAD",
+    "dirty_files_protected_by_hash": {
+      "scripts/build_weekend_universe_inventory.py": "c1ff76dcdc125248b3c5aa137ba1344eaa84c8ca2fd08b1c404be58a1fdef538",
+      "tests/test_weekend_universe_inventory_snapshot.py": "ef233dd7b3814044134457d928f3bef0cb7b098b80c457b985b7d290af0961c9"
+    },
+    "post_validation_dirty_file_hashes_unchanged": true
+  },
+  "snapshot_gate": {
+    "path": "/Users/mattkuo/TOP10new/data/clean/features.parquet",
+    "regular_file": true,
+    "symlink": false,
+    "sha256": "6dfeed9a54ff5513c516e4aa1e0a6258bd7a8e1f7c61036459d72da96b64d7c9",
+    "size_bytes": 129171862,
+    "required_columns_pass": true,
+    "row_count": 532255,
+    "stock_count": 1967,
+    "trade_date_count": 282,
+    "start_date": "2025-06-06",
+    "latest_date": "2026-07-31",
+    "latest_stock_count": 1947,
+    "latest_stock_coverage": 0.9898322318251144,
+    "markets": ["TPEX", "TWSE"],
+    "validation_run_date": "2026-07-31",
+    "daily_pipeline_lookback_days": 420,
+    "canonical_window": "2025-06-06..2026-07-31"
+  },
+  "tradable_universe_gate": {
+    "path": "/Users/mattkuo/TOP10new/data/reference/tradable_universe.csv",
+    "regular_file": true,
+    "symlink": false,
+    "sha256": "50579b4cc975e82b4f1211129fba3724962d70417f465515110f74b098f556a4",
+    "size_bytes": 107281,
+    "rows": 1967,
+    "stock_count": 1967
+  },
+  "launchd_read_only_evidence": {
+    "domain": "gui/501",
+    "all_new_top10_jobs_disabled": true,
+    "daily_not_loaded": true,
+    "daily_print_result": "Could not find service \"com.new-top10.daily\" in domain for user gui: 501"
+  },
+  "rule24_preflight": {
+    "host_total_bytes": 245107195904,
+    "host_free_bytes_before_cycles": 43164577792,
+    "start_threshold_bytes": 36766079385,
+    "runtime_reserve_threshold_bytes": 24510719590,
+    "swapusage_before_cycles": "total = 14336.00M  used = 13831.81M  free = 504.19M  (encrypted)",
+    "source_protected_file_count": 44379
+  },
+  "sandbox": {
+    "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2",
+    "has_git_directory": false,
+    "entrypoint_sha256": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8",
+    "guard_code_sha256": {
+      "scripts/storage_safety.py": "7c2a3344b7c6a27a0a2d35ee03c3609929b3bbc78559cfd1ac2d6d68026dab55",
+      "app/storage_safety.py": "6803769f5c25fa87f3466e3c45d6652db8a68934a4875a8d480c3950974d8979"
+    }
+  },
+  "cycles": {
+    "cycle_1": {
+      "guard_receipt": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/main-source-pass/cycle-1-guard-receipt.json",
+      "child_receipt": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/main-source-pass/cycle-1-child-receipt.json",
+      "guard_status": "OK",
+      "child_exit_code": 0,
+      "project_bytes_delta": 344530180,
+      "project_file_count_delta": 21,
+      "host_free_bytes_delta": -377987072,
+      "peak_rss_bytes": 1575763968,
+      "swap_bytes_delta": 333185024,
+      "unknown_changed_paths": [],
+      "registered_unmetered_changed_paths": [],
+      "source_identity_unchanged": true
+    },
+    "cycle_2": {
+      "guard_receipt": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/main-source-pass/cycle-2-guard-receipt.json",
+      "child_receipt": "docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/main-source-pass/cycle-2-child-receipt.json",
+      "guard_status": "OK",
+      "child_exit_code": 0,
+      "project_bytes_delta": 129214350,
+      "project_file_count_delta": 2,
+      "host_free_bytes_delta": -148918272,
+      "peak_rss_bytes": 4046848,
+      "swap_bytes_delta": 178582979,
+      "unknown_changed_paths": [],
+      "registered_unmetered_changed_paths": [],
+      "source_identity_unchanged": true
+    }
+  },
+  "artifact_hashes": {
+    "ranking_2026-07-31.csv": "f0907e89a68c7a2a152d116df1a5d7587cdcc02932678cb727146812915c74a6",
+    "daily_report_2026-07-31.json": "3ac24a3deb9f4471e9417be1bd3fa29cfc37783a9d76aeab3d53313a9757eb7b",
+    "clawd_publish_payload_2026-07-31.json": "fa5348e2d28a2a7aaf95b08206fef9c172d42b984b64dd92749647276d5d8007",
+    "clawd_publish_message_2026-07-31.md": "92a0dd2dd21fe1fc53cf0af5c55a9367689254ae639ae61e60708302d2a671b4",
+    "automation_status.json": "fd7bc982e1b1dbd3aacd4801bff3f1bed24c26deca0ff244a8cc2d669a1ee74c"
+  },
+  "external_send_contract": {
+    "validation_mode": true,
+    "clawd_send_enabled": false,
+    "ops_send_enabled": false,
+    "discord_send_enabled": false,
+    "llm_rewrite_enabled": false,
+    "blocked_scripts": [
+      "scripts/run_daily_publish.sh",
+      "scripts/send_daily_ops_report.py"
+    ]
+  },
+  "sandbox_reclaim_drill": {
+    "scope": "sandbox allowlist only",
+    "bytes_before": 393928,
+    "bytes_after": 393856,
+    "bytes_reclaimed": 72,
+    "file_count_before": 13,
+    "file_count_after": 11,
+    "files_reclaimed": 2,
+    "removed_paths": [
+      "logs/pass_reclaim_probe_01.log",
+      "logs/pass_reclaim_probe_02.log"
+    ],
+    "source_hashes_unchanged_after_reclaim": true
+  },
+  "projection": {
+    "basis": "worst complete-cycle project_bytes_delta retained for 14 daily cycles",
+    "max_observed_cycle_delta_bytes": 344530180,
+    "observed_two_cycle_peak_project_bytes": 473750353,
+    "one_hour_worst_peak_bytes": 344530180,
+    "one_day_worst_peak_bytes": 344530180,
+    "fourteen_day_worst_peak_bytes": 4823422520,
+    "daily_policy_max_bytes": 6442450944,
+    "daily_policy_max_file_count": 60000,
+    "daily_policy_max_rss_bytes": 4294967296,
+    "daily_policy_max_swap_growth_bytes": 2147483648,
+    "final_host_free_bytes": 38234464256,
+    "projected_free_after_fourteen_day_peak_bytes": 33884792089,
+    "runtime_reserve_threshold_bytes": 24510719590,
+    "projected_headroom_after_fourteen_day_peak_bytes": 9374072499,
+    "pass": true
+  },
+  "policy_proposal": {
+    "daily_launch_verified_candidate": true,
+    "verification_basis": "2026-08-27 PASS：main source /Users/mattkuo/TOP10new @ f6f514fd7b2f31c434e2aef1492bb89b269955be 的 data/clean/features.parquet 通過 ValidationSnapshotProvider gates（532255 rows、1967 stocks、282 trade dates、TWSE/TPEX、latest 2026-07-31 coverage 98.98%）；fresh no-.git sandbox 以 digest-pinned validate-run 連續兩個 daily representative cycles 均 OK，無 unknown writes、source identity unchanged、peak project 473750353 bytes、worst cycle delta 344530180 bytes、peak RSS 1575763968 bytes、max swap delta 333185024 bytes；sandbox-only reclaim drill 回收 72 bytes / 2 files；14d projected peak 4823422520 bytes < 6442450944 bytes cap，projected host headroom 9374072499 bytes above runtime reserve。",
+    "other_jobs_launch_verified_remain_false": true
+  }
+}

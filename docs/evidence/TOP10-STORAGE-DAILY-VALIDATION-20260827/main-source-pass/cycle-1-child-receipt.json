@@ -1,0 +1,518 @@
+{
+  "schema_version": "top10-daily-storage-validation-cycle.v1",
+  "status": "OK",
+  "child_exit_code": 0,
+  "cycle_id": "cycle-1",
+  "run_date": "2026-07-31",
+  "started_at": "2026-08-26T18:29:43.537188+00:00",
+  "finished_at": "2026-08-26T18:30:49.333578+00:00",
+  "canonical_orchestrator": "app.automation.daily_orchestrator",
+  "roots": {
+    "source_root": "/Users/mattkuo/TOP10new",
+    "output_root": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2",
+    "runtime_root": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cycle-1"
+  },
+  "sandbox_output_roots": {
+    "artifacts": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts",
+    "logs": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs",
+    "data": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data",
+    "runtime": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cycle-1"
+  },
+  "source_identity": {
+    "root": "/Users/mattkuo/TOP10new",
+    "files": {
+      "config/automation.yaml": {
+        "path": "config/automation.yaml",
+        "exists": true,
+        "size_bytes": 8912,
+        "sha256": "3c9e10f91ae2d436fe784da8d9187b86208919380adfd958f0ac654182c7b429"
+      },
+      "config/signals.yaml": {
+        "path": "config/signals.yaml",
+        "exists": true,
+        "size_bytes": 4924,
+        "sha256": "b34c1a20a705bb67f107de870ddd0cec5a2e3419aa385258370d88ceb553d60a"
+      },
+      "requirements.txt": {
+        "path": "requirements.txt",
+        "exists": true,
+        "size_bytes": 1230,
+        "sha256": "f5add3500b172203e7482f7a919d1742b88de614e992fe85e4587c68392a3a3a"
+      },
+      "scripts/run_automation.py": {
+        "path": "scripts/run_automation.py",
+        "exists": true,
+        "size_bytes": 89527,
+        "sha256": "28274f00d8e353dd57d57a826d4081558c9458cb4b465cd1f0ec6295085e936b"
+      },
+      "app/automation/daily_orchestrator.py": {
+        "path": "app/automation/daily_orchestrator.py",
+        "exists": true,
+        "size_bytes": 4359,
+        "sha256": "185c99440162af7f8a9666112b638ddd58e3ff05261989ebfe9608c3120cebcf"
+      },
+      "app/automation/execution.py": {
+        "path": "app/automation/execution.py",
+        "exists": true,
+        "size_bytes": 1405,
+        "sha256": "f736f2ada2d71b11c2f13fc229dc0d7fc67e9ed341b02b625bdc1368025783cd"
+      },
+      "app/agent_b_ranking.py": {
+        "path": "app/agent_b_ranking.py",
+        "exists": true,
+        "size_bytes": 40790,
+        "sha256": "98f9407c3cbf477598dda942534fcbb38bac0939d7638f6a356bb8987c10ea35"
+      },
+      "app/pipeline_cli.py": {
+        "path": "app/pipeline_cli.py",
+        "exists": true,
+        "size_bytes": 2618,
+        "sha256": "86dcc81112371bc5aa761a14148e371c12f07ecc2ad2ed9d67d28b94c0bf075f"
+      },
+      "app/pipeline/fetch_stage.py": {
+        "path": "app/pipeline/fetch_stage.py",
+        "exists": true,
+        "size_bytes": 6292,
+        "sha256": "869c293c4aa394b03e3454bb5c9a350e15b74b0e5eebbbf00f52801126df9793"
+      },
+      "app/pipeline/validation_snapshot.py": {
+        "path": "app/pipeline/validation_snapshot.py",
+        "exists": true,
+        "size_bytes": 7370,
+        "sha256": "67fe03a8e87a8b8f45df35010b365340759c8fde14d079d92bca2c37aebd8be7"
+      },
+      "scripts/generate_daily_report.py": {
+        "path": "scripts/generate_daily_report.py",
+        "exists": true,
+        "size_bytes": 21224,
+        "sha256": "e9c8c550ae870416452b7fd9c087966ae9c2ddf036ff4e6627c166e5eae5c250"
+      },
+      "scripts/build_clawd_publish_payload.py": {
+        "path": "scripts/build_clawd_publish_payload.py",
+        "exists": true,
+        "size_bytes": 3877,
+        "sha256": "f3a0cb9a949a80de2cf93221bc8a87b2ba046371a3b3a1ca12eba7c29f35a3d0"
+      },
+      "models/latest_lgbm.pkl": {
+        "path": "models/latest_lgbm.pkl",
+        "exists": true,
+        "size_bytes": 2798697,
+        "sha256": "ce64379701339bf7eadd696872efa0f64be118b4b8c58582e90691ec175c8a5d"
+      },
+      "data/reference/tradable_universe.csv": {
+        "path": "data/reference/tradable_universe.csv",
+        "exists": true,
+        "size_bytes": 107281,
+        "sha256": "50579b4cc975e82b4f1211129fba3724962d70417f465515110f74b098f556a4"
+      }
+    },
+    "identity_sha256": "7edc52fa42bc3382cf6f06f440b5d82dc64940a8207098d9d3180c06b2e570f5"
+  },
+  "source_identity_after": {
+    "root": "/Users/mattkuo/TOP10new",
+    "files": {
+      "config/automation.yaml": {
+        "path": "config/automation.yaml",
+        "exists": true,
+        "size_bytes": 8912,
+        "sha256": "3c9e10f91ae2d436fe784da8d9187b86208919380adfd958f0ac654182c7b429"
+      },
+      "config/signals.yaml": {
+        "path": "config/signals.yaml",
+        "exists": true,
+        "size_bytes": 4924,
+        "sha256": "b34c1a20a705bb67f107de870ddd0cec5a2e3419aa385258370d88ceb553d60a"
+      },
+      "requirements.txt": {
+        "path": "requirements.txt",
+        "exists": true,
+        "size_bytes": 1230,
+        "sha256": "f5add3500b172203e7482f7a919d1742b88de614e992fe85e4587c68392a3a3a"
+      },
+      "scripts/run_automation.py": {
+        "path": "scripts/run_automation.py",
+        "exists": true,
+        "size_bytes": 89527,
+        "sha256": "28274f00d8e353dd57d57a826d4081558c9458cb4b465cd1f0ec6295085e936b"
+      },
+      "app/automation/daily_orchestrator.py": {
+        "path": "app/automation/daily_orchestrator.py",
+        "exists": true,
+        "size_bytes": 4359,
+        "sha256": "185c99440162af7f8a9666112b638ddd58e3ff05261989ebfe9608c3120cebcf"
+      },
+      "app/automation/execution.py": {
+        "path": "app/automation/execution.py",
+        "exists": true,
+        "size_bytes": 1405,
+        "sha256": "f736f2ada2d71b11c2f13fc229dc0d7fc67e9ed341b02b625bdc1368025783cd"
+      },
+      "app/agent_b_ranking.py": {
+        "path": "app/agent_b_ranking.py",
+        "exists": true,
+        "size_bytes": 40790,
+        "sha256": "98f9407c3cbf477598dda942534fcbb38bac0939d7638f6a356bb8987c10ea35"
+      },
+      "app/pipeline_cli.py": {
+        "path": "app/pipeline_cli.py",
+        "exists": true,
+        "size_bytes": 2618,
+        "sha256": "86dcc81112371bc5aa761a14148e371c12f07ecc2ad2ed9d67d28b94c0bf075f"
+      },
+      "app/pipeline/fetch_stage.py": {
+        "path": "app/pipeline/fetch_stage.py",
+        "exists": true,
+        "size_bytes": 6292,
+        "sha256": "869c293c4aa394b03e3454bb5c9a350e15b74b0e5eebbbf00f52801126df9793"
+      },
+      "app/pipeline/validation_snapshot.py": {
+        "path": "app/pipeline/validation_snapshot.py",
+        "exists": true,
+        "size_bytes": 7370,
+        "sha256": "67fe03a8e87a8b8f45df35010b365340759c8fde14d079d92bca2c37aebd8be7"
+      },
+      "scripts/generate_daily_report.py": {
+        "path": "scripts/generate_daily_report.py",
+        "exists": true,
+        "size_bytes": 21224,
+        "sha256": "e9c8c550ae870416452b7fd9c087966ae9c2ddf036ff4e6627c166e5eae5c250"
+      },
+      "scripts/build_clawd_publish_payload.py": {
+        "path": "scripts/build_clawd_publish_payload.py",
+        "exists": true,
+        "size_bytes": 3877,
+        "sha256": "f3a0cb9a949a80de2cf93221bc8a87b2ba046371a3b3a1ca12eba7c29f35a3d0"
+      },
+      "models/latest_lgbm.pkl": {
+        "path": "models/latest_lgbm.pkl",
+        "exists": true,
+        "size_bytes": 2798697,
+        "sha256": "ce64379701339bf7eadd696872efa0f64be118b4b8c58582e90691ec175c8a5d"
+      },
+      "data/reference/tradable_universe.csv": {
+        "path": "data/reference/tradable_universe.csv",
+        "exists": true,
+        "size_bytes": 107281,
+        "sha256": "50579b4cc975e82b4f1211129fba3724962d70417f465515110f74b098f556a4"
+      }
+    },
+    "identity_sha256": "7edc52fa42bc3382cf6f06f440b5d82dc64940a8207098d9d3180c06b2e570f5"
+  },
+  "source_identity_unchanged": true,
+  "validation_input": {
+    "source_before": {
+      "path": "/Users/mattkuo/TOP10new/data/clean/features.parquet",
+      "exists": true,
+      "size_bytes": 129171862,
+      "sha256": "6dfeed9a54ff5513c516e4aa1e0a6258bd7a8e1f7c61036459d72da96b64d7c9",
+      "mtime": "2026-07-31T09:53:59.381690+00:00"
+    },
+    "source_after": {
+      "path": "/Users/mattkuo/TOP10new/data/clean/features.parquet",
+      "exists": true,
+      "size_bytes": 129171862,
+      "sha256": "6dfeed9a54ff5513c516e4aa1e0a6258bd7a8e1f7c61036459d72da96b64d7c9",
+      "mtime": "2026-07-31T09:53:59.381690+00:00"
+    },
+    "source_unchanged": true,
+    "materialized": {
+      "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/raw/validation_snapshots/cycle-1/quotes.parquet",
+      "exists": true,
+      "size_bytes": 129171862,
+      "sha256": "6dfeed9a54ff5513c516e4aa1e0a6258bd7a8e1f7c61036459d72da96b64d7c9",
+      "mtime": "2026-08-26T18:29:44.306475+00:00"
+    },
+    "materialized_bytes_counted_in_sandbox_growth": 129171862,
+    "coverage": {
+      "row_count": 532255,
+      "stock_count": 1967,
+      "trade_date_count": 282,
+      "start_date": "2025-06-06",
+      "end_date": "2026-07-31",
+      "latest_date": "2026-07-31",
+      "latest_stock_count": 1947,
+      "latest_stock_coverage": 0.9898322318251144,
+      "markets": [
+        "TPEX",
+        "TWSE"
+      ]
+    },
+    "materialized_coverage": {
+      "row_count": 532255,
+      "stock_count": 1967,
+      "trade_date_count": 282,
+      "start_date": "2025-06-06",
+      "end_date": "2026-07-31",
+      "latest_date": "2026-07-31",
+      "latest_stock_count": 1947,
+      "latest_stock_coverage": 0.9898322318251144,
+      "markets": [
+        "TPEX",
+        "TWSE"
+      ]
+    }
+  },
+  "external_send_contract": {
+    "validation_mode": true,
+    "clawd_send_enabled": false,
+    "ops_send_enabled": false,
+    "discord_send_enabled": false,
+    "llm_rewrite_enabled": false,
+    "blocked_scripts": [
+      "scripts/run_daily_publish.sh",
+      "scripts/send_daily_ops_report.py"
+    ]
+  },
+  "orchestrator_call_sequence": [
+    "preflight.project_root",
+    "preflight.source_root",
+    "preflight.output_root",
+    "daily.schema",
+    "daily.run_date",
+    "model.exists",
+    "data.freshness.preflight",
+    "etl",
+    "data.validate",
+    "data.freshness.after_etl",
+    "ranking",
+    "ranking.artifact",
+    "candidate.persistence",
+    "weekly.snapshot",
+    "tskg.t86",
+    "market.context",
+    "daily_recommendation.performance",
+    "decision.quality",
+    "daily_performance.review",
+    "gross55.shadow_monitor",
+    "capital_entry_quality.shadow_monitor",
+    "candidate_trail10.shadow_monitor",
+    "overlap_first.recommendation_shadow",
+    "shadow_historical.evidence_report",
+    "overlay_append_only.shadow",
+    "daily_shadow.status_report",
+    "api.cache.clear",
+    "daily.postcheck",
+    "daily.report",
+    "daily.report.artifact",
+    "clawd.payload",
+    "clawd.payload.llm_rewrite",
+    "clawd.payload.artifact"
+  ],
+  "commands": [
+    {
+      "name": "etl",
+      "status": "OK",
+      "command": [
+        "/Users/mattkuo/TOP10new/.venv/bin/python",
+        "-m",
+        "app.pipeline_cli",
+        "run",
+        "--start-date",
+        "2025-06-06",
+        "--end-date",
+        "2026-07-31",
+        "--data-dir",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data",
+        "--artifacts-dir",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "data.validate",
+      "status": "OK",
+      "command": [
+        "/Users/mattkuo/TOP10new/.venv/bin/python",
+        "-m",
+        "app.pipeline_cli",
+        "validate",
+        "--data-dir",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "ranking",
+      "status": "OK",
+      "command": [
+        "/Users/mattkuo/TOP10new/.venv/bin/python",
+        "-m",
+        "app.agent_b_ranking",
+        "--data-dir",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean",
+        "--model-dir",
+        "/Users/mattkuo/TOP10new/models",
+        "--artifact-dir",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts",
+        "--config",
+        "/Users/mattkuo/TOP10new/config/signals.yaml"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "daily.report",
+      "status": "OK",
+      "command": [
+        "/Users/mattkuo/TOP10new/.venv/bin/python",
+        "scripts/generate_daily_report.py",
+        "--ranking",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/ranking_2026-07-31.csv",
+        "--status",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/automation_status.json",
+        "--artifacts-dir",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "clawd.payload",
+      "status": "OK",
+      "command": [
+        "/Users/mattkuo/TOP10new/.venv/bin/python",
+        "scripts/build_clawd_publish_payload.py",
+        "--report",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_report_2026-07-31.json",
+        "--artifacts-dir",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts",
+        "--channel",
+        "discord",
+        "--to",
+        "channel:1507327845003825154"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "artifacts": {
+    "ranking": {
+      "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/ranking_2026-07-31.csv",
+      "exists": true,
+      "size_bytes": 9048,
+      "sha256": "f0907e89a68c7a2a152d116df1a5d7587cdcc02932678cb727146812915c74a6",
+      "mtime": "2026-08-26T18:30:48.438659+00:00"
+    },
+    "daily_report": {
+      "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_report_2026-07-31.json",
+      "exists": true,
+      "size_bytes": 27251,
+      "sha256": "0aaeb8f9897431a6a922b30a18712b273c29c71ba4a697f900679bea57a06d1c",
+      "mtime": "2026-08-26T18:30:49.023863+00:00"
+    },
+    "clawd_publish_payload": {
+      "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_payload_2026-07-31.json",
+      "exists": true,
+      "size_bytes": 70853,
+      "sha256": "0e8a4001315b726c3d3d953f92ad082968a1d6f24b8c09daf6f1656de9e8c05c",
+      "mtime": "2026-08-26T18:30:49.305172+00:00"
+    },
+    "clawd_publish_message": {
+      "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_message_2026-07-31.md",
+      "exists": true,
+      "size_bytes": 12817,
+      "sha256": "92a0dd2dd21fe1fc53cf0af5c55a9367689254ae639ae61e60708302d2a671b4",
+      "mtime": "2026-08-26T18:30:49.304328+00:00"
+    },
+    "automation_status": {
+      "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/automation_status.json",
+      "exists": true,
+      "size_bytes": 18729,
+      "sha256": "539f88618f89c7b8006b20219655eaf212282f96464ef9ce59d307fb87854b87",
+      "mtime": "2026-08-26T18:30:49.329530+00:00"
+    }
+  },
+  "automation_status": {
+    "status": "OK",
+    "run_date": "2026-07-31",
+    "errors": [],
+    "metadata": {
+      "project_root": "/Users/mattkuo/TOP10new",
+      "source_root": "/Users/mattkuo/TOP10new",
+      "output_root": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2",
+      "runtime_root": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cycle-1",
+      "validation_mode": true,
+      "trigger": "manual",
+      "resource_profile": "standard",
+      "run_date_source": "argument",
+      "model": {
+        "path": "/Users/mattkuo/TOP10new/models/latest_lgbm.pkl",
+        "exists": true,
+        "mtime": "2026-07-14T09:14:18.089339+00:00"
+      },
+      "data_freshness": {
+        "datasets": {
+          "features.parquet": {
+            "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean/features.parquet",
+            "rows": 532255,
+            "date_column": "date",
+            "latest_date": "2026-07-31",
+            "lag_days": 0,
+            "latest_market_coverage": {
+              "latest_date": "2026-07-31",
+              "min_coverage_ratio": 0.5,
+              "markets": [
+                {
+                  "market_type": "TWSE",
+                  "expected_count": 1080,
+                  "actual_count": 1077,
+                  "coverage_ratio": 0.9972,
+                  "status": "OK"
+                },
+                {
+                  "market_type": "TPEX",
+                  "expected_count": 887,
+                  "actual_count": 870,
+                  "coverage_ratio": 0.9808,
+                  "status": "OK"
+                }
+              ]
+            }
+          },
+          "events.parquet": {
+            "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean/events.parquet",
+            "rows": 532255,
+            "date_column": "date",
+            "latest_date": "2026-07-31",
+            "lag_days": 0
+          },
+          "universe.parquet": {
+            "path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean/universe.parquet",
+            "rows": 311768,
+            "date_column": "date",
+            "latest_date": "2026-07-31",
+            "lag_days": 0
+          }
+        },
+        "max_lag_days": 7
+      },
+      "pipeline_window_policy": {
+        "source": "daily.pipeline_lookback_days",
+        "lookback_days": 420
+      },
+      "pipeline_window": {
+        "end_date": "2026-07-31",
+        "start_date": "2025-06-06"
+      },
+      "expected_ranking_artifact": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/ranking_2026-07-31.csv",
+      "ranking_artifact": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/ranking_2026-07-31.csv",
+      "expected_tskg_t86_artifact": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/tskg/t86/twse_t86_2026-07-31.json",
+      "expected_market_context_artifact": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/market_context_2026-07-31.json",
+      "expected_daily_recommendation_performance_artifact": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_recommendation_performance_2026-07-31.json",
+      "expected_decision_quality_artifact": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/decision_quality_2026-07-31.json",
+      "expected_daily_performance_review_artifact": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_performance_review_2026-07-31.json",
+      "expected_gross55_shadow_monitor": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/model_experiments/gross55_daily_shadow_monitor_2026-07-31.json",
+      "expected_gross55_shadow_monitor_batch": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/model_experiments/gross55_daily_shadow_monitor_batch_2026-07-31.json",
+      "expected_capital_entry_quality_shadow_monitor": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/model_experiments/capital_entry_quality_daily_shadow_monitor_2026-07-31.json",
+      "expected_capital_entry_quality_shadow_monitor_batch": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/model_experiments/capital_entry_quality_daily_shadow_monitor_batch_2026-07-31.json",
+      "expected_candidate_trail10_shadow_monitor": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/model_experiments/candidate_trail10_daily_shadow_monitor_2026-07-31.json",
+      "expected_overlap_first_recommendation_shadow": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/model_experiments/overlap_first_daily_recommendation_shadow_2026-07-31.json",
+      "expected_shadow_historical_evidence_report": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/model_experiments/shadow_historical_evidence_2026-07-31.json",
+      "expected_overlay_append_only_shadow_status": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/model_experiments/overlay_shadow_daily_status.json",
+      "expected_daily_shadow_status_report": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/model_experiments/daily_shadow_status_2026-07-31.json",
+      "expected_daily_report_artifact": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_report_2026-07-31.json",
+      "daily_report_artifact": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_report_2026-07-31.json",
+      "expected_clawd_publish_payload": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_payload_2026-07-31.json",
+      "expected_clawd_publish_message": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_message_2026-07-31.md",
+      "clawd_publish_payload": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_payload_2026-07-31.json",
+      "clawd_publish_message": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_message_2026-07-31.md"
+    }
+  }
+}

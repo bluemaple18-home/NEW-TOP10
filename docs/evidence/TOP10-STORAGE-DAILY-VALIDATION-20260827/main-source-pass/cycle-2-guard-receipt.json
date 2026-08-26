@@ -1,0 +1,137 @@
+{
+  "child_exit_code": 0,
+  "command": [
+    "/Users/mattkuo/TOP10new/.venv/bin/python",
+    "-I",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/scripts/storage_validation/daily.py",
+    "--source-root",
+    "/Users/mattkuo/TOP10new",
+    "--output-root",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2",
+    "--runtime-root",
+    "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cycle-2",
+    "--run-date",
+    "2026-07-31",
+    "--cycle-id",
+    "cycle-2",
+    "--snapshot-input",
+    "/Users/mattkuo/TOP10new/data/clean/features.parquet"
+  ],
+  "job": "daily",
+  "launch_verified": false,
+  "limits": {
+    "expected_growth_bytes_per_hour": 536870912,
+    "max_bytes": 6442450944,
+    "max_file_count": 60000,
+    "max_process_tree_rss_bytes": 4294967296,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 7200,
+    "stabilize_after_seconds": 14400
+  },
+  "max_runtime_seconds": 1800.0,
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 393568,
+    "bytes_before": 393568,
+    "dry_run": false,
+    "file_count_after": 3,
+    "file_count_before": 3,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 38383382528,
+      "host_total_bytes": 245107195904,
+      "phase": "preflight",
+      "project_bytes": 344536003,
+      "project_file_count": 23,
+      "rss_bytes": 0,
+      "swap_bytes": 16383150653,
+      "timestamp": 1787769102.117057
+    },
+    {
+      "host_free_bytes": 38383337472,
+      "host_total_bytes": 245107195904,
+      "phase": "live",
+      "project_bytes": 344536003,
+      "project_file_count": 23,
+      "rss_bytes": 4046848,
+      "swap_bytes": 16383150653,
+      "timestamp": 1787769103.7740989
+    },
+    {
+      "host_free_bytes": 38234464256,
+      "host_total_bytes": 245107195904,
+      "phase": "final",
+      "project_bytes": 473750353,
+      "project_file_count": 25,
+      "rss_bytes": 0,
+      "swap_bytes": 16561733632,
+      "timestamp": 1787769160.460329
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "OK",
+  "summary": {
+    "elapsed_seconds": 58.3432719707489,
+    "host_free_bytes_delta": -148918272,
+    "observed_growth_bytes_per_hour": 7973012899.126044,
+    "peak_rss_bytes": 4046848,
+    "project_bytes_delta": 129214350,
+    "project_file_count_delta": 2,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": 178582979,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "jobs": [
+        "daily"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2",
+      "schema_version": "top10-storage-validation-root.v1",
+      "trusted_entrypoints": {
+        "daily": {
+          "contract_path": "daily-cycle-2-entrypoint-contract.json",
+          "contract_sha256": "1a747239df92263b1df8d0e44803c25561f2ac243a4c26bdc431d7d264a615f7"
+        }
+      }
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cache/matplotlib",
+      "TMPDIR": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/tmp",
+      "UV_CACHE_DIR": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/raw",
+    "sandbox_output_root": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2",
+    "source_input_root": "/Users/mattkuo/TOP10new",
+    "trusted_entrypoint": {
+      "argv": [
+        "--source-root",
+        "/Users/mattkuo/TOP10new",
+        "--output-root",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2",
+        "--runtime-root",
+        "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cycle-2",
+        "--run-date",
+        "2026-07-31",
+        "--cycle-id",
+        "cycle-2",
+        "--snapshot-input",
+        "/Users/mattkuo/TOP10new/data/clean/features.parquet"
+      ],
+      "contract_path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/daily-cycle-2-entrypoint-contract.json",
+      "contract_sha256": "1a747239df92263b1df8d0e44803c25561f2ac243a4c26bdc431d7d264a615f7",
+      "entrypoint_path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/scripts/storage_validation/daily.py",
+      "entrypoint_sha256": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8"
+    }
+  },
+  "validation_only": true,
+  "verification_basis": "2026-08-27 NO-GO / REPRESENTATIVE_SNAPSHOT_MISSING：source checkout f6f514fd7b2f31c434e2aef1492bb89b269955be 在 data/clean、data/raw、data/reference 未包含符合 ValidationSnapshotProvider gates 的 real-data snapshot；cycle-1 digest-pinned validate-run 在 sandbox 中 fail closed，child log 為 validation snapshot input 必須是存在且非 symlink 的一般檔案；未跑 cycle-2，不得提升 launch_verified。"
+}

@@ -95,8 +95,8 @@
   },
   "jobs": {
     "daily": {
-      "launch_verified": false,
-      "verification_basis": "2026-08-27 NO-GO / REPRESENTATIVE_SNAPSHOT_MISSING：source checkout f6f514fd7b2f31c434e2aef1492bb89b269955be 在 data/clean、data/raw、data/reference 未包含符合 ValidationSnapshotProvider gates 的 real-data snapshot；cycle-1 digest-pinned validate-run 在 sandbox 中 fail closed，child log 為 validation snapshot input 必須是存在且非 symlink 的一般檔案；未跑 cycle-2，不得提升 launch_verified。",
+      "launch_verified": true,
+      "verification_basis": "2026-08-27 PASS：main source /Users/mattkuo/TOP10new @ f6f514fd7b2f31c434e2aef1492bb89b269955be 的 data/clean/features.parquet 通過 ValidationSnapshotProvider gates（532255 rows、1967 stocks、282 trade dates、TWSE/TPEX、latest 2026-07-31 coverage 98.98%）；fresh no-.git sandbox 以 digest-pinned validate-run 連續兩個 daily representative cycles 均 OK，無 unknown writes、source identity unchanged、peak project 473750353 bytes、worst cycle delta 344530180 bytes、peak RSS 1575763968 bytes、max swap delta 333185024 bytes；sandbox-only reclaim drill 回收 72 bytes / 2 files；14d projected peak 4823422520 bytes < 6442450944 bytes cap，projected host headroom 9374072499 bytes above runtime reserve。",
       "meter_paths": ["logs", "artifacts", "data", "models"],
       "registered_write_paths": ["logs", "artifacts", "data", "models"],
       "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "harness_status"],

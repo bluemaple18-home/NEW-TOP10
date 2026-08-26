@@ -153,3 +153,53 @@ validation 與 reclaim 後均維持 clean，核心 source/config/model SHA 前�
 本輪不提出 `daily.launch_verified=true` candidate；policy 只能維持 fail closed，並記錄
 `REPRESENTATIVE_SNAPSHOT_MISSING` 作為新的 verification basis。完整 machine summary 見
 `docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/no-go-summary.json`。
+
+## 2026-08-27 Corrected main-source acceptance attempt
+
+`PASS / DAILY_LAUNCH_VERIFIED_POLICY_CANDIDATE`
+
+主線更正 source selection：validation worktree 缺少 Git-ignored real data，但 main checkout
+`/Users/mattkuo/TOP10new` 存在可用 real-data snapshot。本輪以 main checkout 作 read-only
+`source_root`，fresh no-`.git` sandbox 作 `output_root` / `runtime_root`，未 load、enable、
+kickstart launchd，未執行 publish wrapper，未 external send，未 push。
+
+Preflight evidence：
+
+- main HEAD：`f6f514fd7b2f31c434e2aef1492bb89b269955be`
+- main 既存 modified files hash 已保護，前後不變：
+  - `scripts/build_weekend_universe_inventory.py`
+  - `tests/test_weekend_universe_inventory_snapshot.py`
+- `data/clean/features.parquet` 是 regular file、非 symlink，SHA-256
+  `6dfeed9a54ff5513c516e4aa1e0a6258bd7a8e1f7c61036459d72da96b64d7c9`
+- `ValidationSnapshotProvider` gates PASS：`532255` rows、`1967` stocks、
+  `282` trade dates、`2025-06-06..2026-07-31`、latest coverage `98.98%`、
+  markets `TPEX/TWSE`
+- `data/reference/tradable_universe.csv` 是 regular file、非 symlink，`1967` rows/stocks
+- launchd read-only evidence：八個 `com.new-top10.*` jobs disabled，`com.new-top10.daily`
+  not loaded
+
+Execution evidence：
+
+- sandbox：`/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2`
+- cycle-1 guard receipt：
+  `docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/main-source-pass/cycle-1-guard-receipt.json`
+- cycle-1 child receipt：
+  `docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/main-source-pass/cycle-1-child-receipt.json`
+- cycle-2 guard receipt：
+  `docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/main-source-pass/cycle-2-guard-receipt.json`
+- cycle-2 child receipt：
+  `docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/main-source-pass/cycle-2-child-receipt.json`
+- both cycles：guard `OK`、child exit `0`、source identity unchanged、
+  unknown writes `[]`、registered-unmetered writes `[]`
+- worst observed cycle delta：`344530180` bytes
+- observed two-cycle peak project bytes：`473750353`
+- peak RSS：`1575763968` bytes
+- max swap delta：`333185024` bytes
+- sandbox-only reclaim drill：回收 `72` bytes / `2` files，removed paths 全部在 sandbox
+  `logs/*.log`
+- projection：14d worst peak `4823422520` bytes < daily cap `6442450944` bytes；
+  projected host headroom `9374072499` bytes above runtime reserve
+
+Policy update：只將 `daily.launch_verified=true`，verification basis 指向本輪 PASS evidence；
+其他七個 job 維持 `launch_verified=false`。完整 machine summary 見
+`docs/evidence/TOP10-STORAGE-DAILY-VALIDATION-20260827/main-source-pass/pass-summary.json`。

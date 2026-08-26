@@ -177,12 +177,12 @@ class HookedMonotonicClock(FakeMonotonicClock):
 
 
 class StorageSafetyRegressionTest(unittest.TestCase):
-    def test_policy_contract_is_complete_and_live_jobs_remain_unverified(self) -> None:
+    def test_policy_contract_is_complete_and_only_daily_is_launch_verified(self) -> None:
         policy_path = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"
         for job in SCHEDULED_JOBS:
             with self.subTest(job=job):
                 global_policy, policy, rules = load_policy(policy_path, job)
-                self.assertFalse(policy.launch_verified)
+                self.assertIs(policy.launch_verified, job == "daily")
                 self.assertTrue(policy.verification_basis)
                 self.assertGreater(policy.max_bytes, 0)
                 self.assertGreater(policy.max_file_count, 0)

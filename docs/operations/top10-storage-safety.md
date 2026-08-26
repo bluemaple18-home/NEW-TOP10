@@ -2,11 +2,18 @@
 
 ## 目前結論
 
-`docs/operations/top10-storage-policy.json` 對八個排程一律設定
-`launch_verified=false`。這是刻意的 fail-closed 狀態：修復版尚未完成各 job 的兩個代表性
-完整週期，因此 repo 中的數字只是 provisional ceiling，不是 live 核准預算。
+`docs/operations/top10-storage-policy.json` 目前只將 `daily.launch_verified=true`。這是
+2026-08-27 使用 main checkout real-data snapshot，在 fresh no-`.git` sandbox 內完成兩個
+serial representative validation cycles、sandbox-only reclaim drill 與 14 天峰值推估後的
+policy candidate；不等於已授權 load、enable、kickstart 或手動執行 live launchd。
 
-在 `launch_verified` 經實測與審查改為 `true` 以前：
+其餘七個排程仍維持 `launch_verified=false`。這是刻意的 fail-closed 狀態：修復版尚未完成
+各 job 的兩個代表性完整週期，因此 repo 中的數字對這七個 job 仍只是 provisional ceiling，
+不是 live 核准預算。
+
+`daily.launch_verified=true` 只解除 storage policy 的 pre-child fail-closed 原因；實際
+載入、啟用、kickstart 或手動執行 live launchd 仍是外部控制面動作，必須另有 operator
+授權。對仍為 `launch_verified=false` 的 job：
 
 - 不得載入、啟用或手動執行 live TOP10 排程。
 - guard 會在 child 啟動前以 `POLICY_NOT_LIVE_VERIFIED` 拒絕，exit code 為 78。

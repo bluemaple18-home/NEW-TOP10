@@ -1,0 +1,252 @@
+2026-08-27 02:29:45,505 - INFO - ================================================================================
+2026-08-27 02:29:45,506 - INFO - 開始執行原子化 ETL 管道
+2026-08-27 02:29:45,506 - INFO - ================================================================================
+2026-08-27 02:29:45,506 - INFO - 
+執行階段: FetchStage
+2026-08-27 02:29:45,507 - INFO - 擷取資料: 2025-06-06 ~ 2026-07-31
+2026-08-27 02:29:47,271 - INFO - 套用 tradable universe filter: rows 532255 -> 532255, stocks 1967 -> 1967
+2026-08-27 02:29:47,480 - INFO - 
+執行階段: IndicatorStage
+2026-08-27 02:29:47,712 - INFO - 準備向量化資料結構...
+2026-08-27 02:29:47,875 - INFO - 開始計算所有技術指標 (Vectorized)...
+2026-08-27 02:29:47,875 - INFO - 計算移動平均線 (Vectorized): [5, 10, 20, 60]
+2026-08-27 02:29:48,956 - INFO - 計算指數移動平均線 (Vectorized): [12, 26]
+2026-08-27 02:29:49,386 - INFO - 計算 MACD 指標 (Vectorized)
+2026-08-27 02:29:50,024 - INFO - 計算 RSI 指標 (Vectorized, 週期=14)
+2026-08-27 02:29:50,240 - INFO - 計算 KD 指標 (Vectorized)
+2026-08-27 02:29:50,703 - INFO - 計算布林通道 (Vectorized, 週期=20)
+2026-08-27 02:29:51,547 - INFO - 計算前高突破旗標 (Vectorized, 回溯=60)
+2026-08-27 02:29:51,771 - INFO - 計算量能突增 (Vectorized)
+2026-08-27 02:29:51,998 - INFO - 計算位階指標 (Vectorized): [60, 250]天回溯
+2026-08-27 02:29:53,257 - INFO - 計算均線糾結指標 (Vectorized): [5, 10, 20, 60]
+2026-08-27 02:29:53,534 - INFO - 計算乖離率 (Vectorized): [5, 10, 20, 60]
+2026-08-27 02:29:54,383 - WARNING - 無營收資料，跳過基本面因子計算
+2026-08-27 02:29:54,383 - INFO - 計算籌碼面指標 (Vectorized): [3, 5, 10]天回溯
+2026-08-27 02:29:55,992 - INFO - 計算二元事件特徵 (Vectorized)
+2026-08-27 02:29:56,211 - INFO - 計算移動平均線 (Vectorized): [5, 20]
+2026-08-27 02:29:57,457 - INFO - 計算 MACD 指標 (Vectorized)
+2026-08-27 02:29:58,486 - INFO - 計算 RSI 指標 (Vectorized, 週期=14)
+2026-08-27 02:29:59,716 - INFO - 計算 K 線型態訊號
+2026-08-27 02:29:59,825 - INFO - 計算 TD 九轉訊號
+2026-08-27 02:30:02,007 - INFO - 計算 W 底 / M 頭價格結構訊號
+2026-08-27 02:30:15,090 - INFO - 所有技術指標計算完成！
+2026-08-27 02:30:15,532 - INFO - 開始計算所有量能指標...
+2026-08-27 02:30:15,533 - INFO - 計算平均成交量: [5, 10, 20]
+2026-08-27 02:30:16,858 - INFO - 平均成交量計算完成
+2026-08-27 02:30:16,904 - INFO - 計算量比: [5, 10, 20]
+2026-08-27 02:30:16,910 - INFO - 量比計算完成
+2026-08-27 02:30:16,910 - INFO - 計算 OBV 指標
+2026-08-27 02:30:18,031 - INFO - OBV 指標計算完成
+2026-08-27 02:30:18,060 - INFO - 計算 20 日日均成交值
+2026-08-27 02:30:19,380 - INFO - 日均成交值計算完成
+2026-08-27 02:30:19,396 - INFO - 計算 VWAP 成本線: [5, 20]
+2026-08-27 02:30:22,651 - INFO - VWAP 成本線計算完成
+2026-08-27 02:30:22,691 - INFO - 所有量能指標計算完成！
+2026-08-27 02:30:22,913 - INFO - 
+執行階段: FundamentalStage
+2026-08-27 02:30:23,249 - INFO - 整合基本面與營收資料...
+2026-08-27 02:30:23,250 - WARNING - 找不到營收資料來源，保留營收欄位缺值
+2026-08-27 02:30:23,251 - INFO - 合併月營收資料
+2026-08-27 02:30:23,251 - WARNING - 月營收資料為空，跳過合併
+2026-08-27 02:30:23,252 - INFO - 
+執行階段: EventStage
+2026-08-27 02:30:23,648 - INFO - 開始偵測技術事件...
+2026-08-27 02:30:23,654 - INFO - 計算事件: break_20d_high (price_breakout)
+2026-08-27 02:30:24,049 - INFO - 計算事件: lose_20d_low (price_breakout)
+2026-08-27 02:30:24,293 - INFO - 計算事件: ma5_cross_ma20_up (crossover)
+2026-08-27 02:30:24,554 - INFO - 計算事件: ma5_cross_ma20_down (crossover)
+2026-08-27 02:30:24,810 - INFO - 計算事件: close_above_bb_mid (threshold_cross)
+2026-08-27 02:30:25,188 - INFO - 計算事件: close_below_bb_mid (threshold_cross)
+2026-08-27 02:30:25,553 - INFO - 計算事件: macd_bullish_cross (crossover)
+2026-08-27 02:30:25,823 - INFO - 計算事件: macd_bearish_cross (crossover)
+2026-08-27 02:30:26,077 - INFO - 計算事件: rsi_rebound_from_40 (threshold_cross)
+2026-08-27 02:30:26,299 - INFO - 計算事件: rsi_break_below_50 (threshold_cross)
+2026-08-27 02:30:26,508 - INFO - 計算事件: gap_up_close_strong (pattern)
+2026-08-27 02:30:26,789 - INFO - 計算事件: long_upper_shadow (pattern)
+2026-08-27 02:30:27,414 - INFO - 計算事件: volume_spike (volume)
+2026-08-27 02:30:27,674 - INFO - 所有技術事件偵測完成
+2026-08-27 02:30:27,784 - INFO - 已存入 /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean/events.parquet
+2026-08-27 02:30:28,571 - INFO - 已存入 /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean/features.parquet
+2026-08-27 02:30:28,577 - INFO - 
+執行階段: FilterStage
+2026-08-27 02:30:28,651 - INFO - 開始套用所有風險過濾條件...
+2026-08-27 02:30:28,651 - INFO - 過濾上市未滿 60 日的股票
+2026-08-27 02:30:28,728 - INFO - 移除 0 檔上市未滿 60 日股票，剩餘 1967 檔
+2026-08-27 02:30:28,728 - INFO - 過濾近 20 日日均成交值 < 10,000,000 的股票
+2026-08-27 02:30:28,900 - INFO - 移除 812 檔低流動性股票，剩餘 1155 檔
+2026-08-27 02:30:28,901 - INFO - 過濾股價 < 10.0 元的股票
+2026-08-27 02:30:29,006 - INFO - 移除 21 檔低價股，剩餘 1134 檔
+2026-08-27 02:30:29,010 - INFO - 風險過濾完成！最終股票池: 1134 檔
+2026-08-27 02:30:29,524 - INFO - 已存入 /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean/universe.parquet
+2026-08-27 02:30:29,526 - INFO - 
+執行階段: ReportStage
+2026-08-27 02:30:29,526 - INFO - 產生 ETL 報告與視覺化...
+2026-08-27 02:30:34,616 - WARNING - Matplotlib is building the font cache; this may take a moment.
+2026-08-27 02:30:37,756 - INFO - Failed to extract font properties from /System/Library/PrivateFrameworks/FontServices.framework/Resources/Reserved/PingFangUI.ttc: FT_Open_Face (ft2font.cpp line 200) failed with error 0x02: unknown file format
+2026-08-27 02:30:37,784 - INFO - Failed to extract font properties from /System/Library/Fonts/Apple Color Emoji.ttc: Non-scalable fonts are not supported
+2026-08-27 02:30:37,815 - INFO - Failed to extract font properties from /System/Library/Fonts/LastResort.otf: tuple indices must be integers or slices, not str
+2026-08-27 02:30:37,863 - INFO - Failed to extract font properties from /System/Library/Fonts/Supplemental/NISC18030.ttf: Non-scalable fonts are not supported
+2026-08-27 02:30:37,932 - INFO - generated new fontManager
+2026-08-27 02:30:38,047 - INFO - 產生訊號預覽圖（抽樣 5 檔）
+2026-08-27 02:30:38,728 - WARNING - findfont: Failed to find font weight bold, now using 400.
+2026-08-27 02:30:39,488 - INFO - 訊號預覽圖已儲存: /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/signals_preview.png
+2026-08-27 02:30:39,488 - INFO - 
+================================================================================
+2026-08-27 02:30:39,488 - INFO - ETL 管道執行完成！
+2026-08-27 02:30:39,488 - INFO - ================================================================================
+features: rows=532255, cols=127, stocks=1967, ok=True
+events: rows=532255, cols=15, stocks=1967, ok=True
+universe: rows=311768, cols=127, stocks=1134, ok=True
+/Users/mattkuo/TOP10new/.venv/lib/python3.12/site-packages/joblib/_multiprocessing_helpers.py:44: UserWarning: [Errno 1] Operation not permitted.  joblib will operate in serial mode
+  warnings.warn("%s.  joblib will operate in serial mode" % (e,))
+OMP: Warning #179: Function Can't set size of /tmp file failed:
+2026-08-27 02:30:42,865 - INFO - ✓ 已載入模型與校準器: latest_lgbm.pkl
+2026-08-27 02:30:45,291 - INFO - 載入交易日: 2026-07-31
+2026-08-27 02:30:48,008 - INFO - 市場狀態: RISK_OFF (risk_multiplier=0.72, breadth_ma20=16.09%)
+/Users/mattkuo/TOP10new/.venv/lib/python3.12/site-packages/shap/explainers/_tree.py:587: UserWarning: LightGBM binary classifier with TreeExplainer shap values output has changed to a list of ndarray
+  warnings.warn(
+2026-08-27 02:30:48,475 - WARNING - 報告生成失敗（不影響主流程）: 'entry_zone'
+
+🏆 Top 10 選股結果 (含 AI 解釋) (2026-07-31):
+stock_id stock_name       open       high        low      close  prev_close  return_pct  intraday_position  one_price_locked limit_state tape_guard_action tape_guard_reason  reason_stop_loss  reason_target_price  execution_stop_loss  trend_invalidation_price  pressure_price  execution_risk_reward  risk_reward_score rr_guard_action rr_guard_reason  risk_adjusted_score  final_score  model_prob  rule_score  prediction_score  setup_score  quality_score  risk_penalty  suggested_weight  max_position_weight  gross_exposure  allocated_exposure  cash_weight                 exposure_note  risk_reward market_regime strategy_route_regime   strategy_route_production                                                    strategy_route_shadow               strategy_route_report_only                                                                                           strategy_route_blocked  strategy_route_mutates_production_score                                                                                                                                                            reasons
+    1815         富喬  66.199997  66.300003  64.500000  66.300003   60.299999    9.950249           1.000000             False      NORMAL             ALLOW                           62.985003            72.930003            65.480003                     62.99           72.93                   8.11                2.0           ALLOW                             2.115833     0.798412         1.0         3.6               1.0     0.645833            1.0          0.53            0.0358               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True        **🎯 操作策略**  \n• 進場：66.3  \n• 止損：63.0 (回檔5%)  \n• 目標：72.9 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 錘子線  \n• 蜻蜓十字 | AI: obv(+0.70) macd(+0.53) bb_width(+0.49)
+    8289         泰藝  39.400002  40.299999  38.700001  39.849998   36.650002    8.731241           0.718749             False      NORMAL             ALLOW                           37.857499            43.834998            38.990002                     37.86           43.83                   4.61                2.0           ALLOW                             2.088056     0.755573         1.0         3.2               1.0     0.618056            1.0          0.53            0.0354               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True   **🎯 操作策略**  \n• 進場：39.8  \n• 止損：37.9 (回檔5%)  \n• 目標：43.8 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 晨星反轉  \n• TD買九 | AI: bb_width(+0.56) macd(+0.46) bias_20(+0.39)
+    6217        中探針 111.500000 111.500000  93.599998 111.000000  101.500000    9.359606           0.972067             False      NORMAL             ALLOW                          105.450000           122.100000           107.669998                    105.45          122.10                   3.33                2.0           ALLOW                             2.081111     0.777112         1.0         3.1               1.0     0.611111            1.0          0.53            0.0352               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True  **🎯 操作策略**  \n• 進場：111.0  \n• 止損：105.4 (回檔5%)  \n• 目標：122.1 (+10%)  \n\n**💡 關鍵理由**  \n• 成交量暴增  \n• 錘子線  \n• 蜻蜓十字 | AI: bb_width(+0.55) bias_20(+0.43) macd(+0.41)
+    6488        環球晶 855.000000 855.000000 802.000000 855.000000  778.000000    9.897172           1.000000             False      NORMAL             ALLOW                          812.250000           940.500000           829.349976                    812.25          940.50                   3.33                2.0           ALLOW                             2.081111     0.755378         1.0         3.1               1.0     0.611111            1.0          0.53            0.0352               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True     **🎯 操作策略**  \n• 進場：855.0  \n• 止損：812.2 (回檔5%)  \n• 目標：940.5 (+10%)  \n\n**💡 關鍵理由**  \n• 成交量暴增  \n• 錘子線  \n• 蜻蜓十字 | AI: bb_width(+0.49) macd(+0.39) ma60(+0.35)
+    8064         東捷  91.300003  91.900002  89.099998  91.900002   83.599998    9.928229           1.000000             False      NORMAL             ALLOW                           87.305001           101.090002            90.989998                     87.31          101.09                  10.15                2.0           ALLOW                             2.060278     0.750401         1.0         2.8               1.0     0.590278            1.0          0.53            0.0349               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True   **🎯 操作策略**  \n• 進場：91.9  \n• 止損：87.3 (回檔5%)  \n• 目標：101.1 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 錘子線  \n• TD買九 | AI: macd(+0.51) bb_width(+0.48) bias_20(+0.34)
+    2375         凱美 116.000000 116.500000 112.000000 116.500000  106.000000    9.905661           1.000000             False      NORMAL             ALLOW                          110.675000           128.150000           114.160004                    110.68          128.15                   4.98                2.0           ALLOW                             2.060278     0.756276         1.0         2.8               1.0     0.590278            1.0          0.53            0.0349               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True **🎯 操作策略**  \n• 進場：116.5  \n• 止損：110.7 (回檔5%)  \n• 目標：128.2 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 錘子線  \n• TD買九 | AI: bb_width(+0.63) macd(+0.46) bias_20(+0.31)
+    6168         宏齊  21.049999  21.600000  20.799999  21.400000   19.799999    8.080808           0.749999             False      NORMAL             ALLOW                           20.330000            23.540000            20.940001                     20.33           23.54                   4.66                2.0           ALLOW                             2.053333     0.734798         1.0         2.7               1.0     0.583333            1.0          0.53            0.0348               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True             **🎯 操作策略**  \n• 進場：21.4  \n• 止損：20.3 (回檔5%)  \n• 目標：23.5 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 晨星反轉 | AI: bb_width(+0.48) macd(+0.31) bias_20(+0.28)
+    2891        中信金  64.500000  65.500000  63.599998  64.900002   63.099998    2.852615           0.684212             False      NORMAL             ALLOW                           61.655001            71.390002            62.950001                     61.66           71.39                   3.33                2.0           ALLOW                             2.053333     0.730333         1.0         2.7               1.0     0.583333            1.0          0.53            0.0348               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%         7.34      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True  **🎯 操作策略**  \n• 進場：64.9  \n• 止損：61.7 (回檔5%)  \n• 目標：71.4 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 晨星反轉 | AI: obv(+0.61) avg_value_20d(+0.26) avg_volume_20d(+0.21)
+    2464         盟立 134.500000 134.500000 131.500000 134.500000  122.500000    9.795918           1.000000             False      NORMAL             ALLOW                          127.775000           147.950000           130.460007                    127.78          147.95                   3.33                2.0           ALLOW                             2.046389     0.733587         1.0         2.6               1.0     0.576389            1.0          0.53            0.0347               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True  **🎯 操作策略**  \n• 進場：134.5  \n• 止損：127.8 (回檔5%)  \n• 目標：148.0 (+10%)  \n\n**💡 關鍵理由**  \n• RSI 40 反彈  \n• 錘子線  \n• 蜻蜓十字 | AI: macd(+0.48) bb_width(+0.33) obv(+0.24)
+    5443         均豪  85.500000  86.099998  83.500000  86.000000   78.300003    9.833972           0.961539             False      NORMAL             ALLOW                           81.700000            94.600000            85.519997                     81.70           94.60                  17.83                2.0           ALLOW                             2.025556     0.714719         1.0         2.3               1.0     0.555556            1.0          0.53            0.0343               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True              **🎯 操作策略**  \n• 進場：86.0  \n• 止損：81.7 (回檔5%)  \n• 目標：94.6 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 錘子線 | AI: macd(+0.48) bb_width(+0.42) bias_20(+0.24)
+
+檔案已儲存: /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/ranking_2026-07-31.csv
+
+📝 生成結構化分析報告...
+📝 生成原子化分析報告...
+DAILY_REPORT_OK json=/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_report_2026-07-31.json md=/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_report_2026-07-31.md
+CLAWD_PUBLISH_PAYLOAD_OK json=/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_payload_2026-07-31.json md=/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_message_2026-07-31.md status=READY_FOR_CLAWD
+{"status": "OK", "cycle_id": "cycle-1", "receipt_path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cycle-1/daily_validation_cycle-1.json"}
+2026-08-27 02:31:46,123 - INFO - ================================================================================
+2026-08-27 02:31:46,123 - INFO - 開始執行原子化 ETL 管道
+2026-08-27 02:31:46,123 - INFO - ================================================================================
+2026-08-27 02:31:46,124 - INFO - 
+執行階段: FetchStage
+2026-08-27 02:31:46,124 - INFO - 擷取資料: 2025-06-06 ~ 2026-07-31
+2026-08-27 02:31:48,130 - INFO - 套用 tradable universe filter: rows 532255 -> 532255, stocks 1967 -> 1967
+2026-08-27 02:31:48,315 - INFO - 
+執行階段: IndicatorStage
+2026-08-27 02:31:48,543 - INFO - 準備向量化資料結構...
+2026-08-27 02:31:48,700 - INFO - 開始計算所有技術指標 (Vectorized)...
+2026-08-27 02:31:48,700 - INFO - 計算移動平均線 (Vectorized): [5, 10, 20, 60]
+2026-08-27 02:31:49,781 - INFO - 計算指數移動平均線 (Vectorized): [12, 26]
+2026-08-27 02:31:50,216 - INFO - 計算 MACD 指標 (Vectorized)
+2026-08-27 02:31:50,847 - INFO - 計算 RSI 指標 (Vectorized, 週期=14)
+2026-08-27 02:31:51,065 - INFO - 計算 KD 指標 (Vectorized)
+2026-08-27 02:31:51,531 - INFO - 計算布林通道 (Vectorized, 週期=20)
+2026-08-27 02:31:52,345 - INFO - 計算前高突破旗標 (Vectorized, 回溯=60)
+2026-08-27 02:31:52,566 - INFO - 計算量能突增 (Vectorized)
+2026-08-27 02:31:52,788 - INFO - 計算位階指標 (Vectorized): [60, 250]天回溯
+2026-08-27 02:31:54,056 - INFO - 計算均線糾結指標 (Vectorized): [5, 10, 20, 60]
+2026-08-27 02:31:54,336 - INFO - 計算乖離率 (Vectorized): [5, 10, 20, 60]
+2026-08-27 02:31:55,245 - WARNING - 無營收資料，跳過基本面因子計算
+2026-08-27 02:31:55,246 - INFO - 計算籌碼面指標 (Vectorized): [3, 5, 10]天回溯
+2026-08-27 02:31:56,792 - INFO - 計算二元事件特徵 (Vectorized)
+2026-08-27 02:31:57,008 - INFO - 計算移動平均線 (Vectorized): [5, 20]
+2026-08-27 02:31:58,260 - INFO - 計算 MACD 指標 (Vectorized)
+2026-08-27 02:31:59,291 - INFO - 計算 RSI 指標 (Vectorized, 週期=14)
+2026-08-27 02:32:00,524 - INFO - 計算 K 線型態訊號
+2026-08-27 02:32:00,632 - INFO - 計算 TD 九轉訊號
+2026-08-27 02:32:02,901 - INFO - 計算 W 底 / M 頭價格結構訊號
+2026-08-27 02:32:15,930 - INFO - 所有技術指標計算完成！
+2026-08-27 02:32:16,153 - INFO - 開始計算所有量能指標...
+2026-08-27 02:32:16,154 - INFO - 計算平均成交量: [5, 10, 20]
+2026-08-27 02:32:17,383 - INFO - 平均成交量計算完成
+2026-08-27 02:32:17,422 - INFO - 計算量比: [5, 10, 20]
+2026-08-27 02:32:17,427 - INFO - 量比計算完成
+2026-08-27 02:32:17,427 - INFO - 計算 OBV 指標
+2026-08-27 02:32:18,442 - INFO - OBV 指標計算完成
+2026-08-27 02:32:18,466 - INFO - 計算 20 日日均成交值
+2026-08-27 02:32:19,723 - INFO - 日均成交值計算完成
+2026-08-27 02:32:19,738 - INFO - 計算 VWAP 成本線: [5, 20]
+2026-08-27 02:32:22,814 - INFO - VWAP 成本線計算完成
+2026-08-27 02:32:22,848 - INFO - 所有量能指標計算完成！
+2026-08-27 02:32:23,034 - INFO - 
+執行階段: FundamentalStage
+2026-08-27 02:32:23,215 - INFO - 整合基本面與營收資料...
+2026-08-27 02:32:23,215 - WARNING - 找不到營收資料來源，保留營收欄位缺值
+2026-08-27 02:32:23,216 - INFO - 合併月營收資料
+2026-08-27 02:32:23,216 - WARNING - 月營收資料為空，跳過合併
+2026-08-27 02:32:23,216 - INFO - 
+執行階段: EventStage
+2026-08-27 02:32:23,562 - INFO - 開始偵測技術事件...
+2026-08-27 02:32:23,568 - INFO - 計算事件: break_20d_high (price_breakout)
+2026-08-27 02:32:23,886 - INFO - 計算事件: lose_20d_low (price_breakout)
+2026-08-27 02:32:24,140 - INFO - 計算事件: ma5_cross_ma20_up (crossover)
+2026-08-27 02:32:24,419 - INFO - 計算事件: ma5_cross_ma20_down (crossover)
+2026-08-27 02:32:24,675 - INFO - 計算事件: close_above_bb_mid (threshold_cross)
+2026-08-27 02:32:25,054 - INFO - 計算事件: close_below_bb_mid (threshold_cross)
+2026-08-27 02:32:25,398 - INFO - 計算事件: macd_bullish_cross (crossover)
+2026-08-27 02:32:25,654 - INFO - 計算事件: macd_bearish_cross (crossover)
+2026-08-27 02:32:25,899 - INFO - 計算事件: rsi_rebound_from_40 (threshold_cross)
+2026-08-27 02:32:26,136 - INFO - 計算事件: rsi_break_below_50 (threshold_cross)
+2026-08-27 02:32:26,352 - INFO - 計算事件: gap_up_close_strong (pattern)
+2026-08-27 02:32:26,644 - INFO - 計算事件: long_upper_shadow (pattern)
+2026-08-27 02:32:27,243 - INFO - 計算事件: volume_spike (volume)
+2026-08-27 02:32:27,486 - INFO - 所有技術事件偵測完成
+2026-08-27 02:32:27,592 - INFO - 已存入 /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean/events.parquet
+2026-08-27 02:32:28,400 - INFO - 已存入 /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean/features.parquet
+2026-08-27 02:32:28,406 - INFO - 
+執行階段: FilterStage
+2026-08-27 02:32:28,455 - INFO - 開始套用所有風險過濾條件...
+2026-08-27 02:32:28,455 - INFO - 過濾上市未滿 60 日的股票
+2026-08-27 02:32:28,532 - INFO - 移除 0 檔上市未滿 60 日股票，剩餘 1967 檔
+2026-08-27 02:32:28,532 - INFO - 過濾近 20 日日均成交值 < 10,000,000 的股票
+2026-08-27 02:32:28,715 - INFO - 移除 812 檔低流動性股票，剩餘 1155 檔
+2026-08-27 02:32:28,716 - INFO - 過濾股價 < 10.0 元的股票
+2026-08-27 02:32:28,833 - INFO - 移除 21 檔低價股，剩餘 1134 檔
+2026-08-27 02:32:28,838 - INFO - 風險過濾完成！最終股票池: 1134 檔
+2026-08-27 02:32:29,373 - INFO - 已存入 /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/data/clean/universe.parquet
+2026-08-27 02:32:29,374 - INFO - 
+執行階段: ReportStage
+2026-08-27 02:32:29,374 - INFO - 產生 ETL 報告與視覺化...
+2026-08-27 02:32:29,568 - INFO - 產生訊號預覽圖（抽樣 5 檔）
+2026-08-27 02:32:30,240 - WARNING - findfont: Failed to find font weight bold, now using 400.
+2026-08-27 02:32:31,025 - INFO - 訊號預覽圖已儲存: /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/signals_preview.png
+2026-08-27 02:32:31,025 - INFO - 
+================================================================================
+2026-08-27 02:32:31,026 - INFO - ETL 管道執行完成！
+2026-08-27 02:32:31,026 - INFO - ================================================================================
+features: rows=532255, cols=127, stocks=1967, ok=True
+events: rows=532255, cols=15, stocks=1967, ok=True
+universe: rows=311768, cols=127, stocks=1134, ok=True
+/Users/mattkuo/TOP10new/.venv/lib/python3.12/site-packages/joblib/_multiprocessing_helpers.py:44: UserWarning: [Errno 1] Operation not permitted.  joblib will operate in serial mode
+  warnings.warn("%s.  joblib will operate in serial mode" % (e,))
+OMP: Warning #179: Function Can't set size of /tmp file failed:
+2026-08-27 02:32:34,300 - INFO - ✓ 已載入模型與校準器: latest_lgbm.pkl
+2026-08-27 02:32:36,339 - INFO - 載入交易日: 2026-07-31
+2026-08-27 02:32:39,027 - INFO - 市場狀態: RISK_OFF (risk_multiplier=0.72, breadth_ma20=16.09%)
+/Users/mattkuo/TOP10new/.venv/lib/python3.12/site-packages/shap/explainers/_tree.py:587: UserWarning: LightGBM binary classifier with TreeExplainer shap values output has changed to a list of ndarray
+  warnings.warn(
+2026-08-27 02:32:39,482 - WARNING - 報告生成失敗（不影響主流程）: 'entry_zone'
+
+🏆 Top 10 選股結果 (含 AI 解釋) (2026-07-31):
+stock_id stock_name       open       high        low      close  prev_close  return_pct  intraday_position  one_price_locked limit_state tape_guard_action tape_guard_reason  reason_stop_loss  reason_target_price  execution_stop_loss  trend_invalidation_price  pressure_price  execution_risk_reward  risk_reward_score rr_guard_action rr_guard_reason  risk_adjusted_score  final_score  model_prob  rule_score  prediction_score  setup_score  quality_score  risk_penalty  suggested_weight  max_position_weight  gross_exposure  allocated_exposure  cash_weight                 exposure_note  risk_reward market_regime strategy_route_regime   strategy_route_production                                                    strategy_route_shadow               strategy_route_report_only                                                                                           strategy_route_blocked  strategy_route_mutates_production_score                                                                                                                                                            reasons
+    1815         富喬  66.199997  66.300003  64.500000  66.300003   60.299999    9.950249           1.000000             False      NORMAL             ALLOW                           62.985003            72.930003            65.480003                     62.99           72.93                   8.11                2.0           ALLOW                             2.115833     0.798412         1.0         3.6               1.0     0.645833            1.0          0.53            0.0358               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True        **🎯 操作策略**  \n• 進場：66.3  \n• 止損：63.0 (回檔5%)  \n• 目標：72.9 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 錘子線  \n• 蜻蜓十字 | AI: obv(+0.70) macd(+0.53) bb_width(+0.49)
+    8289         泰藝  39.400002  40.299999  38.700001  39.849998   36.650002    8.731241           0.718749             False      NORMAL             ALLOW                           37.857499            43.834998            38.990002                     37.86           43.83                   4.61                2.0           ALLOW                             2.088056     0.755573         1.0         3.2               1.0     0.618056            1.0          0.53            0.0354               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True   **🎯 操作策略**  \n• 進場：39.8  \n• 止損：37.9 (回檔5%)  \n• 目標：43.8 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 晨星反轉  \n• TD買九 | AI: bb_width(+0.56) macd(+0.46) bias_20(+0.39)
+    6217        中探針 111.500000 111.500000  93.599998 111.000000  101.500000    9.359606           0.972067             False      NORMAL             ALLOW                          105.450000           122.100000           107.669998                    105.45          122.10                   3.33                2.0           ALLOW                             2.081111     0.777112         1.0         3.1               1.0     0.611111            1.0          0.53            0.0352               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True  **🎯 操作策略**  \n• 進場：111.0  \n• 止損：105.4 (回檔5%)  \n• 目標：122.1 (+10%)  \n\n**💡 關鍵理由**  \n• 成交量暴增  \n• 錘子線  \n• 蜻蜓十字 | AI: bb_width(+0.55) bias_20(+0.43) macd(+0.41)
+    6488        環球晶 855.000000 855.000000 802.000000 855.000000  778.000000    9.897172           1.000000             False      NORMAL             ALLOW                          812.250000           940.500000           829.349976                    812.25          940.50                   3.33                2.0           ALLOW                             2.081111     0.755378         1.0         3.1               1.0     0.611111            1.0          0.53            0.0352               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True     **🎯 操作策略**  \n• 進場：855.0  \n• 止損：812.2 (回檔5%)  \n• 目標：940.5 (+10%)  \n\n**💡 關鍵理由**  \n• 成交量暴增  \n• 錘子線  \n• 蜻蜓十字 | AI: bb_width(+0.49) macd(+0.39) ma60(+0.35)
+    8064         東捷  91.300003  91.900002  89.099998  91.900002   83.599998    9.928229           1.000000             False      NORMAL             ALLOW                           87.305001           101.090002            90.989998                     87.31          101.09                  10.15                2.0           ALLOW                             2.060278     0.750401         1.0         2.8               1.0     0.590278            1.0          0.53            0.0349               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True   **🎯 操作策略**  \n• 進場：91.9  \n• 止損：87.3 (回檔5%)  \n• 目標：101.1 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 錘子線  \n• TD買九 | AI: macd(+0.51) bb_width(+0.48) bias_20(+0.34)
+    2375         凱美 116.000000 116.500000 112.000000 116.500000  106.000000    9.905661           1.000000             False      NORMAL             ALLOW                          110.675000           128.150000           114.160004                    110.68          128.15                   4.98                2.0           ALLOW                             2.060278     0.756276         1.0         2.8               1.0     0.590278            1.0          0.53            0.0349               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True **🎯 操作策略**  \n• 進場：116.5  \n• 止損：110.7 (回檔5%)  \n• 目標：128.2 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 錘子線  \n• TD買九 | AI: bb_width(+0.63) macd(+0.46) bias_20(+0.31)
+    6168         宏齊  21.049999  21.600000  20.799999  21.400000   19.799999    8.080808           0.749999             False      NORMAL             ALLOW                           20.330000            23.540000            20.940001                     20.33           23.54                   4.66                2.0           ALLOW                             2.053333     0.734798         1.0         2.7               1.0     0.583333            1.0          0.53            0.0348               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True             **🎯 操作策略**  \n• 進場：21.4  \n• 止損：20.3 (回檔5%)  \n• 目標：23.5 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 晨星反轉 | AI: bb_width(+0.48) macd(+0.31) bias_20(+0.28)
+    2891        中信金  64.500000  65.500000  63.599998  64.900002   63.099998    2.852615           0.684212             False      NORMAL             ALLOW                           61.655001            71.390002            62.950001                     61.66           71.39                   3.33                2.0           ALLOW                             2.053333     0.730333         1.0         2.7               1.0     0.583333            1.0          0.53            0.0348               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%         7.34      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True  **🎯 操作策略**  \n• 進場：64.9  \n• 止損：61.7 (回檔5%)  \n• 目標：71.4 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 晨星反轉 | AI: obv(+0.61) avg_value_20d(+0.26) avg_volume_20d(+0.21)
+    2464         盟立 134.500000 134.500000 131.500000 134.500000  122.500000    9.795918           1.000000             False      NORMAL             ALLOW                          127.775000           147.950000           130.460007                    127.78          147.95                   3.33                2.0           ALLOW                             2.046389     0.733587         1.0         2.6               1.0     0.576389            1.0          0.53            0.0347               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True  **🎯 操作策略**  \n• 進場：134.5  \n• 止損：127.8 (回檔5%)  \n• 目標：148.0 (+10%)  \n\n**💡 關鍵理由**  \n• RSI 40 反彈  \n• 錘子線  \n• 蜻蜓十字 | AI: macd(+0.48) bb_width(+0.33) obv(+0.24)
+    5443         均豪  85.500000  86.099998  83.500000  86.000000   78.300003    9.833972           0.961539             False      NORMAL             ALLOW                           81.700000            94.600000            85.519997                     81.70           94.60                  17.83                2.0           ALLOW                             2.025556     0.714719         1.0         2.3               1.0     0.555556            1.0          0.53            0.0343               0.0513            0.35                0.35         0.65 市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%          NaN      RISK_OFF              RISK_OFF base_regime_risk_multiplier selloff_protection|candidate_ranking_source|feature_group_k9_shadow_fill trail10_exit_rule|industry_theme_context high_entry_chase_protection|strong_trend_hold|concentration_control|vwap_regime_gated_entry|chip_warning_overlay                                     True              **🎯 操作策略**  \n• 進場：86.0  \n• 止損：81.7 (回檔5%)  \n• 目標：94.6 (+10%)  \n\n**💡 關鍵理由**  \n• 跳空強勢收紅  \n• 錘子線 | AI: macd(+0.48) bb_width(+0.42) bias_20(+0.24)
+
+檔案已儲存: /private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/ranking_2026-07-31.csv
+
+📝 生成結構化分析報告...
+📝 生成原子化分析報告...
+DAILY_REPORT_OK json=/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_report_2026-07-31.json md=/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/daily_report_2026-07-31.md
+CLAWD_PUBLISH_PAYLOAD_OK json=/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_payload_2026-07-31.json md=/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/artifacts/clawd_publish_message_2026-07-31.md status=READY_FOR_CLAWD
+{"status": "OK", "cycle_id": "cycle-2", "receipt_path": "/private/tmp/top10-daily-validation-sandbox-20260827-main-source-2/logs/storage_safety/runtime/daily/cycle-2/daily_validation_cycle-2.json"}
