@@ -55,6 +55,14 @@ def test_proposal_identity_and_bytes_exclude_time() -> None:
     assert proposal.encode_proposal(payload) == canonical_json_bytes(payload) + b"\n"
 
 
+def test_committed_proposal_evidence_is_authoritative() -> None:
+    payload = proposal.load_json(proposal.DEFAULT_OUTPUT)
+    verification = proposal.load_json(proposal.DEFAULT_VERIFICATION)
+
+    assert payload == proposal.build_proposal()
+    assert verification == proposal.verify_proposal(payload)
+
+
 @pytest.mark.parametrize(
     ("field", "value", "error"),
     [
