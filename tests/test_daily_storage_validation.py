@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,9 @@ def write_runner_source_fixture(source: Path) -> None:
     (source / "app" / "automation").mkdir(parents=True)
     (source / "app" / "__init__.py").write_text("", encoding="utf-8")
     (source / "app" / "automation" / "__init__.py").write_text("", encoding="utf-8")
+    (source / "app" / "pipeline").mkdir()
+    (source / "app" / "pipeline" / "__init__.py").write_text("", encoding="utf-8")
+    shutil.copyfile(PROJECT_ROOT / "app" / "pipeline" / "validation_snapshot.py", source / "app" / "pipeline" / "validation_snapshot.py")
     (source / "requirements.txt").write_text("fixture\n", encoding="utf-8")
     (source / "config" / "signals.yaml").write_text("scoring:\n  weights: {}\n", encoding="utf-8")
     (source / "config" / "automation.yaml").write_text(
@@ -144,6 +148,10 @@ def write_real_runner_source_fixture(source: Path) -> None:
     (source / "config").mkdir(parents=True)
     (source / "data" / "reference").mkdir(parents=True)
     (source / "models").mkdir()
+    (source / "app" / "pipeline").mkdir(parents=True)
+    (source / "app" / "__init__.py").write_text("", encoding="utf-8")
+    (source / "app" / "pipeline" / "__init__.py").write_text("", encoding="utf-8")
+    shutil.copyfile(PROJECT_ROOT / "app" / "pipeline" / "validation_snapshot.py", source / "app" / "pipeline" / "validation_snapshot.py")
     (source / "requirements.txt").write_text("fixture\n", encoding="utf-8")
     (source / "config" / "signals.yaml").write_text("scoring:\n  weights: {}\n", encoding="utf-8")
     (source / "config" / "automation.yaml").write_text(
@@ -169,7 +177,74 @@ def write_real_runner_source_fixture(source: Path) -> None:
     (source / "models" / "latest_lgbm.pkl").write_bytes(b"fixture-model")
 
 
+def write_representative_snapshot(source: Path) -> Path:
+    dates = pd.bdate_range("2026-01-02", periods=60)
+    rows: list[dict[str, object]] = []
+    for index, stock_id in enumerate(("1101", "1216", "1301", "2330", "3008", "6488")):
+        market = "TWSE" if index < 3 else "TPEX"
+        for offset, date in enumerate(dates):
+            close = 50 + index * 10 + offset * 0.2
+            volume = 1_000_000 + offset
+            rows.append(
+                {
+                    "date": date,
+                    "stock_id": stock_id,
+                    "stock_name": f"真實行情樣本{stock_id}",
+                    "market": market,
+                    "open": close - 0.5,
+                    "high": close + 1,
+                    "low": close - 1,
+                    "close": close,
+                    "volume": volume,
+                    "value": close * volume,
+                }
+            )
+    snapshot = source / "data" / "raw" / "validation_quotes.csv"
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_csv(snapshot, index=False)
+    return snapshot
+
+
 class DailyStorageValidationEntrypointTest(unittest.TestCase):
+    def test_empty_snapshot_is_rejected_before_loading_or_running_provider(self) -> None:
+        from scripts.storage_validation import daily as daily_validation
+
+        with tempfile.TemporaryDirectory(prefix="top10-daily-validation-empty-") as tmp:
+            fixture_root = Path(tmp).resolve()
+            source = fixture_root / "source"
+            output = fixture_root / "sandbox"
+            source.mkdir()
+            output.mkdir()
+            write_runner_source_fixture(source)
+            snapshot = source / "data" / "raw" / "empty.csv"
+            snapshot.parent.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                columns=[
+                    "date",
+                    "stock_id",
+                    "stock_name",
+                    "market",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "value",
+                ]
+            ).to_csv(snapshot, index=False)
+
+            with mock.patch.object(daily_validation, "_load_source_runner") as source_runner:
+                with self.assertRaisesRegex(ValueError, "不可為空"):
+                    daily_validation.run_validation_cycle(
+                        source_root=source,
+                        output_root=output,
+                        run_date="2026-08-27",
+                        cycle_id="cycle-empty",
+                        snapshot_input=snapshot,
+                    )
+
+            source_runner.assert_not_called()
+
     def test_real_automation_runner_routes_daily_writes_to_sandbox_and_hard_disables_external_sends(
         self,
     ) -> None:
@@ -185,6 +260,7 @@ class DailyStorageValidationEntrypointTest(unittest.TestCase):
             source.mkdir()
             output.mkdir()
             write_real_runner_source_fixture(source)
+            snapshot = write_representative_snapshot(source)
             source_hash_before = sha256(source / "config" / "automation.yaml")
             commands: list[list[str]] = []
 
@@ -194,6 +270,8 @@ class DailyStorageValidationEntrypointTest(unittest.TestCase):
                 self.assertEqual(env["TOP10_OUTPUT_ROOT"], str(output))
                 self.assertEqual(env["TOP10_RUNTIME_ROOT"], str(runtime))
                 self.assertEqual(env["TOP10_STORAGE_VALIDATION_MODE"], "1")
+                self.assertEqual(env["TOP10_VALIDATION_SNAPSHOT_INPUT"], str(output / "data" / "raw" / "validation_snapshots" / "cycle-1" / "quotes.csv"))
+                self.assertEqual(len(env["TOP10_VALIDATION_SNAPSHOT_SHA256"]), 64)
                 commands.append(list(command))
                 started = now()
                 clean = output / "data" / "clean"
@@ -251,11 +329,18 @@ class DailyStorageValidationEntrypointTest(unittest.TestCase):
                     runtime_root=runtime,
                     run_date="2026-08-27",
                     cycle_id="cycle-1",
+                    snapshot_input=snapshot,
                 )
 
             receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             self.assertEqual(receipt["status"], "OK")
             self.assertTrue(receipt["source_identity_unchanged"])
+            self.assertTrue(receipt["validation_input"]["source_unchanged"])
+            self.assertEqual(receipt["validation_input"]["coverage"]["stock_count"], 6)
+            self.assertEqual(
+                receipt["validation_input"]["materialized"]["sha256"],
+                sha256(output / "data" / "raw" / "validation_snapshots" / "cycle-1" / "quotes.csv"),
+            )
             self.assertEqual(sha256(source / "config" / "automation.yaml"), source_hash_before)
             self.assertEqual(receipt["external_send_contract"]["clawd_send_enabled"], False)
             self.assertEqual(receipt["external_send_contract"]["llm_rewrite_enabled"], False)
@@ -279,6 +364,7 @@ class DailyStorageValidationEntrypointTest(unittest.TestCase):
             sandbox.mkdir()
             source.mkdir()
             write_runner_source_fixture(source)
+            snapshot = write_representative_snapshot(source)
 
             completed = subprocess.run(
                 [
@@ -295,6 +381,8 @@ class DailyStorageValidationEntrypointTest(unittest.TestCase):
                     "2026-08-27",
                     "--cycle-id",
                     "cycle-1",
+                    "--snapshot-input",
+                    str(snapshot),
                 ],
                 cwd=sandbox,
                 text=True,
@@ -326,6 +414,8 @@ class DailyStorageValidationEntrypointTest(unittest.TestCase):
                     "2026-08-27",
                     "--cycle-id",
                     "cycle-2",
+                    "--snapshot-input",
+                    str(snapshot),
                 ],
                 cwd=sandbox,
                 text=True,

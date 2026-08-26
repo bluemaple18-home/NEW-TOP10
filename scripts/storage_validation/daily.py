@@ -30,6 +30,8 @@ SOURCE_IDENTITY_FILES = (
     "app/automation/execution.py",
     "app/agent_b_ranking.py",
     "app/pipeline_cli.py",
+    "app/pipeline/fetch_stage.py",
+    "app/pipeline/validation_snapshot.py",
     "scripts/generate_daily_report.py",
     "scripts/build_clawd_publish_payload.py",
     "models/latest_lgbm.pkl",
@@ -114,6 +116,95 @@ def _load_source_runner(source_root: Path) -> ModuleType:
     return module
 
 
+def _load_source_snapshot_adapter(source_root: Path) -> ModuleType:
+    """從同一份 canonical source 載入快照 input contract。"""
+
+    module_path = source_root / "app" / "pipeline" / "validation_snapshot.py"
+    if not module_path.is_file():
+        raise FileNotFoundError(f"validation snapshot adapter missing: {module_path}")
+    module_name = "_top10_validation_snapshot_" + hashlib.sha256(
+        str(module_path).encode("utf-8")
+    ).hexdigest()[:12]
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load validation snapshot adapter: {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _resolve_source_snapshot(source_root: Path, snapshot_input: Path | str) -> Path:
+    """只接受 source_root 內、非 symlink 的 explicit real-data snapshot。"""
+
+    candidate = Path(snapshot_input)
+    candidate = candidate if candidate.is_absolute() else source_root / candidate
+    lexical = Path(os.path.abspath(candidate))
+    try:
+        relative = lexical.relative_to(source_root)
+    except ValueError as exc:
+        raise ValueError("validation snapshot input 必須位於 source_root") from exc
+    current = source_root
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise ValueError("validation snapshot input 不得包含 symlink")
+    if not lexical.is_file() or lexical.is_symlink():
+        raise FileNotFoundError("validation snapshot input 必須是存在且非 symlink 的一般檔案")
+    return lexical.resolve()
+
+
+def _prepare_validation_snapshot(
+    *,
+    source_root: Path,
+    output_root: Path,
+    cycle_id: str,
+    snapshot_input: Path | str,
+) -> dict[str, Any]:
+    """驗證 source bytes 並複製到本 cycle 的 sandbox meter scope。"""
+
+    if Path(cycle_id).name != cycle_id or cycle_id in {"", ".", ".."}:
+        raise ValueError("cycle_id 必須是單一安全路徑名稱")
+    source_snapshot = _resolve_source_snapshot(source_root, snapshot_input)
+    adapter = _load_source_snapshot_adapter(source_root)
+    source_validated = adapter.load_validation_snapshot(source_snapshot)
+    source_before = _artifact_identity(source_snapshot)
+    suffix = source_snapshot.suffix.lower()
+    materialized = output_root / "data" / "raw" / "validation_snapshots" / cycle_id / f"quotes{suffix}"
+    materialized.parent.mkdir(parents=True, exist_ok=True)
+    materialized.write_bytes(source_snapshot.read_bytes())
+    materialized_validated = adapter.load_validation_snapshot(
+        materialized,
+        expected_sha256=source_before["sha256"],
+    )
+    source_after = _artifact_identity(source_snapshot)
+    if source_before["sha256"] != source_after["sha256"]:
+        raise RuntimeError("validation snapshot source changed while materializing")
+    return {
+        "source_before": source_before,
+        "source_after": source_after,
+        "source_unchanged": True,
+        "materialized": _artifact_identity(materialized),
+        "materialized_bytes_counted_in_sandbox_growth": materialized.stat().st_size,
+        "coverage": source_validated.metadata["coverage"],
+        "materialized_coverage": materialized_validated.metadata["coverage"],
+    }
+
+
+def _temporary_environment(values: dict[str, str]) -> dict[str, str | None]:
+    previous = {key: os.environ.get(key) for key in values}
+    os.environ.update(values)
+    return previous
+
+
+def _restore_environment(previous: dict[str, str | None]) -> None:
+    for key, value in previous.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+
 def run_validation_cycle(
     *,
     source_root: Path | str,
@@ -121,6 +212,7 @@ def run_validation_cycle(
     run_date: str,
     cycle_id: str,
     runtime_root: Path | str | None = None,
+    snapshot_input: Path | str | None = None,
     dry_run: bool = False,
 ) -> Path:
     source = Path(source_root).resolve()
@@ -131,9 +223,17 @@ def run_validation_cycle(
     output.mkdir(parents=True, exist_ok=True)
     runtime.mkdir(parents=True, exist_ok=True)
     _reject_git_scope(output)
+    if snapshot_input is None:
+        raise ValueError("validation cycle 必須提供 explicit snapshot_input")
 
     started_at = datetime.now(timezone.utc).isoformat()
     before = source_identity(source)
+    validation_input = _prepare_validation_snapshot(
+        source_root=source,
+        output_root=output,
+        cycle_id=cycle_id,
+        snapshot_input=snapshot_input,
+    )
     automation = _load_source_runner(source)
     runner = automation.AutomationRunner(
         mode="daily",
@@ -146,9 +246,22 @@ def run_validation_cycle(
         runtime_root=runtime,
         validation_mode=True,
     )
-    exit_code = runner.run()
+    previous_environment = _temporary_environment(
+        {
+            "TOP10_STORAGE_VALIDATION_MODE": "1",
+            "TOP10_VALIDATION_SNAPSHOT_INPUT": validation_input["materialized"]["path"],
+            "TOP10_VALIDATION_SNAPSHOT_SHA256": validation_input["materialized"]["sha256"],
+        }
+    )
+    try:
+        exit_code = runner.run()
+    finally:
+        _restore_environment(previous_environment)
     after = source_identity(source)
-    source_unchanged = before["identity_sha256"] == after["identity_sha256"]
+    source_unchanged = (
+        before["identity_sha256"] == after["identity_sha256"]
+        and validation_input["source_unchanged"]
+    )
     status = "OK" if exit_code == 0 and source_unchanged else "FAILED"
     if not source_unchanged:
         runner.status.errors.append("source identity changed during validation cycle")
@@ -184,6 +297,7 @@ def run_validation_cycle(
         "source_identity": before,
         "source_identity_after": after,
         "source_identity_unchanged": source_unchanged,
+        "validation_input": validation_input,
         "external_send_contract": {
             "validation_mode": True,
             "clawd_send_enabled": False,
@@ -232,6 +346,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--runtime-root", type=Path, default=None)
     parser.add_argument("--run-date", required=True)
     parser.add_argument("--cycle-id", required=True)
+    parser.add_argument("--snapshot-input", type=Path, required=True)
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args(argv)
 
@@ -245,6 +360,7 @@ def main(argv: list[str] | None = None) -> int:
             runtime_root=args.runtime_root,
             run_date=args.run_date,
             cycle_id=args.cycle_id,
+            snapshot_input=args.snapshot_input,
             dry_run=args.dry_run,
         )
     except Exception as exc:

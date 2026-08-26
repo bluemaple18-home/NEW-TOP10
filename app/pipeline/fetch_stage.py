@@ -8,6 +8,12 @@ from pathlib import Path
 from .base import PipelineStage
 from app.data.reference_repository import ReferenceRepository
 from app.data_fetcher import DataFetcherOrchestrator
+from app.pipeline.validation_snapshot import (
+    ValidationSnapshotProvider,
+    load_validation_snapshot_from_environment,
+    require_snapshot_window,
+    validation_mode_enabled,
+)
 try:
     from app.finmind_integrator import FinMindIntegrator
 except ImportError:
@@ -15,9 +21,23 @@ except ImportError:
 
 class FetchStage(PipelineStage):
     def execute(self, data: pd.DataFrame, context: dict) -> pd.DataFrame:
-        orchestrator = DataFetcherOrchestrator(data_dir=str(context['dirs']['raw']))
-        
         self.logger.info(f"擷取資料: {context['start_date']} ~ {context['end_date']}")
+        validation_mode = validation_mode_enabled()
+        if validation_mode:
+            snapshot = load_validation_snapshot_from_environment()
+            require_snapshot_window(
+                snapshot,
+                start_date=context['start_date'],
+                end_date=context['end_date'],
+            )
+            orchestrator = ValidationSnapshotProvider(snapshot.frame)
+            context['stats']['validation_snapshot'] = {
+                'provider_acquisition': 'snapshot',
+                **snapshot.metadata,
+            }
+        else:
+            orchestrator = DataFetcherOrchestrator(data_dir=str(context['dirs']['raw']))
+
         df = orchestrator.fetch_historical_data(
             start_date=context['start_date'],
             end_date=context['end_date']
@@ -29,13 +49,19 @@ class FetchStage(PipelineStage):
         df = self._filter_tradable_universe(df, context)
         df = self._dedupe_trade_keys(df, context)
             
-        # 整合 FinMind 籌碼；缺套件或 API 失敗時不可阻斷價格資料重建。
-        try:
-            finmind = FinMindIntegrator()
-            df = finmind.integrate_chip_data(df)
-        except Exception as exc:
-            self.logger.warning("FinMind 籌碼整合失敗，略過此資料源: %s", exc)
-            context['stats']['finmind'] = {'status': 'skipped', 'error': str(exc)}
+        # FinMind 同屬 FetchStage provider acquisition；validation 時不得觸發外連。
+        if validation_mode:
+            context['stats']['finmind'] = {
+                'status': 'skipped',
+                'reason': 'storage validation snapshot provider is offline',
+            }
+        else:
+            try:
+                finmind = FinMindIntegrator()
+                df = finmind.integrate_chip_data(df)
+            except Exception as exc:
+                self.logger.warning("FinMind 籌碼整合失敗，略過此資料源: %s", exc)
+                context['stats']['finmind'] = {'status': 'skipped', 'error': str(exc)}
         
         context['stats']['data_fetching'] = {
             'total_records': len(df),
