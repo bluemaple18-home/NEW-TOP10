@@ -22,8 +22,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "top10-isolated-external-review-backfill.v1"
 PROVIDERS = ("chatgpt", "gemini")
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "artifacts" / "isolated_external_review_backfill" / "2026-08-03_2026-08-26"
-DEFAULT_CHATGPT_MARKER = "chatgpt.com/g/g-p-6a27bb719e708191bd6eefae64c7c08c/c/6a27bb97-8f80-8324-ab52-3f861a006ee3"
-DEFAULT_GEMINI_MARKER = "gemini.google.com/app/ea58b54eef550ded"
+DEFAULT_CHATGPT_MARKER = os.environ.get("TOP10_CHATGPT_URL_PART")
+DEFAULT_GEMINI_MARKER = os.environ.get("TOP10_GEMINI_URL_PART")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -33,9 +33,9 @@ def main(argv: list[str] | None = None) -> int:
     prepare = subparsers.add_parser("prepare", help="建立安全 packet、dry-run manifest 與 36-slot ledger")
     prepare.add_argument("--source-root", required=True, type=Path)
     prepare.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT, type=Path)
-    prepare.add_argument("--chatgpt-marker", default=os.environ.get("TOP10_CHATGPT_URL_PART", DEFAULT_CHATGPT_MARKER))
-    prepare.add_argument("--gemini-marker", default=os.environ.get("TOP10_GEMINI_URL_PART", DEFAULT_GEMINI_MARKER))
-    prepare.add_argument("--chatgpt-account-hint", default="account19/bluemaple19@gmail.com")
+    prepare.add_argument("--chatgpt-marker", default=DEFAULT_CHATGPT_MARKER)
+    prepare.add_argument("--gemini-marker", default=DEFAULT_GEMINI_MARKER)
+    prepare.add_argument("--chatgpt-account-hint", default=os.environ.get("TOP10_CHATGPT_ACCOUNT_HINT", "account19_verified"))
     prepare.add_argument("--gemini-target-hint", default="canonical_existing_gemini_conversation")
 
     verify = subparsers.add_parser("verify", help="驗證 packet/ledger 唯一性與隔離邊界")
@@ -63,6 +63,10 @@ def main(argv: list[str] | None = None) -> int:
 def prepare_packets(args: argparse.Namespace) -> int:
     source_root = args.source_root.resolve()
     output_root = resolve_output_root(args.output_root)
+    provider_config = require_provider_target_config(
+        chatgpt_marker=args.chatgpt_marker,
+        gemini_marker=args.gemini_marker,
+    )
     source_artifacts = source_root / "artifacts"
     features_path = source_root / "data" / "clean" / "features.parquet"
     dates = discover_dates(source_root)
@@ -110,8 +114,8 @@ def prepare_packets(args: argparse.Namespace) -> int:
         output_root=output_root,
         source_root=source_root,
         packets=packets,
-        chatgpt_marker=args.chatgpt_marker,
-        gemini_marker=args.gemini_marker,
+        chatgpt_marker=provider_config["chatgpt_marker"],
+        gemini_marker=provider_config["gemini_marker"],
         chatgpt_account_hint=args.chatgpt_account_hint,
         gemini_target_hint=args.gemini_target_hint,
     )
@@ -136,6 +140,25 @@ def prepare_packets(args: argparse.Namespace) -> int:
     )
     print(json.dumps({"status": "PREPARED", "output_root": repo_path(output_root), "slots": len(ledger["slots"])}, ensure_ascii=False))
     return 0
+
+
+def require_provider_target_config(*, chatgpt_marker: str | None, gemini_marker: str | None) -> dict[str, str]:
+    """要求本機明示 provider 目標；缺值或過寬 marker 一律 fail-closed。"""
+    values = {
+        "chatgpt_marker": (chatgpt_marker or "").strip(),
+        "gemini_marker": (gemini_marker or "").strip(),
+    }
+    missing = [name for name, value in values.items() if not value]
+    if missing:
+        raise SystemExit(
+            "provider target config missing; set TOP10_CHATGPT_URL_PART/TOP10_GEMINI_URL_PART "
+            "or pass --chatgpt-marker/--gemini-marker from a local-only config"
+        )
+    if "/c/" not in values["chatgpt_marker"]:
+        raise SystemExit("chatgpt marker must identify an exact project conversation")
+    if values["gemini_marker"].rstrip("/") in {"gemini.google.com/app", "https://gemini.google.com/app"}:
+        raise SystemExit("gemini marker must include the exact conversation id")
+    return values
 
 
 def build_ledger(

@@ -60,6 +60,7 @@ class IsolatedDailyBackfillTest(unittest.TestCase):
             (source / "artifacts" / "ranking_2026-08-01.csv").write_text("stock_id,rank\n2330,1\n", encoding="utf-8")
             evidence = source / "docs" / "evidence" / backfill.CARD_ID
             output = source / backfill.DEFAULT_OUTPUT_RELATIVE
+            raw_evidence = output / "evidence"
             calls: list[str] = []
 
             def fake_run_cycle(source_root, output_root, run_day, lookback_days):
@@ -89,7 +90,8 @@ class IsolatedDailyBackfillTest(unittest.TestCase):
             args = SimpleNamespace(
                 source_root=source,
                 output_root=output,
-                evidence_dir=evidence,
+                evidence_dir=None,
+                sanitized_receipt_path=evidence / "sanitized_receipt.md",
                 start_date=backfill.parse_date("2026-08-03"),
                 end_date=backfill.parse_date("2026-08-05"),
                 representative_date=backfill.parse_date("2026-08-04"),
@@ -114,8 +116,61 @@ class IsolatedDailyBackfillTest(unittest.TestCase):
             self.assertEqual(calls, ["2026-08-04", "2026-08-03", "2026-08-05"])
             self.assertEqual(manifest["capacity"]["status"], "PASS")
             self.assertEqual(manifest["formal_baseline_comparison"]["status"], "PASS")
-            self.assertTrue((evidence / "isolated_daily_backfill_manifest.json").exists())
+            self.assertTrue((raw_evidence / "capacity-receipt.json").exists())
+            self.assertTrue((raw_evidence / "launchd-before.json").exists())
+            self.assertTrue((evidence / "sanitized_receipt.md").exists())
+            receipt_text = (evidence / "sanitized_receipt.md").read_text(encoding="utf-8")
+            self.assertNotIn("rm -rf", receipt_text)
+            self.assertNotIn(str(source), receipt_text)
+            self.assertNotIn(str(output), receipt_text)
+            self.assertNotIn("rollback_command", json.dumps(manifest))
+            self.assertNotIn("rm -rf", json.dumps(manifest))
             self.assertFalse(manifest["completed"][0]["external_write_contract"]["run_daily_publish"])
+
+    def test_default_evidence_dir_does_not_write_repo_docs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-isolated-backfill-default-evidence-") as tmp:
+            source = Path(tmp).resolve()
+            (source / "artifacts" / "isolated_daily_backfill").mkdir(parents=True)
+            output = source / backfill.DEFAULT_OUTPUT_RELATIVE
+
+            args = SimpleNamespace(
+                source_root=source,
+                output_root=output,
+                evidence_dir=None,
+                sanitized_receipt_path=None,
+                start_date=backfill.parse_date("2026-08-03"),
+                end_date=backfill.parse_date("2026-08-03"),
+                representative_date=backfill.parse_date("2026-08-03"),
+                lookback_days=420,
+            )
+
+            with mock.patch.object(
+                backfill,
+                "run_shared_etl",
+                return_value={"schema_version": "top10-isolated-backfill-shared-etl.v1", "status": "OK"},
+            ), mock.patch.object(
+                backfill,
+                "available_feature_dates",
+                return_value={"2026-08-03"},
+            ), mock.patch.object(
+                backfill,
+                "run_cycle",
+                return_value={
+                    "schema_version": "top10-isolated-daily-cycle.v1",
+                    "status": "OK",
+                    "run_date": "2026-08-03",
+                    "external_write_contract": {"run_daily_publish": False},
+                },
+            ), mock.patch.object(
+                backfill,
+                "launchd_status",
+                return_value={"command": ["launchctl", "list", "com.new-top10.daily"], "exit_code": 0, "loaded": True},
+            ):
+                manifest = backfill.run_backfill(args)
+
+            self.assertTrue((output / "evidence" / "capacity-receipt.json").exists())
+            self.assertFalse((source / "docs" / "evidence" / backfill.CARD_ID).exists())
+            self.assertEqual(str(output / "evidence"), manifest["roots"]["evidence_dir"])
 
     def test_validate_daily_outputs_requires_same_day_non_empty_ranking(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-isolated-validate-") as tmp:

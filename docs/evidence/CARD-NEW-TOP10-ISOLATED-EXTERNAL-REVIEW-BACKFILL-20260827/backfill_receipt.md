@@ -6,7 +6,7 @@
 
 `BLOCKED / NO_CANARY_SENT`
 
-未送出 2026-08-03 canary。原因是 ChatGPT target gate 只能證明既有 conversation URL 與「台股波段推薦分析」project title，無法從可視頁面證明目前登入帳號為任務卡指定的 `account19/bluemaple19@gmail.com`。依任務卡 stop condition，target 不完整時不得送出，也不得重試或改用其他帳號/對話。
+未送出 2026-08-03 canary。原因是 ChatGPT target gate 只能證明既有 canonical project conversation 與「台股波段推薦分析」project title，無法從可視頁面證明目前登入帳號為任務卡指定的 `account19_verified`。依任務卡 stop condition，target 不完整時不得送出，也不得重試或改用其他帳號/對話。
 
 ## Completed
 
@@ -27,11 +27,11 @@
 
 ## Target Gate Evidence
 
-- ChatGPT confirmed URL：`https://chatgpt.com/g/g-p-6a27bb719e708191bd6eefae64c7c08c/c/6a27bb97-8f80-8324-ab52-3f861a006ee3`
+- ChatGPT confirmed target：canonical TOP10 project conversation（exact marker redacted）
 - ChatGPT confirmed title：`股票 - 台股波段推薦分析`
 - ChatGPT project title visible：true
 - ChatGPT account19 visible：false
-- Gemini confirmed URL：`https://gemini.google.com/app/ea58b54eef550ded`
+- Gemini confirmed target：canonical existing Gemini conversation（exact marker redacted）
 - Gemini confirmed title：`TOP10 External Review - Gemini PROD - Google Gemini`
 
 ## Verification
@@ -44,4 +44,4 @@
 
 ## Remaining Slots
 
-36 pending, 0 completed, 0 uncertain. Next slot remains `2026-08-03:chatgpt`, but it must not be sent until account19 target evidence is visible or owner supplies an equivalent exact-account proof.
+36 pending, 0 completed, 0 uncertain. Next slot remains `2026-08-03:chatgpt`, but it must not be sent until `account19_verified` target evidence is visible or owner supplies an equivalent exact-account proof.

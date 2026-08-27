@@ -399,7 +399,7 @@ globalThis.document = {{
     return [];
   }}
 }};
-globalThis.location = {{ href: 'https://chatgpt.com/g/g-p-6a27bb719e708191bd6eefae64c7c08c/c/6a27bb97-8f80-8324-ab52-3f861a006ee3' }};
+globalThis.location = {{ href: 'https://chatgpt.com/g/example/c/test-conversation' }};
 globalThis.getComputedStyle = () => ({{ display: 'block', visibility: 'visible' }});
 const result = {collect_js};
 console.log(result);

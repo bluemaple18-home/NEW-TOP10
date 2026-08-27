@@ -27,7 +27,6 @@ SCHEMA_VERSION = "top10-isolated-daily-backfill.v1"
 DEFAULT_START_DATE = "2026-08-03"
 DEFAULT_END_DATE = "2026-08-26"
 DEFAULT_OUTPUT_RELATIVE = Path("artifacts/isolated_daily_backfill/2026-08-03_2026-08-26")
-DEFAULT_EVIDENCE_RELATIVE = Path("docs/evidence") / CARD_ID
 FORMAL_ARTIFACT_PATTERNS = (
     "ranking_*.csv",
     "daily_run_summary_*.json",
@@ -171,6 +170,29 @@ def resolve_output_root(source_root: Path, output_root: Path | None) -> Path:
     return resolved
 
 
+def resolve_evidence_dir(output_root: Path, evidence_dir: Path | None) -> Path:
+    resolved = (evidence_dir or output_root / "evidence").resolve()
+    try:
+        resolved.relative_to(output_root.resolve())
+    except ValueError as exc:
+        raise BackfillNoGo(f"evidence_dir must stay under output_root: {resolved}") from exc
+    return resolved
+
+
+def resolve_sanitized_receipt_path(source_root: Path, receipt_path: Path | None) -> Path | None:
+    if receipt_path is None:
+        return None
+    resolved = receipt_path.resolve()
+    allowed_root = (source_root / "docs" / "evidence" / CARD_ID).resolve()
+    try:
+        resolved.relative_to(allowed_root)
+    except ValueError as exc:
+        raise BackfillNoGo(f"sanitized_receipt_path must stay under {allowed_root}: {resolved}") from exc
+    if resolved.name != "sanitized_receipt.md":
+        raise BackfillNoGo("sanitized_receipt_path filename must be sanitized_receipt.md")
+    return resolved
+
+
 def tree_stats(root: Path) -> dict[str, Any]:
     if not root.exists():
         return {"path": str(root), "exists": False, "file_count": 0, "total_bytes": 0}
@@ -208,9 +230,36 @@ def capacity_gate(before: dict[str, Any], after_single: dict[str, Any], total_ru
         "single_day_growth": {"files": growth_files, "bytes": growth_bytes},
         "projected_total": {"files": projected_files, "bytes": projected_bytes},
         "limits": {"max_files": max_files, "max_bytes": max_bytes},
-        "rollback_path": str(Path(after_single["path"])),
-        "rollback_command": f"rm -rf {Path(after_single['path'])}",
+        "rollback_scope": "isolated_output_root",
+        "rollback_guidance": (
+            "Remove only the isolated output root after independently verifying it resolves under "
+            "artifacts/isolated_daily_backfill. No destructive command is serialized."
+        ),
     }
+
+
+def write_sanitized_evidence_receipt(receipt_path: Path, manifest: dict[str, Any]) -> None:
+    """寫入可合併的小型 receipt；避免原始 manifest、絕對路徑與本機狀態進 repo。"""
+    lines = [
+        "# Isolated daily backfill sanitized receipt",
+        "",
+        f"- schema_version: {manifest['schema_version']}",
+        f"- status: {manifest['status']}",
+        f"- date_range: {manifest['date_range']['start']}..{manifest['date_range']['end']}",
+        f"- representative_date: {manifest['representative_date']}",
+        f"- completed_count: {len(manifest['completed'])}",
+        f"- skipped_count: {len(manifest['skipped'])}",
+        f"- capacity_status: {manifest['capacity']['status']}",
+        f"- formal_baseline_status: {manifest['formal_baseline_comparison']['status']}",
+        "- output_scope: artifacts/isolated_daily_backfill/2026-08-03_2026-08-26",
+        "- runtime_artifacts_tracked: false",
+        "- production_write_allowed: false",
+        "- scheduler_change_allowed: false",
+        "- rollback_guidance: remove only the isolated output root after verifying it resolves under the isolated backfill root; no destructive command is serialized.",
+        "",
+    ]
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 @contextmanager
@@ -585,7 +634,8 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 def run_backfill(args: argparse.Namespace) -> dict[str, Any]:
     source_root = args.source_root.resolve()
     output_root = resolve_output_root(source_root, args.output_root)
-    evidence_dir = (args.evidence_dir or source_root / DEFAULT_EVIDENCE_RELATIVE).resolve()
+    evidence_dir = resolve_evidence_dir(output_root, args.evidence_dir)
+    sanitized_receipt_path = resolve_sanitized_receipt_path(source_root, args.sanitized_receipt_path)
     output_root.mkdir(parents=True, exist_ok=True)
     evidence_dir.mkdir(parents=True, exist_ok=True)
 
@@ -659,11 +709,18 @@ def run_backfill(args: argparse.Namespace) -> dict[str, Any]:
         "capacity": capacity,
         "formal_baseline_comparison": formal_comparison,
         "launchd": {"before": launchd_before, "after": launchd_after},
-        "rollback": {"command": f"rm -rf {output_root}", "path": str(output_root)},
+        "rollback": {
+            "scope": "isolated_output_root",
+            "guidance": (
+                "Remove only this isolated output root after verifying it resolves under "
+                "artifacts/isolated_daily_backfill. No destructive command is serialized."
+            ),
+        },
     }
     manifest_path = output_root / "manifest" / "isolated_daily_backfill_manifest.json"
     write_json(manifest_path, manifest)
-    write_json(evidence_dir / "isolated_daily_backfill_manifest.json", manifest)
+    if sanitized_receipt_path is not None:
+        write_sanitized_evidence_receipt(sanitized_receipt_path, manifest)
     return manifest
 
 
@@ -672,6 +729,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output-root", type=Path, default=None)
     parser.add_argument("--evidence-dir", type=Path, default=None)
+    parser.add_argument("--sanitized-receipt-path", type=Path, default=None)
     parser.add_argument("--start-date", type=parse_date, default=parse_date(DEFAULT_START_DATE))
     parser.add_argument("--end-date", type=parse_date, default=parse_date(DEFAULT_END_DATE))
     parser.add_argument("--representative-date", type=parse_date, default=None)
@@ -681,10 +739,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    evidence_dir = (args.evidence_dir or args.source_root.resolve() / DEFAULT_EVIDENCE_RELATIVE).resolve()
     try:
         manifest = run_backfill(args)
     except BackfillNoGo as exc:
+        evidence_dir = None
+        try:
+            output_root = resolve_output_root(args.source_root.resolve(), args.output_root)
+            evidence_dir = resolve_evidence_dir(output_root, args.evidence_dir)
+        except BackfillNoGo:
+            pass
         payload = {
             "schema_version": SCHEMA_VERSION,
             "status": "NO-GO",
@@ -692,7 +755,8 @@ def main(argv: list[str] | None = None) -> int:
             "reason": str(exc),
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
-        write_json(evidence_dir / "no-go.json", payload)
+        if evidence_dir is not None:
+            write_json(evidence_dir / "no-go.json", payload)
         print(json.dumps(payload, ensure_ascii=False), file=sys.stderr)
         return 1
     print(json.dumps({"status": manifest["status"], "manifest": str(Path(manifest["roots"]["output_root"]) / "manifest" / "isolated_daily_backfill_manifest.json")}, ensure_ascii=False))

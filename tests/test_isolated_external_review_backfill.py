@@ -46,9 +46,9 @@ def test_prepare_builds_safe_packets_and_36_slot_ledger(monkeypatch, tmp_path: P
             "--output-root",
             str(output_root),
             "--chatgpt-marker",
-            "chatgpt.com/g/project/c/exact",
+            "chatgpt.local/project/c/exact",
             "--gemini-marker",
-            "gemini.google.com/app/exact",
+            "gemini.local/app/exact",
         ]
     )
 
@@ -66,6 +66,22 @@ def test_prepare_builds_safe_packets_and_36_slot_ledger(monkeypatch, tmp_path: P
     assert "AI:" not in packet_text
     assert "features.parquet" not in packet_text
     assert backfill.verify_output(output_root, require_complete=False) == 0
+
+
+def test_prepare_requires_explicit_local_provider_markers(monkeypatch, tmp_path: Path) -> None:
+    project_root = tmp_path / "repo"
+    source_root = tmp_path / "source"
+    output_root = project_root / "artifacts" / "isolated_external_review_backfill" / "2026-08-03_2026-08-26"
+    project_root.mkdir()
+    _write_source_fixture(source_root)
+    monkeypatch.setattr(backfill, "PROJECT_ROOT", project_root)
+
+    try:
+        backfill.main(["prepare", "--source-root", str(source_root), "--output-root", str(output_root)])
+    except SystemExit as exc:
+        assert "provider target config missing" in str(exc)
+    else:
+        raise AssertionError("missing provider markers must fail closed")
 
 
 def test_next_slot_blocks_after_uncertain_canary(monkeypatch, tmp_path: Path, capsys) -> None:
