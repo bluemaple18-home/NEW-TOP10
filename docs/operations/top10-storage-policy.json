@@ -197,8 +197,8 @@
       "sample_interval_seconds": 60
     },
     "external-review-preflight": {
-      "launch_verified": false,
-      "verification_basis": "2026-08-03 source 確認 preflight 直接 probe ChatGPT/Gemini Chrome session，沒有 offline representative mode；未執行，維持 NO-GO / EXTERNAL_AUTHORITY_REQUIRED。",
+      "launch_verified": true,
+      "verification_basis": "2026-08-27 account19 canonical provider preflight receipt：ChatGPT 與 Gemini 均 PASS，mode=probe_only、review_packet_sent=false。隔離 validation-only capacity cycle-1/cycle-2 均 OK：reasons=[]、unknown_changed_paths=[]、swap delta=0、final_process_group_quiescent=true；cycle-1 project delta=4554 bytes/4 files、cycle-2=4554 bytes/3 files，兩輪 peak RSS=3997696 bytes。此值只證明 guarded preflight policy readiness；不授權安裝或啟用 LaunchAgent。",
       "meter_paths": ["logs", "artifacts/external_review"],
       "registered_write_paths": ["logs", "artifacts"],
       "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "external_review_outputs"],

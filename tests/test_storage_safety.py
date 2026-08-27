@@ -177,12 +177,13 @@ class HookedMonotonicClock(FakeMonotonicClock):
 
 
 class StorageSafetyRegressionTest(unittest.TestCase):
-    def test_policy_contract_is_complete_and_only_daily_is_launch_verified(self) -> None:
+    def test_policy_contract_is_complete_and_verified_jobs_have_evidence(self) -> None:
         policy_path = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"
+        verified_jobs = {"daily", "external-review-preflight"}
         for job in SCHEDULED_JOBS:
             with self.subTest(job=job):
                 global_policy, policy, rules = load_policy(policy_path, job)
-                self.assertIs(policy.launch_verified, job == "daily")
+                self.assertIs(policy.launch_verified, job in verified_jobs)
                 self.assertTrue(policy.verification_basis)
                 self.assertGreater(policy.max_bytes, 0)
                 self.assertGreater(policy.max_file_count, 0)
@@ -212,6 +213,14 @@ class StorageSafetyRegressionTest(unittest.TestCase):
         self.assertIn("artifacts/host_runner", fog_policy.meter_paths)
         self.assertEqual(fog_policy.max_bytes, 2147483648)
         self.assertEqual(fog_policy.max_file_count, 30000)
+        _global_policy, preflight_policy, _rules = load_policy(
+            policy_path,
+            "external-review-preflight",
+        )
+        self.assertTrue(preflight_policy.launch_verified)
+        self.assertIn("probe_only", preflight_policy.verification_basis)
+        self.assertIn("review_packet_sent=false", preflight_policy.verification_basis)
+        self.assertIn("不授權安裝或啟用 LaunchAgent", preflight_policy.verification_basis)
         payload["jobs"]["daily"]["launch_verified"] = "false"
         with tempfile.TemporaryDirectory(prefix="top10-storage-policy-") as tmp:
             invalid = Path(tmp) / "invalid.json"

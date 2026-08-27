@@ -26,8 +26,11 @@
 - 新增的內部 `--materialize-probe-js-test-only` 只接受受控 output root、只 materialize probe JS 並輸出 `mode=probe_only`／`review_packet_sent=false`，不啟動 Chrome 或送件。targeted test 實際呼叫兩個 adapter，證明 JS 僅寫入指定 root、source tree 與 `TMPDIR` snapshot 無新增檔、materialized bytes 與預設 probe template 相同，且 Gemini 的 title/account/plan substitutions 完整保留。
 - 本輪驗證：`bash -n scripts/review_chatgpt_chrome.sh scripts/review_gemini_chrome.sh scripts/run_external_review_provider_preflight.sh scripts/run_external_review_host_runner.sh`、`.venv/bin/python -m unittest tests.test_external_review_provider_preflight`（14 tests）與 `git diff --check` 均通過。
 
-## 安裝入口與最終判定
+## Provider、容量與 policy 判定
 
-- 已安裝的 host-local `$HOME/Library/LaunchAgents/com.new-top10.external-review-preflight.plist` 為有效 plist，亦為 17:40、`RunAtLoad=false`，但 `ProgramArguments` 直接呼叫 host-local checkout 的 `scripts/run_external_review_provider_preflight.sh`，未走 storage guard，且與本 worktree source 不一致。
-- 此卡未授權寫入／啟用 LaunchAgent；因此不修改 installed plist。
-- Verdict：`NO-GO / BLOCKED`。排程不得啟用、`launch_verified` 必須維持 false。解除條件為：主線在 canonical host 取得 escalation 後完成兩個 guarded provider probe 補驗，並由主線授權將 installed LaunchAgent 更新為 source 的 guarded entrypoint。
+- account19 direct provider receipt（`…/artifacts/external_review/2026-08-27/provider_preflight_2026-08-27_account19-exact.json`）顯示 canonical ChatGPT project conversation 與 Gemini 皆 `PASS`；`mode=probe_only`、`review_packet_sent=false`。receipt 不含帳號 email、token 或 review 回覆內容。
+- 兩份隔離 validation-only capacity receipt（`…/logs/storage_safety/external-review-preflight_cycle-1.json`、`cycle-2.json`）皆為 `OK`，`reasons=[]`、`unknown_changed_paths=[]`、swap delta=0、`final_process_group_quiescent=true`。cycle-1 為 4,554 bytes／4 files、cycle-2 為 4,554 bytes／3 files；兩輪 peak RSS 均為 3,997,696 bytes。
+- 因此 `docs/operations/top10-storage-policy.json` 的 `external-review-preflight.launch_verified` 已提升為 `true`，verification basis 記錄上述最小必要證據與不送件契約。
+- 本輪 policy 驗證：JSON parse、`StorageSafetyRegressionTest.test_policy_contract_is_complete_and_verified_jobs_have_evidence` 與 external-review preflight targeted suite 合計 15 tests 均通過，且 `git diff --check` 通過。完整 `tests.test_storage_safety` 曾出現既有環境型 subprocess／resource warning 與失敗，未作為本次 bounded policy promotion 的通過證據。
+- 此 policy promotion 不會安裝、載入或啟用 LaunchAgent；已安裝入口的調整與啟用仍由主線另行驗收與授權。
+- Verdict：`DELIVERED_CANDIDATE / POLICY_READY`。本卡只交付 provider 與容量證據、policy 更新與候選 commit；不宣稱排程已啟用。
