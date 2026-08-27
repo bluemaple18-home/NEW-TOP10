@@ -17,6 +17,8 @@ from scripts.run_external_review_host_runner import CommandResult, provider_pref
 
 
 class ExternalReviewProviderPreflightTest(unittest.TestCase):
+    CHATGPT_URL_PART = "chatgpt.com/g/g-p-6a27bb719e708191bd6eefae64c7c08c/c/6a27bb97-8f80-8324-ab52-3f861a006ee3"
+
     def probe_config(self, script_name: str, environment: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ["bash", f"scripts/{script_name}", "--print-probe-config"],
@@ -136,6 +138,26 @@ class ExternalReviewProviderPreflightTest(unittest.TestCase):
         )
 
         self.assertEqual(["bash", "scripts/review_chatgpt_chrome.sh", "probe"], command)
+
+    def test_chatgpt_default_marker_is_consistent_and_environment_overridable(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        default_expression = f'${{TOP10_CHATGPT_URL_PART:-{self.CHATGPT_URL_PART}}}'
+        for relative_path in (
+            "scripts/review_chatgpt_chrome.sh",
+            "scripts/run_external_review_provider_preflight.sh",
+            "scripts/run_external_review_host_runner.sh",
+        ):
+            contents = (repo_root / relative_path).read_text(encoding="utf-8")
+            self.assertIn(default_expression, contents)
+            self.assertNotIn("6a1ff7db268881918957ff493f2a915b", contents)
+
+        adapter_contents = (repo_root / "scripts/review_chatgpt_chrome.sh").read_text(encoding="utf-8")
+        override = "chatgpt.com/g/custom/c/override"
+        self.assertIn(f'URL_PART="${{TOP10_CHATGPT_URL_PART:-{self.CHATGPT_URL_PART}}}"', adapter_contents)
+        default_probe = self.probe_config("review_chatgpt_chrome.sh")
+        self.assertEqual(self.CHATGPT_URL_PART, json.loads(default_probe.stdout)["target_url_part"])
+        override_probe = self.probe_config("review_chatgpt_chrome.sh", {"TOP10_CHATGPT_URL_PART": override})
+        self.assertEqual(override, json.loads(override_probe.stdout)["target_url_part"])
 
     def test_source_plist_uses_guarded_1740_non_load_entrypoint(self) -> None:
         plist_path = Path(__file__).resolve().parents[1] / "scripts" / "com.new-top10.external-review-preflight.plist"

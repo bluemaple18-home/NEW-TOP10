@@ -23,7 +23,7 @@ fi
 MODE="probe"
 PACKET_FILE=""
 DATE_TEXT=""
-URL_PART="${TOP10_CHATGPT_URL_PART:-chatgpt.com/g/g-p-6a1ff7db268881918957ff493f2a915b/c/6a38ae69-0660-83ee-91ff-1777ae00688f}"
+URL_PART="${TOP10_CHATGPT_URL_PART:-chatgpt.com/g/g-p-6a27bb719e708191bd6eefae64c7c08c/c/6a27bb97-8f80-8324-ab52-3f861a006ee3}"
 WAIT_SECONDS="${TOP10_REVIEW_WAIT_SECONDS:-45}"
 TEST_PROMPT="${TOP10_CHATGPT_TEST_PROMPT:-}"
 PRINT_PROBE_CONFIG=false
@@ -116,11 +116,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$PRINT_PROBE_CONFIG" == "true" ]]; then
-  "$(python_bin)" - "$OUT_DIR" <<'PY'
+  "$(python_bin)" - "$OUT_DIR" "$URL_PART" <<'PY'
 import json
 import sys
 
-print(json.dumps({"mode": "probe_only", "review_packet_sent": False, "output_root": sys.argv[1]}))
+print(json.dumps({"mode": "probe_only", "review_packet_sent": False, "output_root": sys.argv[1], "target_url_part": sys.argv[2]}))
 PY
   exit 0
 fi
