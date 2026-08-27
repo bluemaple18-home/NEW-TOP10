@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import plistlib
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -295,6 +296,117 @@ class ExternalReviewProviderPreflightTest(unittest.TestCase):
             )
             self.assertEqual(64, completed.returncode)
             self.assertIn("requires TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT", completed.stderr)
+
+    def test_chatgpt_collect_js_correlates_prompt_before_accepting_assistant(self) -> None:
+        if shutil.which("node") is None:
+            self.skipTest("node is required to execute the browser collector JavaScript")
+
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as output_tmp:
+            completed = subprocess.run(
+                [
+                    "bash",
+                    "scripts/review_chatgpt_chrome.sh",
+                    "--materialize-collect-js-test-only",
+                    "--date",
+                    "2026-08-03",
+                ],
+                cwd=repo_root,
+                env=os.environ | {"TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT": str(Path(output_tmp).resolve())},
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            collect_js = Path(json.loads(completed.stdout)["js_file"]).read_text(encoding="utf-8")
+
+        user_prompt = (
+            "review_date=2026-08-03, provider=chatgpt, market=TW。 "
+            '以下是已通過本地安全驗證的 review_packet 摘要：{"packet_date":"2026-08-03"}'
+        )
+        valid_assistant = '{"review":"' + ("完整回覆" * 220) + '"}'
+
+        accepted = self.run_collect_js_fixture(
+            collect_js,
+            [
+                {"role": "assistant", "text": "SPEC: Taiwan Stock Knowledge Graph (TSKG)\nold"},
+                {"role": "user", "text": user_prompt},
+                {"role": "assistant", "text": valid_assistant},
+            ],
+        )
+        self.assertTrue(accepted["ok"])
+        self.assertEqual(valid_assistant, accepted["raw_response"])
+        self.assertEqual(1, accepted["correlation"]["selected_user_index"])
+        self.assertEqual(2, accepted["correlation"]["selected_assistant_index"])
+
+        prefix = self.run_collect_js_fixture(
+            collect_js,
+            [
+                {"role": "user", "text": user_prompt},
+                {"role": "assistant", "text": '{"review'},
+            ],
+        )
+        self.assertFalse(prefix["ok"])
+        self.assertEqual("", prefix["raw_response"])
+        self.assertEqual("assistant_response_too_short", prefix["correlation"]["rejection_reason"])
+
+        stale = self.run_collect_js_fixture(
+            collect_js,
+            [
+                {"role": "user", "text": user_prompt},
+                {"role": "assistant", "text": "SPEC: Taiwan Stock Knowledge Graph (TSKG)\n" + ("舊內容" * 260)},
+            ],
+        )
+        self.assertFalse(stale["ok"])
+        self.assertEqual("stale_tskg_response", stale["correlation"]["rejection_reason"])
+
+        missing_correlation = self.run_collect_js_fixture(
+            collect_js,
+            [
+                {"role": "user", "text": "unrelated prompt"},
+                {"role": "assistant", "text": valid_assistant},
+            ],
+        )
+        self.assertFalse(missing_correlation["ok"])
+        self.assertEqual("assistant_after_correlated_user_missing", missing_correlation["correlation"]["rejection_reason"])
+
+    def run_collect_js_fixture(self, collect_js: str, messages: list[dict[str, str]]) -> dict[str, object]:
+        harness = f"""
+const messages = {json.dumps(messages, ensure_ascii=False)};
+class FakeNode {{
+  constructor(row, index) {{
+    this.row = row;
+    this.index = index;
+    this.innerText = row.text;
+    this.textContent = row.text;
+    this.id = `message-${{index}}`;
+  }}
+  getAttribute(name) {{
+    if (name === 'data-message-author-role') return this.row.role;
+    if (name === 'aria-label') return `${{this.row.role}} message`;
+    if (name === 'data-testid') return `conversation-turn-${{this.index}}`;
+    return null;
+  }}
+  closest() {{ return this; }}
+  getBoundingClientRect() {{ return {{ width: 100, height: 20 }}; }}
+}}
+const nodes = messages.map((row, index) => new FakeNode(row, index));
+globalThis.document = {{
+  title: '股票 - 台股波段推薦分析',
+  body: {{ innerText: messages.map((row) => row.text).join('\\n') }},
+  querySelectorAll(selector) {{
+    if (selector === '[data-message-author-role]') return nodes;
+    return [];
+  }}
+}};
+globalThis.location = {{ href: 'https://chatgpt.com/g/g-p-6a27bb719e708191bd6eefae64c7c08c/c/6a27bb97-8f80-8324-ab52-3f861a006ee3' }};
+globalThis.getComputedStyle = () => ({{ display: 'block', visibility: 'visible' }});
+const result = {collect_js};
+console.log(result);
+"""
+        completed = subprocess.run(["node", "-e", harness], text=True, capture_output=True, check=False)
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        return json.loads(completed.stdout)
 
 
 if __name__ == "__main__":

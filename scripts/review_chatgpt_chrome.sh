@@ -28,10 +28,11 @@ WAIT_SECONDS="${TOP10_REVIEW_WAIT_SECONDS:-45}"
 TEST_PROMPT="${TOP10_CHATGPT_TEST_PROMPT:-}"
 PRINT_PROBE_CONFIG=false
 MATERIALIZE_PROBE_JS_TEST_ONLY=false
+MATERIALIZE_COLLECT_JS_TEST_ONLY=false
 PROBE_JS_B64='KCgpID0+IHsKICBjb25zdCB2aXNpYmxlID0gKGVsKSA9PiB7CiAgICBpZiAoIWVsKSByZXR1cm4gZmFsc2U7CiAgICBjb25zdCByZWN0ID0gZWwuZ2V0Qm91bmRpbmdDbGllbnRSZWN0KCk7CiAgICBjb25zdCBzdHlsZSA9IGdldENvbXB1dGVkU3R5bGUoZWwpOwogICAgcmV0dXJuIHJlY3Qud2lkdGggPiAwICYmIHJlY3QuaGVpZ2h0ID4gMCAmJiBzdHlsZS5kaXNwbGF5ICE9PSAibm9uZSIgJiYgc3R5bGUudmlzaWJpbGl0eSAhPT0gImhpZGRlbiI7CiAgfTsKICBjb25zdCBjb21wb3NlclNlbGVjdG9ycyA9IFsiI3Byb21wdC10ZXh0YXJlYSIsICJbZGF0YS10ZXN0aWQ9J3Byb21wdC10ZXh0YXJlYSddIiwgImRpdltjb250ZW50ZWRpdGFibGU9J3RydWUnXSIsICJ0ZXh0YXJlYSJdOwogIGNvbnN0IHNlbmRTZWxlY3RvcnMgPSBbCiAgICAiW2RhdGEtdGVzdGlkPSdzZW5kLWJ1dHRvbiddIiwKICAgICJidXR0b25bZGF0YS10ZXN0aWQ9J2NvbXBvc2VyLXN1Ym1pdC1idXR0b24nXSIsCiAgICAiYnV0dG9uW2FyaWEtbGFiZWwqPSdTZW5kJ10iLAogICAgImJ1dHRvblthcmlhLWxhYmVsKj0n5YKz6YCBJ10iLAogICAgImJ1dHRvblthcmlhLWxhYmVsKj0n6YCB5Ye6J10iCiAgXTsKICBjb25zdCBjb21wb3NlciA9IGNvbXBvc2VyU2VsZWN0b3JzLm1hcCgoc2VsZWN0b3IpID0+IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3Ioc2VsZWN0b3IpKS5maW5kKHZpc2libGUpOwogIGNvbnN0IHNlbmRCdXR0b24gPSBzZW5kU2VsZWN0b3JzLm1hcCgoc2VsZWN0b3IpID0+IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3Ioc2VsZWN0b3IpKS5maW5kKHZpc2libGUpOwogIHJldHVybiBKU09OLnN0cmluZ2lmeSh7CiAgICBvazogQm9vbGVhbihjb21wb3NlciksCiAgICBtb2RlOiAicHJvYmUiLAogICAgcmVhZGluZXNzOiBjb21wb3NlciA/ICJpbnB1dF9yZWFkeSIgOiAiY29tcG9zZXJfbWlzc2luZyIsCiAgICB0aXRsZTogZG9jdW1lbnQudGl0bGUsCiAgICB1cmw6IGxvY2F0aW9uLmhyZWYsCiAgICBoYXNDb21wb3NlcjogQm9vbGVhbihjb21wb3NlciksCiAgICBoYXNTZW5kQnV0dG9uOiBCb29sZWFuKHNlbmRCdXR0b24pLAogICAgYm9keVNhbXBsZTogKGRvY3VtZW50LmJvZHkuaW5uZXJUZXh0IHx8ICIiKS5zbGljZSgtNTAwKQogIH0pOwp9KSgpCg=='
 
 JS_FILE=""
-trap '[[ -n "$JS_FILE" && "$MATERIALIZE_PROBE_JS_TEST_ONLY" != "true" ]] && rm -f "$JS_FILE"' EXIT
+trap '[[ -n "$JS_FILE" && "$MATERIALIZE_PROBE_JS_TEST_ONLY" != "true" && "$MATERIALIZE_COLLECT_JS_TEST_ONLY" != "true" ]] && rm -f "$JS_FILE"' EXIT
 
 usage() {
   cat <<'EOF'
@@ -45,6 +46,7 @@ Environment:
   TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT Existing canonical absolute sandbox directory for local probe evidence.
   TOP10_REVIEW_WAIT_SECONDS    Wait time after submit. Default: 45
   TOP10_CHATGPT_TEST_PROMPT    Optional non-project prompt for smoke tests.
+  TOP10_CHATGPT_COLLECT_MIN_CHARS Minimum correlated assistant chars. Default: 500
 EOF
 }
 
@@ -71,7 +73,7 @@ verify_sendable_packet() {
 init_js_file() {
   if [[ -z "$JS_FILE" ]]; then
     if [[ -n "$OUTPUT_ROOT_OVERRIDE" ]]; then
-      JS_FILE="$(mktemp "$OUT_DIR/.top10_chatgpt_probe.XXXXXX.js")"
+      JS_FILE="$(mktemp "$OUT_DIR/.top10_chatgpt_probe.js.XXXXXX")"
     else
       JS_FILE="$(mktemp "${TMPDIR:-/tmp}/top10_chatgpt_review.XXXXXX")"
     fi
@@ -101,6 +103,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --materialize-probe-js-test-only)
       MATERIALIZE_PROBE_JS_TEST_ONLY=true
+      shift
+      ;;
+    --materialize-collect-js-test-only)
+      MATERIALIZE_COLLECT_JS_TEST_ONLY=true
       shift
       ;;
     -h|--help)
@@ -312,44 +318,131 @@ JS
 }
 
 write_collect_js() {
+  local collect_date="$1"
+  local min_chars="${TOP10_CHATGPT_COLLECT_MIN_CHARS:-500}"
   cat > "$JS_FILE" <<'JS'
 (() => {
-  const textOf = (el) => (el.innerText || el.textContent || "").trim();
-  const assistantNodes = Array.from(document.querySelectorAll("[data-message-author-role='assistant']"));
-  const candidates = assistantNodes
-    .map((node, index) => ({ index, text: textOf(node) }))
-    .filter((item) => item.text)
-    .map((item) => ({
-      index: item.index,
-      chars: item.text.length,
-      preview: item.text.slice(0, 180),
-      text: item.text
-    }));
-  const formalCandidates = candidates.filter((item) => (
-    item.chars >= 500 &&
-    !item.text.includes("top10-browser") &&
-    !item.text.includes("top10-chatgpt-script-click")
-  ));
-  const selected = (formalCandidates.length ? formalCandidates : candidates).slice().sort((a, b) => {
-    if (b.index !== a.index) return b.index - a.index;
-    return b.chars - a.chars;
-  })[0] || null;
-  const bodyTail = (document.body.innerText || "").slice(-12000);
+  const reviewDate = "__TOP10_REVIEW_DATE__";
+  const minChars = Number("__TOP10_MIN_CHARS__");
+  const textOf = (el) => (el?.innerText || el?.textContent || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+  const visible = (el) => {
+    if (!el) return false;
+    const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : { width: 1, height: 1 };
+    const style = typeof getComputedStyle === "function" ? getComputedStyle(el) : { display: "block", visibility: "visible" };
+    return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+  };
+  const generationBusy = () => {
+    const busySelectors = [
+      "[data-testid='stop-button']",
+      "button[aria-label*='Stop']",
+      "button[aria-label*='停止']",
+      "[aria-busy='true']"
+    ];
+    return busySelectors.some((selector) => Array.from(document.querySelectorAll(selector)).some(visible));
+  };
+  const marker = {
+    reviewDate: `review_date=${reviewDate}`,
+    provider: "provider=chatgpt",
+    market: "market=TW",
+    packetDate: `"packet_date":"${reviewDate}"`
+  };
+  const hasAllMarkers = (text) => (
+    text.includes(marker.reviewDate) &&
+    text.includes(marker.provider) &&
+    text.includes(marker.market) &&
+    text.includes(marker.packetDate)
+  );
+  const rejectReason = (text) => {
+    const trimmed = (text || "").trim();
+    if (trimmed.length < minChars) return "assistant_response_too_short";
+    if (trimmed === "{\"review" || trimmed.startsWith("{\"review") && trimmed.length < minChars) return "assistant_response_prefix_only";
+    if (trimmed.includes("SPEC: Taiwan Stock Knowledge Graph") || trimmed.includes("Taiwan Stock Knowledge Graph (TSKG)")) return "stale_tskg_response";
+    if (trimmed.includes("top10-browser") || trimmed.includes("top10-chatgpt-script-click")) return "smoke_marker_detected";
+    if (!trimmed.includes("{") || !trimmed.includes("}")) return "assistant_response_not_complete_json_like";
+    return null;
+  };
+  const nodes = Array.from(document.querySelectorAll("[data-message-author-role]"));
+  const messages = nodes.map((node, index) => {
+    const role = node.getAttribute("data-message-author-role");
+    const text = textOf(node);
+    const article = node.closest ? (node.closest("article, [data-testid^='conversation-turn'], [data-testid*='conversation-turn']") || node) : node;
+    return {
+      index,
+      role,
+      chars: text.length,
+      preview: text.slice(0, 180),
+      text,
+      ariaLabel: node.getAttribute("aria-label") || article.getAttribute?.("aria-label") || "",
+      testId: node.getAttribute("data-testid") || article.getAttribute?.("data-testid") || "",
+      id: node.id || article.id || ""
+    };
+  }).filter((item) => item.role === "user" || item.role === "assistant");
+  const correlatedUsers = messages.filter((item) => item.role === "user" && hasAllMarkers(item.text));
+  const selectedUser = correlatedUsers.at(-1) || null;
+  const assistantsAfter = selectedUser
+    ? messages.filter((item) => item.role === "assistant" && item.index > selectedUser.index && item.text)
+    : [];
+  const selected = assistantsAfter.at(-1) || null;
+  const rejection = selected ? rejectReason(selected.text) : "assistant_after_correlated_user_missing";
+  const bodyTail = (document.body?.innerText || "").slice(-12000);
+  const correlation = {
+    marker,
+    message_count: messages.length,
+    correlated_user_count: correlatedUsers.length,
+    selected_user_index: selectedUser ? selectedUser.index : null,
+    selected_user_chars: selectedUser ? selectedUser.chars : 0,
+    assistants_after_selected_user: assistantsAfter.length,
+    selected_assistant_index: selected ? selected.index : null,
+    selected_assistant_chars: selected ? selected.chars : 0,
+    generation_busy: generationBusy(),
+    rejection_reason: generationBusy() ? "generation_still_busy" : rejection,
+    user_preview: selectedUser ? selectedUser.preview : "",
+    assistant_preview: selected ? selected.preview : ""
+  };
   return JSON.stringify({
-    ok: Boolean(selected),
+    ok: Boolean(selected && !correlation.generation_busy && !rejection),
     mode: "collect",
     title: document.title,
     url: location.href,
-    assistant_count: assistantNodes.length,
+    assistant_count: messages.filter((item) => item.role === "assistant").length,
     selected_assistant_index: selected ? selected.index : null,
     selected_assistant_chars: selected ? selected.chars : 0,
-    assistant_candidates: candidates.map(({ index, chars, preview }) => ({ index, chars, preview })),
-    raw_response: selected ? selected.text : "",
+    assistant_candidates: assistantsAfter.map(({ index, chars, preview }) => ({ index, chars, preview })),
+    correlation,
+    raw_response: selected && !correlation.generation_busy && !rejection ? selected.text : "",
     body_tail: bodyTail
   });
 })()
 JS
+  "$(python_bin)" - "$JS_FILE" "$collect_date" "$min_chars" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+contents = path.read_text(encoding="utf-8")
+contents = contents.replace("__TOP10_REVIEW_DATE__", sys.argv[2])
+contents = contents.replace("__TOP10_MIN_CHARS__", sys.argv[3])
+path.write_text(contents, encoding="utf-8")
+PY
 }
+
+if [[ "$MATERIALIZE_COLLECT_JS_TEST_ONLY" == "true" ]]; then
+  if [[ -z "$OUTPUT_ROOT_OVERRIDE" ]]; then
+    echo "--materialize-collect-js-test-only requires TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT" >&2
+    exit 64
+  fi
+  if [[ -z "$DATE_TEXT" ]]; then
+    echo "--materialize-collect-js-test-only requires --date YYYY-MM-DD" >&2
+    exit 2
+  fi
+  init_js_file
+  write_collect_js "$DATE_TEXT"
+  "$(python_bin)" -c 'import hashlib,json,sys; from pathlib import Path; path=Path(sys.argv[1]); print(json.dumps({"mode":"collect_js_only","review_packet_sent":False,"js_file":str(path),"sha256":hashlib.sha256(path.read_bytes()).hexdigest()}))' "$JS_FILE"
+  exit 0
+fi
 
 run_chrome_js() {
   osascript \
@@ -439,8 +532,6 @@ except Exception as exc:
     payload = {"ok": False, "reason": "invalid_collect_payload", "error": str(exc), "raw": payload_raw}
 
 raw_response = str(payload.get("raw_response") or "").strip()
-if not raw_response and payload.get("body_tail"):
-    raw_response = str(payload.get("body_tail") or "").strip()
 raw_path.write_text(raw_response + ("\n" if raw_response else ""), encoding="utf-8")
 
 status = {
@@ -449,6 +540,7 @@ status = {
     "response_path": str(response_path),
     "reason": "raw_saved_pending_normalize",
     "assistant_count": payload.get("assistant_count"),
+    "correlation": payload.get("correlation"),
     "raw_chars": len(raw_response),
 }
 status_path.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -566,7 +658,7 @@ case "$MODE" in
     printf '%s\n' "$submit_result"
     printf 'submit_evidence=%s\n' "$submit_path"
     sleep "$WAIT_SECONDS"
-    write_collect_js
+    write_collect_js "$date_text"
     collect_result="$(run_chrome_js)"
     collect_path="$(write_evidence collect "$collect_result")"
     printf '%s\n' "$collect_result"
@@ -577,7 +669,7 @@ case "$MODE" in
     date_text="$(infer_date)"
     verify_sendable_packet
     init_js_file
-    write_collect_js
+    write_collect_js "$date_text"
     collect_result="$(run_chrome_js)"
     collect_path="$(write_evidence collect "$collect_result")"
     printf '%s\n' "$collect_result"
