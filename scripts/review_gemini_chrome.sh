@@ -3,8 +3,22 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-OUT_DIR="$PROJECT_DIR/artifacts/external_review"
-mkdir -p "$OUT_DIR"
+DEFAULT_OUT_DIR="$PROJECT_DIR/artifacts/external_review"
+OUTPUT_ROOT_OVERRIDE="${TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT:-}"
+if [[ -n "$OUTPUT_ROOT_OVERRIDE" ]]; then
+  if [[ "$OUTPUT_ROOT_OVERRIDE" != /* || "$OUTPUT_ROOT_OVERRIDE" == "/" || ! -d "$OUTPUT_ROOT_OVERRIDE" ]]; then
+    echo "TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT must be an existing absolute non-root directory" >&2
+    exit 64
+  fi
+  OUT_DIR="$(cd -P "$OUTPUT_ROOT_OVERRIDE" && pwd)"
+  if [[ "$OUT_DIR" != "$OUTPUT_ROOT_OVERRIDE" ]]; then
+    echo "TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT must not contain symlink or traversal components" >&2
+    exit 64
+  fi
+else
+  OUT_DIR="$DEFAULT_OUT_DIR"
+  mkdir -p "$OUT_DIR"
+fi
 
 MODE="probe"
 PACKET_FILE=""
@@ -17,6 +31,7 @@ BROWSER_APP="${TOP10_GEMINI_BROWSER_APP:-Google Chrome}"
 WAIT_SECONDS="${TOP10_REVIEW_WAIT_SECONDS:-45}"
 TEST_PROMPT="${TOP10_GEMINI_TEST_PROMPT:-}"
 COLLECT_RESPONSE_CONTAINS="${TOP10_GEMINI_COLLECT_RESPONSE_CONTAINS:-}"
+PRINT_PROBE_CONFIG=false
 
 JS_FILE=""
 trap '[[ -n "$JS_FILE" ]] && rm -f "$JS_FILE"' EXIT
@@ -30,6 +45,7 @@ Usage:
 
 Environment:
   TOP10_GEMINI_URL_PART        Chrome tab URL marker. Default: current TOP10 Gemini conversation id.
+  TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT Existing canonical absolute sandbox directory for local probe evidence.
   TOP10_GEMINI_EXPECTED_TITLE  Optional visible title guard, e.g. 盤後選股檢討報告
   TOP10_GEMINI_EXPECTED_ACCOUNT Optional visible account guard, e.g. 風17 一年
   TOP10_GEMINI_EXPECTED_PLAN   Optional visible plan guard, e.g. Pro
@@ -87,6 +103,10 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
+    --print-probe-config)
+      PRINT_PROBE_CONFIG=true
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -98,6 +118,16 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$PRINT_PROBE_CONFIG" == "true" ]]; then
+  "$(python_bin)" - "$OUT_DIR" <<'PY'
+import json
+import sys
+
+print(json.dumps({"mode": "probe_only", "review_packet_sent": False, "output_root": sys.argv[1]}))
+PY
+  exit 0
+fi
 
 infer_date() {
   if [[ -n "$DATE_TEXT" ]]; then

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import plistlib
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -14,6 +16,16 @@ from scripts.run_external_review_host_runner import CommandResult, provider_pref
 
 
 class ExternalReviewProviderPreflightTest(unittest.TestCase):
+    def probe_config(self, script_name: str, environment: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["bash", f"scripts/{script_name}", "--print-probe-config"],
+            cwd=Path(__file__).resolve().parents[1],
+            env=os.environ | (environment or {}),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
     def test_chatgpt_session_expired_is_blocked_before_submit(self) -> None:
         reason = provider_preflight_reason(
             provider="chatgpt",
@@ -141,6 +153,50 @@ class ExternalReviewProviderPreflightTest(unittest.TestCase):
             ],
             payload["ProgramArguments"],
         )
+
+    def test_browser_probe_default_output_root_remains_project_artifacts(self) -> None:
+        expected = str((Path(__file__).resolve().parents[1] / "artifacts" / "external_review").resolve())
+        for script_name in ("review_chatgpt_chrome.sh", "review_gemini_chrome.sh"):
+            completed = self.probe_config(script_name)
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            payload = json.loads(completed.stdout)
+            self.assertEqual(expected, payload["output_root"])
+            self.assertEqual("probe_only", payload["mode"])
+            self.assertIs(False, payload["review_packet_sent"])
+
+    def test_browser_probe_uses_existing_sandbox_output_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            expected = str(Path(tmp).resolve())
+            for script_name in ("review_chatgpt_chrome.sh", "review_gemini_chrome.sh"):
+                completed = self.probe_config(
+                    script_name,
+                    {"TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT": expected},
+                )
+                self.assertEqual(0, completed.returncode, completed.stderr)
+                payload = json.loads(completed.stdout)
+                self.assertEqual(expected, payload["output_root"])
+                self.assertIs(False, payload["review_packet_sent"])
+
+    def test_browser_probe_rejects_nonexistent_output_root_before_provider_access(self) -> None:
+        missing = str(Path(tempfile.gettempdir()) / "top10-missing-output-root")
+        for script_name in ("review_chatgpt_chrome.sh", "review_gemini_chrome.sh"):
+            completed = self.probe_config(
+                script_name,
+                {"TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT": missing},
+            )
+            self.assertEqual(64, completed.returncode)
+            self.assertIn("existing absolute non-root directory", completed.stderr)
+
+    def test_browser_probe_rejects_output_root_with_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            traversal_root = f"{Path(tmp).resolve()}/.."
+            for script_name in ("review_chatgpt_chrome.sh", "review_gemini_chrome.sh"):
+                completed = self.probe_config(
+                    script_name,
+                    {"TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT": traversal_root},
+                )
+                self.assertEqual(64, completed.returncode)
+                self.assertIn("must not contain symlink or traversal", completed.stderr)
 
 
 if __name__ == "__main__":

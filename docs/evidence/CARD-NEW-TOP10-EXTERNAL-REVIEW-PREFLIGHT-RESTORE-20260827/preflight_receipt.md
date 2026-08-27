@@ -20,6 +20,7 @@
 - `preflight_external_review_providers.py` 會將每個 provider 的 adapter 結果正規化為 `PASS` 或 structured `BLOCKED`，保留 provider-specific blocker code、authority/runtime/session/readiness 分類與 probe evidence。
 - receipt 明示 `mode=probe_only`、`review_packet_sent=false`；只有兩個 provider 都 PASS 才回傳 overall PASS。
 - targeted tests 證明 probe command 在呼叫 adapter 前移除 `--date`、`--packet`，因此不可能由預檢送件。
+- ChatGPT／Gemini probe adapter 支援 `TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT`：未設定時仍使用原本的 `<repo-root>/artifacts/external_review`；設定時只接受既有、canonical、絕對且非根目錄的 sandbox directory，拒絕不存在、symlink 或 traversal 路徑。這使 Seatbelt representative cycle 能把 probe evidence 收斂至 validation sandbox，而不改變正常排程預設。
 
 ## 安裝入口與最終判定
 
