@@ -137,6 +137,7 @@ class _DailyActions:
 
     def record_data_freshness(self) -> None:
         self.runner._record_data_freshness("data.freshness.after_etl")
+        self.runner._guard_strict_run_date()
 
     def run_ranking(self) -> None:
         command = ["python", "-m", "app.agent_b_ranking"]
@@ -232,6 +233,7 @@ class AutomationRunner:
         output_root: Path | str | None = None,
         runtime_root: Path | str | None = None,
         validation_mode: bool = False,
+        strict_run_date: bool = False,
     ):
         self.mode = mode
         self.dry_run = dry_run
@@ -242,6 +244,7 @@ class AutomationRunner:
             runtime_root=runtime_root,
         )
         self.validation_mode = validation_mode
+        self.strict_run_date = strict_run_date
         self.config = self._load_config()
         if self.validation_mode:
             self._apply_validation_mode_config()
@@ -263,6 +266,7 @@ class AutomationRunner:
                 "output_root": str(self.runtime_paths.output_root),
                 "runtime_root": str(self.runtime_paths.runtime_root),
                 "validation_mode": self.validation_mode,
+                "strict_run_date": self.strict_run_date,
                 "trigger": trigger,
                 "resource_profile": self.resource_profile,
                 "run_date_source": run_date_source,
@@ -1559,6 +1563,19 @@ class AutomationRunner:
         freshness = self.status.metadata.get("data_freshness", {})
         features = freshness.get("datasets", {}).get("features.parquet", {})
         return features.get("latest_date", self.run_date)
+
+    def _guard_strict_run_date(self) -> None:
+        """隔離補跑專用：資料日期必須等於請求日，否則 ranking 前 fail closed。"""
+
+        if not self.strict_run_date:
+            return
+        latest_date = self._latest_feature_date()
+        if latest_date == self.run_date:
+            self._record_step("data.freshness.strict_run_date", "OK", message=f"latest_date={latest_date}")
+            return
+        message = f"strict run_date mismatch: latest_feature_date={latest_date} run_date={self.run_date}"
+        self._record_step("data.freshness.strict_run_date", "FAILED", message=message)
+        raise RuntimeError(message)
 
     def _daily_max_data_lag_days(self) -> int:
         return int(self.config.get("daily", {}).get("max_data_lag_days", 7))

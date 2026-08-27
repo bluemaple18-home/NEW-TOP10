@@ -1,0 +1,18 @@
+{
+  "schema_version": "top10-isolated-backfill-capacity.v1",
+  "status": "PASS",
+  "single_day_growth": {
+    "files": 1,
+    "bytes": 12035
+  },
+  "projected_total": {
+    "files": 34,
+    "bytes": 91623208
+  },
+  "limits": {
+    "max_files": 5000,
+    "max_bytes": 5368709120
+  },
+  "rollback_path": "/Users/mattkuo/.codex/worktrees/b2e8/TOP10new/artifacts/isolated_daily_backfill/2026-08-03_2026-08-26",
+  "rollback_command": "rm -rf /Users/mattkuo/.codex/worktrees/b2e8/TOP10new/artifacts/isolated_daily_backfill/2026-08-03_2026-08-26"
+}
