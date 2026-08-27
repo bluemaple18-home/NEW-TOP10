@@ -32,9 +32,11 @@ WAIT_SECONDS="${TOP10_REVIEW_WAIT_SECONDS:-45}"
 TEST_PROMPT="${TOP10_GEMINI_TEST_PROMPT:-}"
 COLLECT_RESPONSE_CONTAINS="${TOP10_GEMINI_COLLECT_RESPONSE_CONTAINS:-}"
 PRINT_PROBE_CONFIG=false
+MATERIALIZE_PROBE_JS_TEST_ONLY=false
+PROBE_JS_B64='KCgpID0+IHsKICBjb25zdCBkZWNvZGUgPSAodmFsdWUpID0+IG5ldyBUZXh0RGVjb2RlcigidXRmLTgiKS5kZWNvZGUoVWludDhBcnJheS5mcm9tKGF0b2IodmFsdWUpLCAoY2hhcikgPT4gY2hhci5jaGFyQ29kZUF0KDApKSk7CiAgY29uc3QgZXhwZWN0ZWRUaXRsZSA9IGRlY29kZSgiX19FWFBFQ1RFRF9USVRMRV9CNjRfXyIpOwogIGNvbnN0IGV4cGVjdGVkQWNjb3VudCA9IGRlY29kZSgiX19FWFBFQ1RFRF9BQ0NPVU5UX0I2NF9fIik7CiAgY29uc3QgZXhwZWN0ZWRQbGFuID0gZGVjb2RlKCJfX0VYUEVDVEVEX1BMQU5fQjY0X18iKTsKICBjb25zdCBib2R5VGV4dCA9IGRvY3VtZW50LmJvZHkuaW5uZXJUZXh0IHx8ICIiOwogIGNvbnN0IGd1YXJkRmFpbHVyZXMgPSBbXTsKICBpZiAoZXhwZWN0ZWRUaXRsZSAmJiAhZG9jdW1lbnQudGl0bGUuaW5jbHVkZXMoZXhwZWN0ZWRUaXRsZSkgJiYgIWJvZHlUZXh0LmluY2x1ZGVzKGV4cGVjdGVkVGl0bGUpKSBndWFyZEZhaWx1cmVzLnB1c2goImV4cGVjdGVkX3RpdGxlX25vdF92aXNpYmxlIik7CiAgaWYgKGV4cGVjdGVkQWNjb3VudCAmJiAhYm9keVRleHQuaW5jbHVkZXMoZXhwZWN0ZWRBY2NvdW50KSkgZ3VhcmRGYWlsdXJlcy5wdXNoKCJleHBlY3RlZF9hY2NvdW50X25vdF92aXNpYmxlIik7CiAgaWYgKGV4cGVjdGVkUGxhbiAmJiAhYm9keVRleHQuaW5jbHVkZXMoZXhwZWN0ZWRQbGFuKSkgZ3VhcmRGYWlsdXJlcy5wdXNoKCJleHBlY3RlZF9wbGFuX25vdF92aXNpYmxlIik7CiAgY29uc3QgdmlzaWJsZSA9IChlbCkgPT4gewogICAgaWYgKCFlbCkgcmV0dXJuIGZhbHNlOwogICAgY29uc3QgcmVjdCA9IGVsLmdldEJvdW5kaW5nQ2xpZW50UmVjdCgpOwogICAgY29uc3Qgc3R5bGUgPSBnZXRDb21wdXRlZFN0eWxlKGVsKTsKICAgIHJldHVybiByZWN0LndpZHRoID4gMCAmJiByZWN0LmhlaWdodCA+IDAgJiYgc3R5bGUuZGlzcGxheSAhPT0gIm5vbmUiICYmIHN0eWxlLnZpc2liaWxpdHkgIT09ICJoaWRkZW4iOwogIH07CiAgY29uc3QgY29tcG9zZXJTZWxlY3RvcnMgPSBbCiAgICAicmljaC10ZXh0YXJlYSBkaXZbY29udGVudGVkaXRhYmxlPSd0cnVlJ10iLAogICAgImRpdi5xbC1lZGl0b3JbY29udGVudGVkaXRhYmxlPSd0cnVlJ10iLAogICAgImRpdlthcmlhLWxhYmVsKj0nRW50ZXIgYSBwcm9tcHQnXSIsCiAgICAiZGl2W2FyaWEtbGFiZWwqPSfovLjlhaXmj5DnpLonXSIsCiAgICAiZGl2W2NvbnRlbnRlZGl0YWJsZT0ndHJ1ZSddIiwKICAgICJ0ZXh0YXJlYSIKICBdOwogIGNvbnN0IHNlbmRTZWxlY3RvcnMgPSBbCiAgICAiYnV0dG9uW2FyaWEtbGFiZWwqPSdTZW5kIG1lc3NhZ2UnXSIsCiAgICAiYnV0dG9uW2FyaWEtbGFiZWwqPSdTZW5kJ10iLAogICAgImJ1dHRvblthcmlhLWxhYmVsKj0n5YKz6YCB6KiK5oGvJ10iLAogICAgImJ1dHRvblthcmlhLWxhYmVsKj0n5YKz6YCBJ10iLAogICAgImJ1dHRvblthcmlhLWxhYmVsKj0n6YCB5Ye6J10iLAogICAgImJ1dHRvbi5zZW5kLWJ1dHRvbiIKICBdOwogIGNvbnN0IGNvbXBvc2VyID0gY29tcG9zZXJTZWxlY3RvcnMubWFwKChzZWxlY3RvcikgPT4gZG9jdW1lbnQucXVlcnlTZWxlY3RvcihzZWxlY3RvcikpLmZpbmQodmlzaWJsZSk7CiAgY29uc3Qgc2VuZEJ1dHRvbiA9IHNlbmRTZWxlY3RvcnMubWFwKChzZWxlY3RvcikgPT4gZG9jdW1lbnQucXVlcnlTZWxlY3RvcihzZWxlY3RvcikpLmZpbmQodmlzaWJsZSkKICAgIHx8IEFycmF5LmZyb20oZG9jdW1lbnQucXVlcnlTZWxlY3RvckFsbCgiYnV0dG9uIikpLmZpbmQoKGJ1dHRvbikgPT4gdmlzaWJsZShidXR0b24pICYmIC9zZW5kfOWCs+mAgXzpgIHlh7ovaS50ZXN0KGAke2J1dHRvbi5nZXRBdHRyaWJ1dGUoImFyaWEtbGFiZWwiKSB8fCAiIn0gJHtidXR0b24uaW5uZXJUZXh0IHx8ICIifWApKTsKICByZXR1cm4gSlNPTi5zdHJpbmdpZnkoewogICAgb2s6IGd1YXJkRmFpbHVyZXMubGVuZ3RoID09PSAwICYmIEJvb2xlYW4oY29tcG9zZXIpLAogICAgbW9kZTogInByb2JlIiwKICAgIHJlYWRpbmVzczogY29tcG9zZXIgPyAiaW5wdXRfcmVhZHkiIDogImNvbXBvc2VyX21pc3NpbmciLAogICAgcmVhc29uOiBndWFyZEZhaWx1cmVzLmxlbmd0aCA/ICJndWFyZF9mYWlsZWQiIDogbnVsbCwKICAgIGd1YXJkX2ZhaWx1cmVzOiBndWFyZEZhaWx1cmVzLAogICAgZXhwZWN0ZWRfdGl0bGU6IGV4cGVjdGVkVGl0bGUsCiAgICBleHBlY3RlZF9hY2NvdW50OiBleHBlY3RlZEFjY291bnQsCiAgICBleHBlY3RlZF9wbGFuOiBleHBlY3RlZFBsYW4sCiAgICB0aXRsZTogZG9jdW1lbnQudGl0bGUsCiAgICB1cmw6IGxvY2F0aW9uLmhyZWYsCiAgICBoYXNDb21wb3NlcjogQm9vbGVhbihjb21wb3NlciksCiAgICBoYXNTZW5kQnV0dG9uOiBCb29sZWFuKHNlbmRCdXR0b24pLAogICAgYm9keVNhbXBsZTogYm9keVRleHQuc2xpY2UoLTUwMCkKICB9KTsKfSkoKQo='
 
 JS_FILE=""
-trap '[[ -n "$JS_FILE" ]] && rm -f "$JS_FILE"' EXIT
+trap '[[ -n "$JS_FILE" && "$MATERIALIZE_PROBE_JS_TEST_ONLY" != "true" ]] && rm -f "$JS_FILE"' EXIT
 
 usage() {
   cat <<'EOF'
@@ -82,7 +84,11 @@ verify_sendable_packet() {
 
 init_js_file() {
   if [[ -z "$JS_FILE" ]]; then
-    JS_FILE="$(mktemp "${TMPDIR:-/tmp}/top10_gemini_review.XXXXXX")"
+    if [[ -n "$OUTPUT_ROOT_OVERRIDE" ]]; then
+      JS_FILE="$(mktemp "$OUT_DIR/.top10_gemini_probe.XXXXXX.js")"
+    else
+      JS_FILE="$(mktemp "${TMPDIR:-/tmp}/top10_gemini_review.XXXXXX")"
+    fi
   fi
 }
 
@@ -105,6 +111,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --print-probe-config)
       PRINT_PROBE_CONFIG=true
+      shift
+      ;;
+    --materialize-probe-js-test-only)
+      MATERIALIZE_PROBE_JS_TEST_ONLY=true
       shift
       ;;
     -h|--help)
@@ -192,6 +202,10 @@ write_probe_js() {
   expected_title_b64="$(printf '%s' "$EXPECTED_TITLE" | "$(python_bin)" -c 'import base64,sys; print(base64.b64encode(sys.stdin.buffer.read()).decode())')"
   expected_account_b64="$(printf '%s' "$EXPECTED_ACCOUNT" | "$(python_bin)" -c 'import base64,sys; print(base64.b64encode(sys.stdin.buffer.read()).decode())')"
   expected_plan_b64="$(printf '%s' "$EXPECTED_PLAN" | "$(python_bin)" -c 'import base64,sys; print(base64.b64encode(sys.stdin.buffer.read()).decode())')"
+  if [[ -n "$OUTPUT_ROOT_OVERRIDE" ]]; then
+    printf '%s' "$PROBE_JS_B64" | "$(python_bin)" -c 'import base64,sys; from pathlib import Path; text=base64.b64decode(sys.stdin.buffer.read()).decode("utf-8"); Path(sys.argv[1]).write_text(text.replace("__EXPECTED_TITLE_B64__",sys.argv[2]).replace("__EXPECTED_ACCOUNT_B64__",sys.argv[3]).replace("__EXPECTED_PLAN_B64__",sys.argv[4]),encoding="utf-8")' "$JS_FILE" "$expected_title_b64" "$expected_account_b64" "$expected_plan_b64"
+    return
+  fi
   cat > "$JS_FILE" <<'JS'
 (() => {
   const decode = (value) => new TextDecoder("utf-8").decode(Uint8Array.from(atob(value), (char) => char.charCodeAt(0)));
@@ -258,6 +272,17 @@ text = text.replace("__EXPECTED_PLAN_B64__", plan)
 path.write_text(text, encoding="utf-8")
 PY
 }
+
+if [[ "$MATERIALIZE_PROBE_JS_TEST_ONLY" == "true" ]]; then
+  if [[ -z "$OUTPUT_ROOT_OVERRIDE" ]]; then
+    echo "--materialize-probe-js-test-only requires TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT" >&2
+    exit 64
+  fi
+  init_js_file
+  write_probe_js
+  "$(python_bin)" -c 'import hashlib,json,sys; from pathlib import Path; path=Path(sys.argv[1]); print(json.dumps({"mode":"probe_only","review_packet_sent":False,"js_file":str(path),"sha256":hashlib.sha256(path.read_bytes()).hexdigest()}))' "$JS_FILE"
+  exit 0
+fi
 
 write_send_js() {
   local prompt_b64

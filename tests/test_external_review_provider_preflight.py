@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import plistlib
@@ -197,6 +198,81 @@ class ExternalReviewProviderPreflightTest(unittest.TestCase):
                 )
                 self.assertEqual(64, completed.returncode)
                 self.assertIn("must not contain symlink or traversal", completed.stderr)
+
+    def test_materialize_probe_js_test_seam_writes_only_to_override_root_without_sending(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+
+        def files_under(path: Path) -> set[Path]:
+            return {entry.relative_to(path) for entry in path.rglob("*") if entry.is_file()}
+
+        with tempfile.TemporaryDirectory() as output_tmp, tempfile.TemporaryDirectory() as tmpdir:
+            output_root = Path(output_tmp).resolve()
+            tmp_root = Path(tmpdir).resolve()
+            source_before = files_under(repo_root)
+            tmp_before = files_under(tmp_root)
+            for script_name, expected_markers in (
+                ("review_chatgpt_chrome.sh", ["mode: \"probe\"", "hasSendButton"]),
+                (
+                    "review_gemini_chrome.sh",
+                    [
+                        "expectedTitle = decode",
+                        base64.b64encode("盤後選股檢討報告".encode()).decode(),
+                        base64.b64encode("風17 一年".encode()).decode(),
+                        base64.b64encode("Pro".encode()).decode(),
+                    ],
+                ),
+            ):
+                completed = subprocess.run(
+                    ["bash", f"scripts/{script_name}", "--materialize-probe-js-test-only"],
+                    cwd=repo_root,
+                    env=os.environ
+                    | {
+                        "TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT": str(output_root),
+                        "TMPDIR": str(tmp_root),
+                        "TOP10_GEMINI_EXPECTED_TITLE": "盤後選股檢討報告",
+                        "TOP10_GEMINI_EXPECTED_ACCOUNT": "風17 一年",
+                        "TOP10_GEMINI_EXPECTED_PLAN": "Pro",
+                    },
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(0, completed.returncode, completed.stderr)
+                payload = json.loads(completed.stdout)
+                js_file = Path(payload["js_file"])
+                self.assertTrue(js_file.is_file())
+                self.assertEqual(output_root, js_file.parent)
+                self.assertEqual("probe_only", payload["mode"])
+                self.assertIs(False, payload["review_packet_sent"])
+                contents = js_file.read_text(encoding="utf-8")
+                for marker in expected_markers:
+                    self.assertIn(marker, contents)
+                script_text = (repo_root / "scripts" / script_name).read_text(encoding="utf-8")
+                marker = "  cat > \"$JS_FILE\" <<'JS'\n"
+                start = script_text.index(marker, script_text.index("write_probe_js()")) + len(marker)
+                default_contents = script_text[start : script_text.index("\nJS\n", start)] + "\n"
+                default_contents = (
+                    default_contents.replace("__EXPECTED_TITLE_B64__", base64.b64encode("盤後選股檢討報告".encode()).decode())
+                    .replace("__EXPECTED_ACCOUNT_B64__", base64.b64encode("風17 一年".encode()).decode())
+                    .replace("__EXPECTED_PLAN_B64__", base64.b64encode("Pro".encode()).decode())
+                )
+                self.assertEqual(default_contents, contents)
+
+            self.assertEqual(source_before, files_under(repo_root))
+            self.assertEqual(tmp_before, files_under(tmp_root))
+
+    def test_materialize_probe_js_test_seam_requires_controlled_output_root(self) -> None:
+        for script_name in ("review_chatgpt_chrome.sh", "review_gemini_chrome.sh"):
+            completed = subprocess.run(
+                ["bash", f"scripts/{script_name}", "--materialize-probe-js-test-only"],
+                cwd=Path(__file__).resolve().parents[1],
+                env=os.environ,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(64, completed.returncode)
+            self.assertIn("requires TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT", completed.stderr)
 
 
 if __name__ == "__main__":

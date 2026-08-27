@@ -21,6 +21,9 @@
 - receipt 明示 `mode=probe_only`、`review_packet_sent=false`；只有兩個 provider 都 PASS 才回傳 overall PASS。
 - targeted tests 證明 probe command 在呼叫 adapter 前移除 `--date`、`--packet`，因此不可能由預檢送件。
 - ChatGPT／Gemini probe adapter 支援 `TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT`：未設定時仍使用原本的 `<repo-root>/artifacts/external_review`；設定時只接受既有、canonical、絕對且非根目錄的 sandbox directory，拒絕不存在、symlink 或 traversal 路徑。這使 Seatbelt representative cycle 能把 probe evidence 收斂至 validation sandbox，而不改變正常排程預設。
+- 在受控 override 下，probe JS 以 script-level base64 常數經 `printf` stream 與 Python 寫入已驗證的 `$JS_FILE`；不讀取自身 script、也不執行 Bash heredoc。預設分支仍保留原始 heredoc 與 JS bytes。Gemini override 同步套用既有 title/account/plan placeholder substitution。
+- 新增的內部 `--materialize-probe-js-test-only` 只接受受控 output root、只 materialize probe JS 並輸出 `mode=probe_only`／`review_packet_sent=false`，不啟動 Chrome 或送件。targeted test 實際呼叫兩個 adapter，證明 JS 僅寫入指定 root、source tree 與 `TMPDIR` snapshot 無新增檔、materialized bytes 與預設 probe template 相同，且 Gemini 的 title/account/plan substitutions 完整保留。
+- 本輪驗證：`bash -n scripts/review_chatgpt_chrome.sh scripts/review_gemini_chrome.sh`、`.venv/bin/python -m unittest tests.test_external_review_provider_preflight`（13 tests）與 `git diff --check` 均通過。
 
 ## 安裝入口與最終判定
 

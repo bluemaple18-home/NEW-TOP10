@@ -27,9 +27,11 @@ URL_PART="${TOP10_CHATGPT_URL_PART:-chatgpt.com/g/g-p-6a1ff7db268881918957ff493f
 WAIT_SECONDS="${TOP10_REVIEW_WAIT_SECONDS:-45}"
 TEST_PROMPT="${TOP10_CHATGPT_TEST_PROMPT:-}"
 PRINT_PROBE_CONFIG=false
+MATERIALIZE_PROBE_JS_TEST_ONLY=false
+PROBE_JS_B64='KCgpID0+IHsKICBjb25zdCB2aXNpYmxlID0gKGVsKSA9PiB7CiAgICBpZiAoIWVsKSByZXR1cm4gZmFsc2U7CiAgICBjb25zdCByZWN0ID0gZWwuZ2V0Qm91bmRpbmdDbGllbnRSZWN0KCk7CiAgICBjb25zdCBzdHlsZSA9IGdldENvbXB1dGVkU3R5bGUoZWwpOwogICAgcmV0dXJuIHJlY3Qud2lkdGggPiAwICYmIHJlY3QuaGVpZ2h0ID4gMCAmJiBzdHlsZS5kaXNwbGF5ICE9PSAibm9uZSIgJiYgc3R5bGUudmlzaWJpbGl0eSAhPT0gImhpZGRlbiI7CiAgfTsKICBjb25zdCBjb21wb3NlclNlbGVjdG9ycyA9IFsiI3Byb21wdC10ZXh0YXJlYSIsICJbZGF0YS10ZXN0aWQ9J3Byb21wdC10ZXh0YXJlYSddIiwgImRpdltjb250ZW50ZWRpdGFibGU9J3RydWUnXSIsICJ0ZXh0YXJlYSJdOwogIGNvbnN0IHNlbmRTZWxlY3RvcnMgPSBbCiAgICAiW2RhdGEtdGVzdGlkPSdzZW5kLWJ1dHRvbiddIiwKICAgICJidXR0b25bZGF0YS10ZXN0aWQ9J2NvbXBvc2VyLXN1Ym1pdC1idXR0b24nXSIsCiAgICAiYnV0dG9uW2FyaWEtbGFiZWwqPSdTZW5kJ10iLAogICAgImJ1dHRvblthcmlhLWxhYmVsKj0n5YKz6YCBJ10iLAogICAgImJ1dHRvblthcmlhLWxhYmVsKj0n6YCB5Ye6J10iCiAgXTsKICBjb25zdCBjb21wb3NlciA9IGNvbXBvc2VyU2VsZWN0b3JzLm1hcCgoc2VsZWN0b3IpID0+IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3Ioc2VsZWN0b3IpKS5maW5kKHZpc2libGUpOwogIGNvbnN0IHNlbmRCdXR0b24gPSBzZW5kU2VsZWN0b3JzLm1hcCgoc2VsZWN0b3IpID0+IGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3Ioc2VsZWN0b3IpKS5maW5kKHZpc2libGUpOwogIHJldHVybiBKU09OLnN0cmluZ2lmeSh7CiAgICBvazogQm9vbGVhbihjb21wb3NlciksCiAgICBtb2RlOiAicHJvYmUiLAogICAgcmVhZGluZXNzOiBjb21wb3NlciA/ICJpbnB1dF9yZWFkeSIgOiAiY29tcG9zZXJfbWlzc2luZyIsCiAgICB0aXRsZTogZG9jdW1lbnQudGl0bGUsCiAgICB1cmw6IGxvY2F0aW9uLmhyZWYsCiAgICBoYXNDb21wb3NlcjogQm9vbGVhbihjb21wb3NlciksCiAgICBoYXNTZW5kQnV0dG9uOiBCb29sZWFuKHNlbmRCdXR0b24pLAogICAgYm9keVNhbXBsZTogKGRvY3VtZW50LmJvZHkuaW5uZXJUZXh0IHx8ICIiKS5zbGljZSgtNTAwKQogIH0pOwp9KSgpCg=='
 
 JS_FILE=""
-trap '[[ -n "$JS_FILE" ]] && rm -f "$JS_FILE"' EXIT
+trap '[[ -n "$JS_FILE" && "$MATERIALIZE_PROBE_JS_TEST_ONLY" != "true" ]] && rm -f "$JS_FILE"' EXIT
 
 usage() {
   cat <<'EOF'
@@ -68,7 +70,11 @@ verify_sendable_packet() {
 
 init_js_file() {
   if [[ -z "$JS_FILE" ]]; then
-    JS_FILE="$(mktemp "${TMPDIR:-/tmp}/top10_chatgpt_review.XXXXXX")"
+    if [[ -n "$OUTPUT_ROOT_OVERRIDE" ]]; then
+      JS_FILE="$(mktemp "$OUT_DIR/.top10_chatgpt_probe.XXXXXX.js")"
+    else
+      JS_FILE="$(mktemp "${TMPDIR:-/tmp}/top10_chatgpt_review.XXXXXX")"
+    fi
   fi
 }
 
@@ -91,6 +97,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --print-probe-config)
       PRINT_PROBE_CONFIG=true
+      shift
+      ;;
+    --materialize-probe-js-test-only)
+      MATERIALIZE_PROBE_JS_TEST_ONLY=true
       shift
       ;;
     -h|--help)
@@ -174,6 +184,10 @@ PY
 }
 
 write_probe_js() {
+  if [[ -n "$OUTPUT_ROOT_OVERRIDE" ]]; then
+    printf '%s' "$PROBE_JS_B64" | "$(python_bin)" -c 'import base64,sys; from pathlib import Path; Path(sys.argv[1]).write_bytes(base64.b64decode(sys.stdin.buffer.read()))' "$JS_FILE"
+    return
+  fi
   cat > "$JS_FILE" <<'JS'
 (() => {
   const visible = (el) => {
@@ -205,6 +219,17 @@ write_probe_js() {
 })()
 JS
 }
+
+if [[ "$MATERIALIZE_PROBE_JS_TEST_ONLY" == "true" ]]; then
+  if [[ -z "$OUTPUT_ROOT_OVERRIDE" ]]; then
+    echo "--materialize-probe-js-test-only requires TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT" >&2
+    exit 64
+  fi
+  init_js_file
+  write_probe_js
+  "$(python_bin)" -c 'import hashlib,json,sys; from pathlib import Path; path=Path(sys.argv[1]); print(json.dumps({"mode":"probe_only","review_packet_sent":False,"js_file":str(path),"sha256":hashlib.sha256(path.read_bytes()).hexdigest()}))' "$JS_FILE"
+  exit 0
+fi
 
 write_send_js() {
   local prompt_b64
