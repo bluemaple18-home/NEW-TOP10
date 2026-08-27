@@ -47,6 +47,8 @@ Environment:
   TOP10_REVIEW_WAIT_SECONDS    Wait time after submit. Default: 45
   TOP10_CHATGPT_TEST_PROMPT    Optional non-project prompt for smoke tests.
   TOP10_CHATGPT_COLLECT_MIN_CHARS Minimum correlated assistant chars. Default: 500
+  TOP10_CHATGPT_COLLECT_STABLE_TIMEOUT Seconds to wait for a correlated stable response. Default: 150
+  TOP10_CHATGPT_COLLECT_STABLE_INTERVAL Seconds between collect snapshots. Default: 5
 EOF
 }
 
@@ -465,6 +467,78 @@ run_chrome_js() {
     -e 'end tell'
 }
 
+collect_stable_result() {
+  local timeout_seconds="${TOP10_CHATGPT_COLLECT_STABLE_TIMEOUT:-150}"
+  local interval_seconds="${TOP10_CHATGPT_COLLECT_STABLE_INTERVAL:-5}"
+  local deadline=$((SECONDS + timeout_seconds))
+  local previous_hash=""
+  local attempt=0
+  local last_result=""
+
+  while (( SECONDS <= deadline )); do
+    attempt=$((attempt + 1))
+    last_result="$(run_chrome_js)"
+    local summary
+    summary="$(printf '%s' "$last_result" | "$(python_bin)" -c 'import hashlib,json,sys
+try:
+    payload=json.load(sys.stdin)
+except Exception:
+    payload={}
+raw=str(payload.get("raw_response") or "")
+correlation=payload.get("correlation") if isinstance(payload.get("correlation"), dict) else {}
+print("\t".join([
+    "true" if payload.get("ok") is True else "false",
+    hashlib.sha256(raw.encode("utf-8")).hexdigest() if raw else "",
+    str(len(raw)),
+    str(correlation.get("rejection_reason") or ""),
+    "true" if correlation.get("generation_busy") is True else "false",
+]))
+')"
+    local ok raw_hash raw_chars rejection_reason generation_busy
+    IFS=$'\t' read -r ok raw_hash raw_chars rejection_reason generation_busy <<< "$summary"
+    printf 'COLLECT_SNAPSHOT attempt=%s ok=%s raw_chars=%s generation_busy=%s rejection=%s\n' "$attempt" "$ok" "$raw_chars" "$generation_busy" "$rejection_reason" >&2
+    if [[ "$ok" == "true" && -n "$raw_hash" && "$raw_hash" == "$previous_hash" ]]; then
+      "$(python_bin)" -c '
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+payload["stability"] = {
+    "stable": True,
+    "required_stable_snapshots": 2,
+    "attempts": int(sys.argv[2]),
+}
+print(json.dumps(payload, ensure_ascii=False))
+' "$last_result" "$attempt"
+      return 0
+    fi
+    if [[ "$ok" == "true" && -n "$raw_hash" ]]; then
+      previous_hash="$raw_hash"
+    else
+      previous_hash=""
+    fi
+    if (( SECONDS < deadline )); then
+      sleep "$interval_seconds"
+    fi
+  done
+
+  "$(python_bin)" -c '
+import json
+import sys
+
+try:
+    payload = json.loads(sys.argv[1])
+except Exception:
+    payload = {"ok": False, "reason": "invalid_collect_payload"}
+payload["stability"] = {
+    "stable": False,
+    "required_stable_snapshots": 2,
+    "attempts": int(sys.argv[2]),
+}
+print(json.dumps(payload, ensure_ascii=False))
+' "$last_result" "$attempt"
+}
+
 write_evidence() {
   local kind="$1"
   local payload="$2"
@@ -659,7 +733,7 @@ case "$MODE" in
     printf 'submit_evidence=%s\n' "$submit_path"
     sleep "$WAIT_SECONDS"
     write_collect_js "$date_text"
-    collect_result="$(run_chrome_js)"
+    collect_result="$(collect_stable_result)"
     collect_path="$(write_evidence collect "$collect_result")"
     printf '%s\n' "$collect_result"
     printf 'collect_evidence=%s\n' "$collect_path"
@@ -670,7 +744,7 @@ case "$MODE" in
     verify_sendable_packet
     init_js_file
     write_collect_js "$date_text"
-    collect_result="$(run_chrome_js)"
+    collect_result="$(collect_stable_result)"
     collect_path="$(write_evidence collect "$collect_result")"
     printf '%s\n' "$collect_result"
     printf 'collect_evidence=%s\n' "$collect_path"
