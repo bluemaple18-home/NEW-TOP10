@@ -7,6 +7,7 @@ set -e  # setup 階段遇到錯誤立即停止
 
 # launchd / non-login shell 預設 PATH 很短，需明確納入 uv 常見安裝路徑。
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+export TOP10_SKIP_SIGNALS_PREVIEW=1
 
 # 切換到專案目錄
 cd "$(dirname "$0")/.."

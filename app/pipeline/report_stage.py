@@ -3,6 +3,7 @@
 ETL 階段：報告產生 (Report Stage)
 產出 Markdown 報告與數據預覽圖
 """
+import os
 import pandas as pd
 from datetime import datetime
 from .base import PipelineStage
@@ -20,12 +21,13 @@ class ReportStage(PipelineStage):
         
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report_content)
-            
-        try:
-            from app.visualization import generate_signals_preview
-            preview_path = context['dirs']['artifacts'] / "signals_preview.png"
-            generate_signals_preview(context['universe_df'], output_path=str(preview_path))
-        except Exception as e:
-            self.logger.error(f"視覺化失敗: {e}")
+
+        if os.environ.get("TOP10_SKIP_SIGNALS_PREVIEW") != "1":
+            try:
+                from app.visualization import generate_signals_preview
+                preview_path = context['dirs']['artifacts'] / "signals_preview.png"
+                generate_signals_preview(context['universe_df'], output_path=str(preview_path))
+            except Exception as e:
+                self.logger.error(f"視覺化失敗: {e}")
             
         return data
