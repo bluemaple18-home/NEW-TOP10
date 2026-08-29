@@ -1,0 +1,21 @@
+{
+  "packet_id": "CARD-NEW-TOP10-ISSUE10-GPT-SOL-MAX-REVIEW-20260829",
+  "created_at": "2026-08-29T00:00:00+08:00",
+  "purpose": "Issue #10 production recovery 的唯讀獨立架構審查",
+  "scope": "fixed-evidence-review-only",
+  "root_question": "現有 S1/S2 證據是否足以進入 production recovery，以及最小安全下一步為何",
+  "current_state": {
+    "issue": "#10",
+    "daily_launch_verified": false,
+    "s1_verdict": "BOUNDED_ACCEPTABLE",
+    "s2_verdict": "BLOCK_SCOPE_EXPANSION / CANARY_PATH_NOT_APPLICABLE_WITHOUT_NEW_SUBSYSTEM"
+  },
+  "boundaries": [
+    "不得執行 production daily",
+    "不得 send、deploy、merge、push 或修改 launchd",
+    "不得清除 production restart marker",
+    "Issue #1–#8 Research Spine backlog 不在本審查範圍"
+  ],
+  "entrypoint": "00_REVIEW_PROMPT.md",
+  "integrity_file": "SHA256SUMS"
+}

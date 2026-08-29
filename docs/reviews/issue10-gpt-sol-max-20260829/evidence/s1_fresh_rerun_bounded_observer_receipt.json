@@ -1,0 +1,439 @@
+{
+  "schema_version": "top10-issue10-bounded-observer.v1",
+  "fresh_s1": true,
+  "supersedes_run2": false,
+  "status": "OK",
+  "verdict": "BOUNDED_ACCEPTABLE",
+  "explanations": [
+    "both cycles completed within bounded criteria"
+  ],
+  "started_at": "2026-08-29T04:14:39.430884+00:00",
+  "finished_at": "2026-08-29T04:16:47.965454+00:00",
+  "issue": "NEW-TOP10 Issue #10",
+  "production_candidate_policy_sha": "a788e7aea32f0ffd901d87c89cddbd67cc90e3f516a6984ffff9a44e80b4588e",
+  "scope": {
+    "validation_only": true,
+    "production_run": false,
+    "network_send": false,
+    "production_policy_changed": false,
+    "restart_marker_cleared": false,
+    "git_operation": false
+  },
+  "roots": {
+    "template_root": "/private/tmp/top10-etl-memory-repair-20260828",
+    "source_root": "/Users/mattkuo/TOP10new",
+    "snapshot_input": "/Users/mattkuo/TOP10new/data/clean/features.parquet",
+    "sandbox_root": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829",
+    "evidence_dir": "/Users/mattkuo/TOP10new/.work/CARD-NEW-TOP10-ISSUE10-PRODUCTION-RECOVERY-20260829/s1_fresh_rerun_20260829"
+  },
+  "candidate_policy_contract": {
+    "policy_path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/docs/operations/top10-storage-policy.json",
+    "policy_sha256": "a788e7aea32f0ffd901d87c89cddbd67cc90e3f516a6984ffff9a44e80b4588e",
+    "policy_mutated": false,
+    "validation_only_allows_launch_verified_false": true,
+    "host_contract": {
+      "start_min_free_bytes": 32212254720,
+      "start_min_free_percent": 0.15,
+      "runtime_min_free_bytes": 21474836480,
+      "runtime_min_free_percent": 0.1,
+      "require_swap_metric": true
+    },
+    "daily_contract": {
+      "launch_verified": false,
+      "verification_basis": "Issue #10 isolated candidate：daily swap stop-loss 改為 2GiB SOFT_SWAP_WARNING / 4GiB SWAP_EMERGENCY_HARD_STOP 的隔離候選；RUN2 只觀察 0~448,853,443 bytes swap delta，未驗證 >2GiB swap growth 或 production live 入口；需 deterministic tests、S2 warning 後 sampling density 與 Owner 對 policy/code、marker、one-shot production、send、launchd 另授權後，才可 live。",
+      "meter_paths": [
+        "logs",
+        "artifacts",
+        "data",
+        "models"
+      ],
+      "registered_write_paths": [
+        "logs",
+        "artifacts",
+        "data",
+        "models"
+      ],
+      "cleanup_rule_ids": [
+        "runtime_workspace",
+        "logs",
+        "log_errors",
+        "harness_status"
+      ],
+      "max_bytes": 6442450944,
+      "max_file_count": 60000,
+      "max_process_tree_rss_bytes": 4294967296,
+      "max_swap_growth_bytes": 4294967296,
+      "swap_warning_growth_bytes": 2147483648,
+      "expected_growth_bytes_per_hour": 536870912,
+      "spike_window_seconds": 7200,
+      "stabilize_after_seconds": 14400,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 14,
+      "sample_interval_seconds": 60
+    },
+    "exact_contract_verified": true
+  },
+  "reference_inputs": {
+    "source_before": {
+      "path": "/Users/mattkuo/TOP10new/data/reference/tradable_universe.csv",
+      "exists": true,
+      "size_bytes": 107281,
+      "sha256": "50579b4cc975e82b4f1211129fba3724962d70417f465515110f74b098f556a4"
+    },
+    "source_after": {
+      "path": "/Users/mattkuo/TOP10new/data/reference/tradable_universe.csv",
+      "exists": true,
+      "size_bytes": 107281,
+      "sha256": "50579b4cc975e82b4f1211129fba3724962d70417f465515110f74b098f556a4"
+    },
+    "source_unchanged": true,
+    "materialized": {
+      "path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/data/reference/tradable_universe.csv",
+      "exists": true,
+      "size_bytes": 107281,
+      "sha256": "50579b4cc975e82b4f1211129fba3724962d70417f465515110f74b098f556a4"
+    }
+  },
+  "static_identity": {
+    "observer": {
+      "path": "/private/tmp/top10-etl-memory-repair-20260828/scripts/run_daily_bounded_observer.py",
+      "exists": true,
+      "size_bytes": 36111,
+      "sha256": "c1e467424d53af73e15e4d02a1d92913dd789f1552e918c0389c576bb2ea088e"
+    },
+    "storage_guard_cli": {
+      "path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/scripts/storage_safety.py",
+      "exists": true,
+      "size_bytes": 8253,
+      "sha256": "7c2a3344b7c6a27a0a2d35ee03c3609929b3bbc78559cfd1ac2d6d68026dab55"
+    },
+    "storage_guard_core": {
+      "path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/app/storage_safety.py",
+      "exists": true,
+      "size_bytes": 76651,
+      "sha256": "2a4b3a100fd043f701259f3a818c87f6924f1296aedd5c92d67a916ce5fe5abd"
+    },
+    "daily_validation_entrypoint": {
+      "path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/scripts/storage_validation/daily.py",
+      "exists": true,
+      "size_bytes": 14006,
+      "sha256": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8"
+    },
+    "sandbox_policy": {
+      "path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/docs/operations/top10-storage-policy.json",
+      "exists": true,
+      "size_bytes": 11227,
+      "sha256": "a788e7aea32f0ffd901d87c89cddbd67cc90e3f516a6984ffff9a44e80b4588e"
+    },
+    "source_policy_before": {
+      "path": "/Users/mattkuo/TOP10new/docs/operations/top10-storage-policy.json",
+      "exists": true,
+      "size_bytes": 11227,
+      "sha256": "a788e7aea32f0ffd901d87c89cddbd67cc90e3f516a6984ffff9a44e80b4588e"
+    },
+    "source_snapshot_before": {
+      "path": "/Users/mattkuo/TOP10new/data/clean/features.parquet",
+      "exists": true,
+      "size_bytes": 132047829,
+      "sha256": "64c1aa86c2b31e201ea7b41a7f5c05bd661d2ce0e589e74fd3f39572de13f369"
+    },
+    "source_reference_before": {
+      "path": "/Users/mattkuo/TOP10new/data/reference/tradable_universe.csv",
+      "exists": true,
+      "size_bytes": 107281,
+      "sha256": "50579b4cc975e82b4f1211129fba3724962d70417f465515110f74b098f556a4"
+    }
+  },
+  "preflight_host_facts": {
+    "cold": {
+      "host_free_bytes": 38897250304,
+      "host_total_bytes": 245107195904,
+      "swap_bytes": 10098436997,
+      "rss_bytes": 0
+    },
+    "warm": {
+      "host_free_bytes": 38550200320,
+      "host_total_bytes": 245107195904,
+      "swap_bytes": 10126748549,
+      "rss_bytes": 0
+    }
+  },
+  "source_snapshot_after": {
+    "path": "/Users/mattkuo/TOP10new/data/clean/features.parquet",
+    "exists": true,
+    "size_bytes": 132047829,
+    "sha256": "64c1aa86c2b31e201ea7b41a7f5c05bd661d2ce0e589e74fd3f39572de13f369"
+  },
+  "source_snapshot_unchanged": true,
+  "source_policy_after": {
+    "path": "/Users/mattkuo/TOP10new/docs/operations/top10-storage-policy.json",
+    "exists": true,
+    "size_bytes": 11227,
+    "sha256": "a788e7aea32f0ffd901d87c89cddbd67cc90e3f516a6984ffff9a44e80b4588e"
+  },
+  "source_policy_unchanged": true,
+  "observer_after": {
+    "path": "/private/tmp/top10-etl-memory-repair-20260828/scripts/run_daily_bounded_observer.py",
+    "exists": true,
+    "size_bytes": 36111,
+    "sha256": "c1e467424d53af73e15e4d02a1d92913dd789f1552e918c0389c576bb2ea088e"
+  },
+  "observer_unchanged": true,
+  "source_code_policy_identity_unchanged": true,
+  "sandbox_restart_denied_marker": {
+    "path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/logs/storage_safety/restart_denied/daily.json",
+    "exists": false
+  },
+  "cycles": [
+    {
+      "cycle_id": "cold",
+      "command": [
+        "/Users/mattkuo/TOP10new/.venv/bin/python",
+        "scripts/storage_safety.py",
+        "--policy",
+        "docs/operations/top10-storage-policy.json",
+        "validate-run",
+        "--job",
+        "daily",
+        "--marker",
+        "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/manual-validation-marker-cold.json",
+        "--max-runtime-seconds",
+        "3600.0",
+        "--source-input-root",
+        "/Users/mattkuo/TOP10new",
+        "--sandbox-input-root",
+        "data/raw/validation_snapshots",
+        "--sandbox-output-root",
+        ".",
+        "--entrypoint-contract",
+        "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/daily-cold-entrypoint-contract.json"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "contract": {
+        "schema_version": "top10-storage-validation-entrypoint.v1",
+        "job": "daily",
+        "interpreter": "python-isolated",
+        "entrypoint": "scripts/storage_validation/daily.py",
+        "entrypoint_sha256": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8",
+        "argv": [
+          "--source-root",
+          "/Users/mattkuo/TOP10new",
+          "--output-root",
+          "/private/tmp/top10-issue10-s1-fresh-rerun-20260829",
+          "--runtime-root",
+          "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/logs/storage_safety/runtime/daily/cold",
+          "--run-date",
+          "2026-08-27",
+          "--cycle-id",
+          "cold",
+          "--snapshot-input",
+          "/Users/mattkuo/TOP10new/data/clean/features.parquet"
+        ]
+      },
+      "contract_path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/daily-cold-entrypoint-contract.json",
+      "contract_sha256": "9aa936ade59dfb42ab9b1912f55bbf7073b087b21115bb165fa405408d5340c4",
+      "marker_path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/manual-validation-marker-cold.json",
+      "marker_sha256": "cc5efe9b1578065f1771155799768aeb73025291f0a6f70385d8454a91ed2bbb",
+      "guard_receipt_path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/logs/storage_safety/daily_latest.json",
+      "guard_receipt_copy": "/Users/mattkuo/TOP10new/.work/CARD-NEW-TOP10-ISSUE10-PRODUCTION-RECOVERY-20260829/s1_fresh_rerun_20260829/cold_guard_receipt.json",
+      "child_receipt_path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/logs/storage_safety/runtime/daily/cold/daily_validation_cold.json",
+      "child_receipt_copy": "/Users/mattkuo/TOP10new/.work/CARD-NEW-TOP10-ISSUE10-PRODUCTION-RECOVERY-20260829/s1_fresh_rerun_20260829/cold_child_receipt.json",
+      "guard_summary": {
+        "exists": true,
+        "status": "OK",
+        "reasons": [],
+        "warnings": [],
+        "child_exit_code": 0,
+        "sample_count": 4,
+        "live_sample_count": 2,
+        "peak_live_rss_bytes": 1815642112,
+        "max_swap_delta_bytes": 28311552,
+        "peak_swap_growth_bytes": 28311552,
+        "min_host_free_ratio": 0.15726567289806337,
+        "unknown_changed_paths": [],
+        "final_process_group_quiescent": true,
+        "policy_limits": {
+          "expected_growth_bytes_per_hour": 536870912,
+          "max_bytes": 6442450944,
+          "max_file_count": 60000,
+          "max_process_tree_rss_bytes": 4294967296,
+          "max_swap_growth_bytes": 4294967296,
+          "reclaim_after_seconds": 86400,
+          "retention_days": 14,
+          "sample_interval_seconds": 60,
+          "spike_window_seconds": 7200,
+          "stabilize_after_seconds": 14400,
+          "swap_warning_growth_bytes": 2147483648
+        },
+        "limits": {
+          "expected_growth_bytes_per_hour": 536870912,
+          "max_bytes": 6442450944,
+          "max_file_count": 60000,
+          "max_process_tree_rss_bytes": 4294967296,
+          "max_swap_growth_bytes": 4294967296,
+          "reclaim_after_seconds": 86400,
+          "retention_days": 14,
+          "sample_interval_seconds": 60,
+          "spike_window_seconds": 7200,
+          "stabilize_after_seconds": 14400,
+          "swap_warning_growth_bytes": 2147483648
+        },
+        "preflight_host_facts": {
+          "host_free_bytes": 38897250304,
+          "host_total_bytes": 245107195904,
+          "swap_bytes": 10098436997,
+          "rss_bytes": 0
+        },
+        "warning_threshold_bytes": 2147483648,
+        "warning_threshold_crossed": false,
+        "warning_path_exercised": false,
+        "warning_cadence_checked": false,
+        "warning_cadence_pass": null,
+        "warning_cadence_limit_seconds": 30.0,
+        "warning_cadence_tolerance_seconds": 0.25,
+        "actual_max_warning_live_sample_gap_seconds": null
+      },
+      "child_summary": {
+        "exists": true,
+        "status": "OK",
+        "child_exit_code": 0,
+        "source_identity_unchanged": true,
+        "artifact_status": {
+          "ranking": true,
+          "daily_report": true,
+          "clawd_publish_payload": true,
+          "clawd_publish_message": true,
+          "automation_status": true
+        },
+        "all_required_artifacts_exist": true
+      }
+    },
+    {
+      "cycle_id": "warm",
+      "command": [
+        "/Users/mattkuo/TOP10new/.venv/bin/python",
+        "scripts/storage_safety.py",
+        "--policy",
+        "docs/operations/top10-storage-policy.json",
+        "validate-run",
+        "--job",
+        "daily",
+        "--marker",
+        "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/manual-validation-marker-warm.json",
+        "--max-runtime-seconds",
+        "3600.0",
+        "--source-input-root",
+        "/Users/mattkuo/TOP10new",
+        "--sandbox-input-root",
+        "data/raw/validation_snapshots",
+        "--sandbox-output-root",
+        ".",
+        "--entrypoint-contract",
+        "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/daily-warm-entrypoint-contract.json"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "contract": {
+        "schema_version": "top10-storage-validation-entrypoint.v1",
+        "job": "daily",
+        "interpreter": "python-isolated",
+        "entrypoint": "scripts/storage_validation/daily.py",
+        "entrypoint_sha256": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8",
+        "argv": [
+          "--source-root",
+          "/Users/mattkuo/TOP10new",
+          "--output-root",
+          "/private/tmp/top10-issue10-s1-fresh-rerun-20260829",
+          "--runtime-root",
+          "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/logs/storage_safety/runtime/daily/warm",
+          "--run-date",
+          "2026-08-27",
+          "--cycle-id",
+          "warm",
+          "--snapshot-input",
+          "/Users/mattkuo/TOP10new/data/clean/features.parquet"
+        ]
+      },
+      "contract_path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/daily-warm-entrypoint-contract.json",
+      "contract_sha256": "dbbf873366e01616234572d01626fdb56e6c4f6a76eaeb9daf8f009862963570",
+      "marker_path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/manual-validation-marker-warm.json",
+      "marker_sha256": "413c0026a27bb4fbb1ea14b3f3235f618911da8639d62dc1d009c39486373582",
+      "guard_receipt_path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/logs/storage_safety/daily_latest.json",
+      "guard_receipt_copy": "/Users/mattkuo/TOP10new/.work/CARD-NEW-TOP10-ISSUE10-PRODUCTION-RECOVERY-20260829/s1_fresh_rerun_20260829/warm_guard_receipt.json",
+      "child_receipt_path": "/private/tmp/top10-issue10-s1-fresh-rerun-20260829/logs/storage_safety/runtime/daily/warm/daily_validation_warm.json",
+      "child_receipt_copy": "/Users/mattkuo/TOP10new/.work/CARD-NEW-TOP10-ISSUE10-PRODUCTION-RECOVERY-20260829/s1_fresh_rerun_20260829/warm_child_receipt.json",
+      "guard_summary": {
+        "exists": true,
+        "status": "OK",
+        "reasons": [],
+        "warnings": [],
+        "child_exit_code": 0,
+        "sample_count": 3,
+        "live_sample_count": 1,
+        "peak_live_rss_bytes": 4063232,
+        "max_swap_delta_bytes": 446305403,
+        "peak_swap_growth_bytes": 446305403,
+        "min_host_free_ratio": 0.15676474229279427,
+        "unknown_changed_paths": [],
+        "final_process_group_quiescent": true,
+        "policy_limits": {
+          "expected_growth_bytes_per_hour": 536870912,
+          "max_bytes": 6442450944,
+          "max_file_count": 60000,
+          "max_process_tree_rss_bytes": 4294967296,
+          "max_swap_growth_bytes": 4294967296,
+          "reclaim_after_seconds": 86400,
+          "retention_days": 14,
+          "sample_interval_seconds": 60,
+          "spike_window_seconds": 7200,
+          "stabilize_after_seconds": 14400,
+          "swap_warning_growth_bytes": 2147483648
+        },
+        "limits": {
+          "expected_growth_bytes_per_hour": 536870912,
+          "max_bytes": 6442450944,
+          "max_file_count": 60000,
+          "max_process_tree_rss_bytes": 4294967296,
+          "max_swap_growth_bytes": 4294967296,
+          "reclaim_after_seconds": 86400,
+          "retention_days": 14,
+          "sample_interval_seconds": 60,
+          "spike_window_seconds": 7200,
+          "stabilize_after_seconds": 14400,
+          "swap_warning_growth_bytes": 2147483648
+        },
+        "preflight_host_facts": {
+          "host_free_bytes": 38550200320,
+          "host_total_bytes": 245107195904,
+          "swap_bytes": 10126748549,
+          "rss_bytes": 0
+        },
+        "warning_threshold_bytes": 2147483648,
+        "warning_threshold_crossed": false,
+        "warning_path_exercised": false,
+        "warning_cadence_checked": false,
+        "warning_cadence_pass": null,
+        "warning_cadence_limit_seconds": 30.0,
+        "warning_cadence_tolerance_seconds": 0.25,
+        "actual_max_warning_live_sample_gap_seconds": null
+      },
+      "child_summary": {
+        "exists": true,
+        "status": "OK",
+        "child_exit_code": 0,
+        "source_identity_unchanged": true,
+        "artifact_status": {
+          "ranking": true,
+          "daily_report": true,
+          "clawd_publish_payload": true,
+          "clawd_publish_message": true,
+          "automation_status": true
+        },
+        "all_required_artifacts_exist": true
+      }
+    }
+  ]
+}
