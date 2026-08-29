@@ -1,6 +1,6 @@
 # NEW-TOP10 Research Spine Backlog
 
-更新：2026-08-25
+更新：2026-08-29
 
 狀態：`CURRENT DOMAIN EXECUTION ORDER / A0 ONLY DISPATCHABLE`
 
@@ -18,9 +18,15 @@ Repository：`bluemaple18-home/NEW-TOP10`
 
 ## 1. Current unique frontier
 
+### 2026-08-29 Owner re-arbitration
+
+Owner 已確認每日報牌 recovery 已恢復並結束其研究主線優先權；目前主線回到 NEW-TOP10 Research Spine 修復。`#9`、daily recovery 與相關 operational evidence 只作 boundary/reference，不得取代本檔的 Research Spine execution order。
+
+因此目前唯一可派工子卡仍是 read-only architecture mapping 的 `#2 A0`。A0 尚未經主線 acceptance 前，A1–A6 繼續 blocked；本次 re-arbitration 不代表 A0 已完成或已 accepted。
+
 目前唯一可派工子卡：
 
-- [ ] [#2 A0 — Precheck and Prior Art](https://github.com/bluemaple18-home/NEW-TOP10/issues/2)
+- [ ] [#2 A0 — Precheck and Prior Art / Authority and Market Evidence Mapping](https://github.com/bluemaple18-home/NEW-TOP10/issues/2)
 
 A0 完成並經主線接受前，下列卡全部 blocked：
 
@@ -216,3 +222,5 @@ DISPATCHABLE: #2 A0 only
 BLOCKED: #3–#8
 NOT ADMITTED: Card B / Card C
 ```
+
+本狀態的唯一研究 dispatchable frontier 是 A0；daily recovery 已不再擁有研究主線。A1/A2 只有在 A0 的 architecture、authority、market evidence 與 acceptance 契約經主線接受後，才能重新裁決 admission；A3–A6 仍須依序等待前置卡接受。
