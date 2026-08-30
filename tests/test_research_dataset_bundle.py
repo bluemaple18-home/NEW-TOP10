@@ -274,32 +274,54 @@ def test_a1_sc_003_schema_and_matrix_fail_closed(mutate, expected: str) -> None:
     assert any(expected in error for error in result.errors)
 
 
-def test_a1_sc_003_coverage_union_is_bound_to_resolution_variant() -> None:
-    resolved_bad = m4_training_manifest()
-    component_by_role(resolved_bad, "FEATURES_ARTIFACT")["coverage"] = absent_coverage()
-    assert validate_dataset_bundle(resolved_bad, fundamentals_snapshots=snapshot_map()).status == "NOT_EXECUTABLE"
-
-    absent_bad = m4_training_manifest()
-    component_by_role(absent_bad, "EVENTS_ARTIFACT")["coverage"] = coverage()
-    assert validate_dataset_bundle(absent_bad, fundamentals_snapshots=snapshot_map()).status == "NOT_EXECUTABLE"
-
-    empty_bad = m4_ranking_manifest(ranking_universe_empty())
-    component_by_role(empty_bad, "UNIVERSE_ARTIFACT")["coverage"] = coverage()
-    assert validate_dataset_bundle(empty_bad, fundamentals_snapshots=snapshot_map()).status == "NOT_EXECUTABLE"
-
-
-def test_a1_sc_003_malformed_list_items_fail_closed_without_crashing() -> None:
-    manifest = m4_training_manifest()
-    manifest["identity_payload"]["transformation_identity"]["git_blob_ids"] = [GIT_A, {}]
+@pytest.mark.parametrize(
+    ("manifest", "role", "bad_coverage"),
+    [
+        (m4_training_manifest(), "FEATURES_ARTIFACT", absent_coverage()),
+        (m4_training_manifest(), "EVENTS_ARTIFACT", coverage()),
+        (m4_ranking_manifest(ranking_universe_absent()), "UNIVERSE_ARTIFACT", coverage()),
+        (m4_ranking_manifest(ranking_universe_empty()), "UNIVERSE_ARTIFACT", coverage()),
+    ],
+    ids=[
+        "resolved-rejects-not-applicable",
+        "absent-by-contract-requires-not-applicable",
+        "absent-use-all-requires-not-applicable",
+        "empty-use-all-requires-empty",
+    ],
+)
+def test_a1_sc_003_coverage_is_bound_to_resolution_variant(
+    manifest: dict[str, object],
+    role: str,
+    bad_coverage: dict[str, object],
+) -> None:
+    component_by_role(manifest, role)["coverage"] = bad_coverage
     result = validate_dataset_bundle(manifest, fundamentals_snapshots=snapshot_map())
     assert result.status == "NOT_EXECUTABLE"
-    assert any("git_blob_ids" in error for error in result.errors)
+    assert any("coverage.status is not allowed for resolution variant" in error for error in result.errors)
 
+
+def test_a1_sc_003_malformed_git_blob_ids_fail_closed_without_crashing() -> None:
     manifest = m4_training_manifest()
-    component_by_role(manifest, "FEATURES_ARTIFACT")["role"] = {}
+    manifest["identity_payload"]["transformation_identity"]["git_blob_ids"] = [{}]
     result = validate_dataset_bundle(manifest, fundamentals_snapshots=snapshot_map())
     assert result.status == "NOT_EXECUTABLE"
-    assert any("role is unsupported" in error for error in result.errors)
+    assert "transformation_identity.git_blob_ids entries must be strings" in result.errors
+
+
+@pytest.mark.parametrize("field", ["changed_identity_paths", "changed_roles", "evidence_refs"])
+def test_a1_sc_008_malformed_delta_lists_fail_closed_without_crashing(field: str) -> None:
+    requested = m4_training_manifest(features=SHA_A)
+    executed = m4_training_manifest(features=SHA_B)
+    delta = valid_delta("SOURCE_FALLBACK", requested, executed, extra={field: [{}]})
+    result = validate_requested_executed_bundle_refs(
+        refs_envelope(requested, executed, delta),
+        requested,
+        executed,
+        requested_fundamentals_snapshots=snapshot_map(),
+        executed_fundamentals_snapshots=snapshot_map(),
+    )
+    assert result.status == "INVALID"
+    assert f"resolution_delta.{field} entries must be strings" in result.errors
 
 
 def test_a1_sc_004_fundamentals_snapshot_golden_and_bundle_binding() -> None:

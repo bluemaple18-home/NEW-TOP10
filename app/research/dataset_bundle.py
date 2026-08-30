@@ -154,6 +154,13 @@ _COVERAGE_LEAFS = {
     "status",
 }
 
+_COMPONENT_COVERAGE_STATUSES_BY_RESOLUTION = {
+    RESOLVED: frozenset({"COMPLETE", "PARTIAL", "EMPTY"}),
+    ABSENT_BY_CONTRACT: frozenset({"NOT_APPLICABLE"}),
+    ABSENT_USE_ALL_FEATURE_STOCKS: frozenset({"NOT_APPLICABLE"}),
+    EMPTY_USE_ALL_FEATURE_STOCKS: frozenset({"EMPTY"}),
+}
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -212,10 +219,14 @@ def _non_negative_int(value: object, field: str) -> list[str]:
     return [] if isinstance(value, int) and value >= 0 and not isinstance(value, bool) else [f"{field} must be non-negative integer"]
 
 
+def _is_scalar_string_list(values: object) -> bool:
+    return isinstance(values, list) and all(isinstance(value, str) for value in values)
+
+
 def _sorted_unique(values: object, field: str) -> list[str]:
     if not isinstance(values, list):
         return [f"{field} must be a list"]
-    if any(not isinstance(value, str) for value in values):
+    if not _is_scalar_string_list(values):
         return [f"{field} entries must be strings"]
     if values != sorted(values) or len(values) != len(set(values)):
         return [f"{field} must be sorted and unique"]
@@ -258,7 +269,7 @@ def _validate_component_coverage(
     coverage: Mapping[str, Any],
     prefix: str = "coverage.",
     *,
-    allowed_statuses: set[str] | None = None,
+    resolution_status: str,
 ) -> list[str]:
     errors = _exact_fields(coverage, _COMPONENT_COVERAGE_FIELDS, prefix)
     if coverage.get("schema_version") != "dataset-component-coverage.v1":
@@ -267,7 +278,8 @@ def _validate_component_coverage(
     if status not in {"COMPLETE", "PARTIAL", "EMPTY", "NOT_APPLICABLE"}:
         errors.append(f"{prefix}status is invalid")
         return errors
-    if allowed_statuses is not None and status not in allowed_statuses:
+    expected_statuses = _COMPONENT_COVERAGE_STATUSES_BY_RESOLUTION.get(resolution_status, frozenset())
+    if status not in expected_statuses:
         errors.append(f"{prefix}status is not allowed for resolution variant")
     expected = coverage.get("expected_member_count")
     observed = coverage.get("observed_member_count")
@@ -383,7 +395,7 @@ def _validate_component(component: Mapping[str, Any], allowed: set[str], index: 
             errors.extend(_validate_component_coverage(
                 _mapping(component.get("coverage")),
                 f"{prefix}coverage.",
-                allowed_statuses={"COMPLETE", "PARTIAL", "EMPTY"},
+                resolution_status=RESOLVED,
             ))
     elif status == ABSENT_BY_CONTRACT:
         errors.extend(_exact_fields(component, _ABSENT_FIELDS, prefix))
@@ -394,7 +406,7 @@ def _validate_component(component: Mapping[str, Any], allowed: set[str], index: 
         errors.extend(_validate_component_coverage(
             _mapping(component.get("coverage")),
             f"{prefix}coverage.",
-            allowed_statuses={"NOT_APPLICABLE"},
+            resolution_status=ABSENT_BY_CONTRACT,
         ))
     elif status == ABSENT_USE_ALL_FEATURE_STOCKS:
         errors.extend(_exact_fields(component, _ABSENT_FIELDS, prefix))
@@ -405,7 +417,7 @@ def _validate_component(component: Mapping[str, Any], allowed: set[str], index: 
         errors.extend(_validate_component_coverage(
             _mapping(component.get("coverage")),
             f"{prefix}coverage.",
-            allowed_statuses={"NOT_APPLICABLE"},
+            resolution_status=ABSENT_USE_ALL_FEATURE_STOCKS,
         ))
     elif status == EMPTY_USE_ALL_FEATURE_STOCKS:
         errors.extend(_exact_fields(component, _EMPTY_FIELDS, prefix))
@@ -418,7 +430,7 @@ def _validate_component(component: Mapping[str, Any], allowed: set[str], index: 
         errors.extend(_validate_component_coverage(
             _mapping(component.get("coverage")),
             f"{prefix}coverage.",
-            allowed_statuses={"EMPTY"},
+            resolution_status=EMPTY_USE_ALL_FEATURE_STOCKS,
         ))
     else:
         errors.append(f"{prefix}resolution_status is invalid")
@@ -452,7 +464,7 @@ def validate_dataset_bundle(
     errors.extend(_nonempty(transformation.get("contract_version"), "transformation_identity.contract_version"))
     blob_ids = transformation.get("git_blob_ids")
     errors.extend(_sorted_unique(blob_ids, "transformation_identity.git_blob_ids"))
-    if isinstance(blob_ids, list):
+    if _is_scalar_string_list(blob_ids):
         if not blob_ids:
             errors.append("transformation_identity.git_blob_ids must be non-empty")
         for index, blob_id in enumerate(blob_ids):
@@ -700,7 +712,7 @@ def validate_requested_executed_bundle_refs(
         errors.append("resolution_delta.executed_manifest_id mismatch")
     changed_paths = delta_map.get("changed_identity_paths")
     errors.extend(_sorted_unique(changed_paths, "resolution_delta.changed_identity_paths"))
-    if isinstance(changed_paths, list):
+    if _is_scalar_string_list(changed_paths):
         if not changed_paths:
             errors.append("resolution_delta.changed_identity_paths must be non-empty")
         if changed_paths != paths:
@@ -710,12 +722,12 @@ def validate_requested_executed_bundle_refs(
                 errors.append(f"resolution_delta.changed_identity_paths contains disallowed path {path}")
     changed_roles = delta_map.get("changed_roles")
     errors.extend(_sorted_unique(changed_roles, "resolution_delta.changed_roles"))
-    if isinstance(changed_paths, list) and isinstance(changed_roles, list) and changed_roles != _roles_from_paths(changed_paths):
+    if _is_scalar_string_list(changed_paths) and _is_scalar_string_list(changed_roles) and changed_roles != _roles_from_paths(changed_paths):
         errors.append("resolution_delta.changed_roles must equal derived roles")
     errors.extend(_nonempty(delta_map.get("resolution_authority"), "resolution_delta.resolution_authority"))
     evidence_refs = delta_map.get("evidence_refs")
     errors.extend(_sorted_unique(evidence_refs, "resolution_delta.evidence_refs"))
-    if isinstance(evidence_refs, list):
+    if _is_scalar_string_list(evidence_refs):
         if not evidence_refs:
             errors.append("resolution_delta.evidence_refs must be non-empty")
         for index, evidence_ref in enumerate(evidence_refs):
