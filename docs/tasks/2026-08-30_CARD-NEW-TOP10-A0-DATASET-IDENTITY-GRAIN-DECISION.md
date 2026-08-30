@@ -1,14 +1,18 @@
 # A0 Dataset Identity / Grain Architecture Decision
 
 日期：2026-08-30
-狀態：`PROPOSED_FOR_OWNER_ACCEPTANCE / DOCS_ONLY / NOT_IMPLEMENTED`
+狀態：`ACCEPTED_BY_OWNER / DOCS_ONLY / NOT_IMPLEMENTED`
 Execution base：NEW-TOP10 `4c6d41a44314beb3592ccdf7a9b43d8fe614ad88`
 Lane B evidence：`a6ca93cbc1bbe8bf7203721db51b028730c31aa8`
 Lane C evidence：`f760e45a210c27970f275e2d28b42266df38bd80`
 
 ## 1. Decision boundary
 
-本文件只提出 Owner 可接受或退回的 architecture decision。它沒有修改 code、config、schema、runtime、DB、data、scheduler 或 production，也沒有解除 A0 的 `IDENTITY_GRAIN_AMBIGUITY_TRIGGERED` stop、admit A1，或開始 A1–A6。
+本文件記錄 Owner 接受的 architecture decision。它沒有修改 code、config、schema、runtime、DB、data、scheduler 或 production；接受只解除 A0 architecture mapping 的 `IDENTITY_GRAIN_AMBIGUITY_TRIGGERED` stop，不等於 runtime/schema implementation、A1 admission 或開始 A1–A6。
+
+### Owner acceptance decision log
+
+2026-08-30：Owner 明示「接受」。本文件五項 decision 全部接受，並以 `IDENTITY_GRAIN_AMBIGUITY_RESOLVED_BY_OWNER_DECISION` 標記為 A0 architecture mapping 的裁決結果。此標記不授權任何 runtime、schema、data、DB、scheduler 或 production mutation；A1 仍須 Integrator/A0 acceptance，A1–A6 尚未開始。
 
 提案的最小充分範圍是：定義一個可由 immutable manifest 重算的 dataset bundle identity、釐清 requested / executed binding，並固定既有 `dataset_hash` 的 legacy 意義。它不建立 Dataset Registry、authority DB、新 runtime authority、通用 lifecycle/FSM，亦不導入 OMI runtime。
 
@@ -210,13 +214,13 @@ Compatibility bridge owner 提案為 A1/A3 implementer；removal owner 為 A6。
 
 A1 目前仍是 `BLOCKED`。只有以下全部成立，主線才可另行裁決是否 admission：
 
-1. Owner 明確接受、修訂或退回本 decision；不能以本檔存在視為 acceptance。
+1. Owner acceptance 已成立；本檔 acceptance evidence 已記錄，不能以本檔存在視為 A1 admission。
 2. identity grain、legacy `FEATURES_ARTIFACT_V1` 定位、requested/executed invariant 與禁止 path/scan identity 無未決 material ambiguity。
 3. A1 卡明確限制為既有 domain seams 的 schema/catalog/validator tightening，並寫出 owner、removal、rollback 與 affected tests。
 4. mandatory component matrix、transformation identity granularity、fundamentals snapshot semantics 等 UNKNOWN 有明確裁決或 fail-closed handling。
 5. 不需要 runtime/config/schema/data/production mutation 才能完成 admission review；若需要，必須另取授權。
 
-本文件不判定 `A1_ADMITTED`，也不解除 A0 stop。
+本文件不判定 `A1_ADMITTED`；Owner decision 只解除 A0 architecture mapping 的 identity-grain ambiguity stop，A1 仍為 `BLOCKED`。
 
 ## 9. A2 prerequisites only
 
@@ -241,29 +245,29 @@ A1 目前仍是 `BLOCKED`。只有以下全部成立，主線才可另行裁決�
 6. **Given** 只有 path 或未解析 component，**When** 嘗試發出 bundle ID，**Then** validator fail closed，不掃 filesystem 補值。
 7. **Given** legacy `dataset_hash`，**When** 新 reader ingest，**Then** 它只被分類為 `FEATURES_ARTIFACT_V1`；沒有完整 contemporaneous evidence 時保持 quarantine。
 8. **Given** DuckDB/index 被刪除，**When** 從 immutable manifests/receipts/migration evidence rebuild，**Then** bundle identity 與 requested/executed bindings 可重現。
-9. **Given** Owner 尚未接受本文件，**When** 評估 A1 frontier，**Then** A1 仍為 blocked，A2 只保留 prerequisites。
+9. **Given** Owner 已接受本文件但 A0 Integrator 尚未完成 acceptance，**When** 評估 A1 frontier，**Then** A1 仍為 blocked，A2 只保留 prerequisites。
 
 ## 11. UNKNOWN and technical follow-up
 
 | ID | Status | Subject | Required next action / owner decision |
 |---|---|---|---|
 | `U-DATASET-001` | `UNKNOWN` | 各 consumer 的 mandatory/optional component matrix 尚未以 executable contract 固化。 | Owner 接受 grain 後，由 A1 卡逐 entrypoint 定義；未定義者 fail closed。 |
-| `U-DATASET-002` | `UNKNOWN` | transformation identity 要採 contract version + exact source blob set、tree hash或其他粒度。 | Owner 選擇最小可重現且不因無關 code 過度 invalidation 的粒度。 |
+| `U-DATASET-002` | `RESOLVED_FOR_A0` | transformation identity default 固定為 `contract version + exact Git blob set`。 | mandatory component matrix 留作 A1 fail-closed technical follow-up；本 A0 decision 不實作。 |
 | `U-DATASET-003` | `UNKNOWN` | fundamentals cache 尚無完整 immutable snapshot identity/coverage contract。 | A1 決定先建立 snapshot identity或將相關 consumer 明確標為 not executable。 |
 | `U-DATASET-004` | `UNKNOWN` | `signals.yaml`、events 與 universe 在每個 entrypoint 的實際讀取條件需逐一驗證。 | A1 前以 pinned code/tests 建 component matrix，不以推測補齊。 |
-| `U-DATASET-005` | `UNKNOWN` | raw provider attempt/session/payload receipt 與 bundle 的 provenance linkage 尚未存在。 | Owner 決定是否列為 A1 admission prerequisite或明確 defer；不可順手建立 provider runtime。 |
+| `U-DATASET-005` | `UNKNOWN` | raw provider attempt/session/payload receipt 與 bundle 的 provenance linkage 尚未存在。 | raw-provider lineage deferred provenance gap，除非未來 consumer 直接依賴 raw provider payload；不可順手建立 provider runtime。 |
 | `U-DATASET-006` | `UNPINNED_RUNTIME_ARTIFACT` | 目前 materialized parquet bytes、row/date coverage 與 producer run 未在 A0 讀取。 | 如確有必要，另行授權 runtime artifact inspection；不得由 committed code 推定。 |
 | `U-DATASET-007` | `UNKNOWN` | 可被 EXACT migration 的 legacy corpus 覆蓋率尚未盤點。 | A3 才能做 immutable evidence inventory；不足者 quarantine，不猜測。 |
 | `U-DATASET-008` | `UNKNOWN` | typed resolution reason codes 與 receipt field names 尚未定案。 | A1/A2 卡在不改本 decision invariants 下定義並測試。 |
 
-## 12. Remaining Owner decisions
+## 12. Owner accepted decisions and bounded follow-up
 
-Owner 尚須明確裁決：
+Owner 於 2026-08-30 接受下列五項 decision：
 
-1. 是否接受 `DATASET_BUNDLE_V1` 的 consumer-visible closure grain 與 content-addressed `dataset_bundle_id`。
-2. 是否接受 legacy `dataset_hash == FEATURES_ARTIFACT_V1` 且永不重新解釋。
-3. 是否接受 requested/executed 各自引用 bundle ID、無 fallback 時相等、有 fallback 時以顯式 resolution delta 綁定。
-4. transformation identity 的最小粒度與各 consumer mandatory component matrix。
-5. fundamentals/raw-provider lineage 是 A1 admission prerequisite、fail-closed item，或明確 defer 到哪一張後續卡。
+1. 接受 `DATASET_BUNDLE_V1` 的 consumer-visible closure grain 與 content-addressed `dataset_bundle_id`。
+2. 接受 legacy `dataset_hash == FEATURES_ARTIFACT_V1`，永不重新解釋；既有 evidence 不被 shadow reinterpretation。
+3. 接受 requested/executed 各自引用 bundle ID；無 fallback 時相等，有 fallback/substitution 時以顯式 resolution delta 綁定。
+4. 接受 transformation identity default 為 `contract version + exact Git blob set`。mandatory component matrix 不在本文件實作，保留為 A1 的 fail-closed technical follow-up。
+5. 接受 fundamentals snapshot 為 A1 prerequisite；raw-provider lineage 明確 deferred 為 provenance gap，除非未來 consumer 直接依賴 raw provider payload，才由另行接受的 card 納入 closure。
 
-在上述 decisions 被接受並由主線留下 acceptance evidence 前，本提案狀態維持 `PROPOSED_FOR_OWNER_ACCEPTANCE / DOCS_ONLY / NOT_IMPLEMENTED`。
+本接受只適用 A0 architecture mapping。A1 仍須 Integrator/A0 acceptance 後另行裁決；A2 僅接收 prerequisites；A1–A6 均未開始。任何 runtime/schema/data/DB/provider/scheduler/production implementation 均未完成，也未獲本文件授權。
