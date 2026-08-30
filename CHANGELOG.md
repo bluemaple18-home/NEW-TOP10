@@ -1,5 +1,11 @@
 # Changelog
 
+## [A0-docs-only] - 2026-08-31
+
+- 完成 Research Spine A0 唯讀架構映射，交付 01–10 evidence bundle，並記錄 dataset identity decision（PR #11、Issue #2）。
+- A1 僅提出 conditional admission recommendation；A1–A6 尚未開始。
+- 本次無 runtime、schema、data、provider、scheduler 或 production 變更。
+
 ## [v2.7.0-async-boost] - 2026-01-22 (效能飛躍與全域技能)
 
 ### 🚀 效能與架構升級 (Major)
