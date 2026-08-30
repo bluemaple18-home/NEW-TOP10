@@ -14,6 +14,7 @@ from typing import Any, TypedDict
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DAILY_LABEL = "com.new-top10.daily"
 DAILY_CRON_MARKERS = ("scripts/run_daily.sh", "scripts/run_daily_publish.sh")
+EXPECTED_DAILY_START_CALENDAR_KEYS = {"Weekday", "Hour", "Minute"}
 EXPECTED_DAILY_START_CALENDAR = tuple({"Weekday": weekday, "Hour": 17, "Minute": 30} for weekday in range(1, 6))
 
 
@@ -117,15 +118,17 @@ def validate_repo_daily_plist(payload: dict[str, Any]) -> list[str]:
     if not isinstance(intervals, list):
         errors.append("StartCalendarInterval must be an array for weekday-only scheduling")
         return errors
+    if not all(isinstance(item, dict) for item in intervals):
+        errors.append("StartCalendarInterval entries must all be dictionaries")
+        return errors
+    if any(set(item) != EXPECTED_DAILY_START_CALENDAR_KEYS for item in intervals):
+        errors.append("StartCalendarInterval entries must only contain Weekday, Hour, and Minute")
     actual = [
         {key: item.get(key) for key in ("Weekday", "Hour", "Minute")}
         for item in intervals
-        if isinstance(item, dict)
     ]
     if actual != expected:
         errors.append(f"StartCalendarInterval must be Monday-Friday 17:30, got {actual}")
-    if len(actual) != len(intervals):
-        errors.append("StartCalendarInterval entries must all be dictionaries")
     return errors
 
 

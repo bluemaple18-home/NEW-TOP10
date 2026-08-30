@@ -91,3 +91,17 @@ class SchedulerOwnershipTests(unittest.TestCase):
         }
         errors = validate_repo_daily_plist(payload)
         self.assertIn("StartCalendarInterval must be an array for weekday-only scheduling", errors)
+
+    def test_repo_daily_plist_rejects_extra_day_calendar_key(self) -> None:
+        payload = {
+            "ProgramArguments": ["/bin/bash", "__PROJECT_DIR__/scripts/run_daily_publish.sh"],
+            "StartCalendarInterval": [
+                {"Weekday": weekday, "Hour": 17, "Minute": 30, "Day": 1}
+                for weekday in range(1, 6)
+            ],
+        }
+        errors = validate_repo_daily_plist(payload)
+        self.assertIn(
+            "StartCalendarInterval entries must only contain Weekday, Hour, and Minute",
+            errors,
+        )
