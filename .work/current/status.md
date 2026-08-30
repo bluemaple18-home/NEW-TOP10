@@ -1,15 +1,14 @@
 ---
-id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-current-status
-status: INTEGRATED_OFFLINE
+id: ISSUE-10-WEEKDAY-SCHEDULER-CLOSEOUT-status
+status: COMPLETE
 type: mainline
 ---
 
 # Current Status
 
-- Card：`docs/tasks/2026-08-02_FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01.md`
-- Root cause 已修：default-v2 evidence 以 exact identity 終結 base/default；zero-progress
-  queue 會跨同日 invocation 阻擋重播。
-- Candidate：`62c31c3`；Re-review：`22c0102`，結論 `GO`。
-- Offline verification：targeted `17 passed, 2 subtests`；affected `38 passed, 6 subtests`。
-- Runtime：LaunchAgent未載入；容量閘門仍為 `NO-GO`。
-- Frontier：`READY_FOR_CAPACITY_ACCEPTANCE`。
+- Root question 已完成；`main/origin/main=0dd74e7d620fa26527f65218ecd4ce1e32c92d8b`。
+- Commits：`005c70d` weekday-only plist；`0dd74e7` reject ambiguous Day/Month keys。
+- `tests/test_scheduler_ownership.py`：11 passed；`plutil` OK。
+- Storage measure PASS：`free_bytes=39115104256`；installed daily plist matches repo。
+- launchd：enabled、loaded、not running、`runs=0`、`never exited`；exact Weekday 1..5 at 17:30。
+- 2026-08-30 Sunday：no run、no send；next natural run：2026-08-31 17:30。

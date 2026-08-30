@@ -1,14 +1,12 @@
 ---
-id: FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01-current-context
-status: INTEGRATED_OFFLINE
+id: ISSUE-10-WEEKDAY-SCHEDULER-CLOSEOUT-context
+status: COMPLETE
 type: mainline
 ---
 
 # Context Manifest
 
-- `docs/tasks/2026-08-02_FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01.md`
-- `.work/FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01/status.md`
-- `.work/FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01/context_manifest.md`
-- `.work/FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01/evidence/repair-02.md`
-- `.work/FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01/review/review_receipt.md`
-- `.work/FOG-REPRESENTATIVE-REPLAY-NO-PROGRESS-01/review/re-review-02.md`
+- `scripts/com.new-top10.daily.plist`
+- `scripts/verify_scheduler_ownership.py`
+- `tests/test_scheduler_ownership.py`
+- `logs/storage_safety/daily_latest.json`
