@@ -1,7 +1,7 @@
 # CARD-NEW-TOP10-RESEARCH-A1-DATASET-BUNDLE-CONTRACT
 
 日期：2026-08-31
-狀態：`OWNER_AUTHORIZED_TO_START / CARD_READY_FOR_MAINLINE_REVIEW / NOT_IMPLEMENTED`
+狀態：`IMPLEMENTED_LOCAL / INDEPENDENT_REVIEW_GO / NOT_PUSHED / NOT_MERGED`
 GitHub authority：Issue #3 `CARD-NEW-TOP10-RESEARCH-A1-CANONICAL-IDENTITY-AND-CATALOG`
 Execution base：`origin/main@e3a15485240b4916f1fbd67e27b339977f8e95c0`
 工作模式：`STRICT / CORE_BOUNDED / ADDITIVE_SCHEMA_AND_VALIDATOR_ONLY`
@@ -415,3 +415,86 @@ A1 只有在以下全部成立時可由 Mainline 宣告完成：
 4. 沒有 Registry/DB/ledger/second lifecycle，沒有 provider/scheduler/production/learning mutation。
 5. independent review沒有未解 P0/P1，Mainline接受 rollback/removal evidence。
 6. A2–A6保持 `BLOCKED / NOT_STARTED`；A1 complete 只允許另行評估 A2 admission，不會自動啟動 A2。
+
+## 16. Mainline local acceptance receipt
+
+日期：2026-08-31
+
+### 16.1 Pinned delivery identity
+
+| evidence | pinned value |
+|---|---|
+| execution base | `e3a15485240b4916f1fbd67e27b339977f8e95c0` |
+| accepted task card | `3f75b42cc339e5ebd66e6d7a435a9dfe3a98ab6d` |
+| accepted implementation | `02640252bed01b7f3c5616d7c24a39423dfea31a` |
+| implementation parent/card boundary | `3f75b42cc339e5ebd66e6d7a435a9dfe3a98ab6d..02640252bed01b7f3c5616d7c24a39423dfea31a` |
+| GitHub Issue | Issue #3 remains `open` |
+| delivery state | `LOCAL_ONLY / NOT_PUSHED / NOT_MERGED` |
+
+Implementation changed files exactly：
+
+- `app/research/dataset_bundle.py`
+- `tests/test_research_dataset_bundle.py`
+
+相對 execution base 的第三個檔案只有本 task card；implementation 沒有修改既有 runner、receipt writer、Parameter Catalog、provider、scheduler、production或 `.work/current`。
+
+### 16.2 RED → GREEN evidence
+
+首次 RED failure receipt：`EVIDENCE_UNAVAILABLE`。Implementer/Mainline 提供的可核對資料沒有保存首次 RED command output、failed test IDs或failure text，因此本 receipt 不猜測、不補寫 RED 已觀察事實。此缺口不改寫為 PASS；它保留為 delivery-process evidence limitation。
+
+GREEN evidence：
+
+1. Implementer command：
+
+   ```text
+   uv run pytest tests/test_research_dataset_bundle.py tests/test_research_spine_contracts.py tests/test_research_receipt_store.py tests/test_autonomous_research_receipts.py tests/test_research_legacy_migration.py
+   ```
+
+   Result：`73 passed`。
+
+2. Mainline 在同一 worktree 獨立重跑相同五個 suites：
+
+   ```text
+   .venv/bin/python -m pytest tests/test_research_dataset_bundle.py tests/test_research_spine_contracts.py tests/test_research_receipt_store.py tests/test_autonomous_research_receipts.py tests/test_research_legacy_migration.py
+   ```
+
+   Result：`73 passed in 1.58s`。
+
+3. `git diff --check e3a15485240b4916f1fbd67e27b339977f8e95c0..02640252bed01b7f3c5616d7c24a39423dfea31a`：`PASS`。
+
+### 16.3 Independent review disposition
+
+Initial fixed-SHA review target：`c95ee5c6a18e07cbfd0cd4790d0c07deef3330e5`。
+
+| severity | finding | repair disposition |
+|---|---|---|
+| `P2` | `_date_or_none()` 只做 regex，錯誤接受 `2026-00-01`、`2026-02-31` 等不存在日期。 | amended implementation `02640252bed01b7f3c5616d7c24a39423dfea31a` 已修復；fixed-SHA re-review=`CLOSED`。 |
+| `P3` | `publish_dataset_bundle_manifest()` 重複實作 `receipt_store` 的 immutable writer。 | amended implementation `02640252bed01b7f3c5616d7c24a39423dfea31a` 已改為重用既有 seam；fixed-SHA re-review=`CLOSED`。 |
+
+Final fixed-SHA review target：`02640252bed01b7f3c5616d7c24a39423dfea31a`。Disposition：`GO / P0=0 / P1=0 / P2=0`；上述 P2/P3 均 `CLOSED`。
+
+### 16.4 Forbidden-surface audit
+
+`3f75b42..0264025` 的 file-level diff 只有新增 domain module與targeted tests。Mainline bounded audit結論：
+
+- 沒有修改 `app/research/run_receipts.py`、ExecutionIntent、terminal receipt writer/boundary或既有 runtime binding。
+- 沒有修改 `config/research_parameter_catalog.json`、既有 TrialSpec IDs、`run_id` 或 legacy immutable corpus。
+- 沒有新增 Dataset Registry、DB、ledger、second lifecycle或新 canonical runtime authority。
+- 沒有修改 provider、features/backtest/ranking runtime、scheduler、publish、production或learning。
+- 沒有讀寫 `.work/current`，沒有啟動 A2–A6。
+
+CodeGraph 在此 worktree 未初始化，Mainline依既有規範使用 bounded fallback，只核對 task card、兩個 implementation files、五個指定 test suites及既有 receipt/CAS seams；此 audit 不宣稱全 repo CodeGraph coverage。
+
+### 16.5 Local acceptance disposition
+
+```text
+A1_IMPLEMENTATION = LOCALLY_ACCEPTED_FOR_DELIVERY
+INDEPENDENT_REVIEW = GO
+ISSUE_3 = OPEN
+PUSH = NOT_AUTHORIZED / NOT_DONE
+PR = NOT_CREATED
+MERGE = NOT_AUTHORIZED / NOT_DONE
+A2–A6 = BLOCKED / NOT_STARTED
+```
+
+Mainline 接受 `02640252bed01b7f3c5616d7c24a39423dfea31a` 作為 A1 本地 delivery candidate。此 receipt 不等於 GitHub delivery、mainline merge或 Issue #3 close；也不構成 A2 admission。後續 push／PR／merge／Issue同步須另依 Owner授權執行。
