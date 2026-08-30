@@ -1,8 +1,8 @@
 # CARD-NEW-TOP10-RESEARCH-A1-DATASET-BUNDLE-CONTRACT
 
 日期：2026-08-31
-狀態：`IMPLEMENTED_LOCAL / INDEPENDENT_REVIEW_GO / NOT_PUSHED / NOT_MERGED`
-GitHub authority：Issue #3 `CARD-NEW-TOP10-RESEARCH-A1-CANONICAL-IDENTITY-AND-CATALOG`
+狀態：`COMPLETE / MAINLINE_ACCEPTED / PR_12_MERGED`
+GitHub authority：Issue #3 `CARD-NEW-TOP10-RESEARCH-A1-CANONICAL-IDENTITY-AND-CATALOG`（`OPEN / REMOTE_CLOSEOUT_PENDING`）
 Execution base：`origin/main@e3a15485240b4916f1fbd67e27b339977f8e95c0`
 工作模式：`STRICT / CORE_BOUNDED / ADDITIVE_SCHEMA_AND_VALIDATOR_ONLY`
 
@@ -42,12 +42,14 @@ Mainline reconciliation 將既有 TrialSpec identity、`run_id` 與 Parameter Ca
 ## 3. Admission disposition
 
 ```text
-A1 = ADMITTED_FOR_THIS_CARD_ONLY
-A1_IMPLEMENTATION = NOT_YET_COMPLETE
-A2–A6 = BLOCKED / NOT_STARTED
+A0 = COMPLETE / ACCEPTED
+A1 = COMPLETE / MAINLINE_ACCEPTED
+A1_PR_12_MERGE = 0b39937399eddd0535372ece51ddc25bc38fe6a6
+A2 = BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION
+A3–A6 = BLOCKED
 ```
 
-Owner 的「授權啟動」解除 A1 的 admission blocker，但不等於任何 implementation 已完成，也不授權 A2 runtime binding。A1 只有在本卡所有 success criteria、review 與 rollback evidence 完成後才可宣告 complete。
+Owner 的「授權啟動」解除 A1 的 admission blocker；A1 已完成本卡 success criteria、review 與 rollback evidence，並經 PR #12 mainline acceptance。歷史 pre-repair candidate 為 `02640252bed01b7f3c5616d7c24a39423dfea31a`；final chain 為 `02640252bed01b7f3c5616d7c24a39423dfea31a → b25026b4e2529ca987cf09d64e3a9a05eb775e66` repair `→ 0b39937399eddd0535372ece51ddc25bc38fe6a6` PR #12 merge。此結果不授權 A2 runtime binding；A2 必須等待另行 Owner admission。
 
 ## 4. Product-fit and minimum-sufficient boundary
 
@@ -353,8 +355,8 @@ A0 Owner decision + A0 Integrator acceptance
 - `A1-VS-002` blocked by `A1-VS-001` schema/identity primitives。
 - `A1-VS-003` 可在 VS-001 後平行，但不得切換 active writers。
 - `A1-VS-004` blocked by VS-001/VS-002；只做 pure prerequisite contract。
-- A2 blocked by accepted、implemented、verified A1；A3 blocked by A1+A2；A4–A6依 backlog繼續 blocked。
-- Issue #3 不得因 card merge 自動關閉；必須等 implementation、tests、review與Mainline acceptance receipt。
+- A2 為 `BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`；A3 blocked by A1+A2；A4–A6依 backlog繼續 blocked。
+- Issue #3 不得因 PR #12 merge 自動關閉；維持 `OPEN / REMOTE_CLOSEOUT_PENDING`。
 
 ## 11. RED → GREEN verification
 
@@ -414,7 +416,7 @@ A1 只有在以下全部成立時可由 Mainline 宣告完成：
 3. legacy `dataset_hash` 沒有 semantic rewrite；Parameter Catalog、TrialSpec IDs、`run_id` 與 runtime writers保持原 authority。
 4. 沒有 Registry/DB/ledger/second lifecycle，沒有 provider/scheduler/production/learning mutation。
 5. independent review沒有未解 P0/P1，Mainline接受 rollback/removal evidence。
-6. A2–A6保持 `BLOCKED / NOT_STARTED`；A1 complete 只允許另行評估 A2 admission，不會自動啟動 A2。
+6. A2 保持 `BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`，A3–A6保持 `BLOCKED`；A1 complete 不會自動啟動 A2。
 
 ## 16. Mainline local acceptance receipt
 
@@ -426,10 +428,12 @@ A1 只有在以下全部成立時可由 Mainline 宣告完成：
 |---|---|
 | execution base | `e3a15485240b4916f1fbd67e27b339977f8e95c0` |
 | accepted task card | `3f75b42cc339e5ebd66e6d7a435a9dfe3a98ab6d` |
-| accepted implementation | `02640252bed01b7f3c5616d7c24a39423dfea31a` |
-| implementation parent/card boundary | `3f75b42cc339e5ebd66e6d7a435a9dfe3a98ab6d..02640252bed01b7f3c5616d7c24a39423dfea31a` |
-| GitHub Issue | Issue #3 remains `open` |
-| delivery state | `LOCAL_ONLY / NOT_PUSHED / NOT_MERGED` |
+| historical pre-repair candidate | `02640252bed01b7f3c5616d7c24a39423dfea31a` |
+| repair commit | `b25026b4e2529ca987cf09d64e3a9a05eb775e66` |
+| final delivery chain | `02640252bed01b7f3c5616d7c24a39423dfea31a → b25026b4e2529ca987cf09d64e3a9a05eb775e66 → 0b39937399eddd0535372ece51ddc25bc38fe6a6` |
+| PR #12 canonical merge | `0b39937399eddd0535372ece51ddc25bc38fe6a6` |
+| GitHub Issue | Issue #3 = `OPEN / REMOTE_CLOSEOUT_PENDING` |
+| delivery state | `COMPLETE / MAINLINE_ACCEPTED / PR_12_MERGED` |
 
 Implementation changed files exactly：
 
@@ -462,20 +466,22 @@ GREEN evidence：
 
 3. `git diff --check e3a15485240b4916f1fbd67e27b339977f8e95c0..02640252bed01b7f3c5616d7c24a39423dfea31a`：`PASS`。
 
+4. PR #12 merge commit `0b39937399eddd0535372ece51ddc25bc38fe6a6` 記錄受影響測試為 `79 passed`。
+
 ### 16.3 Independent review disposition
 
-Initial fixed-SHA review target：`c95ee5c6a18e07cbfd0cd4790d0c07deef3330e5`。
+Original reviewer target：historical pre-repair candidate `02640252bed01b7f3c5616d7c24a39423dfea31a`。Disposition：`NO-GO`。
 
 | severity | finding | repair disposition |
 |---|---|---|
-| `P2` | `_date_or_none()` 只做 regex，錯誤接受 `2026-00-01`、`2026-02-31` 等不存在日期。 | amended implementation `02640252bed01b7f3c5616d7c24a39423dfea31a` 已修復；fixed-SHA re-review=`CLOSED`。 |
-| `P3` | `publish_dataset_bundle_manifest()` 重複實作 `receipt_store` 的 immutable writer。 | amended implementation `02640252bed01b7f3c5616d7c24a39423dfea31a` 已改為重用既有 seam；fixed-SHA re-review=`CLOSED`。 |
+| `P1` | coverage variant | repair commit `b25026b4e2529ca987cf09d64e3a9a05eb775e66` 已修復。 |
+| `P2` | malformed list | repair commit `b25026b4e2529ca987cf09d64e3a9a05eb775e66` 已修復。 |
 
-Final fixed-SHA review target：`02640252bed01b7f3c5616d7c24a39423dfea31a`。Disposition：`GO / P0=0 / P1=0 / P2=0`；上述 P2/P3 均 `CLOSED`。
+Repair re-review target：`b25026b4e2529ca987cf09d64e3a9a05eb775e66`。Disposition：`GO`；P1/P2 均已 closed。PR #12 將該 repaired delivery merge 至 `0b39937399eddd0535372ece51ddc25bc38fe6a6`。
 
 ### 16.4 Forbidden-surface audit
 
-`3f75b42..0264025` 的 file-level diff 只有新增 domain module與targeted tests。Mainline bounded audit結論：
+`0264025 → b25026b → 0b39937` 是 final delivery chain；其中 `0264025` 僅為 historical pre-repair candidate。`3f75b42..0b39937` 的 file-level diff 包含新增 domain module、targeted tests與本 task card。Mainline bounded audit結論：
 
 - 沒有修改 `app/research/run_receipts.py`、ExecutionIntent、terminal receipt writer/boundary或既有 runtime binding。
 - 沒有修改 `config/research_parameter_catalog.json`、既有 TrialSpec IDs、`run_id` 或 legacy immutable corpus。
@@ -488,13 +494,13 @@ CodeGraph 在此 worktree 未初始化，Mainline依既有規範使用 bounded f
 ### 16.5 Local acceptance disposition
 
 ```text
-A1_IMPLEMENTATION = LOCALLY_ACCEPTED_FOR_DELIVERY
-INDEPENDENT_REVIEW = GO
-ISSUE_3 = OPEN
-PUSH = NOT_AUTHORIZED / NOT_DONE
-PR = NOT_CREATED
-MERGE = NOT_AUTHORIZED / NOT_DONE
-A2–A6 = BLOCKED / NOT_STARTED
+A0 = COMPLETE / ACCEPTED
+A1_IMPLEMENTATION = COMPLETE / MAINLINE_ACCEPTED
+INDEPENDENT_REVIEW = GO (after b25026b repair)
+PR_12_MERGE = 0b39937399eddd0535372ece51ddc25bc38fe6a6
+ISSUE_3 = OPEN / REMOTE_CLOSEOUT_PENDING
+A2 = BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION
+A3–A6 = BLOCKED
 ```
 
-Mainline 接受 `02640252bed01b7f3c5616d7c24a39423dfea31a` 作為 A1 本地 delivery candidate。此 receipt 不等於 GitHub delivery、mainline merge或 Issue #3 close；也不構成 A2 admission。後續 push／PR／merge／Issue同步須另依 Owner授權執行。
+Mainline 以 PR #12 將 repaired A1 delivery merge 至 `0b39937399eddd0535372ece51ddc25bc38fe6a6`，A1 因而為 `COMPLETE / MAINLINE_ACCEPTED`。Issue #3 仍為 `OPEN / REMOTE_CLOSEOUT_PENDING`；此 receipt 也不構成 A2 admission，A2 必須另行取得 Owner admission。

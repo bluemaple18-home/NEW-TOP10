@@ -1,8 +1,8 @@
 # NEW-TOP10 Research Spine Backlog
 
-更新：2026-08-30
+更新：2026-08-31
 
-狀態：`CURRENT DOMAIN EXECUTION ORDER / A0 ONLY DISPATCHABLE`
+狀態：`CURRENT DOMAIN EXECUTION ORDER / A0_ACCEPTED / A1_MAINLINE_ACCEPTED / A2_AWAITING_SEPARATE_OWNER_ADMISSION`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -18,20 +18,20 @@ Repository：`bluemaple18-home/NEW-TOP10`
 
 ## 1. Current unique frontier
 
-### Current arbitration (2026-08-30)
+### Current arbitration (2026-08-31)
 
-`#2 A0` 是目前唯一 `READ_ONLY_DISPATCHABLE` 的 Research Spine lane。A0 只可評估 A1 admission，A2 僅能列出 prerequisites；不得開始 A1–A6 或任何 runtime／production mutation。`#3–#8` 均為 `BLOCKED`。
+`#2 A0 = COMPLETE / ACCEPTED`。`#3 A1 = COMPLETE / MAINLINE_ACCEPTED`，其 PR #12 canonical merge SHA 為 `0b39937399eddd0535372ece51ddc25bc38fe6a6`。Research frontier 已不再是 A0-only：目前停在 `#4 A2 = BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`，不得自行派工或開始 A2。`#5–#8 A3–A6` 均維持 `BLOCKED`。
 
 `#9` 保持 `OPEN / LONG-TERM HARDENING`，不阻擋 read-only A0；Research lane（含 A0/research）不得執行 scheduler、publish 或 production mutation。#9 未來若需 operational hardening，須另行取得對應授權。`#10` 等待 2026-08-31 17:30（Asia/Taipei）natural-run observation；該 observation 未完成前不得宣稱 close 或 promotion。
 
-目前唯一可派工子卡：
+目前沒有可自行派工的 Research Spine 子卡；唯一 frontier 是 A2 的另行 Owner admission：
 
-- [ ] [#2 A0 — Precheck and Prior Art](https://github.com/bluemaple18-home/NEW-TOP10/issues/2)
+- [x] [#2 A0 — Precheck and Prior Art](https://github.com/bluemaple18-home/NEW-TOP10/issues/2) — `COMPLETE / ACCEPTED`
+- [x] [#3 A1 — Canonical Identity and Parameter Catalog](https://github.com/bluemaple18-home/NEW-TOP10/issues/3) — `COMPLETE / MAINLINE_ACCEPTED`；PR #12 merge=`0b39937399eddd0535372ece51ddc25bc38fe6a6`；Issue #3=`OPEN / REMOTE_CLOSEOUT_PENDING`
 
-A0 完成並經主線接受前，下列卡全部 blocked：
+A2 未取得另行 Owner admission 前，下列卡均不得開始：
 
-- [ ] [#3 A1 — Canonical Identity and Parameter Catalog](https://github.com/bluemaple18-home/NEW-TOP10/issues/3) — blocked by #2
-- [ ] [#4 A2 — ExecutionIntent and Immutable Receipt](https://github.com/bluemaple18-home/NEW-TOP10/issues/4) — blocked by #3
+- [ ] [#4 A2 — ExecutionIntent and Immutable Receipt](https://github.com/bluemaple18-home/NEW-TOP10/issues/4) — `BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`
 - [ ] [#5 A3 — Legacy Migration and Reconciliation](https://github.com/bluemaple18-home/NEW-TOP10/issues/5) — blocked by #3 and #4
 - [ ] [#6 A4 — Rebuildable Ledger and Observations](https://github.com/bluemaple18-home/NEW-TOP10/issues/6) — blocked by #4 and #5
 - [ ] [#7 A5 — Matched Learning Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/7) — blocked by #6
@@ -39,9 +39,9 @@ A0 完成並經主線接受前，下列卡全部 blocked：
 
 Card B（Decision Projection）與 Card C（Control Cutover）尚未 admission；不得因 Card A 子卡存在就提前施工。
 
-### A0 evidence bundle（10 files）
+### A0 evidence bundle（10 files，historical acceptance input）
 
-A0 交付必須以同一版本／日期的下列十檔 evidence bundle 審閱；缺檔不得以狀態文案替代：
+A0 的已接受交付以同一版本／日期的下列十檔 evidence bundle 審閱；缺檔不得以狀態文案替代：
 
 1. `01-current-authority-map.md` — execution authority、reconciliation predecessor、canonical backlog 與 baseline manifest。
 2. `02-current-identity-map.md` — mission、lane、card、owner 與 identity grain。
@@ -82,7 +82,7 @@ A0 必須正面處理 AI Core current locks：
 - 沒有 measured unmet need，不新增共用 authority ledger／registry／FSM／database；
 - 舊 canonical-owner、work-event、registry-projection 等工作只作 evidence，除非 current backlog 重新 admission。
 
-因此，NEW-TOP10 的 Research Ledger 只有在 A0 證明以下條件時才可進 A1–A6：
+因此，NEW-TOP10 的 Research Ledger 只有在 A0 已證明以下條件並完成各卡獨立 admission 時才可進 A1–A6：
 
 1. 它是量化研究 domain 的 evidence index / rebuildable projection，不是新的 AI Core runtime authority；
 2. immutable spec / intent / receipt / artifact evidence 解決的是 NEW-TOP10 已存在且可量測的 truth gap；
@@ -236,7 +236,10 @@ Card A 不碰：
 目前施工指令：
 
 ```text
-DISPATCHABLE: #2 A0 only
-BLOCKED: #3–#8
+FRONTIER: #4 A2 separate Owner admission
+A0: COMPLETE / ACCEPTED
+A1: COMPLETE / MAINLINE_ACCEPTED (PR #12 merge 0b39937399eddd0535372ece51ddc25bc38fe6a6)
+A2: BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION
+A3–A6: BLOCKED
 NOT ADMITTED: Card B / Card C
 ```

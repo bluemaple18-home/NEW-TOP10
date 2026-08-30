@@ -1,16 +1,16 @@
 # NEW-TOP10 Current Operational Frontier
 
-更新：2026-08-30
+更新：2026-08-31
 
 ## Current state
 
 - `#10`：等待 **2026-08-31 17:30（Asia/Taipei）natural-run observation**；在 observation 完成前不宣稱 close 或 promotion。
 - `#9`：`OPEN / LONG-TERM HARDENING`。它不阻擋 read-only A0；Research lane（含 A0/research）不得執行 scheduler、publish 或 production mutation。#9 未來若需 operational hardening，須另行取得對應授權。
-- Research Spine：`#2 A0` 僅可做 read-only dispatch；`#3–#8` 維持 `BLOCKED`。
+- Research Spine：`#2 A0 = COMPLETE / ACCEPTED`；`#3 A1 = COMPLETE / MAINLINE_ACCEPTED`，已隨 PR #12 merge 進入 `main@0b39937399eddd0535372ece51ddc25bc38fe6a6`。`#4 A2 = BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`；`#5–#8 A3–A6 = BLOCKED`。目前 frontier 是 A2 的個別 Owner admission，不存在 A0-only dispatch。
 
 ## Authority baseline
 
-- Reconciliation predecessor／observed baseline：`origin/main@0baeef6f7bd62c521e46a782b28a83940855d59f`；它不是 A0 execution base。A0 execution base 必須是 reconciliation 進入 `origin/main` 後的新 SHA，並由 A0 baseline manifest 釘選。
+- Reconciliation predecessor／observed baseline：`origin/main@0baeef6f7bd62c521e46a782b28a83940855d59f`；它不是 A0 execution base。A0 已接受；A1 的 canonical mainline merge 為 PR #12 `0b39937399eddd0535372ece51ddc25bc38fe6a6`。
 - AI Core canonical authority：`aicore/docs/ai-core-backlog.md`；pinned remote baseline：`c896cbff126a57384f5f436b80ceaa2e14a22999`。
 - `dated backlogs/old .work` 僅是 historical evidence，不得覆蓋 canonical authority。
 - OMI：`lulu930128/open-market-intelligence@2d54c5983b8597babd804110f022a5f299e45a9d`，`authority=prior_art_only`。
@@ -18,7 +18,7 @@
 
 ## Operational boundary
 
-Read-only observation、evidence mapping 與 A0 admission review 可繼續；Research lane（含 A0/research）不得碰 scheduler、publish、production、runtime、config、schema 與資料 mutation。任何缺少個別證據的 claim 必須標示 `UNKNOWN` 或 `UNPINNED_RUNTIME_ARTIFACT`，不得用 projection receipt 或狀態文案宣稱 runtime load。
+Read-only observation、evidence mapping 與 A2 admission review 可繼續；Research lane 不得碰 scheduler、publish、production、runtime、config、schema 與資料 mutation。任何缺少個別證據的 claim 必須標示 `UNKNOWN` 或 `UNPINNED_RUNTIME_ARTIFACT`，不得用 projection receipt 或狀態文案宣稱 runtime load。
 
 只有出現 governing-authority conflict、identity-grain ambiguity、terminal-boundary ambiguity，或需要 runtime mutation 時才停止並回報 blocker。
 
