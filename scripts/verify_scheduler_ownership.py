@@ -5,14 +5,16 @@ from __future__ import annotations
 
 import argparse
 import os
+import plistlib
 import subprocess
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DAILY_LABEL = "com.new-top10.daily"
 DAILY_CRON_MARKERS = ("scripts/run_daily.sh", "scripts/run_daily_publish.sh")
+EXPECTED_DAILY_START_CALENDAR = tuple({"Weekday": weekday, "Hour": 17, "Minute": 30} for weekday in range(1, 6))
 
 
 class OwnershipReport(TypedDict):
@@ -78,19 +80,53 @@ def read_command(command: list[str]) -> str:
 def verify_repo_owner() -> OwnershipReport:
     """CI 用靜態檢查：repo plist 必須指向正式 daily publish wrapper。"""
     plist = PROJECT_ROOT / "scripts" / "com.new-top10.daily.plist"
-    if plist.exists() and "scripts/run_daily_publish.sh" in plist.read_text(encoding="utf-8"):
+    errors: list[str] = []
+    if not plist.exists():
+        errors.append("repo daily plist missing")
+    else:
+        try:
+            payload = plistlib.loads(plist.read_bytes())
+        except (plistlib.InvalidFileException, OSError, ValueError) as exc:
+            errors.append(f"repo daily plist invalid: {exc}")
+            payload = {}
+        errors.extend(validate_repo_daily_plist(payload))
+    if not errors:
         return {
             "status": "GO",
             "launchd_owner": True,
             "cron_owner": False,
-            "message": "repo daily plist 指向 scripts/run_daily_publish.sh。",
+            "message": "repo daily plist 指向 scripts/run_daily_publish.sh，且只排週一至週五 17:30。",
         }
     return {
         "status": "NO-GO",
         "launchd_owner": False,
         "cron_owner": False,
-        "message": "repo daily plist 缺失或未指向 scripts/run_daily_publish.sh。",
+        "message": "repo daily plist 不符合契約: " + "; ".join(errors),
     }
+
+
+def validate_repo_daily_plist(payload: dict[str, Any]) -> list[str]:
+    """驗證正式 daily launchd plist 的 repo 靜態契約。"""
+    errors: list[str] = []
+    arguments = payload.get("ProgramArguments")
+    if not isinstance(arguments, list) or "scripts/run_daily_publish.sh" not in " ".join(map(str, arguments)):
+        errors.append("must point to scripts/run_daily_publish.sh")
+
+    intervals = payload.get("StartCalendarInterval")
+    expected = list(EXPECTED_DAILY_START_CALENDAR)
+    if not isinstance(intervals, list):
+        errors.append("StartCalendarInterval must be an array for weekday-only scheduling")
+        return errors
+    actual = [
+        {key: item.get(key) for key in ("Weekday", "Hour", "Minute")}
+        for item in intervals
+        if isinstance(item, dict)
+    ]
+    if actual != expected:
+        errors.append(f"StartCalendarInterval must be Monday-Friday 17:30, got {actual}")
+    if len(actual) != len(intervals):
+        errors.append("StartCalendarInterval entries must all be dictionaries")
+    return errors
 
 
 def main() -> int:

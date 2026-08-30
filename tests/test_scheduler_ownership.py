@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import os
+import plistlib
 import subprocess
 import sys
 import unittest
 from pathlib import Path
 
-from scripts.verify_scheduler_ownership import evaluate_ownership
+from scripts.verify_scheduler_ownership import (
+    EXPECTED_DAILY_START_CALENDAR,
+    evaluate_ownership,
+    validate_repo_daily_plist,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -72,3 +77,17 @@ class SchedulerOwnershipTests(unittest.TestCase):
         )
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertIn("SCHEDULER_OWNERSHIP_GO", completed.stdout)
+
+    def test_repo_daily_plist_is_weekday_only_at_1730(self) -> None:
+        plist = PROJECT_ROOT / "scripts" / "com.new-top10.daily.plist"
+        payload = plistlib.loads(plist.read_bytes())
+        self.assertEqual([], validate_repo_daily_plist(payload))
+        self.assertEqual(list(EXPECTED_DAILY_START_CALENDAR), payload["StartCalendarInterval"])
+
+    def test_repo_daily_plist_rejects_wildcard_daily_calendar(self) -> None:
+        payload = {
+            "ProgramArguments": ["/bin/bash", "__PROJECT_DIR__/scripts/run_daily_publish.sh"],
+            "StartCalendarInterval": {"Hour": 17, "Minute": 30},
+        }
+        errors = validate_repo_daily_plist(payload)
+        self.assertIn("StartCalendarInterval must be an array for weekday-only scheduling", errors)
