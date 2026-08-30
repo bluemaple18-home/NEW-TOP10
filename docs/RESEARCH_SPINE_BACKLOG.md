@@ -1,6 +1,6 @@
 # NEW-TOP10 Research Spine Backlog
 
-更新：2026-08-25
+更新：2026-08-30
 
 狀態：`CURRENT DOMAIN EXECUTION ORDER / A0 ONLY DISPATCHABLE`
 
@@ -10,13 +10,19 @@ Repository：`bluemaple18-home/NEW-TOP10`
 
 > 本檔是 NEW-TOP10 Research Spine 的本地施工排序。
 >
-> AI Core 的共用架構與治理 authority 仍以 `bluemaple18-home/aicore` 的 **2026-08-25 current backlog** 為準；舊 AI Core work cards、reading maps 與實驗只可作 evidence，不得覆蓋 current rebaseline。
+> AI Core 的共用架構與治理 canonical authority 是 `aicore/docs/ai-core-backlog.md`，pinned remote baseline 為 `c896cbff126a57384f5f436b80ceaa2e14a22999`；dated backlog、舊 work cards、reading maps 與實驗只可作 historical evidence。
 >
 > GitHub Issues 是可執行工作卡；本檔負責依賴順序、admission gate 與 current frontier。不得掃描 Issue 後自行跳卡。
 
 ---
 
 ## 1. Current unique frontier
+
+### Current arbitration (2026-08-30)
+
+`#2 A0` 是目前唯一 `READ_ONLY_DISPATCHABLE` 的 Research Spine lane。A0 只可評估 A1 admission，A2 僅能列出 prerequisites；不得開始 A1–A6 或任何 runtime／production mutation。`#3–#8` 均為 `BLOCKED`。
+
+`#9` 保持 `OPEN / LONG-TERM HARDENING`，不阻擋 read-only A0；Research lane（含 A0/research）不得執行 scheduler、publish 或 production mutation。#9 未來若需 operational hardening，須另行取得對應授權。`#10` 等待 2026-08-31 17:30（Asia/Taipei）natural-run observation；該 observation 未完成前不得宣稱 close 或 promotion。
 
 目前唯一可派工子卡：
 
@@ -33,20 +39,38 @@ A0 完成並經主線接受前，下列卡全部 blocked：
 
 Card B（Decision Projection）與 Card C（Control Cutover）尚未 admission；不得因 Card A 子卡存在就提前施工。
 
+### A0 evidence bundle（10 files）
+
+A0 交付必須以同一版本／日期的下列十檔 evidence bundle 審閱；缺檔不得以狀態文案替代：
+
+1. `01-current-authority-map.md` — execution authority、reconciliation predecessor、canonical backlog 與 baseline manifest。
+2. `02-current-identity-map.md` — mission、lane、card、owner 與 identity grain。
+3. `03-reader-writer-and-terminal-boundary-inventory.md` — reader/writer、terminal state 與 boundary ownership。
+4. `04-dataset-and-features-lineage-map.md` — dataset、`features.parquet`、coverage、hash、validation 與 lineage。
+5. `05-market-evidence-and-provider-semantics-map.md` — market evidence、provider selection、fallback 與 OMI prior art。
+6. `06-ai-core-and-prior-art-matrix.md` — AI Core current seams 與 OMI prior-art 的 `USE_AS_IS`／`CONFIGURE`／`WRAP`／`ADAPT`／`COPY_CODE`／`CUSTOM_REQUIRED`／`REJECT` 決策。
+7. `07-schema-and-migration-hazards.md` — schema、migration、compatibility bridge 與 rollback hazards。
+8. `08-open-questions-and-measured-gaps.md` — UNKNOWN、UNPINNED_RUNTIME_ARTIFACT、open questions 與 measured gaps。
+9. `09-a1-admission-and-a2-prerequisites.md` — 僅記錄 A1 admission criteria 與 A2 prerequisites，不執行 A1/A2。
+10. `10-upstream-ai-core-proposals.md` — 只提出需回推 AI Core 的 proposals，不建立 local authority。
+
+所有 lanes 必須使用 structured claim/evidence contract：每個 claim 至少包含 `claim_id`、`subject`、`claim`、`authority`、`scope`、`as_of`、`evidence_ref`、`evidence_hash`、`status`（`CONFIRMED`／`UNKNOWN`／`UNPINNED_RUNTIME_ARTIFACT`／`CONFLICT`）、`owner` 與 `next_action`。缺個別 evidence 時標示 `UNKNOWN` 或 `UNPINNED_RUNTIME_ARTIFACT` 並繼續；只有 governing-authority conflict、identity-grain ambiguity、terminal-boundary ambiguity 或 required runtime mutation 才 stop。Integrator 是唯一 cross-lane synthesis writer；各 lane 不得自行改寫 cross-lane synthesis。
+
 ---
 
 ## 2. Governing architecture and authority order
 
-施工時依序閱讀，後者不得推翻前者：
+權威順序如下，後者不得推翻前者：
 
-1. [AI Core current dated backlog — 2026-08-25](https://github.com/bluemaple18-home/aicore/blob/main/docs/ai-core-backlog-20260825.md)
-2. [AI Core canonical backlog index](https://github.com/bluemaple18-home/aicore/blob/main/docs/ai-core-backlog.md)
-3. [AI Core Personal Mode runtime/safety prior-art receipt](https://github.com/bluemaple18-home/aicore/blob/main/docs/research/PERSONAL-MODE-RUNTIME-SAFETY-PRIOR-ART-20260825.md)
-4. [AI Core prior-art implementation admission rule](https://github.com/bluemaple18-home/aicore/blob/main/rules/24-prior-art-implementation-admission.md)
-5. NEW-TOP10 parent architecture contract：Issue #1
-6. 本檔的 execution order
-7. 各子卡 scope / acceptance
-8. 歷史 AI Core / NEW-TOP10 evidence
+1. Reconciliation predecessor／observed baseline：`origin/main@0baeef6f7bd62c521e46a782b28a83940855d59f`；不是 A0 execution base。A0 execution base 必須是 reconciliation 進入 `origin/main` 後的新 SHA，並由 A0 baseline manifest 釘選。
+2. AI Core canonical backlog：`aicore/docs/ai-core-backlog.md`（pinned remote baseline `c896cbff126a57384f5f436b80ceaa2e14a22999`）。
+3. NEW-TOP10 parent architecture contract：Issue #1。
+4. 本檔的 execution order 與各子卡 scope／acceptance。
+5. dated backlogs、old `.work`、`aeae2c3` historical draft/reference，以及 OMI `lulu930128/open-market-intelligence@2d54c5983b8597babd804110f022a5f299e45a9d`（`prior_art_only`）。
+
+歷史 evidence 不得默默恢復為 authority；`aeae2c3` 不 merge、不作 execution base。
+
+AI Core canonical backlog 之外，A0 必須閱讀並引用其 pinned baseline 下仍有效的 [Personal Mode runtime/safety prior-art receipt](https://github.com/bluemaple18-home/aicore/blob/main/docs/research/PERSONAL-MODE-RUNTIME-SAFETY-PRIOR-ART-20260825.md) 與 [prior-art implementation admission rule](https://github.com/bluemaple18-home/aicore/blob/main/rules/24-prior-art-implementation-admission.md)。dated backlog 僅列為 historical evidence，不得取代上述 current canonical reading set。
 
 ### 2026-08-25 rebaseline compatibility gate
 
