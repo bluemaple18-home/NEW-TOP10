@@ -151,10 +151,18 @@ def verify_batch(
         if (run.get("inputs") or {}).get("research_batch_id") != batch_id:
             _add_error(errors, run_artifact.name, "RUN_ARTIFACT_BATCH_MISMATCH")
         topic_runs = run.get("topic_runs") or []
-        empty_outcome = not topic_runs and (
+        empty_outcome_claimed = not topic_runs and (
             (run.get("outcome") or {}).get("decision")
             in {"NO_EXECUTABLE_TOPIC", "TOPIC_SUPPLY_EXHAUSTED", "TOPIC_SUPPLY_ATTEMPT_BUDGET_EXCEEDED"}
         )
+        if empty_outcome_claimed and (intents or attempts or receipts_by_run):
+            _add_error(
+                errors,
+                run_artifact.name,
+                "RUN_ARTIFACT_EMPTY_OUTCOME_CONFLICTS_WITH_CORPUS_MEMBERSHIP",
+            )
+        else:
+            empty_outcome = empty_outcome_claimed
         for index, topic_run in enumerate(topic_runs):
             entity = f"{run_artifact.name}:topic_runs[{index}]"
             spine = _mapping(_mapping(topic_run).get("research_spine"))

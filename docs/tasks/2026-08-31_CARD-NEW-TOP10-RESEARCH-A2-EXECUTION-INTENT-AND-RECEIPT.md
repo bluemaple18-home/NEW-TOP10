@@ -316,3 +316,24 @@ git diff --check
 
 - P1-A closed：runner `KeyboardInterrupt` path writes exactly one contract-valid `CANCELLED` receipt and preserves original interrupt propagation.
 - P1-B closed：attempt empty identity and batch-level tampering of bundle binding、receipt attempt event與 run artifact membership all fail closed。
+
+### 13.6 P1-B generation 2 repair receipt
+
+2026-08-31 local repair dispatch generation 2 僅授權修 re-review candidate `27e7ef0cd0d51d6cb52d8b6b9d185ace0399f761` 的剩餘 P1-B。本 repair 未 touch P1-A，未 push、未 merge、未寫 GitHub Issue、未啟動 A3-A6，且未修改 provider、features、backtest、ranking、scheduler、publish、production或 learning。
+
+#### Changed files
+
+- `scripts/verify_research_spine_batch.py`：`empty_outcome` 只有在 batch corpus 沒有 matching intent、attempt 或 receipt membership 時才能證明 valid empty batch；若 corpus 已有任一 membership，empty run artifact fail closed。
+- `tests/test_research_spine_daily_cutover.py`：補 corpus 已有 1 attempt + 1 receipt，但 run artifact 聲稱 `topic_runs=[]` 與 `NO_EXECUTABLE_TOPIC` 的 focused regression。
+- 本 task card：補 local P1-B generation 2 repair receipt。
+
+#### RED / GREEN evidence
+
+- RED focused repro：`.venv/bin/python -m pytest tests/test_research_spine_daily_cutover.py::test_empty_run_artifact_cannot_mask_existing_attempt_receipt_membership -q` → `1 failed in 0.17s`；actual `PASS` 行為被 regression 捕捉。
+- GREEN focused verifier：`.venv/bin/python -m pytest tests/test_research_spine_daily_cutover.py::test_empty_batch_requires_explicit_runner_outcome tests/test_research_spine_daily_cutover.py::test_empty_run_artifact_cannot_mask_existing_attempt_receipt_membership tests/test_research_spine_daily_cutover.py::test_batch_verifier_and_ledger_use_exact_receipt_membership tests/test_research_spine_daily_cutover.py::test_batch_verifier_rejects_run_artifact_membership_tampering -q` → `4 passed in 0.94s`。
+- GREEN affected matrix：`.venv/bin/python -m pytest tests/test_research_spine_contracts.py tests/test_autonomous_research_receipts.py tests/test_research_dataset_bundle.py tests/test_research_spine_daily_cutover.py tests/test_research_receipt_store.py tests/test_research_parameter_catalog_projection.py tests/test_research_batch_owner.py tests/test_regime_research_autonomy.py::test_strategy_matrix_filters_ranking_files_before_replay tests/test_regime_research_autonomy.py::test_strategy_matrix_excludes_episode_tail_without_complete_holding_window tests/test_regime_research_autonomy.py::test_strategy_matrix_replay_args_preserve_regime_history -q` → `114 passed in 2.34s`。
+- Diff check：`git diff --check` → pass。
+
+#### P1-B closure
+
+- P1-B closed：empty run artifact no longer masks existing batch corpus membership；typed error `RUN_ARTIFACT_EMPTY_OUTCOME_CONFLICTS_WITH_CORPUS_MEMBERSHIP` forces fail closed while preserving existing run_id、intent_id、attempt_event_id、requested trial IDs與 requested bundle ID/ref correlation。

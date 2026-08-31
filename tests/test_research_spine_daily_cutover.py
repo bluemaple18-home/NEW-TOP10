@@ -82,6 +82,39 @@ def test_empty_batch_requires_explicit_runner_outcome(tmp_path: Path) -> None:
     assert result["empty_outcome"] is True
 
 
+def test_empty_run_artifact_cannot_mask_existing_attempt_receipt_membership(
+    tmp_path: Path,
+) -> None:
+    context = batch_attempt(tmp_path, "batch-empty-mask")
+    receipt = finish_topic_attempt(
+        context,
+        terminal_status="FAILED",
+        matrix_paths=[],
+        failure_reason="RUNNER_STEP_FAILED",
+    )
+    run = tmp_path / "run.json"
+    run.write_text(json.dumps({
+        "inputs": {"research_batch_id": "batch-empty-mask"},
+        "topic_runs": [],
+        "outcome": {"decision": "NO_EXECUTABLE_TOPIC"},
+    }), encoding="utf-8")
+
+    result = verify_batch(
+        corpus_root=context.root,
+        batch_id="batch-empty-mask",
+        run_artifact=run,
+    )
+    assert result["status"] == "FAIL"
+    assert result["attempt_count"] == 1
+    assert result["receipt_count"] == 1
+    assert result["empty_outcome"] is False
+    assert receipt["receipt_id"] in result["receipt_ids"]
+    assert any(
+        error["reason"] == "RUN_ARTIFACT_EMPTY_OUTCOME_CONFLICTS_WITH_CORPUS_MEMBERSHIP"
+        for error in result["errors"]
+    )
+
+
 def test_missing_terminal_receipt_fails_closed(tmp_path: Path) -> None:
     context = batch_attempt(tmp_path, "batch-orphan")
     result = verify_batch(corpus_root=context.root, batch_id="batch-orphan")
