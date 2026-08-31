@@ -1,6 +1,6 @@
 ---
 id: CARD-NEW-TOP10-RESEARCH-A3-LEGACY-MIGRATION-AND-RECONCILIATION
-status: local_candidate_review_go_mainline_acceptance_pending
+status: complete_mainline_accepted_direct_ff_main
 type: implementation
 issue: 5
 depends_on: [3, 4]
@@ -261,9 +261,9 @@ git diff --check
 
 ## 14. Current status
 
-`A3 = LOCAL_CANDIDATE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING`。
+`A3 = COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`。
 
-本卡已完成 Slice A3.1–A3.4 的 bounded implementation、兩代 repair 與 final fixed-SHA limited re-review。下一步只能進行 mainline acceptance handoff；不得宣稱已進 `main`，也不得跳到 A4–A6、push、merge或 Issue closeout。
+本卡已完成 Slice A3.1–A3.4、兩代 repair、final fixed-SHA limited re-review與 canonical mainline closeout。A4 只是 next frontier，仍須另行 Owner admission；A5–A6 仍 blocked，不得自動開始。
 
 ## 15. Implementation 與 Review repair receipt
 
@@ -290,5 +290,17 @@ git diff --check
 - Repair generation 2／final candidate：`5530d55ecda03131abbbbe2b32cce84b98c6f5f7`；上述兩項 remaining P1 已以 hostile fixtures 重現並關閉。
 - Final verification：focused migration=`27 passed`；hostile targeted=`10 passed`；full Research Spine regression=`176 passed`；`git diff --check` passed。
 - Independent final limited fixed-SHA re-review：`GO`；remaining P0/P1=`0`。
-- Current disposition：`LOCAL_CANDIDATE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING`。Issue #5 保持 `OPEN`；remote branch 尚未 push，因此不宣稱 remote SHA equality、mainline accepted 或 canonical merge。
+- 當時 disposition：`LOCAL_CANDIDATE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING`。此狀態已由後續 direct fast-forward、push 與 remote closeout reconciliation supersede。
 - A4–A6 維持 `BLOCKED / NOT_STARTED`；#9/#10 operational lane 不因本 receipt 改變。
+
+## 18. Canonical mainline closeout receipt
+
+- A3 topic／handoff tip：`ac73ff5fc010c674950bda24152b9a6327fb826d`。
+- Integration：上述 tip 已 direct fast-forward 至 `main` 並 push；無 PR。
+- Implementation final code candidate：`5530d55ecda03131abbbbe2b32cce84b98c6f5f7`，位於上述 accepted commit chain。
+- Final independent limited review：`GO`；remaining P0/P1=`0`。
+- Verification：focused migration=`27 passed`；hostile targeted=`10 passed`；full Research Spine regression=`176 passed`；`git diff --check` passed。
+- Issue #5：`CLOSED / REMOTE_CLOSEOUT_RECONCILED`，無留言。
+- Current disposition：`COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`。
+- A4 僅是 next frontier，狀態為 `BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`；A5–A6 維持 `BLOCKED / NOT_STARTED`。
+- #9/#10 為完全獨立 operational lane，本次 A3 closeout 未修改或推論其狀態。
