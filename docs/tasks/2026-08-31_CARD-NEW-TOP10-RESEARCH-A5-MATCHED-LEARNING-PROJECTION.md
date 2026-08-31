@@ -1,6 +1,6 @@
 ---
 id: CARD-NEW-TOP10-RESEARCH-A5-MATCHED-LEARNING-PROJECTION
-status: REPAIR_2_COMPLETE / READY_FOR_REREVIEW
+status: IMPLEMENTATION_COMPLETE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING
 type: implementation
 issue: 7
 depends_on: [6]
@@ -104,3 +104,12 @@ Current frontier：`A5-SLICE-001`。Slice 1 未固定 measured gap 前不得開�
 - Fixed P1：strict validator拒絕所有 provenance hash／projection ID以及 contrast／low-high observation/evidence/lineage refs 的非 canonical `sha256:` + 64 lowercase hex 形狀；即使同步重算 projection ID仍 fail closed。
 - Repair verification：`104 passed` targeted learning/native/adaptive/Research Spine/failure tests；`git diff --check` pass。
 - Remaining P0/P1：等待 fixed-SHA independent re-review；Repair 自身未發現未關閉 P0/P1。
+
+## Final independent review handoff
+
+- Status：`IMPLEMENTATION_COMPLETE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING`。
+- Reviewed implementation SHA：`a4a4aacc7e229ee95773fdeb58bd4af430311959`。
+- Independent Reviewer evidence：targeted=`78 passed`；consumer compatibility=`104 passed`；remaining `P0=0 / P1=0`。
+- Mainline affected regression：`249 passed`。
+- Isolated shadow：`19 passed / 2 failed`；與 base 完全相同的兩項 pre-existing committed proposal/runner receipt fixture validation failures，非 A5 regression。
+- A6：`BLOCKED / NOT_STARTED`；未 merge、push 或關閉 Issue #7。
