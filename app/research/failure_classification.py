@@ -234,7 +234,6 @@ def build_projection(
             )
             for finding in findings
         ])
-        target_existed_before = target.exists()
         artifact_created = False
         connection.execute("BEGIN TRANSACTION")
         try:
@@ -267,7 +266,7 @@ def build_projection(
             connection.execute("COMMIT")
         except Exception:
             connection.execute("ROLLBACK")
-            if artifact_created or (not target_existed_before and target.exists()):
+            if artifact_created:
                 target.unlink(missing_ok=True)
             raise
         return payload

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import duckdb
 import pytest
@@ -15,6 +16,7 @@ from app.research.legacy_migration import LegacySource, build_migration
 from app.research.native_evidence_replay import verify_bundle
 from app.research.observation_ingest import ingest_corpus
 from app.research.run_receipts import finish_topic_attempt
+from app.research.receipt_store import ImmutableCollisionError
 from scripts.verify_research_spine_batch import verify_projection_rebuild
 from tests.test_autonomous_research_receipts import begin
 from tests.test_research_ledger import corpus_with_receipt
@@ -32,6 +34,25 @@ def migration_ledger(tmp_path: Path) -> tuple[Path, Path]:
     ledger = tmp_path / "ledger.duckdb"
     ingest_corpus(corpus_root=corpus, ledger_path=ledger)
     return ledger, tmp_path / "eligibility"
+
+
+def commit_failing_duckdb(real_connect: object) -> SimpleNamespace:
+    class CommitFailConnection:
+        def __init__(self, connection: object) -> None:
+            self.connection = connection
+
+        def execute(self, query: str, *args: object, **kwargs: object) -> object:
+            if query == "COMMIT":
+                raise RuntimeError("COMMIT_FAILURE")
+            return self.connection.execute(query, *args, **kwargs)
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(self.connection, name)
+
+    def connect(*args: object, **kwargs: object) -> CommitFailConnection:
+        return CommitFailConnection(real_connect(*args, **kwargs))
+
+    return SimpleNamespace(connect=connect)
 
 
 def test_valid_development_observations_are_eligible_and_reproducible(tmp_path: Path) -> None:
@@ -222,17 +243,42 @@ def test_eligibility_write_failure_rolls_back_db_and_new_artifact(
     ledger = tmp_path / "ledger.duckdb"
     ingest_corpus(corpus_root=corpus, ledger_path=ledger)
     output = tmp_path / "eligibility"
-    real_write = eligibility_module.write_immutable_json
-
-    def write_then_fail(*args: object, **kwargs: object) -> object:
-        real_write(*args, **kwargs)
-        raise RuntimeError("POST_WRITE_FAILURE")
-
-    monkeypatch.setattr(eligibility_module, "write_immutable_json", write_then_fail)
-    with pytest.raises(RuntimeError, match="POST_WRITE_FAILURE"):
+    real_connect = eligibility_module.duckdb.connect
+    monkeypatch.setattr(eligibility_module, "duckdb", commit_failing_duckdb(real_connect))
+    with pytest.raises(RuntimeError, match="COMMIT_FAILURE"):
         build_eligibility(ledger_path=ledger, output_root=output)
 
     assert list(output.glob("*.json")) == []
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        assert connection.execute("SELECT count(*) FROM eligibility_projection_runs").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM eligibility_decisions").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_eligibility_collision_preserves_concurrent_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    output = tmp_path / "eligibility"
+    concurrent_bytes = b'{"concurrent_writer":true}\n'
+    real_write = eligibility_module.write_immutable_json
+
+    def concurrent_then_write(target: Path, *args: object, **kwargs: object) -> object:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(concurrent_bytes)
+        return real_write(target, *args, **kwargs)
+
+    monkeypatch.setattr(eligibility_module, "write_immutable_json", concurrent_then_write)
+    with pytest.raises(ImmutableCollisionError):
+        build_eligibility(ledger_path=ledger, output_root=output)
+
+    targets = list(output.glob("*.json"))
+    assert len(targets) == 1
+    assert targets[0].read_bytes() == concurrent_bytes
     connection = duckdb.connect(str(ledger), read_only=True)
     try:
         assert connection.execute("SELECT count(*) FROM eligibility_projection_runs").fetchone()[0] == 0
@@ -357,14 +403,9 @@ def test_failure_write_failure_rolls_back_db_and_new_artifact(
     eligibility_root = tmp_path / "eligibility"
     build_eligibility(ledger_path=ledger, output_root=eligibility_root)
     output = tmp_path / "failure"
-    real_write = failure_module.write_immutable_json
-
-    def write_then_fail(*args: object, **kwargs: object) -> object:
-        real_write(*args, **kwargs)
-        raise RuntimeError("POST_WRITE_FAILURE")
-
-    monkeypatch.setattr(failure_module, "write_immutable_json", write_then_fail)
-    with pytest.raises(RuntimeError, match="POST_WRITE_FAILURE"):
+    real_connect = failure_module.duckdb.connect
+    monkeypatch.setattr(failure_module, "duckdb", commit_failing_duckdb(real_connect))
+    with pytest.raises(RuntimeError, match="COMMIT_FAILURE"):
         build_failure(
             ledger_path=ledger,
             eligibility_output_root=eligibility_root,
@@ -372,6 +413,42 @@ def test_failure_write_failure_rolls_back_db_and_new_artifact(
         )
 
     assert list(output.glob("*.json")) == []
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        assert connection.execute("SELECT count(*) FROM failure_projection_runs").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM failure_classifications").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_failure_collision_preserves_concurrent_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    eligibility_root = tmp_path / "eligibility"
+    build_eligibility(ledger_path=ledger, output_root=eligibility_root)
+    output = tmp_path / "failure"
+    concurrent_bytes = b'{"concurrent_writer":true}\n'
+    real_write = failure_module.write_immutable_json
+
+    def concurrent_then_write(target: Path, *args: object, **kwargs: object) -> object:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(concurrent_bytes)
+        return real_write(target, *args, **kwargs)
+
+    monkeypatch.setattr(failure_module, "write_immutable_json", concurrent_then_write)
+    with pytest.raises(ImmutableCollisionError):
+        build_failure(
+            ledger_path=ledger,
+            eligibility_output_root=eligibility_root,
+            output_root=output,
+        )
+
+    targets = list(output.glob("*.json"))
+    assert len(targets) == 1
+    assert targets[0].read_bytes() == concurrent_bytes
     connection = duckdb.connect(str(ledger), read_only=True)
     try:
         assert connection.execute("SELECT count(*) FROM failure_projection_runs").fetchone()[0] == 0
