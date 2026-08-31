@@ -13,7 +13,7 @@ import duckdb
 from app.research.contracts import CANONICALIZATION_VERSION, content_hash
 from app.research.observation_ingest import DEFAULT_LEDGER_PATH, input_corpus_hash, ledger_snapshot
 from app.research.parameter_catalog import parameter_catalog_hash
-from app.research.receipt_store import write_immutable_json
+from app.research.receipt_store import SchemaValidationError, write_immutable_json
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +22,8 @@ DEFAULT_ACTIVATION_EXCLUSIONS = (
     PROJECT_ROOT / "config/research_spine_activation_exclusions_v1.json"
 )
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "artifacts/autonomous_research/projections/eligibility"
+# v1含wall-clock generated_at；v2以新identity/path並存，舊v1 immutable bytes不改寫。
+PROJECTION_SCHEMA_VERSION = "research-eligibility-projection.v2"
 
 
 DDL = """
@@ -243,7 +245,7 @@ def _validator(payload: dict[str, Any]) -> list[str]:
     }
     if set(payload) != required:
         errors.append("invalid keys")
-    if payload.get("schema_version") != "research-eligibility-projection.v1":
+    if payload.get("schema_version") != PROJECTION_SCHEMA_VERSION:
         errors.append("invalid schema")
     identity = {key: payload.get(key) for key in _IDENTITY_FIELDS}
     if payload.get("projection_id") != content_hash(identity):
@@ -336,42 +338,37 @@ def _native_db_rows(
 
 def _legacy_db_matches(connection: duckdb.DuckDBPyConnection, projection_id: str) -> bool:
     decision_delta = connection.execute(
-        """SELECT count(*) FROM (
-             SELECT migration_record_id,
-                    CASE WHEN preliminary_classification IN (
-                      'LEGACY_DIAGNOSTIC_ONLY','SEALED_VALIDATION_ONLY',
-                      'TOPIC_LEVEL_NOT_PARAMETER_EVIDENCE','UNSUPPORTED_NOT_AN_OBSERVATION',
-                      'INVALID_LINEAGE') THEN preliminary_classification ELSE 'INVALID_LINEAGE' END status,
-                    0 evidence_weight,mapped_payload_hash FROM migrated_records
-             EXCEPT
-             SELECT subject_id,eligibility_status,evidence_weight,decision_input_hash
-             FROM eligibility_decisions WHERE projection_id=? AND subject_type='MIGRATED_RECORD'
-             UNION ALL
-             SELECT subject_id,eligibility_status,evidence_weight,decision_input_hash
-             FROM eligibility_decisions WHERE projection_id=? AND subject_type='MIGRATED_RECORD'
-             EXCEPT
-             SELECT migration_record_id,
-                    CASE WHEN preliminary_classification IN (
-                      'LEGACY_DIAGNOSTIC_ONLY','SEALED_VALIDATION_ONLY',
-                      'TOPIC_LEVEL_NOT_PARAMETER_EVIDENCE','UNSUPPORTED_NOT_AN_OBSERVATION',
-                      'INVALID_LINEAGE') THEN preliminary_classification ELSE 'INVALID_LINEAGE' END,
-                    0,mapped_payload_hash FROM migrated_records
-           )""",
-        [projection_id, projection_id],
+        """WITH expected AS (
+               SELECT migration_record_id,
+                      CASE WHEN preliminary_classification IN (
+                        'LEGACY_DIAGNOSTIC_ONLY','SEALED_VALIDATION_ONLY',
+                        'TOPIC_LEVEL_NOT_PARAMETER_EVIDENCE','UNSUPPORTED_NOT_AN_OBSERVATION',
+                        'INVALID_LINEAGE') THEN preliminary_classification ELSE 'INVALID_LINEAGE' END status,
+                      0 evidence_weight,mapped_payload_hash FROM migrated_records
+             ), actual AS (
+               SELECT subject_id,eligibility_status,evidence_weight,decision_input_hash
+               FROM eligibility_decisions
+               WHERE projection_id=? AND subject_type='MIGRATED_RECORD'
+             )
+             SELECT
+               (SELECT count(*) FROM (SELECT * FROM expected EXCEPT SELECT * FROM actual))
+               +
+               (SELECT count(*) FROM (SELECT * FROM actual EXCEPT SELECT * FROM expected))""",
+        [projection_id],
     ).fetchone()[0]
     reason_delta = connection.execute(
-        """SELECT count(*) FROM (
-             SELECT migration_record_id,'LEGACY_SOURCE_NOT_ELIGIBLE' FROM migrated_records
-             EXCEPT
-             SELECT subject_id,reason_code FROM eligibility_reason_codes
-             WHERE projection_id=? AND subject_type='MIGRATED_RECORD'
-               AND reason_code='LEGACY_SOURCE_NOT_ELIGIBLE'
-             UNION ALL
-             SELECT subject_id,reason_code FROM eligibility_reason_codes
-             WHERE projection_id=? AND subject_type='MIGRATED_RECORD'
-             EXCEPT SELECT migration_record_id,'LEGACY_SOURCE_NOT_ELIGIBLE' FROM migrated_records
-           )""",
-        [projection_id, projection_id],
+        """WITH expected AS (
+               SELECT migration_record_id,'LEGACY_SOURCE_NOT_ELIGIBLE' reason_code
+               FROM migrated_records
+             ), actual AS (
+               SELECT subject_id,reason_code FROM eligibility_reason_codes
+               WHERE projection_id=? AND subject_type='MIGRATED_RECORD'
+             )
+             SELECT
+               (SELECT count(*) FROM (SELECT * FROM expected EXCEPT SELECT * FROM actual))
+               +
+               (SELECT count(*) FROM (SELECT * FROM actual EXCEPT SELECT * FROM expected))""",
+        [projection_id],
     ).fetchone()[0]
     return decision_delta == reason_delta == 0
 
@@ -396,7 +393,7 @@ def build_projection(
         ]
         decisions.sort(key=lambda item: (item["subject_type"], item["subject_id"]))
         identity = {
-            "projection_schema_version": "research-eligibility-projection.v1",
+            "projection_schema_version": PROJECTION_SCHEMA_VERSION,
             "input_corpus_hash": corpus_hash, "ledger_snapshot_hash": snapshot_hash,
             "policy_version": policy["policy_version"], "policy_hash": policy_hash,
             "parameter_catalog_hash": parameter_catalog_hash(),
@@ -418,7 +415,7 @@ def build_projection(
         }
         matched_exclusions = sorted(excluded_ids & materialized_receipt_ids)
         payload = {
-            "schema_version": "research-eligibility-projection.v1",
+            "schema_version": PROJECTION_SCHEMA_VERSION,
             "projection_id": projection_id, **identity,
             "status": "OK" if counts["ADAPTIVE_ELIGIBLE"] else "NO_ELIGIBLE_OBSERVATIONS",
             "counts": dict(sorted(counts.items())), "decisions": decisions,
@@ -434,17 +431,21 @@ def build_projection(
             },
         }
         target = output_root / f"{projection_id[7:]}.json"
+        validation_errors = _validator(payload)
+        if validation_errors:
+            raise SchemaValidationError("; ".join(validation_errors))
         if target.is_file():
             existing_payload = json.loads(target.read_text(encoding="utf-8"))
             if existing_payload != payload:
                 raise ValueError("ELIGIBILITY_PROJECTION_COLLISION")
-        result = write_immutable_json(target, payload, validator=_validator)
         canonical_hash = content_hash(payload)
         expected_decisions, expected_reasons = _native_db_rows(projection_id, decisions)
         run_semantics = (
             projection_id, corpus_hash, snapshot_hash, policy["policy_version"], policy_hash,
             parameter_catalog_hash(), payload["status"], canonical_hash,
         )
+        target_existed_before = target.exists()
+        artifact_created = False
         connection.execute("BEGIN TRANSACTION")
         try:
             existing_runs = connection.execute(
@@ -463,6 +464,11 @@ def build_projection(
                 "AND subject_type!='MIGRATED_RECORD'",
                 [projection_id],
             ).fetchall())
+            child_counts = connection.execute(
+                "SELECT (SELECT count(*) FROM eligibility_decisions WHERE projection_id=?),"
+                "(SELECT count(*) FROM eligibility_reason_codes WHERE projection_id=?)",
+                [projection_id, projection_id],
+            ).fetchone()
             if existing_runs:
                 if (
                     existing_runs != [run_semantics]
@@ -472,11 +478,11 @@ def build_projection(
                 ):
                     raise ValueError("ELIGIBILITY_DB_PROJECTION_COLLISION")
             else:
-                if existing_decisions or existing_reasons:
+                if any(child_counts):
                     raise ValueError("ELIGIBILITY_DB_PROJECTION_COLLISION")
                 connection.execute(
                     "INSERT INTO eligibility_projection_runs VALUES (?,?,?,?,?,?,?,?,?)",
-                    [*run_semantics[:-1], str(result.path), run_semantics[-1]],
+                    [*run_semantics[:-1], str(target), run_semantics[-1]],
                 )
                 if expected_decisions:
                     connection.executemany(
@@ -505,9 +511,13 @@ def build_projection(
                               'LEGACY_SOURCE_NOT_ELIGIBLE' FROM migrated_records""",
                     [projection_id],
                 )
+            result = write_immutable_json(target, payload, validator=_validator)
+            artifact_created = result.status == "CREATED"
             connection.execute("COMMIT")
         except Exception:
             connection.execute("ROLLBACK")
+            if artifact_created or (not target_existed_before and target.exists()):
+                target.unlink(missing_ok=True)
             raise
         return payload
     finally:

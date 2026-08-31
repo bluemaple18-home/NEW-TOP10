@@ -13,12 +13,14 @@ import duckdb
 from app.research.contracts import content_hash
 from app.research.eligibility import DEFAULT_POLICY as DEFAULT_ELIGIBILITY_POLICY, build_projection as build_eligibility
 from app.research.observation_ingest import DEFAULT_LEDGER_PATH
-from app.research.receipt_store import write_immutable_json
+from app.research.receipt_store import SchemaValidationError, write_immutable_json
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_POLICY = PROJECT_ROOT / "config/research_failure_policy_v1.json"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "artifacts/autonomous_research/projections/failure"
+# v1含wall-clock generated_at；v2以新identity/path並存，舊v1 immutable bytes不改寫。
+PROJECTION_SCHEMA_VERSION = "research-failure-projection.v2"
 
 
 DDL = """
@@ -105,7 +107,7 @@ def _validator(payload: dict[str, Any]) -> list[str]:
     }
     if set(payload) != required:
         errors.append("invalid keys")
-    if payload.get("schema_version") != "research-failure-projection.v1":
+    if payload.get("schema_version") != PROJECTION_SCHEMA_VERSION:
         errors.append("invalid schema")
     identity = {key: payload.get(key) for key in _IDENTITY_FIELDS}
     if payload.get("projection_id") != content_hash(identity):
@@ -199,23 +201,25 @@ def build_projection(
             key=lambda item: (item["subject_type"], item["subject_id"], item["reason_code"])
         )
         identity = {
-            "projection_schema_version": "research-failure-projection.v1",
+            "projection_schema_version": PROJECTION_SCHEMA_VERSION,
             "eligibility_projection_id": eligibility["projection_id"],
             "policy_version": policy["policy_version"], "policy_hash": policy_hash,
         }
         projection_id = content_hash(identity)
         counts = Counter(item["reason_code"] for item in findings)
         payload = {
-            "schema_version": "research-failure-projection.v1", "projection_id": projection_id,
+            "schema_version": PROJECTION_SCHEMA_VERSION, "projection_id": projection_id,
             **identity,
             "status": "OK", "counts": dict(sorted(counts.items())), "classifications": findings,
         }
         target = output_root / f"{projection_id[7:]}.json"
+        validation_errors = _validator(payload)
+        if validation_errors:
+            raise SchemaValidationError("; ".join(validation_errors))
         if target.is_file():
             existing_payload = json.loads(target.read_text(encoding="utf-8"))
             if existing_payload != payload:
                 raise ValueError("FAILURE_PROJECTION_COLLISION")
-        result = write_immutable_json(target, payload, validator=_validator)
         canonical_hash = content_hash(payload)
         run_semantics = (
             projection_id, eligibility["projection_id"], policy["policy_version"], policy_hash,
@@ -230,6 +234,8 @@ def build_projection(
             )
             for finding in findings
         ])
+        target_existed_before = target.exists()
+        artifact_created = False
         connection.execute("BEGIN TRANSACTION")
         try:
             existing_runs = connection.execute(
@@ -249,16 +255,20 @@ def build_projection(
                     raise ValueError("FAILURE_DB_PROJECTION_COLLISION")
                 connection.execute(
                     "INSERT INTO failure_projection_runs VALUES (?,?,?,?,?,?,?)",
-                    [*run_semantics[:-1], str(result.path), run_semantics[-1]],
+                    [*run_semantics[:-1], str(target), run_semantics[-1]],
                 )
                 if expected_rows:
                     connection.executemany(
                         "INSERT INTO failure_classifications VALUES (?,?,?,?,?,?,?,?,?,?)",
                         expected_rows,
                     )
+            result = write_immutable_json(target, payload, validator=_validator)
+            artifact_created = result.status == "CREATED"
             connection.execute("COMMIT")
         except Exception:
             connection.execute("ROLLBACK")
+            if artifact_created or (not target_existed_before and target.exists()):
+                target.unlink(missing_ok=True)
             raise
         return payload
     finally:
