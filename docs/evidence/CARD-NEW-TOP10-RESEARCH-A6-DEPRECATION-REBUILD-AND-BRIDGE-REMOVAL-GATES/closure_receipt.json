@@ -25,8 +25,345 @@
       "status",
       "target_stage"
     ],
-    "row_count": 10,
+    "row_count": 13,
     "schema_version": "research-spine-bridge-inventory.v1",
+    "source_scan": {
+      "inputs": {
+        "manifest_paths": [
+          "app/research/batch_owner.py",
+          "app/research/contracts.py",
+          "app/research/fog_map_domain.py",
+          "app/research/fog_map_render.py",
+          "app/research/history_compatibility_projection.py",
+          "app/research/legacy_migration.py",
+          "app/research/map_contract.py",
+          "app/research/observation_ingest.py",
+          "scripts/backfill_research_map_run_history.py",
+          "scripts/build_5913_combo_effectiveness_review.py",
+          "scripts/build_liquidity_replay_v2_stage2.py",
+          "scripts/build_research_campaign_progress.py",
+          "scripts/build_research_fog_map.py",
+          "scripts/build_weekend_readiness_audit.py",
+          "scripts/build_weekend_universe_inventory.py",
+          "scripts/fog_authority_contracts.py",
+          "scripts/research_map_linkage_smoke.py",
+          "scripts/run_autonomous_research.py",
+          "scripts/run_controlled_grid_drain_host_runner.py",
+          "scripts/run_liquidity_replay_v2_batch.py",
+          "scripts/run_representative_replay_drain_worker.py",
+          "scripts/run_top10_fog_map_handoff.py",
+          "scripts/run_weekend_representative_replay.py",
+          "scripts/run_weekend_survivor_deep_replay.py",
+          "scripts/verify_autonomous_research.py",
+          "scripts/verify_feature_group_regime_walkforward.py",
+          "scripts/verify_liquidity_replay_v2_batch.py",
+          "scripts/verify_research_fog_map.py",
+          "scripts/verify_research_map_run_history_backfill.py",
+          "scripts/verify_research_map_v2_schema.py",
+          "scripts/verify_weekend_representative_replay.py",
+          "scripts/weekend_training_common.py"
+        ],
+        "matcher": "casefold:run_history",
+        "roots": [
+          "app/research",
+          "scripts"
+        ]
+      },
+      "matches": [
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "build_batch_intent",
+          "path": "app/research/batch_owner.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "verify_batch_owner_authority",
+          "path": "app/research/batch_owner.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "write_set_paths",
+          "path": "app/research/batch_owner.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_jsonl_migration",
+          "function": "validate_migrated_record",
+          "path": "app/research/contracts.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_jsonl_migration",
+          "function": "validate_migration_manifest_v2",
+          "path": "app/research/contracts.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "build_payload",
+          "path": "app/research/fog_map_domain.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "build_unlit_representative_queue",
+          "path": "app/research/fog_map_domain.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "render_html",
+          "path": "app/research/fog_map_render.py"
+        },
+        {
+          "bridge_id": "history_compatibility_projection",
+          "function": "_legacy_rows",
+          "path": "app/research/history_compatibility_projection.py"
+        },
+        {
+          "bridge_id": "history_compatibility_projection",
+          "function": "main",
+          "path": "app/research/history_compatibility_projection.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_jsonl_migration",
+          "function": "_json_rows",
+          "path": "app/research/legacy_migration.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_jsonl_migration",
+          "function": "build_migration",
+          "path": "app/research/legacy_migration.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_jsonl_migration",
+          "function": "discover_legacy_sources",
+          "path": "app/research/legacy_migration.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "apply_run_history",
+          "path": "app/research/map_contract.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "is_completed_v2_expansion_record",
+          "path": "app/research/map_contract.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_jsonl_migration",
+          "function": "_ingest_migrations",
+          "path": "app/research/observation_ingest.py"
+        },
+        {
+          "bridge_id": "research_map_run_history_backfill",
+          "function": "parse_args",
+          "path": "scripts/backfill_research_map_run_history.py"
+        },
+        {
+          "bridge_id": "combo_effectiveness_run_history_reader",
+          "function": "build_payload",
+          "path": "scripts/build_5913_combo_effectiveness_review.py"
+        },
+        {
+          "bridge_id": "combo_effectiveness_run_history_reader",
+          "function": "infer_rules",
+          "path": "scripts/build_5913_combo_effectiveness_review.py"
+        },
+        {
+          "bridge_id": "liquidity_v2_run_history_reader",
+          "function": "main",
+          "path": "scripts/build_liquidity_replay_v2_stage2.py"
+        },
+        {
+          "bridge_id": "liquidity_v2_run_history_reader",
+          "function": "run_history_rows",
+          "path": "scripts/build_liquidity_replay_v2_stage2.py"
+        },
+        {
+          "bridge_id": "campaign_progress_run_history_reader",
+          "function": "build_payload",
+          "path": "scripts/build_research_campaign_progress.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "build_payload",
+          "path": "scripts/build_research_fog_map.py"
+        },
+        {
+          "bridge_id": "weekend_training_run_history_reader",
+          "function": "build_topic_default_audit",
+          "path": "scripts/build_weekend_readiness_audit.py"
+        },
+        {
+          "bridge_id": "weekend_training_run_history_reader",
+          "function": "build_payload_and_rows_once",
+          "path": "scripts/build_weekend_universe_inventory.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "<module>",
+          "path": "scripts/fog_authority_contracts.py"
+        },
+        {
+          "bridge_id": "research_map_run_history_backfill",
+          "function": "main",
+          "path": "scripts/research_map_linkage_smoke.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "manager_paths",
+          "path": "scripts/run_autonomous_research.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "render_markdown",
+          "path": "scripts/run_autonomous_research.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "replenish_development_topics",
+          "path": "scripts/run_autonomous_research.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "update_manager",
+          "path": "scripts/run_autonomous_research.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "<module>",
+          "path": "scripts/run_controlled_grid_drain_host_runner.py"
+        },
+        {
+          "bridge_id": "liquidity_v2_batch_run_history_bridge",
+          "function": "append_missing_history",
+          "path": "scripts/run_liquidity_replay_v2_batch.py"
+        },
+        {
+          "bridge_id": "liquidity_v2_batch_run_history_bridge",
+          "function": "build_payload",
+          "path": "scripts/run_liquidity_replay_v2_batch.py"
+        },
+        {
+          "bridge_id": "liquidity_v2_batch_run_history_bridge",
+          "function": "main",
+          "path": "scripts/run_liquidity_replay_v2_batch.py"
+        },
+        {
+          "bridge_id": "liquidity_v2_batch_run_history_bridge",
+          "function": "run_history_row",
+          "path": "scripts/run_liquidity_replay_v2_batch.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "batch_progress_evidence",
+          "path": "scripts/run_representative_replay_drain_worker.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "build_progress",
+          "path": "scripts/run_representative_replay_drain_worker.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "write_research_worker_event",
+          "path": "scripts/run_representative_replay_drain_worker.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "main",
+          "path": "scripts/run_top10_fog_map_handoff.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "research_artifacts",
+          "path": "scripts/run_top10_fog_map_handoff.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "append_history",
+          "path": "scripts/run_weekend_representative_replay.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "build_payload",
+          "path": "scripts/run_weekend_representative_replay.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "main",
+          "path": "scripts/run_weekend_representative_replay.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "render_markdown",
+          "path": "scripts/run_weekend_representative_replay.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "run_history_row",
+          "path": "scripts/run_weekend_representative_replay.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "build_payload",
+          "path": "scripts/run_weekend_survivor_deep_replay.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "source_survivors",
+          "path": "scripts/run_weekend_survivor_deep_replay.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "verify_manager_update",
+          "path": "scripts/verify_autonomous_research.py"
+        },
+        {
+          "bridge_id": "liquidity_v2_run_history_reader",
+          "function": "build_payload",
+          "path": "scripts/verify_liquidity_replay_v2_batch.py"
+        },
+        {
+          "bridge_id": "liquidity_v2_run_history_reader",
+          "function": "run_history_alignment",
+          "path": "scripts/verify_liquidity_replay_v2_batch.py"
+        },
+        {
+          "bridge_id": "research_fog_map_verifier_reader",
+          "function": "build_payload",
+          "path": "scripts/verify_research_fog_map.py"
+        },
+        {
+          "bridge_id": "research_map_backfill_verifier",
+          "function": "parse_args",
+          "path": "scripts/verify_research_map_run_history_backfill.py"
+        },
+        {
+          "bridge_id": "fog_map_run_history_reader",
+          "function": "build_report",
+          "path": "scripts/verify_research_map_v2_schema.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "build_payload",
+          "path": "scripts/verify_weekend_representative_replay.py"
+        },
+        {
+          "bridge_id": "legacy_run_history_appenders",
+          "function": "history_alignment",
+          "path": "scripts/verify_weekend_representative_replay.py"
+        },
+        {
+          "bridge_id": "weekend_training_run_history_reader",
+          "function": "base_scenarios_by_v2_combo",
+          "path": "scripts/weekend_training_common.py"
+        },
+        {
+          "bridge_id": "weekend_training_run_history_reader",
+          "function": "load_history",
+          "path": "scripts/weekend_training_common.py"
+        }
+      ],
+      "status": "PASS",
+      "unmapped": []
+    },
     "status": "PASS"
   },
   "bridge_rows": [
@@ -37,7 +374,7 @@
       "owner": "research-spine/a6",
       "read_write_mode": "derived_write_replace",
       "removal_condition": "Fog Map 與進度 consumer 改直接讀取 first-party ledger projection。",
-      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_a6_closure_rebuilds_a1_to_a5_and_history_projection_deterministically",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_history_compatibility_projection_removal_evidence",
       "status": "ACTIVE_BRIDGE",
       "target_stage": "CARD_C_CONTROL_CUTOVER"
     },
@@ -48,7 +385,7 @@
       "owner": "research-spine/a3",
       "read_write_mode": "legacy_read_only",
       "removal_condition": "historical migration corpus 不再需要 legacy run_history JSONL intake。",
-      "removal_test": "pytest::tests/test_research_legacy_migration.py",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_legacy_run_history_jsonl_migration_removal_evidence",
       "status": "PRESERVE_FOR_HISTORICAL_REPLAY",
       "target_stage": "POST_A6_ARCHIVE_RETIREMENT"
     },
@@ -59,7 +396,7 @@
       "owner": "research-spine/a3",
       "read_write_mode": "legacy_read_only",
       "removal_condition": "historical migration corpus 不再需要 legacy run_history JSON intake。",
-      "removal_test": "pytest::tests/test_research_legacy_migration.py",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_legacy_run_history_json_migration_removal_evidence",
       "status": "PRESERVE_FOR_HISTORICAL_REPLAY",
       "target_stage": "POST_A6_ARCHIVE_RETIREMENT"
     },
@@ -70,7 +407,7 @@
       "owner": "research-map/legacy-migration",
       "read_write_mode": "migration_only_write_with_required_flag",
       "removal_condition": "正常 new-run acceptance path 不可呼叫 backfill 建立 terminal truth。",
-      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_new_run_truth_success_failure_and_orphan_do_not_use_history_or_backfill",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_research_map_run_history_backfill_removal_evidence",
       "status": "QUARANTINED_FROM_NORMAL_RUNS",
       "target_stage": "POST_A6_RECOVERY_TOOLING"
     },
@@ -81,7 +418,7 @@
       "owner": "research-map/legacy-migration",
       "read_write_mode": "derived_report_write",
       "removal_condition": "backfill script 退役，或僅保留為 historical recovery tooling。",
-      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_research_map_backfill_verifier_removal_evidence",
       "status": "ACTIVE_SUPPORT_BRIDGE",
       "target_stage": "POST_A6_RECOVERY_TOOLING"
     },
@@ -92,7 +429,7 @@
       "owner": "fog-map",
       "read_write_mode": "read_only",
       "removal_condition": "Fog Map domain 改讀 ledger-backed projection API，不再讀 JSONL compatibility input。",
-      "removal_test": "pytest::tests/test_research_spine_daily_cutover.py::test_ledger_history_projection_preserves_frozen_legacy_and_is_deterministic",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_fog_map_run_history_reader_removal_evidence",
       "status": "ACTIVE_BRIDGE",
       "target_stage": "CARD_C_CONTROL_CUTOVER"
     },
@@ -103,7 +440,7 @@
       "owner": "research-campaign-progress",
       "read_write_mode": "read_only",
       "removal_condition": "Campaign progress 改直接讀取 first-party ledger/projection outputs。",
-      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_campaign_progress_run_history_reader_removal_evidence",
       "status": "ACTIVE_BRIDGE",
       "target_stage": "CARD_C_CONTROL_CUTOVER"
     },
@@ -114,7 +451,7 @@
       "owner": "weekend-training",
       "read_write_mode": "read_only",
       "removal_condition": "Weekend training lifecycle summary 僅消費 ledger-backed compatibility output。",
-      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_weekend_training_run_history_reader_removal_evidence",
       "status": "ACTIVE_BRIDGE",
       "target_stage": "CARD_C_CONTROL_CUTOVER"
     },
@@ -125,7 +462,7 @@
       "owner": "liquidity-replay-v2",
       "read_write_mode": "read_only",
       "removal_condition": "Liquidity replay v2 alignment 改讀 ledger-backed projection 或退役。",
-      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_liquidity_v2_run_history_reader_removal_evidence",
       "status": "ACTIVE_BRIDGE",
       "target_stage": "POST_A6_LEGACY_REPLAY_RETIREMENT"
     },
@@ -136,9 +473,42 @@
       "owner": "legacy-replay-runners",
       "read_write_mode": "append_only_legacy_writer",
       "removal_condition": "New runs 先持久化 intent/attempt/receipt；legacy appender 停用或改走 ledger projection。",
-      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_new_run_truth_success_failure_and_orphan_do_not_use_history_or_backfill",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_legacy_run_history_appenders_removal_evidence",
       "status": "ACTIVE_LEGACY_WRITER",
       "target_stage": "CARD_C_CONTROL_CUTOVER"
+    },
+    {
+      "authority": "DERIVED_COMPATIBILITY_READ_WRITE",
+      "bridge_id": "liquidity_v2_batch_run_history_bridge",
+      "direction": "run_history_jsonl_to_and_from_liquidity_batch",
+      "owner": "liquidity-replay-v2",
+      "read_write_mode": "legacy_read_append_only",
+      "removal_condition": "Liquidity v2 batch 改用 ledger-backed compatibility projection。",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_liquidity_v2_batch_run_history_bridge_removal_evidence",
+      "status": "ACTIVE_LEGACY_WRITER",
+      "target_stage": "POST_A6_LEGACY_REPLAY_RETIREMENT"
+    },
+    {
+      "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
+      "bridge_id": "research_fog_map_verifier_reader",
+      "direction": "run_history_jsonl_to_fog_map_verification",
+      "owner": "fog-map",
+      "read_write_mode": "read_only",
+      "removal_condition": "Fog Map verifier 改讀 ledger-backed projection。",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_research_fog_map_verifier_reader_removal_evidence",
+      "status": "ACTIVE_BRIDGE",
+      "target_stage": "CARD_C_CONTROL_CUTOVER"
+    },
+    {
+      "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
+      "bridge_id": "combo_effectiveness_run_history_reader",
+      "direction": "run_history_jsonl_to_combo_effectiveness_review",
+      "owner": "research-effectiveness-review",
+      "read_write_mode": "read_only",
+      "removal_condition": "5913 effectiveness review 改讀 ledger-backed projection 或退役。",
+      "removal_test": "tests/test_research_spine_a6_bridge_removals.py::test_combo_effectiveness_run_history_reader_removal_evidence",
+      "status": "ACTIVE_BRIDGE",
+      "target_stage": "POST_A6_LEGACY_REPLAY_RETIREMENT"
     }
   ],
   "error_codes": [],
@@ -184,8 +554,8 @@
     "first": {
       "counts": {
         "execution_units": 2,
-        "migrated_records": 0,
-        "migration_manifests": 0,
+        "migrated_records": 1,
+        "migration_manifests": 1,
         "observation_provenance": 2,
         "observations": 2,
         "research_intents": 1,
@@ -193,19 +563,19 @@
         "run_receipts": 1,
         "trial_specs": 2
       },
-      "eligibility_projection_id": "sha256:aee11f98ba1335803e24a9c6acb79fa8603d059043d5e37bc03d369eea966c6d",
-      "failure_projection_id": "sha256:283c0fa7020d80d6db0d7062f7bbc419c4a3692464eb6eff58db6308aa0c1959",
-      "history_projection_id": "sha256:9ae337ea182bea49be0d92ac99bcb4c85a1db6ce9f3e27233e8a665cb5081b47",
+      "eligibility_projection_id": "sha256:9aac0aeab7208fbc5ede7576c48d2c675024bc1032d0f40ca7782df8503c1a5a",
+      "failure_projection_id": "sha256:a04726a2301338bd98243abadfc16608da1415e8596cfa670d126b96f039641c",
+      "history_projection_id": "sha256:36b010a9707a6f1e4d29e068a9e1ca95587e1983d628ea855e7509ef269ffea9",
       "history_row_count": 1,
-      "input_corpus_hash": "sha256:d164946cc4c33bcdc063d2a96e4d70bb84de0125e198ee25bbbeae25334ce8ad",
-      "learning_projection_id": "sha256:2b9e95d719484079748de25857de9cde4a1ed96a1f3f2696198ae622a8d5c5a1",
-      "ledger_snapshot_hash": "sha256:27dc4554149c8a89cfd154d826cd18520848b52a1566cd3cf7ffadf4b37dc6df"
+      "input_corpus_hash": "sha256:6d148a3bd7ef11e9bb6309bca51c4c0f7c4c18194f9883f8e41f17ada0b1f21c",
+      "learning_projection_id": "sha256:dd0afb16e11e62eabc48df897f0723b579d63f567a0b0452496cc877f2c45d76",
+      "ledger_snapshot_hash": "sha256:41896ac5fdee76142f689fe3163236c5fcc74b5b3d290d8f03f61c31df94706d"
     },
     "second": {
       "counts": {
         "execution_units": 2,
-        "migrated_records": 0,
-        "migration_manifests": 0,
+        "migrated_records": 1,
+        "migration_manifests": 1,
         "observation_provenance": 2,
         "observations": 2,
         "research_intents": 1,
@@ -213,13 +583,13 @@
         "run_receipts": 1,
         "trial_specs": 2
       },
-      "eligibility_projection_id": "sha256:aee11f98ba1335803e24a9c6acb79fa8603d059043d5e37bc03d369eea966c6d",
-      "failure_projection_id": "sha256:283c0fa7020d80d6db0d7062f7bbc419c4a3692464eb6eff58db6308aa0c1959",
-      "history_projection_id": "sha256:9ae337ea182bea49be0d92ac99bcb4c85a1db6ce9f3e27233e8a665cb5081b47",
+      "eligibility_projection_id": "sha256:9aac0aeab7208fbc5ede7576c48d2c675024bc1032d0f40ca7782df8503c1a5a",
+      "failure_projection_id": "sha256:a04726a2301338bd98243abadfc16608da1415e8596cfa670d126b96f039641c",
+      "history_projection_id": "sha256:36b010a9707a6f1e4d29e068a9e1ca95587e1983d628ea855e7509ef269ffea9",
       "history_row_count": 1,
-      "input_corpus_hash": "sha256:d164946cc4c33bcdc063d2a96e4d70bb84de0125e198ee25bbbeae25334ce8ad",
-      "learning_projection_id": "sha256:2b9e95d719484079748de25857de9cde4a1ed96a1f3f2696198ae622a8d5c5a1",
-      "ledger_snapshot_hash": "sha256:27dc4554149c8a89cfd154d826cd18520848b52a1566cd3cf7ffadf4b37dc6df"
+      "input_corpus_hash": "sha256:6d148a3bd7ef11e9bb6309bca51c4c0f7c4c18194f9883f8e41f17ada0b1f21c",
+      "learning_projection_id": "sha256:dd0afb16e11e62eabc48df897f0723b579d63f567a0b0452496cc877f2c45d76",
+      "ledger_snapshot_hash": "sha256:41896ac5fdee76142f689fe3163236c5fcc74b5b3d290d8f03f61c31df94706d"
     },
     "status": "PASS"
   },

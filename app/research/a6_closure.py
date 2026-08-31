@@ -54,6 +54,43 @@ SOURCE_DERIVED_BRIDGE_SURFACES = {
     "weekend_training_run_history_reader": ("scripts/weekend_training_common.py", "apply_run_history"),
     "liquidity_v2_run_history_reader": ("scripts/build_liquidity_replay_v2_stage2.py", "RUN_HISTORY_PATH"),
     "legacy_run_history_appenders": ("scripts/run_weekend_representative_replay.py", "append_history"),
+    "liquidity_v2_batch_run_history_bridge": ("scripts/run_liquidity_replay_v2_batch.py", "RUN_HISTORY_PATH"),
+    "research_fog_map_verifier_reader": ("scripts/verify_research_fog_map.py", "run_history"),
+    "combo_effectiveness_run_history_reader": ("scripts/build_5913_combo_effectiveness_review.py", "RUN_HISTORY_PATH"),
+}
+SOURCE_SURFACE_MANIFEST = {
+    "app/research/contracts.py": "legacy_run_history_jsonl_migration",
+    "app/research/batch_owner.py": "legacy_run_history_appenders",
+    "app/research/fog_map_domain.py": "fog_map_run_history_reader",
+    "app/research/fog_map_render.py": "fog_map_run_history_reader",
+    "app/research/history_compatibility_projection.py": "history_compatibility_projection",
+    "app/research/legacy_migration.py": "legacy_run_history_jsonl_migration",
+    "app/research/map_contract.py": "fog_map_run_history_reader",
+    "app/research/observation_ingest.py": "legacy_run_history_jsonl_migration",
+    "scripts/backfill_research_map_run_history.py": "research_map_run_history_backfill",
+    "scripts/build_5913_combo_effectiveness_review.py": "combo_effectiveness_run_history_reader",
+    "scripts/build_liquidity_replay_v2_stage2.py": "liquidity_v2_run_history_reader",
+    "scripts/build_research_campaign_progress.py": "campaign_progress_run_history_reader",
+    "scripts/build_research_fog_map.py": "fog_map_run_history_reader",
+    "scripts/build_weekend_readiness_audit.py": "weekend_training_run_history_reader",
+    "scripts/build_weekend_universe_inventory.py": "weekend_training_run_history_reader",
+    "scripts/fog_authority_contracts.py": "fog_map_run_history_reader",
+    "scripts/research_map_linkage_smoke.py": "research_map_run_history_backfill",
+    "scripts/run_autonomous_research.py": "legacy_run_history_appenders",
+    "scripts/run_controlled_grid_drain_host_runner.py": "legacy_run_history_appenders",
+    "scripts/run_liquidity_replay_v2_batch.py": "liquidity_v2_batch_run_history_bridge",
+    "scripts/run_representative_replay_drain_worker.py": "legacy_run_history_appenders",
+    "scripts/run_top10_fog_map_handoff.py": "fog_map_run_history_reader",
+    "scripts/run_weekend_representative_replay.py": "legacy_run_history_appenders",
+    "scripts/run_weekend_survivor_deep_replay.py": "legacy_run_history_appenders",
+    "scripts/verify_autonomous_research.py": "legacy_run_history_appenders",
+    "scripts/verify_feature_group_regime_walkforward.py": "legacy_run_history_appenders",
+    "scripts/verify_liquidity_replay_v2_batch.py": "liquidity_v2_run_history_reader",
+    "scripts/verify_research_fog_map.py": "research_fog_map_verifier_reader",
+    "scripts/verify_research_map_run_history_backfill.py": "research_map_backfill_verifier",
+    "scripts/verify_research_map_v2_schema.py": "fog_map_run_history_reader",
+    "scripts/verify_weekend_representative_replay.py": "legacy_run_history_appenders",
+    "scripts/weekend_training_common.py": "weekend_training_run_history_reader",
 }
 REMOVAL_TEST_MODULE = "tests/test_research_spine_a6_bridge_removals.py"
 
@@ -171,6 +208,39 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "target_stage": "CARD_C_CONTROL_CUTOVER",
             "status": "ACTIVE_LEGACY_WRITER",
         },
+        {
+            "bridge_id": "liquidity_v2_batch_run_history_bridge",
+            "owner": "liquidity-replay-v2",
+            "direction": "run_history_jsonl_to_and_from_liquidity_batch",
+            "authority": "DERIVED_COMPATIBILITY_READ_WRITE",
+            "read_write_mode": "legacy_read_append_only",
+            "removal_condition": "Liquidity v2 batch 改用 ledger-backed compatibility projection。",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_liquidity_v2_batch_run_history_bridge_removal_evidence",
+            "target_stage": "POST_A6_LEGACY_REPLAY_RETIREMENT",
+            "status": "ACTIVE_LEGACY_WRITER",
+        },
+        {
+            "bridge_id": "research_fog_map_verifier_reader",
+            "owner": "fog-map",
+            "direction": "run_history_jsonl_to_fog_map_verification",
+            "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
+            "read_write_mode": "read_only",
+            "removal_condition": "Fog Map verifier 改讀 ledger-backed projection。",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_research_fog_map_verifier_reader_removal_evidence",
+            "target_stage": "CARD_C_CONTROL_CUTOVER",
+            "status": "ACTIVE_BRIDGE",
+        },
+        {
+            "bridge_id": "combo_effectiveness_run_history_reader",
+            "owner": "research-effectiveness-review",
+            "direction": "run_history_jsonl_to_combo_effectiveness_review",
+            "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
+            "read_write_mode": "read_only",
+            "removal_condition": "5913 effectiveness review 改讀 ledger-backed projection 或退役。",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_combo_effectiveness_run_history_reader_removal_evidence",
+            "target_stage": "POST_A6_LEGACY_REPLAY_RETIREMENT",
+            "status": "ACTIVE_BRIDGE",
+        },
     ]
 
 
@@ -198,6 +268,14 @@ def validate_bridge_inventory(rows: list[dict[str, Any]]) -> dict[str, Any]:
         source = PROJECT_ROOT / relative_path
         if not source.is_file() or marker not in source.read_text(encoding="utf-8"):
             errors.append({"bridge_id": bridge_id, "reason": "SOURCE_SURFACE_UNVERIFIABLE"})
+    source_scan = scan_source_surfaces()
+    for match in source_scan["matches"]:
+        if match["bridge_id"] not in actual_ids:
+            errors.append({"bridge_id": match["bridge_id"], "reason": "SURFACE_BRIDGE_UNINVENTORIED"})
+    errors.extend(
+        {"bridge_id": path, "reason": "UNMAPPED_SOURCE_SURFACE"}
+        for path in source_scan["unmapped"]
+    )
     return {
         "schema_version": BRIDGE_SCHEMA_VERSION,
         "status": "PASS" if not errors else "FAIL",
@@ -205,6 +283,7 @@ def validate_bridge_inventory(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "required_fields": sorted(REQUIRED_BRIDGE_FIELDS),
         "error_codes": sorted({error["reason"] for error in errors}),
         "errors": errors,
+        "source_scan": source_scan,
     }
 
 
@@ -224,6 +303,41 @@ def _removal_test_exists(test_ref: str, bridge_id: str) -> bool:
     except SyntaxError:
         return False
     return any(isinstance(node, ast.FunctionDef) and node.name == function for node in module.body)
+
+
+def scan_source_surfaces(
+    *, manifest: dict[str, str] | None = None, project_root: Path = PROJECT_ROOT,
+) -> dict[str, Any]:
+    """只掃 production source；每個 run_history function/module surface 必須有 bridge 映射。"""
+    active_manifest = manifest if manifest is not None else SOURCE_SURFACE_MANIFEST
+    matches: list[dict[str, str]] = []
+    for relative_path in sorted(active_manifest):
+        path = project_root / relative_path
+        if not path.is_file():
+            matches.append({"path": relative_path, "function": "<missing>", "bridge_id": ""})
+            continue
+        source_lines = path.read_text(encoding="utf-8").splitlines()
+        tree = ast.parse("\n".join(source_lines))
+        functions = [node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        names = {
+            node.name for node in functions
+            if any("run_history" in line.lower() for line in source_lines[node.lineno - 1:node.end_lineno])
+        }
+        for function in sorted(names or ({"<module>"} if any("run_history" in line.lower() for line in source_lines) else set())):
+            matches.append({"path": relative_path, "function": function, "bridge_id": active_manifest[relative_path]})
+    discovered = sorted(
+        str(path.relative_to(project_root))
+        for directory in (project_root / "app/research", project_root / "scripts")
+        for path in directory.rglob("*.py")
+        if path != Path(__file__) and "run_history" in path.read_text(encoding="utf-8").lower()
+    )
+    unmapped = sorted(set(discovered) - set(active_manifest))
+    return {
+        "inputs": {"roots": ["app/research", "scripts"], "matcher": "casefold:run_history", "manifest_paths": sorted(active_manifest)},
+        "matches": matches,
+        "unmapped": unmapped,
+        "status": "PASS" if not unmapped and all(match["bridge_id"] for match in matches) else "FAIL",
+    }
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -448,6 +562,20 @@ def scope_guards(*, base_ref: str, candidate_ref: str, repo_root: Path = PROJECT
         "production_changed": any(path.startswith(("models/", "app/agent_b_ranking.py", "config/signals")) for path in changed),
         "scheduler_changed": any(path.endswith(".plist") or "scheduler" in path for path in changed),
         "ranking_or_backtest_math_changed": any(path.startswith(("indicators.py", "fundamental_data.py", "reason_generator.py", "app/modeling/")) for path in changed),
+    }
+
+
+def canonical_closure_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
+    """移除 fixture runtime timestamp 導出的 identities，保留可驗收 closure 語義。"""
+    rebuild = receipt["rebuild"]
+    return {
+        "schema_version": receipt["schema_version"],
+        "status": receipt["status"],
+        "scope_guards": receipt["scope_guards"],
+        "rebuild": {"status": rebuild["status"], "checks": rebuild["checks"], "counts": rebuild["first"]["counts"]},
+        "new_run_truth": receipt["new_run_truth"]["counts"],
+        "bridge_inventory": receipt["bridge_inventory"],
+        "error_codes": receipt["error_codes"],
     }
 
 

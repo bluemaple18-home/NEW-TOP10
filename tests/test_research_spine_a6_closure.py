@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from app.research.a6_closure import (
     REQUIRED_BRIDGE_FIELDS,
+    SOURCE_SURFACE_MANIFEST,
+    canonical_closure_receipt,
     bridge_inventory_rows,
     scope_guards,
+    scan_source_surfaces,
     validate_bridge_inventory,
     verify_a6_closure,
     verify_new_run_truth,
@@ -68,6 +73,14 @@ def test_bridge_inventory_fails_closed_when_a_source_derived_surface_is_omitted(
     result = validate_bridge_inventory(rows)
     assert result["status"] == "FAIL"
     assert "MISSING_SOURCE_BRIDGE" in result["error_codes"]
+
+
+def test_source_scan_fails_closed_when_a_direct_reader_surface_is_unmapped() -> None:
+    manifest = dict(SOURCE_SURFACE_MANIFEST)
+    del manifest["scripts/verify_research_fog_map.py"]
+    scan = scan_source_surfaces(manifest=manifest)
+    assert scan["status"] == "FAIL"
+    assert "scripts/verify_research_fog_map.py" in scan["unmapped"]
 
 
 def test_new_run_truth_rejects_cross_file_intent_membership_mismatch(tmp_path: Path) -> None:
@@ -177,3 +190,16 @@ def test_scope_guards_are_derived_from_the_candidate_diff() -> None:
         "ranking_or_backtest_math_changed",
     }
     assert not any(guards.values())
+
+
+def test_checked_in_closure_receipt_canonically_matches_fixed_fixture_recompute(tmp_path: Path) -> None:
+    expected = Path("docs/evidence/CARD-NEW-TOP10-RESEARCH-A6-DEPRECATION-REBUILD-AND-BRIDGE-REMOVAL-GATES/closure_receipt.json")
+    actual = tmp_path / "closure_receipt.json"
+    completed = subprocess.run(
+        [sys.executable, "scripts/verify_research_spine_a6_fixed_fixture.py", "--output", str(actual)],
+        check=False, capture_output=True, text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert canonical_closure_receipt(json.loads(actual.read_text(encoding="utf-8"))) == canonical_closure_receipt(
+        json.loads(expected.read_text(encoding="utf-8"))
+    )

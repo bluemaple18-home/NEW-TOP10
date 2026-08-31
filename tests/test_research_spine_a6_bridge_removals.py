@@ -50,3 +50,15 @@ def test_liquidity_v2_run_history_reader_removal_evidence() -> None:
 
 def test_legacy_run_history_appenders_removal_evidence() -> None:
     _assert_surface("legacy_run_history_appenders")
+
+
+def test_liquidity_v2_batch_run_history_bridge_removal_evidence() -> None:
+    _assert_surface("liquidity_v2_batch_run_history_bridge")
+
+
+def test_research_fog_map_verifier_reader_removal_evidence() -> None:
+    _assert_surface("research_fog_map_verifier_reader")
+
+
+def test_combo_effectiveness_run_history_reader_removal_evidence() -> None:
+    _assert_surface("combo_effectiveness_run_history_reader")
