@@ -1147,7 +1147,7 @@ def validate_migrated_record(payload: Mapping[str, Any]) -> list[str]:
         "schema_version", "migration_record_id", "parser_version", "source", "record_kind",
         "legacy_identity", "parameters", "metrics", "preliminary_classification",
         "migration_disposition", "disposition_policy_version", "inference_policy_version",
-        "confidence", "reason_codes", "evidence_refs", "combo_mapping",
+        "confidence", "reason_codes", "evidence_refs", "mapping_authority_id", "combo_mapping",
         "semantic_evidence_id",
     }
     errors = _exact_fields(payload, fields)
@@ -1213,6 +1213,11 @@ def validate_migrated_record(payload: Mapping[str, Any]) -> list[str]:
         errors.extend(_hash(value, f"evidence_refs[{index}]"))
     if source.get("artifact_id") not in refs:
         errors.append("evidence_refs must include source artifact")
+    authority_id = payload.get("mapping_authority_id")
+    if authority_id is not None:
+        errors.extend(_hash(authority_id, "mapping_authority_id"))
+        if authority_id not in refs:
+            errors.append("evidence_refs must include mapping_authority_id")
     combo = _mapping(payload.get("combo_mapping"))
     errors.extend(_exact_fields(
         combo, {"mapping_status", "cardinality", "candidates"}, "combo_mapping."
@@ -1238,6 +1243,8 @@ def validate_migrated_record(payload: Mapping[str, Any]) -> list[str]:
             errors.append(f"combo_mapping.candidates[{index}].evidence_refs must be canonical-sorted and unique")
         if candidate.get("canonical_trial_spec_id") not in candidate_refs:
             errors.append(f"combo_mapping.candidates[{index}].evidence_refs must include canonical target")
+        if authority_id is not None and authority_id not in candidate_refs:
+            errors.append(f"combo_mapping.candidates[{index}].evidence_refs must include mapping authority")
         candidate_reasons = candidate.get("reason_codes")
         if not isinstance(candidate_reasons, list) or not candidate_reasons:
             errors.append(f"combo_mapping.candidates[{index}].reason_codes must be non-empty")
@@ -1248,6 +1255,8 @@ def validate_migrated_record(payload: Mapping[str, Any]) -> list[str]:
     if combo.get("cardinality") != expected_cardinality:
         errors.append("combo_mapping.cardinality mismatch")
     if disposition in {"MIGRATED_EXACT", "MIGRATED_INFERRED"}:
+        if authority_id is None:
+            errors.append("mapped disposition requires independent mapping authority")
         if payload.get("record_kind") != "PARAMETER_RESULT":
             errors.append("mapped disposition requires PARAMETER_RESULT")
         expected_status = "RESOLVED" if len(candidates) == 1 else "RESOLVED_ONE_TO_MANY"
@@ -1276,6 +1285,8 @@ def validate_migrated_record(payload: Mapping[str, Any]) -> list[str]:
         errors.append("PARAMETER_RESULT requires parameters, metrics, and semantic_evidence_id")
     if disposition == "EXCLUDED_NON_RESEARCH" and payload.get("preliminary_classification") != "NOT_APPLICABLE_NON_OBSERVATION":
         errors.append("EXCLUDED_NON_RESEARCH must be non-observation")
+    if disposition == "EXCLUDED_NON_RESEARCH" and authority_id is None:
+        errors.append("EXCLUDED_NON_RESEARCH requires independent mapping authority")
     if disposition in {"MIGRATED_INFERRED", "LEGACY_INCOMPLETE", "LEGACY_UNRESOLVED"} and payload.get("preliminary_classification") == "SEALED_VALIDATION_ONLY":
         errors.append("non-exact evidence cannot claim sealed eligibility")
     if not errors and payload.get("migration_record_id") != content_hash(
@@ -1347,6 +1358,109 @@ def validate_migration_quality_report(payload: Mapping[str, Any]) -> list[str]:
         payload, omit={"quality_report_id"}
     ):
         errors.append("quality_report_id does not match canonical content")
+    return errors
+
+
+def validate_legacy_mapping_authority(payload: Mapping[str, Any]) -> list[str]:
+    fields = {
+        "schema_version", "authority_id", "authority_policy_version",
+        "source_artifact_id", "record_locator", "legacy_combo_id", "mapping_mode",
+        "confidence", "reason_codes", "evidence_refs", "multi_target_resolution",
+        "governing_receipt_ids", "candidates",
+    }
+    errors = _exact_fields(payload, fields)
+    if payload.get("schema_version") != "research-legacy-mapping-authority.v1":
+        errors.append("schema_version is invalid")
+    if payload.get("authority_policy_version") != "legacy-mapping-authority.v1":
+        errors.append("authority_policy_version is invalid")
+    for field in ("authority_id", "source_artifact_id"):
+        errors.extend(_hash(payload.get(field), field))
+    for field in ("record_locator", "legacy_combo_id"):
+        errors.extend(_nonempty(payload.get(field), field))
+    mode = payload.get("mapping_mode")
+    if mode not in {"EXACT", "INFERRED", "EXCLUDE_NON_RESEARCH"}:
+        errors.append("mapping_mode is invalid")
+    confidence = payload.get("confidence")
+    if mode == "EXACT" and confidence != "EXACT":
+        errors.append("EXACT authority requires EXACT confidence")
+    if mode == "INFERRED" and confidence not in {"HIGH", "MEDIUM", "LOW"}:
+        errors.append("INFERRED authority requires inference confidence")
+    if mode == "EXCLUDE_NON_RESEARCH" and confidence != "NOT_APPLICABLE":
+        errors.append("EXCLUDE_NON_RESEARCH requires NOT_APPLICABLE confidence")
+    allowed_reasons = {
+        "EXACT": {"DIRECT_A1_TRIAL_SPEC_BINDING", "DIRECT_MULTI_TARGET_BINDING"},
+        "INFERRED": {
+            "VERSIONED_DETERMINISTIC_POLICY_MATCH", "AMBIGUOUS_CANONICAL_TARGET",
+        },
+        "EXCLUDE_NON_RESEARCH": {
+            "EXPLICIT_NON_RESEARCH_EVIDENCE", "EXPLICIT_OPERATIONAL_HEARTBEAT_EVIDENCE",
+        },
+    }
+    for field in ("reason_codes", "evidence_refs", "governing_receipt_ids"):
+        values = payload.get(field)
+        if not isinstance(values, list) or values != sorted(set(values)):
+            errors.append(f"{field} must be canonical-sorted and unique")
+        if field != "governing_receipt_ids" and not values:
+            errors.append(f"{field} must be non-empty")
+    if isinstance(payload.get("reason_codes"), list) and any(
+        reason not in allowed_reasons.get(str(mode), set())
+        for reason in payload["reason_codes"]
+    ):
+        errors.append("reason_codes are not allowed for mapping_mode")
+    evidence_refs = payload.get("evidence_refs") if isinstance(payload.get("evidence_refs"), list) else []
+    if payload.get("source_artifact_id") not in evidence_refs:
+        errors.append("evidence_refs must include source artifact")
+    receipt_ids = payload.get("governing_receipt_ids") if isinstance(payload.get("governing_receipt_ids"), list) else []
+    for index, receipt_id in enumerate(receipt_ids):
+        errors.extend(_hash(receipt_id, f"governing_receipt_ids[{index}]"))
+        if receipt_id not in evidence_refs:
+            errors.append(f"evidence_refs must include governing_receipt_ids[{index}]")
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, list):
+        errors.append("candidates must be a list")
+        candidates = []
+    canonical_candidates: list[tuple[str, str]] = []
+    for index, raw in enumerate(candidates):
+        candidate = _mapping(raw)
+        errors.extend(_exact_fields(
+            candidate,
+            {"combo_id", "canonical_trial_spec_id", "reason_codes", "evidence_refs"},
+            f"candidates[{index}].",
+        ))
+        errors.extend(_nonempty(candidate.get("combo_id"), f"candidates[{index}].combo_id"))
+        trial_id = candidate.get("canonical_trial_spec_id")
+        errors.extend(_hash(trial_id, f"candidates[{index}].canonical_trial_spec_id"))
+        candidate_refs = candidate.get("evidence_refs")
+        if not isinstance(candidate_refs, list) or candidate_refs != sorted(set(candidate_refs)):
+            errors.append(f"candidates[{index}].evidence_refs must be canonical-sorted and unique")
+            candidate_refs = []
+        if candidate_refs != [trial_id] or trial_id not in evidence_refs:
+            errors.append(f"candidates[{index}] target must be present in evidence refs")
+        reasons = candidate.get("reason_codes")
+        if not isinstance(reasons, list) or not reasons:
+            errors.append(f"candidates[{index}].reason_codes must be non-empty")
+        elif any(reason not in allowed_reasons.get(str(mode), set()) for reason in reasons):
+            errors.append(f"candidates[{index}].reason_codes are not allowed for mapping_mode")
+        canonical_candidates.append((str(candidate.get("combo_id")), str(trial_id)))
+    if canonical_candidates != sorted(set(canonical_candidates)):
+        errors.append("candidates must be canonical-sorted and unique")
+    if mode in {"EXACT", "INFERRED"} and not candidates:
+        errors.append("mapping authority requires candidates")
+    if mode == "EXCLUDE_NON_RESEARCH" and candidates:
+        errors.append("non-research exclusion cannot have candidates")
+    candidate_trial_ids = [trial_id for _, trial_id in canonical_candidates]
+    expected_evidence_refs = sorted(set([
+        str(payload.get("source_artifact_id")), *candidate_trial_ids,
+        *(value for value in receipt_ids if isinstance(value, str)),
+    ]))
+    if evidence_refs != expected_evidence_refs:
+        errors.append("evidence_refs must exactly bind source, targets, and governing receipts")
+    if payload.get("multi_target_resolution") not in {"NOT_APPLICABLE", "ALL_TARGETS_PROVEN"}:
+        errors.append("multi_target_resolution is invalid")
+    if not errors and payload.get("authority_id") != content_hash(
+        payload, omit={"authority_id"}
+    ):
+        errors.append("authority_id does not match canonical content")
     return errors
 
 

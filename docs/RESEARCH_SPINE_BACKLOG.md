@@ -2,7 +2,7 @@
 
 更新：2026-08-31
 
-狀態：`CURRENT DOMAIN EXECUTION ORDER / A0_ACCEPTED / A1_MAINLINE_ACCEPTED / A2_MAINLINE_ACCEPTED / A3_OWNER_ADMITTED_PLANNING`
+狀態：`CURRENT DOMAIN EXECUTION ORDER / A0_ACCEPTED / A1_MAINLINE_ACCEPTED / A2_MAINLINE_ACCEPTED / A3_LOCAL_CANDIDATE_REVIEW_PENDING`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -20,7 +20,7 @@ Repository：`bluemaple18-home/NEW-TOP10`
 
 ### Current arbitration (2026-08-31)
 
-`#2 A0 = COMPLETE / ACCEPTED`。`#3 A1 = COMPLETE / MAINLINE_ACCEPTED`，其 PR #12 canonical merge SHA 為 `0b39937399eddd0535372ece51ddc25bc38fe6a6`。`#4 A2 = COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`：原 candidate `3f7347f30b274201e5c66f649e5919de16d1f6e9` 的 mainline acceptance 發現 run artifact `topic_runs` membership omission／duplicate P1，已由 `5edd87e7df75bb44517f6c2b46d48780cf3476f2` 修復並直接 fast-forward 至 `main`（無 PR）；獨立 fixed-SHA re-review 為 `GO / no P0/P1`，驗證為 `149 passed` 與 `git diff --check` pass。Issue #4 已 `CLOSED / REMOTE_CLOSEOUT_RECONCILED`。Owner 已明示 admission `#5 A3`；Research frontier 現為 `A3 = OWNER_ADMITTED / PLANNING`，implementation 尚未開始。`#6–#8 A4–A6` 均維持 `BLOCKED / NOT_STARTED`。
+`#2 A0 = COMPLETE / ACCEPTED`。`#3 A1 = COMPLETE / MAINLINE_ACCEPTED`，其 PR #12 canonical merge SHA 為 `0b39937399eddd0535372ece51ddc25bc38fe6a6`。`#4 A2 = COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`：原 candidate `3f7347f30b274201e5c66f649e5919de16d1f6e9` 的 mainline acceptance 發現 run artifact `topic_runs` membership omission／duplicate P1，已由 `5edd87e7df75bb44517f6c2b46d48780cf3476f2` 修復並直接 fast-forward 至 `main`（無 PR）；獨立 fixed-SHA re-review 為 `GO / no P0/P1`，驗證為 `149 passed` 與 `git diff --check` pass。Issue #4 已 `CLOSED / REMOTE_CLOSEOUT_RECONCILED`。Owner 已明示 admission `#5 A3`；A3 implementation 與 fixed-SHA `aea377e` Review 的四項 P1 repair 已完成於本機，狀態為 `LOCAL_CANDIDATE / REVIEW_PENDING`，不代表 accepted 或 admission A4–A6。`#6–#8 A4–A6` 均維持 `BLOCKED / NOT_STARTED`。
 
 `#9` 保持 `OPEN / LONG-TERM HARDENING`，不阻擋 read-only A0；Research lane（含 A0/research）不得執行 scheduler、publish 或 production mutation。#9 未來若需 operational hardening，須另行取得對應授權。`#10` 等待 2026-08-31 17:30（Asia/Taipei）natural-run observation；該 observation 未完成前不得宣稱 close 或 promotion。
 
@@ -32,7 +32,7 @@ Repository：`bluemaple18-home/NEW-TOP10`
 A3 已取得 Owner admission；A4–A6 仍不得開始：
 
 - [x] [#4 A2 — ExecutionIntent and Immutable Receipt](https://github.com/bluemaple18-home/NEW-TOP10/issues/4) — `COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`；`main@5edd87e7df75bb44517f6c2b46d48780cf3476f2`；Issue #4=`CLOSED / REMOTE_CLOSEOUT_RECONCILED`
-- [ ] [#5 A3 — Legacy Migration and Reconciliation](https://github.com/bluemaple18-home/NEW-TOP10/issues/5) — `OWNER_ADMITTED / PLANNING`；依賴 #3、#4 已滿足，implementation 尚未開始
+- [ ] [#5 A3 — Legacy Migration and Reconciliation](https://github.com/bluemaple18-home/NEW-TOP10/issues/5) — `LOCAL_CANDIDATE / REVIEW_PENDING`；fixed-SHA `aea377e` 的四項 P1 已在本機 repair，等待新 fixed-SHA verification／獨立 re-review
 - [ ] [#6 A4 — Rebuildable Ledger and Observations](https://github.com/bluemaple18-home/NEW-TOP10/issues/6) — `BLOCKED / NOT_STARTED`；blocked by #5
 - [ ] [#7 A5 — Matched Learning Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/7) — `BLOCKED / NOT_STARTED`；blocked by #6
 - [ ] [#8 A6 — Deprecation, Rebuild and Bridge Removal Gates](https://github.com/bluemaple18-home/NEW-TOP10/issues/8) — `BLOCKED / NOT_STARTED`；blocked by #5、#6 and #7

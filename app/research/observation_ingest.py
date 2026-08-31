@@ -27,6 +27,7 @@ from app.research.contracts import (
     validate_migrated_record,
     validate_migration_manifest_v2,
     validate_migration_quality_report,
+    validate_legacy_mapping_authority,
 )
 
 
@@ -248,6 +249,7 @@ CREATE TABLE IF NOT EXISTS migration_record_dispositions (
     confidence VARCHAR NOT NULL,
     disposition_policy_version VARCHAR NOT NULL,
     inference_policy_version VARCHAR NOT NULL,
+    mapping_authority_id VARCHAR,
     combo_mapping_status VARCHAR NOT NULL,
     combo_cardinality VARCHAR NOT NULL,
     canonical_payload_hash VARCHAR NOT NULL
@@ -417,7 +419,114 @@ def input_corpus_hash(connection: duckdb.DuckDBPyConnection) -> str:
     return content_hash({"policy_version": "research-corpus-inventory.v1", "entries": entries})
 
 
+def _migration_authority(corpus_root: Path, authority_id: str) -> dict[str, Any]:
+    path = corpus_root / "migration" / "authorities" / f"{authority_id.removeprefix('sha256:')}.json"
+    if not path.is_file():
+        raise ValueError("MIGRATION_MAPPING_AUTHORITY_MISSING")
+    payload = _load_json(path)
+    errors = validate_legacy_mapping_authority(payload)
+    if errors or payload.get("authority_id") != authority_id:
+        raise ValueError("MIGRATION_MAPPING_AUTHORITY_INVALID")
+    return payload
+
+
+def _migration_trial_target(corpus_root: Path, trial_id: str) -> dict[str, Any]:
+    path = corpus_root / "trial_specs" / f"{trial_id.removeprefix('sha256:')}.json"
+    if not path.is_file():
+        raise ValueError("MIGRATION_CANONICAL_TARGET_MISSING")
+    payload = _load_json(path)
+    errors = validate_trial_spec(payload)
+    if errors or payload.get("trial_spec_id") != trial_id:
+        raise ValueError("MIGRATION_CANONICAL_TARGET_INVALID")
+    return payload
+
+
+def _migration_receipts(corpus_root: Path) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for path in _paths(corpus_root, "receipts"):
+        try:
+            payload = _load_json(path)
+        except (ValueError, json.JSONDecodeError):
+            continue
+        errors = validate_run_receipt(payload)
+        if errors or path.stem != str(payload.get("run_id") or ""):
+            continue
+        result[str(payload["receipt_id"])] = payload
+    return result
+
+
+def _validate_migration_record_authority(
+    corpus_root: Path,
+    record: dict[str, Any],
+    receipts: dict[str, dict[str, Any]],
+) -> None:
+    disposition = record["migration_disposition"]
+    authority_id = record.get("mapping_authority_id")
+    if authority_id is None:
+        if disposition in {"MIGRATED_EXACT", "MIGRATED_INFERRED", "EXCLUDED_NON_RESEARCH"}:
+            raise ValueError("MIGRATION_MAPPING_AUTHORITY_REQUIRED")
+        if record["evidence_refs"] != [record["source"]["artifact_id"]]:
+            raise ValueError("MIGRATION_EVIDENCE_REF_MISMATCH")
+        return
+    authority = _migration_authority(corpus_root, authority_id)
+    expected_combo = str(record["legacy_identity"].get("combo_id") or "NOT_APPLICABLE")
+    if (
+        authority["source_artifact_id"] != record["source"]["artifact_id"]
+        or authority["record_locator"] != record["source"]["record_locator"]
+        or authority["legacy_combo_id"] != expected_combo
+    ):
+        raise ValueError("MIGRATION_MAPPING_AUTHORITY_BINDING_MISMATCH")
+    mode = authority["mapping_mode"]
+    if mode == "EXACT" and disposition != "MIGRATED_EXACT":
+        raise ValueError("MIGRATION_MAPPING_AUTHORITY_DISPOSITION_MISMATCH")
+    if mode == "INFERRED" and disposition not in {"MIGRATED_INFERRED", "LEGACY_UNRESOLVED"}:
+        raise ValueError("MIGRATION_MAPPING_AUTHORITY_DISPOSITION_MISMATCH")
+    if mode == "EXCLUDE_NON_RESEARCH" and disposition != "EXCLUDED_NON_RESEARCH":
+        raise ValueError("MIGRATION_MAPPING_AUTHORITY_DISPOSITION_MISMATCH")
+    expected_refs = sorted(set([authority_id, *authority["evidence_refs"]]))
+    if record["evidence_refs"] != expected_refs:
+        raise ValueError("MIGRATION_EVIDENCE_REF_MISMATCH")
+    record_candidates = record["combo_mapping"]["candidates"]
+    authority_candidates = authority["candidates"]
+    if len(record_candidates) != len(authority_candidates):
+        raise ValueError("MIGRATION_CANONICAL_TARGET_COUNT_MISMATCH")
+    targets: dict[str, dict[str, Any]] = {}
+    for record_edge, authority_edge in zip(record_candidates, authority_candidates, strict=True):
+        trial_id = str(authority_edge["canonical_trial_spec_id"])
+        target = _migration_trial_target(corpus_root, trial_id)
+        targets[trial_id] = target
+        expected_edge = {
+            **authority_edge,
+            "evidence_refs": sorted(set([authority_id, *authority_edge["evidence_refs"]])),
+        }
+        if record_edge != expected_edge:
+            raise ValueError("MIGRATION_CANONICAL_TARGET_EDGE_MISMATCH")
+        if target.get("parameters") != record.get("parameters"):
+            raise ValueError("MIGRATION_CANONICAL_TARGET_PARAMETER_MISMATCH")
+        topic_id = record["legacy_identity"].get("topic_id")
+        if topic_id is not None and target.get("topic_id") != topic_id:
+            raise ValueError("MIGRATION_CANONICAL_TARGET_TOPIC_MISMATCH")
+    for receipt_id in authority["governing_receipt_ids"]:
+        if receipt_id not in receipts:
+            raise ValueError("MIGRATION_GOVERNING_RECEIPT_MISSING")
+    if record["preliminary_classification"] == "SEALED_VALIDATION_ONLY":
+        governed: set[str] = set()
+        for receipt_id in authority["governing_receipt_ids"]:
+            for unit in receipts[receipt_id].get("executed_units") or []:
+                trial_id = unit.get("executed_trial_spec_id")
+                if (
+                    trial_id in targets
+                    and targets[str(trial_id)].get("research_stage") == "SEALED_VALIDATION"
+                    and unit.get("executed_research_stage") == "SEALED_VALIDATION"
+                    and unit.get("sealed_usage_status") == "SEALED"
+                ):
+                    governed.add(str(trial_id))
+        if governed != set(targets):
+            raise ValueError("MIGRATION_SEALED_GOVERNANCE_MISMATCH")
+
+
 def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path) -> None:
+    canonical_receipts = _migration_receipts(corpus_root)
     for manifest_path in sorted((corpus_root / "migration" / "manifests").glob("*.json")):
         manifest = _load_json(manifest_path)
         manifest_errors = validate_migration_manifest_v2(manifest)
@@ -482,6 +591,9 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
                 )
                 if record_id != expected:
                     raise ValueError("MIGRATION_RECORD_IDENTITY_MISMATCH")
+                _validate_migration_record_authority(
+                    corpus_root, record, canonical_receipts
+                )
                 staged_records.append(record)
             observed_classifications = Counter(
                 record["preliminary_classification"] for record in records
@@ -634,9 +746,10 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
                 )
             combo = record["combo_mapping"]
             connection.execute(
-                "INSERT OR IGNORE INTO migration_record_dispositions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT OR IGNORE INTO migration_record_dispositions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [record_id, record["migration_disposition"], record["confidence"],
                  record["disposition_policy_version"], record["inference_policy_version"],
+                 record["mapping_authority_id"],
                  combo["mapping_status"], combo["cardinality"], record_hash],
             )
             for edge in combo["candidates"]:

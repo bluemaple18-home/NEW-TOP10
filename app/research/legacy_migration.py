@@ -11,7 +11,7 @@ from typing import Any, Iterable
 
 from app.research.contracts import (
     content_hash, validate_migrated_record, validate_migration_manifest_v2,
-    validate_trial_spec,
+    validate_trial_spec, validate_legacy_mapping_authority, validate_run_receipt,
 )
 from app.research.receipt_store import publish_bytes_to_cas, publish_file_to_cas
 
@@ -37,6 +37,13 @@ class LegacySource:
     source_type: str
 
 
+@dataclass(frozen=True)
+class ParsedLegacyRow:
+    locator: str
+    value: Any
+    parser_status: str
+
+
 def discover_legacy_sources(root: Path) -> list[LegacySource]:
     sources: list[LegacySource] = []
     for name, kind in (("run_history.jsonl", "RUN_HISTORY_JSONL"), ("run_history.json", "RUN_HISTORY_JSON")):
@@ -49,29 +56,90 @@ def discover_legacy_sources(root: Path) -> list[LegacySource]:
     return sources
 
 
-def _json_rows(source: LegacySource) -> Iterable[tuple[str, Any]]:
+def _json_rows(source: LegacySource) -> Iterable[ParsedLegacyRow]:
     if source.source_type == "RUN_HISTORY_JSONL":
-        for index, line in enumerate(source.path.read_text(encoding="utf-8").splitlines()):
-            if line.strip():
+        lines = source.path.read_text(encoding="utf-8").splitlines()
+        if not lines:
+            yield ParsedLegacyRow("jsonl:$empty", None, "EMPTY_RESEARCH_ARTIFACT")
+            return
+        for index, line in enumerate(lines):
+            if not line.strip():
+                yield ParsedLegacyRow(f"jsonl:{index}", None, "EMPTY_JSONL_LINE")
+                continue
+            try:
                 value = json.loads(line)
-                yield f"jsonl:{index}", value
+            except json.JSONDecodeError:
+                yield ParsedLegacyRow(f"jsonl:{index}", None, "MALFORMED_JSON")
+                continue
+            yield ParsedLegacyRow(
+                f"jsonl:{index}", value,
+                "PARSED_OBJECT" if isinstance(value, dict) else "PARSED_NON_OBJECT",
+            )
         return
-    payload = json.loads(source.path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(source.path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        yield ParsedLegacyRow("json-pointer:$document", None, "MALFORMED_JSON")
+        return
+    if not isinstance(payload, dict):
+        yield ParsedLegacyRow("json-pointer:$document", payload, "PARSED_NON_OBJECT")
+        return
     if source.source_type == "STRATEGY_MATRIX":
-        for index, value in enumerate(payload.get("scenarios") or []):
+        scenarios = payload.get("scenarios") or []
+        if not isinstance(scenarios, list) or not scenarios:
+            yield ParsedLegacyRow(
+                "json-pointer:/scenarios/$empty", None, "EMPTY_RESEARCH_ARTIFACT"
+            )
+            return
+        for index, value in enumerate(scenarios):
             if isinstance(value, dict):
-                yield f"json-pointer:/scenarios/{index}", {
-                    **value,
-                    "_matrix_contract": payload.get("contract") or {},
-                    "_matrix_inputs": payload.get("inputs") or {},
-                }
+                yield ParsedLegacyRow(
+                    f"json-pointer:/scenarios/{index}",
+                    {
+                        **value,
+                        "_matrix_contract": payload.get("contract") or {},
+                        "_matrix_inputs": payload.get("inputs") or {},
+                    },
+                    "PARSED_OBJECT",
+                )
             else:
-                yield f"json-pointer:/scenarios/{index}", value
+                yield ParsedLegacyRow(
+                    f"json-pointer:/scenarios/{index}", value, "PARSED_NON_OBJECT"
+                )
         return
     rows = payload.get("history") or payload.get("runs") or payload.get("rows") or []
     if isinstance(rows, list):
+        if not rows:
+            yield ParsedLegacyRow("json-pointer:/rows/$empty", None, "EMPTY_RESEARCH_ARTIFACT")
+            return
         for index, value in enumerate(rows):
-            yield f"json-pointer:/rows/{index}", value
+            yield ParsedLegacyRow(
+                f"json-pointer:/rows/{index}", value,
+                "PARSED_OBJECT" if isinstance(value, dict) else "PARSED_NON_OBJECT",
+            )
+
+
+def _mapping_authorities(corpus_root: Path) -> dict[tuple[str, str, str], dict[str, Any]]:
+    result: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for path in sorted((corpus_root / "migration" / "authorities").glob("*.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("invalid legacy mapping authority: root must be object")
+        errors = validate_legacy_mapping_authority(payload)
+        if errors:
+            raise ValueError("invalid legacy mapping authority: " + "; ".join(errors))
+        authority_id = str(payload["authority_id"])
+        if path.stem != authority_id.removeprefix("sha256:"):
+            raise ValueError("LEGACY_MAPPING_AUTHORITY_PATH_IDENTITY_MISMATCH")
+        key = (
+            str(payload["source_artifact_id"]), str(payload["record_locator"]),
+            str(payload["legacy_combo_id"]),
+        )
+        existing = result.get(key)
+        if existing is not None and existing != payload:
+            raise ValueError("LEGACY_MAPPING_AUTHORITY_COLLISION")
+        result[key] = payload
+    return result
 
 
 def _canonical_targets(corpus_root: Path) -> dict[str, dict[str, Any]]:
@@ -88,25 +156,45 @@ def _canonical_targets(corpus_root: Path) -> dict[str, dict[str, Any]]:
     return targets
 
 
+def _canonical_receipts(corpus_root: Path) -> dict[str, dict[str, Any]]:
+    receipts: dict[str, dict[str, Any]] = {}
+    for path in sorted((corpus_root / "receipts").glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if (
+            not isinstance(payload, dict) or validate_run_receipt(payload)
+            or path.stem != str(payload.get("run_id") or "")
+        ):
+            continue
+        receipts[str(payload["receipt_id"])] = payload
+    return receipts
+
+
 def _canonical_candidates(
-    row: dict[str, Any], targets: dict[str, dict[str, Any]]
-) -> tuple[str | None, str, list[str], list[str], list[dict[str, Any]], bool]:
-    evidence = row.get("migration_evidence")
-    if not isinstance(evidence, dict):
-        return None, "NOT_APPLICABLE", [], [], [], False
-    mode = str(evidence.get("mapping_mode") or "")
-    confidence = str(evidence.get("confidence") or "")
-    reasons = sorted(set(value for value in evidence.get("reason_codes") or [] if isinstance(value, str) and value))
-    refs = sorted(set(value for value in evidence.get("evidence_refs") or [] if isinstance(value, str) and value))
+    authority: dict[str, Any] | None,
+    row: dict[str, Any],
+    targets: dict[str, dict[str, Any]],
+) -> tuple[str | None, str, list[str], list[str], list[dict[str, Any]], bool, str | None]:
+    if authority is None:
+        return None, "NOT_APPLICABLE", [], [], [], False, None
+    mode = str(authority["mapping_mode"])
+    confidence = str(authority["confidence"])
+    reasons = list(authority["reason_codes"])
+    authority_id = str(authority["authority_id"])
+    refs = sorted(set([authority_id, *authority["evidence_refs"]]))
     candidates: list[dict[str, Any]] = []
-    for raw in evidence.get("candidates") or []:
+    for raw in authority["candidates"]:
         if not isinstance(raw, dict):
             continue
         trial_id = str(raw.get("canonical_trial_spec_id") or "")
         if trial_id not in targets:
             continue
         target = targets[trial_id]
-        if target.get("parameters") != _parameters(row) or target.get("topic_id") != row.get("topic_id"):
+        if target.get("parameters") != _parameters(row):
+            continue
+        if row.get("topic_id") is not None and target.get("topic_id") != row.get("topic_id"):
             continue
         combo_id = str(raw.get("combo_id") or "")
         edge_reasons = sorted(set(
@@ -121,13 +209,41 @@ def _canonical_candidates(
             "combo_id": combo_id,
             "canonical_trial_spec_id": trial_id,
             "reason_codes": edge_reasons,
-            "evidence_refs": edge_refs,
+            "evidence_refs": sorted(set([authority_id, *edge_refs])),
         })
     candidates.sort(key=lambda item: (item["combo_id"], item["canonical_trial_spec_id"]))
     unique = {(item["combo_id"], item["canonical_trial_spec_id"]): item for item in candidates}
     candidates = [unique[key] for key in sorted(unique)]
-    all_targets_proven = evidence.get("multi_target_resolution") == "ALL_TARGETS_PROVEN"
-    return mode, confidence, reasons, refs, candidates, all_targets_proven
+    all_targets_proven = authority["multi_target_resolution"] == "ALL_TARGETS_PROVEN"
+    return mode, confidence, reasons, refs, candidates, all_targets_proven, authority_id
+
+
+def _sealed_target_is_governed(
+    *,
+    authority: dict[str, Any] | None,
+    candidates: list[dict[str, Any]],
+    targets: dict[str, dict[str, Any]],
+    receipts: dict[str, dict[str, Any]],
+) -> bool:
+    if authority is None or not candidates:
+        return False
+    target_ids = {candidate["canonical_trial_spec_id"] for candidate in candidates}
+    if any(targets[target_id].get("research_stage") != "SEALED_VALIDATION" for target_id in target_ids):
+        return False
+    governed: set[str] = set()
+    for receipt_id in authority["governing_receipt_ids"]:
+        receipt = receipts.get(receipt_id)
+        if receipt is None:
+            continue
+        for unit in receipt.get("executed_units") or []:
+            trial_id = unit.get("executed_trial_spec_id")
+            if (
+                trial_id in target_ids
+                and unit.get("executed_research_stage") == "SEALED_VALIDATION"
+                and unit.get("sealed_usage_status") == "SEALED"
+            ):
+                governed.add(str(trial_id))
+    return governed == target_ids
 
 
 def _parameters(row: dict[str, Any]) -> dict[str, Any] | None:
@@ -160,24 +276,32 @@ def _metrics(row: dict[str, Any]) -> dict[str, Any] | None:
 def map_record(
     *, source: LegacySource, artifact_id: str, locator: str, row: Any,
     canonical_targets: dict[str, dict[str, Any]] | None = None,
+    mapping_authority: dict[str, Any] | None = None,
+    canonical_receipts: dict[str, dict[str, Any]] | None = None,
+    parser_status: str = "PARSED_OBJECT",
 ) -> dict[str, Any]:
     targets = canonical_targets or {}
     if not isinstance(row, dict):
+        disposition = (
+            "LEGACY_UNRESOLVED" if parser_status == "MALFORMED_JSON"
+            else "LEGACY_INCOMPLETE"
+        )
         core = {
             "schema_version": "research-migrated-record.v2",
             "parser_version": PARSER_VERSION,
             "source": {"artifact_id": artifact_id, "source_type": source.source_type, "record_locator": locator},
-            "record_kind": "NON_RESEARCH_RECORD",
+            "record_kind": "UNRESOLVED_RECORD",
             "legacy_identity": {"combo_id": None, "topic_id": None, "scenario_id": None},
             "parameters": None,
             "metrics": None,
-            "preliminary_classification": "NOT_APPLICABLE_NON_OBSERVATION",
-            "migration_disposition": "EXCLUDED_NON_RESEARCH",
+            "preliminary_classification": "INVALID_LINEAGE",
+            "migration_disposition": disposition,
             "disposition_policy_version": DISPOSITION_POLICY,
             "inference_policy_version": "NOT_APPLICABLE",
             "confidence": "NOT_APPLICABLE",
-            "reason_codes": ["JSON_ROW_IS_NOT_OBJECT"],
+            "reason_codes": [parser_status],
             "evidence_refs": [artifact_id],
+            "mapping_authority_id": None,
             "combo_mapping": {"mapping_status": "UNMAPPED", "cardinality": "ZERO", "candidates": []},
             "semantic_evidence_id": None,
         }
@@ -230,8 +354,20 @@ def map_record(
         )
     (
         mode, confidence, mapping_reasons, mapping_refs, candidates, all_targets_proven,
-    ) = _canonical_candidates(row, targets)
-    if (
+        authority_id,
+    ) = _canonical_candidates(mapping_authority, row, targets)
+    if mode == "EXCLUDE_NON_RESEARCH" and mapping_authority is not None:
+        disposition = "EXCLUDED_NON_RESEARCH"
+        disposition_confidence = "NOT_APPLICABLE"
+        mapping_status = "UNMAPPED"
+        kind = "NON_RESEARCH_RECORD"
+        classification = "NOT_APPLICABLE_NON_OBSERVATION"
+        parameters = None
+        metrics = None
+        semantic_id = None
+        reasons = mapping_reasons
+        inference_version = "NOT_APPLICABLE"
+    elif (
         kind == "PARAMETER_RESULT" and len(candidates) > 1 and all_targets_proven
         and mode == "EXACT" and confidence == "EXACT" and mapping_reasons
     ):
@@ -280,7 +416,7 @@ def map_record(
         inference_version = INFERENCE_POLICY
         if classification == "SEALED_VALIDATION_ONLY":
             classification = "LEGACY_DIAGNOSTIC_ONLY"
-    elif isinstance(row.get("migration_evidence"), dict):
+    elif mapping_authority is not None:
         disposition = "LEGACY_UNRESOLVED"
         disposition_confidence = "NOT_APPLICABLE"
         mapping_status = "UNMAPPED"
@@ -321,6 +457,7 @@ def map_record(
         "confidence": disposition_confidence,
         "reason_codes": reasons,
         "evidence_refs": sorted(set([artifact_id, *mapping_refs])),
+        "mapping_authority_id": authority_id,
         "combo_mapping": {
             "mapping_status": mapping_status,
             "cardinality": "ZERO" if not candidates else "ONE" if len(candidates) == 1 else "ONE_TO_MANY",
@@ -328,6 +465,21 @@ def map_record(
         },
         "semantic_evidence_id": semantic_id,
     }
+    if kind == "PARAMETER_RESULT" and disposition in {"MIGRATED_EXACT", "MIGRATED_INFERRED"}:
+        sealed_governed = _sealed_target_is_governed(
+            authority=mapping_authority,
+            candidates=candidates,
+            targets=targets,
+            receipts=canonical_receipts or {},
+        )
+        if sealed_governed:
+            classification = "SEALED_VALIDATION_ONLY"
+        else:
+            classification = "LEGACY_DIAGNOSTIC_ONLY"
+            if sealed_only:
+                core_reason = "LEGACY_SEALED_CLAIM_NOT_GOVERNING"
+                core["reason_codes"] = sorted(set([*core["reason_codes"], core_reason]))
+        core["preliminary_classification"] = classification
     core["migration_record_id"] = content_hash(
         {"policy_version": PARSER_VERSION, "artifact_id": artifact_id, "locator": locator, "record": core}
     )
@@ -351,19 +503,27 @@ def build_migration(
     source_entries_by_artifact: dict[str, dict[str, Any]] = {}
     all_records: list[dict[str, Any]] = []
     targets = _canonical_targets(corpus_root)
+    receipts = _canonical_receipts(corpus_root)
+    authorities = _mapping_authorities(corpus_root)
     record_root = corpus_root / "migration" / "records"
     record_root.mkdir(parents=True, exist_ok=True)
     selected_sources = sources if sources is not None else discover_legacy_sources(legacy_root)
     for source in selected_sources:
         artifact_id, cas_path = publish_file_to_cas(corpus_root, source.path)
         located = list(_json_rows(source))
-        records = [
-            map_record(
-                source=source, artifact_id=artifact_id, locator=locator, row=row,
-                canonical_targets=targets,
+        records: list[dict[str, Any]] = []
+        for located_row in located:
+            combo_id = (
+                str(located_row.value.get("combo_id") or "NOT_APPLICABLE")
+                if isinstance(located_row.value, dict) else "NOT_APPLICABLE"
             )
-            for locator, row in located
-        ]
+            authority = authorities.get((artifact_id, located_row.locator, combo_id))
+            records.append(map_record(
+                source=source, artifact_id=artifact_id, locator=located_row.locator,
+                row=located_row.value, canonical_targets=targets,
+                mapping_authority=authority, canonical_receipts=receipts,
+                parser_status=located_row.parser_status,
+            ))
         excluded = sum(
             record["migration_disposition"] == "EXCLUDED_NON_RESEARCH" for record in records
         )

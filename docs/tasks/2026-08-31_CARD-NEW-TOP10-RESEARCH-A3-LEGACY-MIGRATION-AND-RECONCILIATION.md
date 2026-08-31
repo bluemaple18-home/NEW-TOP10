@@ -1,6 +1,6 @@
 ---
 id: CARD-NEW-TOP10-RESEARCH-A3-LEGACY-MIGRATION-AND-RECONCILIATION
-status: owner_admitted_planning_complete
+status: local_candidate_review_pending
 type: implementation
 issue: 5
 depends_on: [3, 4]
@@ -261,6 +261,15 @@ git diff --check
 
 ## 14. Current status
 
-`A3 = OWNER_ADMITTED / PLANNING_COMPLETE / IMPLEMENTATION_NOT_STARTED`。
+`A3 = LOCAL_CANDIDATE / REPAIR_COMPLETE / REVIEW_PENDING`。
 
-本卡已固定 root question、measured gap、三軸 contract、五類 disposition、evidence/reconciliation、不變性、vertical slices、verification 與 stop conditions。下一步只能依 Slice A3.1 先建立 characterization/RED tests；不得直接跳到 ingest、A4–A6、push、merge或Issue closeout。
+本卡已完成 Slice A3.1–A3.4 的 bounded implementation 與 fixed-SHA `aea377eab761e46ddc7f8afe9b3ec0f30ddd114b` Review repair。下一步只能建立新 fixed-SHA candidate 並做獨立 re-review；不得跳到 A4–A6、push、merge或 Issue closeout。
+
+## 15. Implementation 與 Review repair receipt
+
+- Initial implementation RED：`tests/test_research_legacy_migration.py -q` 為 `11 passed / 5 failed`，固定逐 row disposition、mapping evidence、ambiguous no-winner、axis validator 與 quality report 缺口。
+- Initial fixed candidate：`aea377eab761e46ddc7f8afe9b3ec0f30ddd114b`；獨立 Review disposition=`NO-GO`，四項 remaining P1 為 legacy self-authorized exact、ingest dangling target/ref、legacy sealed eligibility 越權，以及 malformed/scalar/empty 被誤列 non-research exclusion。
+- Repair hostile RED：`17 passed / 4 failed`，分別重現上述四項 P1。
+- Repair boundary：exact/inferred/excluded 必須引用與 source artifact、locator、legacy combo 及 canonical A1 trial target 綁定的 immutable mapping authority；ingest 在 migration transaction write 前驗 authority、trial target與 governing A2 receipt 的 schema/path/identity/ref；sealed eligibility 只由 canonical target加 governing receipt stage/bundle evidence決定；malformed/scalar/empty research input保留 incomplete/unresolved，不能自動 excluded。
+- Repair GREEN：focused migration tests=`23 passed`；card full regression family=`172 passed`；trace presence 與 `git diff --check` pass。
+- Current disposition：`LOCAL_CANDIDATE / REVIEW_PENDING`。尚未產生 repair fixed SHA，尚未 re-review；不得宣稱 `GO`、accepted 或 admission A4–A6。

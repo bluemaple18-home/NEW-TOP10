@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from copy import deepcopy
 from pathlib import Path
 
@@ -45,6 +46,58 @@ def publish_trial(corpus: Path, trial: dict[str, object]) -> None:
     path = corpus / "trial_specs" / f"{str(trial['trial_spec_id'])[7:]}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(trial), encoding="utf-8")
+
+
+def source_artifact_id(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def publish_mapping_authority(
+    corpus: Path,
+    source: Path,
+    locator: str,
+    combo_id: str,
+    trials: list[dict[str, object]],
+    *,
+    mapping_mode: str = "EXACT",
+    confidence: str = "EXACT",
+    reason_code: str = "DIRECT_A1_TRIAL_SPEC_BINDING",
+    multi_target_resolution: str = "NOT_APPLICABLE",
+    governing_receipt_ids: list[str] | None = None,
+    candidate_combo_ids: list[str] | None = None,
+) -> dict[str, object]:
+    artifact_id = source_artifact_id(source)
+    receipt_ids = governing_receipt_ids or []
+    trial_ids = [str(trial["trial_spec_id"]) for trial in trials]
+    edge_combo_ids = candidate_combo_ids or [combo_id] * len(trial_ids)
+    payload: dict[str, object] = {
+        "schema_version": "research-legacy-mapping-authority.v1",
+        "authority_id": "sha256:" + "0" * 64,
+        "authority_policy_version": "legacy-mapping-authority.v1",
+        "source_artifact_id": artifact_id,
+        "record_locator": locator,
+        "legacy_combo_id": combo_id,
+        "mapping_mode": mapping_mode,
+        "confidence": confidence,
+        "reason_codes": [reason_code],
+        "evidence_refs": sorted([artifact_id, *trial_ids, *receipt_ids]),
+        "multi_target_resolution": multi_target_resolution,
+        "governing_receipt_ids": sorted(receipt_ids),
+        "candidates": [
+            {
+                "combo_id": edge_combo_id,
+                "canonical_trial_spec_id": trial_id,
+                "reason_codes": [reason_code],
+                "evidence_refs": [trial_id],
+            }
+            for trial_id, edge_combo_id in zip(trial_ids, edge_combo_ids, strict=True)
+        ],
+    }
+    payload["authority_id"] = content_hash(payload, omit={"authority_id"})
+    path = corpus / "migration" / "authorities" / f"{str(payload['authority_id'])[7:]}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    return payload
 
 
 def write_matrix(path: Path) -> None:
@@ -149,7 +202,7 @@ def test_migration_manifest_ingests_and_rebuilds_idempotently(tmp_path: Path) ->
     assert status == "LEGACY_DIAGNOSTIC_ONLY"
 
 
-def test_mixed_scalar_record_is_counted_as_excluded(tmp_path: Path) -> None:
+def test_mixed_scalar_record_is_counted_as_incomplete(tmp_path: Path) -> None:
     source = tmp_path / "run_history.jsonl"
     source.write_text("42\n" + json.dumps({"topic_id": "t"}) + "\n", encoding="utf-8")
     result = build_migration(
@@ -157,7 +210,7 @@ def test_mixed_scalar_record_is_counted_as_excluded(tmp_path: Path) -> None:
         sources=[LegacySource(source, "RUN_HISTORY_JSONL")],
     )
     counts = result["manifest"]["sources"][0]["record_counts"]
-    assert counts == {"seen": 2, "mapped": 1, "excluded": 1}
+    assert counts == {"seen": 2, "mapped": 2, "excluded": 0}
 
 
 def test_tampered_mapping_is_rejected_even_after_ingest(tmp_path: Path) -> None:
@@ -298,14 +351,12 @@ def test_every_row_has_one_independent_disposition_envelope(tmp_path: Path) -> N
     )
     records = result["records"]
     assert len(records) == 2
-    assert {record["migration_disposition"] for record in records} == {
-        "EXCLUDED_NON_RESEARCH", "LEGACY_INCOMPLETE"
-    }
+    assert {record["migration_disposition"] for record in records} == {"LEGACY_INCOMPLETE"}
     assert records[0]["record_kind"] != records[0]["migration_disposition"]
     assert all(record["reason_codes"] and record["evidence_refs"] for record in records)
     source_entry = result["manifest"]["sources"][0]
     assert sum(source_entry["disposition_counts"].values()) == 2
-    assert source_entry["record_counts"] == {"seen": 2, "mapped": 1, "excluded": 1}
+    assert source_entry["record_counts"] == {"seen": 2, "mapped": 2, "excluded": 0}
     assert source_entry["artifact_disposition_record"]["record_locator"] == "$artifact"
 
 
@@ -342,6 +393,14 @@ def test_exact_and_inferred_require_validated_canonical_target_evidence(tmp_path
         "VERSIONED_DETERMINISTIC_POLICY_MATCH"
     ]
     source.write_text(json.dumps(exact) + "\n" + json.dumps(inferred) + "\n", encoding="utf-8")
+    publish_mapping_authority(
+        corpus, source, "jsonl:0", "legacy-combo", [trial]
+    )
+    publish_mapping_authority(
+        corpus, source, "jsonl:1", "legacy-inferred", [trial],
+        mapping_mode="INFERRED", confidence="HIGH",
+        reason_code="VERSIONED_DETERMINISTIC_POLICY_MATCH",
+    )
     result = build_migration(corpus_root=corpus, sources=[LegacySource(source, "RUN_HISTORY_JSONL")])
     assert [row["migration_disposition"] for row in result["records"]] == [
         "MIGRATED_EXACT", "MIGRATED_INFERRED"
@@ -371,6 +430,7 @@ def test_ambiguous_candidates_are_sorted_and_never_choose_winner(tmp_path: Path)
         },
     ]
     row = {
+        "combo_id": "legacy-ambiguous",
         "topic_id": "topic-a", "horizon": 5, "stop_loss_pct": 0.08,
         "take_profit_pct": 0.15, "max_group_exposure": 0.35, "score": 0.2,
         "migration_evidence": {
@@ -382,6 +442,11 @@ def test_ambiguous_candidates_are_sorted_and_never_choose_winner(tmp_path: Path)
     }
     source = tmp_path / "run_history.jsonl"
     source.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    publish_mapping_authority(
+        corpus, source, "jsonl:0", "legacy-ambiguous", [first, second],
+        mapping_mode="INFERRED", confidence="LOW",
+        reason_code="AMBIGUOUS_CANONICAL_TARGET", candidate_combo_ids=["a", "z"],
+    )
     record = build_migration(
         corpus_root=corpus, sources=[LegacySource(source, "RUN_HISTORY_JSONL")]
     )["records"][0]
@@ -396,6 +461,11 @@ def test_ambiguous_candidates_are_sorted_and_never_choose_winner(tmp_path: Path)
     for candidate in row["migration_evidence"]["candidates"]:
         candidate["reason_codes"] = ["DIRECT_MULTI_TARGET_BINDING"]
     source.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    publish_mapping_authority(
+        corpus, source, "jsonl:0", "legacy-ambiguous", [first, second],
+        reason_code="DIRECT_MULTI_TARGET_BINDING",
+        multi_target_resolution="ALL_TARGETS_PROVEN", candidate_combo_ids=["a", "z"],
+    )
     resolved = build_migration(
         corpus_root=corpus, sources=[LegacySource(source, "RUN_HISTORY_JSONL")]
     )["records"][0]
@@ -455,3 +525,158 @@ def test_empty_inventory_has_zero_reconciled_quality_report(tmp_path: Path) -> N
     assert result["quality_report"]["totals"]["rows_seen"] == 0
     assert result["quality_report"]["totals"]["unexplained_delta"] == 0
     ingest_corpus(corpus_root=corpus, ledger_path=tmp_path / "ledger.duckdb")
+
+
+def test_legacy_row_cannot_self_authorize_exact_mapping(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus"
+    trial = canonical_trial()
+    publish_trial(corpus, trial)
+    source = tmp_path / "run_history.jsonl"
+    row = {
+        "combo_id": "self-claimed", "topic_id": "topic-a", "horizon": 5,
+        "stop_loss_pct": 0.08, "take_profit_pct": 0.15,
+        "max_group_exposure": 0.35, "score": 0.2,
+        "migration_evidence": {
+            "mapping_mode": "EXACT", "confidence": "EXACT",
+            "reason_codes": ["ARBITRARY_EXACT_REASON"],
+            "evidence_refs": [trial["trial_spec_id"]],
+            "candidates": [{
+                "combo_id": "self-claimed", "canonical_trial_spec_id": trial["trial_spec_id"],
+                "reason_codes": ["ARBITRARY_EXACT_REASON"],
+                "evidence_refs": [trial["trial_spec_id"]],
+            }],
+        },
+    }
+    source.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    record = build_migration(
+        corpus_root=corpus, sources=[LegacySource(source, "RUN_HISTORY_JSONL")]
+    )["records"][0]
+    assert record["migration_disposition"] != "MIGRATED_EXACT"
+    assert record["combo_mapping"]["mapping_status"] == "UNMAPPED"
+    publish_mapping_authority(
+        corpus, source, "jsonl:0", "self-claimed", [trial],
+        reason_code="ARBITRARY_EXACT_REASON",
+    )
+    with pytest.raises(ValueError, match="reason_codes are not allowed"):
+        build_migration(
+            corpus_root=corpus, sources=[LegacySource(source, "RUN_HISTORY_JSONL")]
+        )
+
+
+def test_ingest_rejects_missing_canonical_candidate_before_any_migration_write(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus"
+    trial = canonical_trial()
+    publish_trial(corpus, trial)
+    source = tmp_path / "run_history.jsonl"
+    row = {
+        "combo_id": "bound", "topic_id": "topic-a", "horizon": 5,
+        "stop_loss_pct": 0.08, "take_profit_pct": 0.15,
+        "max_group_exposure": 0.35, "score": 0.2,
+    }
+    source.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    publish_mapping_authority(corpus, source, "jsonl:0", "bound", [trial])
+    build_migration(corpus_root=corpus, sources=[LegacySource(source, "RUN_HISTORY_JSONL")])
+    trial_path = corpus / "trial_specs" / f"{str(trial['trial_spec_id'])[7:]}.json"
+    trial_path.unlink()
+    ledger = tmp_path / "ledger.duckdb"
+    with pytest.raises(ValueError, match="MIGRATION_CANONICAL_TARGET"):
+        ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        assert connection.execute("SELECT count(*) FROM migration_manifests").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_ingest_rejects_tampered_canonical_candidate_before_write(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus"
+    trial = canonical_trial()
+    publish_trial(corpus, trial)
+    source = tmp_path / "run_history.jsonl"
+    row = {
+        "combo_id": "bound", "topic_id": "topic-a", "horizon": 5,
+        "stop_loss_pct": 0.08, "take_profit_pct": 0.15,
+        "max_group_exposure": 0.35, "score": 0.2,
+    }
+    source.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    publish_mapping_authority(corpus, source, "jsonl:0", "bound", [trial])
+    build_migration(corpus_root=corpus, sources=[LegacySource(source, "RUN_HISTORY_JSONL")])
+    trial_path = corpus / "trial_specs" / f"{str(trial['trial_spec_id'])[7:]}.json"
+    tampered = json.loads(trial_path.read_text())
+    tampered["topic_id"] = "tampered"
+    trial_path.write_text(json.dumps(tampered), encoding="utf-8")
+    ledger = tmp_path / "ledger.duckdb"
+    with pytest.raises(ValueError, match="MIGRATION_CANONICAL_TARGET_INVALID"):
+        ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        assert connection.execute("SELECT count(*) FROM migration_manifests").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_explicit_independent_non_research_authority_is_required_for_exclusion(
+    tmp_path: Path,
+) -> None:
+    corpus = tmp_path / "corpus"
+    source = tmp_path / "run_history.jsonl"
+    source.write_text(json.dumps({"combo_id": "ops-row", "event": "heartbeat"}) + "\n")
+    publish_mapping_authority(
+        corpus, source, "jsonl:0", "ops-row", [],
+        mapping_mode="EXCLUDE_NON_RESEARCH", confidence="NOT_APPLICABLE",
+        reason_code="EXPLICIT_OPERATIONAL_HEARTBEAT_EVIDENCE",
+    )
+    record = build_migration(
+        corpus_root=corpus, sources=[LegacySource(source, "RUN_HISTORY_JSONL")]
+    )["records"][0]
+    assert record["migration_disposition"] == "EXCLUDED_NON_RESEARCH"
+    assert record["mapping_authority_id"] is not None
+
+
+def test_legacy_sealed_claim_cannot_override_development_target(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus"
+    trial = canonical_trial()
+    publish_trial(corpus, trial)
+    source = tmp_path / "matrix.json"
+    write_matrix(source)
+    payload = json.loads(source.read_text())
+    payload["contract"] = {
+        "research_stage": "SEALED_VALIDATION", "sealed_data_read_allowed": True,
+    }
+    payload["scenarios"][0]["combo_id"] = "sealed-claim"
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    publish_mapping_authority(
+        corpus, source, "json-pointer:/scenarios/0", "sealed-claim", [trial]
+    )
+    record = build_migration(
+        corpus_root=corpus, sources=[LegacySource(source, "STRATEGY_MATRIX")]
+    )["records"][0]
+    assert record["migration_disposition"] == "MIGRATED_EXACT"
+    assert record["preliminary_classification"] == "LEGACY_DIAGNOSTIC_ONLY"
+    assert "LEGACY_SEALED_CLAIM_NOT_GOVERNING" in record["reason_codes"]
+
+
+def test_malformed_scalar_and_empty_research_inputs_are_not_non_research_exclusions(
+    tmp_path: Path,
+) -> None:
+    cases = {
+        "scalar.jsonl": "42\n",
+        "malformed.jsonl": "{not-json\n",
+        "empty.jsonl": "",
+    }
+    for name, body in cases.items():
+        source = tmp_path / name
+        source.write_text(body, encoding="utf-8")
+        result = build_migration(
+            corpus_root=tmp_path / f"corpus-{name}",
+            sources=[LegacySource(source, "RUN_HISTORY_JSONL")],
+        )
+        assert result["records"]
+        assert all(
+            record["migration_disposition"] != "EXCLUDED_NON_RESEARCH"
+            for record in result["records"]
+        )
+        assert result["manifest"]["sources"][0]["record_counts"]["excluded"] == 0
+        assert result["manifest"]["sources"][0]["artifact_disposition_record"][
+            "migration_disposition"
+        ] != "EXCLUDED_NON_RESEARCH"
