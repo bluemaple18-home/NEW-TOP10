@@ -1,6 +1,6 @@
 ---
 id: CARD-NEW-TOP10-RESEARCH-A5-MATCHED-LEARNING-PROJECTION
-status: worker_candidate_ready
+status: REPAIR_1_COMPLETE / READY_FOR_REREVIEW
 type: implementation
 issue: 7
 depends_on: [6]
@@ -87,3 +87,12 @@ Current frontier：`A5-SLICE-001`。Slice 1 未固定 measured gap 前不得開�
   - `uv run pytest tests/test_parameter_learning.py tests/test_native_evidence_replay.py tests/test_adaptive_shadow_queue.py tests/test_isolated_shadow_plan_replay.py -q` -> `64 passed / 2 failed`
   - Failures are existing isolated-shadow committed proposal/runner receipt fixture validation errors, outside A5 allowed surface.
 - Remaining P0/P1: pending independent fixed-SHA review.
+
+## Repair-1 receipt
+
+- Status：`REPAIR_1_COMPLETE / READY_FOR_REREVIEW`。
+- Fixed P1：缺失／空白 lineage 一律得到 `INSUFFICIENT_EVIDENCE`；direction fixtures均提供有效 lineage。
+- Fixed P1：parameter-learning、native replay 與 adaptive shadow support 共用完整 canonical execution-profile identity，profile 任一欄位不等價不再形成 matched contrast。
+- Fixed P1：learning artifact 現驗證 exact top-level keys、identity/provenance、counts/list parity、contrast ID及低／高 observation/evidence refs；collision/tamper不會取代 fresh recompute truth。
+- Repair verification：`50 passed` targeted parameter-learning/native-replay/adaptive-shadow tests；`git diff --check` pass。
+- Remaining P0/P1：等待 fixed-SHA independent re-review；Repair 自身未發現未關閉 P0/P1。

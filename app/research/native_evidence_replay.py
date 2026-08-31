@@ -13,6 +13,7 @@ import duckdb
 
 from app.research.contracts import content_hash
 from app.research.parameter_catalog import load_parameter_catalog
+from app.research.parameter_learning import canonical_execution_profile_identity
 
 
 BUNDLE_SCHEMA = "native-evidence-replay-bundle.v1"
@@ -125,7 +126,6 @@ def recompute_contrasts(
             if value is None:
                 continue
             others = tuple((key, values.get(key)) for key in parameters if key != parameter)
-            profile = row.get("execution_profile") or {}
             key = (
                 row["topic_family_id"],
                 row["regime_id"],
@@ -133,7 +133,7 @@ def recompute_contrasts(
                 row["ranking_source_hash"],
                 row["research_stage"],
                 row["lineage_id"],
-                profile.get("variant_role"),
+                canonical_execution_profile_identity(row.get("execution_profile")),
                 others,
             )
             groups[key].append({**row, "parameter_value": float(value)})

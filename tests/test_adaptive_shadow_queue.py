@@ -19,6 +19,7 @@ from app.research.adaptive_shadow_queue import (
     build_projection,
     verify_projection,
 )
+from app.research.adaptive_shadow_queue import _contrast_support
 from app.research.contracts import content_hash
 
 
@@ -96,6 +97,20 @@ def test_negative_admission_fixtures_fail_closed(tmp_path: Path) -> None:
             match="INPUT_BUNDLE_NOT_COMMITTED_PATH",
         ):
             build_projection(bundle_path=path, manifest_path=DEFAULT_MANIFEST)
+
+
+def test_shadow_support_requires_same_full_execution_profile() -> None:
+    bundle = _bundle()
+    contrast = bundle["learning_projection"]["matched_contrasts"][0]
+    contrast_id = contrast["contrast_id"]
+    support = _contrast_support(bundle)[contrast_id]
+    row = next(
+        item for item in bundle["observations"]
+        if item["evidence_unit_id"] == support["low_evidence_unit_id"]
+    )
+    row["execution_profile"]["execution_settings"]["top_n"] = 999
+
+    assert contrast_id not in _contrast_support(bundle)
 
 
 def test_capacity_and_queue_drift_fail_closed(tmp_path: Path) -> None:

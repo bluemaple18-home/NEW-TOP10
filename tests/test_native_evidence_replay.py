@@ -78,6 +78,24 @@ def test_bundle_tamper_missing_duplicate_and_sealed_fail_closed() -> None:
         assert verify_bundle(payload, project_root=PROJECT_ROOT)["status"] == "FAIL"
 
 
+def test_replay_recompute_rejects_full_execution_profile_mismatch_after_rehash() -> None:
+    payload = _bundle()
+    # 同一 variant_role 不足以構成 cohort；任一完整 profile 欄位不同即不可配對。
+    from app.research.adaptive_shadow_queue import _contrast_support
+
+    contrast = payload["learning_projection"]["matched_contrasts"][0]
+    support = _contrast_support(payload)[contrast["contrast_id"]]
+    row = next(
+        item for item in payload["observations"]
+        if item["evidence_unit_id"] == support["low_evidence_unit_id"]
+    )
+    row["execution_profile"]["execution_settings"]["top_n"] = 999
+    report = verify_bundle(_rehash(payload), project_root=PROJECT_ROOT)
+
+    assert report["status"] == "FAIL"
+    assert "MATCHED_CONTRAST_MISMATCH" in report["errors"]
+
+
 @pytest.mark.parametrize("stage", ["COARSE_SCREEN", "SEALED_VALIDATION"])
 def test_replay_verifier_rejects_non_development_stage_after_rehash(stage: str) -> None:
     payload = _bundle()

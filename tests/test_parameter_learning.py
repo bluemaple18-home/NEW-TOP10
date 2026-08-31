@@ -155,9 +155,9 @@ def test_existing_learning_artifact_cannot_replace_fresh_projection_truth(
 def test_matched_direction_ignores_cross_stratum_level_confounding() -> None:
     policy = load_policy()
     contrasts = [
-        {"delta_score": 0.0},
-        {"delta_score": 0.0},
-        {"delta_score": 0.0},
+        {"delta_score": 0.0, "lineage_id": "lineage-a"},
+        {"delta_score": 0.0, "lineage_id": "lineage-b"},
+        {"delta_score": 0.0, "lineage_id": "lineage-c"},
     ]
     # Raw levels可呈0→100→200；exact within-stratum deltas仍全flat。
     assert classify_matched_contrasts(contrasts, policy)["direction"] == "FLAT"
@@ -177,14 +177,25 @@ def test_single_lineage_contrasts_are_not_independent_direction_support() -> Non
 def test_boundary_requires_highest_catalog_edge_support() -> None:
     policy = load_policy()
     low_only = [
-        {"delta_score": 0.1, "lower": 0.05, "upper": 0.08},
-        {"delta_score": 0.1, "lower": 0.05, "upper": 0.08},
-        {"delta_score": 0.1, "lower": 0.05, "upper": 0.08},
+        {"delta_score": 0.1, "lower": 0.05, "upper": 0.08, "lineage_id": "lineage-a"},
+        {"delta_score": 0.1, "lower": 0.05, "upper": 0.08, "lineage_id": "lineage-b"},
+        {"delta_score": 0.1, "lower": 0.05, "upper": 0.08, "lineage_id": "lineage-c"},
     ]
     result = classify_matched_contrasts(low_only, policy, parameter="stop_loss_pct")
     assert result["direction"] == "HIGHER_LOOKS_BETTER"
     assert result["edge_behavior"] is None
     assert result["next_direction"] is None
+
+
+@pytest.mark.parametrize("lineage", [None, "", "   "])
+def test_missing_or_blank_lineage_is_insufficient_evidence(lineage: object) -> None:
+    policy = load_policy()
+    contrasts = [
+        {"delta_score": 0.1, "lineage_id": lineage},
+        {"delta_score": 0.1, "lineage_id": "lineage-b"},
+        {"delta_score": 0.1, "lineage_id": "lineage-c"},
+    ]
+    assert classify_matched_contrasts(contrasts, policy)["direction"] == "INSUFFICIENT_EVIDENCE"
 
 
 def _insert_learning_observation(

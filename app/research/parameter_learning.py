@@ -177,6 +177,10 @@ def classify_matched_contrasts(
     """只用matched deltas分類方向，避免raw level confounding。"""
     policy = policy or load_policy()
     deadband = policy["effect_deadbands"]["score"]
+    # 缺失或空白 lineage 不能視作獨立證據；先拒絕，避免 unit fixture
+    # 意外把沒有 provenance 的 contrast 升格成方向訊號。
+    if any(not isinstance(item.get("lineage_id"), str) or not item["lineage_id"].strip() for item in contrasts):
+        return {"direction": "INSUFFICIENT_EVIDENCE", "edge_behavior": None, "next_direction": None}
     count = len(contrasts)
     higher = sum(item["delta_score"] > deadband for item in contrasts)
     lower = sum(item["delta_score"] < -deadband for item in contrasts)
@@ -189,7 +193,7 @@ def classify_matched_contrasts(
         for item in contrasts
         if item.get("lineage_id") is not None
     }
-    if lineage_ids and len(lineage_ids) < policy["min_distinct_lineages"]:
+    if len(lineage_ids) < policy["min_distinct_lineages"]:
         return result
     if flat / count >= policy["flat_consistency_threshold"]:
         return {**result, "direction": "FLAT"}
@@ -216,12 +220,54 @@ def classify_matched_contrasts(
     return {**result, "direction": "UNSTABLE" if higher and lower else "NON_MONOTONIC"}
 
 
+def canonical_execution_profile_identity(profile: Any) -> str:
+    """所有 A5 consumer 共用完整 execution-profile identity。"""
+    if not isinstance(profile, dict):
+        raise ValueError("INVALID_EXECUTION_PROFILE")
+    return content_hash(profile)
+
+
 def _validator(payload: dict[str, Any]) -> list[str]:
-    return [] if payload.get("schema_version") == PROJECTION_SCHEMA_VERSION else ["invalid schema"]
+    required = {
+        "schema_version", "projection_id", "projection_schema_version",
+        "eligibility_projection_id", "failure_projection_id", "input_corpus_hash",
+        "ledger_snapshot_hash", "learning_policy_version", "learning_policy_hash",
+        "parameter_catalog_hash", "status", "counts", "matched_contrasts",
+        "parameter_findings", "interaction_findings", "robust_regions",
+    }
+    if set(payload) != required or payload.get("schema_version") != PROJECTION_SCHEMA_VERSION:
+        return ["INVALID_LEARNING_PROJECTION_SHAPE"]
+    identity = {key: payload.get(key) for key in (
+        "projection_schema_version", "eligibility_projection_id", "failure_projection_id",
+        "input_corpus_hash", "ledger_snapshot_hash", "learning_policy_version",
+        "learning_policy_hash", "parameter_catalog_hash",
+    )}
+    errors = []
+    if payload.get("projection_id") != content_hash(identity):
+        errors.append("LEARNING_PROJECTION_ID_MISMATCH")
+    contrasts = payload.get("matched_contrasts")
+    if not isinstance(contrasts, list) or len({row.get("contrast_id") for row in contrasts if isinstance(row, dict)}) != len(contrasts):
+        errors.append("INVALID_CONTRAST_LIST")
+    else:
+        for row in contrasts:
+            expected_id = content_hash({"policy": payload["learning_policy_version"], "parameter": row.get("parameter"), "low": row.get("low_evidence_unit_id"), "high": row.get("high_evidence_unit_id")})
+            if (not isinstance(row.get("lineage_id"), str) or not row["lineage_id"].strip()
+                    or row.get("contrast_id") != expected_id
+                    or not all(isinstance(row.get(key), str) and row[key] for key in ("low_observation_id", "high_observation_id", "low_evidence_unit_id", "high_evidence_unit_id"))):
+                errors.append("INVALID_CONTRAST_PROVENANCE")
+                break
+    counts = payload.get("counts")
+    if not isinstance(counts, dict) or counts != {
+        "eligible_observations": counts.get("eligible_observations") if isinstance(counts, dict) else None,
+        "matched_contrasts": len(contrasts) if isinstance(contrasts, list) else None,
+        "parameter_findings": len(payload.get("parameter_findings") or []),
+    }:
+        errors.append("LEARNING_COUNT_MISMATCH")
+    return errors
 
 
 def _cohort_profile_hash(raw_profile: str) -> str:
-    return content_hash(json.loads(raw_profile))
+    return canonical_execution_profile_identity(json.loads(raw_profile))
 
 
 def build_projection(
@@ -282,6 +328,8 @@ def build_projection(
                     "contrast_id": content_hash({"policy": policy["policy_version"], "parameter": parameter, "low": low["evidence_unit_id"], "high": high["evidence_unit_id"]}),
                     "parameter": parameter, "topic_family_id": key[0], "regime_id": key[1],
                     "lineage_id": low["lineage_id"], "lower": lower, "upper": upper,
+                    "low_observation_id": low["observation_id"], "high_observation_id": high["observation_id"],
+                    "low_evidence_unit_id": low["evidence_unit_id"], "high_evidence_unit_id": high["evidence_unit_id"],
                     "delta_score": high["score"] - low["score"],
                     "delta_total_return": high["total_return"] - low["total_return"],
                     "delta_max_drawdown": high["max_drawdown"] - low["max_drawdown"],
@@ -417,6 +465,9 @@ def build_projection(
     identity = {
         "projection_schema_version": PROJECTION_SCHEMA_VERSION,
         "eligibility_projection_id": eligibility["projection_id"],
+        "failure_projection_id": eligibility["projection_id"],
+        "input_corpus_hash": eligibility["input_corpus_hash"],
+        "ledger_snapshot_hash": eligibility["ledger_snapshot_hash"],
         "learning_policy_version": policy["policy_version"], "learning_policy_hash": content_hash(policy),
         "parameter_catalog_hash": parameter_catalog_hash(),
     }
@@ -433,7 +484,7 @@ def build_projection(
         ],
     }
     target = output_root / f"{projection_id[7:]}.json"
-    write_immutable_json(target, payload, validator=_validator)
+    write_immutable_json(target, payload, validator=_validator, identity_field="projection_id")
     return payload
 
 
