@@ -8,7 +8,9 @@ import pytest
 
 from app.research.contracts import canonical_json_bytes, content_hash
 from app.research.observation_ingest import ingest_corpus
+from app.research.failure_classification import build_projection as build_failure_projection
 from app.research.parameter_learning import (
+    _validator,
     analyze_interaction,
     analyze_numeric_landscape,
     build_projection,
@@ -103,6 +105,32 @@ def test_zero_eligible_cold_start_is_formal_result(tmp_path: Path) -> None:
     assert result["counts"]["eligible_observations"] == 0
     assert result["matched_contrasts"] == []
     assert result["interaction_findings"] == []
+    failure = build_failure_projection(
+        ledger_path=ledger,
+        eligibility_output_root=tmp_path / "eligibility",
+        output_root=tmp_path / "failure",
+    )
+    assert result["failure_projection_id"] == failure["projection_id"]
+
+
+def test_learning_validator_rejects_self_consistent_noncanonical_provenance(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=tmp_path / "corpus", ledger_path=ledger)
+    payload = build_projection(
+        ledger_path=ledger,
+        eligibility_output_root=tmp_path / "eligibility",
+        failure_output_root=tmp_path / "failure",
+        output_root=tmp_path / "learning",
+    )
+    payload["failure_projection_id"] = "sha256:" + "A" * 64
+    identity = {key: payload[key] for key in (
+        "projection_schema_version", "eligibility_projection_id", "failure_projection_id",
+        "input_corpus_hash", "ledger_snapshot_hash", "learning_policy_version",
+        "learning_policy_hash", "parameter_catalog_hash",
+    )}
+    payload["projection_id"] = content_hash(identity)
+
+    assert "NON_CANONICAL_PROVENANCE_REFERENCE" in _validator(payload)
 
 
 def test_learning_projection_clean_rebuild_preserves_canonical_bytes(tmp_path: Path) -> None:

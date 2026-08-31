@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -13,6 +14,7 @@ import duckdb
 
 from app.research.contracts import content_hash
 from app.research.eligibility import DEFAULT_POLICY as DEFAULT_ELIGIBILITY_POLICY, build_projection as build_eligibility
+from app.research.failure_classification import build_projection as build_failure_projection
 from app.research.observation_ingest import DEFAULT_LEDGER_PATH
 from app.research.parameter_catalog import load_parameter_catalog, parameter_catalog_hash
 from app.research.receipt_store import write_immutable_json
@@ -23,6 +25,7 @@ DEFAULT_POLICY = PROJECT_ROOT / "config/research_learning_policy_v1.json"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "artifacts/autonomous_research/projections/learning"
 # v1含wall-clock generated_at；v2以新identity/path並存，舊v1 immutable bytes不改寫。
 PROJECTION_SCHEMA_VERSION = "research-parameter-learning.v2"
+_CANONICAL_SHA256 = re.compile(r"sha256:[0-9a-f]{64}\Z")
 
 
 def load_policy(path: Path = DEFAULT_POLICY) -> dict[str, Any]:
@@ -243,6 +246,13 @@ def _validator(payload: dict[str, Any]) -> list[str]:
         "learning_policy_hash", "parameter_catalog_hash",
     )}
     errors = []
+    canonical_refs = (
+        "projection_id", "eligibility_projection_id", "failure_projection_id",
+        "input_corpus_hash", "ledger_snapshot_hash", "learning_policy_hash",
+        "parameter_catalog_hash",
+    )
+    if any(not isinstance(payload.get(key), str) or not _CANONICAL_SHA256.fullmatch(payload[key]) for key in canonical_refs):
+        errors.append("NON_CANONICAL_PROVENANCE_REFERENCE")
     if payload.get("projection_id") != content_hash(identity):
         errors.append("LEARNING_PROJECTION_ID_MISMATCH")
     contrasts = payload.get("matched_contrasts")
@@ -251,9 +261,10 @@ def _validator(payload: dict[str, Any]) -> list[str]:
     else:
         for row in contrasts:
             expected_id = content_hash({"policy": payload["learning_policy_version"], "parameter": row.get("parameter"), "low": row.get("low_evidence_unit_id"), "high": row.get("high_evidence_unit_id")})
+            reference_keys = ("contrast_id", "lineage_id", "low_observation_id", "high_observation_id", "low_evidence_unit_id", "high_evidence_unit_id")
             if (not isinstance(row.get("lineage_id"), str) or not row["lineage_id"].strip()
                     or row.get("contrast_id") != expected_id
-                    or not all(isinstance(row.get(key), str) and row[key] for key in ("low_observation_id", "high_observation_id", "low_evidence_unit_id", "high_evidence_unit_id"))):
+                    or not all(isinstance(row.get(key), str) and _CANONICAL_SHA256.fullmatch(row[key]) for key in reference_keys)):
                 errors.append("INVALID_CONTRAST_PROVENANCE")
                 break
     counts = payload.get("counts")
@@ -272,12 +283,18 @@ def _cohort_profile_hash(raw_profile: str) -> str:
 
 def build_projection(
     *, ledger_path: Path = DEFAULT_LEDGER_PATH, policy_path: Path = DEFAULT_POLICY,
-    eligibility_output_root: Path | None = None, output_root: Path = DEFAULT_OUTPUT_ROOT,
+    eligibility_output_root: Path | None = None, failure_output_root: Path | None = None,
+    output_root: Path = DEFAULT_OUTPUT_ROOT,
 ) -> dict[str, Any]:
     policy = load_policy(policy_path)
     eligibility = build_eligibility(
         ledger_path=ledger_path,
         output_root=eligibility_output_root or output_root.parent / "eligibility",
+    )
+    failure = build_failure_projection(
+        ledger_path=ledger_path,
+        eligibility_output_root=eligibility_output_root or output_root.parent / "eligibility",
+        output_root=failure_output_root or output_root.parent / "failure",
     )
     connection = duckdb.connect(str(ledger_path), read_only=True)
     try:
@@ -465,7 +482,7 @@ def build_projection(
     identity = {
         "projection_schema_version": PROJECTION_SCHEMA_VERSION,
         "eligibility_projection_id": eligibility["projection_id"],
-        "failure_projection_id": eligibility["projection_id"],
+        "failure_projection_id": failure["projection_id"],
         "input_corpus_hash": eligibility["input_corpus_hash"],
         "ledger_snapshot_hash": eligibility["ledger_snapshot_hash"],
         "learning_policy_version": policy["policy_version"], "learning_policy_hash": content_hash(policy),
