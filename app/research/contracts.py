@@ -13,13 +13,21 @@ from typing import Any, Mapping
 
 CANONICALIZATION_VERSION = "research-canonical-json.v1"
 HASH_PREFIX = "sha256:"
+TERMINAL_CAUSE_POLICY_VERSION = "research-terminal-cause-ordering.v1"
 
 _SAFETY = {
     "does_not_train_model": True,
     "does_not_change_production_ranking": True,
     "production_promotion_allowed": False,
 }
-_TERMINAL_STATUSES = {"SUCCEEDED", "FAILED", "REJECTED_BEFORE_EXECUTION", "CANCELLED"}
+_TERMINAL_STATUSES = {
+    "SUCCEEDED",
+    "FAILED",
+    "REJECTED_BEFORE_EXECUTION",
+    "CANCELLED",
+    "TIMED_OUT",
+    "ABORTED",
+}
 _IDENTITY_STATUSES = {"EXACT", "EXPLAINED_MISMATCH", "UNEXPLAINED_MISMATCH", "NOT_EXECUTED"}
 _EXECUTION_OBSERVATION_STATUSES = {"NOT_STARTED", "OBSERVED", "PARTIALLY_OBSERVED", "UNKNOWN"}
 _SEALED_STATUSES = {"PROVEN_NON_SEALED", "SEALED", "UNKNOWN"}
@@ -107,6 +115,29 @@ def _utc_timestamp(value: object, field: str) -> list[str]:
         return [f"{field} must be an RFC3339 UTC timestamp"]
     if parsed.utcoffset() is None or parsed.utcoffset().total_seconds() != 0:
         return [f"{field} must be UTC"]
+    return []
+
+
+def _parse_utc(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.utcoffset() is None or parsed.utcoffset().total_seconds() != 0:
+        return None
+    return parsed
+
+
+def _relative_ref(value: object, field: str) -> list[str]:
+    if not isinstance(value, str) or not value.strip():
+        return [f"{field} must be non-empty relative path"]
+    if value == "UNKNOWN":
+        return []
+    path = PurePosixPath(value)
+    if path.is_absolute() or ".." in path.parts:
+        return [f"{field} must be non-empty relative path"]
     return []
 
 
@@ -294,6 +325,8 @@ def validate_research_intent(payload: Mapping[str, Any]) -> list[str]:
         "schema_version",
         "intent_id",
         "requested_trial_spec_ids",
+        "requested_dataset_bundle_id",
+        "requested_dataset_bundle_manifest_ref",
         "requested_at",
         "request_source",
         "selection_reason",
@@ -308,6 +341,8 @@ def validate_research_intent(payload: Mapping[str, Any]) -> list[str]:
     else:
         for index, value in enumerate(ids):
             errors.extend(_hash(value, f"requested_trial_spec_ids[{index}]"))
+    errors.extend(_hash(payload.get("requested_dataset_bundle_id"), "requested_dataset_bundle_id"))
+    errors.extend(_relative_ref(payload.get("requested_dataset_bundle_manifest_ref"), "requested_dataset_bundle_manifest_ref"))
     errors.extend(_utc_timestamp(payload.get("requested_at"), "requested_at"))
     return errors
 
@@ -319,6 +354,8 @@ def validate_attempt_started(payload: Mapping[str, Any]) -> list[str]:
         "run_id",
         "intent_id",
         "requested_trial_spec_ids",
+        "requested_dataset_bundle_id",
+        "requested_dataset_bundle_manifest_ref",
         "started_at",
         "executor",
         "invocation_hash",
@@ -328,6 +365,8 @@ def validate_attempt_started(payload: Mapping[str, Any]) -> list[str]:
         errors.append("schema_version is invalid")
     errors.extend(_hash(payload.get("attempt_event_id"), "attempt_event_id"))
     errors.extend(_hash(payload.get("invocation_hash"), "invocation_hash"))
+    errors.extend(_hash(payload.get("requested_dataset_bundle_id"), "requested_dataset_bundle_id"))
+    errors.extend(_relative_ref(payload.get("requested_dataset_bundle_manifest_ref"), "requested_dataset_bundle_manifest_ref"))
     errors.extend(_utc_timestamp(payload.get("started_at"), "started_at"))
     if not errors and payload.get("attempt_event_id") != content_hash(payload, omit={"attempt_event_id"}):
         errors.append("attempt_event_id does not match canonical content")
@@ -353,7 +392,7 @@ def validate_orphan_reconciliation(payload: Mapping[str, Any]) -> list[str]:
         errors.append("status must be ORPHANED_ATTEMPT")
     if payload.get("sealed_usage_status") != "UNKNOWN":
         errors.append("orphan sealed_usage_status must be UNKNOWN")
-    required_unknown = {"executed_parameters", "executed_lineage", "result"}
+    required_unknown = {"executed_parameters", "executed_lineage", "executed_dataset_bundle", "result"}
     if set(payload.get("facts_unknown") or []) != required_unknown:
         errors.append("facts_unknown must enumerate all unknowable execution facts")
     errors.extend(_hash(payload.get("attempt_event_id"), "attempt_event_id"))
@@ -368,6 +407,12 @@ def requested_executed_differences(payload: Mapping[str, Any]) -> set[str]:
     differences: set[str] = set()
     if payload.get("artifact_errors"):
         differences.add("artifact_set")
+    binding = _mapping(payload.get("bundle_binding"))
+    if (
+        binding.get("executed_dataset_bundle_id") not in {None, "UNKNOWN"}
+        and binding.get("requested_dataset_bundle_id") != binding.get("executed_dataset_bundle_id")
+    ):
+        differences.add("dataset_bundle")
     unit_by_trial = {unit.get("requested_trial_spec_id"): unit for unit in units}
     requested_ids = set(requested.get("trial_spec_ids") or [])
     if requested_ids != set(unit_by_trial):
@@ -396,6 +441,116 @@ def requested_executed_differences(payload: Mapping[str, Any]) -> set[str]:
     return differences
 
 
+def select_terminal_cause(candidates: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """選出 receipt ownership 的 first-party terminal cause。"""
+    tie_break = {
+        "CANCELLED": 0,
+        "TIMED_OUT": 1,
+        "ABORTED": 2,
+        "FAILED": 3,
+        "SUCCEEDED": 4,
+        "REJECTED_BEFORE_EXECUTION": 5,
+    }
+
+    def key(candidate: Mapping[str, Any]) -> tuple[datetime, int]:
+        observed = _parse_utc(candidate.get("observed_at")) or datetime.max
+        return observed, tie_break.get(str(candidate.get("status")), 99)
+
+    if not candidates:
+        raise ValueError("terminal cause candidates must be non-empty")
+    return dict(sorted(candidates, key=key)[0])
+
+
+def _validate_terminal_cause(payload: Mapping[str, Any]) -> list[str]:
+    errors: list[str] = []
+    terminal = payload.get("terminal_status")
+    completed = _parse_utc(payload.get("completed_at"))
+    cause = _mapping(payload.get("terminal_cause"))
+    fields = {
+        "policy_version",
+        "status",
+        "reason_code",
+        "observed_at",
+        "observer",
+        "runner_started",
+        "evidence_refs",
+    }
+    errors.extend(_exact_fields(cause, fields, "terminal_cause."))
+    if cause.get("policy_version") != TERMINAL_CAUSE_POLICY_VERSION:
+        errors.append("terminal_cause.policy_version is invalid")
+    if cause.get("status") != terminal:
+        errors.append("terminal_cause.status must equal terminal_status")
+    errors.extend(_nonempty(cause.get("reason_code"), "terminal_cause.reason_code"))
+    errors.extend(_nonempty(cause.get("observer"), "terminal_cause.observer"))
+    errors.extend(_utc_timestamp(cause.get("observed_at"), "terminal_cause.observed_at"))
+    observed = _parse_utc(cause.get("observed_at"))
+    if completed is not None and observed is not None and observed > completed:
+        errors.append("terminal_cause.observed_at must be <= completed_at")
+    evidence_refs = cause.get("evidence_refs")
+    if not isinstance(evidence_refs, list) or not evidence_refs:
+        errors.append("terminal_cause.evidence_refs must be a non-empty list")
+    else:
+        for index, value in enumerate(evidence_refs):
+            errors.extend(_hash(value, f"terminal_cause.evidence_refs[{index}]"))
+        if len(evidence_refs) != len(set(evidence_refs)):
+            errors.append("terminal_cause.evidence_refs must be unique")
+    if cause.get("runner_started") is not (terminal != "REJECTED_BEFORE_EXECUTION"):
+        errors.append("terminal_cause.runner_started does not match terminal semantics")
+    return errors
+
+
+def _validate_bundle_binding(payload: Mapping[str, Any]) -> list[str]:
+    errors: list[str] = []
+    binding = _mapping(payload.get("bundle_binding"))
+    fields = {
+        "requested_dataset_bundle_id",
+        "requested_dataset_bundle_manifest_ref",
+        "executed_dataset_bundle_id",
+        "executed_dataset_bundle_manifest_ref",
+        "validation_status",
+    }
+    if "resolution_delta" in binding:
+        fields.add("resolution_delta")
+    errors.extend(_exact_fields(binding, fields, "bundle_binding."))
+    errors.extend(_hash(binding.get("requested_dataset_bundle_id"), "bundle_binding.requested_dataset_bundle_id"))
+    errors.extend(_relative_ref(binding.get("requested_dataset_bundle_manifest_ref"), "bundle_binding.requested_dataset_bundle_manifest_ref"))
+    if binding.get("executed_dataset_bundle_id") == "UNKNOWN":
+        if binding.get("validation_status") != "NOT_EXECUTED":
+            errors.append("bundle_binding.validation_status must be NOT_EXECUTED for UNKNOWN executed bundle")
+        if binding.get("executed_dataset_bundle_manifest_ref") != "UNKNOWN":
+            errors.append("bundle_binding.executed_dataset_bundle_manifest_ref must be UNKNOWN")
+    else:
+        errors.extend(_hash(binding.get("executed_dataset_bundle_id"), "bundle_binding.executed_dataset_bundle_id"))
+        errors.extend(_relative_ref(binding.get("executed_dataset_bundle_manifest_ref"), "bundle_binding.executed_dataset_bundle_manifest_ref"))
+        if binding.get("validation_status") != "VALID":
+            errors.append("bundle_binding.validation_status must be VALID")
+    delta = _mapping(binding.get("resolution_delta"))
+    if delta:
+        fields = {
+            "reason_code",
+            "changed_identity_paths",
+            "changed_roles",
+            "resolution_authority",
+            "requested_manifest_id",
+            "executed_manifest_id",
+            "evidence_refs",
+        }
+        if delta.get("reason_code") == "SOURCE_FALLBACK":
+            fields.add("transition_profile_version")
+        errors.extend(_exact_fields(delta, fields, "bundle_binding.resolution_delta."))
+        for field in ("requested_manifest_id", "executed_manifest_id"):
+            errors.extend(_hash(delta.get(field), f"bundle_binding.resolution_delta.{field}"))
+        for field in ("changed_identity_paths", "changed_roles", "evidence_refs"):
+            values = delta.get(field)
+            if not isinstance(values, list) or not values:
+                errors.append(f"bundle_binding.resolution_delta.{field} must be a non-empty list")
+            elif not all(isinstance(value, str) for value in values):
+                errors.append(f"bundle_binding.resolution_delta.{field} entries must be strings")
+        for index, value in enumerate(delta.get("evidence_refs") or []):
+            errors.extend(_hash(value, f"bundle_binding.resolution_delta.evidence_refs[{index}]"))
+    return errors
+
+
 def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
     fields = {
         "schema_version",
@@ -407,6 +562,8 @@ def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
         "terminal_status",
         "started_at",
         "completed_at",
+        "terminal_cause",
+        "bundle_binding",
         "requested",
         "executed_units",
         "resolution_events",
@@ -429,6 +586,12 @@ def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
     errors.extend(_utc_timestamp(payload.get("started_at"), "started_at"))
     errors.extend(_utc_timestamp(payload.get("completed_at"), "completed_at"))
     errors.extend(_validate_safety(payload.get("safety")))
+    started = _parse_utc(payload.get("started_at"))
+    completed = _parse_utc(payload.get("completed_at"))
+    if started is not None and completed is not None and completed < started:
+        errors.append("completed_at must be >= started_at")
+    errors.extend(_validate_terminal_cause(payload))
+    errors.extend(_validate_bundle_binding(payload))
 
     artifacts = payload.get("artifacts")
     artifact_ids: set[str] = set()
@@ -483,6 +646,8 @@ def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
     requested = _mapping(payload.get("requested"))
     requested_fields = {
         "trial_spec_ids",
+        "dataset_bundle_id",
+        "dataset_bundle_manifest_ref",
         "parameters_by_trial",
         "research_stage",
         "regime_scope",
@@ -499,6 +664,13 @@ def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
         errors.extend(_hash(value, f"requested.trial_spec_ids[{index}]"))
     if len(requested_ids_list) != len(set(requested_ids_list)):
         errors.append("requested.trial_spec_ids must be unique")
+    binding = _mapping(payload.get("bundle_binding"))
+    errors.extend(_hash(requested.get("dataset_bundle_id"), "requested.dataset_bundle_id"))
+    errors.extend(_relative_ref(requested.get("dataset_bundle_manifest_ref"), "requested.dataset_bundle_manifest_ref"))
+    if requested.get("dataset_bundle_id") != binding.get("requested_dataset_bundle_id"):
+        errors.append("requested.dataset_bundle_id must match bundle_binding")
+    if requested.get("dataset_bundle_manifest_ref") != binding.get("requested_dataset_bundle_manifest_ref"):
+        errors.append("requested.dataset_bundle_manifest_ref must match bundle_binding")
     requested_parameters = _mapping(requested.get("parameters_by_trial"))
     if set(requested_parameters) != set(requested_ids_list):
         errors.append("requested.parameters_by_trial keys must equal trial_spec_ids")
@@ -523,6 +695,8 @@ def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
         "executed_research_stage",
         "executed_regime_scope",
         "executed_dataset_hash",
+        "executed_dataset_bundle_id",
+        "executed_dataset_bundle_manifest_ref",
         "executed_ranking_source_hash",
         "executed_execution_profile",
         "lineage",
@@ -547,6 +721,12 @@ def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
         elif any(_mapping(unit.get("executed_parameters")).get(field) is not None for field in ("regime_gate", "risk_guard", "entry_filter")):
             errors.append(f"executed_units[{index}].executed_parameters coverage-only parameters must be null")
         refs = unit.get("artifact_refs")
+        errors.extend(_hash(unit.get("executed_dataset_bundle_id"), f"executed_units[{index}].executed_dataset_bundle_id"))
+        errors.extend(_relative_ref(unit.get("executed_dataset_bundle_manifest_ref"), f"executed_units[{index}].executed_dataset_bundle_manifest_ref"))
+        if binding.get("executed_dataset_bundle_id") != unit.get("executed_dataset_bundle_id"):
+            errors.append(f"executed_units[{index}].executed_dataset_bundle_id must match bundle_binding")
+        if binding.get("executed_dataset_bundle_manifest_ref") != unit.get("executed_dataset_bundle_manifest_ref"):
+            errors.append(f"executed_units[{index}].executed_dataset_bundle_manifest_ref must match bundle_binding")
         if not isinstance(refs, list) or not refs or any(ref not in valid_artifact_ids for ref in refs):
             errors.append(f"executed_units[{index}].artifact_refs must reference valid artifacts")
         lineage = _mapping(unit.get("lineage"))
@@ -618,6 +798,8 @@ def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
     observation = payload.get("execution_observation_status")
     if terminal == "REJECTED_BEFORE_EXECUTION" and (units or observation != "NOT_STARTED"):
         errors.append("REJECTED_BEFORE_EXECUTION requires NOT_STARTED and no units")
+    if terminal in {"CANCELLED", "TIMED_OUT", "ABORTED"} and observation not in {"UNKNOWN", "PARTIALLY_OBSERVED", "OBSERVED"}:
+        errors.append(f"{terminal} requires controlled terminal observation status")
     if terminal == "FAILED" and units and observation not in {"PARTIALLY_OBSERVED", "OBSERVED"}:
         errors.append("FAILED with units requires observed or partially observed facts")
     if terminal == "FAILED" and not units and observation not in {"UNKNOWN", "NOT_STARTED"}:
@@ -636,6 +818,10 @@ def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
     unit_ids = [unit.get("execution_unit_id") for unit in map(_mapping, units)]
     if len(unit_ids) != len(set(unit_ids)):
         errors.append("execution_unit_id must be unique")
+    if not units and binding.get("executed_dataset_bundle_id") != "UNKNOWN":
+        errors.append("non-executed receipt must keep executed dataset bundle UNKNOWN")
+    if units and binding.get("executed_dataset_bundle_id") == "UNKNOWN":
+        errors.append("executed receipt requires executed dataset bundle")
 
     differences = requested_executed_differences(payload) if units else set()
     events = payload.get("resolution_events") if isinstance(payload.get("resolution_events"), list) else []

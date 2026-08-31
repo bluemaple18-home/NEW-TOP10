@@ -33,6 +33,8 @@ def batch_attempt(tmp_path: Path, batch_id: str):
     context = context.__class__(
         context.root, context.run_id, context.intent_id, attempt["attempt_event_id"],
         context.started_at, context.trial_specs, context.requested, context.trial_ids_by_role,
+        context.requested_dataset_bundle_id, context.requested_dataset_bundle_manifest_ref,
+        context.requested_dataset_bundle_manifest,
     )
     return context
 

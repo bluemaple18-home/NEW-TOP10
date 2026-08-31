@@ -1,7 +1,7 @@
 # CARD-NEW-TOP10-RESEARCH-A2-EXECUTION-INTENT-AND-RECEIPT
 
 日期：2026-08-31
-狀態：`OWNER_ADMITTED_TASK_CARD_ONLY / IMPLEMENTATION_NOT_STARTED`
+狀態：`A2_LOCAL_CANDIDATE_IMPLEMENTED / REVIEW_PENDING`
 GitHub authority：Issue #4 `CARD-NEW-TOP10-RESEARCH-A2-EXECUTION-INTENT-AND-RECEIPT`（唯讀觀察：`OPEN`）
 Execution baseline：`origin/main@c738f3eed4d62757835a4036a99aa43d8288c953`
 工作模式：`STRICT / CORE_BOUNDED / EXISTING_LIFECYCLE_ADAPTER_ONLY`
@@ -39,6 +39,15 @@ A3–A6 = BLOCKED / NOT_STARTED
 ### 2.3 CodeGraph fallback
 
 開卡時對 `<repo-root>` 的 CodeGraph 查詢回報 `CodeGraph not initialized`。依規範改採 bounded `rg` 與 focused reads，只查上述既有 lifecycle seam、A1 bundle validator、直接受影響 tests 與 A0 03/09 evidence。此 fallback 不構成全 repo runtime inventory；若施工發現另一個 active terminal writer 或 execution authority，必須 stop，不得自行合併語意。
+
+### 2.4 Implementation evidence / receipt preflight
+
+strict fact gate（2026-08-31 implementation start）：
+
+- 受影響檔案：`app/research/contracts.py`、`app/research/run_receipts.py`、`tests/test_research_spine_contracts.py`、`tests/test_autonomous_research_receipts.py`、本 task card。`app/research/dataset_bundle.py` 為 A1 `USE_AS_IS`，僅呼叫 public validator/builder/publisher，不改語意。
+- public interfaces：`validate_research_intent()`、`validate_attempt_started()`、`validate_orphan_reconciliation()`、`validate_run_receipt()`、`begin_topic_attempt()`、`finish_topic_attempt()`、`reconcile_orphan_attempts()`；新增介面若需要，只能服務既有 begin→execute→finish seam。
+- 資料欄位：Intent/AttemptStarted pre-bind `requested_dataset_bundle_id` 與 immutable manifest ref；receipt 綁定 requested/executed bundle refs、controlled terminal cause evidence、六種 terminal status、orphan unknown facts、legacy `dataset_hash=FEATURES_ARTIFACT_V1` compatibility evidence；不得以 path/mtime/current filesystem 推斷 executed truth。
+- 驗證步驟：先跑 targeted RED fixture；GREEN 後跑 `tests/test_research_spine_contracts.py`、`tests/test_autonomous_research_receipts.py`、`tests/test_research_dataset_bundle.py`、受影響 runner/backtest invariance test、`git diff --check`；最後建立單一 local candidate commit 並回報 SHA。
 
 ## 3. Product fit 與 minimum-sufficient boundary
 
@@ -251,3 +260,36 @@ git diff --check
 - `git diff --check` 通過，並由不同責任線做 architecture review。
 
 本卡通過 review 仍只代表可供後續另行授權的 implementation contract；沒有 runtime mutation、push、merge或外部 write。
+
+## 13. Local implementation receipt
+
+2026-08-31 local dispatch `/private/tmp/a2-execution-intent-receipt-implementation-dispatch.md` 已授權在專用 worktree 實作 A2-VS-001～004；本節只記錄 local candidate evidence，不代表 Issue #4 remote state、push、merge、production、A3–A6 已完成。
+
+### 13.1 Changed files
+
+- `app/research/contracts.py`：新增六種 terminal status contract、terminal cause validator、terminal cause ordering helper、Intent/AttemptStarted requested bundle欄位、receipt bundle binding與 orphan unknown bundle fact。
+- `app/research/run_receipts.py`：在既有 begin→execute→finish seam 以 A1 `dataset_bundle.py` public API pre-bind requested bundle、於 controlled matrix resolution point validate executed bundle、補 terminal cause evidence與 idempotent/collision-safe terminal receipt。
+- `tests/test_research_spine_contracts.py`、`tests/test_autonomous_research_receipts.py`、`tests/test_research_receipt_store.py`、`tests/test_research_spine_daily_cutover.py`：補 RED/GREEN coverage 與 fixture schema alignment。
+- 本 task card：補 strict fact gate 與 execution receipt。
+
+### 13.2 RED / GREEN evidence
+
+- RED：`uv run python -m pytest tests/test_research_spine_contracts.py tests/test_autonomous_research_receipts.py -q` → expected failure at collection: `ImportError: cannot import name 'TERMINAL_CAUSE_POLICY_VERSION'`。
+- GREEN targeted：`.venv/bin/python -m pytest tests/test_research_spine_contracts.py tests/test_autonomous_research_receipts.py -q` → `40 passed in 0.96s`。
+- GREEN task-card matrix：`.venv/bin/python -m pytest tests/test_research_spine_contracts.py tests/test_autonomous_research_receipts.py tests/test_research_dataset_bundle.py -q` → `68 passed in 0.82s`。
+- GREEN affected runner/backtest matrix：`.venv/bin/python -m pytest tests/test_research_spine_daily_cutover.py tests/test_research_receipt_store.py tests/test_research_parameter_catalog_projection.py tests/test_regime_research_autonomy.py::test_strategy_matrix_filters_ranking_files_before_replay tests/test_regime_research_autonomy.py::test_strategy_matrix_excludes_episode_tail_without_complete_holding_window tests/test_regime_research_autonomy.py::test_strategy_matrix_replay_args_preserve_regime_history -q` → `24 passed in 0.82s`。
+- GREEN combined affected matrix：`.venv/bin/python -m pytest tests/test_research_spine_contracts.py tests/test_autonomous_research_receipts.py tests/test_research_dataset_bundle.py tests/test_research_spine_daily_cutover.py tests/test_research_receipt_store.py tests/test_research_parameter_catalog_projection.py tests/test_regime_research_autonomy.py::test_strategy_matrix_filters_ranking_files_before_replay tests/test_regime_research_autonomy.py::test_strategy_matrix_excludes_episode_tail_without_complete_holding_window tests/test_regime_research_autonomy.py::test_strategy_matrix_replay_args_preserve_regime_history -q` → `92 passed in 1.50s`。
+- Diff check：`git diff --check` → pass。
+
+### 13.3 Acceptance coverage
+
+- 六種 controlled terminal statuses：`SUCCEEDED`、`FAILED`、`REJECTED_BEFORE_EXECUTION`、`CANCELLED`、`TIMED_OUT`、`ABORTED` 由 public validator接受，`ORPHANED_ATTEMPT`仍僅為 reconciliation fact。
+- orphan unknown fixture：`facts_unknown` 包含 `executed_dataset_bundle`，不推斷 abort/failure/success。
+- exactly-once：byte-identical terminal replay idempotent，same `run_id` different payload raises `ImmutableCollisionError`。
+- bundle binding：valid requested bundle在 attempt 前 immutable publish；invalid requested bundle不建立 attempt/receipt；executed bundle只由 matrix authority綁定並用 A1 validator檢查；unexplained executed bundle mismatch fail closed。
+- compatibility：legacy `dataset_hash` 保持 `FEATURES_ARTIFACT_V1` 語意，新增 bundle欄位為 additive；`app/research/dataset_bundle.py` 未修改。
+- representative invariance：受影響 strategy-matrix tests pass，未修改 backtest math/features/provider/ranking/scheduler/publish/production。
+
+### 13.4 Residual risk
+
+- Additional script check `.venv/bin/python scripts/verify_backtest_strategy_matrix.py` currently fails before A2 path on existing catalog validation: `ValueError: horizon 包含 catalog 外值：[1, 2]`。本 candidate 未修改該 verifier或 backtest math；以現有 pytest strategy-matrix invariance tests作為 bounded acceptance evidence。

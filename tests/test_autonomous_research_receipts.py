@@ -5,7 +5,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from app.research.contracts import content_hash, validate_run_receipt
+from app.research.receipt_store import ImmutableCollisionError
 from app.research.run_receipts import (
     begin_topic_attempt,
     finish_topic_attempt,
@@ -143,6 +146,27 @@ def test_attempt_is_persisted_before_runner_execution(tmp_path: Path) -> None:
     assert (context.root / "attempts" / f"{context.run_id}.started.json").is_file()
     assert (context.root / "intents" / f"{context.intent_id}.json").is_file()
     assert len(list((context.root / "trial_specs").glob("*.json"))) == 2
+    intent = json.loads((context.root / "intents" / f"{context.intent_id}.json").read_text())
+    attempt = json.loads((context.root / "attempts" / f"{context.run_id}.started.json").read_text())
+    assert intent["requested_dataset_bundle_id"] == context.requested_dataset_bundle_id
+    assert attempt["requested_dataset_bundle_id"] == context.requested_dataset_bundle_id
+    assert (context.root / context.requested_dataset_bundle_manifest_ref).is_file()
+
+
+def test_invalid_requested_bundle_fails_intake_without_attempt_or_receipt(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="REQUESTED_DATASET_BUNDLE_INVALID"):
+        begin_topic_attempt(
+            corpus_root=tmp_path / "corpus",
+            project_root=tmp_path,
+            topic=topic(tmp_path),
+            scenarios=[scenario()],
+            research_stage="DEVELOPMENT_SCREEN",
+            regime_scope={"regime_id": "RISK_OFF|"},
+            features_path="missing.parquet",
+            execution_settings={"max_ranking_files": 8},
+        )
+    assert not (tmp_path / "corpus" / "attempts").exists()
+    assert not (tmp_path / "corpus" / "receipts").exists()
 
 
 def test_complete_matrix_execution_writes_exact_success_receipt(tmp_path: Path) -> None:
@@ -162,6 +186,9 @@ def test_complete_matrix_execution_writes_exact_success_receipt(tmp_path: Path) 
     assert validate_run_receipt(receipt) == []
     assert receipt["terminal_status"] == "SUCCEEDED"
     assert receipt["identity_match_status"] == "EXACT"
+    assert receipt["bundle_binding"]["validation_status"] == "VALID"
+    assert receipt["bundle_binding"]["requested_dataset_bundle_id"] == context.requested_dataset_bundle_id
+    assert receipt["bundle_binding"]["executed_dataset_bundle_id"] == context.requested_dataset_bundle_id
     assert len(receipt["executed_units"]) == 2
     assert all(
         unit["lineage"]["sealed_usage_status"] == "PROVEN_NON_SEALED"
@@ -185,6 +212,38 @@ def test_missing_matrix_fails_closed_instead_of_claiming_success(tmp_path: Path)
     assert receipt["terminal_status"] == "FAILED"
     assert receipt["execution_observation_status"] == "UNKNOWN"
     assert receipt["failure"]["reason_code"] == "INCOMPLETE_EXECUTION_FACTS"
+    assert receipt["bundle_binding"]["validation_status"] == "NOT_EXECUTED"
+    assert receipt["bundle_binding"]["executed_dataset_bundle_id"] == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    ("terminal_status", "reason"),
+    [
+        ("REJECTED_BEFORE_EXECUTION", "POST_START_PRECONDITION_FAILED"),
+        ("CANCELLED", "INTERRUPTED_BY_USER"),
+        ("TIMED_OUT", "DEADLINE_EXCEEDED"),
+        ("ABORTED", "SAFETY_INVARIANT_ABORT"),
+    ],
+)
+def test_controlled_non_success_terminals_emit_exact_cause_evidence(
+    tmp_path: Path,
+    terminal_status: str,
+    reason: str,
+) -> None:
+    context = begin(tmp_path)
+    completed_at = datetime.fromisoformat(context.started_at) + timedelta(minutes=1)
+    receipt = finish_topic_attempt(
+        context,
+        terminal_status=terminal_status,
+        matrix_paths=[],
+        failure_reason=reason,
+        completed_at=completed_at,
+    )
+    assert validate_run_receipt(receipt) == []
+    assert receipt["terminal_status"] == terminal_status
+    assert receipt["terminal_cause"]["status"] == terminal_status
+    assert receipt["terminal_cause"]["reason_code"] == reason
+    assert receipt["executed_units"] == []
 
 
 def test_unproven_lineage_never_becomes_proven_non_sealed(tmp_path: Path) -> None:
@@ -225,6 +284,34 @@ def test_corrupt_artifact_still_terminalizes_attempt(tmp_path: Path) -> None:
     error = receipt["artifact_errors"][0]
     assert error["corpus_path"].startswith("source_corpus/sha256/")
     assert (context.root / error["corpus_path"]).is_file()
+
+
+def test_duplicate_terminal_replay_is_idempotent_and_collision_fails_loud(tmp_path: Path) -> None:
+    context = begin(tmp_path)
+    completed_at = datetime.fromisoformat(context.started_at) + timedelta(minutes=1)
+    first = finish_topic_attempt(
+        context,
+        terminal_status="FAILED",
+        matrix_paths=[],
+        failure_reason="RUNNER_STEP_FAILED",
+        completed_at=completed_at,
+    )
+    replay = finish_topic_attempt(
+        context,
+        terminal_status="FAILED",
+        matrix_paths=[],
+        failure_reason="RUNNER_STEP_FAILED",
+        completed_at=completed_at,
+    )
+    assert replay == first
+    with pytest.raises(ImmutableCollisionError):
+        finish_topic_attempt(
+            context,
+            terminal_status="FAILED",
+            matrix_paths=[],
+            failure_reason="DIFFERENT_REASON",
+            completed_at=completed_at,
+        )
 
 
 def test_wrong_attempt_correlation_and_extra_scenario_fail_closed(tmp_path: Path) -> None:
@@ -312,6 +399,25 @@ def test_malformed_hash_terminalizes_instead_of_crashing(tmp_path: Path) -> None
     assert (context.root / "receipts" / f"{context.run_id}.json").is_file()
 
 
+def test_unexplained_executed_bundle_mismatch_fails_closed(tmp_path: Path) -> None:
+    context = begin(tmp_path)
+    matrix = tmp_path / "baseline.json"
+    write_matrix(matrix, context, "baseline")
+    payload = json.loads(matrix.read_text())
+    payload["scenarios"][0]["execution_authority"]["dataset_manifest"]["files"][0]["hash"] = "sha256:" + "b" * 64
+    payload["scenarios"][0]["execution_authority"]["dataset_hash"] = "sha256:" + "b" * 64
+    matrix.write_text(json.dumps(payload), encoding="utf-8")
+
+    receipt = finish_topic_attempt(
+        context,
+        terminal_status="FAILED",
+        matrix_paths=[matrix],
+        failure_reason="RUNNER_STEP_FAILED",
+    )
+    assert receipt["executed_units"] == []
+    assert receipt["artifact_errors"][0]["reason_code"] == "DATASET_BUNDLE_BINDING_INVALID"
+
+
 def test_malformed_nested_authority_terminalizes_instead_of_crashing(tmp_path: Path) -> None:
     for field, invalid in (("research_stage", {}), ("episode_ids", [{}])):
         case = tmp_path / field
@@ -341,7 +447,7 @@ def test_orphan_reconciliation_is_unknown_and_idempotent(tmp_path: Path) -> None
     payload = json.loads(first[0].read_text())
     assert payload["sealed_usage_status"] == "UNKNOWN"
     assert set(payload["facts_unknown"]) == {
-        "executed_parameters", "executed_lineage", "result"
+        "executed_parameters", "executed_lineage", "executed_dataset_bundle", "result"
     }
 
 

@@ -7,8 +7,10 @@ from pathlib import Path
 
 from app.research.contracts import (
     CANONICALIZATION_VERSION,
+    TERMINAL_CAUSE_POLICY_VERSION,
     content_hash,
     projection_identity,
+    select_terminal_cause,
     validate_attempt_started,
     validate_migration_manifest,
     validate_observation_identity,
@@ -74,6 +76,8 @@ def attempt_started(trial_id: str) -> dict[str, object]:
         "run_id": "run:1",
         "intent_id": "intent:1",
         "requested_trial_spec_ids": [trial_id],
+        "requested_dataset_bundle_id": digest("bundle"),
+        "requested_dataset_bundle_manifest_ref": "dataset_bundles/" + digest("bundle")[7:] + ".json",
         "started_at": "2026-08-14T00:00:00+00:00",
         "executor": {"runner_id": "autonomous-research", "runner_version": "v1", "code_hash": digest("code")},
         "invocation_hash": digest("invocation"),
@@ -97,8 +101,26 @@ def receipt() -> dict[str, object]:
         "terminal_status": "SUCCEEDED",
         "started_at": "2026-08-14T00:00:00+00:00",
         "completed_at": "2026-08-14T00:01:00+00:00",
+        "terminal_cause": {
+            "policy_version": TERMINAL_CAUSE_POLICY_VERSION,
+            "status": "SUCCEEDED",
+            "reason_code": "RUNNER_COMPLETED",
+            "observed_at": "2026-08-14T00:01:00+00:00",
+            "observer": "controlled-executor",
+            "runner_started": True,
+            "evidence_refs": [digest("development-contract")],
+        },
+        "bundle_binding": {
+            "requested_dataset_bundle_id": digest("bundle"),
+            "requested_dataset_bundle_manifest_ref": "dataset_bundles/" + digest("bundle")[7:] + ".json",
+            "executed_dataset_bundle_id": digest("bundle"),
+            "executed_dataset_bundle_manifest_ref": "dataset_bundles/" + digest("bundle")[7:] + ".json",
+            "validation_status": "VALID",
+        },
         "requested": {
             "trial_spec_ids": [trial_id],
+            "dataset_bundle_id": digest("bundle"),
+            "dataset_bundle_manifest_ref": "dataset_bundles/" + digest("bundle")[7:] + ".json",
             "parameters_by_trial": {trial_id: parameters},
             "research_stage": "DEVELOPMENT_SCREEN",
             "regime_scope": {"regime_id": "RISK_OFF|"},
@@ -118,6 +140,8 @@ def receipt() -> dict[str, object]:
             "executed_research_stage": "DEVELOPMENT_SCREEN",
             "executed_regime_scope": {"regime_id": "RISK_OFF|"},
             "executed_dataset_hash": digest("dataset"),
+            "executed_dataset_bundle_id": digest("bundle"),
+            "executed_dataset_bundle_manifest_ref": "dataset_bundles/" + digest("bundle")[7:] + ".json",
             "executed_ranking_source_hash": digest("ranking"),
             "executed_execution_profile": {"runner": "strategy_matrix", "profile": "exact_trial"},
             "lineage": {
@@ -216,6 +240,8 @@ def test_research_intent_binds_request_to_trial_spec() -> None:
     payload = {
         "schema_version": "research-intent.v1", "intent_id": "intent:1",
         "requested_trial_spec_ids": [trial_spec()["trial_spec_id"]],
+        "requested_dataset_bundle_id": digest("bundle"),
+        "requested_dataset_bundle_manifest_ref": "dataset_bundles/" + digest("bundle")[7:] + ".json",
         "requested_at": "2026-08-14T00:00:00+00:00", "request_source": "existing_manager",
         "selection_reason": {"reason_codes": ["EXISTING_QUEUE"]},
     }
@@ -229,6 +255,48 @@ def test_attempt_started_has_recomputable_event_identity() -> None:
     assert "attempt_event_id does not match canonical content" in validate_attempt_started(payload)
 
 
+def test_terminal_taxonomy_accepts_six_controlled_states_and_rejects_orphan_status() -> None:
+    for status in ("SUCCEEDED", "FAILED", "REJECTED_BEFORE_EXECUTION", "CANCELLED", "TIMED_OUT", "ABORTED"):
+        payload = receipt()
+        payload["terminal_status"] = status
+        payload["terminal_cause"]["status"] = status
+        payload["terminal_cause"]["reason_code"] = f"{status}_EVIDENCE"
+        payload["terminal_cause"]["runner_started"] = status != "REJECTED_BEFORE_EXECUTION"
+        if status != "SUCCEEDED":
+            payload["executed_units"] = [] if status == "REJECTED_BEFORE_EXECUTION" else payload["executed_units"]
+            payload["execution_observation_status"] = "NOT_STARTED" if status == "REJECTED_BEFORE_EXECUTION" else "OBSERVED"
+            payload["identity_match_status"] = "NOT_EXECUTED" if status == "REJECTED_BEFORE_EXECUTION" else "EXACT"
+            payload["failure"] = {"reason_code": f"{status}_EVIDENCE"}
+            if status == "REJECTED_BEFORE_EXECUTION":
+                payload["bundle_binding"]["executed_dataset_bundle_id"] = "UNKNOWN"
+                payload["bundle_binding"]["executed_dataset_bundle_manifest_ref"] = "UNKNOWN"
+                payload["bundle_binding"]["validation_status"] = "NOT_EXECUTED"
+        payload["receipt_id"] = content_hash(payload, omit={"receipt_id"})
+        assert validate_run_receipt(payload) == []
+
+    payload = receipt()
+    payload["terminal_status"] = "ORPHANED_ATTEMPT"
+    payload["terminal_cause"]["status"] = "ORPHANED_ATTEMPT"
+    payload["receipt_id"] = content_hash(payload, omit={"receipt_id"})
+    assert "terminal_status is invalid" in validate_run_receipt(payload)
+
+
+def test_terminal_cause_race_uses_observed_time_then_fixed_tie_break() -> None:
+    timeout = {
+        "status": "TIMED_OUT",
+        "reason_code": "DEADLINE_EXCEEDED",
+        "observed_at": "2026-08-14T00:01:00+00:00",
+    }
+    cancel = {
+        "status": "CANCELLED",
+        "reason_code": "USER_CANCELLED",
+        "observed_at": "2026-08-14T00:01:01+00:00",
+    }
+    assert select_terminal_cause([cancel, timeout])["status"] == "TIMED_OUT"
+    cancel["observed_at"] = timeout["observed_at"]
+    assert select_terminal_cause([timeout, cancel])["status"] == "CANCELLED"
+
+
 def test_orphan_reconciliation_is_fail_closed() -> None:
     payload = {
         "schema_version": "research-orphan-reconciliation.v1", "run_id": "run:orphan",
@@ -236,7 +304,12 @@ def test_orphan_reconciliation_is_fail_closed() -> None:
         "observed_at": "2026-08-14T00:05:00+00:00",
         "reconciliation_policy_version": "research-orphan-reconciliation.v1",
         "status": "ORPHANED_ATTEMPT", "sealed_usage_status": "UNKNOWN",
-        "facts_unknown": ["executed_parameters", "executed_lineage", "result"],
+        "facts_unknown": [
+            "executed_parameters",
+            "executed_lineage",
+            "executed_dataset_bundle",
+            "result",
+        ],
     }
     assert validate_orphan_reconciliation(payload) == []
     payload["facts_unknown"] = []
@@ -362,6 +435,12 @@ def test_proven_non_sealed_requires_explicit_authority_support() -> None:
 def test_failed_attempt_is_valid_without_executed_result() -> None:
     payload = receipt()
     payload["terminal_status"] = "REJECTED_BEFORE_EXECUTION"
+    payload["terminal_cause"]["status"] = "REJECTED_BEFORE_EXECUTION"
+    payload["terminal_cause"]["reason_code"] = "INVALID_LINEAGE"
+    payload["terminal_cause"]["runner_started"] = False
+    payload["bundle_binding"]["executed_dataset_bundle_id"] = "UNKNOWN"
+    payload["bundle_binding"]["executed_dataset_bundle_manifest_ref"] = "UNKNOWN"
+    payload["bundle_binding"]["validation_status"] = "NOT_EXECUTED"
     payload["executed_units"] = []
     payload["identity_match_status"] = "NOT_EXECUTED"
     payload["execution_observation_status"] = "NOT_STARTED"

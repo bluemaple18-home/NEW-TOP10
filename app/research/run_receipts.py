@@ -14,6 +14,7 @@ from typing import Any
 
 from app.research.contracts import (
     CANONICALIZATION_VERSION,
+    TERMINAL_CAUSE_POLICY_VERSION,
     content_hash,
     requested_executed_differences,
     validate_attempt_started,
@@ -21,6 +22,13 @@ from app.research.contracts import (
     validate_orphan_reconciliation,
     validate_run_receipt,
     validate_trial_spec,
+)
+from app.research.dataset_bundle import (
+    RESOLVED,
+    build_dataset_bundle,
+    component_diff_paths,
+    publish_dataset_bundle_manifest,
+    validate_requested_executed_bundle_refs,
 )
 from app.research.parameter_catalog import parameter_catalog_hash
 from app.research.receipt_store import corpus_path, publish_file_to_cas, write_immutable_json
@@ -43,6 +51,9 @@ class AttemptContext:
     trial_specs: dict[str, dict[str, Any]]
     requested: dict[str, Any]
     trial_ids_by_role: dict[str, list[str]]
+    requested_dataset_bundle_id: str = ""
+    requested_dataset_bundle_manifest_ref: str = ""
+    requested_dataset_bundle_manifest: dict[str, Any] | None = None
 
 
 def reconcile_orphan_attempts(
@@ -74,7 +85,12 @@ def reconcile_orphan_attempts(
             "reconciliation_policy_version": "attempt-timeout-24h.v1",
             "status": "ORPHANED_ATTEMPT",
             "sealed_usage_status": "UNKNOWN",
-            "facts_unknown": ["executed_parameters", "executed_lineage", "result"],
+            "facts_unknown": [
+                "executed_parameters",
+                "executed_lineage",
+                "executed_dataset_bundle",
+                "result",
+            ],
         }
         target = corpus_path(corpus_root, "reconciliations", run_id, suffix=".orphan.json")
         write_immutable_json(
@@ -112,6 +128,117 @@ def _source_manifest(path: Path, *, max_files: int | None = None) -> dict[str, A
     }
 
 
+def _bundle_coverage(file_count: int) -> dict[str, Any]:
+    return {
+        "schema_version": "dataset-component-coverage.v1",
+        "status": "COMPLETE" if file_count > 0 else "EMPTY",
+        "expected_member_count": file_count,
+        "observed_member_count": file_count,
+        "date_start": "1970-01-01" if file_count > 0 else None,
+        "date_end": "1970-01-01" if file_count > 0 else None,
+    }
+
+
+def _strategy_matrix_dataset_bundle(source_manifest: dict[str, Any]) -> dict[str, Any]:
+    files = source_manifest.get("files")
+    if (
+        source_manifest.get("resolution_status") != "RESOLVED"
+        or not isinstance(files, list)
+        or len(files) != 1
+        or not _valid_hash((files[0] if files else {}).get("hash"))
+    ):
+        raise ValueError("REQUESTED_DATASET_BUNDLE_INVALID")
+    return build_dataset_bundle(
+        consumer_id="STRATEGY_MATRIX_FEATURES_V1",
+        contract_version="strategy-matrix-features.v1",
+        components=[
+            {
+                "role": "FEATURES_ARTIFACT",
+                "member_key": "primary",
+                "identity_kind": "FEATURES_ARTIFACT_V1",
+                "content_id": files[0]["hash"],
+                "resolution_status": RESOLVED,
+                "format_contract": "features-artifact.v1",
+                "coverage": _bundle_coverage(1),
+            }
+        ],
+        transformation_identity={
+            "contract_version": "strategy-matrix-source-adapter.v1",
+            "git_blob_ids": ["git-sha1:" + "0" * 40],
+        },
+        resolution_semantics={
+            "fallback_policy_version": "dataset-resolution-policy.v1",
+            "identity_bearing_absence_is_explicit": True,
+        },
+    )
+
+
+def _manifest_ref(path: Path, root: Path) -> str:
+    return path.relative_to(root).as_posix()
+
+
+def _dataset_binding_envelope(
+    requested_manifest: dict[str, Any],
+    executed_manifest: dict[str, Any],
+    *,
+    requested_ref: str,
+    executed_ref: str,
+    evidence_refs: list[str],
+) -> dict[str, Any]:
+    requested_id = str(requested_manifest["dataset_bundle_id"])
+    executed_id = str(executed_manifest["dataset_bundle_id"])
+    binding = {
+        "requested_dataset_bundle_id": requested_id,
+        "requested_dataset_bundle_manifest_ref": requested_ref,
+        "executed_dataset_bundle_id": executed_id,
+        "executed_dataset_bundle_manifest_ref": executed_ref,
+        "validation_status": "VALID",
+    }
+    envelope: dict[str, Any] = {
+        "requested_dataset_bundle_id": requested_id,
+        "executed_dataset_bundle_id": executed_id,
+    }
+    if requested_id != executed_id:
+        paths = component_diff_paths(requested_manifest, executed_manifest)
+        if all(path.startswith("/transformation_identity/") for path in paths):
+            reason_code = "TRANSFORMATION_CHANGE"
+        elif all("/coverage/" in path for path in paths):
+            reason_code = "COVERAGE_RECONCILIATION"
+        else:
+            reason_code = "SOURCE_FALLBACK"
+        delta = {
+            "reason_code": reason_code,
+            "changed_identity_paths": paths,
+            "changed_roles": sorted({
+                path.split("/", 3)[2].split(":", 1)[0]
+                for path in paths
+                if path.startswith("/components/") and ":" in path.split("/", 3)[2]
+            }),
+            "resolution_authority": "dataset-resolution-policy.v1",
+            "requested_manifest_id": requested_id,
+            "executed_manifest_id": executed_id,
+            "evidence_refs": sorted(set(evidence_refs)),
+        }
+        if reason_code == "SOURCE_FALLBACK":
+            delta["transition_profile_version"] = "m4-training-source-fallback.v1"
+        binding["resolution_delta"] = delta
+        envelope["resolution_delta"] = delta
+    result = validate_requested_executed_bundle_refs(envelope, requested_manifest, executed_manifest)
+    if result.status != "VALID":
+        raise ValueError("DATASET_BUNDLE_BINDING_INVALID:" + "; ".join(result.errors))
+    return binding
+
+
+def _not_executed_bundle_binding(context: AttemptContext) -> dict[str, Any]:
+    return {
+        "requested_dataset_bundle_id": context.requested_dataset_bundle_id,
+        "requested_dataset_bundle_manifest_ref": context.requested_dataset_bundle_manifest_ref,
+        "executed_dataset_bundle_id": "UNKNOWN",
+        "executed_dataset_bundle_manifest_ref": "UNKNOWN",
+        "validation_status": "NOT_EXECUTED",
+    }
+
+
 def begin_topic_attempt(
     *,
     corpus_root: Path,
@@ -130,6 +257,10 @@ def begin_topic_attempt(
         (dataset_manifest.get("files") or [{}])[0].get("hash")
         or content_hash(dataset_manifest)
     )
+    requested_bundle_manifest = _strategy_matrix_dataset_bundle(dataset_manifest)
+    requested_bundle_write = publish_dataset_bundle_manifest(corpus_root, requested_bundle_manifest)
+    requested_bundle_id = str(requested_bundle_manifest["dataset_bundle_id"])
+    requested_bundle_ref = _manifest_ref(requested_bundle_write.path, corpus_root)
     specs: dict[str, dict[str, Any]] = {}
     parameters_by_trial: dict[str, dict[str, Any]] = {}
     trial_ids_by_role: dict[str, list[str]] = {"baseline": [], "candidate": []}
@@ -189,6 +320,8 @@ def begin_topic_attempt(
         "schema_version": "research-intent.v1",
         "intent_id": intent_id,
         "requested_trial_spec_ids": trial_ids,
+        "requested_dataset_bundle_id": requested_bundle_id,
+        "requested_dataset_bundle_manifest_ref": requested_bundle_ref,
         "requested_at": started_at,
         "request_source": "existing_autonomous_manager",
         "selection_reason": {
@@ -208,6 +341,8 @@ def begin_topic_attempt(
         "run_id": run_id,
         "intent_id": intent_id,
         "requested_trial_spec_ids": trial_ids,
+        "requested_dataset_bundle_id": requested_bundle_id,
+        "requested_dataset_bundle_manifest_ref": requested_bundle_ref,
         "started_at": started_at,
         "executor": {
             "runner_id": "autonomous-research",
@@ -225,6 +360,8 @@ def begin_topic_attempt(
     )
     requested = {
         "trial_spec_ids": trial_ids,
+        "dataset_bundle_id": requested_bundle_id,
+        "dataset_bundle_manifest_ref": requested_bundle_ref,
         "parameters_by_trial": parameters_by_trial,
         "research_stage": research_stage,
         "regime_scope": regime_scope,
@@ -245,6 +382,9 @@ def begin_topic_attempt(
         specs,
         requested,
         trial_ids_by_role,
+        requested_bundle_id,
+        requested_bundle_ref,
+        requested_bundle_manifest,
     )
 
 
@@ -293,6 +433,18 @@ def _resolution_values(receipt: dict[str, Any], field: str) -> tuple[Any, Any]:
     requested = receipt["requested"]
     if field == "artifact_set":
         return "NO_INVALID_ARTIFACTS", [item["reason_code"] for item in receipt["artifact_errors"]]
+    if field == "dataset_bundle":
+        binding = receipt["bundle_binding"]
+        return (
+            {
+                "dataset_bundle_id": binding["requested_dataset_bundle_id"],
+                "dataset_bundle_manifest_ref": binding["requested_dataset_bundle_manifest_ref"],
+            },
+            {
+                "dataset_bundle_id": binding["executed_dataset_bundle_id"],
+                "dataset_bundle_manifest_ref": binding["executed_dataset_bundle_manifest_ref"],
+            },
+        )
     if field == "trial_spec_ids":
         return requested["trial_spec_ids"], [
             unit["requested_trial_spec_id"] for unit in receipt["executed_units"]
@@ -336,6 +488,7 @@ def finish_topic_attempt(
     matrix_paths: list[Path],
     lineage_authority_paths: list[Path] | None = None,
     failure_reason: str | None = None,
+    completed_at: datetime | None = None,
 ) -> dict[str, Any]:
     units: list[dict[str, Any]] = []
     artifacts: list[dict[str, str]] = []
@@ -411,7 +564,14 @@ def finish_topic_attempt(
             artifact_errors.append(_artifact_error(artifact, "ATTEMPT_CORRELATION_MISMATCH"))
             continue
         seen_roles.add(role)
-        prepared: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = []
+        prepared: list[tuple[
+            str,
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            dict[str, Any],
+            str,
+        ]] = []
         observed: set[str] = set()
         reasons: set[str] = set()
         for row in matrix.get("scenarios") or []:
@@ -469,7 +629,30 @@ def finish_topic_attempt(
             if content_hash(authority["episode_authority"]) != authority["episode_authority_hash"]:
                 reasons.add("EPISODE_AUTHORITY_HASH_MISMATCH")
                 continue
-            prepared.append((trial_id, spec, parameters, authority))
+            try:
+                executed_bundle_manifest = _strategy_matrix_dataset_bundle(authority["dataset_manifest"])
+                executed_bundle_write = publish_dataset_bundle_manifest(
+                    context.root,
+                    executed_bundle_manifest,
+                )
+                _dataset_binding_envelope(
+                    context.requested_dataset_bundle_manifest or {},
+                    executed_bundle_manifest,
+                    requested_ref=context.requested_dataset_bundle_manifest_ref,
+                    executed_ref=_manifest_ref(executed_bundle_write.path, context.root),
+                    evidence_refs=[artifact_id],
+                )
+            except ValueError:
+                reasons.add("DATASET_BUNDLE_BINDING_INVALID")
+                continue
+            prepared.append((
+                trial_id,
+                spec,
+                parameters,
+                authority,
+                executed_bundle_manifest,
+                _manifest_ref(executed_bundle_write.path, context.root),
+            ))
         if observed != set(expected_ids):
             reasons.add("MISSING_SCENARIO")
         if reasons or len(prepared) != len(expected_ids):
@@ -478,7 +661,7 @@ def finish_topic_attempt(
         artifact["validation_status"] = "VALID"
         candidate_units: list[dict[str, Any]] = []
         try:
-            for trial_id, requested_spec, parameters, authority in prepared:
+            for trial_id, requested_spec, parameters, authority, executed_bundle_manifest, executed_bundle_ref in prepared:
                 actual_profile = {
                     "runner": "strategy_matrix_comparison",
                     "profile": requested_spec["execution_profile"]["profile"],
@@ -541,48 +724,50 @@ def finish_topic_attempt(
                     "episode_ids": authority["episode_ids"],
                 }
                 candidate_units.append({
-                "execution_unit_id": content_hash({"run_id": context.run_id, "trial_id": executed_id}),
-                "requested_trial_spec_id": trial_id,
-                "executed_trial_spec_id": executed_id,
-                "executed_parameters": parameters,
-                "executed_research_stage": authority["research_stage"],
-                "executed_regime_scope": authority["regime_scope"],
-                "executed_dataset_hash": authority["dataset_hash"],
-                "executed_ranking_source_hash": executed_spec["ranking_source_authority"]["ranking_source_hash"],
-                "executed_execution_profile": actual_profile,
-                "lineage": {
-                    "lineage_id": content_hash(facts),
-                    "sealed_usage_status": sealed,
-                    "episode_ids": authority["episode_ids"],
-                    "episode_authority_hash": authority["episode_authority_hash"],
-                },
-                "lineage_assertions": [
-                    {
-                        "authority": "strategy-matrix-execution-authority",
-                        "authority_hash": artifact_id,
-                        "facts": facts,
+                    "execution_unit_id": content_hash({"run_id": context.run_id, "trial_id": executed_id}),
+                    "requested_trial_spec_id": trial_id,
+                    "executed_trial_spec_id": executed_id,
+                    "executed_parameters": parameters,
+                    "executed_research_stage": authority["research_stage"],
+                    "executed_regime_scope": authority["regime_scope"],
+                    "executed_dataset_hash": authority["dataset_hash"],
+                    "executed_dataset_bundle_id": executed_bundle_manifest["dataset_bundle_id"],
+                    "executed_dataset_bundle_manifest_ref": executed_bundle_ref,
+                    "executed_ranking_source_hash": executed_spec["ranking_source_authority"]["ranking_source_hash"],
+                    "executed_execution_profile": actual_profile,
+                    "lineage": {
+                        "lineage_id": content_hash(facts),
+                        "sealed_usage_status": sealed,
+                        "episode_ids": authority["episode_ids"],
+                        "episode_authority_hash": authority["episode_authority_hash"],
                     },
-                    *(
-                        [{
-                            "authority": "development-split-authority",
-                            "authority_hash": trusted_artifact_id,
-                            "facts": {
-                                "sealed_usage_status": sealed,
-                                "research_stage": authority["research_stage"],
-                                "dataset_hash": authority["dataset_hash"],
-                                "regime_scope": authority["regime_scope"],
-                                "episode_ids": authority["episode_ids"],
-                            },
-                        }]
-                        if proven_development and trusted_artifact_id
-                        else []
-                    ),
-                ],
-                "lineage_resolution_status": resolution,
-                "artifact_refs": [
-                    artifact_id,
-                    *([trusted_artifact_id] if proven_development and trusted_artifact_id else []),
-                ],
+                    "lineage_assertions": [
+                        {
+                            "authority": "strategy-matrix-execution-authority",
+                            "authority_hash": artifact_id,
+                            "facts": facts,
+                        },
+                        *(
+                            [{
+                                "authority": "development-split-authority",
+                                "authority_hash": trusted_artifact_id,
+                                "facts": {
+                                    "sealed_usage_status": sealed,
+                                    "research_stage": authority["research_stage"],
+                                    "dataset_hash": authority["dataset_hash"],
+                                    "regime_scope": authority["regime_scope"],
+                                    "episode_ids": authority["episode_ids"],
+                                },
+                            }]
+                            if proven_development and trusted_artifact_id
+                            else []
+                        ),
+                    ],
+                    "lineage_resolution_status": resolution,
+                    "artifact_refs": [
+                        artifact_id,
+                        *([trusted_artifact_id] if proven_development and trusted_artifact_id else []),
+                    ],
                 })
         except Exception as error:
             artifact["validation_status"] = "INVALID"
@@ -598,6 +783,53 @@ def finish_topic_attempt(
         "OBSERVED" if complete else "PARTIALLY_OBSERVED" if units else
         "NOT_STARTED" if terminal_status == "REJECTED_BEFORE_EXECUTION" else "UNKNOWN"
     )
+    completed = completed_at or datetime.now(timezone.utc)
+    if completed.tzinfo is None:
+        completed = completed.replace(tzinfo=timezone.utc)
+    completed_iso = completed.isoformat()
+    if units:
+        bundle_binding = {
+            "requested_dataset_bundle_id": context.requested_dataset_bundle_id,
+            "requested_dataset_bundle_manifest_ref": context.requested_dataset_bundle_manifest_ref,
+            "executed_dataset_bundle_id": units[0]["executed_dataset_bundle_id"],
+            "executed_dataset_bundle_manifest_ref": units[0]["executed_dataset_bundle_manifest_ref"],
+            "validation_status": "VALID",
+        }
+        if bundle_binding["requested_dataset_bundle_id"] != bundle_binding["executed_dataset_bundle_id"]:
+            executed_manifest_path = context.root / bundle_binding["executed_dataset_bundle_manifest_ref"]
+            executed_manifest = json.loads(executed_manifest_path.read_text(encoding="utf-8"))
+            bundle_binding = _dataset_binding_envelope(
+                context.requested_dataset_bundle_manifest or {},
+                executed_manifest,
+                requested_ref=context.requested_dataset_bundle_manifest_ref,
+                executed_ref=bundle_binding["executed_dataset_bundle_manifest_ref"],
+                evidence_refs=[
+                    str(ref)
+                    for unit in units
+                    for ref in unit.get("artifact_refs", [])
+                    if _valid_hash(ref)
+                ],
+            )
+    else:
+        bundle_binding = _not_executed_bundle_binding(context)
+    cause_reason = (
+        "RUNNER_COMPLETED" if terminal_status == "SUCCEEDED"
+        else failure_reason or "RUNTIME_FAILURE"
+    )
+    cause_evidence_refs = sorted({
+        *(
+            str(item.get("artifact_id"))
+            for item in [*artifacts, *artifact_errors]
+            if _valid_hash(item.get("artifact_id"))
+        ),
+        content_hash(
+            {
+                "run_id": context.run_id,
+                "terminal_status": terminal_status,
+                "reason_code": cause_reason,
+            }
+        ),
+    })
     receipt: dict[str, Any] = {
         "schema_version": "research-run-receipt.v1",
         "run_id": context.run_id,
@@ -607,7 +839,17 @@ def finish_topic_attempt(
         "writer_version": "research-receipt-writer.v1",
         "terminal_status": terminal_status,
         "started_at": context.started_at,
-        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at": completed_iso,
+        "terminal_cause": {
+            "policy_version": TERMINAL_CAUSE_POLICY_VERSION,
+            "status": terminal_status,
+            "reason_code": cause_reason,
+            "observed_at": completed_iso,
+            "observer": "controlled-executor",
+            "runner_started": terminal_status != "REJECTED_BEFORE_EXECUTION",
+            "evidence_refs": cause_evidence_refs,
+        },
+        "bundle_binding": bundle_binding,
         "requested": context.requested,
         "executed_units": units,
         "resolution_events": [],

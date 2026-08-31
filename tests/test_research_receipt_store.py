@@ -26,6 +26,8 @@ def attempt() -> dict:
         "run_id": "run-1",
         "intent_id": "intent-1",
         "requested_trial_spec_ids": [digest("trial")],
+        "requested_dataset_bundle_id": digest("bundle"),
+        "requested_dataset_bundle_manifest_ref": f"dataset_bundles/{digest('bundle')[7:]}.json",
         "started_at": "2026-08-14T00:00:00+00:00",
         "executor": {"runner_id": "autonomous", "runner_version": "v1"},
         "invocation_hash": digest("invocation"),
