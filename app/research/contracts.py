@@ -363,6 +363,14 @@ def validate_attempt_started(payload: Mapping[str, Any]) -> list[str]:
     errors = _exact_fields(payload, fields)
     if payload.get("schema_version") != "research-run-attempt-started.v1":
         errors.append("schema_version is invalid")
+    errors.extend(_nonempty(payload.get("run_id"), "run_id"))
+    errors.extend(_nonempty(payload.get("intent_id"), "intent_id"))
+    ids = payload.get("requested_trial_spec_ids")
+    if not isinstance(ids, list) or not ids:
+        errors.append("requested_trial_spec_ids must be non-empty")
+    else:
+        for index, value in enumerate(ids):
+            errors.extend(_hash(value, f"requested_trial_spec_ids[{index}]"))
     errors.extend(_hash(payload.get("attempt_event_id"), "attempt_event_id"))
     errors.extend(_hash(payload.get("invocation_hash"), "invocation_hash"))
     errors.extend(_hash(payload.get("requested_dataset_bundle_id"), "requested_dataset_bundle_id"))
@@ -650,6 +658,9 @@ def validate_run_receipt(payload: Mapping[str, Any]) -> list[str]:
     errors = _exact_fields(payload, fields, optional={"failure", "artifact_errors"})
     if payload.get("schema_version") != "research-run-receipt.v1":
         errors.append("schema_version is invalid")
+    errors.extend(_nonempty(payload.get("run_id"), "run_id"))
+    errors.extend(_nonempty(payload.get("intent_id"), "intent_id"))
+    errors.extend(_nonempty(payload.get("writer_version"), "writer_version"))
     if payload.get("terminal_status") not in _TERMINAL_STATUSES:
         errors.append("terminal_status is invalid")
     if payload.get("identity_match_status") not in _IDENTITY_STATUSES:

@@ -294,6 +294,19 @@ def test_attempt_started_has_recomputable_event_identity() -> None:
     assert "attempt_event_id does not match canonical content" in validate_attempt_started(payload)
 
 
+def test_attempt_started_rejects_empty_identity_fields_and_trials() -> None:
+    for field in ("run_id", "intent_id"):
+        payload = attempt_started(str(trial_spec()["trial_spec_id"]))
+        payload[field] = ""
+        payload["attempt_event_id"] = content_hash(payload, omit={"attempt_event_id"})
+        assert f"{field} must be non-empty" in validate_attempt_started(payload)
+
+    payload = attempt_started(str(trial_spec()["trial_spec_id"]))
+    payload["requested_trial_spec_ids"] = []
+    payload["attempt_event_id"] = content_hash(payload, omit={"attempt_event_id"})
+    assert "requested_trial_spec_ids must be non-empty" in validate_attempt_started(payload)
+
+
 def test_terminal_taxonomy_accepts_six_controlled_states_and_rejects_orphan_status() -> None:
     for status in ("SUCCEEDED", "FAILED", "REJECTED_BEFORE_EXECUTION", "CANCELLED", "TIMED_OUT", "ABORTED"):
         payload = receipt()

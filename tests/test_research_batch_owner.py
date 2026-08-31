@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import duckdb
 import pytest
 
-from app.research.contracts import content_hash
+from app.research.contracts import content_hash, validate_run_receipt
 from app.research.eligibility import build_projection as build_eligibility
 from app.research.observation_ingest import ingest_corpus
 from app.research.batch_owner import (
@@ -422,6 +422,121 @@ def _write_observed_matrix(path: Path, context: object, role: str) -> None:
         }
     )
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_runner_keyboard_interrupt_emits_single_cancelled_receipt_with_first_party_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "cancelled"
+    output_root = root / "output"
+    corpus = root / "spine"
+    ledger = root / "ledger" / "research_ledger.duckdb"
+    output_root.mkdir(parents=True, exist_ok=True)
+    (root / "features.parquet").write_bytes(b"fixture")
+    baseline_dir = root / "baseline"
+    candidate_dir = root / "candidate"
+    baseline_dir.mkdir()
+    candidate_dir.mkdir()
+    (baseline_dir / "ranking_2026-01-02.csv").write_text("symbol,score\nA,1\n", encoding="utf-8")
+    (candidate_dir / "ranking_2026-01-02.csv").write_text("symbol,score\nA,2\n", encoding="utf-8")
+
+    batch_id = "research-2026-08-14-010203-123"
+    output = output_root / "autonomous_research_daily_quota_2026-08-14.json"
+    runner_argv = [
+        "scripts/run_autonomous_research.py",
+        "--date",
+        "2026-08-14",
+        "--research-batch-id",
+        batch_id,
+        "--execute",
+        "--closed-regime-research",
+        "--development-screen-on-sealed-exhaustion",
+        "--output",
+        str(output),
+        "--features",
+        str(root / "features.parquet"),
+        "--execute-topic-count",
+        "1",
+        "--development-screen-topic-count",
+        "1",
+        "--max-topics",
+        "1",
+    ]
+    batch_intent = build_batch_intent(
+        project_root=PROJECT_ROOT,
+        corpus_root=corpus,
+        batch_id=batch_id,
+        scheduler_entrypoint=PROJECT_ROOT / "scripts/run_daily_research_quota.sh",
+        runner_argv=runner_argv,
+        output_path=output,
+        ledger_path=ledger,
+        requested_research_stage="DEVELOPMENT_SCREEN",
+        allowed_research_stages=["DEVELOPMENT_SCREEN"],
+        policy_path=PROJECT_ROOT / "config/native_evidence_activation_policy_v1.json",
+        catalog_path=PROJECT_ROOT / "config/research_parameter_catalog.json",
+        execution_epoch="2026-08-14",
+        created_at="2026-08-14T00:00:00Z",
+    )
+    publish_batch_intent(corpus_root=corpus, payload=batch_intent)
+
+    selected_topic = runner.ResearchTopic(
+        topic_id="test:cancel:development_screen",
+        title="Keyboard interrupt canary",
+        hypothesis="cancel path writes first-party evidence",
+        validation_plan="stub raises KeyboardInterrupt",
+        runner="strategy_matrix_comparison",
+        candidate_dir=str(candidate_dir),
+        baseline_dir=str(baseline_dir),
+        score=1.0,
+        reasons=["canary"],
+        evidence_sources=[],
+        ranking_file_count=1,
+        validation_profile="canary",
+        horizons="5",
+        stop_loss_pcts="0.08",
+        take_profit_pcts="0.15",
+        max_group_exposures="0.35",
+        regime_identity={"regime_id": "RISK_OFF|"},
+        selection_rationale={"research_stage": "DEVELOPMENT_SCREEN"},
+    )
+
+    def interrupting_execute_topic(args, active_topic, run_dir, *, on_execution_started=None, receipt_attempt=None):
+        assert receipt_attempt is not None
+        if on_execution_started is not None:
+            on_execution_started()
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(runner, "build_daily_source_lineage", lambda **_: {"source": "canary"})
+    monkeypatch.setattr(runner, "generate_all_topics", lambda args: [selected_topic])
+    monkeypatch.setattr(runner, "apply_closed_experiment_capacity", lambda topics, args: topics)
+    monkeypatch.setattr(runner, "execute_topic", interrupting_execute_topic)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            *runner_argv,
+            "--research-batch-intent",
+            str(corpus / "batch_intents" / f"{str(batch_intent['batch_intent_id']).removeprefix('sha256:')}.json"),
+        ],
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        runner.main()
+
+    receipt_paths = list((corpus / "receipts").glob("*.json"))
+    assert len(receipt_paths) == 1
+    receipt = json.loads(receipt_paths[0].read_text(encoding="utf-8"))
+    assert validate_run_receipt(receipt) == []
+    assert receipt["terminal_status"] == "CANCELLED"
+    assert receipt["terminal_cause"]["reason_code"] == "INTERRUPTED_BY_USER"
+    assert receipt["terminal_cause"]["observer"] == "autonomous-research-keyboard-interrupt-handler"
+    assert receipt["terminal_cause"]["status_evidence"] == {
+        "cancellation_request_id": f"keyboard-interrupt:{receipt['run_id']}",
+        "accepted_at": receipt["terminal_cause"]["observed_at"],
+        "typed_reason": "INTERRUPTED_BY_USER",
+    }
+    assert verify_batch(corpus_root=corpus, batch_id=batch_id)["receipt_count"] == 1
 
 
 def test_isolated_native_evidence_batch_owner_canary_is_exact_idempotent_and_noncanonical(

@@ -293,3 +293,26 @@ git diff --check
 ### 13.4 Residual risk
 
 - Additional script check `.venv/bin/python scripts/verify_backtest_strategy_matrix.py` currently fails before A2 path on existing catalog validation: `ValueError: horizon 包含 catalog 外值：[1, 2]`。本 candidate 未修改該 verifier或 backtest math；以現有 pytest strategy-matrix invariance tests作為 bounded acceptance evidence。
+
+### 13.5 P1 repair receipt
+
+2026-08-31 local repair dispatch `/private/tmp/a2-implementation-p1-repair-dispatch.md` 僅授權修 Reviewer NO-GO 的兩個 P1。本 repair 未 push、未 merge、未寫 GitHub Issue、未啟動 A3-A6，且未修改 provider、features、backtest、ranking、scheduler、publish、production或 learning。
+
+#### Changed files
+
+- `app/research/contracts.py`：`AttemptStarted` 與 terminal receipt 對 empty `run_id`／`intent_id`／requested trial IDs fail closed。
+- `scripts/run_autonomous_research.py`：真實 `KeyboardInterrupt` callsite 現在提供第一方 `CANCELLED` terminal cause evidence，包含 cancellation request id、accepted timestamp、typed reason、observer與 immutable evidence ref。
+- `scripts/verify_research_spine_batch.py`：batch verifier 逐層 correlate intent、attempt、receipt與 run artifact 的 `run_id`、`intent_id`、`attempt_event_id`、requested trial IDs、requested bundle ID/ref；空值、路徑 stem 不一致與跨檔 mismatch 均 fail closed。
+- `tests/test_research_spine_contracts.py`、`tests/test_research_spine_daily_cutover.py`、`tests/test_research_batch_owner.py`：補 P1-A/P1-B regression。
+- 本 task card：補 local P1 repair receipt。
+
+#### RED / GREEN evidence
+
+- RED focused repro：`.venv/bin/python -m pytest tests/test_research_spine_contracts.py::test_attempt_started_rejects_empty_identity_fields_and_trials tests/test_research_spine_daily_cutover.py::test_batch_verifier_rejects_attempt_bundle_identity_tampering tests/test_research_spine_daily_cutover.py::test_batch_verifier_rejects_receipt_attempt_event_tampering tests/test_research_spine_daily_cutover.py::test_batch_verifier_rejects_run_artifact_membership_tampering tests/test_research_batch_owner.py::test_runner_keyboard_interrupt_emits_single_cancelled_receipt_with_first_party_evidence -q` → `5 failed in 1.40s`。
+- GREEN focused repro：same command → `5 passed in 1.28s`。
+- GREEN affected matrix：`.venv/bin/python -m pytest tests/test_research_spine_contracts.py tests/test_autonomous_research_receipts.py tests/test_research_dataset_bundle.py tests/test_research_spine_daily_cutover.py tests/test_research_receipt_store.py tests/test_research_parameter_catalog_projection.py tests/test_research_batch_owner.py tests/test_regime_research_autonomy.py::test_strategy_matrix_filters_ranking_files_before_replay tests/test_regime_research_autonomy.py::test_strategy_matrix_excludes_episode_tail_without_complete_holding_window tests/test_regime_research_autonomy.py::test_strategy_matrix_replay_args_preserve_regime_history -q` → `113 passed in 1.57s`。
+
+#### P1 closure
+
+- P1-A closed：runner `KeyboardInterrupt` path writes exactly one contract-valid `CANCELLED` receipt and preserves original interrupt propagation.
+- P1-B closed：attempt empty identity and batch-level tampering of bundle binding、receipt attempt event與 run artifact membership all fail closed。

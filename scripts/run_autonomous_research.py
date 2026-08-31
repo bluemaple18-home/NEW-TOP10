@@ -41,6 +41,7 @@ from app.research.batch_owner import (  # noqa: E402
     load_batch_intent_reference,
     verify_batch_owner_authority,
 )
+from app.research.contracts import content_hash  # noqa: E402
 from app.research.run_receipts import (  # noqa: E402
     begin_topic_attempt,
     finish_topic_attempt,
@@ -4074,12 +4075,41 @@ def main() -> int:
                     receipt_attempt=attempt,
                 )
             except KeyboardInterrupt:
+                cancelled_at = datetime.now(timezone.utc)
+                cancelled_at_iso = cancelled_at.isoformat()
+                cancellation_evidence_ref = content_hash(
+                    {
+                        "run_id": attempt.run_id,
+                        "intent_id": attempt.intent_id,
+                        "attempt_event_id": attempt.attempt_event_id,
+                        "status": "CANCELLED",
+                        "reason_code": "INTERRUPTED_BY_USER",
+                        "accepted_at": cancelled_at_iso,
+                        "observer": "autonomous-research-keyboard-interrupt-handler",
+                    }
+                )
                 finish_topic_attempt(
                     attempt,
                     terminal_status="CANCELLED",
                     matrix_paths=matrix_paths,
                     lineage_authority_paths=lineage_authority_paths,
                     failure_reason="INTERRUPTED_BY_USER",
+                    completed_at=cancelled_at,
+                    terminal_cause_candidates=[
+                        {
+                            "status": "CANCELLED",
+                            "reason_code": "INTERRUPTED_BY_USER",
+                            "observed_at": cancelled_at_iso,
+                            "observer": "autonomous-research-keyboard-interrupt-handler",
+                            "runner_started": True,
+                            "evidence_refs": [cancellation_evidence_ref],
+                            "status_evidence": {
+                                "cancellation_request_id": f"keyboard-interrupt:{attempt.run_id}",
+                                "accepted_at": cancelled_at_iso,
+                                "typed_reason": "INTERRUPTED_BY_USER",
+                            },
+                        }
+                    ],
                 )
                 raise
             except Exception as error:

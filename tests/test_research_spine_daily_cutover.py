@@ -5,6 +5,7 @@ from pathlib import Path
 
 import duckdb
 
+from app.research.contracts import content_hash
 from app.research.history_compatibility_projection import build_projection, _select_latest_rows
 from app.research.legacy_migration import LegacySource, build_migration
 from app.research.observation_ingest import ingest_corpus
@@ -86,6 +87,84 @@ def test_missing_terminal_receipt_fails_closed(tmp_path: Path) -> None:
     result = verify_batch(corpus_root=context.root, batch_id="batch-orphan")
     assert result["status"] == "FAIL"
     assert any(error["reason"] == "TERMINAL_RECEIPT_MISSING" for error in result["errors"])
+
+
+def test_batch_verifier_rejects_attempt_bundle_identity_tampering(tmp_path: Path) -> None:
+    context = batch_attempt(tmp_path, "batch-tamper")
+    baseline = tmp_path / "baseline_strategy_matrix.json"
+    candidate = tmp_path / "candidate_strategy_matrix.json"
+    authority = tmp_path / "development.json"
+    write_matrix(baseline, context, "baseline")
+    write_matrix(candidate, context, "candidate")
+    write_development_authority(authority, context)
+    finish_topic_attempt(
+        context,
+        terminal_status="SUCCEEDED",
+        matrix_paths=[baseline, candidate],
+        lineage_authority_paths=[authority],
+    )
+
+    attempt_path = context.root / "attempts" / f"{context.run_id}.started.json"
+    attempt = json.loads(attempt_path.read_text(encoding="utf-8"))
+    attempt["requested_dataset_bundle_id"] = "sha256:" + "a" * 64
+    attempt["requested_dataset_bundle_manifest_ref"] = "dataset_bundles/" + "a" * 64 + ".json"
+    attempt["attempt_event_id"] = content_hash(attempt, omit={"attempt_event_id"})
+    attempt_path.write_text(json.dumps(attempt), encoding="utf-8")
+
+    result = verify_batch(corpus_root=context.root, batch_id="batch-tamper")
+    assert result["status"] == "FAIL"
+    assert any(error["reason"] == "BATCH_BUNDLE_BINDING_MISMATCH" for error in result["errors"])
+
+
+def test_batch_verifier_rejects_receipt_attempt_event_tampering(tmp_path: Path) -> None:
+    context = batch_attempt(tmp_path, "batch-receipt-tamper")
+    receipt = finish_topic_attempt(
+        context,
+        terminal_status="FAILED",
+        matrix_paths=[],
+        failure_reason="RUNNER_STEP_FAILED",
+    )
+    receipt_path = context.root / "receipts" / f"{context.run_id}.json"
+    payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    payload["attempt_event_id"] = "sha256:" + "b" * 64
+    payload["receipt_id"] = content_hash(payload, omit={"receipt_id"})
+    receipt_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = verify_batch(corpus_root=context.root, batch_id="batch-receipt-tamper")
+    assert result["status"] == "FAIL"
+    assert receipt["receipt_id"] not in result["receipt_ids"]
+    assert any(error["reason"] == "RECEIPT_ATTEMPT_EVENT_MISMATCH" for error in result["errors"])
+
+
+def test_batch_verifier_rejects_run_artifact_membership_tampering(tmp_path: Path) -> None:
+    context = batch_attempt(tmp_path, "batch-run-artifact")
+    receipt = finish_topic_attempt(
+        context,
+        terminal_status="FAILED",
+        matrix_paths=[],
+        failure_reason="RUNNER_STEP_FAILED",
+    )
+    run_artifact = tmp_path / "run.json"
+    run_artifact.write_text(json.dumps({
+        "inputs": {"research_batch_id": "batch-run-artifact"},
+        "topic_runs": [{
+            "research_spine": {
+                "run_id": "run-forged",
+                "intent_id": context.intent_id,
+                "receipt_id": receipt["receipt_id"],
+                "receipt_path": str(context.root / "receipts" / f"{context.run_id}.json"),
+            },
+        }],
+        "outcome": {"decision": "PARTIAL_SCORE_ONLY"},
+    }), encoding="utf-8")
+
+    result = verify_batch(
+        corpus_root=context.root,
+        batch_id="batch-run-artifact",
+        run_artifact=run_artifact,
+    )
+    assert result["status"] == "FAIL"
+    assert any(error["reason"] == "RUN_ARTIFACT_RUN_MISMATCH" for error in result["errors"])
 
 
 def test_ledger_history_projection_preserves_frozen_legacy_and_is_deterministic(
