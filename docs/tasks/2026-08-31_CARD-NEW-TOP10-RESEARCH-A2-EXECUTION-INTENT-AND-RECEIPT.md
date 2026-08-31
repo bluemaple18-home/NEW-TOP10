@@ -317,15 +317,15 @@ git diff --check
 - P1-A closed：runner `KeyboardInterrupt` path writes exactly one contract-valid `CANCELLED` receipt and preserves original interrupt propagation.
 - P1-B closed：attempt empty identity and batch-level tampering of bundle binding、receipt attempt event與 run artifact membership all fail closed。
 
-### 13.6 P1-B generation 2 repair receipt
+### 13.6 Supplemental verifier hardening provenance
 
-2026-08-31 local repair dispatch generation 2 僅授權修 re-review candidate `27e7ef0cd0d51d6cb52d8b6b9d185ace0399f761` 的剩餘 P1-B。本 repair 未 touch P1-A，未 push、未 merge、未寫 GitHub Issue、未啟動 A3-A6，且未修改 provider、features、backtest、ranking、scheduler、publish、production或 learning。
+`27e7ef0cd0d51d6cb52d8b6b9d185ace0399f761` 已獲 independent re-review `GO`，且無剩餘 P0/P1。其後的 `44c1a61268d92559396411ed1868cd9c0d738e88` 是 GO 後新增的 supplemental verifier hardening candidate increment，並非修復 reviewer-blocking finding，亦不具有 P1 repair authority。此 increment 僅收斂 empty-outcome 對既有 corpus membership 的遮蔽風險；未 touch P1-A，未 push、未 merge、未寫 GitHub Issue、未啟動 A3-A6，且未修改 provider、features、backtest、ranking、scheduler、publish、production或 learning。
 
 #### Changed files
 
 - `scripts/verify_research_spine_batch.py`：`empty_outcome` 只有在 batch corpus 沒有 matching intent、attempt 或 receipt membership 時才能證明 valid empty batch；若 corpus 已有任一 membership，empty run artifact fail closed。
 - `tests/test_research_spine_daily_cutover.py`：補 corpus 已有 1 attempt + 1 receipt，但 run artifact 聲稱 `topic_runs=[]` 與 `NO_EXECUTABLE_TOPIC` 的 focused regression。
-- 本 task card：補 local P1-B generation 2 repair receipt。
+- 本 task card：記錄 GO 後 supplemental verifier hardening provenance。
 
 #### RED / GREEN evidence
 
@@ -334,6 +334,6 @@ git diff --check
 - GREEN affected matrix：`.venv/bin/python -m pytest tests/test_research_spine_contracts.py tests/test_autonomous_research_receipts.py tests/test_research_dataset_bundle.py tests/test_research_spine_daily_cutover.py tests/test_research_receipt_store.py tests/test_research_parameter_catalog_projection.py tests/test_research_batch_owner.py tests/test_regime_research_autonomy.py::test_strategy_matrix_filters_ranking_files_before_replay tests/test_regime_research_autonomy.py::test_strategy_matrix_excludes_episode_tail_without_complete_holding_window tests/test_regime_research_autonomy.py::test_strategy_matrix_replay_args_preserve_regime_history -q` → `114 passed in 2.34s`。
 - Diff check：`git diff --check` → pass。
 
-#### P1-B closure
+#### Supplemental scope closure
 
-- P1-B closed：empty run artifact no longer masks existing batch corpus membership；typed error `RUN_ARTIFACT_EMPTY_OUTCOME_CONFLICTS_WITH_CORPUS_MEMBERSHIP` forces fail closed while preserving existing run_id、intent_id、attempt_event_id、requested trial IDs與 requested bundle ID/ref correlation。
+- empty run artifact 不再遮蔽既有 batch corpus membership；typed error `RUN_ARTIFACT_EMPTY_OUTCOME_CONFLICTS_WITH_CORPUS_MEMBERSHIP` forces fail closed，同時保留既有 run_id、intent_id、attempt_event_id、requested trial IDs與 requested bundle ID/ref correlation。這是 bounded supplemental hardening，並不改寫 `27e7ef0` 的 independent re-review GO/no remaining P0/P1 disposition。
