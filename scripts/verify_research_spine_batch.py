@@ -163,6 +163,7 @@ def verify_batch(
             )
         else:
             empty_outcome = empty_outcome_claimed
+        artifact_run_ids: set[str] = set()
         for index, topic_run in enumerate(topic_runs):
             entity = f"{run_artifact.name}:topic_runs[{index}]"
             spine = _mapping(_mapping(topic_run).get("research_spine"))
@@ -173,6 +174,9 @@ def verify_batch(
             if not _nonempty_text(run_id):
                 _add_error(errors, entity, "RUN_ARTIFACT_RUN_EMPTY")
                 continue
+            if str(run_id) in artifact_run_ids:
+                _add_error(errors, entity, "RUN_ARTIFACT_RUN_DUPLICATE")
+            artifact_run_ids.add(str(run_id))
             attempt = attempts.get(str(run_id))
             receipt = receipts_by_run.get(str(run_id))
             if attempt is None or receipt is None:
@@ -184,6 +188,8 @@ def verify_batch(
                 _add_error(errors, entity, "RUN_ARTIFACT_RECEIPT_MISMATCH")
             if not _nonempty_text(receipt_path) or Path(str(receipt_path)).name != f"{run_id}.json":
                 _add_error(errors, entity, "RUN_ARTIFACT_RECEIPT_PATH_MISMATCH")
+        for run_id in sorted(set(attempts) - artifact_run_ids):
+            _add_error(errors, run_artifact.name, "RUN_ARTIFACT_CORPUS_RUN_MISSING")
     if not attempts and not empty_outcome:
         _add_error(errors, batch_id, "NO_ATTEMPT_OR_PROVEN_EMPTY_OUTCOME")
 

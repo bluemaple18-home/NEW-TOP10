@@ -200,6 +200,95 @@ def test_batch_verifier_rejects_run_artifact_membership_tampering(tmp_path: Path
     assert any(error["reason"] == "RUN_ARTIFACT_RUN_MISMATCH" for error in result["errors"])
 
 
+def test_batch_verifier_rejects_run_artifact_omitting_corpus_member(tmp_path: Path) -> None:
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    corpus_root = tmp_path / "corpus"
+    first_root.mkdir()
+    second_root.mkdir()
+    first = batch_attempt(first_root, "batch-run-artifact-omission")
+    second = batch_attempt(second_root, "batch-run-artifact-omission")
+    first_receipt = finish_topic_attempt(
+        first,
+        terminal_status="FAILED",
+        matrix_paths=[],
+        failure_reason="RUNNER_STEP_FAILED",
+    )
+    finish_topic_attempt(
+        second,
+        terminal_status="FAILED",
+        matrix_paths=[],
+        failure_reason="RUNNER_STEP_FAILED",
+    )
+    for source_root in (first.root, second.root):
+        for directory_name in ("intents", "attempts", "receipts"):
+            source = source_root / directory_name
+            destination = corpus_root / directory_name
+            destination.mkdir(parents=True, exist_ok=True)
+            for path in source.iterdir():
+                path.replace(destination / path.name)
+    run_artifact = tmp_path / "run.json"
+    run_artifact.write_text(json.dumps({
+        "inputs": {"research_batch_id": "batch-run-artifact-omission"},
+        "topic_runs": [{
+            "research_spine": {
+                "run_id": first.run_id,
+                "intent_id": first.intent_id,
+                "receipt_id": first_receipt["receipt_id"],
+                "receipt_path": str(first.root / "receipts" / f"{first.run_id}.json"),
+            },
+        }],
+        "outcome": {"decision": "PARTIAL_SCORE_ONLY"},
+    }), encoding="utf-8")
+
+    result = verify_batch(
+        corpus_root=corpus_root,
+        batch_id="batch-run-artifact-omission",
+        run_artifact=run_artifact,
+    )
+    assert result["status"] == "FAIL"
+    assert any(
+        error["reason"] == "RUN_ARTIFACT_CORPUS_RUN_MISSING"
+        for error in result["errors"]
+    )
+
+
+def test_batch_verifier_rejects_duplicate_run_artifact_membership(tmp_path: Path) -> None:
+    context = batch_attempt(tmp_path, "batch-run-artifact-duplicate")
+    receipt = finish_topic_attempt(
+        context,
+        terminal_status="FAILED",
+        matrix_paths=[],
+        failure_reason="RUNNER_STEP_FAILED",
+    )
+    spine = {
+        "run_id": context.run_id,
+        "intent_id": context.intent_id,
+        "receipt_id": receipt["receipt_id"],
+        "receipt_path": str(context.root / "receipts" / f"{context.run_id}.json"),
+    }
+    run_artifact = tmp_path / "run.json"
+    run_artifact.write_text(json.dumps({
+        "inputs": {"research_batch_id": "batch-run-artifact-duplicate"},
+        "topic_runs": [
+            {"research_spine": spine},
+            {"research_spine": spine},
+        ],
+        "outcome": {"decision": "PARTIAL_SCORE_ONLY"},
+    }), encoding="utf-8")
+
+    result = verify_batch(
+        corpus_root=context.root,
+        batch_id="batch-run-artifact-duplicate",
+        run_artifact=run_artifact,
+    )
+    assert result["status"] == "FAIL"
+    assert any(
+        error["reason"] == "RUN_ARTIFACT_RUN_DUPLICATE"
+        for error in result["errors"]
+    )
+
+
 def test_ledger_history_projection_preserves_frozen_legacy_and_is_deterministic(
     tmp_path: Path,
 ) -> None:
