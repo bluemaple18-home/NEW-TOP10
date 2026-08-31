@@ -1,6 +1,6 @@
 ---
 id: CARD-NEW-TOP10-RESEARCH-A6-DEPRECATION-REBUILD-AND-BRIDGE-REMOVAL-GATES
-status: admitted_implementation_ready
+status: IMPLEMENTATION_COMPLETE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING
 type: implementation
 issue: 8
 depends_on: [4, 5, 6, 7]
@@ -108,3 +108,11 @@ A1–A5 已進 main 後，能否用單一可重跑證據證明 Research Spine �
 - 如有bounded Repair：預設`Terra medium`，最多2代，原Reviewer re-review。
 - Worker交付candidate SHA、changed files、驗證命令、bridge inventory與remaining P0/P1。
 - 不得merge、push、關閉Issue #8或啟動Card B／C；須回Mainline另行驗收與Owner授權。
+
+## Final review handoff
+
+- Status：`IMPLEMENTATION_COMPLETE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING`
+- Reviewed implementation SHA：`6f6796c5da549b3c62698b336cacdda63ced6c6d`
+- Repair closure：Repair-1 與 Repair-2 已完成；remaining `P0=0 / P1=0`。
+- Verification：focused=`26 passed`；affected=`182 passed`；fixed-fixture CLI=`PASS`；checked-in receipt canonical match=`PASS`；`git diff --check`=`PASS`。
+- Scope：Card B／C=`NOT_STARTED`；未 merge、push 或關閉 Issue。
