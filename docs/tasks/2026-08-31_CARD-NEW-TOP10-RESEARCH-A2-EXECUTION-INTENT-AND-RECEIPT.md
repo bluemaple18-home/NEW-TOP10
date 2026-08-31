@@ -1,16 +1,16 @@
 # CARD-NEW-TOP10-RESEARCH-A2-EXECUTION-INTENT-AND-RECEIPT
 
 日期：2026-08-31
-狀態：`A2_LOCAL_CANDIDATE_IMPLEMENTED / REVIEW_PENDING`
-GitHub authority：Issue #4 `CARD-NEW-TOP10-RESEARCH-A2-EXECUTION-INTENT-AND-RECEIPT`（唯讀觀察：`OPEN`）
-Execution baseline：`origin/main@c738f3eed4d62757835a4036a99aa43d8288c953`
+狀態：`A2_COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`
+GitHub authority：Issue #4 `CARD-NEW-TOP10-RESEARCH-A2-EXECUTION-INTENT-AND-RECEIPT`（唯讀觀察：`OPEN / REMOTE_CLOSEOUT_PENDING`）
+Execution baseline：`origin/main@c738f3eed4d62757835a4036a99aa43d8288c953`；canonical mainline acceptance：`main@5edd87e7df75bb44517f6c2b46d48780cf3476f2`
 工作模式：`STRICT / CORE_BOUNDED / EXISTING_LIFECYCLE_ADAPTER_ONLY`
 
 ## 1. Root question
 
 NEW-TOP10 能否只延伸既有 `ExecutionIntent → AttemptStarted → immutable terminal receipt` seam，讓每個受控 attempt 在執行前綁定 A1 requested dataset bundle evidence，並在受控 resolution point 以第一方證據綁定 executed bundle、terminal cause、artifacts 與 failure facts；同時不改 backtest math、不從 filesystem 猜測事實，也不建立第二套 lifecycle／ledger／registry／DB？
 
-本卡是已由 Owner 接受的 bounded implementation plan，但本次授權只允許建立 task card。任何 code、test、schema、runtime mutation 仍為 `NOT STARTED`，必須另行取得實作授權。
+下列 §1–12 記錄本卡建立時已由 Owner 接受的 bounded implementation plan；當時授權只允許建立 task card，任何 code、test、schema、runtime mutation 均為 `NOT STARTED`。後續 implementation 與 mainline acceptance evidence 見 §13–14，並以本檔頂端 current status 為準。
 
 ## 2. Authority、admission 與 pinned evidence
 
@@ -30,11 +30,12 @@ NEW-TOP10 能否只延伸既有 `ExecutionIntent → AttemptStarted → immutabl
 ```text
 A0 = COMPLETE / ACCEPTED
 A1 = COMPLETE / MAINLINE_ACCEPTED
-A2 = OWNER_ADMITTED_TASK_CARD_ONLY / IMPLEMENTATION_NOT_STARTED
-A3–A6 = BLOCKED / NOT_STARTED
+A2 = COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN
+A3 = BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION
+A4–A6 = BLOCKED / NOT_STARTED
 ```
 
-本卡存在不等於 A2 implementation 已獲執行授權，也不自動解除 A3–A6。Issue #4 仍為 `OPEN`；本卡沒有外部 write 或關票授權。
+本卡的原始 implementation-plan 段落保留作 historical contract；2026-08-31 mainline acceptance 已完成 A2，並不自動解除 A3–A6。Issue #4 仍為 `OPEN / REMOTE_CLOSEOUT_PENDING`；本卡沒有外部 write 或關票授權。
 
 ### 2.3 CodeGraph fallback
 
@@ -163,7 +164,7 @@ Intent 與 AttemptStarted 必須在 runner invocation 前 durable write 成功�
 - `traces_to: FR-A2-004, FR-A2-005, FR-A2-007; SC-A2-001, SC-A2-002, SC-A2-004`
 - 交付：以 public validators固定六種 terminal semantics、cause evidence、orphan/abort區隔與 duplicate/collision規則。
 - TDD：RED fixtures先覆蓋 timeout、abort、cancel race、hard-crash orphan及duplicate terminal；GREEN只延伸既有 contract/writer seam。
-- blocking edges：無；但開始前必須另行取得 A2 implementation授權。
+- blocking edges：無；historical start gate 為另行取得 A2 implementation 授權，現已由 §13–14 的完成與接受 evidence 取代。
 - likely files：`app/research/contracts.py`、`app/research/run_receipts.py`、`tests/test_research_spine_contracts.py`、`tests/test_autonomous_research_receipts.py`。
 - verification：targeted contract/receipt tests；immutable writer collision regression。
 
@@ -197,11 +198,12 @@ Intent 與 AttemptStarted 必須在 runner invocation 前 durable write 成功�
 ## 8. Dependency frontier and checkpoints
 
 ```text
-CURRENT_FRONTIER = TASK_CARD_REVIEW_ONLY
-IMPLEMENTATION_FRONTIER_AFTER_SEPARATE_AUTHORIZATION = A2-VS-001
+CURRENT_FRONTIER = A2_COMPLETE / A3_AWAITING_SEPARATE_OWNER_ADMISSION
+IMPLEMENTATION_FRONTIER_AFTER_SEPARATE_AUTHORIZATION = A3 (separate card only)
 
-A2-VS-001 -> A2-VS-002 -> A2-VS-003 -> A2-VS-004
-A3–A6 remain BLOCKED
+A2-VS-001 -> A2-VS-002 -> A2-VS-003 -> A2-VS-004 = COMPLETE
+A3 remains BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION
+A4–A6 remain BLOCKED / NOT_STARTED
 ```
 
 - Checkpoint CP-A2-01（`A2-VS-002`後）：重跑 contracts/receipt/A1 bundle affected tests；驗證 runner未被 invalid pre-bind呼叫、無第二套 writer、backtest artifacts未改。
@@ -248,9 +250,9 @@ git diff --check
 
 缺個別 artifact evidence可標 `UNKNOWN` 並繼續設計；但 governing-authority conflict、identity-grain ambiguity、terminal-boundary ambiguity或 required out-of-scope mutation必須 stop。
 
-## 12. This task-card-only acceptance
+## 12. Initial task-card-only acceptance（historical）
 
-本次只驗收：
+本卡建立時只驗收：
 
 - 檔案只有本 task card；
 - status 明確為 `IMPLEMENTATION_NOT_STARTED`；
@@ -259,7 +261,7 @@ git diff --check
 - 不宣稱 Issue #4、A2 runtime或A3–A6已完成；
 - `git diff --check` 通過，並由不同責任線做 architecture review。
 
-本卡通過 review 仍只代表可供後續另行授權的 implementation contract；沒有 runtime mutation、push、merge或外部 write。
+當時的 review 只代表可供後續另行授權的 implementation contract；沒有 runtime mutation、push、merge或外部 write。後續實作與 mainline acceptance 不由本 historical subsection 主張，而由 §13–14 evidence 主張。
 
 ## 13. Local implementation receipt
 
@@ -337,3 +339,25 @@ git diff --check
 #### Supplemental scope closure
 
 - empty run artifact 不再遮蔽既有 batch corpus membership；typed error `RUN_ARTIFACT_EMPTY_OUTCOME_CONFLICTS_WITH_CORPUS_MEMBERSHIP` forces fail closed，同時保留既有 run_id、intent_id、attempt_event_id、requested trial IDs與 requested bundle ID/ref correlation。這是 bounded supplemental hardening，並不改寫 `27e7ef0` 的 independent re-review GO/no remaining P0/P1 disposition。
+
+## 14. Mainline acceptance and closeout receipt
+
+### 14.1 Accepted mainline
+
+- Original fixed candidate：`3f7347f30b274201e5c66f649e5919de16d1f6e9`。
+- Mainline acceptance 另外發現 P1：run artifact 的 `topic_runs` membership 可遺漏或重複既有 corpus run，會使 batch-level correlation 無法完整驗證。
+- Repair 與 canonical mainline SHA：`5edd87e7df75bb44517f6c2b46d48780cf3476f2`（`fix: enforce batch artifact run membership`）。
+- 接受方式：無 PR，直接 fast-forward 至 `main@5edd87e7df75bb44517f6c2b46d48780cf3476f2`。
+
+### 14.2 Acceptance evidence
+
+- Independent fixed-SHA re-review：`GO`；remaining P0/P1：none。
+- A2 bounded regression family：`149 passed`。
+- `git diff --check`：pass。
+- Repair 僅收斂 run artifact 與 intent／attempt／receipt corpus membership correlation；未擴張到 scheduler、provider、features、ranking、publish、production、backtest math，亦未建立第二套 lifecycle、ledger、registry、DB 或 runtime authority。
+
+### 14.3 Remaining boundary
+
+- Issue #4 保持 `OPEN / REMOTE_CLOSEOUT_PENDING`；本 mainline acceptance 不關閉 remote Issue。
+- `#5 A3` 是下一 frontier，但仍為 `BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`；`#6–#8 A4–A6` 維持 `BLOCKED / NOT_STARTED`。本 receipt 不構成任何 A3–A6 admission 或開始授權。
+- Issue #10 的 2026-08-31 17:30 natural-run observation 是獨立 operational lane；不得由本 A2 acceptance 推論、變更或關閉 #9/#10 狀態。
