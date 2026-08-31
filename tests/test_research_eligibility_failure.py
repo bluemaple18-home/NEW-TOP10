@@ -2,16 +2,57 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import duckdb
+import pytest
 
+import app.research.eligibility as eligibility_module
+import app.research.failure_classification as failure_module
+from app.research.contracts import content_hash
 from app.research.eligibility import build_projection as build_eligibility, load_policy as load_eligibility_policy
 from app.research.failure_classification import build_projection as build_failure, classify_metrics, load_policy
+from app.research.legacy_migration import LegacySource, build_migration
 from app.research.native_evidence_replay import verify_bundle
 from app.research.observation_ingest import ingest_corpus
 from app.research.run_receipts import finish_topic_attempt
+from app.research.receipt_store import ImmutableCollisionError
+from scripts.verify_research_spine_batch import verify_projection_rebuild
 from tests.test_autonomous_research_receipts import begin
 from tests.test_research_ledger import corpus_with_receipt
+from tests.test_research_legacy_migration import write_matrix
+
+
+def migration_ledger(tmp_path: Path) -> tuple[Path, Path]:
+    source = tmp_path / "matrix.json"
+    write_matrix(source)
+    corpus = tmp_path / "corpus"
+    build_migration(
+        corpus_root=corpus,
+        sources=[LegacySource(source, "STRATEGY_MATRIX")],
+    )
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    return ledger, tmp_path / "eligibility"
+
+
+def commit_failing_duckdb(real_connect: object) -> SimpleNamespace:
+    class CommitFailConnection:
+        def __init__(self, connection: object) -> None:
+            self.connection = connection
+
+        def execute(self, query: str, *args: object, **kwargs: object) -> object:
+            if query == "COMMIT":
+                raise RuntimeError("COMMIT_FAILURE")
+            return self.connection.execute(query, *args, **kwargs)
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(self.connection, name)
+
+    def connect(*args: object, **kwargs: object) -> CommitFailConnection:
+        return CommitFailConnection(real_connect(*args, **kwargs))
+
+    return SimpleNamespace(connect=connect)
 
 
 def test_valid_development_observations_are_eligible_and_reproducible(tmp_path: Path) -> None:
@@ -24,6 +65,396 @@ def test_valid_development_observations_are_eligible_and_reproducible(tmp_path: 
     assert first["projection_id"] == second["projection_id"]
     assert first["counts"] == {"ADAPTIVE_ELIGIBLE": 2}
     assert all(item["evidence_weight"] == 1 for item in first["decisions"])
+
+
+def test_clean_delete_rebuild_reproduces_projection_artifacts_exactly(
+    tmp_path: Path,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path / "source")
+    result = verify_projection_rebuild(corpus_root=corpus)
+    assert result["status"] == "PASS"
+    assert all(result["checks"].values())
+
+
+def test_v2_rebuild_preserves_generated_at_v1_artifacts_side_by_side(
+    tmp_path: Path,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    eligibility_root = tmp_path / "eligibility"
+    failure_root = tmp_path / "failure"
+    first_failure = build_failure(
+        ledger_path=ledger,
+        eligibility_output_root=eligibility_root,
+        output_root=failure_root,
+    )
+    first_eligibility = json.loads(
+        (eligibility_root / f"{first_failure['eligibility_projection_id'][7:]}.json")
+        .read_text(encoding="utf-8")
+    )
+
+    old_eligibility = json.loads(json.dumps(first_eligibility))
+    old_eligibility["schema_version"] = "research-eligibility-projection.v1"
+    old_eligibility["projection_schema_version"] = "research-eligibility-projection.v1"
+    eligibility_identity = {
+        key: old_eligibility[key]
+        for key in (
+            "projection_schema_version", "input_corpus_hash", "ledger_snapshot_hash",
+            "policy_version", "policy_hash", "parameter_catalog_hash",
+            "canonicalization_version", "activation_exclusion_policy_version",
+            "activation_exclusion_policy_hash",
+        )
+    }
+    old_eligibility["projection_id"] = content_hash(eligibility_identity)
+    old_eligibility["generated_at"] = "2026-08-31T00:00:00+00:00"
+    old_eligibility_path = eligibility_root / f"{old_eligibility['projection_id'][7:]}.json"
+    old_eligibility_path.write_text(
+        json.dumps(old_eligibility, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    old_failure = json.loads(json.dumps(first_failure))
+    old_failure["schema_version"] = "research-failure-projection.v1"
+    old_failure["projection_schema_version"] = "research-failure-projection.v1"
+    old_failure["eligibility_projection_id"] = old_eligibility["projection_id"]
+    failure_identity = {
+        key: old_failure[key]
+        for key in (
+            "projection_schema_version", "eligibility_projection_id",
+            "policy_version", "policy_hash",
+        )
+    }
+    old_failure["projection_id"] = content_hash(failure_identity)
+    old_failure["generated_at"] = "2026-08-31T00:00:00+00:00"
+    old_failure_path = failure_root / f"{old_failure['projection_id'][7:]}.json"
+    old_failure_path.write_text(json.dumps(old_failure, sort_keys=True) + "\n", encoding="utf-8")
+    old_bytes = (old_eligibility_path.read_bytes(), old_failure_path.read_bytes())
+
+    second_failure = build_failure(
+        ledger_path=ledger,
+        eligibility_output_root=eligibility_root,
+        output_root=failure_root,
+    )
+
+    assert first_eligibility["schema_version"] == "research-eligibility-projection.v2"
+    assert first_failure["schema_version"] == "research-failure-projection.v2"
+    assert second_failure == first_failure
+    assert old_eligibility_path.read_bytes() == old_bytes[0]
+    assert old_failure_path.read_bytes() == old_bytes[1]
+
+
+@pytest.mark.parametrize("tamper", ["counts", "projection_id", "activation_ref"])
+def test_tampered_eligibility_artifact_is_rejected(
+    tmp_path: Path, tamper: str,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    output = tmp_path / "eligibility"
+    first = build_eligibility(ledger_path=ledger, output_root=output)
+    target = output / f"{first['projection_id'][7:]}.json"
+    tampered = json.loads(target.read_text(encoding="utf-8"))
+    if tamper == "counts":
+        tampered["counts"] = {}
+    elif tamper == "projection_id":
+        tampered["projection_id"] = "sha256:" + "0" * 64
+    else:
+        tampered["activation_exclusions"]["policy_hash"] = "sha256:" + "0" * 64
+    target.write_text(json.dumps(tampered), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="ELIGIBILITY_PROJECTION_COLLISION"):
+        build_eligibility(ledger_path=ledger, output_root=output)
+
+
+@pytest.mark.parametrize("tamper", ["classifications", "projection_id", "eligibility_ref"])
+def test_tampered_failure_artifact_is_rejected(tmp_path: Path, tamper: str) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path, total_return=-0.08)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    eligibility_root = tmp_path / "eligibility"
+    output = tmp_path / "failure"
+    first = build_failure(
+        ledger_path=ledger,
+        eligibility_output_root=eligibility_root,
+        output_root=output,
+    )
+    target = output / f"{first['projection_id'][7:]}.json"
+    tampered = json.loads(target.read_text(encoding="utf-8"))
+    if tamper == "classifications":
+        tampered["classifications"] = []
+    elif tamper == "projection_id":
+        tampered["projection_id"] = "sha256:" + "0" * 64
+    else:
+        tampered["eligibility_projection_id"] = "sha256:" + "0" * 64
+    target.write_text(json.dumps(tampered), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="FAILURE_PROJECTION_COLLISION"):
+        build_failure(
+            ledger_path=ledger,
+            eligibility_output_root=eligibility_root,
+            output_root=output,
+        )
+
+
+def test_projection_db_row_collision_fails_without_partial_write(tmp_path: Path) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    output = tmp_path / "eligibility"
+    first = build_eligibility(ledger_path=ledger, output_root=output)
+    connection = duckdb.connect(str(ledger))
+    try:
+        subject_id = connection.execute(
+            "SELECT subject_id FROM eligibility_decisions WHERE projection_id=? ORDER BY subject_id LIMIT 1",
+            [first["projection_id"]],
+        ).fetchone()[0]
+        connection.execute(
+            "UPDATE eligibility_decisions SET evidence_weight=0 WHERE projection_id=? AND subject_id=?",
+            [first["projection_id"], subject_id],
+        )
+        before = connection.execute(
+            "SELECT * FROM eligibility_decisions WHERE projection_id=? ORDER BY subject_type,subject_id",
+            [first["projection_id"]],
+        ).fetchall()
+    finally:
+        connection.close()
+
+    collision_output = tmp_path / "eligibility-collision"
+    collision_target = collision_output / f"{first['projection_id'][7:]}.json"
+    with pytest.raises(ValueError, match="ELIGIBILITY_DB_PROJECTION_COLLISION"):
+        build_eligibility(ledger_path=ledger, output_root=collision_output)
+    assert not collision_target.exists()
+
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        after = connection.execute(
+            "SELECT * FROM eligibility_decisions WHERE projection_id=? ORDER BY subject_type,subject_id",
+            [first["projection_id"]],
+        ).fetchall()
+    finally:
+        connection.close()
+    assert after == before
+
+
+def test_eligibility_write_failure_rolls_back_db_and_new_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    output = tmp_path / "eligibility"
+    real_connect = eligibility_module.duckdb.connect
+    monkeypatch.setattr(eligibility_module, "duckdb", commit_failing_duckdb(real_connect))
+    with pytest.raises(RuntimeError, match="COMMIT_FAILURE"):
+        build_eligibility(ledger_path=ledger, output_root=output)
+
+    assert list(output.glob("*.json")) == []
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        assert connection.execute("SELECT count(*) FROM eligibility_projection_runs").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM eligibility_decisions").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_eligibility_collision_preserves_concurrent_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    output = tmp_path / "eligibility"
+    concurrent_bytes = b'{"concurrent_writer":true}\n'
+    real_write = eligibility_module.write_immutable_json
+
+    def concurrent_then_write(target: Path, *args: object, **kwargs: object) -> object:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(concurrent_bytes)
+        return real_write(target, *args, **kwargs)
+
+    monkeypatch.setattr(eligibility_module, "write_immutable_json", concurrent_then_write)
+    with pytest.raises(ImmutableCollisionError):
+        build_eligibility(ledger_path=ledger, output_root=output)
+
+    targets = list(output.glob("*.json"))
+    assert len(targets) == 1
+    assert targets[0].read_bytes() == concurrent_bytes
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        assert connection.execute("SELECT count(*) FROM eligibility_projection_runs").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM eligibility_decisions").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_missing_legacy_decision_is_a_db_projection_collision(tmp_path: Path) -> None:
+    ledger, output = migration_ledger(tmp_path)
+    first = build_eligibility(ledger_path=ledger, output_root=output)
+    connection = duckdb.connect(str(ledger))
+    try:
+        connection.execute(
+            "DELETE FROM eligibility_decisions WHERE projection_id=? "
+            "AND subject_type='MIGRATED_RECORD'",
+            [first["projection_id"]],
+        )
+    finally:
+        connection.close()
+
+    with pytest.raises(ValueError, match="ELIGIBILITY_DB_PROJECTION_COLLISION"):
+        build_eligibility(ledger_path=ledger, output_root=output)
+
+
+def test_missing_legacy_reason_is_a_db_projection_collision(tmp_path: Path) -> None:
+    ledger, output = migration_ledger(tmp_path)
+    first = build_eligibility(ledger_path=ledger, output_root=output)
+    connection = duckdb.connect(str(ledger))
+    try:
+        connection.execute(
+            "DELETE FROM eligibility_reason_codes WHERE projection_id=? "
+            "AND subject_type='MIGRATED_RECORD'",
+            [first["projection_id"]],
+        )
+    finally:
+        connection.close()
+
+    with pytest.raises(ValueError, match="ELIGIBILITY_DB_PROJECTION_COLLISION"):
+        build_eligibility(ledger_path=ledger, output_root=output)
+
+
+def test_no_run_legacy_orphan_rows_fail_before_artifact_publication(
+    tmp_path: Path,
+) -> None:
+    ledger, output = migration_ledger(tmp_path)
+    first = build_eligibility(ledger_path=ledger, output_root=output)
+    target = output / f"{first['projection_id'][7:]}.json"
+    target.unlink()
+    connection = duckdb.connect(str(ledger))
+    try:
+        connection.execute(
+            "DELETE FROM eligibility_projection_runs WHERE projection_id=?",
+            [first["projection_id"]],
+        )
+        connection.execute(
+            "DELETE FROM eligibility_decisions WHERE projection_id=?",
+            [first["projection_id"]],
+        )
+        connection.execute(
+            "DELETE FROM eligibility_reason_codes WHERE projection_id=?",
+            [first["projection_id"]],
+        )
+        connection.execute(
+            "INSERT INTO eligibility_decisions VALUES (?,?,?,?,?,?)",
+            [first["projection_id"], "MIGRATED_RECORD", "orphan", "INVALID_LINEAGE", 0,
+             "sha256:" + "0" * 64],
+        )
+    finally:
+        connection.close()
+
+    with pytest.raises(ValueError, match="ELIGIBILITY_DB_PROJECTION_COLLISION"):
+        build_eligibility(ledger_path=ledger, output_root=output)
+    assert not target.exists()
+
+
+def test_failure_projection_db_collision_fails_loudly(tmp_path: Path) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    kwargs = {
+        "ledger_path": ledger,
+        "eligibility_output_root": tmp_path / "eligibility",
+        "output_root": tmp_path / "failure",
+    }
+    first = build_failure(**kwargs)
+    connection = duckdb.connect(str(ledger))
+    try:
+        connection.execute(
+            "UPDATE failure_projection_runs SET canonical_payload_hash=? WHERE projection_id=?",
+            ["sha256:" + "0" * 64, first["projection_id"]],
+        )
+        before = connection.execute(
+            "SELECT * FROM failure_projection_runs WHERE projection_id=?",
+            [first["projection_id"]],
+        ).fetchall()
+    finally:
+        connection.close()
+
+    collision_kwargs = {**kwargs, "output_root": tmp_path / "failure-collision"}
+    collision_target = collision_kwargs["output_root"] / f"{first['projection_id'][7:]}.json"
+    with pytest.raises(ValueError, match="FAILURE_DB_PROJECTION_COLLISION"):
+        build_failure(**collision_kwargs)
+    assert not collision_target.exists()
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        after = connection.execute(
+            "SELECT * FROM failure_projection_runs WHERE projection_id=?",
+            [first["projection_id"]],
+        ).fetchall()
+    finally:
+        connection.close()
+    assert after == before
+
+
+def test_failure_write_failure_rolls_back_db_and_new_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    eligibility_root = tmp_path / "eligibility"
+    build_eligibility(ledger_path=ledger, output_root=eligibility_root)
+    output = tmp_path / "failure"
+    real_connect = failure_module.duckdb.connect
+    monkeypatch.setattr(failure_module, "duckdb", commit_failing_duckdb(real_connect))
+    with pytest.raises(RuntimeError, match="COMMIT_FAILURE"):
+        build_failure(
+            ledger_path=ledger,
+            eligibility_output_root=eligibility_root,
+            output_root=output,
+        )
+
+    assert list(output.glob("*.json")) == []
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        assert connection.execute("SELECT count(*) FROM failure_projection_runs").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM failure_classifications").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_failure_collision_preserves_concurrent_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    eligibility_root = tmp_path / "eligibility"
+    build_eligibility(ledger_path=ledger, output_root=eligibility_root)
+    output = tmp_path / "failure"
+    concurrent_bytes = b'{"concurrent_writer":true}\n'
+    real_write = failure_module.write_immutable_json
+
+    def concurrent_then_write(target: Path, *args: object, **kwargs: object) -> object:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(concurrent_bytes)
+        return real_write(target, *args, **kwargs)
+
+    monkeypatch.setattr(failure_module, "write_immutable_json", concurrent_then_write)
+    with pytest.raises(ImmutableCollisionError):
+        build_failure(
+            ledger_path=ledger,
+            eligibility_output_root=eligibility_root,
+            output_root=output,
+        )
+
+    targets = list(output.glob("*.json"))
+    assert len(targets) == 1
+    assert targets[0].read_bytes() == concurrent_bytes
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        assert connection.execute("SELECT count(*) FROM failure_projection_runs").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM failure_classifications").fetchone()[0] == 0
+    finally:
+        connection.close()
 
 
 def test_exact_regime_components_and_legal_null_parameters_are_eligible(

@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,6 +20,8 @@ from app.research.contracts import (
     validate_research_intent,
     validate_run_receipt,
 )
+from app.research.failure_classification import build_projection as build_failure_projection
+from app.research.observation_ingest import ingest_corpus
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -61,8 +65,52 @@ def _add_error(errors: list[dict[str, str]], entity: object, reason: str) -> Non
     errors.append({"entity": str(entity), "reason": reason})
 
 
+def verify_projection_rebuild(*, corpus_root: Path) -> dict[str, Any]:
+    """刪除derived ledger/projections後，驗證相同corpus可重建相同bytes。"""
+    with tempfile.TemporaryDirectory(prefix="research-a4-rebuild-") as temp_name:
+        root = Path(temp_name)
+        ledger = root / "ledger.duckdb"
+        eligibility_root = root / "projections" / "eligibility"
+        failure_root = root / "projections" / "failure"
+
+        first_ingest = ingest_corpus(corpus_root=corpus_root, ledger_path=ledger)
+        first_failure = build_failure_projection(
+            ledger_path=ledger,
+            eligibility_output_root=eligibility_root,
+            output_root=failure_root,
+        )
+        eligibility_path = eligibility_root / (
+            f"{first_failure['eligibility_projection_id'][7:]}.json"
+        )
+        failure_path = failure_root / f"{first_failure['projection_id'][7:]}.json"
+        first_bytes = (eligibility_path.read_bytes(), failure_path.read_bytes())
+
+        ledger.unlink()
+        shutil.rmtree(root / "projections")
+        second_ingest = ingest_corpus(corpus_root=corpus_root, ledger_path=ledger)
+        second_failure = build_failure_projection(
+            ledger_path=ledger,
+            eligibility_output_root=eligibility_root,
+            output_root=failure_root,
+        )
+        checks = {
+            "ledger_snapshot_equal": first_ingest.snapshot_hash == second_ingest.snapshot_hash,
+            "failure_projection_id_equal": (
+                first_failure["projection_id"] == second_failure["projection_id"]
+            ),
+            "eligibility_bytes_equal": eligibility_path.read_bytes() == first_bytes[0],
+            "failure_bytes_equal": failure_path.read_bytes() == first_bytes[1],
+        }
+        return {
+            "schema_version": "research-a4-projection-rebuild-verification.v1",
+            "status": "PASS" if all(checks.values()) else "FAIL",
+            "checks": checks,
+        }
+
+
 def verify_batch(
     *, corpus_root: Path, batch_id: str, run_artifact: Path | None = None,
+    verify_a4_rebuild: bool = False,
 ) -> dict[str, Any]:
     errors: list[dict[str, str]] = []
     intents: dict[str, dict[str, Any]] = {}
@@ -193,7 +241,7 @@ def verify_batch(
     if not attempts and not empty_outcome:
         _add_error(errors, batch_id, "NO_ATTEMPT_OR_PROVEN_EMPTY_OUTCOME")
 
-    return {
+    result = {
         "schema_version": "research-spine-batch-verification.v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "PASS" if not errors else "FAIL",
@@ -207,6 +255,14 @@ def verify_batch(
         "empty_outcome": empty_outcome,
         "errors": errors,
     }
+    if verify_a4_rebuild:
+        result["a4_projection_rebuild"] = verify_projection_rebuild(
+            corpus_root=corpus_root
+        )
+        if result["a4_projection_rebuild"]["status"] != "PASS":
+            _add_error(errors, "a4_projection_rebuild", "A4_REBUILD_MISMATCH")
+            result["status"] = "FAIL"
+    return result
 
 
 def main() -> int:
@@ -217,12 +273,14 @@ def main() -> int:
         default=PROJECT_ROOT / "artifacts/autonomous_research/research_spine",
     )
     parser.add_argument("--run-artifact", type=Path)
+    parser.add_argument("--verify-a4-rebuild", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = verify_batch(
         corpus_root=args.corpus_root,
         batch_id=args.batch_id,
         run_artifact=args.run_artifact,
+        verify_a4_rebuild=args.verify_a4_rebuild,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2) + "\n")
