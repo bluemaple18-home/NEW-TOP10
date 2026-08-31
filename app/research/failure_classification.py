@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 from collections import Counter
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -93,8 +92,57 @@ def classify_metrics(row: dict[str, Any], policy: dict[str, Any]) -> list[dict[s
     return findings
 
 
+_IDENTITY_FIELDS = (
+    "projection_schema_version", "eligibility_projection_id", "policy_version", "policy_hash",
+)
+
+
 def _validator(payload: dict[str, Any]) -> list[str]:
-    return [] if payload.get("schema_version") == "research-failure-projection.v1" else ["invalid schema"]
+    errors: list[str] = []
+    required = {
+        "schema_version", "projection_id", *_IDENTITY_FIELDS,
+        "status", "counts", "classifications",
+    }
+    if set(payload) != required:
+        errors.append("invalid keys")
+    if payload.get("schema_version") != "research-failure-projection.v1":
+        errors.append("invalid schema")
+    identity = {key: payload.get(key) for key in _IDENTITY_FIELDS}
+    if payload.get("projection_id") != content_hash(identity):
+        errors.append("invalid projection identity")
+    findings = payload.get("classifications")
+    counts = payload.get("counts")
+    if not isinstance(findings, list) or not isinstance(counts, dict):
+        errors.append("invalid classifications or counts")
+        return errors
+    expected_keys = {
+        "subject_type", "subject_id", "classification_type", "reason_code",
+        "threshold_id", "observed_value", "threshold_value", "comparator",
+        "decision_input_hash",
+    }
+    seen: set[tuple[str, str, str]] = set()
+    projected_counts: Counter[str] = Counter()
+    for finding in findings:
+        if not isinstance(finding, dict) or set(finding) != expected_keys:
+            errors.append("invalid classification shape")
+            continue
+        key = (
+            finding.get("subject_type"), finding.get("subject_id"), finding.get("reason_code")
+        )
+        if not all(isinstance(value, str) and value for value in key) or key in seen:
+            errors.append("invalid or duplicate classification identity")
+        seen.add(key)
+        expected_hash = content_hash({
+            item: value for item, value in finding.items() if item != "decision_input_hash"
+        })
+        if finding.get("decision_input_hash") != expected_hash:
+            errors.append("invalid classification input hash")
+        projected_counts[str(finding.get("reason_code"))] += 1
+    if counts != dict(sorted(projected_counts.items())):
+        errors.append("classification counts mismatch")
+    if payload.get("status") != "OK":
+        errors.append("invalid status")
+    return errors
 
 
 def build_projection(
@@ -147,6 +195,9 @@ def build_projection(
             })
         for finding in findings:
             finding["decision_input_hash"] = content_hash(finding)
+        findings.sort(
+            key=lambda item: (item["subject_type"], item["subject_id"], item["reason_code"])
+        )
         identity = {
             "projection_schema_version": "research-failure-projection.v1",
             "eligibility_projection_id": eligibility["projection_id"],
@@ -156,26 +207,59 @@ def build_projection(
         counts = Counter(item["reason_code"] for item in findings)
         payload = {
             "schema_version": "research-failure-projection.v1", "projection_id": projection_id,
-            **identity, "generated_at": datetime.now(timezone.utc).isoformat(),
+            **identity,
             "status": "OK", "counts": dict(sorted(counts.items())), "classifications": findings,
         }
         target = output_root / f"{projection_id[7:]}.json"
         if target.is_file():
-            payload = json.loads(target.read_text(encoding="utf-8"))
+            existing_payload = json.loads(target.read_text(encoding="utf-8"))
+            if existing_payload != payload:
+                raise ValueError("FAILURE_PROJECTION_COLLISION")
         result = write_immutable_json(target, payload, validator=_validator)
-        connection.execute(
-            "INSERT OR IGNORE INTO failure_projection_runs VALUES (?,?,?,?,?,?,?)",
-            [projection_id, eligibility["projection_id"], policy["policy_version"], policy_hash,
-             payload["status"], str(result.path), content_hash(payload)],
+        canonical_hash = content_hash(payload)
+        run_semantics = (
+            projection_id, eligibility["projection_id"], policy["policy_version"], policy_hash,
+            payload["status"], canonical_hash,
         )
-        for finding in findings:
-            connection.execute(
-                "INSERT OR IGNORE INTO failure_classifications VALUES (?,?,?,?,?,?,?,?,?,?)",
-                [projection_id, finding["subject_type"], finding["subject_id"],
-                 finding["classification_type"], finding["reason_code"], finding["threshold_id"],
-                 finding["observed_value"], finding["threshold_value"], finding["comparator"],
-                 finding["decision_input_hash"]],
+        expected_rows = sorted([
+            (
+                projection_id, finding["subject_type"], finding["subject_id"],
+                finding["classification_type"], finding["reason_code"], finding["threshold_id"],
+                finding["observed_value"], finding["threshold_value"], finding["comparator"],
+                finding["decision_input_hash"],
             )
+            for finding in findings
+        ])
+        connection.execute("BEGIN TRANSACTION")
+        try:
+            existing_runs = connection.execute(
+                "SELECT projection_id,eligibility_projection_id,policy_version,policy_hash,"
+                "status,canonical_payload_hash FROM failure_projection_runs WHERE projection_id=?",
+                [projection_id],
+            ).fetchall()
+            existing_rows = sorted(connection.execute(
+                "SELECT * FROM failure_classifications WHERE projection_id=?",
+                [projection_id],
+            ).fetchall())
+            if existing_runs:
+                if existing_runs != [run_semantics] or existing_rows != expected_rows:
+                    raise ValueError("FAILURE_DB_PROJECTION_COLLISION")
+            else:
+                if existing_rows:
+                    raise ValueError("FAILURE_DB_PROJECTION_COLLISION")
+                connection.execute(
+                    "INSERT INTO failure_projection_runs VALUES (?,?,?,?,?,?,?)",
+                    [*run_semantics[:-1], str(result.path), run_semantics[-1]],
+                )
+                if expected_rows:
+                    connection.executemany(
+                        "INSERT INTO failure_classifications VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        expected_rows,
+                    )
+            connection.execute("COMMIT")
+        except Exception:
+            connection.execute("ROLLBACK")
+            raise
         return payload
     finally:
         connection.close()

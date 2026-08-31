@@ -4,12 +4,14 @@ import json
 from pathlib import Path
 
 import duckdb
+import pytest
 
 from app.research.eligibility import build_projection as build_eligibility, load_policy as load_eligibility_policy
 from app.research.failure_classification import build_projection as build_failure, classify_metrics, load_policy
 from app.research.native_evidence_replay import verify_bundle
 from app.research.observation_ingest import ingest_corpus
 from app.research.run_receipts import finish_topic_attempt
+from scripts.verify_research_spine_batch import verify_projection_rebuild
 from tests.test_autonomous_research_receipts import begin
 from tests.test_research_ledger import corpus_with_receipt
 
@@ -24,6 +26,128 @@ def test_valid_development_observations_are_eligible_and_reproducible(tmp_path: 
     assert first["projection_id"] == second["projection_id"]
     assert first["counts"] == {"ADAPTIVE_ELIGIBLE": 2}
     assert all(item["evidence_weight"] == 1 for item in first["decisions"])
+
+
+def test_clean_delete_rebuild_reproduces_projection_artifacts_exactly(
+    tmp_path: Path,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path / "source")
+    result = verify_projection_rebuild(corpus_root=corpus)
+    assert result["status"] == "PASS"
+    assert all(result["checks"].values())
+
+
+@pytest.mark.parametrize("tamper", ["counts", "projection_id", "activation_ref"])
+def test_tampered_eligibility_artifact_is_rejected(
+    tmp_path: Path, tamper: str,
+) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    output = tmp_path / "eligibility"
+    first = build_eligibility(ledger_path=ledger, output_root=output)
+    target = output / f"{first['projection_id'][7:]}.json"
+    tampered = json.loads(target.read_text(encoding="utf-8"))
+    if tamper == "counts":
+        tampered["counts"] = {}
+    elif tamper == "projection_id":
+        tampered["projection_id"] = "sha256:" + "0" * 64
+    else:
+        tampered["activation_exclusions"]["policy_hash"] = "sha256:" + "0" * 64
+    target.write_text(json.dumps(tampered), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="ELIGIBILITY_PROJECTION_COLLISION"):
+        build_eligibility(ledger_path=ledger, output_root=output)
+
+
+@pytest.mark.parametrize("tamper", ["classifications", "projection_id", "eligibility_ref"])
+def test_tampered_failure_artifact_is_rejected(tmp_path: Path, tamper: str) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path, total_return=-0.08)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    eligibility_root = tmp_path / "eligibility"
+    output = tmp_path / "failure"
+    first = build_failure(
+        ledger_path=ledger,
+        eligibility_output_root=eligibility_root,
+        output_root=output,
+    )
+    target = output / f"{first['projection_id'][7:]}.json"
+    tampered = json.loads(target.read_text(encoding="utf-8"))
+    if tamper == "classifications":
+        tampered["classifications"] = []
+    elif tamper == "projection_id":
+        tampered["projection_id"] = "sha256:" + "0" * 64
+    else:
+        tampered["eligibility_projection_id"] = "sha256:" + "0" * 64
+    target.write_text(json.dumps(tampered), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="FAILURE_PROJECTION_COLLISION"):
+        build_failure(
+            ledger_path=ledger,
+            eligibility_output_root=eligibility_root,
+            output_root=output,
+        )
+
+
+def test_projection_db_row_collision_fails_without_partial_write(tmp_path: Path) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    output = tmp_path / "eligibility"
+    first = build_eligibility(ledger_path=ledger, output_root=output)
+    connection = duckdb.connect(str(ledger))
+    try:
+        subject_id = connection.execute(
+            "SELECT subject_id FROM eligibility_decisions WHERE projection_id=? ORDER BY subject_id LIMIT 1",
+            [first["projection_id"]],
+        ).fetchone()[0]
+        connection.execute(
+            "UPDATE eligibility_decisions SET evidence_weight=0 WHERE projection_id=? AND subject_id=?",
+            [first["projection_id"], subject_id],
+        )
+        before = connection.execute(
+            "SELECT * FROM eligibility_decisions WHERE projection_id=? ORDER BY subject_type,subject_id",
+            [first["projection_id"]],
+        ).fetchall()
+    finally:
+        connection.close()
+
+    with pytest.raises(ValueError, match="ELIGIBILITY_DB_PROJECTION_COLLISION"):
+        build_eligibility(ledger_path=ledger, output_root=output)
+
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        after = connection.execute(
+            "SELECT * FROM eligibility_decisions WHERE projection_id=? ORDER BY subject_type,subject_id",
+            [first["projection_id"]],
+        ).fetchall()
+    finally:
+        connection.close()
+    assert after == before
+
+
+def test_failure_projection_db_collision_fails_loudly(tmp_path: Path) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path)
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    kwargs = {
+        "ledger_path": ledger,
+        "eligibility_output_root": tmp_path / "eligibility",
+        "output_root": tmp_path / "failure",
+    }
+    first = build_failure(**kwargs)
+    connection = duckdb.connect(str(ledger))
+    try:
+        connection.execute(
+            "UPDATE failure_projection_runs SET canonical_payload_hash=? WHERE projection_id=?",
+            ["sha256:" + "0" * 64, first["projection_id"]],
+        )
+    finally:
+        connection.close()
+
+    with pytest.raises(ValueError, match="FAILURE_DB_PROJECTION_COLLISION"):
+        build_failure(**kwargs)
 
 
 def test_exact_regime_components_and_legal_null_parameters_are_eligible(
