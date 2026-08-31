@@ -20,7 +20,7 @@ Repository：`bluemaple18-home/NEW-TOP10`
 
 ### Current arbitration (2026-08-31)
 
-`#2 A0 = COMPLETE / ACCEPTED`。`#3 A1 = COMPLETE / MAINLINE_ACCEPTED`，其 PR #12 canonical merge SHA 為 `0b39937399eddd0535372ece51ddc25bc38fe6a6`。`#4 A2 = COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`：原 candidate `3f7347f30b274201e5c66f649e5919de16d1f6e9` 的 mainline acceptance 發現 run artifact `topic_runs` membership omission／duplicate P1，已由 `5edd87e7df75bb44517f6c2b46d48780cf3476f2` 修復並直接 fast-forward 至 `main`（無 PR）；獨立 fixed-SHA re-review 為 `GO / no P0/P1`，驗證為 `149 passed` 與 `git diff --check` pass。Issue #4 保持 `OPEN / REMOTE_CLOSEOUT_PENDING`。Research frontier 現為 `#5 A3 = BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`，不得自行派工或開始 A3；`#6–#8 A4–A6` 均維持 `BLOCKED / NOT_STARTED`。
+`#2 A0 = COMPLETE / ACCEPTED`。`#3 A1 = COMPLETE / MAINLINE_ACCEPTED`，其 PR #12 canonical merge SHA 為 `0b39937399eddd0535372ece51ddc25bc38fe6a6`。`#4 A2 = COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`：原 candidate `3f7347f30b274201e5c66f649e5919de16d1f6e9` 的 mainline acceptance 發現 run artifact `topic_runs` membership omission／duplicate P1，已由 `5edd87e7df75bb44517f6c2b46d48780cf3476f2` 修復並直接 fast-forward 至 `main`（無 PR）；獨立 fixed-SHA re-review 為 `GO / no P0/P1`，驗證為 `149 passed` 與 `git diff --check` pass。Issue #4 已 `CLOSED / REMOTE_CLOSEOUT_RECONCILED`。Research frontier 現為 `#5 A3 = BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`，不得自行派工或開始 A3；`#6–#8 A4–A6` 均維持 `BLOCKED / NOT_STARTED`。
 
 `#9` 保持 `OPEN / LONG-TERM HARDENING`，不阻擋 read-only A0；Research lane（含 A0/research）不得執行 scheduler、publish 或 production mutation。#9 未來若需 operational hardening，須另行取得對應授權。`#10` 等待 2026-08-31 17:30（Asia/Taipei）natural-run observation；該 observation 未完成前不得宣稱 close 或 promotion。
 
@@ -31,7 +31,7 @@ Repository：`bluemaple18-home/NEW-TOP10`
 
 A3 未取得另行 Owner admission 前，下列卡均不得開始：
 
-- [x] [#4 A2 — ExecutionIntent and Immutable Receipt](https://github.com/bluemaple18-home/NEW-TOP10/issues/4) — `COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`；`main@5edd87e7df75bb44517f6c2b46d48780cf3476f2`；Issue #4=`OPEN / REMOTE_CLOSEOUT_PENDING`
+- [x] [#4 A2 — ExecutionIntent and Immutable Receipt](https://github.com/bluemaple18-home/NEW-TOP10/issues/4) — `COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`；`main@5edd87e7df75bb44517f6c2b46d48780cf3476f2`；Issue #4=`CLOSED / REMOTE_CLOSEOUT_RECONCILED`
 - [ ] [#5 A3 — Legacy Migration and Reconciliation](https://github.com/bluemaple18-home/NEW-TOP10/issues/5) — `BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`；依賴 #3、#4 已滿足，但尚未 admission
 - [ ] [#6 A4 — Rebuildable Ledger and Observations](https://github.com/bluemaple18-home/NEW-TOP10/issues/6) — `BLOCKED / NOT_STARTED`；blocked by #5
 - [ ] [#7 A5 — Matched Learning Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/7) — `BLOCKED / NOT_STARTED`；blocked by #6
@@ -239,7 +239,7 @@ Card A 不碰：
 FRONTIER: #5 A3 separate Owner admission
 A0: COMPLETE / ACCEPTED
 A1: COMPLETE / MAINLINE_ACCEPTED (PR #12 merge 0b39937399eddd0535372ece51ddc25bc38fe6a6)
-A2: COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN (main 5edd87e7df75bb44517f6c2b46d48780cf3476f2; Issue #4 OPEN / REMOTE_CLOSEOUT_PENDING)
+A2: COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN (main 5edd87e7df75bb44517f6c2b46d48780cf3476f2; Issue #4 CLOSED / REMOTE_CLOSEOUT_RECONCILED)
 A3: BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION
 A4–A6: BLOCKED / NOT_STARTED
 NOT ADMITTED: Card B / Card C

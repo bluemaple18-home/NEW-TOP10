@@ -2,7 +2,7 @@
 
 日期：2026-08-31
 狀態：`A2_COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`
-GitHub authority：Issue #4 `CARD-NEW-TOP10-RESEARCH-A2-EXECUTION-INTENT-AND-RECEIPT`（唯讀觀察：`OPEN / REMOTE_CLOSEOUT_PENDING`）
+GitHub authority：Issue #4 `CARD-NEW-TOP10-RESEARCH-A2-EXECUTION-INTENT-AND-RECEIPT`（remote closeout：`CLOSED / REMOTE_CLOSEOUT_RECONCILED`）
 Execution baseline：`origin/main@c738f3eed4d62757835a4036a99aa43d8288c953`；canonical mainline acceptance：`main@5edd87e7df75bb44517f6c2b46d48780cf3476f2`
 工作模式：`STRICT / CORE_BOUNDED / EXISTING_LIFECYCLE_ADAPTER_ONLY`
 
@@ -35,7 +35,7 @@ A3 = BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION
 A4–A6 = BLOCKED / NOT_STARTED
 ```
 
-本卡的原始 implementation-plan 段落保留作 historical contract；2026-08-31 mainline acceptance 已完成 A2，並不自動解除 A3–A6。Issue #4 仍為 `OPEN / REMOTE_CLOSEOUT_PENDING`；本卡沒有外部 write 或關票授權。
+本卡的原始 implementation-plan 段落保留作 historical contract；2026-08-31 mainline acceptance 已完成 A2，並不自動解除 A3–A6。Issue #4 現為 `CLOSED / REMOTE_CLOSEOUT_RECONCILED`；本卡沒有外部 write 或關票授權。
 
 ### 2.3 CodeGraph fallback
 
@@ -358,6 +358,6 @@ git diff --check
 
 ### 14.3 Remaining boundary
 
-- Issue #4 保持 `OPEN / REMOTE_CLOSEOUT_PENDING`；本 mainline acceptance 不關閉 remote Issue。
+- Issue #4 已 `CLOSED / REMOTE_CLOSEOUT_RECONCILED`；本 mainline acceptance 與後續 remote closeout reconciliation 均不構成任何 A3–A6 admission。
 - `#5 A3` 是下一 frontier，但仍為 `BLOCKED / AWAITING_SEPARATE_OWNER_ADMISSION`；`#6–#8 A4–A6` 維持 `BLOCKED / NOT_STARTED`。本 receipt 不構成任何 A3–A6 admission 或開始授權。
 - Issue #10 的 2026-08-31 17:30 natural-run observation 是獨立 operational lane；不得由本 A2 acceptance 推論、變更或關閉 #9/#10 狀態。
