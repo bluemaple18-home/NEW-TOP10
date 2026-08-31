@@ -11,6 +11,8 @@ baseline: bb617e98aabefcc52bbf7cb1834fb5fba715d60a
 
 日期：2026-09-01
 
+👉 [假設與目標確認] 目標：A6 closure 僅修復 fail-closed 驗證缺口；邊界：不啟動 Card B/C、production、scheduler 或 ranking/backtest math；驗收：fixed-SHA 可重跑、六項 P1 攻擊探針拒絕且受影響回歸通過。
+
 ## Root question
 
 A1–A5 已進 main 後，能否用單一可重跑證據證明 Research Spine 可從 first-party immutable corpus 完整重建、`run_history` 不再是新 run truth authority，且每條 compatibility bridge 都有可執行的退場條件，而不啟動 Card B／Card C？

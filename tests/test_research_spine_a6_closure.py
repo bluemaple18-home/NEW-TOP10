@@ -8,13 +8,16 @@ import pytest
 from app.research.a6_closure import (
     REQUIRED_BRIDGE_FIELDS,
     bridge_inventory_rows,
+    scope_guards,
     validate_bridge_inventory,
     verify_a6_closure,
     verify_new_run_truth,
 )
 from app.research.run_receipts import finish_topic_attempt
+from app.research.legacy_migration import LegacySource, build_migration
 from tests.test_autonomous_research_receipts import begin, write_development_authority, write_matrix
 from tests.test_research_ledger import corpus_with_receipt
+from tests.test_research_legacy_migration import write_matrix as write_legacy_matrix
 
 
 def _failed_corpus(root: Path) -> Path:
@@ -60,6 +63,25 @@ def test_bridge_inventory_rejects_missing_metadata_and_authority_inversion() -> 
     assert "RUN_HISTORY_AUTHORITY_INVERSION" in result["error_codes"]
 
 
+def test_bridge_inventory_fails_closed_when_a_source_derived_surface_is_omitted() -> None:
+    rows = [row for row in bridge_inventory_rows() if row["bridge_id"] != "fog_map_run_history_reader"]
+    result = validate_bridge_inventory(rows)
+    assert result["status"] == "FAIL"
+    assert "MISSING_SOURCE_BRIDGE" in result["error_codes"]
+
+
+def test_new_run_truth_rejects_cross_file_intent_membership_mismatch(tmp_path: Path) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path / "source")
+    attempt_path = next((corpus / "attempts").glob("*.started.json"))
+    attempt = json.loads(attempt_path.read_text(encoding="utf-8"))
+    attempt["intent_id"] = "intent-not-in-corpus"
+    attempt_path.write_text(json.dumps(attempt), encoding="utf-8")
+
+    result = verify_new_run_truth(corpus_root=corpus)
+    assert result["status"] == "FAIL"
+    assert any(error["reason"] == "ATTEMPT_INTENT_MEMBERSHIP_MISMATCH" for error in result["errors"])
+
+
 def test_a6_closure_rebuilds_a1_to_a5_and_history_projection_deterministically(
     tmp_path: Path,
 ) -> None:
@@ -89,6 +111,18 @@ def test_a6_closure_rebuilds_a1_to_a5_and_history_projection_deterministically(
     assert result["new_run_truth"]["run_history_truth_authority"] is False
     assert result["bridge_inventory"]["status"] == "PASS"
     assert result["ai_core_proposals"]
+
+
+def test_a6_closure_fixture_includes_a3_migration_rebuild(tmp_path: Path) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path / "source")
+    legacy_source = tmp_path / "legacy" / "matrix.json"
+    write_legacy_matrix(legacy_source)
+    build_migration(corpus_root=corpus, sources=[LegacySource(legacy_source, "STRATEGY_MATRIX")])
+
+    result = verify_a6_closure(corpus_root=corpus, output_root=tmp_path / "closure")
+    assert result["status"] == "PASS"
+    assert result["rebuild"]["first"]["counts"]["migration_manifests"] == 1
+    assert result["rebuild"]["first"]["counts"]["migrated_records"] == 1
 
 
 def test_new_run_truth_success_failure_and_orphan_do_not_use_history_or_backfill(
@@ -123,3 +157,23 @@ def test_closure_rejects_output_root_that_contains_corpus(tmp_path: Path) -> Non
     corpus, _ = corpus_with_receipt(tmp_path / "source")
     with pytest.raises(ValueError, match="A6_OUTPUT_ROOT"):
         verify_a6_closure(corpus_root=corpus, output_root=corpus)
+
+
+def test_closure_rejects_repository_child_as_destructive_output_root(tmp_path: Path) -> None:
+    corpus, _ = corpus_with_receipt(tmp_path / "source")
+    repository = tmp_path / "repository"
+    (repository / ".git").mkdir(parents=True)
+    with pytest.raises(ValueError, match="A6_OUTPUT_ROOT"):
+        verify_a6_closure(corpus_root=corpus, output_root=repository / "app")
+
+
+def test_scope_guards_are_derived_from_the_candidate_diff() -> None:
+    guards = scope_guards(
+        base_ref="bb617e98aabefcc52bbf7cb1834fb5fba715d60a",
+        candidate_ref="HEAD",
+    )
+    assert set(guards) == {
+        "card_b_started", "card_c_started", "production_changed", "scheduler_changed",
+        "ranking_or_backtest_math_changed",
+    }
+    assert not any(guards.values())

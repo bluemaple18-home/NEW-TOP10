@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +29,7 @@ from app.research.parameter_learning import build_projection as build_learning_p
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = PROJECT_ROOT / "docs/evidence/CARD-NEW-TOP10-RESEARCH-A6-DEPRECATION-REBUILD-AND-BRIDGE-REMOVAL-GATES/closure_receipt.json"
+DEFAULT_TEMP_OUTPUT = Path(tempfile.gettempdir()) / "new-top10-a6-closure-output"
 SCHEMA_VERSION = "research-spine-a6-closure.v1"
 BRIDGE_SCHEMA_VERSION = "research-spine-bridge-inventory.v1"
 REQUIRED_BRIDGE_FIELDS = {
@@ -39,13 +43,19 @@ REQUIRED_BRIDGE_FIELDS = {
     "target_stage",
     "status",
 }
-KNOWN_REMOVAL_TESTS = {
-    "pytest::tests/test_research_spine_a6_closure.py::test_a6_closure_rebuilds_a1_to_a5_and_history_projection_deterministically",
-    "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
-    "pytest::tests/test_research_spine_a6_closure.py::test_new_run_truth_success_failure_and_orphan_do_not_use_history_or_backfill",
-    "pytest::tests/test_research_spine_daily_cutover.py::test_ledger_history_projection_preserves_frozen_legacy_and_is_deterministic",
-    "pytest::tests/test_research_legacy_migration.py",
+SOURCE_DERIVED_BRIDGE_SURFACES = {
+    "history_compatibility_projection": ("app/research/history_compatibility_projection.py", "run_history.jsonl"),
+    "legacy_run_history_jsonl_migration": ("app/research/legacy_migration.py", "RUN_HISTORY_JSONL"),
+    "legacy_run_history_json_migration": ("app/research/legacy_migration.py", "RUN_HISTORY_JSON"),
+    "research_map_run_history_backfill": ("scripts/backfill_research_map_run_history.py", "run_history.jsonl"),
+    "research_map_backfill_verifier": ("scripts/verify_research_map_run_history_backfill.py", "backfill_rows"),
+    "fog_map_run_history_reader": ("app/research/fog_map_domain.py", "apply_run_history"),
+    "campaign_progress_run_history_reader": ("scripts/build_research_campaign_progress.py", "apply_run_history"),
+    "weekend_training_run_history_reader": ("scripts/weekend_training_common.py", "apply_run_history"),
+    "liquidity_v2_run_history_reader": ("scripts/build_liquidity_replay_v2_stage2.py", "RUN_HISTORY_PATH"),
+    "legacy_run_history_appenders": ("scripts/run_weekend_representative_replay.py", "append_history"),
 }
+REMOVAL_TEST_MODULE = "tests/test_research_spine_a6_bridge_removals.py"
 
 
 def bridge_inventory_rows() -> list[dict[str, str]]:
@@ -58,7 +68,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "DERIVED_COMPATIBILITY_PROJECTION",
             "read_write_mode": "derived_write_replace",
             "removal_condition": "Fog Map 與進度 consumer 改直接讀取 first-party ledger projection。",
-            "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_a6_closure_rebuilds_a1_to_a5_and_history_projection_deterministically",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_history_compatibility_projection_removal_evidence",
             "target_stage": "CARD_C_CONTROL_CUTOVER",
             "status": "ACTIVE_BRIDGE",
         },
@@ -69,7 +79,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "HISTORICAL_MIGRATION_SOURCE_ONLY",
             "read_write_mode": "legacy_read_only",
             "removal_condition": "historical migration corpus 不再需要 legacy run_history JSONL intake。",
-            "removal_test": "pytest::tests/test_research_legacy_migration.py",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_legacy_run_history_jsonl_migration_removal_evidence",
             "target_stage": "POST_A6_ARCHIVE_RETIREMENT",
             "status": "PRESERVE_FOR_HISTORICAL_REPLAY",
         },
@@ -80,7 +90,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "HISTORICAL_MIGRATION_SOURCE_ONLY",
             "read_write_mode": "legacy_read_only",
             "removal_condition": "historical migration corpus 不再需要 legacy run_history JSON intake。",
-            "removal_test": "pytest::tests/test_research_legacy_migration.py",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_legacy_run_history_json_migration_removal_evidence",
             "target_stage": "POST_A6_ARCHIVE_RETIREMENT",
             "status": "PRESERVE_FOR_HISTORICAL_REPLAY",
         },
@@ -91,7 +101,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "ISOLATED_RECOVERY_OR_HISTORICAL_MIGRATION",
             "read_write_mode": "migration_only_write_with_required_flag",
             "removal_condition": "正常 new-run acceptance path 不可呼叫 backfill 建立 terminal truth。",
-            "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_new_run_truth_success_failure_and_orphan_do_not_use_history_or_backfill",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_research_map_run_history_backfill_removal_evidence",
             "target_stage": "POST_A6_RECOVERY_TOOLING",
             "status": "QUARANTINED_FROM_NORMAL_RUNS",
         },
@@ -102,7 +112,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "BACKFILL_FORMAT_VALIDATOR_ONLY",
             "read_write_mode": "derived_report_write",
             "removal_condition": "backfill script 退役，或僅保留為 historical recovery tooling。",
-            "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_research_map_backfill_verifier_removal_evidence",
             "target_stage": "POST_A6_RECOVERY_TOOLING",
             "status": "ACTIVE_SUPPORT_BRIDGE",
         },
@@ -113,7 +123,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
             "read_write_mode": "read_only",
             "removal_condition": "Fog Map domain 改讀 ledger-backed projection API，不再讀 JSONL compatibility input。",
-            "removal_test": "pytest::tests/test_research_spine_daily_cutover.py::test_ledger_history_projection_preserves_frozen_legacy_and_is_deterministic",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_fog_map_run_history_reader_removal_evidence",
             "target_stage": "CARD_C_CONTROL_CUTOVER",
             "status": "ACTIVE_BRIDGE",
         },
@@ -124,7 +134,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
             "read_write_mode": "read_only",
             "removal_condition": "Campaign progress 改直接讀取 first-party ledger/projection outputs。",
-            "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_campaign_progress_run_history_reader_removal_evidence",
             "target_stage": "CARD_C_CONTROL_CUTOVER",
             "status": "ACTIVE_BRIDGE",
         },
@@ -135,7 +145,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
             "read_write_mode": "read_only",
             "removal_condition": "Weekend training lifecycle summary 僅消費 ledger-backed compatibility output。",
-            "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_weekend_training_run_history_reader_removal_evidence",
             "target_stage": "CARD_C_CONTROL_CUTOVER",
             "status": "ACTIVE_BRIDGE",
         },
@@ -146,7 +156,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
             "read_write_mode": "read_only",
             "removal_condition": "Liquidity replay v2 alignment 改讀 ledger-backed projection 或退役。",
-            "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_liquidity_v2_run_history_reader_removal_evidence",
             "target_stage": "POST_A6_LEGACY_REPLAY_RETIREMENT",
             "status": "ACTIVE_BRIDGE",
         },
@@ -157,7 +167,7 @@ def bridge_inventory_rows() -> list[dict[str, str]]:
             "authority": "LEGACY_COMPATIBILITY_WRITER_NOT_NEW_RUN_TRUTH",
             "read_write_mode": "append_only_legacy_writer",
             "removal_condition": "New runs 先持久化 intent/attempt/receipt；legacy appender 停用或改走 ledger projection。",
-            "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_new_run_truth_success_failure_and_orphan_do_not_use_history_or_backfill",
+            "removal_test": f"{REMOVAL_TEST_MODULE}::test_legacy_run_history_appenders_removal_evidence",
             "target_stage": "CARD_C_CONTROL_CUTOVER",
             "status": "ACTIVE_LEGACY_WRITER",
         },
@@ -178,8 +188,16 @@ def validate_bridge_inventory(rows: list[dict[str, Any]]) -> dict[str, Any]:
         seen.add(bridge_id)
         if row.get("authority") == "TRUTH_AUTHORITY":
             errors.append({"bridge_id": entity, "reason": "RUN_HISTORY_AUTHORITY_INVERSION"})
-        if str(row.get("removal_test") or "") not in KNOWN_REMOVAL_TESTS:
+        if not _removal_test_exists(str(row.get("removal_test") or ""), bridge_id):
             errors.append({"bridge_id": entity, "reason": "REMOVAL_TEST_NOT_EXECUTABLE"})
+    expected_ids = set(SOURCE_DERIVED_BRIDGE_SURFACES)
+    actual_ids = {str(row.get("bridge_id") or "") for row in rows}
+    for bridge_id in sorted(expected_ids - actual_ids):
+        errors.append({"bridge_id": bridge_id, "reason": "MISSING_SOURCE_BRIDGE"})
+    for bridge_id, (relative_path, marker) in SOURCE_DERIVED_BRIDGE_SURFACES.items():
+        source = PROJECT_ROOT / relative_path
+        if not source.is_file() or marker not in source.read_text(encoding="utf-8"):
+            errors.append({"bridge_id": bridge_id, "reason": "SOURCE_SURFACE_UNVERIFIABLE"})
     return {
         "schema_version": BRIDGE_SCHEMA_VERSION,
         "status": "PASS" if not errors else "FAIL",
@@ -188,6 +206,24 @@ def validate_bridge_inventory(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "error_codes": sorted({error["reason"] for error in errors}),
         "errors": errors,
     }
+
+
+def _removal_test_exists(test_ref: str, bridge_id: str) -> bool:
+    """只接受可定位的 bridge-specific pytest function，禁止 inventory 自我證明。"""
+    try:
+        relative_path, function = test_ref.split("::", 1)
+    except ValueError:
+        return False
+    if relative_path != REMOVAL_TEST_MODULE or function != f"test_{bridge_id}_removal_evidence":
+        return False
+    path = PROJECT_ROOT / relative_path
+    if not path.is_file():
+        return False
+    try:
+        module = ast.parse(path.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return False
+    return any(isinstance(node, ast.FunctionDef) and node.name == function for node in module.body)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -253,6 +289,20 @@ def verify_new_run_truth(*, corpus_root: Path) -> dict[str, Any]:
     membership = _first_party_membership(corpus_root)
     attempts = membership["attempts"]
     receipts = membership["receipts"]
+    intents = membership["intents"]
+    for run_id, attempt in attempts.items():
+        intent_id = str(attempt.get("intent_id") or "")
+        if intent_id not in intents:
+            membership["errors"].append({"entity": run_id, "reason": "ATTEMPT_INTENT_MEMBERSHIP_MISMATCH"})
+    for run_id, receipt in receipts.items():
+        attempt = attempts.get(run_id)
+        if attempt is None:
+            membership["errors"].append({"entity": run_id, "reason": "RECEIPT_ATTEMPT_MEMBERSHIP_MISMATCH"})
+            continue
+        if receipt.get("intent_id") != attempt.get("intent_id"):
+            membership["errors"].append({"entity": run_id, "reason": "RECEIPT_INTENT_MEMBERSHIP_MISMATCH"})
+        if receipt.get("attempt_event_id") != attempt.get("attempt_event_id"):
+            membership["errors"].append({"entity": run_id, "reason": "RECEIPT_ATTEMPT_EVENT_MEMBERSHIP_MISMATCH"})
     success = [
         receipt for receipt in receipts.values()
         if receipt.get("terminal_status") == "SUCCEEDED"
@@ -359,6 +409,9 @@ def _reset_output_root(output_root: Path, corpus_root: Path) -> None:
     forbidden = {Path("/").resolve(), resolved_project, resolved_corpus}
     if resolved_output in forbidden:
         raise ValueError("A6_OUTPUT_ROOT_UNSAFE")
+    for ancestor in (resolved_output, *resolved_output.parents):
+        if (ancestor / ".git").exists():
+            raise ValueError("A6_OUTPUT_ROOT_REPOSITORY_CHILD")
     try:
         resolved_project.relative_to(resolved_output)
     except ValueError:
@@ -371,12 +424,39 @@ def _reset_output_root(output_root: Path, corpus_root: Path) -> None:
         pass
     else:
         raise ValueError("A6_OUTPUT_ROOT_CONTAINS_CORPUS")
+    marker = output_root / ".a6-closure-generated-root"
+    if output_root.exists() and not marker.is_file():
+        raise ValueError("A6_OUTPUT_ROOT_MARKER_REQUIRED")
     if output_root.exists():
         shutil.rmtree(output_root)
 
 
-def verify_a6_closure(*, corpus_root: Path, output_root: Path) -> dict[str, Any]:
+def scope_guards(*, base_ref: str, candidate_ref: str, repo_root: Path = PROJECT_ROOT) -> dict[str, bool]:
+    """由 base..candidate 的實際差異判定，拒絕用常數宣告 scope 安全。"""
+    completed = subprocess.run(
+        ["git", "-C", str(repo_root), "diff", "--name-only", f"{base_ref}..{candidate_ref}"],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    if completed.returncode:
+        raise ValueError("A6_SCOPE_DIFF_UNAVAILABLE")
+    changed = {line for line in completed.stdout.splitlines() if line}
+    return {
+        "card_b_started": any(path.startswith(("app/research/card_b", "docs/tasks/CARD-B")) for path in changed),
+        "card_c_started": any(path.startswith(("app/research/card_c", "docs/tasks/CARD-C")) for path in changed),
+        "production_changed": any(path.startswith(("models/", "app/agent_b_ranking.py", "config/signals")) for path in changed),
+        "scheduler_changed": any(path.endswith(".plist") or "scheduler" in path for path in changed),
+        "ranking_or_backtest_math_changed": any(path.startswith(("indicators.py", "fundamental_data.py", "reason_generator.py", "app/modeling/")) for path in changed),
+    }
+
+
+def verify_a6_closure(
+    *, corpus_root: Path, output_root: Path, base_ref: str = "bb617e98aabefcc52bbf7cb1834fb5fba715d60a", candidate_ref: str = "HEAD"
+) -> dict[str, Any]:
     _reset_output_root(output_root, corpus_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    (output_root / ".a6-closure-generated-root").write_text("research-spine-a6\n", encoding="utf-8")
     first = _build_once(corpus_root, output_root / "first")
     second = _build_once(corpus_root, output_root / "second")
     new_run_truth = verify_new_run_truth(corpus_root=corpus_root)
@@ -400,17 +480,14 @@ def verify_a6_closure(*, corpus_root: Path, output_root: Path) -> dict[str, Any]
         error_codes.append("BRIDGE_INVENTORY_NO_GO")
     if new_run_truth["status"] != "PASS" or new_run_truth["counts"]["receipts"] == 0:
         error_codes.append("NEW_RUN_TRUTH_FAIL_CLOSED")
+    guards = scope_guards(base_ref=base_ref, candidate_ref=candidate_ref)
+    if any(guards.values()):
+        error_codes.append("SCOPE_GUARD_NO_GO")
     receipt = {
         "schema_version": SCHEMA_VERSION,
         "status": "PASS" if not error_codes else "FAIL",
         "issue": 8,
-        "scope_guards": {
-            "card_b_started": False,
-            "card_c_started": False,
-            "production_changed": False,
-            "scheduler_changed": False,
-            "ranking_or_backtest_math_changed": False,
-        },
+        "scope_guards": guards,
         "rebuild": {
             "status": "PASS" if all(checks.values()) else "FAIL",
             "checks": checks,
@@ -440,12 +517,17 @@ def verify_a6_closure(*, corpus_root: Path, output_root: Path) -> dict[str, Any]
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus-root", type=Path, default=DEFAULT_CORPUS_ROOT)
-    parser.add_argument("--output-root", type=Path, default=PROJECT_ROOT / ".a6_closure_tmp")
+    parser.add_argument("--output-root", type=Path, default=DEFAULT_TEMP_OUTPUT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER_PATH)
+    parser.add_argument("--base-ref", default="bb617e98aabefcc52bbf7cb1834fb5fba715d60a")
+    parser.add_argument("--candidate-ref", default="HEAD")
     args = parser.parse_args()
     del args.ledger  # 保留 CLI 相容欄位；A6 closure 永遠使用 isolated output root。
-    result = verify_a6_closure(corpus_root=args.corpus_root, output_root=args.output_root)
+    result = verify_a6_closure(
+        corpus_root=args.corpus_root, output_root=args.output_root,
+        base_ref=args.base_ref, candidate_ref=args.candidate_ref,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
