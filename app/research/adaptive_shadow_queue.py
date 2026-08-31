@@ -10,7 +10,7 @@ from typing import Any, Mapping
 
 from app.research.contracts import content_hash
 from app.research.native_evidence_replay import verify_bundle
-from app.research.parameter_learning import classify_matched_contrasts
+from app.research.parameter_learning import canonical_execution_profile_identity, classify_matched_contrasts
 from app.research.receipt_store import write_immutable_json
 
 
@@ -352,7 +352,6 @@ def _contrast_support(bundle: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     groups: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
     for row in bundle.get("observations") or []:
         values = row["parameters"]
-        profile = row.get("execution_profile") or {}
         for parameter in parameters:
             value = values.get(parameter)
             if value is None:
@@ -366,7 +365,7 @@ def _contrast_support(bundle: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
                 row["ranking_source_hash"],
                 row["research_stage"],
                 row["lineage_id"],
-                profile.get("variant_role"),
+                canonical_execution_profile_identity(row.get("execution_profile")),
                 others,
             )
             groups[key].append({**row, "parameter_value": float(value)})

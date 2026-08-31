@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 from collections import defaultdict
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +14,7 @@ import duckdb
 
 from app.research.contracts import content_hash
 from app.research.eligibility import DEFAULT_POLICY as DEFAULT_ELIGIBILITY_POLICY, build_projection as build_eligibility
+from app.research.failure_classification import build_projection as build_failure_projection
 from app.research.observation_ingest import DEFAULT_LEDGER_PATH
 from app.research.parameter_catalog import load_parameter_catalog, parameter_catalog_hash
 from app.research.receipt_store import write_immutable_json
@@ -22,6 +23,9 @@ from app.research.receipt_store import write_immutable_json
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_POLICY = PROJECT_ROOT / "config/research_learning_policy_v1.json"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "artifacts/autonomous_research/projections/learning"
+# v1含wall-clock generated_at；v2以新identity/path並存，舊v1 immutable bytes不改寫。
+PROJECTION_SCHEMA_VERSION = "research-parameter-learning.v2"
+_CANONICAL_SHA256 = re.compile(r"sha256:[0-9a-f]{64}\Z")
 
 
 def load_policy(path: Path = DEFAULT_POLICY) -> dict[str, Any]:
@@ -176,12 +180,23 @@ def classify_matched_contrasts(
     """只用matched deltas分類方向，避免raw level confounding。"""
     policy = policy or load_policy()
     deadband = policy["effect_deadbands"]["score"]
+    # 缺失或空白 lineage 不能視作獨立證據；先拒絕，避免 unit fixture
+    # 意外把沒有 provenance 的 contrast 升格成方向訊號。
+    if any(not isinstance(item.get("lineage_id"), str) or not item["lineage_id"].strip() for item in contrasts):
+        return {"direction": "INSUFFICIENT_EVIDENCE", "edge_behavior": None, "next_direction": None}
     count = len(contrasts)
     higher = sum(item["delta_score"] > deadband for item in contrasts)
     lower = sum(item["delta_score"] < -deadband for item in contrasts)
     flat = sum(abs(item["delta_score"]) <= deadband for item in contrasts)
     result = {"direction": "INSUFFICIENT_EVIDENCE", "edge_behavior": None, "next_direction": None}
     if count < policy["min_independent_matched_contrasts"]:
+        return result
+    lineage_ids = {
+        str(item["lineage_id"])
+        for item in contrasts
+        if item.get("lineage_id") is not None
+    }
+    if len(lineage_ids) < policy["min_distinct_lineages"]:
         return result
     if flat / count >= policy["flat_consistency_threshold"]:
         return {**result, "direction": "FLAT"}
@@ -208,18 +223,78 @@ def classify_matched_contrasts(
     return {**result, "direction": "UNSTABLE" if higher and lower else "NON_MONOTONIC"}
 
 
+def canonical_execution_profile_identity(profile: Any) -> str:
+    """所有 A5 consumer 共用完整 execution-profile identity。"""
+    if not isinstance(profile, dict):
+        raise ValueError("INVALID_EXECUTION_PROFILE")
+    return content_hash(profile)
+
+
 def _validator(payload: dict[str, Any]) -> list[str]:
-    return [] if payload.get("schema_version") == "research-parameter-learning.v1" else ["invalid schema"]
+    required = {
+        "schema_version", "projection_id", "projection_schema_version",
+        "eligibility_projection_id", "failure_projection_id", "input_corpus_hash",
+        "ledger_snapshot_hash", "learning_policy_version", "learning_policy_hash",
+        "parameter_catalog_hash", "status", "counts", "matched_contrasts",
+        "parameter_findings", "interaction_findings", "robust_regions",
+    }
+    if set(payload) != required or payload.get("schema_version") != PROJECTION_SCHEMA_VERSION:
+        return ["INVALID_LEARNING_PROJECTION_SHAPE"]
+    identity = {key: payload.get(key) for key in (
+        "projection_schema_version", "eligibility_projection_id", "failure_projection_id",
+        "input_corpus_hash", "ledger_snapshot_hash", "learning_policy_version",
+        "learning_policy_hash", "parameter_catalog_hash",
+    )}
+    errors = []
+    canonical_refs = (
+        "projection_id", "eligibility_projection_id", "failure_projection_id",
+        "input_corpus_hash", "ledger_snapshot_hash", "learning_policy_hash",
+        "parameter_catalog_hash",
+    )
+    if any(not isinstance(payload.get(key), str) or not _CANONICAL_SHA256.fullmatch(payload[key]) for key in canonical_refs):
+        errors.append("NON_CANONICAL_PROVENANCE_REFERENCE")
+    if payload.get("projection_id") != content_hash(identity):
+        errors.append("LEARNING_PROJECTION_ID_MISMATCH")
+    contrasts = payload.get("matched_contrasts")
+    if not isinstance(contrasts, list) or len({row.get("contrast_id") for row in contrasts if isinstance(row, dict)}) != len(contrasts):
+        errors.append("INVALID_CONTRAST_LIST")
+    else:
+        for row in contrasts:
+            expected_id = content_hash({"policy": payload["learning_policy_version"], "parameter": row.get("parameter"), "low": row.get("low_evidence_unit_id"), "high": row.get("high_evidence_unit_id")})
+            reference_keys = ("contrast_id", "lineage_id", "low_observation_id", "high_observation_id", "low_evidence_unit_id", "high_evidence_unit_id")
+            if (not isinstance(row.get("lineage_id"), str) or not row["lineage_id"].strip()
+                    or row.get("contrast_id") != expected_id
+                    or not all(isinstance(row.get(key), str) and _CANONICAL_SHA256.fullmatch(row[key]) for key in reference_keys)):
+                errors.append("INVALID_CONTRAST_PROVENANCE")
+                break
+    counts = payload.get("counts")
+    if not isinstance(counts, dict) or counts != {
+        "eligible_observations": counts.get("eligible_observations") if isinstance(counts, dict) else None,
+        "matched_contrasts": len(contrasts) if isinstance(contrasts, list) else None,
+        "parameter_findings": len(payload.get("parameter_findings") or []),
+    }:
+        errors.append("LEARNING_COUNT_MISMATCH")
+    return errors
+
+
+def _cohort_profile_hash(raw_profile: str) -> str:
+    return canonical_execution_profile_identity(json.loads(raw_profile))
 
 
 def build_projection(
     *, ledger_path: Path = DEFAULT_LEDGER_PATH, policy_path: Path = DEFAULT_POLICY,
-    eligibility_output_root: Path | None = None, output_root: Path = DEFAULT_OUTPUT_ROOT,
+    eligibility_output_root: Path | None = None, failure_output_root: Path | None = None,
+    output_root: Path = DEFAULT_OUTPUT_ROOT,
 ) -> dict[str, Any]:
     policy = load_policy(policy_path)
     eligibility = build_eligibility(
         ledger_path=ledger_path,
         output_root=eligibility_output_root or output_root.parent / "eligibility",
+    )
+    failure = build_failure_projection(
+        ledger_path=ledger_path,
+        eligibility_output_root=eligibility_output_root or output_root.parent / "eligibility",
+        output_root=failure_output_root or output_root.parent / "failure",
     )
     connection = duckdb.connect(str(ledger_path), read_only=True)
     try:
@@ -251,9 +326,12 @@ def build_projection(
             if value is None:
                 continue
             regime = json.loads(row["regime_scope_json"]).get("regime_id")
-            profile = json.loads(row["execution_profile_json"])
             others = tuple((key, parameters.get(key)) for key in policy["numeric_parameters"] if key != parameter)
-            key = (row["topic_family_id"], regime, row["dataset_hash"], row["ranking_source_hash"], row["research_stage"], row["lineage_id"], profile.get("variant_role"), others)
+            key = (
+                row["topic_family_id"], regime, row["dataset_hash"],
+                row["ranking_source_hash"], row["research_stage"], row["lineage_id"],
+                _cohort_profile_hash(row["execution_profile_json"]), others,
+            )
             groups[key].append({**row, "value": float(value)})
         scoped_points: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
         scoped_shapes: dict[tuple[str, str], list[tuple[str, Any, str]]] = defaultdict(list)
@@ -267,6 +345,8 @@ def build_projection(
                     "contrast_id": content_hash({"policy": policy["policy_version"], "parameter": parameter, "low": low["evidence_unit_id"], "high": high["evidence_unit_id"]}),
                     "parameter": parameter, "topic_family_id": key[0], "regime_id": key[1],
                     "lineage_id": low["lineage_id"], "lower": lower, "upper": upper,
+                    "low_observation_id": low["observation_id"], "high_observation_id": high["observation_id"],
+                    "low_evidence_unit_id": low["evidence_unit_id"], "high_evidence_unit_id": high["evidence_unit_id"],
                     "delta_score": high["score"] - low["score"],
                     "delta_total_return": high["total_return"] - low["total_return"],
                     "delta_max_drawdown": high["max_drawdown"] - low["max_drawdown"],
@@ -368,9 +448,12 @@ def build_projection(
             if parameters.get(parameter_a) is None or parameters.get(parameter_b) is None:
                 continue
             regime = json.loads(row["regime_scope_json"]).get("regime_id")
-            profile = json.loads(row["execution_profile_json"])
             others = tuple((key, parameters.get(key)) for key in policy["numeric_parameters"] if key not in {parameter_a, parameter_b})
-            key = (row["topic_family_id"], regime, row["dataset_hash"], row["ranking_source_hash"], row["research_stage"], row["lineage_id"], profile.get("variant_role"), others)
+            key = (
+                row["topic_family_id"], regime, row["dataset_hash"],
+                row["ranking_source_hash"], row["research_stage"], row["lineage_id"],
+                _cohort_profile_hash(row["execution_profile_json"]), others,
+            )
             groups[key].append({**row, parameter_a: parameters[parameter_a], parameter_b: parameters[parameter_b]})
         scoped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
         for key, cells in groups.items():
@@ -397,15 +480,18 @@ def build_projection(
                     "independent_interaction_count": len(results), "distinct_lineage_count": len(lineages),
                 })
     identity = {
-        "projection_schema_version": "research-parameter-learning.v1",
+        "projection_schema_version": PROJECTION_SCHEMA_VERSION,
         "eligibility_projection_id": eligibility["projection_id"],
+        "failure_projection_id": failure["projection_id"],
+        "input_corpus_hash": eligibility["input_corpus_hash"],
+        "ledger_snapshot_hash": eligibility["ledger_snapshot_hash"],
         "learning_policy_version": policy["policy_version"], "learning_policy_hash": content_hash(policy),
         "parameter_catalog_hash": parameter_catalog_hash(),
     }
     projection_id = content_hash(identity)
     payload = {
-        "schema_version": "research-parameter-learning.v1", "projection_id": projection_id,
-        **identity, "generated_at": datetime.now(timezone.utc).isoformat(),
+        "schema_version": PROJECTION_SCHEMA_VERSION, "projection_id": projection_id,
+        **identity,
         "status": "OK" if contrasts else "INSUFFICIENT_EVIDENCE",
         "counts": {"eligible_observations": len(observations), "matched_contrasts": len(contrasts), "parameter_findings": len(findings)},
         "matched_contrasts": contrasts, "parameter_findings": findings,
@@ -415,9 +501,7 @@ def build_projection(
         ],
     }
     target = output_root / f"{projection_id[7:]}.json"
-    if target.is_file():
-        payload = json.loads(target.read_text(encoding="utf-8"))
-    write_immutable_json(target, payload, validator=_validator)
+    write_immutable_json(target, payload, validator=_validator, identity_field="projection_id")
     return payload
 
 
