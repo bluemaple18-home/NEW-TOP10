@@ -1,6 +1,6 @@
 ---
 id: CARD-NEW-TOP10-RESEARCH-A4-REBUILDABLE-LEDGER-AND-OBSERVATIONS
-status: admitted_implementation_ready
+status: implementation_complete_review_go_mainline_acceptance_pending
 type: implementation
 issue: 6
 depends_on: [4, 5]
@@ -17,11 +17,11 @@ baseline: fc42462a200b36af60016b31131b65ba653aa823
 
 ## 2. Admission 與 current state
 
-- Owner 的「繼續」承接唯一 next frontier；gap audit完成後，A4目前為 `ADMITTED / IMPLEMENTATION_READY / BOUNDED_SCOPE_LOCKED`。
+- Owner 的「繼續」承接唯一 next frontier；bounded implementation與fixed-SHA independent review均已完成，A4目前為 `IMPLEMENTATION_COMPLETE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING`。
 - Planning baseline：`fc42462a200b36af60016b31131b65ba653aa823`。
 - Issue #6：`OPEN`、無留言；依賴 A2/A3 已滿足。
-- Mainline gap audit 已收斂兩項可重現 P1；本卡現在只授權下述 deterministic projection rebuild 與 immutable artifact collision/tamper 的 bounded implementation，不宣稱 implementation complete。
-- A5–A6 維持 `BLOCKED / NOT_STARTED`，A4 admission／implementation readiness 不構成其 admission。
+- Mainline gap audit收斂的兩項原始P1與後續review repair findings均已在fixed candidate關閉；剩餘`P0=0 / P1=0`。
+- A5–A6 維持 `BLOCKED / NOT_STARTED`，A4 implementation／review完成不構成其admission。
 
 ## 3. Issue #6 scope
 
@@ -274,6 +274,28 @@ Issue #6 引用下列 AI Core `.work` receipts，但在 baseline `fc42462a200b36
 
 ## 18. Current status
 
-`A4 = ADMITTED / IMPLEMENTATION_READY / BOUNDED_SCOPE_LOCKED`。
+`A4 = IMPLEMENTATION_COMPLETE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING`。
 
-下一步依序執行Slice A4.2 deterministic artifact、A4.3 collision/tamper、A4.4 exact-byte rebuild gate；不得越過依賴或擴張至ledger rewrite。A5–A6維持`BLOCKED / NOT_STARTED`。
+### 18.1 Fixed candidate 與 verification
+
+- Fixed candidate SHA：`ba6df2c7593641d1b446ef556aec2857c7760326`。
+- Independent final Reviewer：`GO`；remaining findings：`P0=0 / P1=0`。
+- Targeted hostile verification：`10 passed`。
+- A1–A4與downstream compatibility regression：`206 passed`。
+- `git diff --check`：`PASS`。
+- Candidate目前只存在local branch；`NOT PUSHED / NOT MERGED / NOT CANONICAL`。Mainline acceptance與任何remote write仍須另行授權。
+
+### 18.2 Repair generations 與finding closure
+
+- Repair generation 1關閉：legacy DB decision/reason exact symmetric set缺口、no-run orphan rows、DB collision先於artifact publication、rollback不得留下partial derived artifact，以及舊`generated_at` v1 artifact與deterministic v2 projection的side-by-side immutable migration策略。
+- Repair generation 2關閉：TOCTOU cleanup不得因precheck時target不存在，就刪除其後由concurrent writer建立的artifact；cleanup現在只接受本次writer成功回傳`CREATED`作為ownership evidence。
+- Eligibility與failure projection皆保留fail-loud collision、DB transaction rollback、exact-byte v2 rebuild與舊v1 immutable bytes不改寫契約。
+
+### 18.3 Mainline 與operational boundary
+
+- Issue #6仍為`OPEN / UNMODIFIED`；尚未close或留言。
+- A5–A6維持`BLOCKED / NOT_STARTED`，不得由A4 Review GO自動啟動。
+- Operational Issue #10為獨立觀測lane；A4證據不得推論其已完成、已關閉或改變其狀態。
+- 未觸碰`.work/current`、scheduler、provider、features、ranking、publish、production或backtest math。
+
+下一步僅為fixed candidate mainline acceptance；在另行授權前不得push、merge、關閉Issue #6或啟動A5–A6。
