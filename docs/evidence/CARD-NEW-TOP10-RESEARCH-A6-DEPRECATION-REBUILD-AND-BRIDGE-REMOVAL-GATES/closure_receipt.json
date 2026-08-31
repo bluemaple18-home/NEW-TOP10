@@ -1,0 +1,235 @@
+{
+  "ai_core_proposals": [
+    {
+      "proposal_id": "AI_CORE_PROPOSAL_A0_A5_RECEIPT_SHAPE",
+      "recommendation": "未來 agentic workflow receipt 納入明確 first-party intent/attempt/receipt evidence 欄位。",
+      "source": "A0-A5"
+    },
+    {
+      "proposal_id": "AI_CORE_PROPOSAL_BRIDGE_RETIREMENT_METADATA",
+      "recommendation": "compatibility bridge closure 前必填 owner、removal condition、removal test 與 status。",
+      "source": "A6"
+    }
+  ],
+  "bridge_inventory": {
+    "error_codes": [],
+    "errors": [],
+    "required_fields": [
+      "authority",
+      "bridge_id",
+      "direction",
+      "owner",
+      "read_write_mode",
+      "removal_condition",
+      "removal_test",
+      "status",
+      "target_stage"
+    ],
+    "row_count": 10,
+    "schema_version": "research-spine-bridge-inventory.v1",
+    "status": "PASS"
+  },
+  "bridge_rows": [
+    {
+      "authority": "DERIVED_COMPATIBILITY_PROJECTION",
+      "bridge_id": "history_compatibility_projection",
+      "direction": "research_ledger_to_run_history_jsonl",
+      "owner": "research-spine/a6",
+      "read_write_mode": "derived_write_replace",
+      "removal_condition": "Fog Map 與進度 consumer 改直接讀取 first-party ledger projection。",
+      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_a6_closure_rebuilds_a1_to_a5_and_history_projection_deterministically",
+      "status": "ACTIVE_BRIDGE",
+      "target_stage": "CARD_C_CONTROL_CUTOVER"
+    },
+    {
+      "authority": "HISTORICAL_MIGRATION_SOURCE_ONLY",
+      "bridge_id": "legacy_run_history_jsonl_migration",
+      "direction": "run_history_jsonl_to_migration_corpus",
+      "owner": "research-spine/a3",
+      "read_write_mode": "legacy_read_only",
+      "removal_condition": "historical migration corpus 不再需要 legacy run_history JSONL intake。",
+      "removal_test": "pytest::tests/test_research_legacy_migration.py",
+      "status": "PRESERVE_FOR_HISTORICAL_REPLAY",
+      "target_stage": "POST_A6_ARCHIVE_RETIREMENT"
+    },
+    {
+      "authority": "HISTORICAL_MIGRATION_SOURCE_ONLY",
+      "bridge_id": "legacy_run_history_json_migration",
+      "direction": "run_history_json_to_migration_corpus",
+      "owner": "research-spine/a3",
+      "read_write_mode": "legacy_read_only",
+      "removal_condition": "historical migration corpus 不再需要 legacy run_history JSON intake。",
+      "removal_test": "pytest::tests/test_research_legacy_migration.py",
+      "status": "PRESERVE_FOR_HISTORICAL_REPLAY",
+      "target_stage": "POST_A6_ARCHIVE_RETIREMENT"
+    },
+    {
+      "authority": "ISOLATED_RECOVERY_OR_HISTORICAL_MIGRATION",
+      "bridge_id": "research_map_run_history_backfill",
+      "direction": "legacy_artifacts_to_run_history_jsonl",
+      "owner": "research-map/legacy-migration",
+      "read_write_mode": "migration_only_write_with_required_flag",
+      "removal_condition": "正常 new-run acceptance path 不可呼叫 backfill 建立 terminal truth。",
+      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_new_run_truth_success_failure_and_orphan_do_not_use_history_or_backfill",
+      "status": "QUARANTINED_FROM_NORMAL_RUNS",
+      "target_stage": "POST_A6_RECOVERY_TOOLING"
+    },
+    {
+      "authority": "BACKFILL_FORMAT_VALIDATOR_ONLY",
+      "bridge_id": "research_map_backfill_verifier",
+      "direction": "backfill_rows_to_verification_report",
+      "owner": "research-map/legacy-migration",
+      "read_write_mode": "derived_report_write",
+      "removal_condition": "backfill script 退役，或僅保留為 historical recovery tooling。",
+      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+      "status": "ACTIVE_SUPPORT_BRIDGE",
+      "target_stage": "POST_A6_RECOVERY_TOOLING"
+    },
+    {
+      "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
+      "bridge_id": "fog_map_run_history_reader",
+      "direction": "run_history_jsonl_to_fog_map_status",
+      "owner": "fog-map",
+      "read_write_mode": "read_only",
+      "removal_condition": "Fog Map domain 改讀 ledger-backed projection API，不再讀 JSONL compatibility input。",
+      "removal_test": "pytest::tests/test_research_spine_daily_cutover.py::test_ledger_history_projection_preserves_frozen_legacy_and_is_deterministic",
+      "status": "ACTIVE_BRIDGE",
+      "target_stage": "CARD_C_CONTROL_CUTOVER"
+    },
+    {
+      "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
+      "bridge_id": "campaign_progress_run_history_reader",
+      "direction": "run_history_jsonl_to_progress_projection",
+      "owner": "research-campaign-progress",
+      "read_write_mode": "read_only",
+      "removal_condition": "Campaign progress 改直接讀取 first-party ledger/projection outputs。",
+      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+      "status": "ACTIVE_BRIDGE",
+      "target_stage": "CARD_C_CONTROL_CUTOVER"
+    },
+    {
+      "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
+      "bridge_id": "weekend_training_run_history_reader",
+      "direction": "run_history_jsonl_to_lifecycle_summary",
+      "owner": "weekend-training",
+      "read_write_mode": "read_only",
+      "removal_condition": "Weekend training lifecycle summary 僅消費 ledger-backed compatibility output。",
+      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+      "status": "ACTIVE_BRIDGE",
+      "target_stage": "CARD_C_CONTROL_CUTOVER"
+    },
+    {
+      "authority": "DERIVED_COMPATIBILITY_READ_MODEL",
+      "bridge_id": "liquidity_v2_run_history_reader",
+      "direction": "run_history_jsonl_to_liquidity_stage2_alignment",
+      "owner": "liquidity-replay-v2",
+      "read_write_mode": "read_only",
+      "removal_condition": "Liquidity replay v2 alignment 改讀 ledger-backed projection 或退役。",
+      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_bridge_inventory_is_complete_and_machine_checkable",
+      "status": "ACTIVE_BRIDGE",
+      "target_stage": "POST_A6_LEGACY_REPLAY_RETIREMENT"
+    },
+    {
+      "authority": "LEGACY_COMPATIBILITY_WRITER_NOT_NEW_RUN_TRUTH",
+      "bridge_id": "legacy_run_history_appenders",
+      "direction": "legacy_replay_outputs_to_run_history_jsonl",
+      "owner": "legacy-replay-runners",
+      "read_write_mode": "append_only_legacy_writer",
+      "removal_condition": "New runs 先持久化 intent/attempt/receipt；legacy appender 停用或改走 ledger projection。",
+      "removal_test": "pytest::tests/test_research_spine_a6_closure.py::test_new_run_truth_success_failure_and_orphan_do_not_use_history_or_backfill",
+      "status": "ACTIVE_LEGACY_WRITER",
+      "target_stage": "CARD_C_CONTROL_CUTOVER"
+    }
+  ],
+  "error_codes": [],
+  "issue": 8,
+  "new_run_truth": {
+    "cases": {
+      "success": {
+        "authority": "intent_attempt_receipt_artifact",
+        "count": 1,
+        "status": "PASS"
+      }
+    },
+    "counts": {
+      "attempts": 1,
+      "failure_receipts": 0,
+      "intents": 1,
+      "orphan_attempts": 0,
+      "receipts": 1,
+      "success_receipts": 1
+    },
+    "errors": [],
+    "normal_new_run_backfill_dependency": false,
+    "run_history_truth_authority": false,
+    "schema_version": "research-spine-a6-new-run-truth.v1",
+    "sources_consumed": [
+      "intents",
+      "attempts",
+      "receipts"
+    ],
+    "status": "PASS"
+  },
+  "rebuild": {
+    "checks": {
+      "eligibility_projection_equal": true,
+      "failure_projection_equal": true,
+      "history_projection_bytes_equal": true,
+      "history_projection_manifest_identity_equal": true,
+      "input_corpus_hash_equal": true,
+      "learning_projection_equal": true,
+      "ledger_snapshot_equal": true,
+      "table_counts_equal": true
+    },
+    "first": {
+      "counts": {
+        "execution_units": 2,
+        "migrated_records": 0,
+        "migration_manifests": 0,
+        "observation_provenance": 2,
+        "observations": 2,
+        "research_intents": 1,
+        "run_attempts": 1,
+        "run_receipts": 1,
+        "trial_specs": 2
+      },
+      "eligibility_projection_id": "sha256:aee11f98ba1335803e24a9c6acb79fa8603d059043d5e37bc03d369eea966c6d",
+      "failure_projection_id": "sha256:283c0fa7020d80d6db0d7062f7bbc419c4a3692464eb6eff58db6308aa0c1959",
+      "history_projection_id": "sha256:9ae337ea182bea49be0d92ac99bcb4c85a1db6ce9f3e27233e8a665cb5081b47",
+      "history_row_count": 1,
+      "input_corpus_hash": "sha256:d164946cc4c33bcdc063d2a96e4d70bb84de0125e198ee25bbbeae25334ce8ad",
+      "learning_projection_id": "sha256:2b9e95d719484079748de25857de9cde4a1ed96a1f3f2696198ae622a8d5c5a1",
+      "ledger_snapshot_hash": "sha256:27dc4554149c8a89cfd154d826cd18520848b52a1566cd3cf7ffadf4b37dc6df"
+    },
+    "second": {
+      "counts": {
+        "execution_units": 2,
+        "migrated_records": 0,
+        "migration_manifests": 0,
+        "observation_provenance": 2,
+        "observations": 2,
+        "research_intents": 1,
+        "run_attempts": 1,
+        "run_receipts": 1,
+        "trial_specs": 2
+      },
+      "eligibility_projection_id": "sha256:aee11f98ba1335803e24a9c6acb79fa8603d059043d5e37bc03d369eea966c6d",
+      "failure_projection_id": "sha256:283c0fa7020d80d6db0d7062f7bbc419c4a3692464eb6eff58db6308aa0c1959",
+      "history_projection_id": "sha256:9ae337ea182bea49be0d92ac99bcb4c85a1db6ce9f3e27233e8a665cb5081b47",
+      "history_row_count": 1,
+      "input_corpus_hash": "sha256:d164946cc4c33bcdc063d2a96e4d70bb84de0125e198ee25bbbeae25334ce8ad",
+      "learning_projection_id": "sha256:2b9e95d719484079748de25857de9cde4a1ed96a1f3f2696198ae622a8d5c5a1",
+      "ledger_snapshot_hash": "sha256:27dc4554149c8a89cfd154d826cd18520848b52a1566cd3cf7ffadf4b37dc6df"
+    },
+    "status": "PASS"
+  },
+  "schema_version": "research-spine-a6-closure.v1",
+  "scope_guards": {
+    "card_b_started": false,
+    "card_c_started": false,
+    "production_changed": false,
+    "ranking_or_backtest_math_changed": false,
+    "scheduler_changed": false
+  },
+  "status": "PASS"
+}

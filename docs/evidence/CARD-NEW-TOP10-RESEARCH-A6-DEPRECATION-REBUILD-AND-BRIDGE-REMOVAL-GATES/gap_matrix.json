@@ -1,0 +1,40 @@
+{
+  "schema_version": "research-spine-a6-gap-matrix.v1",
+  "issue": 8,
+  "scope": "僅限 A6；Card B/Card C/production/scheduler/ranking math 均不在範圍內",
+  "source_decision": {
+    "decision": "IMPLEMENT_EXISTING_GATE_LAYER_ONLY",
+    "why": "A1-A5 已有 first-party intent/attempt/receipt、可重建 ledger、eligibility/failure projection 與 matched learning projection。measured gap 是 closure orchestration 與 bridge metadata，不是新 authority/runtime。",
+    "why_not_less": "既有測試能證明局部 slice，但沒有把 A1-A5、history compatibility output、new-run no-backfill proof 與 bridge removal metadata 綁成單一 verifier。",
+    "why_not_more": "A6 未 admission Card B/C、production canary、scheduler change、ranking/backtest math 或第二套 authority ledger。",
+    "do_not_absorb": [
+      "Card B priority/search/decision projection",
+      "Card C control cutover",
+      "production or scheduler mutation",
+      "LightGBM/ranking/backtest semantics"
+    ]
+  },
+  "rows": [
+    {
+      "requirement": "FR-001/FR-002",
+      "existing_seam": "app.research.observation_ingest, app.research.eligibility, app.research.failure_classification, app.research.parameter_learning, app.research.history_compatibility_projection",
+      "existing_evidence": "tests/test_research_ledger.py、tests/test_research_eligibility_failure.py、tests/test_parameter_learning.py、tests/test_research_spine_daily_cutover.py",
+      "measured_gap": "缺少單一 closure gate 從同一 immutable corpus 重建 ledger、A4 projections、A5 learning 與 run_history compatibility bytes。",
+      "decision": "新增 scripts/verify_research_spine_a6_closure.py 與 app.research.a6_closure.verify_a6_closure。"
+    },
+    {
+      "requirement": "FR-003/FR-004",
+      "existing_seam": "app.research.run_receipts, scripts/verify_research_spine_batch.py, scripts/backfill_research_map_run_history.py",
+      "existing_evidence": "tests/test_autonomous_research_receipts.py 與 tests/test_research_spine_daily_cutover.py 覆蓋 first-party receipts 與 local history compatibility，但沒有明確 no-backfill authority proof。",
+      "measured_gap": "new-run success/failure/orphan proof 尚未成為 machine-checkable A6 closure axis。",
+      "decision": "新增 verify_new_run_truth，輸出 consumed first-party sources 與 run_history/backfill 非 authority flag。"
+    },
+    {
+      "requirement": "FR-005/FR-006",
+      "existing_seam": "history compatibility projection, legacy migration, Fog Map readers, campaign/weekend/liquidity readers, legacy appenders, backfill scripts",
+      "existing_evidence": "rg/CodeGraph inventory 已定位 run_history reader/writer/projection/backfill seams。",
+      "measured_gap": "compatibility bridges 缺少一致的 owner/removal condition/removal test/target stage/status metadata。",
+      "decision": "新增 machine-checkable bridge inventory 與 validator；metadata 缺漏或 truth-authority inversion 會使 closure fail。"
+    }
+  ]
+}
