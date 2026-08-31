@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import pickle
 import logging
 import shap
+from pyarrow import parquet as pq
 
 # 新增：報告生成器
 try:
@@ -200,18 +201,38 @@ class StockRanker:
         universe_path = self.data_dir / "universe.parquet"
         
         if not features_path.exists():
-             raise FileNotFoundError("找不到特徵檔案 (features.parquet)")
+            raise FileNotFoundError("找不到特徵檔案 (features.parquet)")
+
+        available_feature_columns = set(pq.read_schema(features_path).names)
+        if "date" not in available_feature_columns:
+            raise ValueError("features.parquet 缺少 date 欄位")
+        feature_dates = pd.read_parquet(features_path, columns=["date"])
+        parsed_dates = pd.to_datetime(feature_dates["date"], errors="coerce")
+        if parsed_dates.isna().any():
+            raise ValueError("features.parquet date 欄位含不可解析日期")
+        if date:
+            requested_day = pd.to_datetime(date).normalize()
+            if not (parsed_dates.dt.normalize() == requested_day).any():
+                raise ValueError(f"找不到指定交易日資料: {date}")
+            target_trade_date = requested_day
+        else:
+            target_trade_date = parsed_dates.max().normalize()
+        del feature_dates, parsed_dates
+        start_date = target_trade_date - pd.Timedelta(days=90)
         
         features, feature_metadata = load_m4_feature_frame(
             data_dir=self.data_dir,
             project_root=self._project_root(),
             config_path=self.config_path,
+            start_date=start_date,
         )
         features.attrs["m4_feature_metadata"] = feature_metadata
         self._ensure_unique_trade_keys(features, "m4_feature_frame")
         
         if universe_path.exists():
-            universe = pd.read_parquet(universe_path)
+            universe_columns = set(pq.read_schema(universe_path).names)
+            read_columns = [column for column in ("date", "stock_id") if column in universe_columns]
+            universe = pd.read_parquet(universe_path, columns=read_columns)
             if universe.empty:
                 logger.warning("universe.parquet 是空的，使用 features 所有股票")
                 universe = pd.DataFrame({'stock_id': features['stock_id'].unique()})
@@ -220,18 +241,9 @@ class StockRanker:
         else:
             universe = pd.DataFrame({'stock_id': features['stock_id'].unique()})
 
-        if date:
-            requested_day = pd.to_datetime(date).normalize()
-            if not (features['trade_date'] == requested_day).any():
-                raise ValueError(f"找不到指定交易日資料: {date}")
-            target_trade_date = requested_day
-        else:
-            target_trade_date = features['trade_date'].max()
-            
         logger.info(f"載入交易日: {target_trade_date.date()}")
         
         # 優化：只保留最近 90 天以加速 Rolling 計算
-        start_date = target_trade_date - pd.Timedelta(days=90)
         features = features[features['trade_date'] >= start_date].copy()
         
         # 預計算：壓力線 (近20日高點，不含今日)

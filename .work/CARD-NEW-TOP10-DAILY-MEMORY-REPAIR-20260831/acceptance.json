@@ -1,0 +1,31 @@
+{
+  "card_id": "CARD-NEW-TOP10-DAILY-MEMORY-REPAIR-20260831",
+  "status": "GO",
+  "representative_date": "2026-08-31",
+  "memory_limit_bytes": 4026531840,
+  "official_red_peak_process_tree_rss_bytes": 4548247552,
+  "local_candidate_red_peak_process_tree_rss_bytes": 4738203648,
+  "universe_projection_only_peak_process_tree_rss_bytes": 4825382912,
+  "green_peak_process_tree_rss_bytes": [
+    2483208192,
+    2387312640,
+    2442182656
+  ],
+  "green_max_peak_process_tree_rss_bytes": 2483208192,
+  "green_headroom_bytes": 1543323648,
+  "ranking_exit_code": 0,
+  "ranking_sha256": "586cc374e0de9039a00fe4e0d1aaab9ef6db227c0b3133a9ed604b3fdc865a7f",
+  "ranking_exact_byte_equal_to_legacy_and_current": true,
+  "ranking_schema_equal": true,
+  "ranking_row_count": 10,
+  "ranking_top10_identity_and_order_equal": true,
+  "ranking_key_score_fields_equal": true,
+  "affected_regression_tests": {
+    "passed": 68,
+    "subtests_passed": 17,
+    "failed": 0
+  },
+  "guard_limit_changed": false,
+  "production_run_performed": false,
+  "publish_performed": false
+}

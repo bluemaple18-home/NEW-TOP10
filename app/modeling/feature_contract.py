@@ -85,13 +85,15 @@ def load_m4_feature_frame(
     data_dir: str | Path = "data/clean",
     project_root: str | Path = ".",
     config_path: str | Path = "config/signals.yaml",
+    start_date: str | pd.Timestamp | None = None,
 ) -> tuple[pd.DataFrame, FeatureFrameMetadata]:
     """從標準 pipeline 產物載入 M4 合併訓練 frame。"""
 
     data_path = Path(data_dir)
-    features = pd.read_parquet(data_path / "features.parquet")
+    filters = [("date", ">=", pd.Timestamp(start_date))] if start_date is not None else None
+    features = pd.read_parquet(data_path / "features.parquet", filters=filters)
     events_path = data_path / "events.parquet"
-    events = pd.read_parquet(events_path) if events_path.exists() else None
+    events = pd.read_parquet(events_path, filters=filters) if events_path.exists() else None
     repository = FundamentalRepository(Path(project_root))
     return build_m4_feature_frame(features=features, events=events, fundamental_repository=repository, config_path=config_path)
 

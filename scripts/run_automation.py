@@ -1177,10 +1177,18 @@ class AutomationRunner:
                     stale_errors.append(message)
                     continue
                 raise RuntimeError(message)
-            df = pd.read_parquet(path, columns=None)
-            date_col = "trade_date" if "trade_date" in df.columns else "date" if "date" in df.columns else None
+            from pyarrow import parquet as pq
+
+            available_columns = set(pq.read_schema(path).names)
+            date_col = "trade_date" if "trade_date" in available_columns else "date" if "date" in available_columns else None
             if date_col is None:
                 raise RuntimeError(f"{filename} 缺少 date/trade_date 欄位")
+            read_columns = [date_col]
+            if filename == "features.parquet" and self._market_coverage_enabled():
+                read_columns.extend(
+                    column for column in ("stock_id", "market") if column in available_columns
+                )
+            df = pd.read_parquet(path, columns=read_columns)
             latest_ts = pd.to_datetime(df[date_col], errors="coerce").max()
             if pd.isna(latest_ts):
                 info = {

@@ -5,7 +5,6 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
 from scripts.run_automation import AutomationRunner
 
@@ -40,21 +39,25 @@ class TskgT86AutomationTests(unittest.TestCase):
         self.assertNotIn("--twse-t86-input", command)
 
     def test_failed_fetch_does_not_reuse_invalid_existing_snapshot(self) -> None:
-        runner = AutomationRunner(mode="daily", dry_run=False)
-        runner._latest_feature_date = lambda: "2026-07-17"  # type: ignore[method-assign]
-
-        def fail_command(*args, **kwargs) -> None:
-            runner._record_step("tskg.t86", "FAILED", message="synthetic failure")
-
-        runner._run_command = fail_command  # type: ignore[method-assign]
         with TemporaryDirectory() as tmpdir:
             project_root = Path(tmpdir)
+            runner = AutomationRunner(
+                mode="daily",
+                dry_run=False,
+                output_root=project_root,
+                runtime_root=project_root,
+            )
+            runner._latest_feature_date = lambda: "2026-07-17"  # type: ignore[method-assign]
+
+            def fail_command(*args, **kwargs) -> None:
+                runner._record_step("tskg.t86", "FAILED", message="synthetic failure")
+
+            runner._run_command = fail_command  # type: ignore[method-assign]
             artifact = project_root / "artifacts/tskg/t86/twse_t86_2026-07-17.json"
             artifact.parent.mkdir(parents=True)
             artifact.write_text("{invalid", encoding="utf-8")
 
-            with patch("scripts.run_automation.PROJECT_ROOT", project_root):
-                result = runner._run_tskg_t86({"tskg_t86_enabled": True})
+            result = runner._run_tskg_t86({"tskg_t86_enabled": True})
 
         self.assertIsNone(result)
         self.assertEqual(runner.status.steps[-1].name, "tskg.t86.artifact")
