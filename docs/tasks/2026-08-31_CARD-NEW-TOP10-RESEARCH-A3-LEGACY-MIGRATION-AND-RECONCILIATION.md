@@ -1,6 +1,6 @@
 ---
 id: CARD-NEW-TOP10-RESEARCH-A3-LEGACY-MIGRATION-AND-RECONCILIATION
-status: local_candidate_review_pending
+status: local_candidate_review_go_mainline_acceptance_pending
 type: implementation
 issue: 5
 depends_on: [3, 4]
@@ -261,9 +261,9 @@ git diff --check
 
 ## 14. Current status
 
-`A3 = LOCAL_CANDIDATE / REPAIR_COMPLETE / REVIEW_PENDING`。
+`A3 = LOCAL_CANDIDATE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING`。
 
-本卡已完成 Slice A3.1–A3.4 的 bounded implementation 與 fixed-SHA `aea377eab761e46ddc7f8afe9b3ec0f30ddd114b` Review repair。下一步只能建立新 fixed-SHA candidate 並做獨立 re-review；不得跳到 A4–A6、push、merge或 Issue closeout。
+本卡已完成 Slice A3.1–A3.4 的 bounded implementation、兩代 repair 與 final fixed-SHA limited re-review。下一步只能進行 mainline acceptance handoff；不得宣稱已進 `main`，也不得跳到 A4–A6、push、merge或 Issue closeout。
 
 ## 15. Implementation 與 Review repair receipt
 
@@ -272,7 +272,7 @@ git diff --check
 - Repair hostile RED：`17 passed / 4 failed`，分別重現上述四項 P1。
 - Repair boundary：exact/inferred/excluded 必須引用與 source artifact、locator、legacy combo 及 canonical A1 trial target 綁定的 immutable mapping authority；ingest 在 migration transaction write 前驗 authority、trial target與 governing A2 receipt 的 schema/path/identity/ref；sealed eligibility 只由 canonical target加 governing receipt stage/bundle evidence決定；malformed/scalar/empty research input保留 incomplete/unresolved，不能自動 excluded。
 - Repair GREEN：focused migration tests=`23 passed`；card full regression family=`172 passed`；trace presence 與 `git diff --check` pass。
-- Current disposition：`LOCAL_CANDIDATE / REVIEW_PENDING`。尚未產生 repair fixed SHA，尚未 re-review；不得宣稱 `GO`、accepted 或 admission A4–A6。
+- 當時 disposition：`LOCAL_CANDIDATE / REVIEW_PENDING`。此狀態已由後續 generation 1／2 repair 與 final fixed-SHA re-review supersede，不得單獨解讀為 current state。
 
 ## 16. Review repair generation 2 receipt
 
@@ -280,4 +280,15 @@ git diff --check
 - Generation 2 hostile RED：focused migration tests=`23 passed / 4 failed`；三個 `history/runs/rows` non-list fixtures 與一個 EXACT ambiguous build→ingest fixture 均可重現。
 - Generation 2 GREEN：non-list collection 以 collection JSON pointer 產生 `LEGACY_INCOMPLETE` parser evidence，artifact/row/quality counts守恆且不列 `EXCLUDED_NON_RESEARCH`；EXACT multi-candidate 缺 `ALL_TARGETS_PROVEN` 時保持 `LEGACY_UNRESOLVED / AMBIGUOUS_NO_WINNER`，ingest仍完整驗 authority/source/targets/refs且不選 winner。
 - Verification：focused migration tests=`27 passed`；card full regression family=`176 passed`；trace presence 與 `git diff --check` pass。
-- Current disposition：`LOCAL_CANDIDATE / REPAIR_GENERATION_2_COMPLETE / REVIEW_PENDING`。尚未產生 generation 2 fixed SHA 或 re-review；不得宣稱 `GO`、accepted 或 admission A4–A6。
+- 當時 disposition：`LOCAL_CANDIDATE / REPAIR_GENERATION_2_COMPLETE / REVIEW_PENDING`。此狀態已由 final candidate `5530d55ecda03131abbbbe2b32cce84b98c6f5f7` 與 limited re-review supersede。
+
+## 17. Final candidate 與 limited re-review receipt
+
+- Acceptance base：`7c807cb`。
+- Original candidate：`aea377eab761e46ddc7f8afe9b3ec0f30ddd114b`；獨立 Review 為 `NO-GO`，四項 P1 分別為 legacy self-authorized exact、ingest dangling target/ref、legacy sealed eligibility 越權，以及 malformed/scalar/empty 被誤列 non-research exclusion。
+- Repair generation 1：`67ca4f407892807cfcdd99a43909dde88841c858`；已關閉前三個 repair boundary 群組，但 fixed-SHA re-review 仍留下兩項 P1：`RUN_HISTORY_JSON` non-list collection 缺逐 locator disposition，以及 EXACT multi-candidate no-winner ingest 被錯誤拒絕。
+- Repair generation 2／final candidate：`5530d55ecda03131abbbbe2b32cce84b98c6f5f7`；上述兩項 remaining P1 已以 hostile fixtures 重現並關閉。
+- Final verification：focused migration=`27 passed`；hostile targeted=`10 passed`；full Research Spine regression=`176 passed`；`git diff --check` passed。
+- Independent final limited fixed-SHA re-review：`GO`；remaining P0/P1=`0`。
+- Current disposition：`LOCAL_CANDIDATE / REVIEW_GO / MAINLINE_ACCEPTANCE_PENDING`。Issue #5 保持 `OPEN`；remote branch 尚未 push，因此不宣稱 remote SHA equality、mainline accepted 或 canonical merge。
+- A4–A6 維持 `BLOCKED / NOT_STARTED`；#9/#10 operational lane 不因本 receipt 改變。
