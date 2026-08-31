@@ -26,6 +26,7 @@ from app.research.contracts import (
     validate_trial_spec,
     validate_migrated_record,
     validate_migration_manifest_v2,
+    validate_migration_quality_report,
 )
 
 
@@ -228,6 +229,37 @@ CREATE TABLE IF NOT EXISTS migrated_record_reasons (
     reason_code VARCHAR NOT NULL,
     PRIMARY KEY (migration_record_id, reason_code)
 );
+CREATE TABLE IF NOT EXISTS migration_quality_reports (
+    quality_report_id VARCHAR PRIMARY KEY,
+    migration_id VARCHAR NOT NULL,
+    report_hash VARCHAR NOT NULL,
+    canonical_payload_hash VARCHAR NOT NULL
+);
+CREATE TABLE IF NOT EXISTS migration_artifact_dispositions (
+    artifact_disposition_id VARCHAR PRIMARY KEY,
+    migration_id VARCHAR NOT NULL,
+    source_artifact_id VARCHAR NOT NULL,
+    migration_disposition VARCHAR NOT NULL,
+    canonical_payload_hash VARCHAR NOT NULL
+);
+CREATE TABLE IF NOT EXISTS migration_record_dispositions (
+    migration_record_id VARCHAR PRIMARY KEY,
+    migration_disposition VARCHAR NOT NULL,
+    confidence VARCHAR NOT NULL,
+    disposition_policy_version VARCHAR NOT NULL,
+    inference_policy_version VARCHAR NOT NULL,
+    combo_mapping_status VARCHAR NOT NULL,
+    combo_cardinality VARCHAR NOT NULL,
+    canonical_payload_hash VARCHAR NOT NULL
+);
+CREATE TABLE IF NOT EXISTS migration_combo_edges (
+    migration_record_id VARCHAR NOT NULL,
+    combo_id VARCHAR NOT NULL,
+    canonical_trial_spec_id VARCHAR NOT NULL,
+    evidence_refs_json VARCHAR NOT NULL,
+    reason_codes_json VARCHAR NOT NULL,
+    PRIMARY KEY (migration_record_id, combo_id, canonical_trial_spec_id)
+);
 CREATE TABLE IF NOT EXISTS legacy_semantic_evidence (
     semantic_evidence_id VARCHAR PRIMARY KEY,
     metrics_hash VARCHAR NOT NULL,
@@ -403,9 +435,26 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
         ).fetchone()
         if existing and existing[0] != manifest_hash:
             raise ValueError("MIGRATION_MANIFEST_COLLISION")
+        quality_path = corpus_root / manifest["quality_report_path"]
+        if (
+            not quality_path.is_file()
+            or _file_hash(quality_path) != manifest["quality_report_hash"]
+        ):
+            raise ValueError("MIGRATION_QUALITY_REPORT_HASH_MISMATCH")
+        quality = _load_json(quality_path)
+        quality_errors = validate_migration_quality_report(quality)
+        if quality_errors:
+            raise ValueError("invalid migration quality report: " + "; ".join(quality_errors))
+        if quality.get("disposition_policy_version") != manifest.get("disposition_policy_version"):
+            raise ValueError("MIGRATION_QUALITY_DISPOSITION_POLICY_MISMATCH")
+        if quality.get("inference_policy_version") != manifest.get("inference_policy_version"):
+            raise ValueError("MIGRATION_QUALITY_INFERENCE_POLICY_MISMATCH")
         staged_sources: list[tuple[Any, ...]] = []
         staged_records: list[dict[str, Any]] = []
-        staged_mapping_paths: list[str] = []
+        observed_dispositions: Counter[str] = Counter()
+        observed_artifact_dispositions: Counter[str] = Counter()
+        observed_totals: Counter[str] = Counter()
+        observed_gaps: Counter[str] = Counter()
         for source in manifest.get("sources") or []:
             artifact_id = source["source_artifact_hash"]
             _verify_cas(corpus_root, source["corpus_artifact_path"], artifact_id)
@@ -414,7 +463,7 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
                 raise ValueError("MIGRATION_MAPPING_HASH_MISMATCH")
             records = [json.loads(line) for line in mapping_path.read_text().splitlines() if line]
             counts = source["record_counts"]
-            if counts["seen"] != counts["mapped"] + counts["excluded"] or len(records) != counts["mapped"]:
+            if counts["seen"] != counts["mapped"] + counts["excluded"] or len(records) != counts["seen"]:
                 raise ValueError("MIGRATION_RECORD_COUNT_MISMATCH")
             for record in records:
                 record_errors = validate_migrated_record(record)
@@ -442,11 +491,82 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
                 raise ValueError("MIGRATION_CLASSIFICATION_COUNTS_MISMATCH")
             if dict(sorted(observed_reasons.items())) != source["reason_code_counts"]:
                 raise ValueError("MIGRATION_REASON_COUNTS_MISMATCH")
+            source_dispositions = Counter(record["migration_disposition"] for record in records)
+            if dict(sorted(source_dispositions.items())) != source["disposition_counts"]:
+                raise ValueError("MIGRATION_DISPOSITION_COUNTS_MISMATCH")
+            artifact_record = source["artifact_disposition_record"]
+            if artifact_record["artifact_disposition_id"] != content_hash(
+                artifact_record, omit={"artifact_disposition_id"}
+            ):
+                raise ValueError("MIGRATION_ARTIFACT_DISPOSITION_IDENTITY_MISMATCH")
+            observed_dispositions.update(source_dispositions)
+            observed_artifact_dispositions[artifact_record["migration_disposition"]] += 1
+            reconciliation = source["reconciliation"]
+            expected_reconciliation = {
+                "source_artifacts_seen": 1,
+                "source_artifact_disposition_counts": {
+                    artifact_record["migration_disposition"]: 1
+                },
+                "rows_seen": len(records),
+                "legacy_run_rows": len(records) if source["source_type"].startswith("RUN_HISTORY") else 0,
+                "legacy_observation_like_rows": sum(
+                    record["record_kind"] == "PARAMETER_RESULT" for record in records
+                ),
+                "mapping_edges_emitted": sum(
+                    len(record["combo_mapping"]["candidates"]) for record in records
+                ),
+                "new_migrated_records": sum(
+                    record["migration_disposition"] != "EXCLUDED_NON_RESEARCH"
+                    for record in records
+                ),
+                "excluded_disposition_records": source_dispositions["EXCLUDED_NON_RESEARCH"],
+                "projected_observations": 0,
+                "typed_gaps": {
+                    "excluded": source_dispositions["EXCLUDED_NON_RESEARCH"],
+                    "incomplete": source_dispositions["LEGACY_INCOMPLETE"],
+                    "unresolved": source_dispositions["LEGACY_UNRESOLVED"],
+                    "deduplicated": 0,
+                    "one_to_many_expansion": sum(
+                        max(len(record["combo_mapping"]["candidates"]) - 1, 0)
+                        for record in records
+                    ),
+                    "not_observation": len(records),
+                },
+                "unexplained_delta": 0,
+            }
+            if reconciliation != expected_reconciliation:
+                raise ValueError("MIGRATION_SOURCE_RECONCILIATION_MISMATCH")
+            for field in (
+                "source_artifacts_seen", "rows_seen", "legacy_run_rows",
+                "legacy_observation_like_rows", "mapping_edges_emitted", "new_migrated_records",
+                "excluded_disposition_records", "projected_observations", "unexplained_delta",
+            ):
+                observed_totals[field] += reconciliation[field]
+            observed_gaps.update(reconciliation["typed_gaps"])
             staged_sources.append((
                 migration_id, artifact_id, source["source_type"], source["record_mapping_hash"],
                 counts["seen"], counts["mapped"], counts["excluded"],
             ))
-            staged_mapping_paths.append(str(mapping_path))
+        for field in (
+            "source_artifacts_seen", "rows_seen", "legacy_run_rows",
+            "legacy_observation_like_rows", "mapping_edges_emitted", "new_migrated_records",
+            "excluded_disposition_records", "projected_observations", "unexplained_delta",
+        ):
+            observed_totals.setdefault(field, 0)
+        for field in (
+            "excluded", "incomplete", "unresolved", "deduplicated",
+            "one_to_many_expansion", "not_observation",
+        ):
+            observed_gaps.setdefault(field, 0)
+        expected_quality_totals = {
+            **dict(observed_totals), "typed_gaps": dict(sorted(observed_gaps.items()))
+        }
+        if dict(sorted(observed_dispositions.items())) != quality["row_disposition_counts"]:
+            raise ValueError("MIGRATION_QUALITY_ROW_DISPOSITIONS_MISMATCH")
+        if dict(sorted(observed_artifact_dispositions.items())) != quality["source_artifact_disposition_counts"]:
+            raise ValueError("MIGRATION_QUALITY_ARTIFACT_DISPOSITIONS_MISMATCH")
+        if expected_quality_totals != quality["totals"]:
+            raise ValueError("MIGRATION_QUALITY_TOTALS_MISMATCH")
         if not existing:
             connection.execute(
                 "INSERT INTO migration_manifests VALUES (?, ?, ?, ?, ?, ?)",
@@ -461,35 +581,70 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
             connection.execute(
                 "INSERT OR IGNORE INTO migration_sources VALUES (?, ?, ?, ?, ?, ?, ?)", row
             )
-        if staged_mapping_paths:
-            connection.execute("DROP TABLE IF EXISTS migration_stage")
+        quality_hash = content_hash(quality)
+        existing_quality = connection.execute(
+            "SELECT canonical_payload_hash FROM migration_quality_reports WHERE quality_report_id = ?",
+            [quality["quality_report_id"]],
+        ).fetchone()
+        if existing_quality and existing_quality[0] != quality_hash:
+            raise ValueError("MIGRATION_QUALITY_REPORT_COLLISION")
+        connection.execute(
+            "INSERT OR IGNORE INTO migration_quality_reports VALUES (?, ?, ?, ?)",
+            [quality["quality_report_id"], migration_id, manifest["quality_report_hash"], quality_hash],
+        )
+        for source in manifest.get("sources") or []:
+            artifact = source["artifact_disposition_record"]
+            artifact_hash = content_hash(artifact)
+            existing_artifact = connection.execute(
+                "SELECT canonical_payload_hash FROM migration_artifact_dispositions WHERE artifact_disposition_id = ?",
+                [artifact["artifact_disposition_id"]],
+            ).fetchone()
+            if existing_artifact and existing_artifact[0] != artifact_hash:
+                raise ValueError("MIGRATION_ARTIFACT_DISPOSITION_COLLISION")
             connection.execute(
-                """CREATE TEMP TABLE migration_stage AS
-                   SELECT * FROM read_json(?, format='newline_delimited', columns={
-                     migration_record_id:'VARCHAR',
-                     source:'STRUCT(artifact_id VARCHAR, record_locator VARCHAR, source_type VARCHAR)',
-                     record_kind:'VARCHAR', preliminary_classification:'VARCHAR',
-                     semantic_evidence_id:'VARCHAR', metrics:'JSON', reason_codes:'VARCHAR[]'
-                   })""",
-                [sorted(set(staged_mapping_paths))],
+                "INSERT OR IGNORE INTO migration_artifact_dispositions VALUES (?, ?, ?, ?, ?)",
+                [artifact["artifact_disposition_id"], migration_id, artifact["source_artifact_id"],
+                 artifact["migration_disposition"], artifact_hash],
+            )
+        for record in staged_records:
+            record_id = record["migration_record_id"]
+            record_hash = content_hash(record)
+            existing_record = connection.execute(
+                "SELECT mapped_payload_hash FROM migrated_records WHERE migration_record_id = ?",
+                [record_id],
+            ).fetchone()
+            if existing_record and existing_record[0] != record_hash:
+                raise ValueError("MIGRATION_RECORD_COLLISION")
+            metrics_hash = content_hash(record["metrics"]) if record["semantic_evidence_id"] else None
+            connection.execute(
+                "INSERT OR IGNORE INTO migrated_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [record_id, migration_id, record["source"]["artifact_id"],
+                 record["source"]["record_locator"], record["record_kind"],
+                 record["preliminary_classification"], record["semantic_evidence_id"],
+                 metrics_hash, record_hash],
             )
             connection.execute(
-                """INSERT OR IGNORE INTO migrated_records
-                   SELECT migration_record_id, ?, source.artifact_id, source.record_locator,
-                          record_kind, preliminary_classification, semantic_evidence_id,
-                          CASE WHEN semantic_evidence_id IS NULL THEN NULL ELSE sha256(metrics::VARCHAR) END,
-                          migration_record_id
-                   FROM migration_stage""", [migration_id],
+                "INSERT OR IGNORE INTO migration_manifest_records VALUES (?, ?, ?)",
+                [migration_id, record_id, record["source"]["artifact_id"]],
             )
+            for reason in record["reason_codes"]:
+                connection.execute(
+                    "INSERT OR IGNORE INTO migrated_record_reasons VALUES (?, ?)",
+                    [record_id, reason],
+                )
+            combo = record["combo_mapping"]
             connection.execute(
-                """INSERT OR IGNORE INTO migrated_record_reasons
-                   SELECT migration_record_id, unnest(reason_codes) FROM migration_stage"""
+                "INSERT OR IGNORE INTO migration_record_dispositions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [record_id, record["migration_disposition"], record["confidence"],
+                 record["disposition_policy_version"], record["inference_policy_version"],
+                 combo["mapping_status"], combo["cardinality"], record_hash],
             )
-            connection.execute(
-                """INSERT OR IGNORE INTO migration_manifest_records
-                   SELECT ?, migration_record_id, source.artifact_id FROM migration_stage""",
-                [migration_id],
-            )
+            for edge in combo["candidates"]:
+                connection.execute(
+                    "INSERT OR IGNORE INTO migration_combo_edges VALUES (?, ?, ?, ?, ?)",
+                    [record_id, edge["combo_id"], edge["canonical_trial_spec_id"],
+                     _json(edge["evidence_refs"]), _json(edge["reason_codes"])],
+                )
         # Semantic evidence由canonical record facts集合式重建；copy不加權，衝突weight=0。
         connection.execute("DELETE FROM legacy_semantic_evidence")
         connection.execute("DELETE FROM legacy_semantic_provenance")
@@ -506,7 +661,7 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
                SELECT semantic_evidence_id,migration_record_id,source_artifact_id
                FROM migrated_records WHERE semantic_evidence_id IS NOT NULL"""
         )
-        expected_relations = sum(row[5] for row in staged_sources)
+        expected_relations = sum(row[4] for row in staged_sources)
         actual_relations = connection.execute(
             "SELECT count(*) FROM migration_manifest_records WHERE migration_id = ?",
             [migration_id],
@@ -972,6 +1127,8 @@ def ledger_snapshot(connection: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "migration_manifests", "migration_sources", "migrated_records",
         "migration_manifest_records",
         "migrated_record_reasons",
+        "migration_quality_reports", "migration_artifact_dispositions",
+        "migration_record_dispositions", "migration_combo_edges",
         "legacy_semantic_evidence", "legacy_semantic_provenance",
     )
     payload: dict[str, Any] = {"schema_version": SCHEMA_VERSION, "tables": {}}

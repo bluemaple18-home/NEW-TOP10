@@ -39,6 +39,7 @@ _ELIGIBILITY_STATUSES = {
     "TOPIC_LEVEL_NOT_PARAMETER_EVIDENCE",
     "UNSUPPORTED_NOT_AN_OBSERVATION",
     "INVALID_LINEAGE",
+    "NOT_APPLICABLE_NON_OBSERVATION",
 }
 _PARAMETER_KEYS = {
     "horizon",
@@ -981,7 +982,9 @@ def validate_migration_manifest_v2(payload: Mapping[str, Any]) -> list[str]:
     fields = {
         "schema_version", "migration_id", "parser_version",
         "semantic_identity_policy_version", "eligibility_preclassification_policy_version",
-        "source_authority_order_version", "duplicate_policy", "conflict_policy", "sources",
+        "source_authority_order_version", "disposition_policy_version",
+        "inference_policy_version", "duplicate_policy", "conflict_policy", "sources",
+        "quality_report_path", "quality_report_hash",
     }
     errors = _exact_fields(payload, fields)
     if payload.get("schema_version") != "research-ledger-migration-manifest.v2":
@@ -989,6 +992,7 @@ def validate_migration_manifest_v2(payload: Mapping[str, Any]) -> list[str]:
     for field in (
         "migration_id", "parser_version", "semantic_identity_policy_version",
         "eligibility_preclassification_policy_version", "source_authority_order_version",
+        "disposition_policy_version", "inference_policy_version",
     ):
         if field == "migration_id":
             errors.extend(_hash(payload.get(field), field))
@@ -998,10 +1002,24 @@ def validate_migration_manifest_v2(payload: Mapping[str, Any]) -> list[str]:
         errors.append("duplicate_policy is invalid")
     if payload.get("conflict_policy") != "FAIL_CLOSED_NO_WINNER":
         errors.append("conflict_policy is invalid")
+    errors.extend(_hash(payload.get("quality_report_hash"), "quality_report_hash"))
+    quality_path = payload.get("quality_report_path")
+    expected_quality_name = str(payload.get("quality_report_hash") or "").removeprefix(HASH_PREFIX)
+    if not isinstance(quality_path, str):
+        errors.append("quality_report_path is invalid")
+    else:
+        path = PurePosixPath(quality_path)
+        if (
+            path.is_absolute() or ".." in path.parts
+            or path.parts[-2:-1] != ("quality",)
+            or path.name != f"{expected_quality_name}.json"
+        ):
+            errors.append("quality_report_path is not canonical")
     source_fields = {
         "source_artifact_hash", "corpus_artifact_path", "source_type", "parser_version",
         "record_mapping_path", "record_mapping_hash", "record_counts",
-        "classification_counts", "reason_code_counts",
+        "classification_counts", "disposition_counts", "reason_code_counts",
+        "artifact_disposition_record", "reconciliation",
     }
     sources = payload.get("sources")
     if not isinstance(sources, list):
@@ -1041,8 +1059,81 @@ def validate_migration_manifest_v2(payload: Mapping[str, Any]) -> list[str]:
         classifications = _mapping(source.get("classification_counts"))
         if any(key not in _ELIGIBILITY_STATUSES or not isinstance(value, int) or value < 0 for key, value in classifications.items()):
             errors.append(f"sources[{index}].classification_counts is invalid")
-        elif sum(classifications.values()) != (counts.get("mapped") or 0):
+        elif sum(classifications.values()) != (counts.get("seen") or 0):
             errors.append(f"sources[{index}].classification_counts do not reconcile")
+        dispositions = _mapping(source.get("disposition_counts"))
+        allowed_dispositions = {
+            "MIGRATED_EXACT", "MIGRATED_INFERRED", "LEGACY_INCOMPLETE",
+            "LEGACY_UNRESOLVED", "EXCLUDED_NON_RESEARCH",
+        }
+        if any(
+            key not in allowed_dispositions or not isinstance(value, int) or value < 0
+            for key, value in dispositions.items()
+        ):
+            errors.append(f"sources[{index}].disposition_counts is invalid")
+        elif sum(dispositions.values()) != (counts.get("seen") or 0):
+            errors.append(f"sources[{index}].disposition_counts do not reconcile")
+        if dispositions.get("EXCLUDED_NON_RESEARCH", 0) != counts.get("excluded"):
+            errors.append(f"sources[{index}].excluded disposition count mismatch")
+        artifact_record = _mapping(source.get("artifact_disposition_record"))
+        artifact_fields = {
+            "source_artifact_id", "source_type", "record_locator",
+            "record_kind", "migration_disposition", "preliminary_classification",
+            "disposition_policy_version", "inference_policy_version", "confidence",
+            "reason_codes", "evidence_refs", "combo_mapping", "artifact_disposition_id",
+        }
+        errors.extend(_exact_fields(
+            artifact_record, artifact_fields, f"sources[{index}].artifact_disposition_record."
+        ))
+        if artifact_record.get("source_artifact_id") != source.get("source_artifact_hash"):
+            errors.append(f"sources[{index}].artifact_disposition_record source mismatch")
+        if artifact_record.get("record_locator") != "$artifact":
+            errors.append(f"sources[{index}].artifact_disposition_record locator is invalid")
+        if artifact_record.get("record_kind") != "SOURCE_ARTIFACT":
+            errors.append(f"sources[{index}].artifact_disposition_record record_kind is invalid")
+        if artifact_record.get("preliminary_classification") != "NOT_APPLICABLE_NON_OBSERVATION":
+            errors.append(f"sources[{index}].artifact_disposition_record classification is invalid")
+        if artifact_record.get("confidence") != "NOT_APPLICABLE":
+            errors.append(f"sources[{index}].artifact_disposition_record confidence is invalid")
+        if artifact_record.get("inference_policy_version") != "NOT_APPLICABLE":
+            errors.append(f"sources[{index}].artifact_disposition_record inference policy is invalid")
+        if artifact_record.get("evidence_refs") != [source.get("source_artifact_hash")]:
+            errors.append(f"sources[{index}].artifact_disposition_record evidence refs are invalid")
+        if artifact_record.get("combo_mapping") != {
+            "mapping_status": "UNMAPPED", "cardinality": "ZERO", "candidates": []
+        }:
+            errors.append(f"sources[{index}].artifact_disposition_record combo mapping is invalid")
+        artifact_id = artifact_record.get("artifact_disposition_id")
+        errors.extend(_hash(artifact_id, f"sources[{index}].artifact_disposition_record.artifact_disposition_id"))
+        if artifact_id != content_hash(artifact_record, omit={"artifact_disposition_id"}):
+            errors.append(f"sources[{index}].artifact_disposition_record identity mismatch")
+        reconciliation = _mapping(source.get("reconciliation"))
+        reconciliation_fields = {
+            "source_artifacts_seen", "source_artifact_disposition_counts", "rows_seen",
+            "legacy_run_rows", "legacy_observation_like_rows", "mapping_edges_emitted",
+            "new_migrated_records", "excluded_disposition_records", "projected_observations",
+            "typed_gaps", "unexplained_delta",
+        }
+        errors.extend(_exact_fields(reconciliation, reconciliation_fields, f"sources[{index}].reconciliation."))
+        if reconciliation.get("source_artifacts_seen") != 1:
+            errors.append(f"sources[{index}].reconciliation.source_artifacts_seen must be 1")
+        artifact_disposition_counts = _mapping(
+            reconciliation.get("source_artifact_disposition_counts")
+        )
+        if artifact_disposition_counts != {
+            artifact_record.get("migration_disposition"): 1
+        }:
+            errors.append(f"sources[{index}].reconciliation artifact dispositions mismatch")
+        if reconciliation.get("rows_seen") != counts.get("seen"):
+            errors.append(f"sources[{index}].reconciliation.rows_seen mismatch")
+        if (
+            reconciliation.get("new_migrated_records", 0)
+            + reconciliation.get("excluded_disposition_records", 0)
+            != reconciliation.get("rows_seen")
+        ):
+            errors.append(f"sources[{index}].reconciliation row equation mismatch")
+        if reconciliation.get("unexplained_delta") != 0:
+            errors.append(f"sources[{index}].reconciliation unexplained delta")
         reasons = _mapping(source.get("reason_code_counts"))
         if any(not isinstance(key, str) or not key or not isinstance(value, int) or value < 0 for key, value in reasons.items()):
             errors.append(f"sources[{index}].reason_code_counts is invalid")
@@ -1055,21 +1146,25 @@ def validate_migrated_record(payload: Mapping[str, Any]) -> list[str]:
     fields = {
         "schema_version", "migration_record_id", "parser_version", "source", "record_kind",
         "legacy_identity", "parameters", "metrics", "preliminary_classification",
-        "reason_codes", "semantic_evidence_id",
+        "migration_disposition", "disposition_policy_version", "inference_policy_version",
+        "confidence", "reason_codes", "evidence_refs", "combo_mapping",
+        "semantic_evidence_id",
     }
     errors = _exact_fields(payload, fields)
-    if payload.get("schema_version") != "research-migrated-record.v1":
+    if payload.get("schema_version") != "research-migrated-record.v2":
         errors.append("schema_version is invalid")
     errors.extend(_hash(payload.get("migration_record_id"), "migration_record_id"))
     if payload.get("preliminary_classification") not in {
         "LEGACY_DIAGNOSTIC_ONLY", "SEALED_VALIDATION_ONLY",
         "TOPIC_LEVEL_NOT_PARAMETER_EVIDENCE", "UNSUPPORTED_NOT_AN_OBSERVATION",
         "INVALID_LINEAGE",
+        "NOT_APPLICABLE_NON_OBSERVATION",
     }:
         errors.append("preliminary_classification is invalid")
     if payload.get("record_kind") not in {
         "PARAMETER_RESULT", "TOPIC_SUMMARY", "UNSUPPORTED_COORDINATE",
         "EXECUTION_SUMMARY", "UNRESOLVED_RECORD",
+        "NON_RESEARCH_RECORD",
     }:
         errors.append("record_kind is invalid")
     source = _mapping(payload.get("source"))
@@ -1082,6 +1177,23 @@ def validate_migrated_record(payload: Mapping[str, Any]) -> list[str]:
         errors.append("source.source_type is invalid")
     errors.extend(_nonempty(source.get("record_locator"), "source.record_locator"))
     errors.extend(_nonempty(payload.get("parser_version"), "parser_version"))
+    errors.extend(_nonempty(payload.get("disposition_policy_version"), "disposition_policy_version"))
+    errors.extend(_nonempty(payload.get("inference_policy_version"), "inference_policy_version"))
+    disposition = payload.get("migration_disposition")
+    if disposition not in {
+        "MIGRATED_EXACT", "MIGRATED_INFERRED", "LEGACY_INCOMPLETE",
+        "LEGACY_UNRESOLVED", "EXCLUDED_NON_RESEARCH",
+    }:
+        errors.append("migration_disposition is invalid")
+    confidence = payload.get("confidence")
+    if confidence not in {"EXACT", "HIGH", "MEDIUM", "LOW", "NOT_APPLICABLE"}:
+        errors.append("confidence is invalid")
+    if disposition == "MIGRATED_EXACT" and confidence != "EXACT":
+        errors.append("MIGRATED_EXACT requires EXACT confidence")
+    if disposition == "MIGRATED_INFERRED" and confidence not in {"HIGH", "MEDIUM", "LOW"}:
+        errors.append("MIGRATED_INFERRED requires non-EXACT inference confidence")
+    if disposition in {"LEGACY_INCOMPLETE", "LEGACY_UNRESOLVED", "EXCLUDED_NON_RESEARCH"} and confidence != "NOT_APPLICABLE":
+        errors.append(f"{disposition} requires NOT_APPLICABLE confidence")
     semantic = payload.get("semantic_evidence_id")
     if semantic is not None:
         errors.extend(_hash(semantic, "semantic_evidence_id"))
@@ -1091,6 +1203,61 @@ def validate_migrated_record(payload: Mapping[str, Any]) -> list[str]:
         or any(not isinstance(value, str) or not value for value in payload.get("reason_codes") or [])
     ):
         errors.append("reason_codes must be non-empty")
+    refs = payload.get("evidence_refs")
+    if not isinstance(refs, list) or not refs:
+        errors.append("evidence_refs must be non-empty")
+        refs = []
+    elif refs != sorted(set(refs)):
+        errors.append("evidence_refs must be canonical-sorted and unique")
+    for index, value in enumerate(refs):
+        errors.extend(_hash(value, f"evidence_refs[{index}]"))
+    if source.get("artifact_id") not in refs:
+        errors.append("evidence_refs must include source artifact")
+    combo = _mapping(payload.get("combo_mapping"))
+    errors.extend(_exact_fields(
+        combo, {"mapping_status", "cardinality", "candidates"}, "combo_mapping."
+    ))
+    candidates = combo.get("candidates")
+    if not isinstance(candidates, list):
+        errors.append("combo_mapping.candidates must be a list")
+        candidates = []
+    candidate_fields = {
+        "combo_id", "canonical_trial_spec_id", "reason_codes", "evidence_refs",
+    }
+    canonical_candidates: list[tuple[str, str]] = []
+    for index, raw in enumerate(candidates):
+        candidate = _mapping(raw)
+        errors.extend(_exact_fields(candidate, candidate_fields, f"combo_mapping.candidates[{index}]."))
+        errors.extend(_nonempty(candidate.get("combo_id"), f"combo_mapping.candidates[{index}].combo_id"))
+        errors.extend(_hash(candidate.get("canonical_trial_spec_id"), f"combo_mapping.candidates[{index}].canonical_trial_spec_id"))
+        candidate_refs = candidate.get("evidence_refs")
+        if not isinstance(candidate_refs, list) or not candidate_refs:
+            errors.append(f"combo_mapping.candidates[{index}].evidence_refs must be non-empty")
+            candidate_refs = []
+        elif candidate_refs != sorted(set(candidate_refs)):
+            errors.append(f"combo_mapping.candidates[{index}].evidence_refs must be canonical-sorted and unique")
+        if candidate.get("canonical_trial_spec_id") not in candidate_refs:
+            errors.append(f"combo_mapping.candidates[{index}].evidence_refs must include canonical target")
+        candidate_reasons = candidate.get("reason_codes")
+        if not isinstance(candidate_reasons, list) or not candidate_reasons:
+            errors.append(f"combo_mapping.candidates[{index}].reason_codes must be non-empty")
+        canonical_candidates.append((str(candidate.get("combo_id")), str(candidate.get("canonical_trial_spec_id"))))
+    if canonical_candidates != sorted(set(canonical_candidates)):
+        errors.append("combo_mapping.candidates must be canonical-sorted and unique")
+    expected_cardinality = "ZERO" if not candidates else "ONE" if len(candidates) == 1 else "ONE_TO_MANY"
+    if combo.get("cardinality") != expected_cardinality:
+        errors.append("combo_mapping.cardinality mismatch")
+    if disposition in {"MIGRATED_EXACT", "MIGRATED_INFERRED"}:
+        if payload.get("record_kind") != "PARAMETER_RESULT":
+            errors.append("mapped disposition requires PARAMETER_RESULT")
+        expected_status = "RESOLVED" if len(candidates) == 1 else "RESOLVED_ONE_TO_MANY"
+        if not candidates or combo.get("mapping_status") != expected_status:
+            errors.append("combo_mapping must contain resolved canonical target edges")
+    elif disposition == "LEGACY_UNRESOLVED" and len(candidates) > 1:
+        if combo.get("mapping_status") != "AMBIGUOUS_NO_WINNER":
+            errors.append("combo_mapping ambiguous candidates require no-winner status")
+    elif combo.get("mapping_status") != "UNMAPPED":
+        errors.append("combo_mapping must be UNMAPPED when disposition is not mapped")
     parameters = payload.get("parameters")
     if parameters is not None:
         expected_parameters = {
@@ -1107,6 +1274,79 @@ def validate_migrated_record(payload: Mapping[str, Any]) -> list[str]:
         errors.extend(_exact_fields(_mapping(metrics), expected_metrics, "metrics."))
     if payload.get("record_kind") == "PARAMETER_RESULT" and (parameters is None or metrics is None or semantic is None):
         errors.append("PARAMETER_RESULT requires parameters, metrics, and semantic_evidence_id")
+    if disposition == "EXCLUDED_NON_RESEARCH" and payload.get("preliminary_classification") != "NOT_APPLICABLE_NON_OBSERVATION":
+        errors.append("EXCLUDED_NON_RESEARCH must be non-observation")
+    if disposition in {"MIGRATED_INFERRED", "LEGACY_INCOMPLETE", "LEGACY_UNRESOLVED"} and payload.get("preliminary_classification") == "SEALED_VALIDATION_ONLY":
+        errors.append("non-exact evidence cannot claim sealed eligibility")
+    if not errors and payload.get("migration_record_id") != content_hash(
+        {
+            "policy_version": payload.get("parser_version"),
+            "artifact_id": source.get("artifact_id"),
+            "locator": source.get("record_locator"),
+            "record": {k: v for k, v in payload.items() if k != "migration_record_id"},
+        }
+    ):
+        errors.append("migration_record_id does not match canonical content")
+    return errors
+
+
+def validate_migration_quality_report(payload: Mapping[str, Any]) -> list[str]:
+    fields = {
+        "schema_version", "quality_report_id", "disposition_policy_version",
+        "inference_policy_version", "source_artifact_disposition_counts",
+        "row_disposition_counts", "totals",
+    }
+    errors = _exact_fields(payload, fields)
+    if payload.get("schema_version") != "research-migration-quality-report.v1":
+        errors.append("schema_version is invalid")
+    errors.extend(_hash(payload.get("quality_report_id"), "quality_report_id"))
+    for field in ("disposition_policy_version", "inference_policy_version"):
+        errors.extend(_nonempty(payload.get(field), field))
+    dispositions = {
+        "MIGRATED_EXACT", "MIGRATED_INFERRED", "LEGACY_INCOMPLETE",
+        "LEGACY_UNRESOLVED", "EXCLUDED_NON_RESEARCH",
+    }
+    for field in ("source_artifact_disposition_counts", "row_disposition_counts"):
+        counts = _mapping(payload.get(field))
+        if any(
+            key not in dispositions or not isinstance(value, int) or value < 0
+            for key, value in counts.items()
+        ):
+            errors.append(f"{field} is invalid")
+    totals = _mapping(payload.get("totals"))
+    total_fields = {
+        "source_artifacts_seen", "rows_seen", "legacy_run_rows",
+        "legacy_observation_like_rows", "mapping_edges_emitted", "new_migrated_records",
+        "excluded_disposition_records", "projected_observations", "unexplained_delta",
+        "typed_gaps",
+    }
+    errors.extend(_exact_fields(totals, total_fields, "totals."))
+    for field in total_fields - {"typed_gaps"}:
+        if not isinstance(totals.get(field), int) or totals.get(field, -1) < 0:
+            errors.append(f"totals.{field} must be a non-negative integer")
+    gaps = _mapping(totals.get("typed_gaps"))
+    gap_fields = {
+        "excluded", "incomplete", "unresolved", "deduplicated",
+        "one_to_many_expansion", "not_observation",
+    }
+    errors.extend(_exact_fields(gaps, gap_fields, "totals.typed_gaps."))
+    if any(not isinstance(gaps.get(field), int) or gaps.get(field, -1) < 0 for field in gap_fields):
+        errors.append("totals.typed_gaps must be non-negative integers")
+    row_counts = _mapping(payload.get("row_disposition_counts"))
+    if all(isinstance(value, int) for value in row_counts.values()) and sum(row_counts.values()) != totals.get("rows_seen"):
+        errors.append("row disposition counts do not reconcile")
+    if (
+        totals.get("new_migrated_records", 0)
+        + totals.get("excluded_disposition_records", 0)
+        != totals.get("rows_seen")
+    ):
+        errors.append("new/excluded record counts do not reconcile")
+    if totals.get("unexplained_delta") != 0:
+        errors.append("unexplained_delta must be zero")
+    if not errors and payload.get("quality_report_id") != content_hash(
+        payload, omit={"quality_report_id"}
+    ):
+        errors.append("quality_report_id does not match canonical content")
     return errors
 
 
