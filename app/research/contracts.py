@@ -552,30 +552,77 @@ def _validate_bundle_binding(payload: Mapping[str, Any]) -> list[str]:
         errors.extend(_relative_ref(binding.get("executed_dataset_bundle_manifest_ref"), "bundle_binding.executed_dataset_bundle_manifest_ref"))
         if binding.get("validation_status") != "VALID":
             errors.append("bundle_binding.validation_status must be VALID")
-    delta = _mapping(binding.get("resolution_delta"))
-    if delta:
-        fields = {
-            "reason_code",
-            "changed_identity_paths",
-            "changed_roles",
-            "resolution_authority",
-            "requested_manifest_id",
-            "executed_manifest_id",
-            "evidence_refs",
-        }
-        if delta.get("reason_code") == "SOURCE_FALLBACK":
-            fields.add("transition_profile_version")
-        errors.extend(_exact_fields(delta, fields, "bundle_binding.resolution_delta."))
-        for field in ("requested_manifest_id", "executed_manifest_id"):
-            errors.extend(_hash(delta.get(field), f"bundle_binding.resolution_delta.{field}"))
-        for field in ("changed_identity_paths", "changed_roles", "evidence_refs"):
-            values = delta.get(field)
-            if not isinstance(values, list) or not values:
-                errors.append(f"bundle_binding.resolution_delta.{field} must be a non-empty list")
-            elif not all(isinstance(value, str) for value in values):
-                errors.append(f"bundle_binding.resolution_delta.{field} entries must be strings")
-        for index, value in enumerate(delta.get("evidence_refs") or []):
-            errors.extend(_hash(value, f"bundle_binding.resolution_delta.evidence_refs[{index}]"))
+    requested_id = binding.get("requested_dataset_bundle_id")
+    executed_id = binding.get("executed_dataset_bundle_id")
+    delta_present = "resolution_delta" in binding
+    if executed_id == "UNKNOWN":
+        if delta_present:
+            errors.append("bundle_binding.resolution_delta must be absent when executed bundle is UNKNOWN")
+        return errors
+    if requested_id == executed_id:
+        if delta_present:
+            errors.append("bundle_binding.resolution_delta must be absent when IDs are equal")
+        return errors
+    if not delta_present:
+        errors.append("bundle_binding.resolution_delta is required when IDs differ")
+        return errors
+    raw_delta = binding.get("resolution_delta")
+    if not isinstance(raw_delta, Mapping):
+        errors.append("bundle_binding.resolution_delta must be a mapping")
+        return errors
+    delta = _mapping(raw_delta)
+    from app.research.dataset_bundle import _path_allowed, _roles_from_paths, _sorted_unique
+
+    fields = {
+        "reason_code",
+        "changed_identity_paths",
+        "changed_roles",
+        "resolution_authority",
+        "requested_manifest_id",
+        "executed_manifest_id",
+        "evidence_refs",
+    }
+    if delta.get("reason_code") == "SOURCE_FALLBACK":
+        fields.add("transition_profile_version")
+    errors.extend(_exact_fields(delta, fields, "bundle_binding.resolution_delta."))
+    reason_code = str(delta.get("reason_code"))
+    if reason_code not in {
+        "SOURCE_FALLBACK",
+        "SOURCE_UNAVAILABLE",
+        "COVERAGE_RECONCILIATION",
+        "TRANSFORMATION_CHANGE",
+        "RESOLUTION_POLICY_CHANGE",
+    }:
+        errors.append("bundle_binding.resolution_delta.reason_code is invalid")
+    if reason_code == "SOURCE_FALLBACK" and delta.get("transition_profile_version") != "m4-training-source-fallback.v1":
+        errors.append("bundle_binding.resolution_delta.transition_profile_version is invalid")
+    for field in ("requested_manifest_id", "executed_manifest_id"):
+        errors.extend(_hash(delta.get(field), f"bundle_binding.resolution_delta.{field}"))
+    if delta.get("requested_manifest_id") != requested_id:
+        errors.append("bundle_binding.resolution_delta.requested_manifest_id mismatch")
+    if delta.get("executed_manifest_id") != executed_id:
+        errors.append("bundle_binding.resolution_delta.executed_manifest_id mismatch")
+    for field in ("changed_identity_paths", "changed_roles", "evidence_refs"):
+        errors.extend(_sorted_unique(delta.get(field), f"bundle_binding.resolution_delta.{field}"))
+        if field != "changed_roles" and isinstance(delta.get(field), list) and not delta.get(field):
+            errors.append(f"bundle_binding.resolution_delta.{field} must be non-empty")
+    changed_paths = delta.get("changed_identity_paths")
+    changed_roles = delta.get("changed_roles")
+    if isinstance(changed_paths, list) and all(isinstance(path, str) for path in changed_paths):
+        for path in changed_paths:
+            if not _path_allowed(reason_code, path):
+                errors.append(f"bundle_binding.resolution_delta.changed_identity_paths contains disallowed path {path}")
+    if (
+        isinstance(changed_paths, list)
+        and all(isinstance(path, str) for path in changed_paths)
+        and isinstance(changed_roles, list)
+        and all(isinstance(role, str) for role in changed_roles)
+        and changed_roles != _roles_from_paths(changed_paths)
+    ):
+        errors.append("bundle_binding.resolution_delta.changed_roles must equal derived roles")
+    errors.extend(_nonempty(delta.get("resolution_authority"), "bundle_binding.resolution_delta.resolution_authority"))
+    for index, value in enumerate(delta.get("evidence_refs") or []):
+        errors.extend(_hash(value, f"bundle_binding.resolution_delta.evidence_refs[{index}]"))
     return errors
 
 

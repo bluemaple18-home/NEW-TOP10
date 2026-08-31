@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.research.contracts import content_hash, validate_run_receipt
-from app.research.receipt_store import ImmutableCollisionError
+from app.research.receipt_store import ImmutableCollisionError, SchemaValidationError
 from app.research.run_receipts import (
     begin_topic_attempt,
     finish_topic_attempt,
@@ -218,14 +218,9 @@ def test_missing_matrix_fails_closed_instead_of_claiming_success(tmp_path: Path)
 
 @pytest.mark.parametrize(
     ("terminal_status", "reason"),
-    [
-        ("REJECTED_BEFORE_EXECUTION", "POST_START_PRECONDITION_FAILED"),
-        ("CANCELLED", "INTERRUPTED_BY_USER"),
-        ("TIMED_OUT", "DEADLINE_EXCEEDED"),
-        ("ABORTED", "SAFETY_INVARIANT_ABORT"),
-    ],
+    [("REJECTED_BEFORE_EXECUTION", "POST_START_PRECONDITION_FAILED")],
 )
-def test_controlled_non_success_terminals_emit_exact_cause_evidence(
+def test_pre_execution_rejection_emits_contract_valid_receipt(
     tmp_path: Path,
     terminal_status: str,
     reason: str,
@@ -243,13 +238,35 @@ def test_controlled_non_success_terminals_emit_exact_cause_evidence(
     assert receipt["terminal_status"] == terminal_status
     assert receipt["terminal_cause"]["status"] == terminal_status
     assert receipt["terminal_cause"]["reason_code"] == reason
-    if terminal_status == "CANCELLED":
-        assert receipt["terminal_cause"]["status_evidence"]["typed_reason"] == reason
-    elif terminal_status == "TIMED_OUT":
-        assert receipt["terminal_cause"]["status_evidence"]["timeout_policy_version"] == "attempt-deadline.v1"
-    elif terminal_status == "ABORTED":
-        assert receipt["terminal_cause"]["status_evidence"]["invariant"] == reason
     assert receipt["executed_units"] == []
+
+
+@pytest.mark.parametrize(
+    ("terminal_status", "reason"),
+    [
+        ("CANCELLED", "INTERRUPTED_BY_USER"),
+        ("TIMED_OUT", "DEADLINE_EXCEEDED"),
+        ("ABORTED", "SAFETY_INVARIANT_ABORT"),
+    ],
+)
+def test_controlled_terminals_require_caller_supplied_first_party_evidence(
+    tmp_path: Path,
+    terminal_status: str,
+    reason: str,
+) -> None:
+    context = begin(tmp_path)
+    completed_at = datetime.fromisoformat(context.started_at) + timedelta(minutes=1)
+
+    with pytest.raises(SchemaValidationError, match="terminal_cause.status_evidence"):
+        finish_topic_attempt(
+            context,
+            terminal_status=terminal_status,
+            matrix_paths=[],
+            failure_reason=reason,
+            completed_at=completed_at,
+        )
+
+    assert not (context.root / "receipts" / f"{context.run_id}.json").exists()
 
 
 def test_writer_selects_earliest_terminal_cause_before_receipt_commit(tmp_path: Path) -> None:

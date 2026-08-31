@@ -394,6 +394,59 @@ def test_terminal_receipt_records_exact_requested_and_executed_facts() -> None:
     assert validate_run_receipt(receipt()) == []
 
 
+def test_bundle_binding_known_mismatch_requires_a1_valid_resolution_delta() -> None:
+    payload = receipt()
+    executed_id = digest("executed-bundle")
+    executed_ref = f"dataset_bundles/{executed_id[7:]}.json"
+    payload["bundle_binding"]["executed_dataset_bundle_id"] = executed_id
+    payload["bundle_binding"]["executed_dataset_bundle_manifest_ref"] = executed_ref
+    payload["executed_units"][0]["executed_dataset_bundle_id"] = executed_id
+    payload["executed_units"][0]["executed_dataset_bundle_manifest_ref"] = executed_ref
+    payload["resolution_events"] = [{
+        "reason_code": "REQUESTED_EXECUTED_DIFFERENCE",
+        "field": "dataset_bundle",
+        "requested": payload["bundle_binding"]["requested_dataset_bundle_id"],
+        "executed": executed_id,
+    }]
+    payload["identity_match_status"] = "EXPLAINED_MISMATCH"
+    payload["receipt_id"] = content_hash(payload, omit={"receipt_id"})
+
+    errors = validate_run_receipt(payload)
+    assert "bundle_binding.resolution_delta is required when IDs differ" in errors
+
+    payload["bundle_binding"]["resolution_delta"] = {
+        "reason_code": "TRANSFORMATION_CHANGE",
+        "changed_identity_paths": ["/components/FEATURES_ARTIFACT:primary/content_id"],
+        "changed_roles": ["FEATURES_ARTIFACT"],
+        "resolution_authority": "dataset-resolution-policy.v1",
+        "requested_manifest_id": payload["bundle_binding"]["requested_dataset_bundle_id"],
+        "executed_manifest_id": executed_id,
+        "evidence_refs": [digest("bundle-resolution")],
+    }
+    errors = validate_run_receipt(payload)
+    assert (
+        "bundle_binding.resolution_delta.changed_identity_paths contains disallowed path "
+        "/components/FEATURES_ARTIFACT:primary/content_id"
+    ) in errors
+
+
+def test_bundle_binding_equal_ids_reject_resolution_delta() -> None:
+    payload = receipt()
+    bundle_id = payload["bundle_binding"]["requested_dataset_bundle_id"]
+    payload["bundle_binding"]["resolution_delta"] = {
+        "reason_code": "TRANSFORMATION_CHANGE",
+        "changed_identity_paths": ["/transformation_identity/git_blob_ids"],
+        "changed_roles": [],
+        "resolution_authority": "dataset-resolution-policy.v1",
+        "requested_manifest_id": bundle_id,
+        "executed_manifest_id": bundle_id,
+        "evidence_refs": [digest("bundle-resolution")],
+    }
+    payload["receipt_id"] = content_hash(payload, omit={"receipt_id"})
+
+    assert "bundle_binding.resolution_delta must be absent when IDs are equal" in validate_run_receipt(payload)
+
+
 def test_receipt_rejects_missing_unit_fields_and_silent_substitution() -> None:
     payload = receipt()
     unit = payload["executed_units"][0]

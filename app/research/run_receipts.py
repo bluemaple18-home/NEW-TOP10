@@ -240,46 +240,11 @@ def _not_executed_bundle_binding(context: AttemptContext) -> dict[str, Any]:
     }
 
 
-def _status_evidence(
-    candidate: Mapping[str, Any],
-    *,
-    status: str,
-    reason_code: str,
-    observed_at: str,
-    observer: str,
-) -> dict[str, Any] | None:
-    """補齊受控 terminal status 必備的一手 cause evidence。"""
+def _status_evidence(candidate: Mapping[str, Any]) -> dict[str, Any] | None:
+    """只接受呼叫端提供的一手 terminal cause evidence，不代填受控狀態。"""
     supplied = candidate.get("status_evidence")
     if isinstance(supplied, Mapping):
         return dict(supplied)
-    if status == "CANCELLED":
-        return {
-            "cancellation_request_id": str(
-                candidate.get("cancellation_request_id")
-                or content_hash({
-                    "run_id": candidate.get("run_id"),
-                    "status": status,
-                    "reason_code": reason_code,
-                    "observed_at": observed_at,
-                })
-            ),
-            "accepted_at": str(candidate.get("accepted_at") or observed_at),
-            "typed_reason": reason_code,
-        }
-    if status == "TIMED_OUT":
-        return {
-            "deadline_at": str(candidate.get("deadline_at") or observed_at),
-            "timeout_policy_version": str(
-                candidate.get("timeout_policy_version") or "attempt-deadline.v1"
-            ),
-            "observer_id": str(candidate.get("observer_id") or observer),
-        }
-    if status == "ABORTED":
-        return {
-            "abort_initiator": str(candidate.get("abort_initiator") or observer),
-            "invariant": reason_code,
-            "supervisor_id": str(candidate.get("supervisor_id") or observer),
-        }
     return None
 
 
@@ -304,13 +269,7 @@ def _terminal_cause_candidate(
         "runner_started": runner_started if isinstance(runner_started, bool) else status != "REJECTED_BEFORE_EXECUTION",
         "evidence_refs": list(candidate.get("evidence_refs") or []),
     }
-    status_evidence = _status_evidence(
-        candidate,
-        status=status,
-        reason_code=reason_code,
-        observed_at=observed_at,
-        observer=observer,
-    )
+    status_evidence = _status_evidence(candidate)
     if status_evidence is not None:
         normalized["status_evidence"] = status_evidence
     return normalized
