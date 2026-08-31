@@ -134,7 +134,7 @@ def _relative_ref(value: object, field: str) -> list[str]:
     if not isinstance(value, str) or not value.strip():
         return [f"{field} must be non-empty relative path"]
     if value == "UNKNOWN":
-        return []
+        return [f"{field} must be concrete relative path"]
     path = PurePosixPath(value)
     if path.is_absolute() or ".." in path.parts:
         return [f"{field} must be non-empty relative path"]
@@ -475,6 +475,8 @@ def _validate_terminal_cause(payload: Mapping[str, Any]) -> list[str]:
         "runner_started",
         "evidence_refs",
     }
+    if terminal in {"CANCELLED", "TIMED_OUT", "ABORTED"} or "status_evidence" in cause:
+        fields.add("status_evidence")
     errors.extend(_exact_fields(cause, fields, "terminal_cause."))
     if cause.get("policy_version") != TERMINAL_CAUSE_POLICY_VERSION:
         errors.append("terminal_cause.policy_version is invalid")
@@ -496,6 +498,32 @@ def _validate_terminal_cause(payload: Mapping[str, Any]) -> list[str]:
             errors.append("terminal_cause.evidence_refs must be unique")
     if cause.get("runner_started") is not (terminal != "REJECTED_BEFORE_EXECUTION"):
         errors.append("terminal_cause.runner_started does not match terminal semantics")
+    status_evidence = _mapping(cause.get("status_evidence"))
+    if terminal == "CANCELLED":
+        evidence_fields = {"cancellation_request_id", "accepted_at", "typed_reason"}
+        errors.extend(_exact_fields(status_evidence, evidence_fields, "terminal_cause.status_evidence."))
+        errors.extend(_nonempty(status_evidence.get("cancellation_request_id"), "terminal_cause.status_evidence.cancellation_request_id"))
+        errors.extend(_utc_timestamp(status_evidence.get("accepted_at"), "terminal_cause.status_evidence.accepted_at"))
+        if status_evidence.get("typed_reason") != cause.get("reason_code"):
+            errors.append("terminal_cause.status_evidence.typed_reason must match reason_code")
+    elif terminal == "TIMED_OUT":
+        evidence_fields = {"deadline_at", "timeout_policy_version", "observer_id"}
+        errors.extend(_exact_fields(status_evidence, evidence_fields, "terminal_cause.status_evidence."))
+        errors.extend(_utc_timestamp(status_evidence.get("deadline_at"), "terminal_cause.status_evidence.deadline_at"))
+        errors.extend(_nonempty(status_evidence.get("timeout_policy_version"), "terminal_cause.status_evidence.timeout_policy_version"))
+        errors.extend(_nonempty(status_evidence.get("observer_id"), "terminal_cause.status_evidence.observer_id"))
+        deadline = _parse_utc(status_evidence.get("deadline_at"))
+        if deadline is not None and observed is not None and deadline > observed:
+            errors.append("terminal_cause.status_evidence.deadline_at must be <= observed_at")
+    elif terminal == "ABORTED":
+        evidence_fields = {"abort_initiator", "invariant", "supervisor_id"}
+        errors.extend(_exact_fields(status_evidence, evidence_fields, "terminal_cause.status_evidence."))
+        errors.extend(_nonempty(status_evidence.get("abort_initiator"), "terminal_cause.status_evidence.abort_initiator"))
+        errors.extend(_nonempty(status_evidence.get("supervisor_id"), "terminal_cause.status_evidence.supervisor_id"))
+        if status_evidence.get("invariant") != cause.get("reason_code"):
+            errors.append("terminal_cause.status_evidence.invariant must match reason_code")
+    elif "status_evidence" in cause:
+        errors.append("terminal_cause.status_evidence is only allowed for CANCELLED/TIMED_OUT/ABORTED")
     return errors
 
 

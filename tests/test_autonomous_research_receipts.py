@@ -243,7 +243,65 @@ def test_controlled_non_success_terminals_emit_exact_cause_evidence(
     assert receipt["terminal_status"] == terminal_status
     assert receipt["terminal_cause"]["status"] == terminal_status
     assert receipt["terminal_cause"]["reason_code"] == reason
+    if terminal_status == "CANCELLED":
+        assert receipt["terminal_cause"]["status_evidence"]["typed_reason"] == reason
+    elif terminal_status == "TIMED_OUT":
+        assert receipt["terminal_cause"]["status_evidence"]["timeout_policy_version"] == "attempt-deadline.v1"
+    elif terminal_status == "ABORTED":
+        assert receipt["terminal_cause"]["status_evidence"]["invariant"] == reason
     assert receipt["executed_units"] == []
+
+
+def test_writer_selects_earliest_terminal_cause_before_receipt_commit(tmp_path: Path) -> None:
+    context = begin(tmp_path)
+    baseline = tmp_path / "run_baseline_strategy_matrix.json"
+    candidate = tmp_path / "run_candidate_strategy_matrix.json"
+    write_matrix(baseline, context, "baseline")
+    write_matrix(candidate, context, "candidate")
+    authority = tmp_path / "development_authority.json"
+    write_development_authority(authority, context)
+    started = datetime.fromisoformat(context.started_at)
+    receipt = finish_topic_attempt(
+        context,
+        terminal_status="SUCCEEDED",
+        matrix_paths=[baseline, candidate],
+        lineage_authority_paths=[authority],
+        completed_at=started + timedelta(minutes=3),
+        terminal_cause_candidates=[
+            {
+                "status": "ABORTED",
+                "reason_code": "SAFETY_INVARIANT_ABORT",
+                "observed_at": (started + timedelta(minutes=2)).isoformat(),
+                "observer": "supervisor",
+                "runner_started": True,
+                "evidence_refs": [content_hash({"abort": context.run_id})],
+                "status_evidence": {
+                    "abort_initiator": "supervisor",
+                    "invariant": "SAFETY_INVARIANT_ABORT",
+                    "supervisor_id": "supervisor",
+                },
+            },
+            {
+                "status": "TIMED_OUT",
+                "reason_code": "DEADLINE_EXCEEDED",
+                "observed_at": (started + timedelta(minutes=1)).isoformat(),
+                "observer": "timeout-observer",
+                "runner_started": True,
+                "evidence_refs": [content_hash({"timeout": context.run_id})],
+                "status_evidence": {
+                    "deadline_at": (started + timedelta(minutes=1)).isoformat(),
+                    "timeout_policy_version": "attempt-deadline.v1",
+                    "observer_id": "timeout-observer",
+                },
+            },
+        ],
+    )
+    assert validate_run_receipt(receipt) == []
+    assert receipt["terminal_status"] == "TIMED_OUT"
+    assert receipt["terminal_cause"]["reason_code"] == "DEADLINE_EXCEEDED"
+    assert receipt["terminal_cause"]["observer"] == "timeout-observer"
+    assert receipt["failure"]["reason_code"] == "DEADLINE_EXCEEDED"
+    assert len(receipt["executed_units"]) == 2
 
 
 def test_unproven_lineage_never_becomes_proven_non_sealed(tmp_path: Path) -> None:

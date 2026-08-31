@@ -10,13 +10,14 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from app.research.contracts import (
     CANONICALIZATION_VERSION,
     TERMINAL_CAUSE_POLICY_VERSION,
     content_hash,
     requested_executed_differences,
+    select_terminal_cause,
     validate_attempt_started,
     validate_research_intent,
     validate_orphan_reconciliation,
@@ -237,6 +238,82 @@ def _not_executed_bundle_binding(context: AttemptContext) -> dict[str, Any]:
         "executed_dataset_bundle_manifest_ref": "UNKNOWN",
         "validation_status": "NOT_EXECUTED",
     }
+
+
+def _status_evidence(
+    candidate: Mapping[str, Any],
+    *,
+    status: str,
+    reason_code: str,
+    observed_at: str,
+    observer: str,
+) -> dict[str, Any] | None:
+    """補齊受控 terminal status 必備的一手 cause evidence。"""
+    supplied = candidate.get("status_evidence")
+    if isinstance(supplied, Mapping):
+        return dict(supplied)
+    if status == "CANCELLED":
+        return {
+            "cancellation_request_id": str(
+                candidate.get("cancellation_request_id")
+                or content_hash({
+                    "run_id": candidate.get("run_id"),
+                    "status": status,
+                    "reason_code": reason_code,
+                    "observed_at": observed_at,
+                })
+            ),
+            "accepted_at": str(candidate.get("accepted_at") or observed_at),
+            "typed_reason": reason_code,
+        }
+    if status == "TIMED_OUT":
+        return {
+            "deadline_at": str(candidate.get("deadline_at") or observed_at),
+            "timeout_policy_version": str(
+                candidate.get("timeout_policy_version") or "attempt-deadline.v1"
+            ),
+            "observer_id": str(candidate.get("observer_id") or observer),
+        }
+    if status == "ABORTED":
+        return {
+            "abort_initiator": str(candidate.get("abort_initiator") or observer),
+            "invariant": reason_code,
+            "supervisor_id": str(candidate.get("supervisor_id") or observer),
+        }
+    return None
+
+
+def _terminal_cause_candidate(
+    candidate: Mapping[str, Any],
+    *,
+    default_status: str,
+    default_reason_code: str,
+    default_observed_at: str,
+    default_observer: str,
+) -> dict[str, Any]:
+    status = str(candidate.get("status") or default_status)
+    reason_code = str(candidate.get("reason_code") or default_reason_code)
+    observed_at = str(candidate.get("observed_at") or default_observed_at)
+    observer = str(candidate.get("observer") or default_observer)
+    runner_started = candidate.get("runner_started")
+    normalized: dict[str, Any] = {
+        "status": status,
+        "reason_code": reason_code,
+        "observed_at": observed_at,
+        "observer": observer,
+        "runner_started": runner_started if isinstance(runner_started, bool) else status != "REJECTED_BEFORE_EXECUTION",
+        "evidence_refs": list(candidate.get("evidence_refs") or []),
+    }
+    status_evidence = _status_evidence(
+        candidate,
+        status=status,
+        reason_code=reason_code,
+        observed_at=observed_at,
+        observer=observer,
+    )
+    if status_evidence is not None:
+        normalized["status_evidence"] = status_evidence
+    return normalized
 
 
 def begin_topic_attempt(
@@ -489,6 +566,7 @@ def finish_topic_attempt(
     lineage_authority_paths: list[Path] | None = None,
     failure_reason: str | None = None,
     completed_at: datetime | None = None,
+    terminal_cause_candidates: list[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     units: list[dict[str, Any]] = []
     artifacts: list[dict[str, str]] = []
@@ -776,17 +854,45 @@ def finish_topic_attempt(
         units.extend(candidate_units)
 
     complete = len(units) == len(context.trial_specs) and not artifact_errors
-    if terminal_status == "SUCCEEDED" and not complete:
-        terminal_status = "FAILED"
-        failure_reason = "INCOMPLETE_EXECUTION_FACTS"
-    observation = (
-        "OBSERVED" if complete else "PARTIALLY_OBSERVED" if units else
-        "NOT_STARTED" if terminal_status == "REJECTED_BEFORE_EXECUTION" else "UNKNOWN"
-    )
     completed = completed_at or datetime.now(timezone.utc)
     if completed.tzinfo is None:
         completed = completed.replace(tzinfo=timezone.utc)
     completed_iso = completed.isoformat()
+    derived_status = terminal_status
+    derived_reason = (
+        "RUNNER_COMPLETED" if terminal_status == "SUCCEEDED"
+        else failure_reason or "RUNTIME_FAILURE"
+    )
+    if terminal_status == "SUCCEEDED" and not complete:
+        derived_status = "FAILED"
+        derived_reason = "INCOMPLETE_EXECUTION_FACTS"
+    candidates = [
+        _terminal_cause_candidate(
+            candidate,
+            default_status=derived_status,
+            default_reason_code=derived_reason,
+            default_observed_at=completed_iso,
+            default_observer="controlled-executor",
+        )
+        for candidate in (terminal_cause_candidates or [])
+    ]
+    derived_candidate = _terminal_cause_candidate(
+        {"run_id": context.run_id},
+        default_status=derived_status,
+        default_reason_code=derived_reason,
+        default_observed_at=completed_iso,
+        default_observer="controlled-executor",
+    )
+    candidates.append(derived_candidate)
+    selected_cause = select_terminal_cause(candidates)
+    if selected_cause["status"] == "SUCCEEDED" and not complete:
+        selected_cause = derived_candidate
+    terminal_status = str(selected_cause["status"])
+    cause_reason = str(selected_cause["reason_code"])
+    observation = (
+        "OBSERVED" if complete else "PARTIALLY_OBSERVED" if units else
+        "NOT_STARTED" if terminal_status == "REJECTED_BEFORE_EXECUTION" else "UNKNOWN"
+    )
     if units:
         bundle_binding = {
             "requested_dataset_bundle_id": context.requested_dataset_bundle_id,
@@ -812,15 +918,16 @@ def finish_topic_attempt(
             )
     else:
         bundle_binding = _not_executed_bundle_binding(context)
-    cause_reason = (
-        "RUNNER_COMPLETED" if terminal_status == "SUCCEEDED"
-        else failure_reason or "RUNTIME_FAILURE"
-    )
     cause_evidence_refs = sorted({
         *(
             str(item.get("artifact_id"))
             for item in [*artifacts, *artifact_errors]
             if _valid_hash(item.get("artifact_id"))
+        ),
+        *(
+            str(ref)
+            for ref in selected_cause.get("evidence_refs", [])
+            if _valid_hash(ref)
         ),
         content_hash(
             {
@@ -830,6 +937,17 @@ def finish_topic_attempt(
             }
         ),
     })
+    terminal_cause: dict[str, Any] = {
+        "policy_version": TERMINAL_CAUSE_POLICY_VERSION,
+        "status": terminal_status,
+        "reason_code": cause_reason,
+        "observed_at": selected_cause["observed_at"],
+        "observer": selected_cause["observer"],
+        "runner_started": selected_cause["runner_started"],
+        "evidence_refs": cause_evidence_refs,
+    }
+    if "status_evidence" in selected_cause:
+        terminal_cause["status_evidence"] = selected_cause["status_evidence"]
     receipt: dict[str, Any] = {
         "schema_version": "research-run-receipt.v1",
         "run_id": context.run_id,
@@ -840,15 +958,7 @@ def finish_topic_attempt(
         "terminal_status": terminal_status,
         "started_at": context.started_at,
         "completed_at": completed_iso,
-        "terminal_cause": {
-            "policy_version": TERMINAL_CAUSE_POLICY_VERSION,
-            "status": terminal_status,
-            "reason_code": cause_reason,
-            "observed_at": completed_iso,
-            "observer": "controlled-executor",
-            "runner_started": terminal_status != "REJECTED_BEFORE_EXECUTION",
-            "evidence_refs": cause_evidence_refs,
-        },
+        "terminal_cause": terminal_cause,
         "bundle_binding": bundle_binding,
         "requested": context.requested,
         "executed_units": units,
@@ -873,7 +983,7 @@ def finish_topic_attempt(
         "EXACT" if units and not differences else "EXPLAINED_MISMATCH" if units else "NOT_EXECUTED"
     )
     if terminal_status != "SUCCEEDED":
-        receipt["failure"] = {"reason_code": failure_reason or "RUNTIME_FAILURE"}
+        receipt["failure"] = {"reason_code": cause_reason}
     receipt["receipt_id"] = content_hash(receipt, omit={"receipt_id"})
     write_immutable_json(
         corpus_path(context.root, "receipts", context.run_id),

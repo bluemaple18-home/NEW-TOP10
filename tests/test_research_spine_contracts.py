@@ -248,6 +248,45 @@ def test_research_intent_binds_request_to_trial_spec() -> None:
     assert validate_research_intent(payload) == []
 
 
+def test_requested_bundle_manifest_refs_must_be_concrete() -> None:
+    intent = {
+        "schema_version": "research-intent.v1", "intent_id": "intent:1",
+        "requested_trial_spec_ids": [trial_spec()["trial_spec_id"]],
+        "requested_dataset_bundle_id": digest("bundle"),
+        "requested_dataset_bundle_manifest_ref": "UNKNOWN",
+        "requested_at": "2026-08-14T00:00:00+00:00", "request_source": "existing_manager",
+        "selection_reason": {"reason_codes": ["EXISTING_QUEUE"]},
+    }
+    assert (
+        "requested_dataset_bundle_manifest_ref must be concrete relative path"
+        in validate_research_intent(intent)
+    )
+
+    attempt = attempt_started(str(trial_spec()["trial_spec_id"]))
+    attempt["requested_dataset_bundle_manifest_ref"] = "UNKNOWN"
+    attempt["attempt_event_id"] = content_hash(attempt, omit={"attempt_event_id"})
+    assert (
+        "requested_dataset_bundle_manifest_ref must be concrete relative path"
+        in validate_attempt_started(attempt)
+    )
+
+    payload = receipt()
+    payload["requested"]["dataset_bundle_manifest_ref"] = "UNKNOWN"
+    payload["receipt_id"] = content_hash(payload, omit={"receipt_id"})
+    assert (
+        "requested.dataset_bundle_manifest_ref must be concrete relative path"
+        in validate_run_receipt(payload)
+    )
+
+    payload = receipt()
+    payload["bundle_binding"]["requested_dataset_bundle_manifest_ref"] = "UNKNOWN"
+    payload["receipt_id"] = content_hash(payload, omit={"receipt_id"})
+    assert (
+        "bundle_binding.requested_dataset_bundle_manifest_ref must be concrete relative path"
+        in validate_run_receipt(payload)
+    )
+
+
 def test_attempt_started_has_recomputable_event_identity() -> None:
     payload = attempt_started(str(trial_spec()["trial_spec_id"]))
     assert validate_attempt_started(payload) == []
@@ -262,6 +301,24 @@ def test_terminal_taxonomy_accepts_six_controlled_states_and_rejects_orphan_stat
         payload["terminal_cause"]["status"] = status
         payload["terminal_cause"]["reason_code"] = f"{status}_EVIDENCE"
         payload["terminal_cause"]["runner_started"] = status != "REJECTED_BEFORE_EXECUTION"
+        if status == "CANCELLED":
+            payload["terminal_cause"]["status_evidence"] = {
+                "cancellation_request_id": "cancel:fixture",
+                "accepted_at": payload["terminal_cause"]["observed_at"],
+                "typed_reason": "CANCELLED_EVIDENCE",
+            }
+        elif status == "TIMED_OUT":
+            payload["terminal_cause"]["status_evidence"] = {
+                "deadline_at": payload["terminal_cause"]["observed_at"],
+                "timeout_policy_version": "attempt-deadline.v1",
+                "observer_id": "controlled-executor",
+            }
+        elif status == "ABORTED":
+            payload["terminal_cause"]["status_evidence"] = {
+                "abort_initiator": "controlled-executor",
+                "invariant": "ABORTED_EVIDENCE",
+                "supervisor_id": "controlled-executor",
+            }
         if status != "SUCCEEDED":
             payload["executed_units"] = [] if status == "REJECTED_BEFORE_EXECUTION" else payload["executed_units"]
             payload["execution_observation_status"] = "NOT_STARTED" if status == "REJECTED_BEFORE_EXECUTION" else "OBSERVED"
@@ -279,6 +336,23 @@ def test_terminal_taxonomy_accepts_six_controlled_states_and_rejects_orphan_stat
     payload["terminal_cause"]["status"] = "ORPHANED_ATTEMPT"
     payload["receipt_id"] = content_hash(payload, omit={"receipt_id"})
     assert "terminal_status is invalid" in validate_run_receipt(payload)
+
+
+def test_controlled_terminal_causes_require_status_specific_first_party_evidence() -> None:
+    expected = {
+        "CANCELLED": "terminal_cause.status_evidence.cancellation_request_id is required",
+        "TIMED_OUT": "terminal_cause.status_evidence.deadline_at is required",
+        "ABORTED": "terminal_cause.status_evidence.abort_initiator is required",
+    }
+    for status, error in expected.items():
+        payload = receipt()
+        payload["terminal_status"] = status
+        payload["terminal_cause"]["status"] = status
+        payload["terminal_cause"]["reason_code"] = f"{status}_EVIDENCE"
+        payload["terminal_cause"]["runner_started"] = True
+        payload["failure"] = {"reason_code": f"{status}_EVIDENCE"}
+        payload["receipt_id"] = content_hash(payload, omit={"receipt_id"})
+        assert error in validate_run_receipt(payload)
 
 
 def test_terminal_cause_race_uses_observed_time_then_fixed_tie_break() -> None:
