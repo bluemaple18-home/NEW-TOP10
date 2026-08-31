@@ -680,3 +680,66 @@ def test_malformed_scalar_and_empty_research_inputs_are_not_non_research_exclusi
         assert result["manifest"]["sources"][0]["artifact_disposition_record"][
             "migration_disposition"
         ] != "EXCLUDED_NON_RESEARCH"
+
+
+@pytest.mark.parametrize("collection_name", ["history", "runs", "rows"])
+def test_non_list_run_history_collection_has_parser_evidence_and_reconciles(
+    tmp_path: Path, collection_name: str,
+) -> None:
+    source = tmp_path / "run_history.json"
+    source.write_text(json.dumps({collection_name: {"unexpected": "mapping"}}), encoding="utf-8")
+    result = build_migration(
+        corpus_root=tmp_path / "corpus",
+        sources=[LegacySource(source, "RUN_HISTORY_JSON")],
+    )
+    assert len(result["records"]) == 1
+    record = result["records"][0]
+    assert record["source"]["record_locator"] == f"json-pointer:/{collection_name}"
+    assert record["migration_disposition"] in {"LEGACY_INCOMPLETE", "LEGACY_UNRESOLVED"}
+    assert "NON_LIST_RESEARCH_COLLECTION" in record["reason_codes"]
+    source_entry = result["manifest"]["sources"][0]
+    assert source_entry["record_counts"] == {"seen": 1, "mapped": 1, "excluded": 0}
+    assert result["quality_report"]["totals"]["rows_seen"] == 1
+    assert result["quality_report"]["totals"]["unexplained_delta"] == 0
+
+
+def test_exact_multi_candidate_without_resolution_ingests_as_no_winner(
+    tmp_path: Path,
+) -> None:
+    corpus = tmp_path / "corpus"
+    first = canonical_trial()
+    second = deepcopy(first)
+    second["dataset_authority"] = {"dataset_hash": "sha256:" + "4" * 64}
+    second["trial_spec_id"] = content_hash(second, omit={"trial_spec_id"})
+    publish_trial(corpus, first)
+    publish_trial(corpus, second)
+    source = tmp_path / "run_history.jsonl"
+    row = {
+        "combo_id": "legacy-ambiguous-exact", "topic_id": "topic-a", "horizon": 5,
+        "stop_loss_pct": 0.08, "take_profit_pct": 0.15,
+        "max_group_exposure": 0.35, "score": 0.2,
+    }
+    source.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    publish_mapping_authority(
+        corpus, source, "jsonl:0", "legacy-ambiguous-exact", [first, second],
+        mapping_mode="EXACT", confidence="EXACT",
+        reason_code="DIRECT_A1_TRIAL_SPEC_BINDING",
+        multi_target_resolution="NOT_APPLICABLE", candidate_combo_ids=["a", "z"],
+    )
+    result = build_migration(
+        corpus_root=corpus, sources=[LegacySource(source, "RUN_HISTORY_JSONL")]
+    )
+    record = result["records"][0]
+    assert record["migration_disposition"] == "LEGACY_UNRESOLVED"
+    assert record["combo_mapping"]["mapping_status"] == "AMBIGUOUS_NO_WINNER"
+    ledger = tmp_path / "ledger.duckdb"
+    ingest_corpus(corpus_root=corpus, ledger_path=ledger)
+    connection = duckdb.connect(str(ledger), read_only=True)
+    try:
+        disposition, status = connection.execute(
+            "SELECT migration_disposition, combo_mapping_status "
+            "FROM migration_record_dispositions"
+        ).fetchone()
+    finally:
+        connection.close()
+    assert (disposition, status) == ("LEGACY_UNRESOLVED", "AMBIGUOUS_NO_WINNER")

@@ -273,3 +273,11 @@ git diff --check
 - Repair boundary：exact/inferred/excluded 必須引用與 source artifact、locator、legacy combo 及 canonical A1 trial target 綁定的 immutable mapping authority；ingest 在 migration transaction write 前驗 authority、trial target與 governing A2 receipt 的 schema/path/identity/ref；sealed eligibility 只由 canonical target加 governing receipt stage/bundle evidence決定；malformed/scalar/empty research input保留 incomplete/unresolved，不能自動 excluded。
 - Repair GREEN：focused migration tests=`23 passed`；card full regression family=`172 passed`；trace presence 與 `git diff --check` pass。
 - Current disposition：`LOCAL_CANDIDATE / REVIEW_PENDING`。尚未產生 repair fixed SHA，尚未 re-review；不得宣稱 `GO`、accepted 或 admission A4–A6。
+
+## 16. Review repair generation 2 receipt
+
+- Repair generation 1 fixed candidate：`67ca4f407892807cfcdd99a43909dde88841c858`；獨立 fixed-SHA re-review 尚有兩項 P1：`RUN_HISTORY_JSON` 的 non-list collection 沒有逐 locator disposition，以及 EXACT multi-candidate no-winner record 在 ingest 被錯誤拒絕。
+- Generation 2 hostile RED：focused migration tests=`23 passed / 4 failed`；三個 `history/runs/rows` non-list fixtures 與一個 EXACT ambiguous build→ingest fixture 均可重現。
+- Generation 2 GREEN：non-list collection 以 collection JSON pointer 產生 `LEGACY_INCOMPLETE` parser evidence，artifact/row/quality counts守恆且不列 `EXCLUDED_NON_RESEARCH`；EXACT multi-candidate 缺 `ALL_TARGETS_PROVEN` 時保持 `LEGACY_UNRESOLVED / AMBIGUOUS_NO_WINNER`，ingest仍完整驗 authority/source/targets/refs且不選 winner。
+- Verification：focused migration tests=`27 passed`；card full regression family=`176 passed`；trace presence 與 `git diff --check` pass。
+- Current disposition：`LOCAL_CANDIDATE / REPAIR_GENERATION_2_COMPLETE / REVIEW_PENDING`。尚未產生 generation 2 fixed SHA 或 re-review；不得宣稱 `GO`、accepted 或 admission A4–A6。

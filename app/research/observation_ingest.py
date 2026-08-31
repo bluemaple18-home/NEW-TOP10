@@ -478,7 +478,14 @@ def _validate_migration_record_authority(
         raise ValueError("MIGRATION_MAPPING_AUTHORITY_BINDING_MISMATCH")
     mode = authority["mapping_mode"]
     if mode == "EXACT" and disposition != "MIGRATED_EXACT":
-        raise ValueError("MIGRATION_MAPPING_AUTHORITY_DISPOSITION_MISMATCH")
+        unresolved_no_winner = (
+            disposition == "LEGACY_UNRESOLVED"
+            and len(authority["candidates"]) > 1
+            and authority["multi_target_resolution"] != "ALL_TARGETS_PROVEN"
+            and record["combo_mapping"]["mapping_status"] == "AMBIGUOUS_NO_WINNER"
+        )
+        if not unresolved_no_winner:
+            raise ValueError("MIGRATION_MAPPING_AUTHORITY_DISPOSITION_MISMATCH")
     if mode == "INFERRED" and disposition not in {"MIGRATED_INFERRED", "LEGACY_UNRESOLVED"}:
         raise ValueError("MIGRATION_MAPPING_AUTHORITY_DISPOSITION_MISMATCH")
     if mode == "EXCLUDE_NON_RESEARCH" and disposition != "EXCLUDED_NON_RESEARCH":

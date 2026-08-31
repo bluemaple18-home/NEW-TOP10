@@ -107,16 +107,25 @@ def _json_rows(source: LegacySource) -> Iterable[ParsedLegacyRow]:
                     f"json-pointer:/scenarios/{index}", value, "PARSED_NON_OBJECT"
                 )
         return
-    rows = payload.get("history") or payload.get("runs") or payload.get("rows") or []
-    if isinstance(rows, list):
-        if not rows:
-            yield ParsedLegacyRow("json-pointer:/rows/$empty", None, "EMPTY_RESEARCH_ARTIFACT")
-            return
-        for index, value in enumerate(rows):
-            yield ParsedLegacyRow(
-                f"json-pointer:/rows/{index}", value,
-                "PARSED_OBJECT" if isinstance(value, dict) else "PARSED_NON_OBJECT",
-            )
+    collection_name = next(
+        (name for name in ("history", "runs", "rows") if name in payload), "rows"
+    )
+    rows = payload.get(collection_name, [])
+    if not isinstance(rows, list):
+        yield ParsedLegacyRow(
+            f"json-pointer:/{collection_name}", rows, "NON_LIST_RESEARCH_COLLECTION"
+        )
+        return
+    if not rows:
+        yield ParsedLegacyRow(
+            f"json-pointer:/{collection_name}/$empty", None, "EMPTY_RESEARCH_ARTIFACT"
+        )
+        return
+    for index, value in enumerate(rows):
+        yield ParsedLegacyRow(
+            f"json-pointer:/{collection_name}/{index}", value,
+            "PARSED_OBJECT" if isinstance(value, dict) else "PARSED_NON_OBJECT",
+        )
 
 
 def _mapping_authorities(corpus_root: Path) -> dict[tuple[str, str, str], dict[str, Any]]:
@@ -281,7 +290,7 @@ def map_record(
     parser_status: str = "PARSED_OBJECT",
 ) -> dict[str, Any]:
     targets = canonical_targets or {}
-    if not isinstance(row, dict):
+    if parser_status != "PARSED_OBJECT" or not isinstance(row, dict):
         disposition = (
             "LEGACY_UNRESOLVED" if parser_status == "MALFORMED_JSON"
             else "LEGACY_INCOMPLETE"
@@ -356,6 +365,9 @@ def map_record(
         mode, confidence, mapping_reasons, mapping_refs, candidates, all_targets_proven,
         authority_id,
     ) = _canonical_candidates(mapping_authority, row, targets)
+    authority_candidate_count = (
+        len(mapping_authority["candidates"]) if mapping_authority is not None else 0
+    )
     if mode == "EXCLUDE_NON_RESEARCH" and mapping_authority is not None:
         disposition = "EXCLUDED_NON_RESEARCH"
         disposition_confidence = "NOT_APPLICABLE"
@@ -394,6 +406,15 @@ def map_record(
         mapping_status = "AMBIGUOUS_NO_WINNER"
         reasons = mapping_reasons or ["AMBIGUOUS_CANONICAL_TARGET"]
         inference_version = INFERENCE_POLICY
+        if classification == "SEALED_VALIDATION_ONLY":
+            classification = "LEGACY_DIAGNOSTIC_ONLY"
+    elif authority_candidate_count > 1 and not all_targets_proven:
+        disposition = "LEGACY_UNRESOLVED"
+        disposition_confidence = "NOT_APPLICABLE"
+        mapping_status = "UNMAPPED"
+        reasons = ["INVALID_OR_UNPROVEN_CANONICAL_TARGET_EVIDENCE"]
+        inference_version = INFERENCE_POLICY
+        candidates = []
         if classification == "SEALED_VALIDATION_ONLY":
             classification = "LEGACY_DIAGNOSTIC_ONLY"
     elif (
