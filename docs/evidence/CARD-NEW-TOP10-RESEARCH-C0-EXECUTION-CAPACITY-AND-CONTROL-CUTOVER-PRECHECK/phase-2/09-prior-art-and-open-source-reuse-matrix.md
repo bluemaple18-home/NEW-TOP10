@@ -21,7 +21,7 @@
 | Celery | PyPI latest 5.6.3; BSD-3-Clause source license | retries, late ack for idempotent tasks, broker-backed distributed workers | REJECT_FOR_C1 | Too much runtime/broker surface for C0; useful concept: idempotency before redelivery. |
 | RQ | PyPI latest 2.11.0; BSD-2-Clause | Redis/Valkey job queue, job ids, retry limits, TTL/results | REJECT_FOR_C1 | Redis worker dependency and pickle-default security note require ops/security review; useful concept: explicit job id and result TTL. |
 | APScheduler | PyPI latest 3.11.3; MIT | persistent job stores, misfire/coalesce, max instances | REJECT_FOR_C1 | Scheduler replacement is out of scope; useful concept: persistent schedule conflict policy and max instances. |
-| Prefect | PyPI release history shows 3.7.x line in 2026; Apache-2.0 source metadata | task runs, retries, caching, cache isolation, state tracking | REJECT_FOR_C1 | Full orchestration platform is too broad; useful concept: input/source-derived cache key and lock manager for serializable cache. |
+| Prefect | PyPI latest stable `3.8.4`, released/uploaded Aug 25, 2026; Apache-2.0 PyPI/license metadata | task runs, retries, caching, cache isolation, state tracking | REJECT_FOR_C1 | Full orchestration platform is too broad; useful concept: input/source-derived cache key and lock manager for serializable cache. |
 | Dramatiq | PyPI latest 2.2.0; LGPL | actor retries, dead-letter queue, broker abstraction, rate limiting | REJECT_FOR_C1 | Broker plus LGPL review is heavier than minimum sufficient; useful concept: poison/dead-letter after retry exhaustion. |
 
 ## Minimum sufficient slice
@@ -111,14 +111,14 @@ claim_id: C0P2-OSS-005
 claim: Prefect provides workflow task retries, cached task results keyed by inputs/source/run context, and cache isolation with lock manager options, but it is a broad workflow orchestration framework and not minimum sufficient for C1.
 classification: PRIOR_ART_REJECT_ORCHESTRATOR_ADOPT_CONCEPT
 source_repo: Prefect project / PyPI / docs
-source_sha_or_version: Prefect 3.7.x release line observed on PyPI; GitHub pyproject Apache-2.0 metadata observed 2026-09-01
+source_sha_or_version: Prefect 3.8.4 latest stable observed on PyPI, released/uploaded Aug 25, 2026; Apache-2.0 metadata observed 2026-09-01
 source_path_or_official_url: https://pypi.org/project/prefect/; https://docs.prefect.io/v3/concepts/tasks; https://docs.prefect.io/v3/concepts/caching; https://github.com/PrefectHQ/prefect/blob/main/pyproject.toml
-source_range_or_section: PyPI release history; Tasks concept; Caching cache policies/isolation sections; pyproject license metadata
+source_range_or_section: PyPI project metadata, Key dates, Download files, Release history, License classifier, and source provenance for `prefect-3.8.4`; Tasks concept; Caching cache policies/isolation sections; pyproject license metadata
 observed_at: 2026-09-01T05:47:34Z
 confidence: MEDIUM
 conflict_with: absorbing a full orchestration platform as a small claim/lease fix.
 implication: Borrow cache-key/isolation concepts; keep implementation repo-native unless a future measured gap proves otherwise.
-open_question: exact latest stable Prefect version should be rechecked if dependency adoption is ever proposed.
+open_question: exact latest stable Prefect version should be rechecked again if dependency adoption is ever proposed after 2026-09-01.
 owner: Future architecture owner
 ```
 
