@@ -127,9 +127,9 @@ claim_id: BC-CP2-RCA-005
 claim: This slice did not run an E3 benchmark because representative sample authority is missing; the correct verdict is NO_GO_MISSING_REPRESENTATIVE_SAMPLE_AUTHORITY rather than NON_REPRESENTATIVE_LEGAL_CHARACTERIZATION or numeric capacity.
 classification: BC_CP2_VERDICT
 source_repo: local candidate evidence
-source_sha_or_version: a61f143ea5223b6af812e27aac0082121f781343
+source_sha_or_version: c6e9870238fadf306b82875709de96d793a338d5
 source_path_or_official_url: docs/tasks/2026-09-01_DISPATCH-NEW-TOP10-BC-CP2-REPRESENTATIVE-CAPACITY-AUTHORITY.md; docs/evidence/BC-CP2-REPRESENTATIVE-CAPACITY-AUTHORITY/01-sample-authority-and-capacity-receipt.md
-source_range_or_section: task card lines 1-13; this receipt sections Direct Answer, Authority Reconciliation, Measurement Receipt
+source_range_or_section: task card lines 1-13 and this receipt sections Direct Answer, Authority Reconciliation, Measurement Receipt as first committed in candidate c6e9870238fadf306b82875709de96d793a338d5
 observed_at: 2026-09-01T06:55:11Z
 confidence: HIGH
 conflict_with: running a benchmark from a convenience sample or inventing representative identity.
