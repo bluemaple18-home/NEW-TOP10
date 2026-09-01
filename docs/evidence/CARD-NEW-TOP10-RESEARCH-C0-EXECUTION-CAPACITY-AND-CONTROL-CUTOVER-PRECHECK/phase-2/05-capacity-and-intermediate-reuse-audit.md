@@ -10,11 +10,12 @@
 - C0 Phase 1 fixed SHA: `c7d30f3dc1da413ab40ce143e1f6931f2d8a97ba`
 - AI Core dispatch baseline: `21801303adff285268f7646df94dc53da31a835f`
 - Observed at: `2026-09-01T05:47:34Z`
+- Repair observation: `2026-09-01T06:12:53Z`; parent before repair `aab6760436be0bc3fadbe860f61502c4744dd106`.
 - Boundary: evidence-only。未執行 production、daily quota、scheduler、publish、dual-write、canary、cutover 或 bridge removal；未修改 runtime/code/config/workflow/schema/database/queue/runner/scheduler/model/ranking/backtest。
 
 ## Direct answer
 
-C0 Phase 2 仍不能定案 full daily capacity。固定 input 允許 C0 使用 `720` 作 formal denominator，並以 `E3` 作 current evaluator；但代表性 sample 權限不存在，`E2` reusable intermediate 仍是 `NOT_PROVEN`，`E4` forward-shadow cadence 仍是 `REQUIRED_BUT_UNCHARACTERIZED`。因此本文件交付 `MISSING_REPRESENTATIVE_SAMPLE_AUTHORITY`，不是 throughput benchmark。
+C0 Phase 2 仍不能定案 full daily capacity。固定 input 允許 C0 使用 `720` 作 formal denominator，並以 `E3` 作 current evaluator；但代表性 sample 權限不存在，`E2` reusable intermediate 仍是 `NOT_PROVEN`，`E4` forward-shadow cadence 仍是 `REQUIRED_BUT_UNCHARACTERIZED`。本次 repair 只補到 `NON_REPRESENTATIVE_LEGAL_CHARACTERIZATION`：證明最小 E3 runner envelope 可在隔離 temp fixture 上執行並量到資源足跡；不得外推為 720/full-daily capacity。
 
 ## Capacity evidence table
 
@@ -23,15 +24,28 @@ C0 Phase 2 仍不能定案 full daily capacity。固定 input 允許 C0 使用 `
 | immutable inputs | B0 fixed input: `matrix_size=720`, current evaluator `E3`, `E2=NOT_PROVEN`, `E4=REQUIRED_BUT_UNCHARACTERIZED` | measured/governing fact from fixed B0 evidence |
 | sample authority | No B0/B2 admitted CandidateDecision or canonical TrialSpec sample authority is present in this worktree or dispatch | missing authority |
 | representative sample size | `0` authorized representative candidates | measured authorization fact |
-| synthetic characterization | attempted only as isolated `/private/tmp` characterization, but did not run because `.venv/bin/python` is absent | toolchain preflight fact |
-| wall time | representative benchmark: `UNMEASURED`; failed toolchain preflight: `0.00 real / 0.00 user / 0.00 sys` | unknown / preflight fact |
-| candidate/sec | `UNMEASURED`; no representative or synthetic runner execution completed | unknown |
-| CPU | `UNMEASURED`; no benchmark execution completed | unknown |
-| peak RSS | `UNMEASURED`; `/usr/bin/time -l` did not capture runner RSS because Python executable was absent | unknown |
-| I/O | benchmark I/O `UNMEASURED`; no temp output created by the failed preflight | unknown / preflight fact |
+| characterization authority | `NON_REPRESENTATIVE_LEGAL_CHARACTERIZATION`; temp fixture only: 1 strategy-matrix scenario, 1 ranking file, 2 ranking rows, 12 OHLC feature rows | measured characterization fact, non-representative |
+| wall time | representative benchmark: `UNMEASURED`; non-representative characterization: `1.060459s` wall | unknown / measured characterization fact |
+| candidate/sec | representative benchmark: `UNMEASURED`; non-representative characterization: `0.942988` scenario/sec for 1 scenario | unknown / measured characterization fact |
+| CPU | representative benchmark: `UNMEASURED`; non-representative characterization: `0.671197s` user CPU, `0.145377s` system CPU | unknown / measured characterization fact |
+| peak RSS | representative benchmark: `UNMEASURED`; non-representative characterization: raw `ru_maxrss=189988864` from child process resource accounting | unknown / measured characterization fact |
+| I/O | representative benchmark: `UNMEASURED`; non-representative temp files before cleanup: features `4226` bytes, ranking `368` bytes, output JSON `4922` bytes, output Markdown `287` bytes; resource counters `inblock_delta=0`, `oublock_delta=0` | unknown / measured characterization fact |
 | cache/intermediate reuse | Source proves feature frame is loaded once per matrix, but each scenario calls full portfolio replay; path-dependent candidate reuse is not proven | observed code fact |
-| temporary output boundary | Intended boundary was `/private/tmp/top10-c0-phase2-characterization-*`; no benchmark output was produced | boundary fact |
-| rerunnable command | `/usr/bin/time -l .venv/bin/python - <<'PY' ... synthetic 16-scenario runner characterization ... PY` | failed preflight command, not benchmark |
+| temporary output boundary | Fresh temp prefix `/private/tmp/top10-c0-phase2-e3-characterization-*`; observed instance is recorded as `<fresh-temp>` only; cleanup parity: removed, and no matching temp dirs remained afterward | boundary / cleanup fact |
+| rerunnable command | Use `<repo-root>/.venv/bin/python` to create the tiny fixture in fresh temp, then invoke `scripts/run_backtest_strategy_matrix.py --max-ranking-files 1 --top-n 2 --horizons 3 --stop-loss-pcts none --take-profit-pcts none --max-group-exposures none --output <temp>/output/strategy_matrix.json`; no dependency install/sync | measured characterization command |
+
+## Bounded E3 characterization receipt
+
+- Classification: `NON_REPRESENTATIVE_LEGAL_CHARACTERIZATION`
+- Interpreter: `<repo-root>/.venv/bin/python`, Python `3.12.12`, reused read-only from canonical project environment; no dependency install/sync.
+- Executed code: candidate worktree `scripts/run_backtest_strategy_matrix.py` on parent `aab6760436be0bc3fadbe860f61502c4744dd106`; runtime code content remains bounded to canonical source SHA `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`.
+- Fixture identity: generated only under fresh `/private/tmp/top10-c0-phase2-e3-characterization-*`; 1 ranking file named `ranking_2026-01-02.csv`; 2 ranking rows (`1101`, `2330`); 12 feature rows (`2` stocks × `6` business days from `2026-01-02`); horizon `3`; stop/take/group all `none`.
+- Runner command shape: `<repo-root>/.venv/bin/python scripts/run_backtest_strategy_matrix.py --rankings-dir <temp>/rankings --features <temp>/features.parquet --max-ranking-files 1 --top-n 2 --horizons 3 --stop-loss-pcts none --take-profit-pcts none --max-group-exposures none --output <temp>/output/strategy_matrix.json`
+- Result: return code `0`; output summary showed `scenario_count=1`, `scenario_rows=1`, `best_scenario_id=h3_slnone_tpnone_gcnone`, `features_load_policy=load_once_per_matrix`, `resource_mode=read_existing_artifacts_only`.
+- Resource measurement: wall `1.060459s`; candidate/sec `0.942988`; user CPU `0.671197s`; system CPU `0.145377s`; peak RSS raw `ru_maxrss=189988864`; `inblock_delta=0`; `oublock_delta=0`.
+- Output boundary before cleanup: `features.parquet` `4226` bytes; `rankings/ranking_2026-01-02.csv` `368` bytes; `output/strategy_matrix.json` `4922` bytes; `output/strategy_matrix.md` `287` bytes.
+- Cleanup/parity: temp instance removed after measurement; later `/private/tmp` scan found no `top10-c0-phase2-e3-characterization-*` directories.
+- Measurement limit: Arrow emitted sandbox sysctl warnings while probing CPU cache metadata; the runner still returned code `0`. These warnings are environment characterization noise, not capacity failure evidence.
 
 ## Intermediate reuse audit
 
@@ -45,7 +59,7 @@ C0 Phase 2 仍不能定案 full daily capacity。固定 input 允許 C0 使用 `
 
 ## Fact / projection / unknown split
 
-- Measured or governing facts: formal denominator `720`; current evaluator `E3`; `E2=NOT_PROVEN`; `E4=REQUIRED_BUT_UNCHARACTERIZED`; `.venv/bin/python` absent in this isolated worktree; no representative sample authority.
+- Measured or governing facts: formal denominator `720`; current evaluator `E3`; `E2=NOT_PROVEN`; `E4=REQUIRED_BUT_UNCHARACTERIZED`; no representative sample authority; canonical project interpreter is available for read-only characterization; one non-representative E3 temp fixture completed with measured wall/CPU/RSS/I/O envelope.
 - Projection: if a future admitted benchmark uses native-evidence style isolation, it can record bytes/file count/parity/cleanup and reuse that measurement shape.
 - Unknown: representative candidate/sec, wall time, CPU, peak RSS, I/O, full 720 daily feasibility, path-dependent intermediate reuse, E4 observation cadence.
 
@@ -109,16 +123,16 @@ owner: C0 benchmark owner
 
 ```yaml
 claim_id: C0P2-CAP-004
-claim: This worker could not run even a synthetic bounded characterization through the project Python path because `.venv/bin/python` is absent; no benchmark output, candidate/sec, CPU, RSS, or I/O measurement was produced.
-classification: LOCAL_TOOLCHAIN_PREFLIGHT_FACT
-source_repo: local isolated worktree
-source_sha_or_version: c7d30f3dc1da413ab40ce143e1f6931f2d8a97ba
-source_path_or_official_url: <isolated-worktree>
-source_range_or_section: command `/usr/bin/time -l .venv/bin/python - <<'PY' ... PY` returned `time: .venv/bin/python: No such file or directory`; `0.00 real 0.00 user 0.00 sys`
-observed_at: 2026-09-01T05:47:34Z
+claim: A smallest legal E3 characterization completed through candidate-worktree code using the existing canonical project interpreter and fresh temp fixture, measuring 1 scenario in 1.060459s wall / 0.942988 scenario per second with raw ru_maxrss=189988864, but it is explicitly non-representative and cannot be extrapolated to the 720 daily denominator.
+classification: NON_REPRESENTATIVE_LEGAL_CHARACTERIZATION
+source_repo: local isolated worktree / bluemaple18-home/NEW-TOP10
+source_sha_or_version: candidate parent aab6760436be0bc3fadbe860f61502c4744dd106; canonical source 35bb9927eb0eac9a624dcaf0dcffcbf88857c070; Python 3.12.12 via <repo-root>/.venv/bin/python
+source_path_or_official_url: scripts/run_backtest_strategy_matrix.py; <fresh-temp>/features.parquet; <fresh-temp>/rankings/ranking_2026-01-02.csv; <fresh-temp>/output/strategy_matrix.json
+source_range_or_section: Bounded E3 characterization receipt in this file; command shape `<repo-root>/.venv/bin/python scripts/run_backtest_strategy_matrix.py --rankings-dir <temp>/rankings --features <temp>/features.parquet --max-ranking-files 1 --top-n 2 --horizons 3 --stop-loss-pcts none --take-profit-pcts none --max-group-exposures none --output <temp>/output/strategy_matrix.json`; output summary scenario_count=1, returncode=0, cleanup_removed=true
+observed_at: 2026-09-01T06:12:53Z
 confidence: HIGH
-conflict_with: claiming a local runner benchmark was completed in this candidate.
-implication: Capacity evidence must stay at missing-authority / unmeasured status.
-open_question: whether a future admitted worker may create/sync `.venv` or use an approved existing environment.
+conflict_with: claiming representative 720/full-daily capacity from a single temp fixture, verifier pass, or convenience sample.
+implication: C0 may record an executable E3 envelope, but C1 capacity remains blocked until an admitted representative sample and full measurement authority exist.
+open_question: which admitted CandidateDecision or canonical TrialSpec sample set should be used for representative 720-capacity measurement.
 owner: C0 capacity worker / environment owner
 ```

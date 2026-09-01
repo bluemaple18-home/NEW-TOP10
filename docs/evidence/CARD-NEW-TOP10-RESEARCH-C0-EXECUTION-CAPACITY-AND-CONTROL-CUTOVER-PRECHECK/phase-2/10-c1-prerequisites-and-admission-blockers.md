@@ -9,6 +9,7 @@
 - B0 Phase 1 fixed SHA: `d2c15a19d5bc8788a3d5d447ff82a9bdd43b4d98`
 - C0 Phase 1 fixed SHA: `c7d30f3dc1da413ab40ce143e1f6931f2d8a97ba`
 - Observed at: `2026-09-01T05:47:34Z`
+- Capacity repair observed at: `2026-09-01T06:12:53Z`; parent before repair `aab6760436be0bc3fadbe860f61502c4744dd106`.
 - Boundary: blocker recommendation only。不得自行 admit C1/B1、不得 merge/push/deploy、不得 Issue write。
 
 ## Recommendation
@@ -27,12 +28,12 @@ C0 Phase 2 has enough evidence to define the measured gaps, but not enough to ad
 | Queue references | queue references canonical TrialSpec identity only; no topic-only fallback for admitted execution | MISSING |
 | Claim/lease | durable item claim, lease expiry, renewal, adoption, stale handling | MISSING |
 | Retry/orphan | retry count/backoff/poison state bound to claim and terminal receipt; orphan does not infer unknown facts | PARTIAL CONTRACT, POLICY MISSING |
-| Capacity | representative E3 benchmark with wall time, candidate/sec, CPU, peak RSS, I/O, bytes/files, cleanup | UNMEASURED |
+| Capacity | representative E3 benchmark with wall time, candidate/sec, CPU, peak RSS, I/O, bytes/files, cleanup | REPRESENTATIVE_UNMEASURED; `NON_REPRESENTATIVE_LEGAL_CHARACTERIZATION` completed |
 | E2 reuse | semantic correctness and performance proof for reusable path-dependent intermediate | NOT PROVEN |
 | E4 cadence | direct TrialSpec-to-forward-shadow observation path and calendar cadence | UNCHARACTERIZED |
 | A6 cutover | bridge-by-bridge live activity, parity, rollback, removal gates | NOT READY |
 | Prior art/dependency | explicit reject/adapt/adopt decision with license/ops review if dependency added | REJECT_EXTERNAL_RUNTIME_FOR_NOW |
-| Verification environment | project `.venv` or approved uv environment available without unbounded repo writes | MISSING_IN_THIS_WORKTREE |
+| Verification environment | project `.venv` or approved uv environment available without unbounded repo writes | AVAILABLE_FOR_BOUNDED_CHARACTERIZATION_ONLY via existing canonical interpreter; not a project-local C1 environment |
 
 ## Stop rules for C1
 
@@ -83,7 +84,7 @@ owner: Future C1 owner
 
 ```yaml
 claim_id: C0P2-C1-003
-claim: B0 fixed evidence states canonical 720-spec generation/dedupe/identity/partition path is not proven, E2 is not proven, E3 is current evaluator, E4 is required but uncharacterized, and throughput remains unmeasured.
+claim: B0 fixed evidence states canonical 720-spec generation/dedupe/identity/partition path is not proven, E2 is not proven, E3 is current evaluator, E4 is required but uncharacterized, and representative 720-throughput remains unmeasured even after a non-representative legal E3 characterization.
 classification: PRIOR_B0_FIXED_EVIDENCE
 source_repo: bluemaple18-home/NEW-TOP10
 source_sha_or_version: d2c15a19d5bc8788a3d5d447ff82a9bdd43b4d98
@@ -91,7 +92,7 @@ source_path_or_official_url: docs/evidence/CARD-NEW-TOP10-RESEARCH-B0-MATRIX-AUT
 source_range_or_section: 03 lines 3-25,27-141; 04 lines 17-35,153-170
 observed_at: 2026-09-01T05:47:34Z
 confidence: HIGH
-conflict_with: moving to C1 with no benchmark or canonical generation path.
+conflict_with: moving to C1 from a non-representative temp characterization or without canonical generation path.
 implication: C1 should be blocked until these B0-derived prerequisites are satisfied or explicitly scoped out by Owner.
 open_question: B1/B2/equivalent future card contents remain not admitted.
 owner: Mainline Integrator / future B1-B2 owners
@@ -119,7 +120,7 @@ owner: Future cutover owner / A6 reviewer
 
 ```yaml
 claim_id: C0P2-C1-005
-claim: The recommended C1 verdict is BLOCKED because all major implementation preconditions remain missing or unmeasured, even though Phase 2 evidence clarified the gap list.
+claim: The recommended C1 verdict is BLOCKED because major implementation preconditions remain missing and representative capacity remains unmeasured, even though Phase 2 evidence clarified the gap list and now includes one non-representative legal E3 characterization.
 classification: WORKER_RECOMMENDATION
 source_repo: bluemaple18-home/NEW-TOP10
 source_sha_or_version: c7d30f3dc1da413ab40ce143e1f6931f2d8a97ba; d2c15a19d5bc8788a3d5d447ff82a9bdd43b4d98
