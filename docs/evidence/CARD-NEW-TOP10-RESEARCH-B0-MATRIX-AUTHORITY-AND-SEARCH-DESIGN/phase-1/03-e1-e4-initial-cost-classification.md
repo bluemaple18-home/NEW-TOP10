@@ -4,20 +4,22 @@
 
 | Class | 現行證據狀態 | Phase-1 成本判定 | 容量含義 |
 |---|---|---|---|
-| E1 — pure vector / mathematical evaluation | `EXACT_COUNT_AND_MATHEMATICAL_ENUMERABILITY_CONFIRMED / CANONICAL_GENERATOR_NOT_PROVEN` | 四維 cardinalities 可數學形成 720 個 legal combinations；但 committed code 未證明 canonical 720-spec generation、dedupe、identity 或 partition path | C0 可使用 `720` 作 count denominator；不可假設已有 full-scan control-plane implementation |
+| E1 — pure vector / mathematical evaluation | `FORMAL_720_GENERATION_IDENTITY_PARTITION_CONFIRMED` | committed code 以四個 executable dimensions 的 Cartesian product 產生 720 個 parameter combinations，並以 deterministic `combination_id`、global family hash 與 validation-profile partition check 固定 formal 720 family | C0 可使用 `720`、legal ID hash 與 partition facts 作 formal denominator；不可把 E1 authority 等同 E3 full-replay capacity或B1 admission |
 | E2 — reusable intermediate path evaluation | `NOT_PROVEN_AS_FULL_CANDIDATE_EVALUATOR` | features/price frame 只在 matrix 外層載入一次，但每個 scenario 仍呼叫完整 portfolio replay；沒有證據顯示 path-dependent intermediate 可跨候選安全重用 | 不得用 E2 吞吐假設估算 720 個績效 evaluation |
 | E3 — full path-dependent replay / backtest | `CONFIRMED_CURRENT_EXECUTION_CLASS` | 每個 scenario 依 horizon、exit events、portfolio/group exposure 與 ranking-date path 重跑 replay | C0 應以 E3 作目前 executable matrix 的保守容量基線；candidate/sec、CPU、RAM、I/O 尚未量測 |
 | E4 — forward-shadow-only validation | `REQUIRED_FUNNEL_STAGE / PATH_CAPACITY_UNCHARACTERIZED` | governing funnel 要求 `FORWARD_SHADOW` 後才可能成為 regime policy candidate，但 Phase 1 未證明一個統一 matrix-to-forward-shadow evaluator 或其 wall-clock cadence | C0 必須把 E4 視為日曆時間／市場觀察約束，不可用 E1/E3 benchmark 取代 |
 
 ## Full-scan / adaptive preliminary boundary
 
-- 數學上可完整列舉：四維 Cartesian legal space 的 exact count 是 `720`；這不等於 repo 已有
-  canonical 720-spec generator、dedupe、identity 或 partition execution path，後者標記
-  `NOT_PROVEN / B1_NOT_ADMITTED`。
+- 已證明 formal 720 path：`parameter_combinations()` 從四個 executable dimensions 做 Cartesian product，
+  產生 `720` 個 legal combinations 與 `720` 個 unique `combination_id`；
+  `parameter_universe_summary()` 固定 `combination_id_hash`，validation-profile partitions
+  對 global legal IDs 做 subset / exact-partition 檢查。這仍不是 B1 或完整 search policy admission。
 - 可能 full-scan、但容量未證明：固定 development inputs 上的 720 個 E3 replay；沒有
   candidate/sec 或 peak-memory 證據，不能宣稱 daily full scan feasible。
-- 可先跑 bounded committed partitions：validation profiles 是 catalog-derived 子集合；這只是
-  coverage／characterization seam，不是 Phase-2 search policy。
+- 可先跑 bounded committed partitions：validation profiles 是 catalog-derived 子集合；characterization
+  顯示四個 public profiles 共覆蓋 `242` 個 unique legal IDs、缺 `478` 個 global IDs且跨 partition
+  overlap `32` 個 IDs，因此它是 bounded validation seam，不是 full-scan 或 Phase-2 search policy。
 - plausibly adaptive：已取得合法且 adaptive-eligible observations 後，四個 ordinal numeric
   dimensions 的相鄰 matched contrasts、robust basin、interaction challenge；現有 learning 與 shadow
   priority projection證明這類資訊可被消費，但不授予執行或 Phase-2 policy authority。
@@ -30,18 +32,18 @@
 
 ```yaml
 claim_id: B0P1-COST-001
-claim: 四個 executable dimension cardinalities與無 invalid rules 證明 720 個 legal combinations可被數學列舉並精確計數；但 executable_parameter_dimensions()只暴露維度/值域，committed code未證明canonical 720-spec generation、dedupe、identity或partition path。
-classification: E1_EXACT_COUNT_PROVEN_CANONICAL_PATH_NOT_PROVEN
+claim: `parameter_combinations()` 先核對 legacy projection，再由四個 executable dimensions 做 Cartesian product，產生 720 個 legal combinations；bounded characterization 重算出 720 個 unique `combination_id`、`combination_id_hash=sha256:78cd9b8b6fa39935f9037d5b4c8dde3fcc2ae39955414aa51bda96dafb69f6b4`，且 `statistical_family_contract()` / `validate_statistical_partition()` 固定 global 720 family 與合法 validation-profile partitions。
+classification: E1_FORMAL_720_GENERATION_IDENTITY_PARTITION_CONFIRMED
 source_repo: bluemaple18-home/NEW-TOP10
 source_sha_or_version: 35bb9927eb0eac9a624dcaf0dcffcbf88857c070
-source_path_or_official_url: app/research/parameter_catalog.py; config/regime_research_contract.json; tests/test_research_parameter_catalog_projection.py
-source_range_or_section: parameter_catalog.py lines 16-21,87-128; regime contract lines 65-134; test lines 55-69
-observed_at: 2026-09-01T03:06:26Z
+source_path_or_official_url: app/research/parameter_catalog.py; scripts/run_autonomous_research.py; config/research_parameter_catalog.json; config/regime_research_contract.json
+source_range_or_section: parameter_catalog.py lines 16-21,87-128; run_autonomous_research.py lines 493-577,581-649,655-688; catalog lines 7-169; regime contract lines 126-128; characterization command observed 720/720 unique IDs/hash/partition coverage at 2026-09-01T07:18:37Z
+observed_at: 2026-09-01T07:18:37Z
 confidence: HIGH
-authority_level: COMMITTED_DIMENSION_PROJECTION_AND_COUNT_CONTRACT
-conflict_with: canonical 720-spec generator/identity path already exists
-implication: 720可作數學count與C0容量denominator；不得宣稱現有control plane可生成或完整處理720個canonical specs，績效容量仍須以E3分類。
-open_question: canonical generate/dedupe/identity/partition/rank/unrank path；B1尚未准入
+authority_level: COMMITTED_FORMAL_720_FAMILY_AUTHORITY
+conflict_with: treating 720 as only arithmetic with no canonical generator/identity/partition path; treating E1 formal authority as E3 full-replay capacity or B1 admission
+implication: 720、legal ID hash、global family size與validation partitions可作C0/BC fixed facts；績效容量仍須以E3分類且吞吐未量測。
+open_question: 720個E3 replay的bounded benchmark、rank/unrank convenience path、larger product dimension/constraint authority；B1尚未准入
 owner: B0 evidence owner / future B1 owner
 ```
 
