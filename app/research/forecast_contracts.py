@@ -33,6 +33,13 @@ _SAFETY = {
     "does_not_change_production_ranking": True,
     "production_promotion_allowed": False,
 }
+_EFFECTIVE_USAGE_STATUSES = {
+    "RESEARCH_ONLY",
+    "SHADOW_BENCHMARK_ONLY",
+    "NO_PRODUCTION_SIGNAL_EXPORT",
+    "NO_B_DECISION_CONSUMPTION",
+    "NO_M4_M5_M6_M7_MUTATION",
+}
 
 
 def _mapping(value: object) -> Mapping[str, Any]:
@@ -66,6 +73,20 @@ def _sorted_unique(values: object, field: str) -> list[str]:
         return [f"{field} entries must be strings"]
     if values != sorted(values) or len(values) != len(set(values)):
         return [f"{field} must be sorted and unique"]
+    return []
+
+
+def _nonempty_unique_strings(values: object, field: str) -> list[str]:
+    if not isinstance(values, list):
+        return [f"{field} must be a list"]
+    if not all(isinstance(value, str) for value in values):
+        return [f"{field} entries must be strings"]
+    if not values:
+        return [f"{field} must be non-empty"]
+    if any(not value.strip() for value in values):
+        return [f"{field} entries must be non-empty"]
+    if len(values) != len(set(values)):
+        return [f"{field} entries must be unique"]
     return []
 
 
@@ -108,6 +129,41 @@ def _decimal_string(value: object, field: str) -> list[str]:
     return []
 
 
+def _validate_quantile_levels(values: object, field: str) -> list[str]:
+    if not isinstance(values, list):
+        return [f"{field} must be a list"]
+    if not values:
+        return [f"{field} must be non-empty"]
+    if not all(isinstance(value, str) for value in values):
+        return [f"{field} entries must be strings"]
+    errors: list[str] = []
+    decimals: list[Decimal] = []
+    for index, value in enumerate(values):
+        item_field = f"{field}[{index}]"
+        try:
+            number = Decimal(value)
+        except InvalidOperation:
+            errors.append(f"{item_field} must be decimal string")
+            continue
+        if not number.is_finite():
+            errors.append(f"{item_field} must be finite decimal string")
+            continue
+        if number <= 0 or number >= 1:
+            errors.append(f"{item_field} must be between 0 and 1")
+        decimals.append(number)
+    if decimals and (decimals != sorted(decimals) or len(decimals) != len(set(decimals))):
+        errors.append(f"{field} must be numerically sorted and unique")
+    return errors
+
+
+def _validate_effective_usage_statuses(values: object, field: str) -> list[str]:
+    errors = _sorted_unique(values, field)
+    if isinstance(values, list) and all(isinstance(value, str) for value in values):
+        if set(values) != _EFFECTIVE_USAGE_STATUSES:
+            errors.append(f"{field} must exactly match allowed research statuses")
+    return errors
+
+
 def _validate_safety(value: object) -> list[str]:
     safety = _mapping(value)
     errors = _exact_fields(safety, set(_SAFETY), "safety.")
@@ -133,7 +189,7 @@ def validate_forecast_trial_spec(payload: Mapping[str, Any]) -> list[str]:
         "dataset_bundle_manifest_ref",
         "forecast_origin",
         "horizon",
-        "target_channel_id",
+        "target_channel_ids",
         "covariate_channel_ids",
         "prediction_contract",
         "evaluation_contract",
@@ -156,7 +212,7 @@ def validate_forecast_trial_spec(payload: Mapping[str, Any]) -> list[str]:
     if horizon.get("unit") not in {"calendar_day", "trading_day"}:
         errors.append("horizon.unit is invalid")
     errors.extend(_positive_int(horizon.get("steps"), "horizon.steps"))
-    errors.extend(_nonempty(payload.get("target_channel_id"), "target_channel_id"))
+    errors.extend(_nonempty_unique_strings(payload.get("target_channel_ids"), "target_channel_ids"))
     errors.extend(_sorted_unique(payload.get("covariate_channel_ids"), "covariate_channel_ids"))
     prediction = _mapping(payload.get("prediction_contract"))
     errors.extend(_exact_fields(prediction, {"point", "quantiles"}, "prediction_contract."))
@@ -165,22 +221,7 @@ def validate_forecast_trial_spec(payload: Mapping[str, Any]) -> list[str]:
     errors.extend(_exact_fields(point, {"artifact_contract"}, "prediction_contract.point."))
     errors.extend(_nonempty(point.get("artifact_contract"), "prediction_contract.point.artifact_contract"))
     errors.extend(_exact_fields(quantiles, {"levels", "artifact_contract"}, "prediction_contract.quantiles."))
-    levels = quantiles.get("levels")
-    errors.extend(_sorted_unique(levels, "prediction_contract.quantiles.levels"))
-    if isinstance(levels, list):
-        if not levels:
-            errors.append("prediction_contract.quantiles.levels must be non-empty")
-        for index, value in enumerate(levels):
-            errors.extend(_decimal_string(value, f"prediction_contract.quantiles.levels[{index}]"))
-            if isinstance(value, str):
-                try:
-                    number = Decimal(value)
-                except InvalidOperation:
-                    continue
-                if not number.is_finite():
-                    continue
-                if number <= 0 or number >= 1:
-                    errors.append(f"prediction_contract.quantiles.levels[{index}] must be between 0 and 1")
+    errors.extend(_validate_quantile_levels(quantiles.get("levels"), "prediction_contract.quantiles.levels"))
     errors.extend(_nonempty(quantiles.get("artifact_contract"), "prediction_contract.quantiles.artifact_contract"))
     evaluation = _mapping(payload.get("evaluation_contract"))
     errors.extend(_exact_fields(evaluation, {"metric_policy_version"}, "evaluation_contract."))
@@ -210,6 +251,8 @@ def validate_forecast_artifact_receipt(payload: Mapping[str, Any]) -> list[str]:
         "generated_at",
         "forecast_artifacts",
         "license_refs",
+        "usage_policy_ref",
+        "effective_usage_statuses",
     }
     errors = _exact_fields(payload, fields)
     if payload.get("schema_version") != FORECAST_ARTIFACT_RECEIPT_VERSION:
@@ -226,6 +269,8 @@ def validate_forecast_artifact_receipt(payload: Mapping[str, Any]) -> list[str]:
     if isinstance(license_refs, list):
         for index, value in enumerate(license_refs):
             errors.extend(_hash(value, f"license_refs[{index}]"))
+    errors.extend(_hash(payload.get("usage_policy_ref"), "usage_policy_ref"))
+    errors.extend(_validate_effective_usage_statuses(payload.get("effective_usage_statuses"), "effective_usage_statuses"))
     artifacts = payload.get("forecast_artifacts")
     if not isinstance(artifacts, list):
         return errors + ["forecast_artifacts must be a list"]
@@ -254,10 +299,7 @@ def validate_forecast_artifact_receipt(payload: Mapping[str, Any]) -> list[str]:
         if artifact.get("license_refs") != license_refs:
             errors.append(f"{prefix}license_refs must equal receipt license_refs")
         if artifact_type == "QUANTILE_FORECAST":
-            levels = artifact.get("quantile_levels")
-            errors.extend(_sorted_unique(levels, f"{prefix}quantile_levels"))
-            if isinstance(levels, list) and not levels:
-                errors.append(f"{prefix}quantile_levels must be non-empty")
+            errors.extend(_validate_quantile_levels(artifact.get("quantile_levels"), f"{prefix}quantile_levels"))
     if sorted(artifact_types) != ["POINT_FORECAST", "QUANTILE_FORECAST"]:
         errors.append("forecast_artifacts must contain exactly POINT_FORECAST and QUANTILE_FORECAST")
     if len(artifact_ids) != len(set(artifact_ids)):

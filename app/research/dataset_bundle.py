@@ -104,7 +104,7 @@ _FORECAST_CHANNEL_FIELDS = {
     "missingness_policy",
     "temporal_availability",
 }
-_FORECAST_TEMPORAL_FIELDS = {"forecast_origin", "available_at", "horizon_start", "horizon_end"}
+_FORECAST_TEMPORAL_FIELDS = {"event_at", "forecast_origin", "available_at", "horizon_start", "horizon_end"}
 _FORECAST_CHANNEL_ROLES = {"TARGET", "PAST_COVARIATE", "FUTURE_KNOWN_COVARIATE"}
 _FORECAST_MISSINGNESS_POLICIES = {
     "EXPLICIT_NULLS",
@@ -528,29 +528,49 @@ def _validate_forecast_channel_set(component: Mapping[str, Any], prefix: str) ->
         errors.extend(_validate_forecast_temporal_availability(
             _mapping(channel.get("temporal_availability")),
             f"{channel_prefix}temporal_availability.",
+            channel_role=channel_role,
         ))
     if len(channel_ids) != len(set(channel_ids)):
         errors.append(f"{prefix}channels.channel_id must be unique")
     if channel_indices != list(range(len(channels))):
         errors.append(f"{prefix}channels.channel_index must be contiguous from zero")
-    if target_count != 1:
-        errors.append(f"{prefix}channels must contain exactly one TARGET")
+    if target_count < 1:
+        errors.append(f"{prefix}channels must contain at least one TARGET")
     return errors
 
 
 def _validate_forecast_temporal_availability(
     temporal: Mapping[str, Any],
     prefix: str,
+    *,
+    channel_role: object,
 ) -> list[str]:
     errors = _exact_fields(temporal, _FORECAST_TEMPORAL_FIELDS, prefix)
+    errors.extend(_utc_timestamp(temporal.get("event_at"), f"{prefix}event_at"))
     errors.extend(_utc_timestamp(temporal.get("forecast_origin"), f"{prefix}forecast_origin"))
     errors.extend(_utc_timestamp(temporal.get("available_at"), f"{prefix}available_at"))
     errors.extend(_date_or_none(temporal.get("horizon_start"), f"{prefix}horizon_start", allow_none=False))
     errors.extend(_date_or_none(temporal.get("horizon_end"), f"{prefix}horizon_end", allow_none=False))
+    event_at = _parse_utc(temporal.get("event_at"))
     forecast_origin = _parse_utc(temporal.get("forecast_origin"))
     available_at = _parse_utc(temporal.get("available_at"))
-    if forecast_origin is not None and available_at is not None and available_at > forecast_origin:
-        errors.append(f"{prefix}available_at must be <= forecast_origin")
+    if event_at is not None and forecast_origin is not None and available_at is not None:
+        if channel_role == "PAST_COVARIATE":
+            if event_at > forecast_origin:
+                errors.append(f"{prefix}event_at must be <= forecast_origin for PAST_COVARIATE")
+            if available_at > forecast_origin:
+                errors.append(f"{prefix}available_at must be <= forecast_origin for PAST_COVARIATE")
+        elif channel_role == "FUTURE_KNOWN_COVARIATE":
+            if event_at <= forecast_origin:
+                errors.append(f"{prefix}event_at must be > forecast_origin for FUTURE_KNOWN_COVARIATE")
+            if available_at > forecast_origin:
+                errors.append(f"{prefix}available_at must be <= forecast_origin for FUTURE_KNOWN_COVARIATE")
+        elif channel_role == "TARGET":
+            if event_at <= forecast_origin:
+                if available_at > forecast_origin:
+                    errors.append(f"{prefix}available_at must be <= forecast_origin for context TARGET")
+            elif available_at <= forecast_origin:
+                errors.append(f"{prefix}available_at must be > forecast_origin for future TARGET")
     horizon_start = temporal.get("horizon_start")
     horizon_end = temporal.get("horizon_end")
     if isinstance(horizon_start, str) and isinstance(horizon_end, str) and horizon_start > horizon_end:
