@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -25,6 +25,9 @@ ABSENT_USE_ALL_FEATURE_STOCKS = "ABSENT_USE_ALL_FEATURE_STOCKS"
 EMPTY_USE_ALL_FEATURE_STOCKS = "EMPTY_USE_ALL_FEATURE_STOCKS"
 FEATURES_ARTIFACT_V1 = "FEATURES_ARTIFACT_V1"
 LEGACY_DIAGNOSTIC_ONLY = "LEGACY_DIAGNOSTIC_ONLY"
+FORECAST_TRIAL_CONSUMER_V1 = "FORECAST_TRIAL_V1"
+FORECAST_TRIAL_DATASET_CONTRACT_V1 = "forecast-trial-dataset.v1"
+FORECAST_CHANNEL_SET_V1 = "FORECAST_CHANNEL_SET_V1"
 
 _HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _GIT_BLOB_RE = re.compile(r"^git-sha1:[0-9a-f]{40}$")
@@ -36,6 +39,7 @@ _ROLE_IDENTITY = {
     "SIGNALS_CONFIG": "SIGNALS_CONFIG_V1",
     "FUNDAMENTALS_SNAPSHOT": "FUNDAMENTALS_SNAPSHOT_V1",
     "UNIVERSE_ARTIFACT": "UNIVERSE_ARTIFACT_V1",
+    "FORECAST_CHANNEL_SET": FORECAST_CHANNEL_SET_V1,
 }
 
 _CONSUMER_MATRIX = {
@@ -54,6 +58,9 @@ _CONSUMER_MATRIX = {
     },
     ("STRATEGY_MATRIX_FEATURES_V1", "strategy-matrix-features.v1"): {
         "FEATURES_ARTIFACT": {RESOLVED},
+    },
+    (FORECAST_TRIAL_CONSUMER_V1, FORECAST_TRIAL_DATASET_CONTRACT_V1): {
+        "FORECAST_CHANNEL_SET": {RESOLVED},
     },
 }
 
@@ -88,6 +95,22 @@ _ABSENT_FIELDS = {
     "coverage",
 }
 _EMPTY_FIELDS = _RESOLVED_FIELDS | {"member_count"}
+_FORECAST_CHANNEL_SET_FIELDS = _RESOLVED_FIELDS | {"channels"}
+_FORECAST_CHANNEL_FIELDS = {
+    "channel_id",
+    "channel_index",
+    "channel_role",
+    "value_contract",
+    "missingness_policy",
+    "temporal_availability",
+}
+_FORECAST_TEMPORAL_FIELDS = {"event_at", "forecast_origin", "available_at", "horizon_start", "horizon_end"}
+_FORECAST_CHANNEL_ROLES = {"TARGET", "PAST_COVARIATE", "FUTURE_KNOWN_COVARIATE"}
+_FORECAST_MISSINGNESS_POLICIES = {
+    "EXPLICIT_NULLS",
+    "FORWARD_FILLED_WITH_LIMIT",
+    "NOT_APPLICABLE_NO_MISSING",
+}
 _COMPONENT_COVERAGE_FIELDS = {
     "schema_version",
     "status",
@@ -213,6 +236,30 @@ def _date_or_none(value: object, field: str, *, allow_none: bool = True) -> list
     except ValueError:
         return [f"{field} must be a valid calendar date"]
     return []
+
+
+def _utc_timestamp(value: object, field: str) -> list[str]:
+    if not isinstance(value, str):
+        return [f"{field} must be an RFC3339 UTC timestamp"]
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return [f"{field} must be an RFC3339 UTC timestamp"]
+    if parsed.utcoffset() is None or parsed.utcoffset().total_seconds() != 0:
+        return [f"{field} must be UTC"]
+    return []
+
+
+def _parse_utc(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.utcoffset() is None or parsed.utcoffset().total_seconds() != 0:
+        return None
+    return parsed
 
 
 def _non_negative_int(value: object, field: str) -> list[str]:
@@ -385,6 +432,8 @@ def _validate_component(component: Mapping[str, Any], allowed: set[str], index: 
         errors.append(f"{prefix}member_key must be primary")
     if status not in allowed:
         errors.append(f"{prefix}resolution_status is not allowed for consumer")
+    if role == "FORECAST_CHANNEL_SET":
+        return errors + _validate_forecast_channel_set(component, prefix)
     if status == RESOLVED:
         errors.extend(_exact_fields(component, _RESOLVED_FIELDS, prefix))
         errors.extend(_hash(component.get("content_id"), f"{prefix}content_id"))
@@ -434,6 +483,98 @@ def _validate_component(component: Mapping[str, Any], allowed: set[str], index: 
         ))
     else:
         errors.append(f"{prefix}resolution_status is invalid")
+    return errors
+
+
+def _validate_forecast_channel_set(component: Mapping[str, Any], prefix: str) -> list[str]:
+    errors = _exact_fields(component, _FORECAST_CHANNEL_SET_FIELDS, prefix)
+    if component.get("member_key") != "primary":
+        errors.append(f"{prefix}member_key must be primary")
+    if component.get("identity_kind") != FORECAST_CHANNEL_SET_V1:
+        errors.append(f"{prefix}identity_kind must be {FORECAST_CHANNEL_SET_V1}")
+    if component.get("resolution_status") != RESOLVED:
+        errors.append(f"{prefix}resolution_status must be RESOLVED")
+    errors.extend(_hash(component.get("content_id"), f"{prefix}content_id"))
+    errors.extend(_nonempty(component.get("format_contract"), f"{prefix}format_contract"))
+    errors.extend(_validate_component_coverage(
+        _mapping(component.get("coverage")),
+        f"{prefix}coverage.",
+        resolution_status=RESOLVED,
+    ))
+    channels = component.get("channels")
+    if not isinstance(channels, list) or not channels:
+        return errors + [f"{prefix}channels must be a non-empty list"]
+    channel_ids: list[str] = []
+    channel_indices: list[int] = []
+    target_count = 0
+    for channel_index, raw_channel in enumerate(channels):
+        channel = _mapping(raw_channel)
+        channel_prefix = f"{prefix}channels[{channel_index}]."
+        errors.extend(_exact_fields(channel, _FORECAST_CHANNEL_FIELDS, channel_prefix))
+        errors.extend(_nonempty(channel.get("channel_id"), f"{channel_prefix}channel_id"))
+        if isinstance(channel.get("channel_id"), str):
+            channel_ids.append(str(channel["channel_id"]))
+        errors.extend(_non_negative_int(channel.get("channel_index"), f"{channel_prefix}channel_index"))
+        if isinstance(channel.get("channel_index"), int) and not isinstance(channel.get("channel_index"), bool):
+            channel_indices.append(int(channel["channel_index"]))
+        channel_role = channel.get("channel_role")
+        if channel_role not in _FORECAST_CHANNEL_ROLES:
+            errors.append(f"{channel_prefix}channel_role is invalid")
+        if channel_role == "TARGET":
+            target_count += 1
+        errors.extend(_nonempty(channel.get("value_contract"), f"{channel_prefix}value_contract"))
+        if channel.get("missingness_policy") not in _FORECAST_MISSINGNESS_POLICIES:
+            errors.append(f"{channel_prefix}missingness_policy must be explicit")
+        errors.extend(_validate_forecast_temporal_availability(
+            _mapping(channel.get("temporal_availability")),
+            f"{channel_prefix}temporal_availability.",
+            channel_role=channel_role,
+        ))
+    if len(channel_ids) != len(set(channel_ids)):
+        errors.append(f"{prefix}channels.channel_id must be unique")
+    if channel_indices != list(range(len(channels))):
+        errors.append(f"{prefix}channels.channel_index must be contiguous from zero")
+    if target_count < 1:
+        errors.append(f"{prefix}channels must contain at least one TARGET")
+    return errors
+
+
+def _validate_forecast_temporal_availability(
+    temporal: Mapping[str, Any],
+    prefix: str,
+    *,
+    channel_role: object,
+) -> list[str]:
+    errors = _exact_fields(temporal, _FORECAST_TEMPORAL_FIELDS, prefix)
+    errors.extend(_utc_timestamp(temporal.get("event_at"), f"{prefix}event_at"))
+    errors.extend(_utc_timestamp(temporal.get("forecast_origin"), f"{prefix}forecast_origin"))
+    errors.extend(_utc_timestamp(temporal.get("available_at"), f"{prefix}available_at"))
+    errors.extend(_date_or_none(temporal.get("horizon_start"), f"{prefix}horizon_start", allow_none=False))
+    errors.extend(_date_or_none(temporal.get("horizon_end"), f"{prefix}horizon_end", allow_none=False))
+    event_at = _parse_utc(temporal.get("event_at"))
+    forecast_origin = _parse_utc(temporal.get("forecast_origin"))
+    available_at = _parse_utc(temporal.get("available_at"))
+    if event_at is not None and forecast_origin is not None and available_at is not None:
+        if channel_role == "PAST_COVARIATE":
+            if event_at > forecast_origin:
+                errors.append(f"{prefix}event_at must be <= forecast_origin for PAST_COVARIATE")
+            if available_at > forecast_origin:
+                errors.append(f"{prefix}available_at must be <= forecast_origin for PAST_COVARIATE")
+        elif channel_role == "FUTURE_KNOWN_COVARIATE":
+            if event_at <= forecast_origin:
+                errors.append(f"{prefix}event_at must be > forecast_origin for FUTURE_KNOWN_COVARIATE")
+            if available_at > forecast_origin:
+                errors.append(f"{prefix}available_at must be <= forecast_origin for FUTURE_KNOWN_COVARIATE")
+        elif channel_role == "TARGET":
+            if event_at <= forecast_origin:
+                if available_at > forecast_origin:
+                    errors.append(f"{prefix}available_at must be <= forecast_origin for context TARGET")
+            elif available_at <= forecast_origin:
+                errors.append(f"{prefix}available_at must be > forecast_origin for future TARGET")
+    horizon_start = temporal.get("horizon_start")
+    horizon_end = temporal.get("horizon_end")
+    if isinstance(horizon_start, str) and isinstance(horizon_end, str) and horizon_start > horizon_end:
+        errors.append(f"{prefix}horizon_start must be <= horizon_end")
     return errors
 
 
