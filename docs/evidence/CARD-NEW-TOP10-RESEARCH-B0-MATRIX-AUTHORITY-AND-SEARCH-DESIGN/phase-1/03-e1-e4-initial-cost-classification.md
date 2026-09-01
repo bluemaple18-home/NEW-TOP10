@@ -4,14 +4,16 @@
 
 | Class | 現行證據狀態 | Phase-1 成本判定 | 容量含義 |
 |---|---|---|---|
-| E1 — pure vector / mathematical evaluation | `CONFIRMED`（限合法生成、count、ID/partition metadata；不是績效回測） | 720 個 discrete specs 可完整列舉；成本相對低且不需要 market replay | C0 可把 720-spec enumeration 視為 full-scan-capable control-plane work |
+| E1 — pure vector / mathematical evaluation | `EXACT_COUNT_AND_MATHEMATICAL_ENUMERABILITY_CONFIRMED / CANONICAL_GENERATOR_NOT_PROVEN` | 四維 cardinalities 可數學形成 720 個 legal combinations；但 committed code 未證明 canonical 720-spec generation、dedupe、identity 或 partition path | C0 可使用 `720` 作 count denominator；不可假設已有 full-scan control-plane implementation |
 | E2 — reusable intermediate path evaluation | `NOT_PROVEN_AS_FULL_CANDIDATE_EVALUATOR` | features/price frame 只在 matrix 外層載入一次，但每個 scenario 仍呼叫完整 portfolio replay；沒有證據顯示 path-dependent intermediate 可跨候選安全重用 | 不得用 E2 吞吐假設估算 720 個績效 evaluation |
 | E3 — full path-dependent replay / backtest | `CONFIRMED_CURRENT_EXECUTION_CLASS` | 每個 scenario 依 horizon、exit events、portfolio/group exposure 與 ranking-date path 重跑 replay | C0 應以 E3 作目前 executable matrix 的保守容量基線；candidate/sec、CPU、RAM、I/O 尚未量測 |
 | E4 — forward-shadow-only validation | `REQUIRED_FUNNEL_STAGE / PATH_CAPACITY_UNCHARACTERIZED` | governing funnel 要求 `FORWARD_SHADOW` 後才可能成為 regime policy candidate，但 Phase 1 未證明一個統一 matrix-to-forward-shadow evaluator 或其 wall-clock cadence | C0 必須把 E4 視為日曆時間／市場觀察約束，不可用 E1/E3 benchmark 取代 |
 
 ## Full-scan / adaptive preliminary boundary
 
-- 可 full-scan：`720` legal spec 的 E1 生成、去重、identity、partition/coverage metadata。
+- 數學上可完整列舉：四維 Cartesian legal space 的 exact count 是 `720`；這不等於 repo 已有
+  canonical 720-spec generator、dedupe、identity 或 partition execution path，後者標記
+  `NOT_PROVEN / B1_NOT_ADMITTED`。
 - 可能 full-scan、但容量未證明：固定 development inputs 上的 720 個 E3 replay；沒有
   candidate/sec 或 peak-memory 證據，不能宣稱 daily full scan feasible。
 - 可先跑 bounded committed partitions：validation profiles 是 catalog-derived 子集合；這只是
@@ -28,18 +30,18 @@
 
 ```yaml
 claim_id: B0P1-COST-001
-claim: Catalog Cartesian generation、exact count 與 deterministic legal-spec metadata 屬 E1；它可以完整處理 720 個 specs，但不計算 path-dependent return、drawdown 或 trade outcomes。
-classification: E1_CONFIRMED_CONTROL_PLANE_ONLY
+claim: 四個 executable dimension cardinalities與無 invalid rules 證明 720 個 legal combinations可被數學列舉並精確計數；但 executable_parameter_dimensions()只暴露維度/值域，committed code未證明canonical 720-spec generation、dedupe、identity或partition path。
+classification: E1_EXACT_COUNT_PROVEN_CANONICAL_PATH_NOT_PROVEN
 source_repo: bluemaple18-home/NEW-TOP10
 source_sha_or_version: 35bb9927eb0eac9a624dcaf0dcffcbf88857c070
 source_path_or_official_url: app/research/parameter_catalog.py; config/regime_research_contract.json; tests/test_research_parameter_catalog_projection.py
 source_range_or_section: parameter_catalog.py lines 16-21,87-128; regime contract lines 65-134; test lines 55-69
 observed_at: 2026-09-01T03:06:26Z
 confidence: HIGH
-authority_level: COMMITTED_GENERATOR_AND_CONTRACT
-conflict_with: E1 as proof of backtest throughput
-implication: full enumeration/count 可直接做；績效容量仍須以 E3 分類。
-open_question: B1 count/rank/unrank implementation尚未准入
+authority_level: COMMITTED_DIMENSION_PROJECTION_AND_COUNT_CONTRACT
+conflict_with: canonical 720-spec generator/identity path already exists
+implication: 720可作數學count與C0容量denominator；不得宣稱現有control plane可生成或完整處理720個canonical specs，績效容量仍須以E3分類。
+open_question: canonical generate/dedupe/identity/partition/rank/unrank path；B1尚未准入
 owner: B0 evidence owner / future B1 owner
 ```
 

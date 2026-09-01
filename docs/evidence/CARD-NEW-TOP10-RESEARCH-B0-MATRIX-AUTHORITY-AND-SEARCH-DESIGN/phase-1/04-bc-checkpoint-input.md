@@ -6,7 +6,7 @@
 status: GO
 meaning: B0 Phase-1 evidence is ready for BC-CP1 review; this is not Phase-2/B1 admission.
 root_question: What stock matrix is authoritative, how large is it, and what is its initial evaluation class?
-current_state: 720 exact executable specs; larger matrix authority missing; E3 current evaluator; E2 not proven; E4 required but uncharacterized.
+current_state: 720 exact mathematical legal combinations; canonical 720-spec generation/identity path not proven; larger matrix authority missing; E3 current evaluator; E2 not proven; E4 required but uncharacterized.
 blocker: Full product dimension/constraint authority and measured E3/E4 capacity are missing.
 fork: BC-CP1 Integrator may request bounded repair or decide only the allowed Phase-2 admission verdicts.
 next_step: Integrator cross-lane synthesis with C0 Phase-1 receipt.
@@ -19,8 +19,9 @@ limits: no merge/push/Issue write; no B0-P2/C0-P2/B1 admission; no runtime/queue
 1. **`720` 是否仍是唯一可證明 legal count？** 是。四維 formal executable subspace
    的精確值是 `720`；完整產品宇宙則為 `MISSING_MATRIX_AUTHORITY`，沒有可追溯的更大
    committed legal space。
-2. **哪些區域可 full-scan？** 720-spec E1 generation/count/identity 可完整掃描。
-   720 個 E3 replay 在邏輯上有完整可列舉集合，但 daily/full-campaign 可行性尚未量測；
+2. **哪些區域可 full-scan？** 四維 legal space 的 `720` exact count與數學列舉成立；
+   canonical 720-spec generation、dedupe、identity、partition path尚未證明且B1未准入。
+   720 個 E3 replay 在數學上有完整候選集合，但 daily/full-campaign 可行性尚未量測；
    catalog validation profiles可作 bounded subsets，不能被提升為完整 search policy。
 3. **哪些區域 plausibly adaptive？** 只限四個已合法 ordinal numeric dimensions，且必須在
    first-party、non-sealed、`ADAPTIVE_ELIGIBLE` matched evidence上做 local refinement／interaction
@@ -58,18 +59,18 @@ owner: BC-CP1 Integrator
 
 ```yaml
 claim_id: B0P1-BC-002
-claim: 720個spec的E1生成/identity可full-scan；720個E3 replay是否可daily/full-scan尚未由wall time、candidate/sec、CPU、RAM或I/O證明，故只能列為capacity-dependent possibility。
-classification: FULL_SCAN_CONTROL_PLANE_PROVEN_EXECUTION_CAPACITY_UNKNOWN
+claim: 720個legal combinations的exact count與數學列舉已證明；canonical 720-spec generation、dedupe、identity、partition path未證明且B1未准入。720個E3 replay是否可daily/full-scan也尚未由wall time、candidate/sec、CPU、RAM或I/O證明。
+classification: MATHEMATICAL_ENUMERATION_PROVEN_CANONICAL_AND_EXECUTION_PATHS_NOT_PROVEN
 source_repo: bluemaple18-home/NEW-TOP10
 source_sha_or_version: 35bb9927eb0eac9a624dcaf0dcffcbf88857c070
 source_path_or_official_url: app/research/parameter_catalog.py; scripts/run_backtest_strategy_matrix.py; docs/RESEARCH_SPINE_BACKLOG.md
 source_range_or_section: parameter_catalog.py lines 87-128; strategy matrix lines 580-669; backlog lines 299-314,600-621
 observed_at: 2026-09-01T03:06:26Z
 confidence: HIGH
-authority_level: COMMITTED_CODE_PATH_PLUS_PHASE_BOUNDARY
-conflict_with: claiming full 720 replay campaign feasible from enumeration alone
-implication: C0需把E1與E3分別估算，不可用control-plane enumeration成本代表backtest成本。
-open_question: isolated bounded E3 benchmark envelope
+authority_level: COMMITTED_COUNT_CONTRACT_PLUS_PHASE_BOUNDARY
+conflict_with: claiming canonical 720 generator/identity path or full replay campaign feasible from count alone
+implication: C0可用720作denominator，但需把缺失的canonical generation/identity path與E3 execution capacity分開記為unknown。
+open_question: canonical generate/dedupe/identity/partition path and isolated bounded E3 benchmark envelope
 owner: C0 capacity owner
 ```
 
@@ -156,11 +157,12 @@ matrix_authority: config/research_parameter_catalog.json @ 35bb9927eb0eac9a624dc
 result_code: MISSING_MATRIX_AUTHORITY
 proven_executable_count: 720
 larger_legal_space: NOT_PROVEN
-full_scan_proven: E1 generation/count/identity for all 720
+full_scan_proven: exact count and mathematical enumerability of 720 only
+canonical_720_generation_dedupe_identity_partition: NOT_PROVEN / B1_NOT_ADMITTED
 full_scan_capacity_unknown: E3 replay of all 720
 adaptive_plausible: four legal ordinal numeric dimensions, evidence-gated matched local refinement only
 adaptive_forbidden_now: coverage-only or uncommitted dimensions; any execution/policy before Phase-2 admission
-evaluation_classes: E1 confirmed control-plane; E2 not proven; E3 current evaluator; E4 required/uncharacterized
+evaluation_classes: E1 exact count/mathematical enumerability confirmed but canonical path not proven; E2 not proven; E3 current evaluator; E4 required/uncharacterized
 c0_capacity_input: 720 E3 candidates maximum formal universe per context; context does not multiply count; throughput unmeasured
 phase_2_blockers: complete dimension/constraint authority; E3 benchmark; E2 semantic reuse proof; E4 direct path/cadence; measured full-scan-vs-adaptive gap
 phase_2_status: NOT_ADMITTED
