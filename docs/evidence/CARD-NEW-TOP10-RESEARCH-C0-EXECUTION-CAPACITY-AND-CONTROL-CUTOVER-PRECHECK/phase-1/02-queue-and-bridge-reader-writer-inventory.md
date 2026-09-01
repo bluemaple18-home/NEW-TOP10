@@ -29,6 +29,26 @@
 - Claim/lease: absent at canonical TrialSpec or queue-item granularity. Existing locks are process and queue-owner locks, not durable item claims.
 - Retry: present as controlled topic rerun policy and fog-worker batch retry circuit; not yet an admitted canonical claim retry policy.
 
+## Path-level `next_action_queue.json` inventory
+
+This table is bounded to repository hits for `next_action_queue.json`, canonical queue aliases, PM-approved queue, and related weekend frontier queue surfaces. `Current reader/writer` names source-level behavior only; no runtime invocation was performed.
+
+| Path or queue surface | Source path / entrypoint | Classification | Input identity grain | Output identity grain | Authority class | Side effects | Current reader/writer | Failure behavior | Duplicate behavior | Replacement target | Removal condition/test |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `artifacts/autonomous_research/next_action_queue.json` | `scripts/run_autonomous_research.py` | `authority/current-manager-writer-and-reader` | `topic_id`, manager status, next action, candidate dir | queue actions list, top 25 actionable topics | manager queue, not TrialSpec admission | writes queue with registry/history/summary/runner registry when manager update enabled | writer: `update_manager`; reader: `load_next_action_queue`, selection | invalid/missing rows skipped; no queue yields fallback | queued/history/registry duplicates suppressed by topic ID paths | TrialSpec identity queue reference | admitted Card C queue-reference contract; no current removal test |
+| `artifacts/autonomous_research/next_action_queue.json` in batch intent manager paths | `app/research/batch_owner.py` | `authority/envelope-verifier` | manager root path and runner argv hash | batch intent path record / authority PASS | run-envelope authority | writes/verifies batch intent, not queue content | verifier of expected manager path | authority errors on path/argv/stage/repo mismatch | argv hash/content hash mismatch rejected | retain envelope, align queue path to TrialSpec queue later | UNKNOWN |
+| `artifacts/autonomous_research/next_action_queue.json` | `scripts/run_pm_research_harness_loop.py` | `authority/harness-writer` | queue depth, topic registry, topic bank, PM decision state | top-up queue actions and harness status | PM harness low-water queue top-up, not canonical admission | writes approved work queue, research cards, canonical next-action queue top-up, harness state | reader/writer | subprocess failure raises; loop disables on empty/no approval thresholds | consumed approval keys and added topic IDs suppress duplicates | TrialSpec identity queue reference or PM-approved CandidateDecision handoff | UNKNOWN |
+| `artifacts/autonomous_research/next_action_queue.json` | `scripts/build_research_fog_map.py` | `consumer/bridge` | queue JSON actions | fog map payload source path and status fields | projection consumer | writes fog-map artifact when invoked | reader | missing path yields empty read and source path `None` | UNKNOWN | ledger/native observation backed fog map | A6 fog-map bridge removal condition/test |
+| `artifacts/autonomous_research/next_action_queue.json` | `scripts/build_research_decision_brief.py` | `consumer/proposal` | queue actions | PM decision brief entries | advisory decision consumer | writes brief artifacts when invoked | reader | only recognized action/status rows become decisions | `unique_decisions` dedupes decision list | B0 CandidateDecision / canonical admission | UNKNOWN |
+| `artifacts/autonomous_research/next_action_queue.json` | `scripts/build_strategy_archetype_evidence_map.py` | `consumer/projection` | queue actions by archetype | strategy archetype evidence map | advisory projection | writes evidence-map artifact when invoked | reader | UNKNOWN | classification groups queue actions | B0 decision matrix or ledger-backed projection | UNKNOWN |
+| `artifacts/autonomous_research/next_action_queue.json` | `app/research/native_evidence_activation.py` | `verifier/protected-surface-inventory` | queue path role and file hash/existence | baseline lock row and readiness reason codes | pre-activation guard | read-only inventory function; scripts may write evidence elsewhere | reader/verifier | missing required lock adds readiness reason | duplicate role/path rejected in policy validation | activation policy after capacity proof | UNKNOWN |
+| `artifacts/autonomous_research/next_action_queue.json` | `scripts/native_evidence_replay_bundle.py` | `verifier/reusable-intermediate` | parity path list and file/tree hashes | parity hash before/after cycles/cleanup | isolated replay evidence guard | writes docs/evidence bundle/manifest if invoked; not invoked here | reader/verifier | parity drift raises; capacity exceed raises | UNKNOWN | benchmark input candidate after B0, if admitted | UNKNOWN |
+| `artifacts/autonomous_research/next_action_queue.json` | `app/research/adaptive_shadow_queue.py`; `scripts/build_adaptive_shadow_queue.py`; `scripts/verify_adaptive_shadow_queue.py` | `projection/verifier` | committed bundle/manifest/policy plus canonical queue path/hash | shadow projection, comparison, receipt | shadow-only non-writer | writes shadow outputs, not canonical queue | reader/verifier | boundary/admission/parity errors fail closed | semantic action dedupe and collision errors | Card B/B0 candidate-decision input, not C execution queue | adaptive queue is not canonical until separately admitted |
+| `artifacts/autonomous_research/next_action_queue.json` | `app/research/shadow_plan_proposal.py` | `proposal/verifier` | adaptive shadow projection rows, policy/catalog hashes, protected surface parity | proposal set/proposals | proposal only | writes proposal artifact if invoked, not queue | reader/verifier | source drift/protected-surface drift fails closed | proposal ID dedupe or collision error | human/B0 reviewed candidate decisions | UNKNOWN |
+| `artifacts/autonomous_research/next_action_queue.json` | `scripts/run_top10_fog_map_handoff.py` | `consumer/artifact-manifest` | path presence as research artifact | harness event artifact list | bridge/consumer | event artifact read/write if invoked | artifact collector | UNKNOWN | UNKNOWN | native receipt/ledger artifacts | UNKNOWN |
+| PM approved work queue (`approved_work_queue.json`) | `scripts/run_pm_research_harness_loop.py`; `scripts/verify_pm_approved_work_queue.py` | `authority-input/verifier` | PM card ID, run dir, route `research_worker` | approved work queue and research cards | PM approval intake, not canonical C admission | writes approved queue/research cards; verifier reads only | writer/verifier | verifier fails schema/approval/production-block/card-count checks | consumed approval keys suppress reprocessing | B0 CandidateDecision intake | UNKNOWN |
+| Weekend frontier queue (`artifacts/weekend_training/weekend_frontier_queue_<date>.json`) | `scripts/build_weekend_universe_inventory.py`; `scripts/build_weekend_frontier_queue.py`; `scripts/verify_weekend_frontier_queue.py`; `scripts/run_weekend_representative_replay.py`; `scripts/run_representative_replay_drain_worker.py` | `related-queue/bridge` | weekend inventory rows/date | frontier queue, verification, representative replay input | weekend linkage/replay queue, not canonical `next_action_queue` | writes weekend queue/verifier/replay artifacts if invoked | writer/verifier/reader | verifier failed count; representative runner partial/OK status | selected rows by index/batch; duplicate behavior for queue rows UNKNOWN | ledger/native replay task identity | UNKNOWN |
+
 ## A6 bridge classification
 
 Classification key:
@@ -231,3 +251,67 @@ Classification key:
 - implication: `Bridge table now classifies this as source-declared active legacy writer with live activity unverified, not as proven autonomous-manager runtime activity.`
 - open_question: `Live invocation evidence for this appender remains outside Phase 1 because runtime execution was forbidden.`
 - owner: `A6 closure inventory / legacy replay runner`
+
+### Claim C0-P1-QBI-012
+
+- claim_id: `C0-P1-QBI-012`
+- claim: `Path-level inventory shows the canonical autonomous next-action queue is currently a topic-oriented manager queue read and written by run_autonomous_research.py, with batch_owner.py verifying its manager path as part of batch envelope authority and PM harness able to top it up from registry/topic-bank state; none of these sources make it a TrialSpec-ID-only admission queue.`
+- classification: `QUEUE_PATH_INVENTORY`
+- source_repo: `NEW-TOP10`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`
+- source_path_or_official_url: `scripts/run_autonomous_research.py; app/research/batch_owner.py; scripts/run_pm_research_harness_loop.py`
+- source_range_or_section: `scripts/run_autonomous_research.py L2228-L2238, L2305-L2378, L2538-L2582, L3022-L3238, L3884-L3894; app/research/batch_owner.py L167-L239, L385-L456; scripts/run_pm_research_harness_loop.py L142-L171, L190-L208, L261-L267, L548-L595, L615-L645`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `Card A desired end state requires queue references to spec identity only`
+- implication: `BC-CP1 should classify current queue authority as manager/topic authority plus batch envelope verification, not canonical TrialSpec admission.`
+- open_question: `Per-item claim/lease/duplicate handling for TrialSpec identity remains missing.`
+- owner: `Autonomous research manager / batch owner / PM harness`
+
+### Claim C0-P1-QBI-013
+
+- claim_id: `C0-P1-QBI-013`
+- claim: `Fog Map, decision brief, strategy archetype evidence map, and top10 fog map handoff read or list next_action_queue.json as consumer/projection/bridge inputs; they do not write canonical queue authority.`
+- classification: `QUEUE_CONSUMER_INVENTORY`
+- source_repo: `NEW-TOP10`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`
+- source_path_or_official_url: `scripts/build_research_fog_map.py; scripts/build_research_decision_brief.py; scripts/build_strategy_archetype_evidence_map.py; scripts/run_top10_fog_map_handoff.py`
+- source_range_or_section: `scripts/build_research_fog_map.py L141-L166; scripts/build_research_decision_brief.py L40-L67, L249-L285; scripts/build_strategy_archetype_evidence_map.py L60-L145; scripts/run_top10_fog_map_handoff.py L220-L228`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `None observed`
+- implication: `These queue readers should be treated as consumers/projections/bridges, not queue authority owners.`
+- open_question: `Runtime invocation frequency is unverified because Phase 1 did not run operational flows.`
+- owner: `Fog Map / decision brief / research handoff consumers`
+
+### Claim C0-P1-QBI-014
+
+- claim_id: `C0-P1-QBI-014`
+- claim: `Native evidence activation, native evidence replay bundle, adaptive shadow queue, adaptive queue verifier, and shadow plan proposal treat next_action_queue.json as protected surface, parity input, or shadow-only/proposal input with canonical_queue_write_allowed false; they are not canonical queue writers.`
+- classification: `QUEUE_VERIFIER_PROJECTION_INVENTORY`
+- source_repo: `NEW-TOP10`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`
+- source_path_or_official_url: `app/research/native_evidence_activation.py; scripts/native_evidence_replay_bundle.py; app/research/adaptive_shadow_queue.py; scripts/build_adaptive_shadow_queue.py; scripts/verify_adaptive_shadow_queue.py; app/research/shadow_plan_proposal.py`
+- source_range_or_section: `app/research/native_evidence_activation.py L24-L70, L188-L255, L511-L535; scripts/native_evidence_replay_bundle.py L34-L46, L77-L83, L333-L429; app/research/adaptive_shadow_queue.py L159-L218, L238-L274, L541-L681, L684-L715, L757-L855; scripts/build_adaptive_shadow_queue.py L14-L26, L29-L80; scripts/verify_adaptive_shadow_queue.py L16-L33, L36-L122, L125-L188; app/research/shadow_plan_proposal.py L57-L76, L140-L147, L223-L336, L339-L380`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `None observed`
+- implication: `BC-CP1 should not treat shadow/proposal/parity surfaces as current queue authority.`
+- open_question: `Whether any projection becomes a canonical queue writer is outside Phase 1 and requires separate admission.`
+- owner: `Native evidence / adaptive shadow / proposal surfaces`
+
+### Claim C0-P1-QBI-015
+
+- claim_id: `C0-P1-QBI-015`
+- claim: `Related PM-approved work queue and weekend frontier queue surfaces have their own schemas, verifiers, and replay/linkage readers; they are adjacent queues or bridges, not the canonical autonomous next_action_queue.json authority.`
+- classification: `RELATED_QUEUE_INVENTORY`
+- source_repo: `NEW-TOP10`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`
+- source_path_or_official_url: `scripts/run_pm_research_harness_loop.py; scripts/verify_pm_approved_work_queue.py; scripts/build_weekend_universe_inventory.py; scripts/build_weekend_frontier_queue.py; scripts/verify_weekend_frontier_queue.py; scripts/run_weekend_representative_replay.py; scripts/run_representative_replay_drain_worker.py`
+- source_range_or_section: `scripts/run_pm_research_harness_loop.py L142-L171, L615-L645; scripts/verify_pm_approved_work_queue.py L50-L91; scripts/build_weekend_universe_inventory.py L291-L312; scripts/build_weekend_frontier_queue.py L185-L194; scripts/verify_weekend_frontier_queue.py L98-L108; scripts/run_weekend_representative_replay.py L86-L87, L151-L164, L211-L213; scripts/run_representative_replay_drain_worker.py L134-L155, L324-L324`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `None observed`
+- implication: `Queue inventory must keep PM intake and weekend replay queues separate from canonical C execution queue requirements.`
+- open_question: `Replacement/removal tests for these adjacent queues were not established in Phase 1.`
+- owner: `PM harness / weekend training queue surfaces`

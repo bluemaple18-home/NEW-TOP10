@@ -19,8 +19,8 @@
 | Claim/lease authority | Missing at per-TrialSpec / per-queue-item level. Existing locks are process/owner mutual exclusion only. |
 | Retry authority | Present as topic rerun and fog-worker batch retry circuit; missing as canonical claim retry. |
 | A6 bridge state | Source-declared active/historical/recovery-only inventory exists with tests; several active surfaces remain live-activity-unverified by Phase 1 source-only evidence. |
-| Capacity | Must wait for B0 matrix size and E1–E4 facts. |
-| Benchmark readiness | Candidate safe checks can be listed, but no benchmark was run and no operational command was invoked. |
+| Capacity | Must wait for B0 matrix size and E1–E4 facts; current isolated worktree lacks live queue/spine/ledger inputs. |
+| Benchmark readiness | Verifier commands are validation evidence only, not a benchmark plan. Fixed reusable intermediates are partial/proven-present, but representative samples, temporary output boundary, and measurement fields still require future admission. |
 | Stop-rule result | No authority contradiction, identity-boundary impossibility, terminal-boundary impossibility, runtime-mutation requirement, external side effect, or operational interference was encountered. |
 
 ## Recommended BC checkpoint decision framing
@@ -32,6 +32,7 @@
 - `Direct TrialSpec execution readiness`: `NO`
 - `Capacity readiness`: `WAIT_FOR_B0`
 - `Bridge removal readiness`: `NO`
+- `Benchmark plan readiness`: `NO_BENCHMARK_PLAN; VERIFIER_LIST_ONLY`
 
 ## Minimum follow-up candidates, if BC admits later work
 
@@ -140,3 +141,19 @@ These are candidate inputs only, not approvals:
 - implication: `BC-CP1 can review the four evidence files with the required minimum-source coverage included.`
 - open_question: `This does not answer B0 matrix sizing, live bridge invocation, benchmark results, or Phase 2/C1 approval.`
 - owner: `C0 Phase 1 repair worker`
+
+### Claim C0-P1-BC-007
+
+- claim_id: `C0-P1-BC-007`
+- claim: `BC-CP1 bounded repair adds the requested transition map, path-level queue reader/writer/verifier/bridge classification, and benchmark-readiness correction that separates reusable intermediates from an actual capacity benchmark plan.`
+- classification: `REPAIR_COVERAGE`
+- source_repo: `NEW-TOP10; GitHub Issue`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070; #14 updated_at=2026-09-01T02:26:05Z`
+- source_path_or_official_url: `docs/evidence/CARD-NEW-TOP10-RESEARCH-C0-EXECUTION-CAPACITY-AND-CONTROL-CUTOVER-PRECHECK/phase-1/01-execution-authority-and-runner-seam.md; docs/evidence/CARD-NEW-TOP10-RESEARCH-C0-EXECUTION-CAPACITY-AND-CONTROL-CUTOVER-PRECHECK/phase-1/02-queue-and-bridge-reader-writer-inventory.md; docs/evidence/CARD-NEW-TOP10-RESEARCH-C0-EXECUTION-CAPACITY-AND-CONTROL-CUTOVER-PRECHECK/phase-1/03-capacity-dependencies-and-benchmark-readiness.md; https://github.com/bluemaple18-home/NEW-TOP10/issues/14`
+- source_range_or_section: `01 Phase 1 authority transition map; 02 Path-level next_action_queue.json inventory; 03 Bounded capacity benchmark readiness inventory / Fixed immutable input candidates / Bounded representative sample requirements; Issue #14 Acceptance`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `BC-CP1 verdict REQUEST_BOUNDED_RESEARCH_REPAIR against candidate 7a98046036f41b1a37c49bde2e895ea1109dc48d`
+- implication: `BC-CP1 input can be re-reviewed without treating this repair as Phase 2, C1, cutover, benchmark, or runtime authorization.`
+- open_question: `B0 sample identities, live queue/spine/ledger inputs, runtime bridge activity, and capacity benchmark results remain unknown.`
+- owner: `C0 Phase 1 bounded repair worker`

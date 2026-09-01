@@ -24,7 +24,61 @@ Capacity cannot be finalized in C0 Phase 1. The current source can identify runn
 | Claim/lease/retry capacity impact | Claim/lease/retry design is explicitly not admitted in Phase 1. |
 | Bridge cutover/removal capacity impact | Bridge switch/removal is explicitly not admitted in Phase 1. |
 
-## Benchmark readiness inventory
+## Bounded capacity benchmark readiness inventory
+
+Current Phase 1 evidence is not a benchmark plan and did not run any benchmark. A future admitted benchmark must provide all of the following before any timing/capacity number can be trusted:
+
+| Requirement | Phase 1 status | Notes |
+|---|---|---|
+| Fixed immutable input candidates | `PARTIAL` | Existing docs/evidence intermediates are inspectable; current isolated worktree lacks live `artifacts/autonomous_research/research_spine`, `data/research/research_ledger.duckdb`, and canonical queue artifacts. |
+| B0 representative sample | `UNAVAILABLE` | Must come from B0 matrix size and E1–E4 facts, not queue order, topic order, or runner defaults. |
+| Temporary output boundary | `REQUIRED_NOT_SELECTED` | Must be a predeclared isolated output root with no production, scheduler, queue, model, ranking, publish, or bridge-removal writes. |
+| Measurement fields | `DEFINED_FOR_FUTURE_USE` | Required fields: input candidate ID/path/hash, B0 class, TrialSpec count, run/intent/receipt IDs if produced, terminal status, identity match status, wall time, exit status, bytes/files before-after, CAS/ledger deltas, protected surface parity, command argv hash, failure reason. |
+| Reusable intermediate candidates | `PARTIAL` | Native replay bundle and adaptive shadow queue evidence can inform sample design, but cannot replace B0 capacity facts. |
+
+## Fixed immutable / reusable input candidates
+
+| Candidate | Path | Status | Reusable intermediate? | Capacity use |
+|---|---|---|---|---|
+| Native evidence replay bundle manifest | `docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/manifest.json` | `PROVEN_PRESENT` | `PROVEN` | Has two isolated cycles, capacity PASS, parity unchanged; usable as historical bounded-evidence reference only. |
+| Native evidence replay bundle | `docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/bundle.json` | `PROVEN_PRESENT` | `PROVEN` | Immutable-ish committed bundle input for adaptive projection verification; not a B0 representative matrix. |
+| Adaptive shadow queue projection / receipt | `docs/evidence/CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1-RETRY-1/adaptive_shadow_queue_projection.json`; `adaptive_shadow_queue_receipt.json` | `PROVEN_PRESENT` | `PROVEN` | Projection readiness input; not canonical execution capacity. |
+| Shadow research plan proposal | `docs/evidence/CARD-NEW-TOP10-SHADOW-RESEARCH-PLAN-PROPOSAL-V1/shadow_research_plan_proposal.json` | `PROVEN_PRESENT` | `PROVEN` | Proposal intermediate; not runner benchmark input. |
+| Isolated shadow plan replay result | `docs/evidence/CARD-NEW-TOP10-ISOLATED-SHADOW-PLAN-REPLAY-V1/result.json`; `post_execution_verification.json` | `PROVEN_PRESENT_BUT_NO_GO` | `NOT_PROVEN_FOR_CAPACITY` | Result status is `NO-GO_EVIDENCE_UNAVAILABLE`; cannot certify capacity readiness even if local capacity subfield is present. |
+| Current isolated worktree canonical queue / research spine / ledger | `artifacts/autonomous_research/next_action_queue.json`; `artifacts/autonomous_research/research_spine`; `data/research/research_ledger.duckdb` | `UNAVAILABLE_IN_ISOLATED_WORKTREE` | `NOT_PROVEN` | Cannot be used as fixed benchmark input without creating or importing immutable inputs, which Phase 1 did not do. |
+| B0 CandidateDecision / E1–E4 matrix | B0 output | `UNAVAILABLE` | `NOT_PROVEN` | Required before representative benchmark sample selection. |
+
+## Bounded representative sample requirements
+
+Any future admitted benchmark sample must be:
+
+1. Fixed by B0 output identity, not selected by C0 from topic/queue/ranking order.
+2. Stratified across E1–E4 classes if B0 defines them.
+3. Bounded by explicit maximum TrialSpec count, dataset/ranking artifact identity, and command count.
+4. Run only in an isolated output root with protected-surface parity checks before/after.
+5. Report failure and duplicate behavior without retrying through operational workers.
+
+## Temporary output boundary requirements
+
+The output boundary for any future admitted benchmark must explicitly exclude:
+
+- `artifacts/autonomous_research/next_action_queue.json`
+- scheduler plist or launchd state
+- production ranking/model/signal files
+- legacy bridge removal/switch paths
+- publish, Discord, external service, or production handoff paths
+
+The output boundary must include:
+
+- benchmark output root identity and hash
+- command argv hash
+- input corpus / TrialSpec IDs
+- receipt IDs if terminal receipts are created
+- protected-surface before/after hashes
+- bytes/file-count deltas
+- cleanup status
+
+## Validation commands are not benchmark commands
 
 Safe bounded commands for a future admitted benchmark plan should be restricted to isolated verification or small characterization commands that do not invoke production scheduler paths, external side effects, dual execution, Discord/publish flows, or cutover. Candidate examples to validate in that future plan:
 
@@ -141,4 +195,84 @@ Forbidden for this Phase 1 worker and for any future benchmark unless separately
 - conflict_with: `AGENTS.md CodeGraph-first preference`
 - implication: `The worker satisfied CodeGraph-first by attempting it, then used bounded rg/read because initializing the index would create non-evidence artifacts.`
 - open_question: `None for Phase 1; a future author may initialize CodeGraph outside an evidence-only write boundary if authorized.`
+- owner: `C0 Phase 1 worker`
+
+### Claim C0-P1-CAP-007
+
+- claim_id: `C0-P1-CAP-007`
+- claim: `Native evidence replay bundle source uses a temporary root, runs two isolated development cycles, checks per-cycle capacity limits, verifies bundle determinism twice, checks protected-surface parity before/after cycles and cleanup, removes the isolated root, and writes a manifest with capacity observed_cycles and parity status.`
+- classification: `BENCHMARK_READINESS_SOURCE`
+- source_repo: `NEW-TOP10`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`
+- source_path_or_official_url: `scripts/native_evidence_replay_bundle.py`
+- source_range_or_section: `L34-L46, L77-L83, L188-L330, L333-L429`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `None observed`
+- implication: `This is a reusable intermediate pattern for isolated measurement fields, but Phase 1 did not run it and it does not replace B0 representative sample selection.`
+- open_question: `Whether this pattern is admitted for C0/C capacity benchmark remains a future checkpoint decision.`
+- owner: `Native evidence replay bundle`
+
+### Claim C0-P1-CAP-008
+
+- claim_id: `C0-P1-CAP-008`
+- claim: `Committed native evidence replay manifest is present and reports PASS with two observed cycles and protected-surface parity unchanged, while adaptive shadow queue projection/receipt and shadow research proposal artifacts are present as projection/proposal intermediates.`
+- classification: `IMMUTABLE_INPUT_CANDIDATE`
+- source_repo: `NEW-TOP10`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`
+- source_path_or_official_url: `docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/manifest.json; docs/evidence/CARD-NEW-TOP10-NATIVE-EVIDENCE-REPLAY-BUNDLE-V1/bundle.json; docs/evidence/CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1-RETRY-1/adaptive_shadow_queue_projection.json; docs/evidence/CARD-NEW-TOP10-ADAPTIVE-SHADOW-QUEUE-V1-RETRY-1/adaptive_shadow_queue_receipt.json; docs/evidence/CARD-NEW-TOP10-SHADOW-RESEARCH-PLAN-PROPOSAL-V1/shadow_research_plan_proposal.json`
+- source_range_or_section: `Each JSON artifact L1`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `None observed`
+- implication: `These artifacts are PROVEN_PRESENT reusable intermediates for readiness discussion, but not proof of C0 capacity or B0 matrix size.`
+- open_question: `B0 must still provide representative CandidateDecision / TrialSpec sample identities.`
+- owner: `Committed evidence artifacts`
+
+### Claim C0-P1-CAP-009
+
+- claim_id: `C0-P1-CAP-009`
+- claim: `Isolated shadow plan replay artifacts are present, but result status is NO-GO_EVIDENCE_UNAVAILABLE; therefore they are NOT_PROVEN_FOR_CAPACITY even though a local capacity subfield and protected-surface verification artifact exist.`
+- classification: `IMMUTABLE_INPUT_CANDIDATE`
+- source_repo: `NEW-TOP10`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`
+- source_path_or_official_url: `docs/evidence/CARD-NEW-TOP10-ISOLATED-SHADOW-PLAN-REPLAY-V1/result.json; docs/evidence/CARD-NEW-TOP10-ISOLATED-SHADOW-PLAN-REPLAY-V1/post_execution_verification.json`
+- source_range_or_section: `Each JSON artifact L1`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `None observed`
+- implication: `BC-CP1 should not treat this artifact set as benchmark readiness PASS.`
+- open_question: `Future benchmark sample must be selected from B0 and admitted separately.`
+- owner: `Committed evidence artifacts`
+
+### Claim C0-P1-CAP-010
+
+- claim_id: `C0-P1-CAP-010`
+- claim: `In the isolated Phase 1 worktree, canonical live queue, research spine corpus, and research ledger paths were absent during read-only filesystem inspection, so current production-like immutable inputs were unavailable to this worker.`
+- classification: `LOCAL_INPUT_AVAILABILITY`
+- source_repo: `Local filesystem inspection`
+- source_sha_or_version: `observed_at=2026-09-01T03:30:48Z on NEW-TOP10 base 35bb9927eb0eac9a624dcaf0dcffcbf88857c070`
+- source_path_or_official_url: `artifacts/autonomous_research/next_action_queue.json; artifacts/autonomous_research/research_spine; data/research/research_ledger.duckdb`
+- source_range_or_section: `read-only existence check returned ABSENT for all three paths`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `None observed`
+- implication: `Phase 1 cannot nominate current live corpus/ledger/queue as fixed benchmark inputs without importing or creating artifacts, which was outside scope.`
+- open_question: `B0 or a later admitted benchmark card must provide immutable input identities.`
+- owner: `C0 Phase 1 worker`
+
+### Claim C0-P1-CAP-011
+
+- claim_id: `C0-P1-CAP-011`
+- claim: `Validation/verifier commands listed in this file are bounded verification candidates only; they are not a capacity benchmark plan because they do not define B0 sample identity, temporary output boundary, measurement fields, or protected-surface before/after parity requirements by themselves.`
+- classification: `BENCHMARK_BOUNDARY`
+- source_repo: `NEW-TOP10; GitHub Issue`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070; #14 updated_at=2026-09-01T02:26:05Z`
+- source_path_or_official_url: `scripts/verify_autonomous_research.py; scripts/verify_backtest_strategy_matrix.py; scripts/verify_research_spine_batch.py; scripts/verify_daily_research_quota.py; scripts/verify_adaptive_shadow_queue.py; https://github.com/bluemaple18-home/NEW-TOP10/issues/14`
+- source_range_or_section: `scripts/verify_autonomous_research.py L198-L330; scripts/verify_adaptive_shadow_queue.py L36-L188; Issue #14 Benchmark readiness / Non-goals`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `MEDIUM_HIGH`
+- conflict_with: `Previous candidate wording could be read as treating verifier list as a benchmark plan`
+- implication: `BC-CP1 should require separate benchmark admission and B0 sample facts before any capacity number is accepted.`
+- open_question: `Exact benchmark command set remains future work.`
 - owner: `C0 Phase 1 worker`
