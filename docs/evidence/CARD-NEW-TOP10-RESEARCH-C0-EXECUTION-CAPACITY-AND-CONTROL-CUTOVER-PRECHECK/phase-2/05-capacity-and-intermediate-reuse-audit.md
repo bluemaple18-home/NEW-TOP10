@@ -31,7 +31,7 @@ C0 Phase 2 仍不能定案 full daily capacity。固定 input 允許 C0 使用 `
 | peak RSS | representative benchmark: `UNMEASURED`; non-representative characterization: raw `ru_maxrss=189988864` from child process resource accounting | unknown / measured characterization fact |
 | I/O | representative benchmark: `UNMEASURED`; non-representative temp files before cleanup: features `4226` bytes, ranking `368` bytes, output JSON `4922` bytes, output Markdown `287` bytes; resource counters `inblock_delta=0`, `oublock_delta=0` | unknown / measured characterization fact |
 | cache/intermediate reuse | Source proves feature frame is loaded once per matrix, but each scenario calls full portfolio replay; path-dependent candidate reuse is not proven | observed code fact |
-| temporary output boundary | Fresh temp prefix `/private/tmp/top10-c0-phase2-e3-characterization-*`; observed instance is recorded as `<fresh-temp>` only; cleanup parity: removed, and no matching temp dirs remained afterward | boundary / cleanup fact |
+| temporary output boundary | Fresh temp prefix `<fresh-temp-prefix>`; observed instance is recorded as `<fresh-temp>` only; cleanup parity: removed, and no matching temp dirs remained afterward | boundary / cleanup fact |
 | rerunnable command | Use `<repo-root>/.venv/bin/python` to create the tiny fixture in fresh temp, then invoke `scripts/run_backtest_strategy_matrix.py --max-ranking-files 1 --top-n 2 --horizons 3 --stop-loss-pcts none --take-profit-pcts none --max-group-exposures none --output <temp>/output/strategy_matrix.json`; no dependency install/sync | measured characterization command |
 
 ## Bounded E3 characterization receipt
@@ -39,12 +39,12 @@ C0 Phase 2 仍不能定案 full daily capacity。固定 input 允許 C0 使用 `
 - Classification: `NON_REPRESENTATIVE_LEGAL_CHARACTERIZATION`
 - Interpreter: `<repo-root>/.venv/bin/python`, Python `3.12.12`, reused read-only from canonical project environment; no dependency install/sync.
 - Executed code: candidate worktree `scripts/run_backtest_strategy_matrix.py` on parent `aab6760436be0bc3fadbe860f61502c4744dd106`; runtime code content remains bounded to canonical source SHA `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`.
-- Fixture identity: generated only under fresh `/private/tmp/top10-c0-phase2-e3-characterization-*`; 1 ranking file named `ranking_2026-01-02.csv`; 2 ranking rows (`1101`, `2330`); 12 feature rows (`2` stocks × `6` business days from `2026-01-02`); horizon `3`; stop/take/group all `none`.
+- Fixture identity: generated only under `<fresh-temp-prefix>`; 1 ranking file named `ranking_2026-01-02.csv`; 2 ranking rows (`1101`, `2330`); 12 feature rows (`2` stocks × `6` business days from `2026-01-02`); horizon `3`; stop/take/group all `none`.
 - Runner command shape: `<repo-root>/.venv/bin/python scripts/run_backtest_strategy_matrix.py --rankings-dir <temp>/rankings --features <temp>/features.parquet --max-ranking-files 1 --top-n 2 --horizons 3 --stop-loss-pcts none --take-profit-pcts none --max-group-exposures none --output <temp>/output/strategy_matrix.json`
 - Result: return code `0`; output summary showed `scenario_count=1`, `scenario_rows=1`, `best_scenario_id=h3_slnone_tpnone_gcnone`, `features_load_policy=load_once_per_matrix`, `resource_mode=read_existing_artifacts_only`.
 - Resource measurement: wall `1.060459s`; candidate/sec `0.942988`; user CPU `0.671197s`; system CPU `0.145377s`; peak RSS raw `ru_maxrss=189988864`; `inblock_delta=0`; `oublock_delta=0`.
 - Output boundary before cleanup: `features.parquet` `4226` bytes; `rankings/ranking_2026-01-02.csv` `368` bytes; `output/strategy_matrix.json` `4922` bytes; `output/strategy_matrix.md` `287` bytes.
-- Cleanup/parity: temp instance removed after measurement; later `/private/tmp` scan found no `top10-c0-phase2-e3-characterization-*` directories.
+- Cleanup/parity: temp instance removed after measurement; later `<tmp-scan>` found no `<fresh-temp-prefix>` directories.
 - Measurement limit: Arrow emitted sandbox sysctl warnings while probing CPU cache metadata; the runner still returned code `0`. These warnings are environment characterization noise, not capacity failure evidence.
 
 ## Intermediate reuse audit
