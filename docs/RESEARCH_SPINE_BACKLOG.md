@@ -82,9 +82,9 @@ BACKLOG_RECONCILIATION_PENDING_MAIN
 
 F0 合併後，准入兩條**部分平行、Phase-1-only**研究線：
 
-- [#13 B0 — Matrix Authority and Search Design](https://github.com/bluemaple18-home/NEW-TOP10/issues/13)  
+- [#13 B0 — Matrix Authority and Search Design](https://github.com/bluemaple18-home/NEW-TOP10/issues/13)
   `PHASE_1_ADMITTED / READ_ONLY / SHARED_CHECKPOINT_REQUIRED / PHASE_2_NOT_ADMITTED`
-- [#14 C0 — Execution Capacity and Control Cutover Precheck](https://github.com/bluemaple18-home/NEW-TOP10/issues/14)  
+- [#14 C0 — Execution Capacity and Control Cutover Precheck](https://github.com/bluemaple18-home/NEW-TOP10/issues/14)
   `PHASE_1_ADMITTED / READ_ONLY_INVENTORY / SHARED_CHECKPOINT_REQUIRED / PHASE_2_NOT_ADMITTED / NO_CUTOVER`
 
 ### 部分平行規則
@@ -610,7 +610,8 @@ UNVERIFIED_BRIDGE_ACTIVITY
 
 ## 16. Operational lane
 
-Issue #9／#10 的 scheduler、daily publish 與 operational hardening 保持獨立。
+- Issue #9：`OPEN / LONG-TERM HARDENING`；保留為獨立 operational lane。
+- Issue #10：`CLOSED / ACCEPTED`；不是現行可執行 lane，不得因歷史 body 或留言重新派工。
 
 B0／C0：
 
