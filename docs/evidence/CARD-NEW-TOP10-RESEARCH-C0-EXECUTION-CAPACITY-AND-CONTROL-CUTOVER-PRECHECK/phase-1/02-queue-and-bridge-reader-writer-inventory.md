@@ -31,11 +31,12 @@
 
 ## Path-level `next_action_queue.json` inventory
 
-This table is bounded to repository hits for `next_action_queue.json`, canonical queue aliases, PM-approved queue, and related weekend frontier queue surfaces. `Current reader/writer` names source-level behavior only; no runtime invocation was performed.
+This table is bounded to non-test runtime/tooling hits from fixed-base `git grep -l next_action_queue.json -- '*.py' '*.sh'`, plus canonical queue aliases, PM-approved queue, and related weekend frontier queue surfaces. `Current reader/writer` names source-level behavior only; no runtime invocation was performed. Test-only hits under `tests/` are excluded from runtime/tooling reader-writer inventory because they are fixtures/assertions rather than deployed readers or writers; they remain verification coverage, not queue authority.
 
 | Path or queue surface | Source path / entrypoint | Classification | Input identity grain | Output identity grain | Authority class | Side effects | Current reader/writer | Failure behavior | Duplicate behavior | Replacement target | Removal condition/test |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `artifacts/autonomous_research/next_action_queue.json` | `scripts/run_autonomous_research.py` | `authority/current-manager-writer-and-reader` | `topic_id`, manager status, next action, candidate dir | queue actions list, top 25 actionable topics | manager queue, not TrialSpec admission | writes queue with registry/history/summary/runner registry when manager update enabled | writer: `update_manager`; reader: `load_next_action_queue`, selection | invalid/missing rows skipped; no queue yields fallback | queued/history/registry duplicates suppressed by topic ID paths | TrialSpec identity queue reference | admitted Card C queue-reference contract; no current removal test |
+| `artifacts/autonomous_research/next_action_queue.json` in synthetic temp root | `scripts/verify_autonomous_research.py` | `verifier/tooling` | synthetic topic IDs, temp registry rows, temp queue actions, cooldown timestamps | boolean verification checks and `autonomous-research-verification.v1` artifact | verifier only, not runtime queue authority | writes synthetic temp queue/registry and verification artifact if invoked; Phase 1 did not invoke it | verifier writer/reader in temp root | returns FAILED/nonzero if checks fail; synthetic note says no real backtest | checks queue order, cooldown blocking, exhausted/rejected blocking, legacy flags, and missing-queue no-fallback behavior; no production duplicate claim | regression guard for current manager queue semantics | excluded from runtime authority; no removal target unless queue semantics are replaced and verifier updated |
 | `artifacts/autonomous_research/next_action_queue.json` in batch intent manager paths | `app/research/batch_owner.py` | `authority/envelope-verifier` | manager root path and runner argv hash | batch intent path record / authority PASS | run-envelope authority | writes/verifies batch intent, not queue content | verifier of expected manager path | authority errors on path/argv/stage/repo mismatch | argv hash/content hash mismatch rejected | retain envelope, align queue path to TrialSpec queue later | UNKNOWN |
 | `artifacts/autonomous_research/next_action_queue.json` | `scripts/run_pm_research_harness_loop.py` | `authority/harness-writer` | queue depth, topic registry, topic bank, PM decision state | top-up queue actions and harness status | PM harness low-water queue top-up, not canonical admission | writes approved work queue, research cards, canonical next-action queue top-up, harness state | reader/writer | subprocess failure raises; loop disables on empty/no approval thresholds | consumed approval keys and added topic IDs suppress duplicates | TrialSpec identity queue reference or PM-approved CandidateDecision handoff | UNKNOWN |
 | `artifacts/autonomous_research/next_action_queue.json` | `scripts/build_research_fog_map.py` | `consumer/bridge` | queue JSON actions | fog map payload source path and status fields | projection consumer | writes fog-map artifact when invoked | reader | missing path yields empty read and source path `None` | UNKNOWN | ledger/native observation backed fog map | A6 fog-map bridge removal condition/test |
@@ -315,3 +316,19 @@ Classification key:
 - implication: `Queue inventory must keep PM intake and weekend replay queues separate from canonical C execution queue requirements.`
 - open_question: `Replacement/removal tests for these adjacent queues were not established in Phase 1.`
 - owner: `PM harness / weekend training queue surfaces`
+
+### Claim C0-P1-QBI-016
+
+- claim_id: `C0-P1-QBI-016`
+- claim: `Fixed-base non-test runtime/tooling grep includes scripts/verify_autonomous_research.py; this script verifies manager update and queue selection/cooldown behavior using synthetic temp-root queue and registry fixtures, writes an autonomous-research-verification artifact, and explicitly notes that it does not run a real backtest.`
+- classification: `QUEUE_VERIFIER_INVENTORY`
+- source_repo: `NEW-TOP10`
+- source_sha_or_version: `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`
+- source_path_or_official_url: `scripts/verify_autonomous_research.py`
+- source_range_or_section: `L180-L225, L228-L339, L367-L396`
+- observed_at: `2026-09-01T03:30:48Z`
+- confidence: `HIGH`
+- conflict_with: `Previous repair table omitted this non-test tooling hit`
+- implication: `The verifier should be classified as tooling verification coverage, not runtime queue authority or a capacity benchmark plan.`
+- open_question: `Phase 1 did not execute the verifier; runtime status of current queue remains unverified.`
+- owner: `Autonomous research verifier`
