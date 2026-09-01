@@ -9,10 +9,11 @@ Scope:
 - Does not download models, call network, or introduce TimesFM-specific names.
 - Does not touch queue, runner, ranking, M4-M7, production, or eligibility policy.
 
-Expected verification:
-- `python -m pytest tests/test_forecast_fixture.py tests/test_forecast_contracts.py`
-- `python -m pytest tests/test_research_dataset_bundle.py tests/test_research_spine_contracts.py tests/test_research_ledger.py tests/test_research_eligibility_failure.py tests/test_forecast_contracts.py tests/test_forecast_fixture.py`
-- `git diff --check`
+Executed verification:
+- CodeGraph-first attempted; project CodeGraph index was not initialized in this worktree, so source lookup used bounded `rg`/file reads.
+- `.venv/bin/python -m pytest tests/test_forecast_fixture.py tests/test_forecast_contracts.py` -> 26 passed.
+- `.venv/bin/python -m pytest tests/test_research_dataset_bundle.py tests/test_research_spine_contracts.py tests/test_research_ledger.py tests/test_research_eligibility_failure.py` -> 95 passed.
+- `git diff --check` -> passed.
 
 Acceptance notes:
 - Positive path rebuilds identical dataset bundle, forecast trial spec, point/quantile artifact receipt, and evaluation observation identities.
