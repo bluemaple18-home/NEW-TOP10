@@ -1,25 +1,36 @@
 # NEW-TOP10 Current Operational Frontier
 
-更新：2026-08-31
+更新：2026-09-02
+
+👉 [假設與目標確認] 目標：只以目前主線與可重跑證據界定唯一前線；邊界：不重啟歷史卡、不碰 TimesFM、push、deploy、production 或外部 write；驗收：已整合鏈、等待條件與未 admission 候選可被明確區分。
 
 ## Current state
 
-- `#10`：等待 **2026-08-31 17:30（Asia/Taipei）natural-run observation**；在 observation 完成前不宣稱 close 或 promotion。
-- `#9`：`OPEN / LONG-TERM HARDENING`。它不阻擋 read-only A0；Research lane（含 A0/research）不得執行 scheduler、publish 或 production mutation。#9 未來若需 operational hardening，須另行取得對應授權。
-- Research Spine：`#2 A0 = COMPLETE / ACCEPTED`；`#3 A1 = COMPLETE / MAINLINE_ACCEPTED`，已隨 PR #12 merge 進入 `main@0b39937399eddd0535372ece51ddc25bc38fe6a6`；`#4 A2 = COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`，原 candidate `3f7347f30b274201e5c66f649e5919de16d1f6e9` 的 run artifact `topic_runs` membership omission／duplicate P1 已修復於 `main@5edd87e7df75bb44517f6c2b46d48780cf3476f2`，無 PR直接 fast-forward，獨立 fixed-SHA re-review=`GO / no P0/P1`、驗證=`149 passed`、`git diff --check` pass。Issue #4 已 `CLOSED / REMOTE_CLOSEOUT_RECONCILED`。`#5 A3 = COMPLETE / MAINLINE_ACCEPTED / DIRECT_FF_MAIN`：topic／handoff tip `ac73ff5fc010c674950bda24152b9a6327fb826d` 已進main並push，Issue #5=`CLOSED / REMOTE_CLOSEOUT_RECONCILED`。Owner已admit `#6 A4`；gap audit固定projection artifact wall-clock byte drift與forged immutable artifact acceptance兩項P1，現為 `ADMITTED / IMPLEMENTATION_READY / BOUNDED_SCOPE_LOCKED`。只可最小修復eligibility/failure projection owner seams、exact-byte rebuild gate與verifier binding；ledger core、A1–A3 ingest/correlation及sealed fail-closed維持`USE_AS_IS`。A5–A6=`BLOCKED / NOT_STARTED`。
+- Research Spine A0–A6：`COMPLETE / MAINLINE_ACCEPTED / INTEGRATED`。A5 已合併於 `bb617e9`；A6 已合併於 `2b9eccd`。A5/A6 task card 原本的 `MAINLINE_ACCEPTANCE_PENDING` 是落後狀態，現已校正。
+- Research Spine B0/C0/BC：B0-P1、C0-P1、BC-CP2 current-tip baseline 與 C0-P2 已接受；BC-CP1 已決定並結案；B0-P2=`NO_GO_B0_PHASE_2_INSUFFICIENT_DECISION_VALUE`；B1–D1 未 admission；R14=`NO_GO_R14_INSUFFICIENT_DECISION_VALUE`。目前沒有可執行的 Research Spine implementation frontier。
+- Forecast：FM0、FC1、FC2 vendor-neutral baseline 已分別合併於 `ff3d30b`、`9abc159`、`02730a7`。TimesFM 3 僅完成 restricted-shadow preflight，狀態固定為 `DEFERRED / LAST / HOLD`；未下載模型、未安裝 runtime、未執行 inference，且不是目前前線。
+- TPEx TSKG：`INTEGRATED_CURRENT_DAY_ONLY / REVIEW_GO`。實作、review、repair 與狀態 reconciliation 均已存在；舊 dossier 的 `IMPLEMENTED_PENDING_REVIEW` 已校正，不得重派。
+- Daily recovery：記憶體壓力 fail-closed 修復與 2026-09-01 recovery receipt 已在主線。另一路「報牌沒動」調查由獨立 Codex task 處理，本線不重複介入。
+
+## Operational frontier
+
+目前本線沒有已 admission、可立即實作的非 TimesFM 卡。剩餘項目分成三類：
+
+1. `CHIP-OVERLAY-SHADOW-01`、`EVENT-OVERLAY-SHADOW-01`：`WAITING_FOR_NEW_OOS_DATES`，只能等新的樣本日期，不可用舊資料偽造進度。
+2. `RESEARCH-FUNDAMENTAL-READINESS-01`：`COMPLETED_BLOCKED_DATA`；`VOLUME-CLIMAX-WARNING-SHADOW-01`：`COMPLETED_MONITORING`。兩者都不是待實作卡。
+3. 2026-06／2026-07 文件中的 `READY_FOR_RESEARCH`、`READY_FOR_SHADOW_RERANK_GUARD`、`READY_FOR_FIRST_WAVE_RESEARCH` 是歷史狀態；後續結果已存在，未經新的 measured-gap admission 不得當成目前前線。
+
+因此下一個狀態變化只能來自：獨立 incident task 的可驗收結論、新 OOS 日期、或 Owner 明示 admission 新 measured-gap 卡。TimesFM 仍排最後，不因其他 lane 暫無 executable card 而自動提前。
 
 ## Authority baseline
 
-- Reconciliation predecessor／observed baseline：`origin/main@0baeef6f7bd62c521e46a782b28a83940855d59f`；它不是 A0 execution base。A0 已接受；A1 的 canonical mainline merge 為 PR #12 `0b39937399eddd0535372ece51ddc25bc38fe6a6`。
-- AI Core canonical authority：`aicore/docs/ai-core-backlog.md`；pinned remote baseline：`c896cbff126a57384f5f436b80ceaa2e14a22999`。
-- `dated backlogs/old .work` 僅是 historical evidence，不得覆蓋 canonical authority。
-- OMI：`lulu930128/open-market-intelligence@2d54c5983b8597babd804110f022a5f299e45a9d`，`authority=prior_art_only`。
-- `aeae2c3` 僅是 historical draft/reference；不 merge，也不作 execution base。
+- Local `main` 包含 A0–A6、Forecast FM0–FC2、R13/R14、B0/C0/BC 決策與本次狀態校正。
+- 本機 `origin/main` tracking ref 目前停在 `5d7c529`；未執行 fetch、push、merge、deploy 或 production mutation，因此不對遠端即時狀態作額外宣稱。
+- `docs/RESEARCH_SPINE_BACKLOG.md` 是 Research Spine 當前 canonical backlog；dated backlog、舊 task status 與 `.work` 只作 historical evidence。
+- projection receipt 不等於 runtime load；缺 session evidence 的 runtime claim 一律維持 `UNKNOWN`。
 
 ## Operational boundary
 
-Read-only observation、evidence mapping與A4 task card內鎖定的bounded projection repair可繼續；A5–A6維持`BLOCKED / NOT_STARTED`。Research lane不得碰scheduler、provider、features、ranking、publish、production、backtest math、runtime/config或operational data mutation。Issue #9/#10與A4完全分離，不得由A4狀態推論或改寫。任何缺少個別證據的claim必須標示`UNKNOWN`或`UNPINNED_RUNTIME_ARTIFACT`，不得用projection receipt或狀態文案宣稱runtime load。
-
-只有出現 governing-authority conflict、identity-grain ambiguity、terminal-boundary ambiguity，或需要 runtime mutation 時才停止並回報 blocker。
-
-所有 lanes 使用 structured claim/evidence contract；Integrator 是唯一 cross-lane synthesis writer。Operational incident 不得順手修改 ranking math、模型、backtest、Research Spine identity 或 Card B/C。
+- 本線可做 read-only 查核、狀態 reconciliation 與已 admission 卡的本機驗證。
+- 不得以「沒有其他 executable card」作為 TimesFM admission、模型下載、runtime 安裝或外部存取授權。
+- scheduler、provider、ranking、publish、production、deploy、push 與外部 write 仍須各自的明確 authority boundary。

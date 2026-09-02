@@ -1,6 +1,6 @@
 ---
 card_id: TSKG-MFO-TPEX-01
-status: IMPLEMENTED_PENDING_REVIEW
+status: INTEGRATED_CURRENT_DAY_ONLY / REVIEW_GO
 access_date: 2026-07-22
 operation_level: bounded_current_day_read
 decision: GO_CURRENT_DAY_OPENAPI_ONLY
