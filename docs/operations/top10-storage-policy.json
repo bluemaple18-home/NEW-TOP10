@@ -153,7 +153,7 @@
       "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "research_snapshots", "autonomous_run_dirs", "harness_status", "weekend_replay_runs"],
       "max_bytes": 2147483648,
       "max_file_count": 30000,
-      "max_process_tree_rss_bytes": 4294967296,
+      "max_process_tree_rss_bytes": 2147483648,
       "max_swap_growth_bytes": 2147483648,
       "expected_growth_bytes_per_hour": 16777216,
       "spike_window_seconds": 14400,

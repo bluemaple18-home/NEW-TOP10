@@ -6,6 +6,15 @@ set -euo pipefail
 
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# 背景研究預設限制數值函式庫為單執行緒，避免 BLAS／OpenMP 在 16 GiB 主機上
+# 同時建立多份工作區。手動診斷仍可用明確環境變數覆寫。
+: "${OMP_NUM_THREADS:=1}"
+: "${OPENBLAS_NUM_THREADS:=1}"
+: "${MKL_NUM_THREADS:=1}"
+: "${NUMEXPR_NUM_THREADS:=1}"
+: "${VECLIB_MAXIMUM_THREADS:=1}"
+export OMP_NUM_THREADS OPENBLAS_NUM_THREADS MKL_NUM_THREADS NUMEXPR_NUM_THREADS VECLIB_MAXIMUM_THREADS
+
 cd "$(dirname "$0")/.."
 PROJECT_DIR=$(pwd)
 

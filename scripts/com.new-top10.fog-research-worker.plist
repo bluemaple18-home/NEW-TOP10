@@ -17,6 +17,12 @@
     <key>StartInterval</key>
     <integer>900</integer>
 
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+
     <key>EnvironmentVariables</key>
     <dict>
         <key>TOP10_RESEARCH_QUEUE_OWNER</key>

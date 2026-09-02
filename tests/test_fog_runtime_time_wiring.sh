@@ -77,3 +77,7 @@ if grep -Eq '<key>(TZ|TOP10_RUN_DATE|TOP10_RESEARCH_DATE|TOP10_.*(FRESH|AGE|TIME
 fi
 
 test "$(grep -c '<string>fog_worker</string>' scripts/com.new-top10.fog-research-worker.plist)" -eq 1
+test "$(grep -c '<string>Background</string>' scripts/com.new-top10.fog-research-worker.plist)" -eq 1
+grep -q '<key>LowPriorityIO</key>' scripts/com.new-top10.fog-research-worker.plist
+grep -q 'OMP_NUM_THREADS:=1' scripts/run_fog_research_worker.sh
+grep -q 'VECLIB_MAXIMUM_THREADS:=1' scripts/run_fog_research_worker.sh
