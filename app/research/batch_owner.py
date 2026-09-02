@@ -185,9 +185,11 @@ def build_batch_intent(
     policy_path: Path,
     catalog_path: Path,
     execution_epoch: str,
+    manager_root: Path | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     project_root = project_root.resolve(strict=True)
+    manager_root = manager_root or output_path.parent
     canonical_scheduler = _canonical_scheduler_entrypoint(project_root)
     if scheduler_entrypoint.resolve(strict=False) != canonical_scheduler.resolve(strict=False):
         raise BatchOwnerAuthorityError("SCHEDULER_ENTRYPOINT_MISMATCH")
@@ -222,12 +224,12 @@ def build_batch_intent(
             "spine_root": _path_record(corpus_root, project_root),
             "ledger_path": _path_record(ledger_path, project_root),
             "manager_paths": {
-                "topic_bank": _path_record(output_path.parent / "topic_bank.json", project_root),
-                "registry": _path_record(output_path.parent / "topic_registry.json", project_root),
-                "history": _path_record(output_path.parent / "run_history.json", project_root),
-                "queue": _path_record(output_path.parent / "next_action_queue.json", project_root),
-                "summary": _path_record(output_path.parent / "manager_summary.json", project_root),
-                "runner_registry": _path_record(output_path.parent / "runner_registry.json", project_root),
+                "topic_bank": _path_record(manager_root / "topic_bank.json", project_root),
+                "registry": _path_record(manager_root / "topic_registry.json", project_root),
+                "history": _path_record(manager_root / "run_history.json", project_root),
+                "queue": _path_record(manager_root / "next_action_queue.json", project_root),
+                "summary": _path_record(manager_root / "manager_summary.json", project_root),
+                "runner_registry": _path_record(manager_root / "runner_registry.json", project_root),
             },
         },
         "catalog": {

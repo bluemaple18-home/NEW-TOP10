@@ -148,8 +148,8 @@
     "fog-research-worker": {
       "launch_verified": false,
       "verification_basis": "2026-08-03 第一週期在代表性 grid/replay 工作負載中觀測 peak RSS 3191783424 bytes、swap delta 594081219 bytes；因當時 policy 缺 hard RSS/swap ceiling 而人工送 TERM，guard 隔離停止並拒絕重啟。hard ceilings 已補但未再跑完整週期，維持 NO-GO。",
-      "meter_paths": ["logs", "artifacts/market_regime_history.json", "artifacts/autonomous_research", "artifacts/weekend_training", "artifacts/harness_status", "artifacts/research_map", "artifacts/research_reviews", "artifacts/host_runner"],
-      "registered_write_paths": ["logs", "artifacts"],
+      "meter_paths": ["logs", "data/research/research_ledger.duckdb", "artifacts/market_regime_history.json", "artifacts/autonomous_research", "artifacts/weekend_training", "artifacts/harness_status", "artifacts/research_map", "artifacts/research_reviews", "artifacts/host_runner"],
+      "registered_write_paths": ["logs", "data/research/research_ledger.duckdb", "artifacts"],
       "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "research_snapshots", "autonomous_run_dirs", "harness_status", "weekend_replay_runs"],
       "max_bytes": 2147483648,
       "max_file_count": 30000,

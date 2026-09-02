@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import hashlib
+import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 
@@ -200,6 +202,72 @@ def test_migration_manifest_ingests_and_rebuilds_idempotently(tmp_path: Path) ->
     finally:
         connection.close()
     assert status == "LEGACY_DIAGNOSTIC_ONLY"
+
+
+def test_current_parser_manifest_supersedes_preserved_legacy_parser_manifest(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "matrix.json"
+    write_matrix(source)
+    corpus = tmp_path / "corpus"
+    build_migration(
+        corpus_root=corpus,
+        sources=[LegacySource(source, "STRATEGY_MATRIX")],
+    )
+    legacy = {
+        "schema_version": "research-ledger-migration-manifest.v2",
+        "migration_id": "sha256:" + "0" * 64,
+        "parser_version": "legacy-research-parser.v1",
+        "semantic_identity_policy_version": "legacy-semantic-evidence.v1",
+        "eligibility_preclassification_policy_version": "legacy-preclassification.v1",
+        "source_authority_order_version": "research-source-authority.v1",
+        "duplicate_policy": "SEMANTIC_EVIDENCE_DEWEIGHT",
+        "conflict_policy": "FAIL_CLOSED_NO_WINNER",
+        "sources": [],
+    }
+    legacy_path = corpus / "migration" / "manifests" / ("0" * 64 + ".json")
+    legacy_path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    ingest_corpus(
+        corpus_root=corpus,
+        ledger_path=tmp_path / "ledger.duckdb",
+    )
+
+    connection = duckdb.connect(str(tmp_path / "ledger.duckdb"), read_only=True)
+    try:
+        assert connection.execute(
+            "SELECT count(*) FROM migration_manifests"
+        ).fetchone()[0] == 1
+    finally:
+        connection.close()
+
+
+def test_ensure_current_cli_builds_once_then_reuses_current_manifest(
+    tmp_path: Path,
+) -> None:
+    legacy_root = tmp_path / "legacy"
+    source = legacy_root / "run_2026-09-02_000000" / "fixture_strategy_matrix.json"
+    write_matrix(source)
+    corpus = tmp_path / "corpus"
+
+    command = [
+        sys.executable,
+        "-m",
+        "app.research.legacy_migration",
+        "--legacy-root",
+        str(legacy_root),
+        "--corpus-root",
+        str(corpus),
+        "--ensure-current",
+    ]
+    first = subprocess.run(command, text=True, capture_output=True, check=False)
+    second = subprocess.run(command, text=True, capture_output=True, check=False)
+
+    assert first.returncode == 0, first.stderr
+    assert second.returncode == 0, second.stderr
+    assert json.loads(first.stdout)["action"] == "BUILT"
+    assert json.loads(second.stdout)["action"] == "REUSED"
+    assert len(list((corpus / "migration" / "manifests").glob("*.json"))) == 1
 
 
 def test_mixed_scalar_record_is_counted_as_incomplete(tmp_path: Path) -> None:

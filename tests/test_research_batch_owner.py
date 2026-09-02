@@ -52,6 +52,34 @@ def test_git_head_rejects_unpinned_no_git_validation_root(
     monkeypatch.setenv("TOP10_VALIDATION_SOURCE_COMMIT", "not-a-commit")
     with pytest.raises(BatchOwnerAuthorityError, match="GIT_HEAD_UNAVAILABLE"):
         _git_head(tmp_path)
+
+
+def test_batch_intent_can_pin_manager_root_separately_from_output_root(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "outputs" / "run.json"
+    manager_root = tmp_path / "validation-manager"
+    payload = build_batch_intent(
+        project_root=PROJECT_ROOT,
+        corpus_root=tmp_path / "research_spine",
+        batch_id="research-2026-08-14-010203-123",
+        scheduler_entrypoint=PROJECT_ROOT / "scripts/run_daily_research_quota.sh",
+        runner_argv=RUN_ARGS,
+        output_path=output,
+        ledger_path=tmp_path / "research_ledger.duckdb",
+        manager_root=manager_root,
+        requested_research_stage="DEVELOPMENT_SCREEN",
+        allowed_research_stages=["DEVELOPMENT_SCREEN"],
+        policy_path=PROJECT_ROOT / "config/native_evidence_activation_policy_v1.json",
+        catalog_path=PROJECT_ROOT / "config/research_parameter_catalog.json",
+        execution_epoch="2026-08-14",
+        created_at="2026-08-14T00:00:00Z",
+    )
+
+    assert payload["paths"]["output_root"]["resolved_path"] == str(output.parent)
+    assert payload["paths"]["manager_paths"]["registry"]["resolved_path"] == str(
+        manager_root / "topic_registry.json"
+    )
 RUN_ARGS = [
     "scripts/run_autonomous_research.py",
     "--date",
@@ -258,6 +286,43 @@ def test_publisher_cli_does_not_expose_scheduler_authoring_surface(tmp_path: Pat
 
     assert completed.returncode != 0
     assert not (tmp_path / "research_spine" / "batch_intents").exists()
+
+
+def test_publisher_cli_rejects_distinct_manager_root_outside_validation(
+    tmp_path: Path,
+) -> None:
+    corpus = tmp_path / "research_spine"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "scripts/publish_research_batch_intent.py",
+            "--batch-id",
+            "research-2026-08-14-010203-123",
+            "--execution-epoch",
+            "2026-08-14",
+            "--requested-research-stage",
+            "DEVELOPMENT_SCREEN",
+            "--allowed-research-stage",
+            "DEVELOPMENT_SCREEN",
+            "--output",
+            str(tmp_path / "run.json"),
+            "--corpus-root",
+            str(corpus),
+            "--ledger",
+            str(tmp_path / "research_ledger.duckdb"),
+            "--manager-root",
+            str(tmp_path / "manager"),
+            "--",
+            *RUN_ARGS,
+        ],
+        cwd=PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    assert not (corpus / "batch_intents").exists()
 
 
 def test_copied_stale_or_mismatched_intent_fails_closed(tmp_path: Path) -> None:

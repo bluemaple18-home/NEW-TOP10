@@ -55,6 +55,11 @@ DEVELOPMENT_SCREEN_TOPIC_COUNT="${TOP10_RESEARCH_DEVELOPMENT_SCREEN_TOPIC_COUNT:
 REFRESH_RESEARCH_MAP="${TOP10_REFRESH_RESEARCH_MAP:-1}"
 LOG_DIR="$PROJECT_DIR/logs"
 OUTPUT="artifacts/autonomous_research/autonomous_research_daily_quota_${RUN_DATE}.json"
+MANAGER_ROOT="artifacts/autonomous_research"
+VALIDATION_MANAGER_ROOT="artifacts/autonomous_research/validation_manager"
+if [ "${TOP10_STORAGE_VALIDATION_MODE:-0}" = "1" ]; then
+  MANAGER_ROOT="$VALIDATION_MANAGER_ROOT"
+fi
 RUNTIME_RECEIPT="artifacts/autonomous_research/closed_regime_runtime_receipt_${RUN_DATE}.json"
 REGIME_HISTORY="artifacts/market_regime_history.json"
 REGIME_EXTENSION="artifacts/model_experiments/market_regime_history_append_only_2026-07-22.json"
@@ -134,6 +139,7 @@ BATCH_INTENT_ID="$("${RUNNER_CMD[@]}" scripts/publish_research_batch_intent.py \
   --output "$OUTPUT" \
   --corpus-root artifacts/autonomous_research/research_spine \
   --ledger "$RESEARCH_LEDGER" \
+  --manager-root "$MANAGER_ROOT" \
   -- "${RUN_ARGS[@]}" 2>> "$LOG_FILE")"
 BATCH_INTENT_EXIT_CODE=$?
 set -e
@@ -159,6 +165,18 @@ set -e
 if [ "$BATCH_VERIFY_EXIT_CODE" -ne 0 ]; then
   echo "❌ research spine batch verification failed exit_code=$BATCH_VERIFY_EXIT_CODE" | tee -a "$LOG_FILE"
   exit "$BATCH_VERIFY_EXIT_CODE"
+fi
+
+set +e
+"${RUNNER_CMD[@]}" -m app.research.legacy_migration \
+  --legacy-root artifacts/autonomous_research \
+  --corpus-root artifacts/autonomous_research/research_spine \
+  --ensure-current >> "$LOG_FILE" 2>&1
+MIGRATION_EXIT_CODE=$?
+set -e
+if [ "$MIGRATION_EXIT_CODE" -ne 0 ]; then
+  echo "❌ current legacy migration ensure failed exit_code=$MIGRATION_EXIT_CODE" | tee -a "$LOG_FILE"
+  exit "$MIGRATION_EXIT_CODE"
 fi
 
 set +e

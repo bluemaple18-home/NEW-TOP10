@@ -719,18 +719,53 @@ def build_migration(
     }
 
 
+def ensure_current_migration(
+    *, legacy_root: Path = DEFAULT_LEGACY_ROOT, corpus_root: Path = DEFAULT_CORPUS_ROOT,
+) -> dict[str, Any]:
+    """保留舊 manifest；僅在缺少目前 parser 的有效 manifest 時追加重建。"""
+
+    manifest_dir = corpus_root / "migration" / "manifests"
+    current: list[tuple[Path, dict[str, Any]]] = []
+    for path in sorted(manifest_dir.glob("*.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("parser_version") != PARSER_VERSION:
+            continue
+        errors = validate_migration_manifest_v2(payload)
+        if errors:
+            raise ValueError("invalid current migration manifest: " + "; ".join(errors))
+        current.append((path, payload))
+    if current:
+        path, manifest = current[-1]
+        return {
+            "action": "REUSED",
+            "manifest": manifest,
+            "manifest_path": path,
+            "records": [],
+        }
+    result = build_migration(legacy_root=legacy_root, corpus_root=corpus_root)
+    result["action"] = "BUILT"
+    return result
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="build immutable legacy research migration corpus")
     parser.add_argument("--legacy-root", type=Path, default=DEFAULT_LEGACY_ROOT)
     parser.add_argument("--corpus-root", type=Path, default=DEFAULT_CORPUS_ROOT)
+    parser.add_argument(
+        "--ensure-current",
+        action="store_true",
+        help="目前 parser manifest 已存在時重用，否則以 append-only 方式建立",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    result = build_migration(legacy_root=args.legacy_root, corpus_root=args.corpus_root)
+    builder = ensure_current_migration if args.ensure_current else build_migration
+    result = builder(legacy_root=args.legacy_root, corpus_root=args.corpus_root)
     counts = Counter(record["preliminary_classification"] for record in result["records"])
     print(json.dumps({
+        "action": result.get("action", "BUILT"),
         "migration_id": result["manifest"]["migration_id"],
         "source_count": len(result["manifest"]["sources"]),
         "record_count": len(result["records"]),

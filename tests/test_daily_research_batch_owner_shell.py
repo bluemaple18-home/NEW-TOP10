@@ -8,6 +8,27 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_daily_shell_ensures_current_legacy_migration_before_ledger_ingest() -> None:
+    source = (PROJECT_ROOT / "scripts/run_daily_research_quota.sh").read_text(
+        encoding="utf-8"
+    )
+
+    ensure = source.index("-m app.research.legacy_migration")
+    ingest = source.index("-m app.research.observation_ingest")
+    assert "--ensure-current" in source[ensure:ingest]
+    assert ensure < ingest
+
+
+def test_daily_validation_uses_fresh_manager_root_through_batch_intent() -> None:
+    source = (PROJECT_ROOT / "scripts/run_daily_research_quota.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'TOP10_STORAGE_VALIDATION_MODE:-0' in source
+    assert 'VALIDATION_MANAGER_ROOT="artifacts/autonomous_research/validation_manager"' in source
+    assert '--manager-root "$MANAGER_ROOT"' in source
+
+
 def test_daily_shell_does_not_start_runner_when_batch_intent_publish_fails(tmp_path: Path) -> None:
     project = tmp_path / "TOP10new"
     scripts = project / "scripts"

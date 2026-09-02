@@ -29,6 +29,7 @@ from app.research.contracts import (
     validate_migration_quality_report,
     validate_legacy_mapping_authority,
 )
+from app.research.legacy_migration import PARSER_VERSION as CURRENT_LEGACY_PARSER_VERSION
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -534,8 +535,19 @@ def _validate_migration_record_authority(
 
 def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path) -> None:
     canonical_receipts = _migration_receipts(corpus_root)
-    for manifest_path in sorted((corpus_root / "migration" / "manifests").glob("*.json")):
-        manifest = _load_json(manifest_path)
+    manifest_paths = sorted((corpus_root / "migration" / "manifests").glob("*.json"))
+    manifests = [(path, _load_json(path)) for path in manifest_paths]
+    current_manifests = [
+        (path, manifest)
+        for path, manifest in manifests
+        if manifest.get("parser_version") == CURRENT_LEGACY_PARSER_VERSION
+    ]
+    if manifests and not current_manifests:
+        raise ValueError(
+            "MIGRATION_CURRENT_MANIFEST_MISSING: "
+            f"expected parser_version={CURRENT_LEGACY_PARSER_VERSION}"
+        )
+    for manifest_path, manifest in current_manifests:
         manifest_errors = validate_migration_manifest_v2(manifest)
         if manifest_errors:
             raise ValueError("invalid migration manifest: " + "; ".join(manifest_errors))

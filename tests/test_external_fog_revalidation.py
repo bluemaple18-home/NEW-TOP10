@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,74 @@ from scripts import run_external_fog_revalidation as revalidation
 
 
 class ExternalFogRevalidationTest(unittest.TestCase):
+    def test_run_cycle_rejects_guard_ok_when_topic_runs_are_empty(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-external-fog-empty-") as tmp:
+            sandbox = Path(tmp)
+            receipt_path = (
+                sandbox
+                / "logs"
+                / "storage_safety"
+                / f"{revalidation.JOB}_latest.json"
+            )
+            receipt_path.parent.mkdir(parents=True)
+            receipt_path.write_text(
+                json.dumps({"status": "OK", "child_exit_code": 0, "reasons": []}),
+                encoding="utf-8",
+            )
+            (sandbox / revalidation.EVIDENCE_DIR).mkdir(parents=True)
+
+            completed = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+            with mock.patch.object(revalidation.subprocess, "run", return_value=completed):
+                code, receipt = revalidation.run_cycle(
+                    sandbox,
+                    sandbox / "marker.json",
+                    sandbox / "contract.json",
+                    1,
+                )
+
+            self.assertEqual(code, 70)
+            self.assertEqual(receipt["status"], "STOPPED")
+            self.assertIn("REPRESENTATIVE_WORKLOAD_EMPTY", receipt["reasons"])
+
+    def test_run_cycle_rejects_unchanged_topic_runs_copied_from_source(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-external-fog-stale-") as tmp:
+            sandbox = Path(tmp)
+            receipt_path = (
+                sandbox
+                / "logs"
+                / "storage_safety"
+                / f"{revalidation.JOB}_latest.json"
+            )
+            receipt_path.parent.mkdir(parents=True)
+            receipt_path.write_text(
+                json.dumps({"status": "OK", "child_exit_code": 0, "reasons": []}),
+                encoding="utf-8",
+            )
+            run_artifact = (
+                sandbox
+                / "artifacts"
+                / "autonomous_research"
+                / "autonomous_research_daily_quota_2026-09-02.json"
+            )
+            run_artifact.parent.mkdir(parents=True)
+            run_artifact.write_text(
+                json.dumps({"topic_runs": [{"topic": {"topic_id": "stale"}}]}),
+                encoding="utf-8",
+            )
+            (sandbox / revalidation.EVIDENCE_DIR).mkdir(parents=True)
+
+            completed = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+            with mock.patch.object(revalidation.subprocess, "run", return_value=completed):
+                code, receipt = revalidation.run_cycle(
+                    sandbox,
+                    sandbox / "marker.json",
+                    sandbox / "contract.json",
+                    1,
+                )
+
+            self.assertEqual(code, 70)
+            self.assertIn("REPRESENTATIVE_WORKLOAD_STALE", receipt["reasons"])
+
     def test_contract_pins_entrypoint_and_runner_bytes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-external-fog-contract-") as tmp:
             sandbox = Path(tmp)

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -34,6 +35,12 @@ def main() -> int:
         default=PROJECT_ROOT / "data/research/research_ledger.duckdb",
     )
     parser.add_argument(
+        "--manager-root",
+        type=Path,
+        default=None,
+        help="manager artifacts root；未指定時沿用 output parent",
+    )
+    parser.add_argument(
         "--policy",
         type=Path,
         default=PROJECT_ROOT / "config/native_evidence_activation_policy_v1.json",
@@ -45,6 +52,17 @@ def main() -> int:
     )
     parser.add_argument("runner_argv", nargs=argparse.REMAINDER)
     args = parser.parse_args()
+    if args.manager_root is not None:
+        manager_root = args.manager_root.resolve(strict=False)
+        default_manager_root = args.output.parent.resolve(strict=False)
+        validation_manager_root = (
+            PROJECT_ROOT / "artifacts" / "autonomous_research" / "validation_manager"
+        ).resolve(strict=False)
+        if manager_root != default_manager_root and (
+            os.environ.get("TOP10_STORAGE_VALIDATION_MODE") != "1"
+            or manager_root != validation_manager_root
+        ):
+            parser.error("distinct --manager-root 僅允許 trusted storage validation root")
     runner_argv = list(args.runner_argv)
     if runner_argv and runner_argv[0] == "--":
         runner_argv = runner_argv[1:]
@@ -56,6 +74,7 @@ def main() -> int:
         runner_argv=runner_argv,
         output_path=args.output,
         ledger_path=args.ledger,
+        manager_root=args.manager_root,
         requested_research_stage=args.requested_research_stage,
         allowed_research_stages=args.allowed_research_stage,
         policy_path=args.policy,

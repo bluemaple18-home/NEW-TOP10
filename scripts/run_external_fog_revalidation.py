@@ -141,6 +141,12 @@ def publish_evidence(source: Path, destination: Path) -> None:
 
 
 def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[int, dict[str, Any]]:
+    artifact_root = sandbox / "artifacts" / "autonomous_research"
+    artifact_pattern = "autonomous_research_daily_quota_????-??-??.json"
+    before_artifacts = {
+        path.relative_to(sandbox).as_posix(): sha256_file(path)
+        for path in artifact_root.glob(artifact_pattern)
+    }
     command = [
         str(sandbox / ".venv" / "bin" / "python"),
         str(sandbox / "scripts" / "storage_safety.py"),
@@ -167,6 +173,58 @@ def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[
     if not receipt_path.is_file():
         raise RuntimeError(f"cycle {cycle} 缺 guard receipt：{completed.stderr[-1000:]}")
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    observed_artifacts = list(artifact_root.glob(artifact_pattern))
+    run_artifacts = sorted(
+        (
+            path
+            for path in observed_artifacts
+            if before_artifacts.get(path.relative_to(sandbox).as_posix())
+            != sha256_file(path)
+        ),
+        key=lambda path: path.stat().st_mtime_ns,
+    )
+    run_payload = (
+        json.loads(run_artifacts[-1].read_text(encoding="utf-8"))
+        if run_artifacts
+        else {}
+    )
+    topic_runs = run_payload.get("topic_runs")
+    representative = {
+        "run_artifact": (
+            run_artifacts[-1].relative_to(sandbox).as_posix()
+            if run_artifacts
+            else None
+        ),
+        "topic_run_count": len(topic_runs) if isinstance(topic_runs, list) else 0,
+        "topic_ids": [
+            str((row.get("topic") or {}).get("topic_id"))
+            for row in (topic_runs if isinstance(topic_runs, list) else [])
+            if isinstance(row, dict) and (row.get("topic") or {}).get("topic_id")
+        ],
+    }
+    receipt["representative_workload"] = representative
+    empty_reason = (
+        "REPRESENTATIVE_WORKLOAD_STALE"
+        if observed_artifacts and not run_artifacts
+        else "REPRESENTATIVE_WORKLOAD_EMPTY"
+    )
+    if (
+        completed.returncode == 0
+        and receipt.get("status") == "OK"
+        and receipt.get("child_exit_code") == 0
+        and representative["topic_run_count"] == 0
+    ):
+        receipt["guard_status"] = "OK"
+        receipt["status"] = "STOPPED"
+        receipt["reasons"] = sorted(
+            set([*(receipt.get("reasons") or []), empty_reason])
+        )
+        completed = subprocess.CompletedProcess(
+            completed.args,
+            70,
+            completed.stdout,
+            completed.stderr,
+        )
     evidence = sandbox / EVIDENCE_DIR
     shutil.copy2(receipt_path, evidence / f"cycle-{cycle}.json")
     (evidence / f"cycle-{cycle}.stdout.log").write_text(completed.stdout[-12000:], encoding="utf-8")
