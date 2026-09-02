@@ -325,15 +325,27 @@ def _iter_regular_files(base: Path) -> Iterable[Path]:
 def measure_paths(root: Path, meter_paths: Sequence[str]) -> Inventory:
     """量測登記 scope；重疊的 meter path 只計一次。"""
 
-    seen: set[Path] = set()
-    total_bytes = 0
+    canonical_root = root.resolve()
+    bases: list[Path] = []
     for relative in meter_paths:
-        base = _safe_root_path(root, relative)
+        base = _safe_root_path(canonical_root, relative)
+        if any(base == existing or base.is_relative_to(existing) for existing in bases):
+            continue
+        bases = [
+            existing
+            for existing in bases
+            if existing == base or not existing.is_relative_to(base)
+        ]
+        bases.append(base)
+
+    seen: set[str] = set()
+    total_bytes = 0
+    for base in sorted(bases, key=lambda item: (len(item.parts), item.as_posix())):
         for path in _iter_regular_files(base):
-            resolved = path.resolve()
-            if resolved in seen:
+            identity = path.relative_to(canonical_root).as_posix()
+            if identity in seen:
                 continue
-            seen.add(resolved)
+            seen.add(identity)
             total_bytes += path.stat().st_size
     return Inventory(bytes=total_bytes, file_count=len(seen))
 

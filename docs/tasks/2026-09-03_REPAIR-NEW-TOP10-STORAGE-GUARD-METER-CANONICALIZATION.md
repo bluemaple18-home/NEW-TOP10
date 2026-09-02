@@ -42,3 +42,12 @@ parent: ACTIVATE-NEW-TOP10-FOG-RESEARCH-WORKER
 ## History
 
 - 2026-09-03：Mainline 根據首次 live activation stop-loss 開卡；Fog label 已 disabled／bootout，無殘留 worker，persistent restart denial 保留。
+- 2026-09-03：Repair Worker 建立 deterministic RED：
+  `uv run pytest tests/test_storage_safety.py::StorageSafetyRegressionTest::test_overlapping_meter_paths_do_not_resolve_each_regular_file -q`
+  在舊實作失敗，100 個 regular files／重疊 meter roots 觸發 150 次逐檔 `Path.resolve()`。
+- 2026-09-03：最小修復限於 `measure_paths()`：meter roots 先 canonicalize 並收斂為非重疊集合；file identity 改用 canonical root 下 lexical relative path，不再逐檔 filesystem canonicalization。
+- 2026-09-03：GREEN：新 regression 與既有 overlapping meter 測試通過；完整
+  `uv run pytest tests/test_storage_safety.py -q` 為 `66 passed, 31 subtests passed in 8.73s`。
+- 2026-09-03：微基準使用臨時 13,140-file fixture，無 live workload：old/new `measure_paths()` median
+  `0.7168s → 0.3298s`（`2.17x`），regular-file resolve calls `0`、one-measure total resolve calls `5`；
+  `take_sample()` median `0.3312s`，min/max `0.3194s/0.3384s`。

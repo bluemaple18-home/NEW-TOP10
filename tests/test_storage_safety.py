@@ -376,6 +376,39 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertEqual(inventory.bytes, 7)
             self.assertEqual(inventory.file_count, 2)
 
+    def test_overlapping_meter_paths_do_not_resolve_each_regular_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-meter-resolve-") as tmp:
+            root = Path(tmp)
+            nested = root / "artifacts" / "metered" / "nested"
+            nested.mkdir(parents=True)
+            expected_bytes = 0
+            for index in range(50):
+                root_file = root / "artifacts" / "metered" / f"root-{index}.bin"
+                nested_file = nested / f"child-{index}.bin"
+                root_file.write_bytes(b"r" * 3)
+                nested_file.write_bytes(b"c" * 5)
+                expected_bytes += 8
+            (root / "artifacts" / "metered" / "linked-child.bin").symlink_to(
+                nested / "child-0.bin"
+            )
+            original_resolve = Path.resolve
+            resolved_regular_files: list[Path] = []
+
+            def counted_resolve(self: Path, *args: object, **kwargs: object) -> Path:
+                if self.suffix == ".bin":
+                    resolved_regular_files.append(self)
+                return original_resolve(self, *args, **kwargs)
+
+            with mock.patch.object(Path, "resolve", counted_resolve):
+                inventory = measure_paths(
+                    root,
+                    ("artifacts/metered", "artifacts/metered/nested"),
+                )
+
+            self.assertEqual(inventory.bytes, expected_bytes)
+            self.assertEqual(inventory.file_count, 100)
+            self.assertEqual(resolved_regular_files, [])
+
     def test_preflight_and_runtime_stop_loss_signals_fail_closed(self) -> None:
         global_policy = fixture_global_policy()
         policy = fixture_job_policy(
