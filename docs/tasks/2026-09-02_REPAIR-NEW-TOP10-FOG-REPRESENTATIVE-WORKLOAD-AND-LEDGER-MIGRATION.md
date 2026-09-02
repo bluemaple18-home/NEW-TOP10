@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-FOG-REPRESENTATIVE-WORKLOAD-AND-LEDGER-MIGRATION
-status: READY_FOR_EXTERNAL_R13
+status: READY_FOR_EXTERNAL_R14
 type: runtime-repair
 risk: high
 baseline: ba1e8c6
@@ -60,3 +60,5 @@ baseline: ba1e8c6
 - 2026-09-02：R11 clean-room repair 僅加入兩個 runtime 必需的唯讀 docs authority（receipt JSON Schema 與既有 storage policy）；仍排除整個 `docs/tasks` 與 evidence，避免把非 runtime 文件擴張進 sandbox。
 - 2026-09-02：R12 已越過 migration、ledger batch、closed-regime receipt 與 research-map refresh，並首次真正啟動 historical exact-regime topic；guard 在 233.41 秒以 `PROCESS_TREE_RSS_BUDGET_EXCEEDED` 正確停止。前 175 秒 RSS 約 961 MiB，topic matrix 啟動後單一 sample 升至 `3,688,054,784 bytes`；memory pressure `2→1`、unknown writes=`[]`，因此維持 2 GiB ceiling，不調高機器容許值。
 - 2026-09-02：R12 matrix repair 不縮減 topic、scenario 或資料 authority；同一 matrix 的所有 scenario 改為共用唯讀 `trade_dates`、OHLC `price_lookup` 與 group map，避免每格重新 materialize 516,169-row Python lookup 並讓 allocator RSS 疊高。一般單次 portfolio replay 保持原 API 行為。
+- 2026-09-02：R13 在相同 233 秒區段仍達 `3,697,852,416 bytes`，證明第一次建立全市場 OHLC Python lookup 本身就是主峰，而非 scenario 間重建；guard 再次正確停止，unknown writes=`[]`，未提高 2 GiB ceiling。
+- 2026-09-02：R13 exact-scope repair 把「全市場交易日曆」與「實際 OHLC 列」分離：日曆仍從 canonical parquet 全日期欄建立；OHLC 依 immutable episode 的 horizon-safe ranking files，只投影該 topic Top-10 股票。canonical features hash、ranking hash、episode authority、scenario 數與回測規則不變。三檔本機實測為 839 rows、peak RSS `178,159,616 bytes`。

@@ -1467,6 +1467,26 @@ def _run_adversarial_matrix_payload(
         lambda _: pd.DataFrame(),
     )
     monkeypatch.setattr(
+        matrix.run_portfolio_replay.run_backtest_replay,
+        "load_market_trade_dates",
+        lambda _: [date(2026, 1, 2)],
+    )
+    monkeypatch.setattr(
+        matrix.run_portfolio_replay.run_backtest_replay,
+        "load_price_frame_for_stocks",
+        lambda *_: pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        matrix.run_portfolio_replay.run_backtest_replay,
+        "ranking_files",
+        lambda *_: [tmp_path / "ranking_2026-01-02.csv"],
+    )
+    monkeypatch.setattr(
+        matrix.run_portfolio_replay.run_backtest_replay,
+        "read_ranking",
+        lambda *_: [{"stock_id": "2330"}],
+    )
+    monkeypatch.setattr(
         matrix,
         "exact_regime_context",
         lambda _: (EXACT, {"2026-01-02"}, {"2026-01-02": "episode-1"}),

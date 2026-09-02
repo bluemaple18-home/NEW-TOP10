@@ -1,10 +1,35 @@
 from __future__ import annotations
 
 from argparse import Namespace
+from pathlib import Path
 
 import pandas as pd
 
 from scripts import run_portfolio_replay as replay
+from scripts import run_backtest_replay
+
+
+def test_exact_loader_keeps_global_calendar_but_projects_ohlc_to_ranked_stocks(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "features.parquet"
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-02", "2026-01-03", "2026-01-02"]),
+            "stock_id": ["2330", "2330", "2317"],
+            "open": [10.0, 11.0, 20.0],
+            "high": [11.0, 12.0, 21.0],
+            "low": [9.0, 10.0, 19.0],
+            "close": [10.5, 11.5, 20.5],
+        }
+    ).to_parquet(path)
+
+    dates = run_backtest_replay.load_market_trade_dates(path)
+    prices = run_backtest_replay.load_price_frame_for_stocks(path, {"2330"})
+
+    assert [item.isoformat() for item in dates] == ["2026-01-02", "2026-01-03"]
+    assert prices["stock_id"].unique().tolist() == ["2330"]
+    assert len(prices) == 2
 
 
 def test_prepared_matrix_context_does_not_rebuild_large_lookups(monkeypatch) -> None:

@@ -126,6 +126,46 @@ def load_price_frame(path: Path) -> pd.DataFrame:
     return frame.sort_values(["stock_id", "trade_date"]).reset_index(drop=True)
 
 
+def load_market_trade_dates(path: Path) -> list[Any]:
+    """只讀日期欄建立全市場日曆，避免 exact replay 為日曆載入全部 OHLC。"""
+    if not path.exists():
+        raise FileNotFoundError(f"features parquet 不存在：{path}")
+    try:
+        frame = pd.read_parquet(path, columns=["trade_date"])
+        column = "trade_date"
+    except Exception as exc:
+        if "trade_date" not in str(exc):
+            raise
+        frame = pd.read_parquet(path, columns=["date"])
+        column = "date"
+    return sorted(pd.to_datetime(frame[column]).dt.date.dropna().unique())
+
+
+def load_price_frame_for_stocks(path: Path, stock_ids: set[str]) -> pd.DataFrame:
+    """從 canonical parquet 投影 exact ranking 所需股票，維持原始 OHLC 語意。"""
+    normalized = sorted({str(stock_id).zfill(4) for stock_id in stock_ids})
+    if not normalized:
+        raise ValueError("exact replay stock scope 不可為空")
+    price_columns = ["stock_id", *OHLC_COLUMNS]
+    try:
+        frame = pd.read_parquet(
+            path,
+            columns=[*price_columns, "trade_date"],
+            filters=[("stock_id", "in", normalized)],
+        )
+    except Exception as exc:
+        if "trade_date" not in str(exc):
+            raise
+        frame = pd.read_parquet(
+            path,
+            columns=[*price_columns, "date"],
+            filters=[("stock_id", "in", normalized)],
+        ).rename(columns={"date": "trade_date"})
+    frame["stock_id"] = frame["stock_id"].astype(str).str.zfill(4)
+    frame["trade_date"] = pd.to_datetime(frame["trade_date"]).dt.date
+    return frame.sort_values(["stock_id", "trade_date"]).reset_index(drop=True)
+
+
 def build_price_index(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
     return {stock_id: group.reset_index(drop=True) for stock_id, group in frame.groupby("stock_id", sort=False)}
 

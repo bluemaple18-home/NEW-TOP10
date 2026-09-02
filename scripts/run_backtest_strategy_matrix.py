@@ -591,13 +591,47 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         }
     )
     development_scope = validate_development_scope(args)
-    price_frame = run_portfolio_replay.run_backtest_replay.load_price_frame(
-        run_portfolio_replay.resolve_path(args.features)
-    )
     expected_family = expected_statistical_family(args)
     regime_identity, allowed_dates, episode_by_date = exact_regime_context(args)
     args.exact_regime_episode_by_date = episode_by_date
-    trade_dates = run_portfolio_replay.run_backtest_replay.market_trade_dates(price_frame)
+    features_path = run_portfolio_replay.resolve_path(args.features)
+    if allowed_dates is None:
+        price_frame = run_portfolio_replay.run_backtest_replay.load_price_frame(features_path)
+        trade_dates = run_portfolio_replay.run_backtest_replay.market_trade_dates(price_frame)
+        safe_dates_by_horizon: dict[int, set[str] | None] = {}
+    else:
+        trade_dates = run_portfolio_replay.run_backtest_replay.load_market_trade_dates(
+            features_path
+        )
+        safe_dates_by_horizon = {}
+        required_stock_ids: set[str] = set()
+        for scenario in scenarios:
+            horizon = int(scenario["horizon"])
+            if horizon not in safe_dates_by_horizon:
+                safe_dates_by_horizon[horizon] = exact_horizon_safe_ranking_dates(
+                    allowed_dates,
+                    episode_by_date,
+                    trade_dates,
+                    horizon=horizon,
+                    entry_delay_trade_days=1,
+                )
+            with exact_ranking_file_scope(safe_dates_by_horizon[horizon]):
+                ranking_paths = run_portfolio_replay.run_backtest_replay.ranking_files(
+                    run_portfolio_replay.resolve_path(args.rankings_dir),
+                    args.max_ranking_files,
+                )
+            for ranking_path in ranking_paths:
+                required_stock_ids.update(
+                    row["stock_id"]
+                    for row in run_portfolio_replay.run_backtest_replay.read_ranking(
+                        ranking_path, args.top_n
+                    )
+                )
+        price_frame = (
+            run_portfolio_replay.run_backtest_replay.load_price_frame_for_stocks(
+                features_path, required_stock_ids
+            )
+        )
     # 同一 matrix 的情境只改交易參數；OHLC 與產業 lookup 是唯讀共同輸入。
     # 共用可避免每個 scenario 建立 50 萬列 Python dict 後留下 allocator RSS。
     prices = run_portfolio_replay.price_lookup(price_frame)
@@ -608,13 +642,17 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     horizon_safe_ranking_date_counts: dict[str, int] = {}
     for scenario in scenarios:
-        horizon_safe_dates = exact_horizon_safe_ranking_dates(
-            allowed_dates,
-            episode_by_date,
-            trade_dates,
-            horizon=int(scenario["horizon"]),
-            entry_delay_trade_days=1,
-        )
+        horizon = int(scenario["horizon"])
+        horizon_safe_dates = safe_dates_by_horizon.get(horizon)
+        if horizon not in safe_dates_by_horizon:
+            horizon_safe_dates = exact_horizon_safe_ranking_dates(
+                allowed_dates,
+                episode_by_date,
+                trade_dates,
+                horizon=horizon,
+                entry_delay_trade_days=1,
+            )
+            safe_dates_by_horizon[horizon] = horizon_safe_dates
         horizon_safe_ranking_date_counts[str(scenario["horizon"])] = len(
             horizon_safe_dates or []
         )
