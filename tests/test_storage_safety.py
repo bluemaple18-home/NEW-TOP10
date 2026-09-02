@@ -217,6 +217,11 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             "data/research/research_ledger.duckdb",
             fog_policy.registered_write_paths,
         )
+        self.assertIn("data/research/research_ledger.duckdb.wal", fog_policy.meter_paths)
+        self.assertIn(
+            "data/research/research_ledger.duckdb.wal",
+            fog_policy.registered_write_paths,
+        )
         self.assertEqual(fog_policy.max_bytes, 2147483648)
         self.assertEqual(fog_policy.max_file_count, 30000)
         _global_policy, preflight_policy, _rules = load_policy(
@@ -3204,6 +3209,10 @@ raise SystemExit(
 
             self.assertEqual(result, 70)
             self.assertIn("PROTECTED_ROOT_MUTATED", receipt["reasons"])
+            self.assertEqual(
+                receipt["validation_context"]["protected_root_changed_paths"],
+                ["protected.txt"],
+            )
             self.assertTrue(
                 (sandbox / "logs" / "storage_safety" / "restart_denied" / "daily.json").exists()
             )

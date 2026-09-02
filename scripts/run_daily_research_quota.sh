@@ -275,5 +275,16 @@ if [ "$REFRESH_RESEARCH_MAP" = "1" ] || [ "$REFRESH_RESEARCH_MAP" = "true" ] || 
   fi
 fi
 
+if [ "${TOP10_STORAGE_VALIDATION_MODE:-0}" = "1" ]; then
+  set +e
+  "${RUNNER_CMD[@]}" scripts/run_fog_representative_validation.py >> "$LOG_FILE" 2>&1
+  REPRESENTATIVE_EXIT_CODE=$?
+  set -e
+  if [ "$REPRESENTATIVE_EXIT_CODE" -ne 0 ]; then
+    echo "❌ historical exact-regime representative validation failed exit_code=$REPRESENTATIVE_EXIT_CODE" | tee -a "$LOG_FILE"
+    exit "$REPRESENTATIVE_EXIT_CODE"
+  fi
+fi
+
 echo "✅ 每日研究配額完成 output=$OUTPUT" | tee -a "$LOG_FILE"
 exit 0

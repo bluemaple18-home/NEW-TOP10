@@ -184,6 +184,32 @@ def test_supply_creates_stable_novel_development_topics_and_four_way_dedupe(
     assert next_receipt["exclusion_counts"]["same_round_duplicate"] >= 1
 
 
+def test_supply_rechecks_single_horizon_when_broad_profile_authority_is_missing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    template, args, _contract = _fixture(tmp_path, monkeypatch)
+    broad_profile_rejected = replace(
+        template,
+        eligible=False,
+        reason_code="MISSING_EXACT_REGIME_AUTHORITY",
+    )
+
+    topics, receipt = research.replenish_development_topics(
+        [broad_profile_rejected],
+        args,
+        registry_rows={},
+        history_rows=[],
+        queue_rows=[],
+        same_round_ids=set(),
+        limit=1,
+    )
+
+    assert receipt["status"] == "TOPICS_SUPPLIED"
+    assert len(topics) == 1
+    assert topics[0].horizons == "3"
+
+
 def test_supply_reports_exhaustion_with_reason_counts(
     tmp_path: Path,
     monkeypatch,

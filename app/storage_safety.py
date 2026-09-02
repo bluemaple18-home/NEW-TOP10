@@ -1732,6 +1732,16 @@ def run_guarded_job(
                 max_files=PROTECTED_SNAPSHOT_MAX_FILES,
             )
             if protected_after != protected_before:
+                protected_changed_paths = sorted(
+                    path
+                    for path in set(protected_before) | set(protected_after)
+                    if protected_before.get(path) != protected_after.get(path)
+                )
+                if isinstance(validation_context, dict):
+                    validation_context = {
+                        **validation_context,
+                        "protected_root_changed_paths": protected_changed_paths,
+                    }
                 stop_reasons = tuple(
                     dict.fromkeys((*stop_reasons, "PROTECTED_ROOT_MUTATED"))
                 )

@@ -2650,7 +2650,10 @@ def replenish_development_topics(
         ),
     ):
         if (
-            not template.eligible
+            (
+                not template.eligible
+                and template.reason_code != "MISSING_EXACT_REGIME_AUTHORITY"
+            )
             or template.runner not in RUNNER_SPECS
             or not template.candidate_dir
             or not template.baseline_dir

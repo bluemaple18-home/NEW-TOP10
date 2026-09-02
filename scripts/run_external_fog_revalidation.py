@@ -142,10 +142,18 @@ def publish_evidence(source: Path, destination: Path) -> None:
 
 def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[int, dict[str, Any]]:
     artifact_root = sandbox / "artifacts" / "autonomous_research"
-    artifact_pattern = "autonomous_research_daily_quota_????-??-??.json"
+    artifact_patterns = (
+        "autonomous_research_daily_quota_????-??-??.json",
+        "validation_fixture/fog_representative_validation_????-??-??.json",
+    )
+    initial_artifacts = [
+        path
+        for pattern in artifact_patterns
+        for path in artifact_root.glob(pattern)
+    ]
     before_artifacts = {
         path.relative_to(sandbox).as_posix(): sha256_file(path)
-        for path in artifact_root.glob(artifact_pattern)
+        for path in initial_artifacts
     }
     command = [
         str(sandbox / ".venv" / "bin" / "python"),
@@ -173,7 +181,11 @@ def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[
     if not receipt_path.is_file():
         raise RuntimeError(f"cycle {cycle} 缺 guard receipt：{completed.stderr[-1000:]}")
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-    observed_artifacts = list(artifact_root.glob(artifact_pattern))
+    observed_artifacts = [
+        path
+        for pattern in artifact_patterns
+        for path in artifact_root.glob(pattern)
+    ]
     run_artifacts = sorted(
         (
             path

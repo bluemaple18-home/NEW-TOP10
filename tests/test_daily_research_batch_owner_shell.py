@@ -29,6 +29,17 @@ def test_daily_validation_uses_fresh_manager_root_through_batch_intent() -> None
     assert '--manager-root "$MANAGER_ROOT"' in source
 
 
+def test_daily_validation_runs_historical_exact_regime_capacity_fixture() -> None:
+    source = (PROJECT_ROOT / "scripts/run_daily_research_quota.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "scripts/run_fog_representative_validation.py" in source
+    assert source.index("-m app.research.observation_ingest") < source.index(
+        "scripts/run_fog_representative_validation.py"
+    )
+
+
 def test_daily_shell_does_not_start_runner_when_batch_intent_publish_fails(tmp_path: Path) -> None:
     project = tmp_path / "TOP10new"
     scripts = project / "scripts"

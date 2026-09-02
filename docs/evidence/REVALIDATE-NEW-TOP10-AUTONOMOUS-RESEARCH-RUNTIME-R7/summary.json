@@ -1,0 +1,33 @@
+{
+  "cycles": [
+    {
+      "cycle": 1,
+      "guard_exit_code": 70,
+      "reasons": [
+        "UNREGISTERED_WRITE_PATH",
+        "PROTECTED_ROOT_MUTATED"
+      ],
+      "status": "STOPPED",
+      "summary": {
+        "elapsed_seconds": 61.99833869934082,
+        "first_memory_pressure_level": 2,
+        "host_free_bytes_delta": 238186496,
+        "last_memory_pressure_level": 2,
+        "observed_growth_bytes_per_hour": 0.0,
+        "peak_live_memory_pressure_level": 2,
+        "peak_rss_bytes": 582057984,
+        "project_bytes_delta": -180568233,
+        "project_file_count_delta": -8640,
+        "registered_unmetered_changed_paths": [],
+        "swap_bytes_delta": 0,
+        "unknown_changed_paths": [
+          "data/research/research_ledger.duckdb.wal"
+        ]
+      }
+    }
+  ],
+  "sandbox_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r7-lkrxwn2l",
+  "schema_version": "top10-external-fog-revalidation.v1",
+  "source_commit": "2cf146933958f21b637ea5dda6ac9b9eea309f84",
+  "verdict": "NO-GO"
+}
