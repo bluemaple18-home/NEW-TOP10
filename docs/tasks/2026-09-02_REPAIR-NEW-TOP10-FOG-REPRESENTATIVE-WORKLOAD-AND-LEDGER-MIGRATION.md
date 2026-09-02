@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-FOG-REPRESENTATIVE-WORKLOAD-AND-LEDGER-MIGRATION
-status: READY_FOR_EXTERNAL_R12
+status: READY_FOR_EXTERNAL_R13
 type: runtime-repair
 risk: high
 baseline: ba1e8c6
@@ -58,3 +58,5 @@ baseline: ba1e8c6
 - 2026-09-02：R10 transaction repair 維持 `1024MB` 配額，daily 改由既有 `--rebuild` seam 建立隔離暫存 ledger；migration records 每 256 筆提交，完整成功並關閉連線後才 `os.replace` 原子替換正式 ledger。失敗時只刪除暫存 rebuild，不暴露 partial canonical ledger；未新增第二套資料庫或 authority。
 - 2026-09-02：R11 已完成 36,839-record migration 與 ledger batch verification，證明 transaction repair GREEN；peak RSS `571,555,840 bytes`（約 545 MiB）、memory pressure `2`、swap delta `-33,554,432 bytes`、unknown writes=`[]`。後續 closed-regime receipt 因 clean-room copy 排除 `docs/architecture/fog_runtime_receipt_v3.schema.json` 而 fail closed，尚未執行代表性 fixture。
 - 2026-09-02：R11 clean-room repair 僅加入兩個 runtime 必需的唯讀 docs authority（receipt JSON Schema 與既有 storage policy）；仍排除整個 `docs/tasks` 與 evidence，避免把非 runtime 文件擴張進 sandbox。
+- 2026-09-02：R12 已越過 migration、ledger batch、closed-regime receipt 與 research-map refresh，並首次真正啟動 historical exact-regime topic；guard 在 233.41 秒以 `PROCESS_TREE_RSS_BUDGET_EXCEEDED` 正確停止。前 175 秒 RSS 約 961 MiB，topic matrix 啟動後單一 sample 升至 `3,688,054,784 bytes`；memory pressure `2→1`、unknown writes=`[]`，因此維持 2 GiB ceiling，不調高機器容許值。
+- 2026-09-02：R12 matrix repair 不縮減 topic、scenario 或資料 authority；同一 matrix 的所有 scenario 改為共用唯讀 `trade_dates`、OHLC `price_lookup` 與 group map，避免每格重新 materialize 516,169-row Python lookup 並讓 allocator RSS 疊高。一般單次 portfolio replay 保持原 API 行為。

@@ -598,6 +598,13 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     regime_identity, allowed_dates, episode_by_date = exact_regime_context(args)
     args.exact_regime_episode_by_date = episode_by_date
     trade_dates = run_portfolio_replay.run_backtest_replay.market_trade_dates(price_frame)
+    # 同一 matrix 的情境只改交易參數；OHLC 與產業 lookup 是唯讀共同輸入。
+    # 共用可避免每個 scenario 建立 50 萬列 Python dict 後留下 allocator RSS。
+    prices = run_portfolio_replay.price_lookup(price_frame)
+    group_map = run_portfolio_replay.load_group_map(
+        run_portfolio_replay.resolve_path("data/reference/stock_industry_map.csv"),
+        "industry_name",
+    )
     rows: list[dict[str, Any]] = []
     horizon_safe_ranking_date_counts: dict[str, int] = {}
     for scenario in scenarios:
@@ -620,7 +627,9 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
             except FileNotFoundError:
                 # replay 本身仍會依既有語意 fail；这里只避免 provenance 探查先改變例外時機。
                 resolved_rankings = []
-            replay = run_portfolio_replay.run_portfolio_from_price_frame(replay_args(args, scenario), price_frame)
+            replay = run_portfolio_replay.run_portfolio_from_price_frame(
+                replay_args(args, scenario), price_frame, trade_dates, prices, group_map
+            )
             row = matrix_row(scenario, bind_trade_episode_clusters(replay, episode_by_date))
             features_path = run_portfolio_replay.resolve_path(args.features)
             dataset_manifest = {

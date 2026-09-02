@@ -468,10 +468,24 @@ def run_portfolio(args: argparse.Namespace) -> dict[str, Any]:
     return run_portfolio_from_price_frame(args, price_frame)
 
 
-def run_portfolio_from_price_frame(args: argparse.Namespace, price_frame: pd.DataFrame) -> dict[str, Any]:
-    trade_dates = run_backtest_replay.market_trade_dates(price_frame)
-    prices = price_lookup(price_frame)
-    group_map = load_group_map(resolve_path(args.group_map), args.group_column) if args.max_group_exposure is not None else {}
+def run_portfolio_from_price_frame(
+    args: argparse.Namespace,
+    price_frame: pd.DataFrame,
+    trade_dates: list[Any] | None = None,
+    prices: dict[tuple[str, Any], dict[str, float]] | None = None,
+    group_map: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """執行單一情境；matrix 可傳入共用唯讀 lookup，避免每格重建大字典。"""
+    if trade_dates is None:
+        trade_dates = run_backtest_replay.market_trade_dates(price_frame)
+    if prices is None:
+        prices = price_lookup(price_frame)
+    if group_map is None:
+        group_map = (
+            load_group_map(resolve_path(args.group_map), args.group_column)
+            if args.max_group_exposure is not None
+            else {}
+        )
     plans, skipped = build_entry_plans(args, price_frame, trade_dates, group_map)
     regime_gross_map = build_regime_gross_map(args)
     plans_by_entry: dict[Any, list[dict[str, Any]]] = {}
