@@ -88,6 +88,14 @@ class Inventory:
 
 
 @dataclass(frozen=True)
+class ProcessRssAttribution:
+    pid: int
+    ppid: int
+    rss_bytes: int
+    command: str
+
+
+@dataclass(frozen=True)
 class Sample:
     timestamp: float
     project_bytes: int
@@ -98,6 +106,7 @@ class Sample:
     swap_bytes: int | None
     phase: str = "live"
     memory_pressure_level: int | None = None
+    process_rss_attribution: tuple[ProcessRssAttribution, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -437,56 +446,72 @@ def read_memory_pressure_level(
     return int(raw)
 
 
-def process_tree_rss_bytes(root_pid: int | None) -> int | None:
+def process_tree_rss_snapshot(
+    root_pid: int | None,
+) -> tuple[int | None, tuple[ProcessRssAttribution, ...]]:
     if root_pid is None or root_pid <= 0:
-        return 0
+        return 0, ()
     completed = subprocess.run(
-        ["/bin/ps", "-axo", "pid=,ppid=,rss="],
+        ["/bin/ps", "-axo", "pid=,ppid=,rss=,command="],
         text=True,
         capture_output=True,
         check=False,
     )
     if completed.returncode != 0:
-        return None
+        return None, ()
     parents: dict[int, list[int]] = defaultdict(list)
-    rss_by_pid: dict[int, int] = {}
+    processes: dict[int, ProcessRssAttribution] = {}
     for line in completed.stdout.splitlines():
-        fields = line.split()
-        if len(fields) != 3:
+        fields = line.split(maxsplit=3)
+        if len(fields) != 4:
             continue
         try:
-            pid, parent, rss_kib = (int(item) for item in fields)
+            pid, parent, rss_kib = (int(item) for item in fields[:3])
         except ValueError:
             continue
         parents[parent].append(pid)
-        rss_by_pid[pid] = rss_kib * 1024
-    if root_pid not in rss_by_pid:
-        return None
+        processes[pid] = ProcessRssAttribution(
+            pid=pid,
+            ppid=parent,
+            rss_bytes=rss_kib * 1024,
+            command=fields[3],
+        )
+    if root_pid not in processes:
+        return None, ()
     queue = deque([root_pid])
     seen: set[int] = set()
-    total = 0
+    attribution: list[ProcessRssAttribution] = []
     while queue:
         pid = queue.popleft()
         if pid in seen:
             continue
         seen.add(pid)
-        total += rss_by_pid.get(pid, 0)
+        process = processes.get(pid)
+        if process is not None:
+            attribution.append(process)
         queue.extend(parents.get(pid, []))
-    return total
+    return sum(process.rss_bytes for process in attribution), tuple(attribution)
+
+
+def process_tree_rss_bytes(root_pid: int | None) -> int | None:
+    rss_bytes, _ = process_tree_rss_snapshot(root_pid)
+    return rss_bytes
 
 
 def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -> Sample:
     inventory = measure_paths(root, policy.meter_paths)
     disk = shutil.disk_usage(root)
+    rss_bytes, process_rss_attribution = process_tree_rss_snapshot(process_pid)
     return Sample(
         timestamp=time.time(),
         project_bytes=inventory.bytes,
         project_file_count=inventory.file_count,
         host_total_bytes=disk.total,
         host_free_bytes=disk.free,
-        rss_bytes=process_tree_rss_bytes(process_pid),
+        rss_bytes=rss_bytes,
         swap_bytes=read_swap_bytes(),
         memory_pressure_level=read_memory_pressure_level(),
+        process_rss_attribution=process_rss_attribution,
     )
 
 

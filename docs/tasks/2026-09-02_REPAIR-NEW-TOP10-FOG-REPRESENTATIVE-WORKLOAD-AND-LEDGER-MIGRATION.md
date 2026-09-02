@@ -64,3 +64,4 @@ baseline: ba1e8c6
 - 2026-09-02：R13 exact-scope repair 把「全市場交易日曆」與「實際 OHLC 列」分離：日曆仍從 canonical parquet 全日期欄建立；OHLC 依 immutable episode 的 horizon-safe ranking files，只投影該 topic Top-10 股票。canonical features hash、ranking hash、episode authority、scenario 數與回測規則不變。三檔本機實測為 839 rows、peak RSS `178,159,616 bytes`。
 - 2026-09-02：R14 仍在 233.36 秒以 `PROCESS_TREE_RSS_BUDGET_EXCEEDED` 停止，peak RSS `3,390,472,192 bytes`、memory pressure `1→2`、swap delta `-58,720,256 bytes`、unknown writes=`[]`。exact OHLC 投影已生效但 process-tree 總峰值只小幅下降，故主峰來自同時存活的其他 PID／command，現有 aggregate sample 不足以歸因。
 - 2026-09-02：同一 RSS blocker 已連續 R12／R13／R14 三次，依 stop rule 停止再跑；下次只允許先補每個 sample 的 PID、RSS、command attribution，再針對最大 contributor 做單一修復。不得提高 2 GiB ceiling，也不得以縮成空 workload 通過。
+- 2026-09-02：PID／RSS／command attribution 已在本機完成並通過 storage safety／external harness 回歸；尚未取得 external representative cycle 資源授權，因此目前只有 instrumentation GREEN，沒有 contributor 歸因結論。

@@ -50,6 +50,7 @@ from app.storage_safety import (  # noqa: E402
     read_memory_pressure_level,
     reclaim_allowlisted,
     run_guarded_job,
+    take_sample,
     terminate_process_group,
     unknown_changed_paths,
 )
@@ -88,6 +89,43 @@ def fixture_job_policy(**overrides: object) -> JobPolicy:
         sample_interval_seconds=1,
     )
     return replace(policy, **overrides)
+
+
+def test_take_sample_attributes_process_tree_rss_by_pid_and_command() -> None:
+    ps_output = "\n".join(
+        (
+            "100 1 128 python worker.py --mode fog",
+            "101 100 64 python strategy_matrix.py --scenario baseline",
+            "102 100 32 /bin/sh helper.sh",
+            "999 1 4096 unrelated-process",
+        )
+    )
+    completed = subprocess.CompletedProcess([], 0, stdout=ps_output, stderr="")
+    disk_usage = shutil._ntuple_diskusage(total=100_000, used=50_000, free=50_000)
+
+    with (
+        mock.patch("app.storage_safety.subprocess.run", return_value=completed),
+        mock.patch("app.storage_safety.measure_paths", return_value=type("I", (), {"bytes": 0, "file_count": 0})()),
+        mock.patch("app.storage_safety.shutil.disk_usage", return_value=disk_usage),
+        mock.patch("app.storage_safety.read_swap_bytes", return_value=0),
+        mock.patch("app.storage_safety.read_memory_pressure_level", return_value=1),
+    ):
+        sample = take_sample(PROJECT_ROOT, fixture_job_policy(), process_pid=100)
+
+    self_rows = [row for row in sample.process_rss_attribution]
+    assert sample.rss_bytes == (128 + 64 + 32) * 1024
+    assert [row.pid for row in self_rows] == [100, 101, 102]
+    assert [row.command for row in self_rows] == [
+        "python worker.py --mode fog",
+        "python strategy_matrix.py --scenario baseline",
+        "/bin/sh helper.sh",
+    ]
+    assert sample.to_dict()["process_rss_attribution"][1] == {
+        "pid": 101,
+        "ppid": 100,
+        "rss_bytes": 64 * 1024,
+        "command": "python strategy_matrix.py --scenario baseline",
+    }
 
 
 def validation_contract_fixture(
