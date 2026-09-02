@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-FOG-REPRESENTATIVE-WORKLOAD-AND-LEDGER-MIGRATION
-status: READY_FOR_EXTERNAL_R14
+status: BLOCKED_AFTER_THIRD_RSS_STOP
 type: runtime-repair
 risk: high
 baseline: ba1e8c6
@@ -62,3 +62,5 @@ baseline: ba1e8c6
 - 2026-09-02：R12 matrix repair 不縮減 topic、scenario 或資料 authority；同一 matrix 的所有 scenario 改為共用唯讀 `trade_dates`、OHLC `price_lookup` 與 group map，避免每格重新 materialize 516,169-row Python lookup 並讓 allocator RSS 疊高。一般單次 portfolio replay 保持原 API 行為。
 - 2026-09-02：R13 在相同 233 秒區段仍達 `3,697,852,416 bytes`，證明第一次建立全市場 OHLC Python lookup 本身就是主峰，而非 scenario 間重建；guard 再次正確停止，unknown writes=`[]`，未提高 2 GiB ceiling。
 - 2026-09-02：R13 exact-scope repair 把「全市場交易日曆」與「實際 OHLC 列」分離：日曆仍從 canonical parquet 全日期欄建立；OHLC 依 immutable episode 的 horizon-safe ranking files，只投影該 topic Top-10 股票。canonical features hash、ranking hash、episode authority、scenario 數與回測規則不變。三檔本機實測為 839 rows、peak RSS `178,159,616 bytes`。
+- 2026-09-02：R14 仍在 233.36 秒以 `PROCESS_TREE_RSS_BUDGET_EXCEEDED` 停止，peak RSS `3,390,472,192 bytes`、memory pressure `1→2`、swap delta `-58,720,256 bytes`、unknown writes=`[]`。exact OHLC 投影已生效但 process-tree 總峰值只小幅下降，故主峰來自同時存活的其他 PID／command，現有 aggregate sample 不足以歸因。
+- 2026-09-02：同一 RSS blocker 已連續 R12／R13／R14 三次，依 stop rule 停止再跑；下次只允許先補每個 sample 的 PID、RSS、command attribution，再針對最大 contributor 做單一修復。不得提高 2 GiB ceiling，也不得以縮成空 workload 通過。
