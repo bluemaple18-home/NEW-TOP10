@@ -166,6 +166,11 @@ def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[
     shutil.copy2(receipt_path, evidence / f"cycle-{cycle}.json")
     (evidence / f"cycle-{cycle}.stdout.log").write_text(completed.stdout[-12000:], encoding="utf-8")
     (evidence / f"cycle-{cycle}.stderr.log").write_text(completed.stderr[-12000:], encoding="utf-8")
+    runtime_logs = evidence / f"cycle-{cycle}-runtime-logs"
+    runtime_logs.mkdir()
+    for pattern in ("fog_research_worker_*.log", "daily_research_quota_*.log", "fog_research_worker_bootstrap.log"):
+        for log_path in (sandbox / "logs").glob(pattern):
+            shutil.copy2(log_path, runtime_logs / log_path.name)
     return completed.returncode, receipt
 
 
