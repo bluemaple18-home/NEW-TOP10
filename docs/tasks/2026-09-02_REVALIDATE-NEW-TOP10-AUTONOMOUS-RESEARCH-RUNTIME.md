@@ -1,6 +1,6 @@
 ---
 id: REVALIDATE-NEW-TOP10-AUTONOMOUS-RESEARCH-RUNTIME
-status: READY_FOR_REPRESENTATIVE_VALIDATION / LIVE_ACTIVATION_NOT_AUTHORIZED
+status: BLOCKED_HOST_MEMORY_PRESSURE_2 / EXTERNAL_SANDBOX_SELECTED / LIVE_ACTIVATION_NOT_AUTHORIZED
 type: runtime-revalidation
 risk: high
 baseline: d73001ca870974625530f33f0766e7abf5231124
@@ -39,6 +39,9 @@ baseline: d73001ca870974625530f33f0766e7abf5231124
 - host free：約 `53.1 GB`；project meter 約 `1.33 GB / 21,470 files`。
 - memory pressure=`2`；swap 約 `5.75 GiB used`。
 - production measure：fog 與 PM 均精確 `NO-GO / POLICY_NOT_LIVE_VERIFIED`。
+- external sandbox target：`/Volumes/VibeCode`，可用約 `135 GiB`；`/Volumes/VibeSSD` 僅約 `32 GiB`，不採用。
+- 啟動前連續兩次 memory pressure=`2`，swap 約 `5.5 GiB used`；為避免影響其他專案，本輪未建立 full sandbox、未啟動 representative workload。
+- waiting condition：memory pressure 回到正常層級後，才可由 tmp artifact lifecycle seam 在 `/Volumes/VibeCode` 建立唯一 sandbox；第一週期非完整 PASS 即不跑第二週期。
 
 ## Boundary
 
