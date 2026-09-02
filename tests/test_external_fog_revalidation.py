@@ -35,6 +35,20 @@ class ExternalFogRevalidationTest(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "tmp_artifact_lifecycle"):
                 revalidation.main()
 
+    def test_publish_evidence_uses_fresh_destination(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-external-fog-evidence-") as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            destination = root / "published"
+            source.mkdir()
+            (source / "summary.json").write_text("{}\n", encoding="utf-8")
+
+            revalidation.publish_evidence(source, destination)
+
+            self.assertEqual((destination / "summary.json").read_text(encoding="utf-8"), "{}\n")
+            with self.assertRaises(FileExistsError):
+                revalidation.publish_evidence(source, destination)
+
     def test_project_policy_fits_measured_full_sandbox(self) -> None:
         policy = json.loads(
             (revalidation.PROJECT_ROOT / "config" / "project_sandbox_policy.json").read_text(

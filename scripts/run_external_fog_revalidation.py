@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -90,6 +91,34 @@ def build_validation_contract(sandbox: Path) -> tuple[Path, Path]:
     return marker, contract
 
 
+def resolve_evidence_destination(value: str) -> Path:
+    destination = Path(value)
+    if not destination.is_absolute():
+        raise RuntimeError("evidence destination 必須是絕對路徑")
+    resolved_parent = destination.parent.resolve(strict=True)
+    evidence_root = (PROJECT_ROOT / "docs" / "evidence").resolve(strict=True)
+    if resolved_parent != evidence_root or destination.exists() or destination.is_symlink():
+        raise RuntimeError("evidence destination 必須是 docs/evidence 下的新目錄")
+    return destination
+
+
+def publish_evidence(source: Path, destination: Path) -> None:
+    """在目的磁碟建立 staging 後原子發布，支援 external sandbox 跨 volume。"""
+
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError(f"evidence destination 已存在：{destination}")
+    staging = destination.parent / f".{destination.name}.staging-{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(source, staging)
+        if destination.exists() or destination.is_symlink():
+            raise FileExistsError(f"evidence destination 已存在：{destination}")
+        os.rename(staging, destination)
+    except BaseException:
+        if staging.exists():
+            shutil.rmtree(staging)
+        raise
+
+
 def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[int, dict[str, Any]]:
     command = [
         str(sandbox / ".venv" / "bin" / "python"),
@@ -131,14 +160,15 @@ def main() -> int:
         raise SystemExit("NO_GO: 必須由 tmp_artifact_lifecycle 啟動")
     sandbox = Path(sandbox_text).resolve(strict=True)
     external_root = Path(external_root_text).resolve(strict=True)
+    destination = resolve_evidence_destination(
+        os.environ.get("TOP10_EVIDENCE_DESTINATION", "")
+    )
     sandbox.relative_to(external_root)
     if (sandbox / ".git").exists():
         raise SystemExit("NO_GO: lifecycle root 不得是 git checkout")
 
     evidence = sandbox / EVIDENCE_DIR
     evidence.mkdir()
-    copy_project(PROJECT_ROOT, sandbox)
-    marker, contract = build_validation_contract(sandbox)
     summary: dict[str, Any] = {
         "schema_version": "top10-external-fog-revalidation.v1",
         "source_commit": subprocess.check_output(
@@ -147,25 +177,36 @@ def main() -> int:
         "sandbox_root": str(sandbox),
         "cycles": [],
     }
-    for cycle in (1, 2):
-        code, receipt = run_cycle(sandbox, marker, contract, cycle)
-        summary["cycles"].append(
-            {
-                "cycle": cycle,
-                "guard_exit_code": code,
-                "status": receipt.get("status"),
-                "reasons": receipt.get("reasons"),
-                "summary": receipt.get("summary"),
-            }
-        )
-        write_json(evidence / "summary.json", summary)
-        if code != 0 or receipt.get("status") != "OK" or receipt.get("child_exit_code") != 0:
-            summary["verdict"] = "NO-GO"
+    result = 70
+    try:
+        copy_project(PROJECT_ROOT, sandbox)
+        marker, contract = build_validation_contract(sandbox)
+        for cycle in (1, 2):
+            code, receipt = run_cycle(sandbox, marker, contract, cycle)
+            summary["cycles"].append(
+                {
+                    "cycle": cycle,
+                    "guard_exit_code": code,
+                    "status": receipt.get("status"),
+                    "reasons": receipt.get("reasons"),
+                    "summary": receipt.get("summary"),
+                }
+            )
             write_json(evidence / "summary.json", summary)
-            return code or 70
-    summary["verdict"] = "PASS_CANDIDATE"
+            if code != 0 or receipt.get("status") != "OK" or receipt.get("child_exit_code") != 0:
+                summary["verdict"] = "NO-GO"
+                result = code or 70
+                break
+        else:
+            summary["verdict"] = "PASS_CANDIDATE"
+            result = 0
+    except Exception as error:
+        summary["verdict"] = "NO-GO"
+        summary["orchestrator_error"] = f"{type(error).__name__}: {error}"
+        write_json(evidence / "summary.json", summary)
     write_json(evidence / "summary.json", summary)
-    return 0
+    publish_evidence(evidence, destination)
+    return result
 
 
 if __name__ == "__main__":
