@@ -7,13 +7,39 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from app.research.observation_ingest import ingest_corpus, ledger_snapshot
+from app.research.observation_ingest import (
+    DUCKDB_INGEST_MEMORY_LIMIT,
+    _configure_write_connection,
+    ingest_corpus,
+    ledger_snapshot,
+)
 from app.research.run_receipts import finish_topic_attempt
 from tests.test_autonomous_research_receipts import (
     begin,
     write_development_authority,
     write_matrix,
 )
+
+
+def test_write_connection_is_resource_bounded_and_spills_under_tmpdir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "runtime-tmp"))
+    ledger = tmp_path / "ledger.duckdb"
+    connection = duckdb.connect(str(ledger))
+    try:
+        spill_path = _configure_write_connection(connection, ledger_path=ledger)
+        settings = connection.execute(
+            "SELECT current_setting('threads'), "
+            "current_setting('preserve_insertion_order'), "
+            "current_setting('memory_limit'), current_setting('temp_directory')"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert settings == (1, False, "976.5 MiB", str(spill_path))
+    assert spill_path.is_relative_to(tmp_path / "runtime-tmp")
+    assert DUCKDB_INGEST_MEMORY_LIMIT == "1024MB"
 
 
 def corpus_with_receipt(tmp_path: Path, *, total_return: float = 0.08) -> tuple[Path, str]:

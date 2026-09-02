@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import math
+import tempfile
 import uuid
 from collections import Counter
 from dataclasses import dataclass
@@ -39,6 +40,7 @@ SCHEMA_VERSION = "research-ledger.v1"
 OBSERVATION_IDENTITY_POLICY = "executed-trial-lineage-result-unit.v1"
 METRIC_POLICY_VERSION = "strategy-matrix-metrics.v1"
 ATTEMPT_INCLUSION_POLICY = "terminal-receipts-all-statuses.v1"
+DUCKDB_INGEST_MEMORY_LIMIT = "1024MB"
 
 
 DDL = """
@@ -810,6 +812,21 @@ def _init(connection: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def _configure_write_connection(
+    connection: duckdb.DuckDBPyConnection, *, ledger_path: Path
+) -> Path:
+    """限制衍生 ledger 匯入資源，並讓 spill 跟隨本次受控暫存根目錄。"""
+    temp_root = Path(os.environ.get("TMPDIR") or tempfile.gettempdir()).resolve()
+    ledger_key = hashlib.sha256(str(ledger_path.resolve()).encode("utf-8")).hexdigest()[:16]
+    spill_path = temp_root / "top10-duckdb" / ledger_key
+    spill_path.mkdir(parents=True, exist_ok=True)
+    connection.execute("SET threads = 1")
+    connection.execute("SET preserve_insertion_order = false")
+    connection.execute(f"SET memory_limit = '{DUCKDB_INGEST_MEMORY_LIMIT}'")
+    connection.execute("SET temp_directory = ?", [str(spill_path)])
+    return spill_path
+
+
 def _insert_content_addressed(
     connection: duckdb.DuckDBPyConnection,
     *,
@@ -1316,6 +1333,7 @@ def ingest_corpus(
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect(str(ledger_path))
     try:
+        _configure_write_connection(connection, ledger_path=ledger_path)
         _init(connection)
         loaders = (
             ("trial_spec", "trial_specs", _ingest_trial_spec),

@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-FOG-REPRESENTATIVE-WORKLOAD-AND-LEDGER-MIGRATION
-status: READY_FOR_EXTERNAL_R6
+status: IN_PROGRESS_R9_DUCKDB_MEMORY_REPAIR
 type: runtime-repair
 risk: high
 baseline: ba1e8c6
@@ -52,3 +52,5 @@ baseline: ba1e8c6
 - 2026-09-02：R7 另觀測 `PROTECTED_ROOT_MUTATED` 但舊 receipt 未列具體 path；guard receipt 已補精確 changed paths，以便下一輪分辨真實 source mutation 與外部干擾。
 - 2026-09-02：R8 已證明 WAL 登記修復：unknown writes=`[]`，亦未再出現 protected-root mutation。第一週期執行 176.15 秒、peak RSS `1,096,941,568 bytes`（約 1.02 GiB，低於 2 GiB）、memory pressure `2→1`，但全機 swap 增加約 2.93 GiB，舊 `RSS_AND_SWAP_RISING` 在第三個 sample 誤判正常 warm-up 而停止。
 - 2026-09-02：R8 stop-loss RED 修復：當 macOS memory-pressure 指標可讀時，連續 RSS／全機 swap 上升不再單獨觸發；仍保留 2 GiB process-tree hard ceiling、連續 critical pressure stop，以及 pressure 不可讀時的 RSS+swap fallback。回歸同時覆蓋「pressure 改善不誤殺」與「sensor 不可用仍 fail closed」。
+- 2026-09-02：R9 證明前述誤判已排除：memory pressure 全程 `1`、unknown writes=`[]`、未再出現 protected-root mutation；但 migration ingest 在 171.63 秒因 DuckDB 單一交易達預設 `12.7 GiB/12.7 GiB` 而 OOM，代表性 fixture 因而尚未啟動。process-tree peak RSS `2,116,730,880 bytes`，距 2 GiB hard ceiling 約 30.75 MiB，故不得提高上限。
+- 2026-09-02：R9 memory repair 依實際 OOM 指引把 ledger writer 固定為單執行緒、關閉 insertion-order preservation、設定 `1024MB` DuckDB memory limit，並將 spill 置於 `TMPDIR/top10-duckdb/<ledger-key>`；外接驗證時 `TMPDIR` 已指向 `/Volumes/VibeCode`，不把 spill 落到內碟。
