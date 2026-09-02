@@ -11,6 +11,18 @@ from scripts import run_external_fog_revalidation as revalidation
 
 
 class ExternalFogRevalidationTest(unittest.TestCase):
+    def test_copy_project_includes_only_required_doc_authorities(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp) / "sandbox"
+            sandbox.mkdir()
+            revalidation.copy_project(revalidation.PROJECT_ROOT, sandbox)
+
+            assert (
+                sandbox / "docs/architecture/fog_runtime_receipt_v3.schema.json"
+            ).is_file()
+            assert (sandbox / "docs/operations/top10-storage-policy.json").is_file()
+            assert not (sandbox / "docs/tasks").exists()
+
     def test_run_cycle_rejects_guard_ok_when_topic_runs_are_empty(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-external-fog-empty-") as tmp:
             sandbox = Path(tmp)
