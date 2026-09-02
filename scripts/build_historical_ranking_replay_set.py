@@ -36,6 +36,7 @@ from app.research.ranking_provenance_receipt import (
     producer_source_lineage,
     snapshot_inputs,
     stable_ranked_top_n,
+    validate_completed_trade_date_authority,
 )
 from app.signals.price_patterns import PRICE_PATTERN_COLUMNS, add_price_patterns
 
@@ -56,6 +57,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scenario", default="baseline_research")
     parser.add_argument("--forward-capture", action="store_true", help="只允許明示單日的 forward research capture")
     parser.add_argument("--capture-trade-date", default=None, help="forward capture 當日已驗證的交易日")
+    parser.add_argument("--capture-authority-artifact", default=None, help="repo-relative daily completion evidence JSON")
     parser.add_argument("--run-identity", default=None, help="測試或外部排程提供的唯一 run identity")
     return parser.parse_args()
 
@@ -258,7 +260,16 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         max_dates=args.max_dates,
     )
     capture_mode = "FORWARD_CAPTURE" if args.forward_capture else "REPLAY_GENERATED"
-    trusted_capture_trade_date = date.today().isoformat()
+    trusted_capture_trade_date = None
+    completed_authority: dict[str, str] | None = None
+    if capture_mode == "FORWARD_CAPTURE":
+        if not args.capture_authority_artifact:
+            raise RankingProvenanceError("FORWARD_CAPTURE 必須提供 --capture-authority-artifact")
+        trusted_capture_trade_date, completed_authority = validate_completed_trade_date_authority(
+            project_root=PROJECT_ROOT,
+            authority_artifact=args.capture_authority_artifact,
+            capture_trade_date=args.capture_trade_date,
+        )
     admission_eligible, _ = ensure_capture_mode(
         capture_mode=capture_mode,
         ranking_dates=dates,
@@ -294,6 +305,8 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
         "config": config_path,
         "model_source": source_model_path,
     }
+    if completed_authority is not None and args.capture_authority_artifact is not None:
+        strict_input_paths["completed_trade_date_authority"] = resolve_path(args.capture_authority_artifact)
     inputs_before = snapshot_inputs(PROJECT_ROOT, strict_input_paths)
     strict_universe = load_universe(data_dir, pd.DataFrame({"stock_id": []}), strict=True)
     validate_universe_coverage(strict_universe, dates)
@@ -362,6 +375,11 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
                 top_n=args.top_n,
                 capture_mode=capture_mode,
                 admission_eligible=admission_value,
+                extra_inputs=(
+                    {"completed_trade_date_authority": inputs_before["completed_trade_date_authority"]}
+                    if completed_authority is not None
+                    else None
+                ),
                 score_column="risk_adjusted_score",
             )
             bundle.add_receipt(date_text, receipt)

@@ -34,6 +34,7 @@ from app.research.ranking_provenance_receipt import (  # noqa: E402
     producer_source_lineage,
     snapshot_inputs,
     stable_ranked_top_n,
+    validate_completed_trade_date_authority,
 )
 from app.stock_names import get_stock_name  # noqa: E402
 from scripts.research_feature_group_ablation_by_regime import attach_industry_factors  # noqa: E402
@@ -90,6 +91,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scenario", default="regime_shadow_research")
     parser.add_argument("--forward-capture", action="store_true", help="只允許明示單日的 forward research capture")
     parser.add_argument("--capture-trade-date", default=None, help="forward capture 當日已驗證的交易日")
+    parser.add_argument("--capture-authority-artifact", default=None, help="repo-relative daily completion evidence JSON")
     parser.add_argument("--run-identity", default=None, help="測試或外部排程提供的唯一 run identity")
     return parser.parse_args()
 
@@ -359,7 +361,16 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
     if not dates:
         raise FileNotFoundError(f"找不到 ranking_*.csv 日期：{source_dir}")
     capture_mode = "FORWARD_CAPTURE" if args.forward_capture else "REPLAY_GENERATED"
-    trusted_capture_trade_date = date.today().isoformat()
+    trusted_capture_trade_date = None
+    completed_authority: dict[str, str] | None = None
+    if capture_mode == "FORWARD_CAPTURE":
+        if not args.capture_authority_artifact:
+            raise RankingProvenanceError("FORWARD_CAPTURE 必須提供 --capture-authority-artifact")
+        trusted_capture_trade_date, completed_authority = validate_completed_trade_date_authority(
+            project_root=PROJECT_ROOT,
+            authority_artifact=args.capture_authority_artifact,
+            capture_trade_date=args.capture_trade_date,
+        )
     admission_eligible, _ = ensure_capture_mode(
         capture_mode=capture_mode,
         ranking_dates=dates,
@@ -392,6 +403,8 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
         "market_regime_history": regime_path,
         "industry_map": industry_path,
     }
+    if completed_authority is not None and args.capture_authority_artifact is not None:
+        strict_input_paths["completed_trade_date_authority"] = resolve_path(args.capture_authority_artifact)
     for date_text in dates:
         # dates-from-dir 的 ranking 僅是排程日期來源，絕不作為 scoring lineage。
         strict_input_paths[f"calendar_schedule_{date_text}"] = source_dir / f"ranking_{date_text}.csv"
@@ -458,6 +471,13 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
             shadow = stable_ranked_top_n(shadow, score_column="shadow_score", top_n=args.top_n)
             out_path = bundle.ranking_dir / f"ranking_{date_text}.csv"
             write_ranking(out_path, shadow)
+            extra_inputs = {
+                "market_regime_history": inputs_before["market_regime_history"],
+                "industry_map": inputs_before["industry_map"],
+                "calendar_schedule_source": inputs_before[f"calendar_schedule_{date_text}"],
+            }
+            if completed_authority is not None:
+                extra_inputs["completed_trade_date_authority"] = inputs_before["completed_trade_date_authority"]
             receipt = build_receipt(
                 project_root=PROJECT_ROOT,
                 scenario=args.scenario,
@@ -480,11 +500,7 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
                 capture_mode=capture_mode,
                 admission_eligible=admission_value,
                 score_column="shadow_score",
-                extra_inputs={
-                    "market_regime_history": inputs_before["market_regime_history"],
-                    "industry_map": inputs_before["industry_map"],
-                    "calendar_schedule_source": inputs_before[f"calendar_schedule_{date_text}"],
-                },
+                extra_inputs=extra_inputs,
             )
             bundle.add_receipt(date_text, receipt)
             outputs.append({

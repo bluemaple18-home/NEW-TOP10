@@ -43,7 +43,12 @@ _MANIFEST_FIELDS = {
     "producer_entrypoint", "capture_mode", "entries", "input_hashes_before",
     "input_hashes_after", "planned_rankings", "manifest_identity",
 }
-_STRICT_INPUT_NAMES = {"market_regime_history", "industry_map", "calendar_schedule_source"}
+_STRICT_INPUT_NAMES = {
+    "market_regime_history",
+    "industry_map",
+    "calendar_schedule_source",
+    "completed_trade_date_authority",
+}
 
 
 class RankingProvenanceError(RuntimeError):
@@ -184,6 +189,82 @@ def snapshot_inputs(project_root: Path, inputs: Mapping[str, Path]) -> dict[str,
             raise RankingProvenanceError("strict input 名稱或 path 不合法")
         snapshot[name] = {"path": _repo_relative(project_root, path), "sha256": sha256_file(path)}
     return snapshot
+
+
+def _step_status(payload: Mapping[str, Any], name: str) -> str | None:
+    steps = payload.get("steps")
+    if not isinstance(steps, list):
+        return None
+    for item in steps:
+        if isinstance(item, Mapping) and item.get("name") == name:
+            status = item.get("status")
+            return str(status) if status is not None else None
+    return None
+
+
+def _dataset_info(payload: Mapping[str, Any], dataset_name: str) -> Mapping[str, Any]:
+    metadata = payload.get("metadata")
+    freshness = metadata.get("data_freshness") if isinstance(metadata, Mapping) else None
+    datasets = freshness.get("datasets") if isinstance(freshness, Mapping) else None
+    info = datasets.get(dataset_name) if isinstance(datasets, Mapping) else None
+    return info if isinstance(info, Mapping) else {}
+
+
+def _features_have_required_market_coverage(info: Mapping[str, Any]) -> bool:
+    coverage = info.get("latest_market_coverage")
+    markets = coverage.get("markets") if isinstance(coverage, Mapping) else None
+    if not isinstance(markets, list):
+        return False
+    statuses: dict[str, str] = {}
+    for item in markets:
+        if not isinstance(item, Mapping):
+            continue
+        market = item.get("market_type", item.get("market"))
+        status = item.get("status")
+        if market is not None and status is not None:
+            statuses[str(market).upper()] = str(status).upper()
+    return statuses.get("TWSE") == "OK" and statuses.get("TPEX") == "OK"
+
+
+def validate_completed_trade_date_authority(
+    *, project_root: Path, authority_artifact: str, capture_trade_date: str | None,
+) -> tuple[str, dict[str, str]]:
+    """從不可自填的 daily completion evidence 驗證 completed trade date。
+
+    Forward capture 不信任 wall clock；必須由 repo-relative automation status artifact
+    同時證明 run date、after-ETL freshness、資料最新日、雙市場 coverage 與 ranking step。
+    """
+
+    if not capture_trade_date:
+        raise RankingProvenanceError("FORWARD_CAPTURE 必須明示 capture trade date")
+    authority_path = _safe_repo_path(project_root, authority_artifact)
+    try:
+        raw = authority_path.read_bytes()
+        payload = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RankingProvenanceError("completed trade date authority artifact 不可讀") from error
+    if not isinstance(payload, Mapping):
+        raise RankingProvenanceError("completed trade date authority artifact 必須是 JSON object")
+    if payload.get("status") != "OK":
+        raise RankingProvenanceError("completed trade date authority status 必須為 OK")
+    if payload.get("run_date") != capture_trade_date:
+        raise RankingProvenanceError("completed trade date authority run_date 必須等於 capture date")
+    if _step_status(payload, "data.freshness.after_etl") != "OK":
+        raise RankingProvenanceError("completed trade date authority 缺少 after-ETL OK")
+    if _step_status(payload, "ranking") != "OK":
+        raise RankingProvenanceError("completed trade date authority 缺少 ranking OK")
+    features = _dataset_info(payload, "features.parquet")
+    universe = _dataset_info(payload, "universe.parquet")
+    if features.get("latest_date") != capture_trade_date:
+        raise RankingProvenanceError("features latest_date 必須等於 capture date")
+    if universe.get("latest_date") != capture_trade_date:
+        raise RankingProvenanceError("universe latest_date 必須等於 capture date")
+    if not _features_have_required_market_coverage(features):
+        raise RankingProvenanceError("features latest market coverage 必須包含 TWSE/TPEX OK")
+    return capture_trade_date, {
+        "path": _repo_relative(project_root, authority_path),
+        "sha256": sha256_bytes(raw),
+    }
 
 
 def assert_same_inputs(before: Mapping[str, Any], after: Mapping[str, Any]) -> None:

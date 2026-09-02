@@ -16,6 +16,39 @@ def _write(path: Path, text: str) -> Path:
     return path
 
 
+def _authority_payload(date_text: str = "2026-09-01") -> dict:
+    return {
+        "schema_version": "automation-status.v1",
+        "run_date": date_text,
+        "mode": "daily",
+        "status": "OK",
+        "steps": [
+            {"name": "data.freshness.after_etl", "status": "OK"},
+            {"name": "ranking", "status": "OK"},
+        ],
+        "metadata": {
+            "data_freshness": {
+                "datasets": {
+                    "features.parquet": {
+                        "latest_date": date_text,
+                        "latest_market_coverage": {
+                            "markets": [
+                                {"market_type": "TWSE", "status": "OK"},
+                                {"market_type": "TPEX", "status": "OK"},
+                            ]
+                        },
+                    },
+                    "universe.parquet": {"latest_date": date_text},
+                }
+            }
+        },
+    }
+
+
+def _write_authority(project: Path, payload: dict, name: str = "automation_status_2026-09-01.json") -> Path:
+    return _write(project / "artifacts" / name, json.dumps(payload, ensure_ascii=False, sort_keys=True))
+
+
 def _metadata(project: Path) -> tuple[dict, dict, dict, dict, dict]:
     model = _write(project / "models/model-a.pkl", "model")
     config = _write(project / "config/signals.yaml", "scoring: {}\n")
@@ -55,6 +88,73 @@ def test_forward_mode_requires_explicit_single_matching_capture_date() -> None:
             capture_mode=receipts.FORWARD_CAPTURE, ranking_dates=["2026-08-16", "2026-08-17"], capture_trade_date="2026-08-16",
             trusted_capture_trade_date="2026-08-16",
         )
+
+
+def test_completed_trade_date_authority_accepts_local_completion_evidence(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    path = _write_authority(project, _authority_payload())
+    trusted_date, meta = receipts.validate_completed_trade_date_authority(
+        project_root=project,
+        authority_artifact=path.relative_to(project).as_posix(),
+        capture_trade_date="2026-09-01",
+    )
+    assert trusted_date == "2026-09-01"
+    assert meta == {"path": "artifacts/automation_status_2026-09-01.json", "sha256": receipts.sha256_file(path)}
+
+
+@pytest.mark.parametrize(
+    ("mutate", "match"),
+    [
+        (lambda payload: payload.update({"status": "FAILED"}), "status"),
+        (lambda payload: payload.update({"run_date": "2026-09-02"}), "run_date"),
+        (lambda payload: payload.update({"steps": [step for step in payload["steps"] if step["name"] != "data.freshness.after_etl"]}), "after-ETL"),
+        (lambda payload: payload["steps"][0].update({"status": "FAILED"}), "after-ETL"),
+        (lambda payload: payload["metadata"]["data_freshness"]["datasets"]["features.parquet"].update({"latest_date": "2026-08-31"}), "features latest_date"),
+        (lambda payload: payload["metadata"]["data_freshness"]["datasets"]["universe.parquet"].update({"latest_date": "2026-08-31"}), "universe latest_date"),
+        (lambda payload: payload["metadata"]["data_freshness"]["datasets"]["features.parquet"]["latest_market_coverage"].update({"markets": [{"market_type": "TWSE", "status": "OK"}]}), "TWSE/TPEX"),
+        (lambda payload: payload["metadata"]["data_freshness"]["datasets"]["features.parquet"]["latest_market_coverage"]["markets"][1].update({"status": "FAILED"}), "TWSE/TPEX"),
+        (lambda payload: payload["steps"][1].update({"status": "FAILED"}), "ranking OK"),
+    ],
+)
+def test_completed_trade_date_authority_rejects_incomplete_or_stale_evidence(tmp_path: Path, mutate, match: str) -> None:
+    project = tmp_path / "project"
+    payload = _authority_payload()
+    mutate(payload)
+    path = _write_authority(project, payload)
+    with pytest.raises(receipts.RankingProvenanceError, match=match):
+        receipts.validate_completed_trade_date_authority(
+            project_root=project,
+            authority_artifact=path.relative_to(project).as_posix(),
+            capture_trade_date="2026-09-01",
+        )
+
+
+def test_completed_trade_date_authority_rejects_missing_or_non_repo_relative_artifact(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    with pytest.raises(receipts.RankingProvenanceError, match="不可讀"):
+        receipts.validate_completed_trade_date_authority(
+            project_root=project,
+            authority_artifact="artifacts/missing.json",
+            capture_trade_date="2026-09-01",
+        )
+    path = _write_authority(project, _authority_payload())
+    with pytest.raises(receipts.RankingProvenanceError, match="絕對路徑"):
+        receipts.validate_completed_trade_date_authority(
+            project_root=project,
+            authority_artifact=str(path),
+            capture_trade_date="2026-09-01",
+        )
+
+
+def test_completed_trade_date_authority_bytes_drift_fails_input_snapshot(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    path = _write_authority(project, _authority_payload())
+    before = receipts.snapshot_inputs(project, {"completed_trade_date_authority": path})
+    _write_authority(project, _authority_payload("2026-09-02"))
+    after = receipts.snapshot_inputs(project, {"completed_trade_date_authority": path})
+    with pytest.raises(receipts.RankingProvenanceError, match="strict input"):
+        receipts.assert_same_inputs(before, after)
     with pytest.raises(receipts.RankingProvenanceError, match="trusted"):
         receipts.ensure_capture_mode(
             capture_mode=receipts.FORWARD_CAPTURE, ranking_dates=["2026-08-15"], capture_trade_date="2026-08-15",
