@@ -47,6 +47,7 @@ from app.storage_safety import (  # noqa: E402
     load_policy,
     measure_paths,
     process_group_is_quiescent,
+    read_memory_pressure_level,
     reclaim_allowlisted,
     run_guarded_job,
     terminate_process_group,
@@ -370,13 +371,22 @@ class StorageSafetyRegressionTest(unittest.TestCase):
         self.assertTrue(
             {
                 "PROCESS_TREE_RSS_BUDGET_EXCEEDED",
-                "SWAP_GROWTH_BUDGET_EXCEEDED",
+                "MEMORY_PRESSURE_METRIC_UNAVAILABLE_SWAP_GROWTH_BUDGET_EXCEEDED",
             }.issubset(set(hard_memory_decision.reasons))
         )
         missing_rss = replace(runtime_samples[-1], rss_bytes=None)
         self.assertIn(
             "RSS_METRIC_UNAVAILABLE",
             evaluate_runtime(global_policy, policy, [missing_rss]).reasons,
+        )
+        critical_preflight = evaluate_preflight(
+            global_policy,
+            policy,
+            replace(preflight, memory_pressure_level=3),
+        )
+        self.assertIn(
+            "HOST_MEMORY_PRESSURE_CRITICAL_OR_JETSAM",
+            critical_preflight.reasons,
         )
 
         validation_decision = evaluate_preflight(
@@ -392,6 +402,117 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             validation_only=True,
         )
         self.assertFalse(validation_decision.triggered)
+
+    def test_swap_growth_alone_does_not_stop_when_pressure_is_readable_and_non_critical(
+        self,
+    ) -> None:
+        global_policy = fixture_global_policy()
+        policy = fixture_job_policy(max_swap_growth_bytes=100)
+        samples = [
+            Sample(0, 10, 1, 100_000, 50_000, 1000, 0, memory_pressure_level=0),
+            Sample(1, 10, 1, 100_000, 50_000, 1000, 150, memory_pressure_level=1),
+            Sample(2, 10, 1, 100_000, 50_000, 1000, 250, memory_pressure_level=2),
+        ]
+
+        decision = evaluate_runtime(global_policy, policy, samples)
+
+        self.assertFalse(decision.triggered)
+        self.assertNotIn("SWAP_GROWTH_BUDGET_EXCEEDED", decision.reasons)
+
+    def test_earlier_pressure_sensor_gap_does_not_poison_later_swap_growth(
+        self,
+    ) -> None:
+        global_policy = fixture_global_policy()
+        policy = fixture_job_policy(max_swap_growth_bytes=100)
+        samples = [
+            Sample(0, 10, 1, 100_000, 50_000, 1000, 0, memory_pressure_level=None),
+            Sample(1, 10, 1, 100_000, 50_000, 1000, 50, memory_pressure_level=0),
+            Sample(2, 10, 1, 100_000, 50_000, 1000, 250, memory_pressure_level=1),
+        ]
+
+        decision = evaluate_runtime(global_policy, policy, samples)
+
+        self.assertFalse(decision.triggered)
+        self.assertNotIn(
+            "MEMORY_PRESSURE_METRIC_UNAVAILABLE_SWAP_GROWTH_BUDGET_EXCEEDED",
+            decision.reasons,
+        )
+
+    def test_memory_pressure_runtime_stop_loss_distinguishes_emergency_and_fallback(
+        self,
+    ) -> None:
+        global_policy = fixture_global_policy()
+        policy = fixture_job_policy(max_swap_growth_bytes=100)
+        single_critical = [
+            Sample(0, 10, 1, 100_000, 50_000, 1000, 0, memory_pressure_level=0),
+            Sample(1, 10, 1, 100_000, 50_000, 1000, 0, memory_pressure_level=3),
+        ]
+        two_critical = [
+            Sample(0, 10, 1, 100_000, 50_000, 1000, 0, memory_pressure_level=0),
+            Sample(1, 10, 1, 100_000, 50_000, 1000, 0, memory_pressure_level=3),
+            Sample(2, 10, 1, 100_000, 50_000, 1000, 0, memory_pressure_level=4),
+        ]
+        unavailable_pressure_with_swap_growth = [
+            Sample(0, 10, 1, 100_000, 50_000, 1000, 0, memory_pressure_level=None),
+            Sample(1, 10, 1, 100_000, 50_000, 1000, 150, memory_pressure_level=None),
+        ]
+
+        self.assertFalse(evaluate_runtime(global_policy, policy, single_critical).triggered)
+        self.assertIn(
+            "MEMORY_PRESSURE_CRITICAL_OR_JETSAM",
+            evaluate_runtime(global_policy, policy, two_critical).reasons,
+        )
+        self.assertEqual(
+            evaluate_runtime(
+                global_policy,
+                policy,
+                unavailable_pressure_with_swap_growth,
+            ).reasons,
+            ("MEMORY_PRESSURE_METRIC_UNAVAILABLE_SWAP_GROWTH_BUDGET_EXCEEDED",),
+        )
+
+    def test_read_memory_pressure_level_accepts_only_xnu_defined_values(self) -> None:
+        def completed(stdout: str, returncode: int = 0) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                args=["sysctl"],
+                returncode=returncode,
+                stdout=stdout,
+                stderr="",
+            )
+
+        with mock.patch("app.storage_safety.sys.platform", "darwin"):
+            with mock.patch(
+                "app.storage_safety.subprocess.run",
+                return_value=completed("2\n"),
+            ) as run:
+                self.assertEqual(read_memory_pressure_level(), 2)
+                self.assertEqual(
+                    run.call_args.args[0],
+                    ["/usr/sbin/sysctl", "-n", "kern.memorystatus_vm_pressure_level"],
+                )
+            with mock.patch(
+                "app.storage_safety.subprocess.run",
+                return_value=completed("5\n"),
+            ):
+                self.assertIsNone(read_memory_pressure_level())
+            with mock.patch(
+                "app.storage_safety.subprocess.run",
+                return_value=completed("warning\n"),
+            ):
+                self.assertIsNone(read_memory_pressure_level())
+            with mock.patch(
+                "app.storage_safety.subprocess.run",
+                return_value=completed("2\n", returncode=1),
+            ):
+                self.assertIsNone(read_memory_pressure_level())
+            with mock.patch(
+                "app.storage_safety.subprocess.run",
+                side_effect=OSError,
+            ):
+                self.assertIsNone(read_memory_pressure_level())
+
+        with mock.patch("app.storage_safety.sys.platform", "linux"):
+            self.assertIsNone(read_memory_pressure_level())
 
     def test_allowlisted_reclaim_recovers_bytes_without_touching_protected_file(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-reclaim-") as tmp:
@@ -618,6 +739,64 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 self.assertEqual(stopped, 70)
                 self.assertEqual(denied, 75)
                 self.assertTrue(marker.exists())
+                self.assertIsNone(protected.poll())
+            finally:
+                if protected.poll() is None:
+                    protected.terminate()
+                    protected.wait(timeout=2)
+
+    def test_guard_stops_when_latest_live_pressure_unavailable_and_swap_exceeds_budget(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-pressure-fallback-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            policy = fixture_job_policy(max_swap_growth_bytes=100, sample_interval_seconds=1)
+            global_policy = fixture_global_policy()
+            protected = subprocess.Popen(["/bin/sleep", "30"], start_new_session=True)
+            sample_count = 0
+
+            def sampler(_pid: int | None) -> Sample:
+                nonlocal sample_count
+                sample_count += 1
+                is_latest_live = sample_count >= 3
+                return Sample(
+                    timestamp=time.time(),
+                    project_bytes=0,
+                    project_file_count=0,
+                    host_total_bytes=100_000,
+                    host_free_bytes=50_000,
+                    rss_bytes=1024,
+                    swap_bytes=250 if is_latest_live else 0,
+                    memory_pressure_level=None if is_latest_live else 0,
+                )
+
+            try:
+                result = run_guarded_job(
+                    root,
+                    global_policy,
+                    policy,
+                    (),
+                    ["/bin/sh", "-c", "/bin/sleep 30 & wait"],
+                    sampler=sampler,
+                )
+                receipt = json.loads(
+                    (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                marker = root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+                denial = json.loads(marker.read_text(encoding="utf-8"))
+
+                self.assertEqual(result, 70)
+                self.assertEqual(receipt["status"], "STOPPED")
+                self.assertEqual(
+                    receipt["reasons"],
+                    [
+                        "MEMORY_PRESSURE_METRIC_UNAVAILABLE_SWAP_GROWTH_BUDGET_EXCEEDED"
+                    ],
+                )
+                self.assertEqual(denial["reasons"], receipt["reasons"])
                 self.assertIsNone(protected.poll())
             finally:
                 if protected.poll() is None:
@@ -2551,6 +2730,7 @@ raise SystemExit(
                     host_free_bytes=100 * 1024**3,
                     rss_bytes=1024,
                     swap_bytes=0,
+                    memory_pressure_level=1,
                 )
 
             command = [
@@ -2567,7 +2747,12 @@ raise SystemExit(
             self.assertTrue(receipt.exists())
             self.assertFalse(denied.exists())
             self.assertEqual((root / "output" / "result.log").read_text(encoding="utf-8"), "xx")
-            self.assertGreaterEqual(receipt.read_text(encoding="utf-8").count('"rss_bytes"'), 3)
+            payload = json.loads(receipt.read_text(encoding="utf-8"))
+            self.assertGreaterEqual(len(payload["samples"]), 3)
+            self.assertTrue(
+                all("memory_pressure_level" in sample for sample in payload["samples"])
+            )
+            self.assertEqual(payload["summary"]["peak_live_memory_pressure_level"], 1)
 
     def test_validation_only_cycle_records_mode_and_keeps_production_policy_unverified(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-validation-") as tmp:

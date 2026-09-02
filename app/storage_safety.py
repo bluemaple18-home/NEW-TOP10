@@ -97,6 +97,7 @@ class Sample:
     rss_bytes: int | None
     swap_bytes: int | None
     phase: str = "live"
+    memory_pressure_level: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -412,6 +413,30 @@ def read_swap_bytes() -> int | None:
     return int(float(match.group(1)) * scales[match.group(2).upper()])
 
 
+def read_memory_pressure_level(
+    command: Sequence[str] = ("/usr/sbin/sysctl", "-n", "kern.memorystatus_vm_pressure_level"),
+) -> int | None:
+    """讀取 macOS XNU memory pressure level；不可讀或非 0..4 時回傳 None。"""
+
+    if sys.platform != "darwin":
+        return None
+    try:
+        completed = subprocess.run(
+            list(command),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if completed.returncode != 0:
+        return None
+    raw = completed.stdout.strip()
+    if not re.fullmatch(r"[0-4]", raw):
+        return None
+    return int(raw)
+
+
 def process_tree_rss_bytes(root_pid: int | None) -> int | None:
     if root_pid is None or root_pid <= 0:
         return 0
@@ -461,6 +486,7 @@ def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -
         host_free_bytes=disk.free,
         rss_bytes=process_tree_rss_bytes(process_pid),
         swap_bytes=read_swap_bytes(),
+        memory_pressure_level=read_memory_pressure_level(),
     )
 
 
@@ -493,6 +519,8 @@ def evaluate_preflight(
         reasons.append("HOST_START_FREE_SPACE_BELOW_THRESHOLD")
     if global_policy.require_swap_metric and sample.swap_bytes is None:
         reasons.append("SWAP_METRIC_UNAVAILABLE")
+    if sample.memory_pressure_level is not None and sample.memory_pressure_level >= 3:
+        reasons.append("HOST_MEMORY_PRESSURE_CRITICAL_OR_JETSAM")
     return StopDecision(bool(reasons), tuple(reasons))
 
 
@@ -549,12 +577,23 @@ def evaluate_runtime(
     observed_swap = [
         sample.swap_bytes for sample in live_samples if sample.swap_bytes is not None
     ]
-    if (
+    swap_growth_budget_exceeded = (
         baseline_swap is not None
         and observed_swap
         and max(observed_swap) - baseline_swap > policy.max_swap_growth_bytes
+    )
+    latest_live = live_samples[-1] if live_samples else None
+    if (
+        swap_growth_budget_exceeded
+        and latest_live is not None
+        and latest_live.memory_pressure_level is None
     ):
-        reasons.append("SWAP_GROWTH_BUDGET_EXCEEDED")
+        reasons.append("MEMORY_PRESSURE_METRIC_UNAVAILABLE_SWAP_GROWTH_BUDGET_EXCEEDED")
+    recent_pressure = [sample.memory_pressure_level for sample in live_samples[-2:]]
+    if len(recent_pressure) == 2 and all(
+        level is not None and level >= 3 for level in recent_pressure
+    ):
+        reasons.append("MEMORY_PRESSURE_CRITICAL_OR_JETSAM")
     if unknown_paths:
         reasons.append("UNREGISTERED_WRITE_PATH")
     if registered_unmetered_paths:
@@ -1157,6 +1196,16 @@ def _receipt_payload(
                 last.swap_bytes - first.swap_bytes
                 if first and last and first.swap_bytes is not None and last.swap_bytes is not None
                 else None
+            ),
+            "first_memory_pressure_level": first.memory_pressure_level if first else None,
+            "last_memory_pressure_level": last.memory_pressure_level if last else None,
+            "peak_live_memory_pressure_level": max(
+                (
+                    sample.memory_pressure_level
+                    for sample in samples
+                    if sample.phase == "live" and sample.memory_pressure_level is not None
+                ),
+                default=None,
             ),
             "observed_growth_bytes_per_hour": growth_rate,
             "unknown_changed_paths": list(unknown_paths),

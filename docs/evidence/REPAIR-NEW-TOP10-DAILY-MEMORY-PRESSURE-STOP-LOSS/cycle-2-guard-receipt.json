@@ -1,0 +1,161 @@
+{
+  "child_exit_code": 0,
+  "command": [
+    "/Users/mattkuo/TOP10new/.venv/bin/python",
+    "-I",
+    "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/scripts/storage_validation/daily.py",
+    "--source-root",
+    "/Users/mattkuo/TOP10new",
+    "--output-root",
+    "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs",
+    "--runtime-root",
+    "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/logs/storage_safety/runtime/daily/cycle-2",
+    "--run-date",
+    "2026-08-31",
+    "--cycle-id",
+    "cycle-2",
+    "--snapshot-input",
+    "/Users/mattkuo/TOP10new/data/clean/features.parquet"
+  ],
+  "final_process_group_checked_at": "2026-09-02T01:45:45.577663+00:00",
+  "final_process_group_quiescent": true,
+  "job": "daily",
+  "launch_verified": true,
+  "limits": {
+    "expected_growth_bytes_per_hour": 536870912,
+    "max_bytes": 6442450944,
+    "max_file_count": 60000,
+    "max_process_tree_rss_bytes": 4294967296,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 7200,
+    "stabilize_after_seconds": 14400
+  },
+  "max_runtime_seconds": 900.0,
+  "process_group": {
+    "final_checked_at": "2026-09-02T01:45:45.577663+00:00",
+    "final_quiescent": true,
+    "verified_identity": {
+      "group_id": 81389,
+      "leader_pid": 81389,
+      "leader_start_token": "Wed Sep  2 09:44:53 2026",
+      "session_id": 81389
+    }
+  },
+  "process_group_identity": {
+    "group_id": 81389,
+    "leader_pid": 81389,
+    "leader_start_token": "Wed Sep  2 09:44:53 2026",
+    "session_id": 81389
+  },
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 393716,
+    "bytes_before": 393716,
+    "dry_run": false,
+    "file_count_after": 3,
+    "file_count_before": 3,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 58423095296,
+      "host_total_bytes": 245107195904,
+      "memory_pressure_level": 1,
+      "phase": "preflight",
+      "project_bytes": 358713745,
+      "project_file_count": 23,
+      "rss_bytes": 0,
+      "swap_bytes": 8695840768,
+      "timestamp": 1788313492.747961
+    },
+    {
+      "host_free_bytes": 58423050240,
+      "host_total_bytes": 245107195904,
+      "memory_pressure_level": 1,
+      "phase": "live",
+      "project_bytes": 358713745,
+      "project_file_count": 23,
+      "rss_bytes": 4030464,
+      "swap_bytes": 8695840768,
+      "timestamp": 1788313493.8201559
+    },
+    {
+      "host_free_bytes": 58290581504,
+      "host_total_bytes": 245107195904,
+      "memory_pressure_level": 1,
+      "phase": "final",
+      "project_bytes": 496531657,
+      "project_file_count": 25,
+      "rss_bytes": 0,
+      "swap_bytes": 9139325501,
+      "timestamp": 1788313544.5686588
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "OK",
+  "summary": {
+    "elapsed_seconds": 51.82069778442383,
+    "first_memory_pressure_level": 1,
+    "host_free_bytes_delta": -132513792,
+    "last_memory_pressure_level": 1,
+    "observed_growth_bytes_per_hour": 9574253231.092735,
+    "peak_live_memory_pressure_level": 1,
+    "peak_rss_bytes": 4030464,
+    "project_bytes_delta": 137817912,
+    "project_file_count_delta": 2,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": 443484733,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "jobs": [
+        "daily"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs",
+      "schema_version": "top10-storage-validation-root.v1",
+      "trusted_entrypoints": {
+        "daily": {
+          "contract_path": "daily-cycle-2-entrypoint-contract.json",
+          "contract_sha256": "a54533dd51a0394f73e4a8d0d20106075f622fcdc8685c1b479e7cf9c59b93a6"
+        }
+      }
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/logs/storage_safety/runtime/daily/tmp/joblib",
+      "MPLCONFIGDIR": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/logs/storage_safety/runtime/daily/cache/matplotlib",
+      "TMPDIR": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/logs/storage_safety/runtime/daily/tmp",
+      "UV_CACHE_DIR": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/logs/storage_safety/runtime/daily/cache/uv",
+      "XDG_CACHE_HOME": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/logs/storage_safety/runtime/daily/cache/xdg"
+    },
+    "sandbox_input_root": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs",
+    "sandbox_output_root": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs",
+    "source_input_root": "/Users/mattkuo/TOP10new",
+    "trusted_entrypoint": {
+      "argv": [
+        "--source-root",
+        "/Users/mattkuo/TOP10new",
+        "--output-root",
+        "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs",
+        "--runtime-root",
+        "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/logs/storage_safety/runtime/daily/cycle-2",
+        "--run-date",
+        "2026-08-31",
+        "--cycle-id",
+        "cycle-2",
+        "--snapshot-input",
+        "/Users/mattkuo/TOP10new/data/clean/features.parquet"
+      ],
+      "contract_path": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/daily-cycle-2-entrypoint-contract.json",
+      "contract_sha256": "a54533dd51a0394f73e4a8d0d20106075f622fcdc8685c1b479e7cf9c59b93a6",
+      "entrypoint_path": "/private/tmp/top10-daily-memory-pressure-validation-20260902.KKUyjs/scripts/storage_validation/daily.py",
+      "entrypoint_sha256": "771c5d62b55468d9010e1e94b75dbde097781f44b3643bcc038e63933fc49ca8"
+    }
+  },
+  "validation_only": true,
+  "verification_basis": "2026-08-27 REPAIR PASS：main source /Users/mattkuo/TOP10new @ f6f514fd7b2f31c434e2aef1492bb89b269955be 的 data/clean/features.parquet 通過 ValidationSnapshotProvider gates（532255 rows、1967 stocks、282 trade dates、TWSE/TPEX、latest 2026-07-31 coverage 98.98%）；fresh no-.git sandbox 以 repair guard code digest-pinned validate-run 連續兩個 daily representative cycles 均 OK；兩輪 guard receipts 均保存 verified process group identity（leader_pid=pgid=session_id、start token）與 final_process_group_quiescent=true；無 unknown writes、source identity unchanged、peak project 473753103 bytes、worst cycle delta 344531867 bytes、peak RSS 1854685184 bytes、max swap delta 141169786 bytes；sandbox-only reclaim drill 回收 46 bytes / 2 files；14d projected peak 4823446138 bytes < 6442450944 bytes cap，projected host headroom 9702369056 bytes above runtime reserve。"
+}
