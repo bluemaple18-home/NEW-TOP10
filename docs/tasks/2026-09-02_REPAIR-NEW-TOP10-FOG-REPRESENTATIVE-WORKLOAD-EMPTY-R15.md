@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-FOG-REPRESENTATIVE-WORKLOAD-EMPTY-R15
-status: IMPLEMENTED_LOCAL_VERIFIED / EXTERNAL_RERUN_PENDING_AUTHORIZATION
+status: COMPLETE / R18_EXTERNAL_GREEN
 type: runtime-fixture-repair
 risk: high
 baseline: 860d945dc4246f4d5a3bed5971a4eba55e954c0e
@@ -29,6 +29,8 @@ baseline: 860d945dc4246f4d5a3bed5971a4eba55e954c0e
 3. `git diff --check` 與 debug-marker scan；本卡不執行 external cycle。
 
 ## History
+
+- 2026-09-03：R18 外接雙 cycle 各自執行一個由 fresh manager 路徑產生的代表性 topic，兩輪皆 `OK`；R15 empty-workload blocker 關閉。
 
 - 2026-09-02：fresh-manager selection test 已實際 RED；同一 fixture 在不執行 matrix 時即得到 `TOPIC_SUPPLY_EXHAUSTED / selected=[]`，blocker 已定位在 selection／supply 層，而非 batch execution 或 matrix runtime。
 - 2026-09-02：RED diagnostics 顯示 `generated=[]`、`no_executable_ranking_template=1`。根因是 fixture candidate path 含 `historical_rankings_current_model`，被正式 `is_baseline_like()` selector 正確排除；舊 static test 直接呼叫 ranking eligibility，未覆蓋 selector。

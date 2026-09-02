@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-R17-CLEANROOM-FILE-BUDGET
-status: READY_FOR_EXTERNAL_REVALIDATION
+status: COMPLETE / R18_EXTERNAL_GREEN
 type: runtime-repair
 risk: high
 baseline: abb97d8
@@ -33,3 +33,4 @@ baseline: abb97d8
 - 2026-09-02：排除可再生的 `artifacts/weekend_training/staging` 與歷史 `replay_runs_*`；`artifacts/model_experiments` 改為 explicit authority，只複製 base regime history 與 append-only extension 兩檔。
 - 2026-09-02：projected copy baseline 降為 `3,319,144,297 bytes / 48,707 files`，未調高 5 GiB／50,000 上限。
 - 2026-09-02：受影響回歸 `86 passed, 31 subtests passed`；等待 R18 外接完整 cleanup evidence。
+- 2026-09-03：R18 以相同 5 GiB／50,000 files lifecycle budget 完成兩輪代表性 fog runtime，外層 lifecycle exit `0` 且 clean-room 已移除；file-budget blocker 關閉。兩輪 peak RSS `799,424,512`／`758,562,816 bytes`，topic run count 各 `1`，unknown writes `[]`。

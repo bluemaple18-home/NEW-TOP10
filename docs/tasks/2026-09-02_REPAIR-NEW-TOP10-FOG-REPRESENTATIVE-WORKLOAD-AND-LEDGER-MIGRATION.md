@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-FOG-REPRESENTATIVE-WORKLOAD-AND-LEDGER-MIGRATION
-status: BLOCKED_AFTER_THIRD_RSS_STOP
+status: COMPLETE / ACTIVATION_CANDIDATE
 type: runtime-repair
 risk: high
 baseline: ba1e8c6
@@ -71,3 +71,4 @@ baseline: ba1e8c6
 - 2026-09-02：R16 inventory 本機修復把 summary-only + bounded queue 改為兩段 streaming，不縮 universe；50,000-row RED 從 peak allocation `45,875,440` 降至門檻內，full／streaming 語義一致，受影響回歸 `85 passed, 31 subtests passed`。需 R17 另行授權驗證真實 process RSS。
 - 2026-09-02：R17 兩輪 fog runtime 均 `OK` 且 topic run count 各 `1`；peak RSS `771,194,880`／`810,205,184 bytes`、pressure 全程 `1`、swap delta `-452,984,832`／`-67,108,864 bytes`、unknown writes `[]`、process groups quiescent。Runtime verdict 為 `PASS_CANDIDATE`。
 - 2026-09-02：R17 外層 lifecycle 最終 exit `2 / NO_GO: budget exceeded`；根因是 clean-room copy baseline `58,458 files` 先天超過 50,000，而非 runtime。copy scope 已縮為 explicit regime authorities 並排除可再生歷史 replay outputs，projected baseline `48,707 files`；需 R18 驗證完整 cleanup。
+- 2026-09-03：R18 兩輪均 `OK`、topic run count 各 `1`、peak RSS `799,424,512`／`758,562,816 bytes`、pressure 全程 `1`、swap delta `-50,331,648`／`-434,561,352 bytes`、unknown writes `[]`、process groups quiescent；runtime verdict `PASS_CANDIDATE`。外層 lifecycle exit `0` 且 clean-room 已清除，因此本修復收卡為手動 activation candidate；launchd 仍未啟用，沒有 push／deploy／production activation。
