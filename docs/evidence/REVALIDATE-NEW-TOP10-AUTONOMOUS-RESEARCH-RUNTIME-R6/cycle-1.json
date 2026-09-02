@@ -1,0 +1,145 @@
+{
+  "child_exit_code": 0,
+  "command": [
+    "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8/.venv/bin/python",
+    "-I",
+    "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8/scripts/storage_validation/fog_research_worker.py",
+    "--runner-sha256",
+    "a7e3ed290449675c60b4ee4e89d52735d8f5be61ca205e64c85bd859c05fd054",
+    "--source-commit",
+    "0e7982aeb1bf9b39b66d42adfc9e7cc47bbc1272"
+  ],
+  "final_process_group_checked_at": "2026-09-02T09:33:56.379485+00:00",
+  "final_process_group_quiescent": true,
+  "job": "fog-research-worker",
+  "launch_verified": false,
+  "limits": {
+    "expected_growth_bytes_per_hour": 16777216,
+    "max_bytes": 2147483648,
+    "max_file_count": 30000,
+    "max_process_tree_rss_bytes": 2147483648,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 14400,
+    "stabilize_after_seconds": 18000
+  },
+  "max_runtime_seconds": 7200.0,
+  "process_group": {
+    "final_checked_at": "2026-09-02T09:33:56.379485+00:00",
+    "final_quiescent": true,
+    "verified_identity": {
+      "group_id": 63139,
+      "leader_pid": 63139,
+      "leader_start_token": "Wed Sep  2 17:33:17 2026",
+      "session_id": 63139
+    }
+  },
+  "process_group_identity": {
+    "group_id": 63139,
+    "leader_pid": 63139,
+    "leader_start_token": "Wed Sep  2 17:33:17 2026",
+    "session_id": 63139
+  },
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 2798263,
+    "bytes_before": 2798263,
+    "dry_run": false,
+    "file_count_after": 195,
+    "file_count_before": 195,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 136051720192,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "preflight",
+      "project_bytes": 1327048466,
+      "project_file_count": 21423,
+      "rss_bytes": 0,
+      "swap_bytes": 7271937474,
+      "timestamp": 1788341593.947032
+    },
+    {
+      "host_free_bytes": 136351612928,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "project_bytes": 1041029330,
+      "project_file_count": 12742,
+      "rss_bytes": 50970624,
+      "swap_bytes": 7271937474,
+      "timestamp": 1788341597.563678
+    },
+    {
+      "host_free_bytes": 136350912512,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "final",
+      "project_bytes": 1041048471,
+      "project_file_count": 12754,
+      "rss_bytes": 0,
+      "swap_bytes": 7271937474,
+      "timestamp": 1788341634.4700758
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "OK",
+  "summary": {
+    "elapsed_seconds": 40.5230438709259,
+    "first_memory_pressure_level": 2,
+    "host_free_bytes_delta": 299192320,
+    "last_memory_pressure_level": 2,
+    "observed_growth_bytes_per_hour": 0.0,
+    "peak_live_memory_pressure_level": 2,
+    "peak_rss_bytes": 50970624,
+    "project_bytes_delta": -285999995,
+    "project_file_count_delta": -8669,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "jobs": [
+        "fog-research-worker"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8",
+      "schema_version": "top10-storage-validation-root.v1",
+      "trusted_entrypoints": {
+        "fog-research-worker": {
+          "contract_path": "validation/fog-entrypoint-contract.json",
+          "contract_sha256": "6bbcacc9676c73ff64413a64f4d4fd151bdf9a4afa8013d448a09bd3ec39b6b6"
+        }
+      }
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8/logs/storage_safety/runtime/fog-research-worker/tmp/joblib",
+      "MPLCONFIGDIR": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8/logs/storage_safety/runtime/fog-research-worker/cache/matplotlib",
+      "TMPDIR": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8/logs/storage_safety/runtime/fog-research-worker/tmp",
+      "UV_CACHE_DIR": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8/logs/storage_safety/runtime/fog-research-worker/cache/uv",
+      "XDG_CACHE_HOME": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8/logs/storage_safety/runtime/fog-research-worker/cache/xdg"
+    },
+    "sandbox_input_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8",
+    "sandbox_output_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8",
+    "source_input_root": "/Users/mattkuo/TOP10new",
+    "trusted_entrypoint": {
+      "argv": [
+        "--runner-sha256",
+        "a7e3ed290449675c60b4ee4e89d52735d8f5be61ca205e64c85bd859c05fd054",
+        "--source-commit",
+        "0e7982aeb1bf9b39b66d42adfc9e7cc47bbc1272"
+      ],
+      "contract_path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8/validation/fog-entrypoint-contract.json",
+      "contract_sha256": "6bbcacc9676c73ff64413a64f4d4fd151bdf9a4afa8013d448a09bd3ec39b6b6",
+      "entrypoint_path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r6-kh37kck8/scripts/storage_validation/fog_research_worker.py",
+      "entrypoint_sha256": "e53d21324bff716de4659720813371bb02bbeeb698d2e288db136c40bce2a97f"
+    }
+  },
+  "validation_only": true,
+  "verification_basis": "2026-08-03 第一週期在代表性 grid/replay 工作負載中觀測 peak RSS 3191783424 bytes、swap delta 594081219 bytes；因當時 policy 缺 hard RSS/swap ceiling 而人工送 TERM，guard 隔離停止並拒絕重啟。hard ceilings 已補但未再跑完整週期，維持 NO-GO。"
+}

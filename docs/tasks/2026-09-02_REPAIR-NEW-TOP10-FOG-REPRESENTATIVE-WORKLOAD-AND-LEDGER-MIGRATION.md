@@ -44,3 +44,5 @@ baseline: ba1e8c6
 - 2026-09-02：代表性供應改由 validation-only fresh manager root，root identity 由 immutable Batch Intent 固定；production 仍使用原 manager root，distinct root 在非 validation 模式 fail closed。
 - 2026-09-02：external harness 會拒絕空或沿用 source copy 的 stale `topic_runs`；只有本 cycle 寫出的非空 topic run 才算代表性 workload。
 - 2026-09-02：targeted regression `132 passed, 31 subtests passed`，shell syntax、`git diff --check` 與 debug-marker scan PASS；等待 commit 與 `/Volumes/VibeCode` R6。
+- 2026-09-02：R6 第一週期 guard 原始狀態 `OK`，40.52 秒、peak RSS `50,970,624 bytes`、memory pressure `2`、swap delta `0`、unknown writes `[]`；但 runner 以 `MANAGER_PATH_MISMATCH` 在 topic 執行前 fail closed，因此驗收層判定 `NO-GO / REPRESENTATIVE_WORKLOAD_STALE`，未跑第二週期。
+- 2026-09-02：R6 根因 RED 已定位：content-ID 型 Batch Intent 在 `resolve_runner_write_set` 被誤判為無 path reference，回退 production manager root；修後 content ID 與 explicit path 都會先載入 intent 再解析完整 write set。external evidence 亦改為保存合併後代表性 verdict，不再只複製原 guard receipt。

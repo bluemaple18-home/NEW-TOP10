@@ -39,6 +39,16 @@ class ExternalFogRevalidationTest(unittest.TestCase):
             self.assertEqual(code, 70)
             self.assertEqual(receipt["status"], "STOPPED")
             self.assertIn("REPRESENTATIVE_WORKLOAD_EMPTY", receipt["reasons"])
+            published = json.loads(
+                (sandbox / revalidation.EVIDENCE_DIR / "cycle-1.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(published["status"], "STOPPED")
+            self.assertEqual(
+                published["representative_workload"]["topic_run_count"],
+                0,
+            )
 
     def test_run_cycle_rejects_unchanged_topic_runs_copied_from_source(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-external-fog-stale-") as tmp:

@@ -80,6 +80,41 @@ def test_batch_intent_can_pin_manager_root_separately_from_output_root(
     assert payload["paths"]["manager_paths"]["registry"]["resolved_path"] == str(
         manager_root / "topic_registry.json"
     )
+
+
+def test_runner_resolves_distinct_manager_root_from_content_id_intent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "outputs" / "run.json"
+    manager_root = tmp_path / "validation-manager"
+    corpus = tmp_path / "research_spine"
+    payload = build_batch_intent(
+        project_root=PROJECT_ROOT,
+        corpus_root=corpus,
+        batch_id="research-2026-08-14-010203-123",
+        scheduler_entrypoint=PROJECT_ROOT / "scripts/run_daily_research_quota.sh",
+        runner_argv=RUN_ARGS,
+        output_path=output,
+        ledger_path=tmp_path / "research_ledger.duckdb",
+        manager_root=manager_root,
+        requested_research_stage="DEVELOPMENT_SCREEN",
+        allowed_research_stages=["DEVELOPMENT_SCREEN"],
+        policy_path=PROJECT_ROOT / "config/native_evidence_activation_policy_v1.json",
+        catalog_path=PROJECT_ROOT / "config/research_parameter_catalog.json",
+        execution_epoch="2026-08-14",
+        created_at="2026-08-14T00:00:00Z",
+    )
+    publish_batch_intent(corpus_root=corpus, payload=payload)
+    monkeypatch.setattr(runner, "RESEARCH_SPINE_ROOT", corpus)
+
+    write_set = runner.resolve_runner_write_set(
+        SimpleNamespace(research_batch_intent=payload["batch_intent_id"]),
+        output,
+    )
+
+    assert write_set.manager_root == manager_root
+    assert write_set.spine_root == corpus
 RUN_ARGS = [
     "scripts/run_autonomous_research.py",
     "--date",

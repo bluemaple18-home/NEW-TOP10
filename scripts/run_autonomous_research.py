@@ -241,18 +241,22 @@ def _single_manager_root(paths: dict[str, Any]) -> Path:
 
 
 def resolve_runner_write_set(args: argparse.Namespace, output: Path) -> RunnerWriteSet:
-    reference_path = _intent_path_reference(getattr(args, "research_batch_intent", None))
-    if reference_path is None:
+    reference = getattr(args, "research_batch_intent", None)
+    if not reference:
         return RunnerWriteSet(
             output=output,
             spine_root=RESEARCH_SPINE_ROOT,
             ledger_path=RESEARCH_LEDGER_PATH,
             manager_root=OUTPUT_DIR,
         )
-    if reference_path.parent.name != "batch_intents":
-        raise BatchOwnerAuthorityError("BATCH_INTENT_PATH_ESCAPE")
-    spine_root = reference_path.parent.parent
-    _, payload = load_batch_intent_reference(spine_root, str(reference_path))
+    reference_path = _intent_path_reference(reference)
+    if reference_path is None:
+        spine_root = RESEARCH_SPINE_ROOT
+    else:
+        if reference_path.parent.name != "batch_intents":
+            raise BatchOwnerAuthorityError("BATCH_INTENT_PATH_ESCAPE")
+        spine_root = reference_path.parent.parent
+    _, payload = load_batch_intent_reference(spine_root, str(reference))
     paths = payload.get("paths") if isinstance(payload.get("paths"), dict) else {}
     spine_record = paths.get("spine_root") if isinstance(paths.get("spine_root"), dict) else {}
     ledger_record = paths.get("ledger_path") if isinstance(paths.get("ledger_path"), dict) else {}

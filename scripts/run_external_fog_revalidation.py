@@ -226,7 +226,7 @@ def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[
             completed.stderr,
         )
     evidence = sandbox / EVIDENCE_DIR
-    shutil.copy2(receipt_path, evidence / f"cycle-{cycle}.json")
+    write_json(evidence / f"cycle-{cycle}.json", receipt)
     (evidence / f"cycle-{cycle}.stdout.log").write_text(completed.stdout[-12000:], encoding="utf-8")
     (evidence / f"cycle-{cycle}.stderr.log").write_text(completed.stderr[-12000:], encoding="utf-8")
     runtime_logs = evidence / f"cycle-{cycle}-runtime-logs"
