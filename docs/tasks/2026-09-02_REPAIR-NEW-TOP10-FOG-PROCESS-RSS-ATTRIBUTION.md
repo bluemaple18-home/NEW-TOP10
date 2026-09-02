@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-FOG-PROCESS-RSS-ATTRIBUTION
-status: IMPLEMENTED_LOCAL_VERIFIED / EXTERNAL_ATTRIBUTION_PENDING_AUTHORIZATION
+status: COMPLETE / R15_ATTRIBUTION_CAPTURED
 type: runtime-instrumentation-repair
 risk: high
 baseline: 5a2acfe2e0905a1b9175d64a0b2a7a4c2a046316
@@ -41,3 +41,5 @@ baseline: 5a2acfe2e0905a1b9175d64a0b2a7a4c2a046316
 - 2026-09-02：RED 已由 `uv run pytest tests/test_storage_safety.py::test_take_sample_attributes_process_tree_rss_by_pid_and_command -q` 重現；既有 `Sample` 缺 `process_rss_attribution`，無法由 aggregate RSS 定位 contributor。
 - 2026-09-02：最小修復讓同一次 `ps` snapshot 產生 aggregate RSS 與 process-level attribution，保留既有 `process_tree_rss_bytes()` 介面與 synthetic `Sample(...)` 相容性；單測 GREEN。
 - 2026-09-02：受影響回歸 `72 passed, 31 subtests passed`；未執行 external representative cycle。下一步需在明確資源授權後跑一次 attribution cycle，再依最大 contributor 另開單一修復。
+- 2026-09-02：Owner 明確授權後執行 R15 單一 external cycle；peak process-tree RSS `1,635,909,632 bytes`，未越過 2 GiB ceiling。最大 contributor 為 `build_weekend_universe_inventory.py`，單 PID peak `1,612,349,440 bytes`；observation ingest peak `726,532,096 bytes`。
+- 2026-09-02：R15 仍為 `NO-GO / REPRESENTATIVE_WORKLOAD_EMPTY`，因此 1.52 GiB 只證明 attribution 與本輪 inventory path，不能證明完整代表性 topic capacity。第二週期未執行。

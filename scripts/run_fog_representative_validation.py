@@ -20,8 +20,8 @@ FIXTURE_IDENTITY = {
     "family_tags": ["BIG_BULL", "HIGH_CHOPPY"],
 }
 CANDIDATE_DIR = (
-    "artifacts/backtest/"
-    "historical_rankings_current_model_batch_dense_2023-11-21_2026-05-15"
+    "artifacts/research_rankings/"
+    "vwap_narrow_only_balanced_top10_long_2025-01-02_2026-05-15"
 )
 BASELINE_DIR = (
     "artifacts/backtest/"
