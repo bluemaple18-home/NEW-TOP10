@@ -17,7 +17,19 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 JOB = "fog-research-worker"
 EVIDENCE_DIR = "validation_evidence"
-SKIP_TOP_LEVEL = {".git", ".codegraph", ".pytest_cache", "logs"}
+SKIP_TOP_LEVEL = {
+    ".ai",
+    ".codegraph",
+    ".git",
+    ".pnpm-store",
+    ".pytest_cache",
+    ".work",
+    "docs",
+    "logs",
+    "mlruns",
+    "tests",
+    "web",
+}
 SKIP_NAMES = {"__pycache__", ".DS_Store"}
 
 
@@ -53,6 +65,10 @@ def copy_project(source: Path, sandbox: Path) -> None:
             shutil.copytree(child, target, symlinks=False, ignore=copy_ignore)
         elif child.is_file():
             shutil.copy2(child, target)
+    policy_source = source / "docs" / "operations" / "top10-storage-policy.json"
+    policy_target = sandbox / "docs" / "operations" / policy_source.name
+    policy_target.parent.mkdir(parents=True)
+    shutil.copy2(policy_source, policy_target)
     python_source = (source / ".venv" / "bin" / "python").resolve(strict=True)
     runtime_library = python_source.parents[1] / "lib" / "libpython3.12.dylib"
     shutil.copy2(runtime_library, sandbox / ".venv" / "lib" / runtime_library.name)

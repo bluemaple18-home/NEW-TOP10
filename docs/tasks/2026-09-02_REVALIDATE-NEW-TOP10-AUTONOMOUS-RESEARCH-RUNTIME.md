@@ -46,6 +46,9 @@ baseline: d73001ca870974625530f33f0766e7abf5231124
 - 前次新版代表性 cycle 的程序樹 peak RSS 為 `1,085,718,528 bytes`（約 1.01 GiB）；當時 STOP 原因是全機 swap growth `2,964,848,640 bytes`，不是程序 RSS 超限。
 - candidate optimization：fog worker 預設將 OMP／OpenBLAS／MKL／NumExpr／vecLib 限為單執行緒；launchd 宣告 `ProcessType=Background` 與 `LowPriorityIO=true`；fog 程序樹 ceiling 由 4 GiB 收緊至 2 GiB，仍保留約 1.98 倍於最新代表性 peak 的 headroom。
 - next condition：由 tmp artifact lifecycle seam 在 `/Volumes/VibeCode` 建立唯一 sandbox；第一週期非完整 PASS 即不跑第二週期。
+- R1 external receipt：cycle 1 `OK` 但僅 `4.42s / 67,403,776 bytes RSS`，queue 已耗盡而非代表性 workload；cycle 2 因 `MISSING_VALID_LIVE_RESOURCE_SAMPLE` STOP。兩輪 memory pressure 均為 `2`、swap delta `0`，但整體 verdict 必須維持 `NO-GO / REPRESENTATIVE_WORKLOAD_EMPTY`。
+- R1 另揭露共用 lifecycle 的 evidence staging 位於 sandbox volume，無法跨 volume 原子 rename 回 repo；candidate harness 已改為在目的 volume 建 staging 後原子發布，仍由 lifecycle 負責 sandbox ownership、budget 與 cleanup。
+- R2 修正方向：validation-only fresh sandbox 固定 `TOP10_RESEARCH_ALLOW_RERUN=1`，避免正式 queue 已消耗時空跑；copy allowlist 排除 tests/docs/mlruns/web 等非 runtime roots，只補入 storage policy，維持 5 GiB／50,000 files lifecycle hard limit而不放寬預算。
 
 ## Boundary
 

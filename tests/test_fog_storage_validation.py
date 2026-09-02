@@ -185,6 +185,7 @@ class FogStorageValidationEntrypointTest(unittest.TestCase):
             self.assertEqual(child_environment["LANG"], "C")
             self.assertEqual(child_environment["LC_ALL"], "C")
             self.assertEqual(child_environment["PYTHONDONTWRITEBYTECODE"], "1")
+            self.assertEqual(child_environment["TOP10_RESEARCH_ALLOW_RERUN"], "1")
             for name in (
                 "OMP_NUM_THREADS",
                 "OPENBLAS_NUM_THREADS",
