@@ -24,6 +24,7 @@
 ## Background monitors（不屬於 operational frontier）
 
 - `CHIP-OVERLAY-SHADOW-01`、`EVENT-OVERLAY-SHADOW-01`：歷史效果應由 frozen walk-forward backtest 先行判斷；daily shadow 只保留作未來 promotion 前的額外 OOS 證據。
+- Frozen backtest verdict：Chip 10%=`HISTORICAL_SUPPORT_UNCERTAIN`（114 日、mean delta `+0.002740`、95% CI `[-0.001251, +0.006371]`），目前不得 promotion；Event constrained 10%=`ROBUST_HISTORICAL_SUPPORT`（55 日、mean delta `+0.005819`、95% CI `[+0.002715, +0.008958]`），但重用 parent OOS，只能保留為 future promotion candidate。
 - 2026-09-02 receipt：Chip=`22/60`、Event=`9/60`，均為 `ACCUMULATING`，且 `changes_production_ranking=false`。
 - 不需等待兩者完成才能開始其他工作；未有 promotion admission 時，即使累積滿 60 筆也不會自動成為 Mainline frontier。
 
