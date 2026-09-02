@@ -1,6 +1,6 @@
 ---
 id: EVENT-OVERLAY-SHADOW-01
-status: WAITING_FOR_NEW_OOS_DATES
+status: ACCUMULATING / 9_OF_60
 type: shadow-evaluation
 ---
 
@@ -36,3 +36,11 @@ type: shadow-evaluation
 - observations：`0/60`
 - status：`WAITING_FOR_NEW_OOS_DATES`
 - 這是正常等待條件，不是 blocker。
+
+## Current runtime receipt（2026-09-02）
+
+- daily monitor：`OK`
+- observations：`9/60`
+- 本次 appended：`1`
+- status：`ACCUMULATING`
+- changes production ranking：`false`

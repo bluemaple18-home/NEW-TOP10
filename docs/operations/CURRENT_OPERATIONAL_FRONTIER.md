@@ -16,11 +16,11 @@
 
 目前本線沒有已 admission、可立即實作的非 TimesFM 卡。剩餘項目分成三類：
 
-1. `CHIP-OVERLAY-SHADOW-01`、`EVENT-OVERLAY-SHADOW-01`：`WAITING_FOR_NEW_OOS_DATES`，只能等新的樣本日期，不可用舊資料偽造進度。
+1. `CHIP-OVERLAY-SHADOW-01`、`EVENT-OVERLAY-SHADOW-01`：daily monitor 正常 `ACCUMULATING`；2026-09-02 receipt 分別為 `22/60`、`9/60`，本次各追加 1 筆。這是背景研究觀察，不是 implementation blocker，也不阻擋其他工作。
 2. `RESEARCH-FUNDAMENTAL-READINESS-01`：`COMPLETED_BLOCKED_DATA`；`VOLUME-CLIMAX-WARNING-SHADOW-01`：`COMPLETED_MONITORING`。兩者都不是待實作卡。
 3. 2026-06／2026-07 文件中的 `READY_FOR_RESEARCH`、`READY_FOR_SHADOW_RERANK_GUARD`、`READY_FOR_FIRST_WAVE_RESEARCH` 是歷史狀態；後續結果已存在，未經新的 measured-gap admission 不得當成目前前線。
 
-因此下一個狀態變化只能來自：獨立 incident task 的可驗收結論、新 OOS 日期、或 Owner 明示 admission 新 measured-gap 卡。TimesFM 仍排最後，不因其他 lane 暫無 executable card 而自動提前。
+因此下一個需要 Mainline 動作的狀態變化只能來自：獨立 incident task 的可驗收結論、shadow 樣本達到 frozen acceptance threshold，或 Owner 明示 admission 新 measured-gap 卡。TimesFM 仍排最後，不因其他 lane 暫無 executable card 而自動提前。
 
 ## Authority baseline
 
