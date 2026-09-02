@@ -41,6 +41,7 @@ OBSERVATION_IDENTITY_POLICY = "executed-trial-lineage-result-unit.v1"
 METRIC_POLICY_VERSION = "strategy-matrix-metrics.v1"
 ATTEMPT_INCLUSION_POLICY = "terminal-receipts-all-statuses.v1"
 DUCKDB_INGEST_MEMORY_LIMIT = "1024MB"
+MIGRATION_TRANSACTION_BATCH_SIZE = 256
 
 
 DDL = """
@@ -535,7 +536,59 @@ def _validate_migration_record_authority(
             raise ValueError("MIGRATION_SEALED_GOVERNANCE_MISMATCH")
 
 
-def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path) -> None:
+def _insert_migration_record(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    migration_id: str,
+    record: dict[str, Any],
+) -> None:
+    record_id = record["migration_record_id"]
+    record_hash = content_hash(record)
+    existing_record = connection.execute(
+        "SELECT mapped_payload_hash FROM migrated_records WHERE migration_record_id = ?",
+        [record_id],
+    ).fetchone()
+    if existing_record and existing_record[0] != record_hash:
+        raise ValueError("MIGRATION_RECORD_COLLISION")
+    metrics_hash = content_hash(record["metrics"]) if record["semantic_evidence_id"] else None
+    connection.execute(
+        "INSERT OR IGNORE INTO migrated_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [record_id, migration_id, record["source"]["artifact_id"],
+         record["source"]["record_locator"], record["record_kind"],
+         record["preliminary_classification"], record["semantic_evidence_id"],
+         metrics_hash, record_hash],
+    )
+    connection.execute(
+        "INSERT OR IGNORE INTO migration_manifest_records VALUES (?, ?, ?)",
+        [migration_id, record_id, record["source"]["artifact_id"]],
+    )
+    for reason in record["reason_codes"]:
+        connection.execute(
+            "INSERT OR IGNORE INTO migrated_record_reasons VALUES (?, ?)",
+            [record_id, reason],
+        )
+    combo = record["combo_mapping"]
+    connection.execute(
+        "INSERT OR IGNORE INTO migration_record_dispositions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [record_id, record["migration_disposition"], record["confidence"],
+         record["disposition_policy_version"], record["inference_policy_version"],
+         record["mapping_authority_id"], combo["mapping_status"], combo["cardinality"],
+         record_hash],
+    )
+    for edge in combo["candidates"]:
+        connection.execute(
+            "INSERT OR IGNORE INTO migration_combo_edges VALUES (?, ?, ?, ?, ?)",
+            [record_id, edge["combo_id"], edge["canonical_trial_spec_id"],
+             _json(edge["evidence_refs"]), _json(edge["reason_codes"])],
+        )
+
+
+def _ingest_migrations(
+    connection: duckdb.DuckDBPyConnection,
+    corpus_root: Path,
+    *,
+    chunk_transactions: bool = False,
+) -> None:
     canonical_receipts = _migration_receipts(corpus_root)
     manifest_paths = sorted((corpus_root / "migration" / "manifests").glob("*.json"))
     manifests = [(path, _load_json(path)) for path in manifest_paths]
@@ -700,6 +753,8 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
             raise ValueError("MIGRATION_QUALITY_ARTIFACT_DISPOSITIONS_MISMATCH")
         if expected_quality_totals != quality["totals"]:
             raise ValueError("MIGRATION_QUALITY_TOTALS_MISMATCH")
+        if chunk_transactions:
+            connection.execute("BEGIN TRANSACTION")
         if not existing:
             connection.execute(
                 "INSERT INTO migration_manifests VALUES (?, ?, ?, ?, ?, ?)",
@@ -739,46 +794,25 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
                 [artifact["artifact_disposition_id"], migration_id, artifact["source_artifact_id"],
                  artifact["migration_disposition"], artifact_hash],
             )
-        for record in staged_records:
-            record_id = record["migration_record_id"]
-            record_hash = content_hash(record)
-            existing_record = connection.execute(
-                "SELECT mapped_payload_hash FROM migrated_records WHERE migration_record_id = ?",
-                [record_id],
-            ).fetchone()
-            if existing_record and existing_record[0] != record_hash:
-                raise ValueError("MIGRATION_RECORD_COLLISION")
-            metrics_hash = content_hash(record["metrics"]) if record["semantic_evidence_id"] else None
-            connection.execute(
-                "INSERT OR IGNORE INTO migrated_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [record_id, migration_id, record["source"]["artifact_id"],
-                 record["source"]["record_locator"], record["record_kind"],
-                 record["preliminary_classification"], record["semantic_evidence_id"],
-                 metrics_hash, record_hash],
-            )
-            connection.execute(
-                "INSERT OR IGNORE INTO migration_manifest_records VALUES (?, ?, ?)",
-                [migration_id, record_id, record["source"]["artifact_id"]],
-            )
-            for reason in record["reason_codes"]:
-                connection.execute(
-                    "INSERT OR IGNORE INTO migrated_record_reasons VALUES (?, ?)",
-                    [record_id, reason],
-                )
-            combo = record["combo_mapping"]
-            connection.execute(
-                "INSERT OR IGNORE INTO migration_record_dispositions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [record_id, record["migration_disposition"], record["confidence"],
-                 record["disposition_policy_version"], record["inference_policy_version"],
-                 record["mapping_authority_id"],
-                 combo["mapping_status"], combo["cardinality"], record_hash],
-            )
-            for edge in combo["candidates"]:
-                connection.execute(
-                    "INSERT OR IGNORE INTO migration_combo_edges VALUES (?, ?, ?, ?, ?)",
-                    [record_id, edge["combo_id"], edge["canonical_trial_spec_id"],
-                     _json(edge["evidence_refs"]), _json(edge["reason_codes"])],
-                )
+        if chunk_transactions:
+            connection.execute("COMMIT")
+        for offset in range(0, len(staged_records), MIGRATION_TRANSACTION_BATCH_SIZE):
+            batch = staged_records[offset:offset + MIGRATION_TRANSACTION_BATCH_SIZE]
+            if chunk_transactions:
+                connection.execute("BEGIN TRANSACTION")
+            try:
+                for record in batch:
+                    _insert_migration_record(
+                        connection, migration_id=migration_id, record=record
+                    )
+                if chunk_transactions:
+                    connection.execute("COMMIT")
+            except Exception:
+                if chunk_transactions:
+                    connection.execute("ROLLBACK")
+                raise
+        if chunk_transactions:
+            connection.execute("BEGIN TRANSACTION")
         # Semantic evidence由canonical record facts集合式重建；copy不加權，衝突weight=0。
         connection.execute("DELETE FROM legacy_semantic_evidence")
         connection.execute("DELETE FROM legacy_semantic_provenance")
@@ -802,6 +836,8 @@ def _ingest_migrations(connection: duckdb.DuckDBPyConnection, corpus_root: Path)
         ).fetchone()[0]
         if actual_relations != expected_relations:
             raise ValueError("MIGRATION_MANIFEST_RECORD_RELATION_COUNT_MISMATCH")
+        if chunk_transactions:
+            connection.execute("COMMIT")
 
 
 def _init(connection: duckdb.DuckDBPyConnection) -> None:
@@ -1305,16 +1341,22 @@ def ledger_snapshot(connection: duckdb.DuckDBPyConnection) -> dict[str, Any]:
 def ingest_corpus(
     *, corpus_root: Path = DEFAULT_CORPUS_ROOT, ledger_path: Path = DEFAULT_LEDGER_PATH,
     run_date: str | None = None, rebuild: bool = False,
+    _isolated_rebuild: bool = False,
 ) -> IngestResult:
     if rebuild:
         ledger_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = ledger_path.with_name(f".{ledger_path.name}.{uuid.uuid4().hex}.rebuild")
+        # 暫存檔必須和 canonical ledger 同 filesystem，成功時才能原子替換；
+        # 專用目錄亦讓 storage guard 可精確登記，不放寬整個 data/research。
+        rebuild_root = ledger_path.parent / ".research-ledger-rebuild"
+        rebuild_root.mkdir(parents=True, exist_ok=True)
+        temporary = rebuild_root / f"{ledger_path.name}.{uuid.uuid4().hex}.duckdb"
         try:
             result = ingest_corpus(
                 corpus_root=corpus_root,
                 ledger_path=temporary,
                 run_date=None,
                 rebuild=False,
+                _isolated_rebuild=True,
             )
             descriptor = os.open(temporary, os.O_RDONLY)
             try:
@@ -1330,6 +1372,10 @@ def ingest_corpus(
             return result
         finally:
             temporary.unlink(missing_ok=True)
+            try:
+                rebuild_root.rmdir()
+            except OSError:
+                pass
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect(str(ledger_path))
     try:
@@ -1398,13 +1444,16 @@ def ingest_corpus(
                     reasons=[type(error).__name__, str(error)],
                 )
                 connection.execute("COMMIT")
-        connection.execute("BEGIN TRANSACTION")
-        try:
-            _ingest_migrations(connection, corpus_root)
-            connection.execute("COMMIT")
-        except Exception:
-            connection.execute("ROLLBACK")
-            raise
+        if _isolated_rebuild:
+            _ingest_migrations(connection, corpus_root, chunk_transactions=True)
+        else:
+            connection.execute("BEGIN TRANSACTION")
+            try:
+                _ingest_migrations(connection, corpus_root)
+                connection.execute("COMMIT")
+            except Exception:
+                connection.execute("ROLLBACK")
+                raise
         corpus_hash = input_corpus_hash(connection)
         connection.execute("BEGIN TRANSACTION")
         connection.execute(

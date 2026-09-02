@@ -222,6 +222,13 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             "data/research/research_ledger.duckdb.wal",
             fog_policy.registered_write_paths,
         )
+        self.assertIn(
+            "data/research/.research-ledger-rebuild", fog_policy.meter_paths
+        )
+        self.assertIn(
+            "data/research/.research-ledger-rebuild",
+            fog_policy.registered_write_paths,
+        )
         self.assertEqual(fog_policy.max_bytes, 2147483648)
         self.assertEqual(fog_policy.max_file_count, 30000)
         _global_policy, preflight_policy, _rules = load_policy(

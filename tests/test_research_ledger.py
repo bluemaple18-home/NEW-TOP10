@@ -131,6 +131,7 @@ def test_deleted_ledger_rebuild_has_identical_logical_snapshot(tmp_path: Path) -
     rebuilt = ingest_corpus(corpus_root=corpus, ledger_path=ledger, rebuild=True)
     assert first.snapshot_hash == rebuilt.snapshot_hash
     assert counts(ledger)["observations"] == 2
+    assert not (ledger.parent / ".research-ledger-rebuild").exists()
 
 
 def test_copy_path_does_not_increase_evidence_weight(tmp_path: Path) -> None:
@@ -171,6 +172,7 @@ def test_failed_atomic_rebuild_preserves_previous_ledger(tmp_path: Path) -> None
     with pytest.raises(ValueError, match="CAS artifact mismatch"):
         ingest_corpus(corpus_root=corpus, ledger_path=ledger, rebuild=True)
     assert counts(ledger) == before
+    assert not (ledger.parent / ".research-ledger-rebuild").exists()
 
 
 def test_schema_invalid_receipt_is_quarantined_without_observations(tmp_path: Path) -> None:

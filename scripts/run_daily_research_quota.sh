@@ -182,7 +182,8 @@ fi
 set +e
 "${RUNNER_CMD[@]}" -m app.research.observation_ingest \
   --date "$RUN_DATE" \
-  --ledger "$RESEARCH_LEDGER" >> "$LOG_FILE" 2>&1
+  --ledger "$RESEARCH_LEDGER" \
+  --rebuild >> "$LOG_FILE" 2>&1
 INGEST_EXIT_CODE=$?
 set -e
 if [ "$INGEST_EXIT_CODE" -ne 0 ]; then

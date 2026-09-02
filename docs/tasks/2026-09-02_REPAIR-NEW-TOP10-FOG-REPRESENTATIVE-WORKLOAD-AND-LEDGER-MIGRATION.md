@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-FOG-REPRESENTATIVE-WORKLOAD-AND-LEDGER-MIGRATION
-status: IN_PROGRESS_R9_DUCKDB_MEMORY_REPAIR
+status: READY_FOR_EXTERNAL_R11
 type: runtime-repair
 risk: high
 baseline: ba1e8c6
@@ -54,3 +54,5 @@ baseline: ba1e8c6
 - 2026-09-02：R8 stop-loss RED 修復：當 macOS memory-pressure 指標可讀時，連續 RSS／全機 swap 上升不再單獨觸發；仍保留 2 GiB process-tree hard ceiling、連續 critical pressure stop，以及 pressure 不可讀時的 RSS+swap fallback。回歸同時覆蓋「pressure 改善不誤殺」與「sensor 不可用仍 fail closed」。
 - 2026-09-02：R9 證明前述誤判已排除：memory pressure 全程 `1`、unknown writes=`[]`、未再出現 protected-root mutation；但 migration ingest 在 171.63 秒因 DuckDB 單一交易達預設 `12.7 GiB/12.7 GiB` 而 OOM，代表性 fixture 因而尚未啟動。process-tree peak RSS `2,116,730,880 bytes`，距 2 GiB hard ceiling 約 30.75 MiB，故不得提高上限。
 - 2026-09-02：R9 memory repair 依實際 OOM 指引把 ledger writer 固定為單執行緒、關閉 insertion-order preservation、設定 `1024MB` DuckDB memory limit，並將 spill 置於 `TMPDIR/top10-duckdb/<ledger-key>`；外接驗證時 `TMPDIR` 已指向 `/Volumes/VibeCode`，不把 spill 落到內碟。
+- 2026-09-02：R10 證明連線降載有效：peak RSS 降至 `750,632,960 bytes`（約 716 MiB）、memory pressure 全程 `1`、swap delta `-75,497,472 bytes`、unknown writes=`[]`；但單一 36,839-record 索引交易仍在 `976.3/976.5 MiB` 無法 pin 256 KiB，故仍為 `NO-GO / REPRESENTATIVE_WORKLOAD_EMPTY`。
+- 2026-09-02：R10 transaction repair 維持 `1024MB` 配額，daily 改由既有 `--rebuild` seam 建立隔離暫存 ledger；migration records 每 256 筆提交，完整成功並關閉連線後才 `os.replace` 原子替換正式 ledger。失敗時只刪除暫存 rebuild，不暴露 partial canonical ledger；未新增第二套資料庫或 authority。

@@ -16,6 +16,7 @@ def test_daily_shell_ensures_current_legacy_migration_before_ledger_ingest() -> 
     ensure = source.index("-m app.research.legacy_migration")
     ingest = source.index("-m app.research.observation_ingest")
     assert "--ensure-current" in source[ensure:ingest]
+    assert "--rebuild" in source[ingest:]
     assert ensure < ingest
 
 
