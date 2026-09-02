@@ -2,7 +2,7 @@
 
 更新：2026-09-02
 
-狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_AUTHORITY_RECONCILIATION_REQUIRED / PHASE_2_AND_B1_TO_D1_NOT_ADMITTED / R14_NO_GO`
+狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_AND_B1_TO_D1_NOT_ADMITTED / R14_NO_GO`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -24,13 +24,13 @@ F0 已完成於 `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`；B0-P1、C0-P1、C0�
 
 這個 GO 只接受目前 tracked tree 作為非 production 基線。repo 內未找到獨立 BC-CP1 admission decision artifact；C0 Phase 2 task 對 `ADMIT_C0_PHASE_2` 的自我引用，以及已 merge 的 Phase 2 evidence，都不能單獨成為 current admission authority。
 
-因此目前唯一先行治理動作是：
+BC-CP1 已依 Owner 明確授權、以 current accepted inputs 重新裁決：
 
 ```text
-BC-CP1_AUTHORITY_RECONCILIATION
+ADMIT_C0_PHASE_2 / SPENT_AND_CLOSED
 ```
 
-此 gate 只可重建可驗證的既有 decision provenance，或以 current accepted inputs 重新裁決；不得執行 B0-P2、C0-P2、B1、C1、runtime mutation、benchmark、capture、replay 或 production。
+此 verdict 只補足已完成 C0 Phase 2 evidence-only scope的checkpoint provenance；不提供持續execution authority。不得執行 B0-P2、重跑C0-P2、B1、C1、runtime mutation、benchmark、capture、replay或production。
 
 ---
 
@@ -64,18 +64,19 @@ canonical backlog    = docs/ai-core-backlog.md
 
 ## 2. Current unique frontier
 
-### BC-CP1 authority reconciliation — current
+### B0-P2 admission decision — current
 
 ```text
 F0                         = ACCEPTED
 B0-P1 / C0-P1              = ACCEPTED
 CURRENT INTEGRATED BASELINE = ACCEPTED / NON_PRODUCTION
-BC-CP1 DECISION PROVENANCE = MISSING_STANDALONE_ARTIFACT
-B0-P2 / C0-P2 / B1 / C1   = NOT_ADMITTED
+BC-CP1                     = ADMIT_C0_PHASE_2 / DECIDED
+C0-P2                      = ACCEPTED / SPENT_AND_CLOSED
+B0-P2 / B1 / C1            = NOT_ADMITTED
 R14                         = NO_GO / NOT_ADMITTED
 ```
 
-已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史，不因檔案存在而自動取得 current execution authority。下一卡只能先處理 BC-CP1 decision provenance；不得直接跳到任何 Phase 2 或 implementation。
+已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史；BC-CP1 decision只讓既有C0-P2 scope完成權限閉環，不產生current execution authority。下一個可裁決點是B0-P2 admission；不得直接跳到B1、C1或implementation。
 
 ### 部分平行規則
 
@@ -219,7 +220,7 @@ E1–E4 initial class       Capacity dependencies
                    ↓
         ┌──────────┴───────────┐
         ↓                      ↓
-B0-P2 — NOT ADMITTED      C0-P2 — NOT ADMITTED
+B0-P2 — NOT ADMITTED      C0-P2 — ACCEPTED / CLOSED
 Search / overfit /        Capacity / claim / retry /
 Regime bundle draft       canary / rollback / removal
         │                      │
@@ -256,9 +257,9 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 | F0 Backlog Authority Reconciliation | `ACCEPTED @ 35bb992` | Card A closed | 將 Card A closeout、B0/C0 phased admission 寫入 mainline backlog |
 | B0-P1 Matrix Authority Checkpoint | `ACCEPTED / CURRENT_BASELINE` | F0 | matrix authority、dimension taxonomy、exact count、E1–E4 initial classification |
 | C0-P1 Execution Inventory Checkpoint | `ACCEPTED / CURRENT_BASELINE` | F0 | execution authority、runner seam、queue/bridge inventory、benchmark readiness |
-| BC-CP1 Shared Checkpoint | `AUTHORITY_RECONCILIATION_REQUIRED` | 兩線 Phase 1 已接受 | 重建或重新裁決 cross-lane decision；未完成前不得推導 Phase 2 admission |
+| BC-CP1 Shared Checkpoint | `DECIDED / ADMIT_C0_PHASE_2` | 兩線 Phase 1 已接受 | standalone current decision；只覆蓋fixed evidence-only C0-P2 scope |
 | B0-P2 Search and Final Research Design | `NOT_ADMITTED` | BC-CP1 | search policy、overfit guards、full donor matrix、RegimePolicyBundle draft |
-| C0-P2 Capacity and Cutover Design | `NOT_ADMITTED` | BC-CP1＋B0 facts | capacity、claim/retry、dual-write、canary、rollback、bridge removal plan |
+| C0-P2 Capacity and Cutover Design | `ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY` | BC-CP1＋B0 facts | 已完成capacity、claim/retry、dual-write、canary、rollback、bridge removal設計證據；未准入C1或cutover |
 | B1 Discrete Combination Kernel | `PLANNED / NOT_ADMITTED` | B0 fully accepted | count／generate／rank／unrank／chunk／identity／neighbor／constraint validation |
 | B2 Research Candidate Projection | `PLANNED / NOT_ADMITTED` | B1 accepted | Coverage＋Learning＋Failure＋budget → `CandidateDecision` shadow projection |
 | B3 Daily Adaptive Research Policy | `PLANNED / NOT_ADMITTED` | B2 accepted | coverage/refinement/replication/challenge/rare-regime policy |
@@ -395,9 +396,9 @@ D0 / D1
 10-b1-admission-recommendation.md
 ```
 
-### C0-P2 — not admitted
+### C0-P2 — accepted／spent and closed
 
-只有 BC-CP1 已接受 B0 matrix-size／E1–E4 inputs 後才可考慮：
+BC-CP1 已依 Owner 明確授權、以 current accepted inputs 裁決 `ADMIT_C0_PHASE_2`。下列既有成果只按 evidence-only design scope 接受，該 authority 已用畢並關閉；不得據此重跑或啟動 runtime／cutover：
 
 ```text
 05-capacity-and-intermediate-reuse-audit.md
@@ -618,7 +619,7 @@ B0／C0：
 
 - Phase 1 各自只交四份文件。
 - 不在每個小發現重審。
-- 第一次正式裁決點是 `BC-CP1`。
+- BC-CP1 已完成 standalone current-input裁決；下一個正式裁決點是B0-P2 admission decision。
 - 卡片研究完成不等於下一張自動 admission。
 - B 不得因最優化需求取得 execution authority。
 - C 不得因可靠執行需求取得 decision authority。
@@ -634,12 +635,12 @@ CURRENT:
 - R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
 
 REQUIRED NEXT GATE:
-- BC-CP1 authority reconciliation
-- reconstruct verifiable prior decision provenance or issue a new current-input decision
-- no Phase 2 execution while this gate is unresolved
+- B0-P2 admission decision
+- C0-P2 = ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY
+- no B0-P2 execution before a separate verdict
 
 NOT ADMITTED:
-- B0 Phase 2 / C0 Phase 2
+- B0 Phase 2
 - B1 / B2 / B3 / B4
 - C1 / C2 / C3 / C4 / C5
 - D0 / D1
