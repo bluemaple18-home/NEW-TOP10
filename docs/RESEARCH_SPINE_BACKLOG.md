@@ -2,7 +2,7 @@
 
 更新：2026-09-02
 
-狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_AND_B1_TO_D1_NOT_ADMITTED / R14_NO_GO`
+狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -64,7 +64,7 @@ canonical backlog    = docs/ai-core-backlog.md
 
 ## 2. Current unique frontier
 
-### B0-P2 admission decision — current
+### No active Research Spine execution frontier
 
 ```text
 F0                         = ACCEPTED
@@ -72,11 +72,12 @@ B0-P1 / C0-P1              = ACCEPTED
 CURRENT INTEGRATED BASELINE = ACCEPTED / NON_PRODUCTION
 BC-CP1                     = ADMIT_C0_PHASE_2 / DECIDED
 C0-P2                      = ACCEPTED / SPENT_AND_CLOSED
-B0-P2 / B1 / C1            = NOT_ADMITTED
+B0-P2                      = NO_GO_INSUFFICIENT_DECISION_VALUE
+B1 / C1                    = NOT_ADMITTED
 R14                         = NO_GO / NOT_ADMITTED
 ```
 
-已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史；BC-CP1 decision只讓既有C0-P2 scope完成權限閉環，不產生current execution authority。下一個可裁決點是B0-P2 admission；不得直接跳到B1、C1或implementation。
+已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史；BC-CP1 decision只讓既有C0-P2 scope完成權限閉環，不產生current execution authority。B0-P2已因缺research-valid measured gap與E4 decision value裁決NO-GO；不得直接跳到B1、C1或implementation。獨立Forecast／TFM3 fork不由本backlog自動准入。
 
 ### 部分平行規則
 
@@ -258,7 +259,7 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 | B0-P1 Matrix Authority Checkpoint | `ACCEPTED / CURRENT_BASELINE` | F0 | matrix authority、dimension taxonomy、exact count、E1–E4 initial classification |
 | C0-P1 Execution Inventory Checkpoint | `ACCEPTED / CURRENT_BASELINE` | F0 | execution authority、runner seam、queue/bridge inventory、benchmark readiness |
 | BC-CP1 Shared Checkpoint | `DECIDED / ADMIT_C0_PHASE_2` | 兩線 Phase 1 已接受 | standalone current decision；只覆蓋fixed evidence-only C0-P2 scope |
-| B0-P2 Search and Final Research Design | `NOT_ADMITTED` | BC-CP1 | search policy、overfit guards、full donor matrix、RegimePolicyBundle draft |
+| B0-P2 Search and Final Research Design | `NO_GO_INSUFFICIENT_DECISION_VALUE / NOT_ADMITTED` | BC-CP1 | 缺research-valid full-scan-vs-adaptive gap、larger matrix authority與E4 cadence；不產生futureware |
 | C0-P2 Capacity and Cutover Design | `ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY` | BC-CP1＋B0 facts | 已完成capacity、claim/retry、dual-write、canary、rollback、bridge removal設計證據；未准入C1或cutover |
 | B1 Discrete Combination Kernel | `PLANNED / NOT_ADMITTED` | B0 fully accepted | count／generate／rank／unrank／chunk／identity／neighbor／constraint validation |
 | B2 Research Candidate Projection | `PLANNED / NOT_ADMITTED` | B1 accepted | Coverage＋Learning＋Failure＋budget → `CandidateDecision` shadow projection |
@@ -385,7 +386,9 @@ D0 / D1
 
 ### B0-P2 — not admitted
 
-只有 BC-CP1 接受後才可考慮：
+Current admission verdict：`NO_GO_B0_PHASE_2_INSUFFICIENT_DECISION_VALUE`。只有形成committed larger matrix authority、同一research-valid workload的full-scan/adaptive comparator，或E2 semantic/performance加E4 cadence的新證據後才可重新裁決。
+
+若未來重新准入，reserved outputs仍限制為：
 
 ```text
 05-full-scan-vs-adaptive-search-decision.md
@@ -619,7 +622,7 @@ B0／C0：
 
 - Phase 1 各自只交四份文件。
 - 不在每個小發現重審。
-- BC-CP1 已完成 standalone current-input裁決；下一個正式裁決點是B0-P2 admission decision。
+- BC-CP1已完成；B0-P2 admission已裁決NO-GO。Research Spine目前沒有active execution frontier。
 - 卡片研究完成不等於下一張自動 admission。
 - B 不得因最優化需求取得 execution authority。
 - C 不得因可靠執行需求取得 decision authority。
@@ -635,9 +638,10 @@ CURRENT:
 - R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
 
 REQUIRED NEXT GATE:
-- B0-P2 admission decision
+- no active Research Spine execution gate
+- B0-P2 = NO_GO_INSUFFICIENT_DECISION_VALUE
 - C0-P2 = ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY
-- no B0-P2 execution before a separate verdict
+- independent Forecast / TFM3 fork requires its own preflight and authority
 
 NOT ADMITTED:
 - B0 Phase 2
