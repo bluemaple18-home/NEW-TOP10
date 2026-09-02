@@ -1,6 +1,6 @@
 ---
 id: REVALIDATE-NEW-TOP10-AUTONOMOUS-RESEARCH-RUNTIME
-status: RESOURCE_OPTIMIZED_CANDIDATE / EXTERNAL_REVALIDATION_PENDING / LIVE_ACTIVATION_NOT_AUTHORIZED
+status: BLOCKED_REPRESENTATIVE_WORKLOAD_EMPTY_3 / LEDGER_MIGRATION_CONTRACT_STALE / LIVE_ACTIVATION_NOT_AUTHORIZED
 type: runtime-revalidation
 risk: high
 baseline: d73001ca870974625530f33f0766e7abf5231124
@@ -53,6 +53,9 @@ baseline: d73001ca870974625530f33f0766e7abf5231124
 - regime authority candidate：新增 v2 append-only updater，只採用 extension 中晚於 canonical end 的 26 個交易日，逐 byte 保留既有 282 個歷史 rows，並以 features 日期集合拒絕 gap；真實資料 copy 測試得到 `282 → 308 rows / end=2026-09-01`，沒有重算或覆蓋歷史 regime。
 - R3 external receipt：regime updater 已產生 canonical 寫入，guard 因 `artifacts/market_regime_history.json` 在 registered `artifacts` 但未列入 fog meter 而以 `REGISTERED_WRITE_OUTSIDE_METER` STOP，依約未跑 cycle 2。當輪 memory pressure=`2`、swap delta=`0`、peak RSS=`51,249,152 bytes`；修正只把該精確 canonical path納入 fog meter，不擴張 write root。
 - R4 external receipt：meter gap 已消失，但 no-`.git` sandbox 在 `publish_research_batch_intent.py` 以 `GIT_HEAD_UNAVAILABLE` 失敗；cycle 1 guard 本身 `OK` 是因 fog retry circuit 將 batch failure轉成受控結束，不能視為代表性 PASS，cycle 2則因 circuit skip而 `MISSING_VALID_LIVE_RESOURCE_SAMPLE`。修正以 pinned entrypoint contract 傳入 source commit，僅在 `TOP10_STORAGE_VALIDATION_MODE=1`、root 無 `.git` 且 digest 格式合法時作 batch identity；production checkout仍只信任實際 Git HEAD。
+- R5 external receipt：pinned source identity 已通過；regime authority成功 append 26 日至 `2026-09-01`，但 autonomous outcome 仍為 `TOPIC_SUPPLY_EXHAUSTED / topic_runs=[]`。這是同一代表性 workload empty blocker 的第三次觀測，依規則停止 retry。
+- R5 同時揭露第二個 live blocker：observation ingest 讀到舊 migration manifest，缺新版 disposition／inference／quality／reconciliation欄位而 fail closed；`data/research/research_ledger.duckdb` 的合法寫入亦尚未列入 fog registered write/meter paths。Guard因此以 `UNREGISTERED_WRITE_PATH` STOP，cycle 2未執行。
+- R5 資源證據只可支持「優化沒有造成主機壓力」：memory pressure=`2`、swap delta=`0`、peak RSS=`51,118,080 bytes`；因無 topic run，不得支持代表性 2 GiB capacity PASS。
 
 ## Boundary
 
@@ -60,3 +63,4 @@ baseline: d73001ca870974625530f33f0766e7abf5231124
 - 不清理舊 sandbox、其他專案或不明檔案。
 - 不載入、啟用、kickstart 或重啟 launchd；不 push、deploy、publish。
 - 代表性驗證若需要數 GiB fresh sandbox 與高記憶體 workload，必須在執行前取得本輪明確資源授權。
+- 下一張修復卡必須先建立一個受控、可執行且不繞過 manager policy 的 representative topic fixture，並升級或隔離 legacy migration corpus；在兩者完成前禁止再次重跑本卡或啟用 fog launchd。
