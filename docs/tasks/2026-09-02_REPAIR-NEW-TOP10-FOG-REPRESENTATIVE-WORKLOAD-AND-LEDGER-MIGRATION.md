@@ -50,3 +50,5 @@ baseline: ba1e8c6
 - 2026-09-02：fresh manager 仍無題的根因不是歷史重複，而是 2026-09-02 current identity `RISK_OFF|BIG_BULL` 缺完整 development episode（`development_available=0`、embargo 6/10 日）；維持 fail closed，不偽造 current OOS。
 - 2026-09-02：容量驗證改用 validation-only 歷史 exact-regime fixture：`2026-08-31 NARROW_LEADER|BIG_BULL+HIGH_CHOPPY`，horizon 3 的 canonical allowed date=`2025-08-07`，production candidate/baseline ranking 均有 exact date；仍由 daily scheduler 建 Batch Intent、fresh manager、autonomous selector、strategy matrix 與 batch verifier，不直接強制執行 topic。
 - 2026-09-02：R7 另觀測 `PROTECTED_ROOT_MUTATED` 但舊 receipt 未列具體 path；guard receipt 已補精確 changed paths，以便下一輪分辨真實 source mutation 與外部干擾。
+- 2026-09-02：R8 已證明 WAL 登記修復：unknown writes=`[]`，亦未再出現 protected-root mutation。第一週期執行 176.15 秒、peak RSS `1,096,941,568 bytes`（約 1.02 GiB，低於 2 GiB）、memory pressure `2→1`，但全機 swap 增加約 2.93 GiB，舊 `RSS_AND_SWAP_RISING` 在第三個 sample 誤判正常 warm-up 而停止。
+- 2026-09-02：R8 stop-loss RED 修復：當 macOS memory-pressure 指標可讀時，連續 RSS／全機 swap 上升不再單獨觸發；仍保留 2 GiB process-tree hard ceiling、連續 critical pressure stop，以及 pressure 不可讀時的 RSS+swap fallback。回歸同時覆蓋「pressure 改善不誤殺」與「sensor 不可用仍 fail closed」。

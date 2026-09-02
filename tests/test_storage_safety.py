@@ -384,6 +384,7 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 "MEMORY_PRESSURE_METRIC_UNAVAILABLE_SWAP_GROWTH_BUDGET_EXCEEDED",
             }.issubset(set(hard_memory_decision.reasons))
         )
+
         missing_rss = replace(runtime_samples[-1], rss_bytes=None)
         self.assertIn(
             "RSS_METRIC_UNAVAILABLE",
@@ -412,6 +413,23 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             validation_only=True,
         )
         self.assertFalse(validation_decision.triggered)
+
+    def test_rising_rss_and_global_swap_do_not_stop_when_memory_pressure_improves(
+        self,
+    ) -> None:
+        samples = [
+            Sample(0, 10, 1, 100_000, 50_000, 400, 10, memory_pressure_level=2),
+            Sample(60, 10, 1, 100_000, 50_000, 700, 20, memory_pressure_level=2),
+            Sample(120, 10, 1, 100_000, 50_000, 1000, 30, memory_pressure_level=1),
+        ]
+
+        decision = evaluate_runtime(
+            fixture_global_policy(),
+            fixture_job_policy(max_process_tree_rss_bytes=2000),
+            samples,
+        )
+
+        self.assertNotIn("RSS_AND_SWAP_RISING", decision.reasons)
 
     def test_swap_growth_alone_does_not_stop_when_pressure_is_readable_and_non_critical(
         self,

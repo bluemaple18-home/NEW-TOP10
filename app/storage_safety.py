@@ -619,8 +619,10 @@ def evaluate_runtime(
         recent_live = live_samples[-3:]
         swaps = [item.swap_bytes for item in recent_live]
         rss_values = [item.rss_bytes for item in recent_live]
+        pressure_values = [item.memory_pressure_level for item in recent_live]
         if (
             len(recent_live) == 3
+            and all(value is None for value in pressure_values)
             and all(value is not None for value in rss_values)
             and int(rss_values[0]) < int(rss_values[1]) < int(rss_values[2])
             and all(value is not None for value in swaps)
