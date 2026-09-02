@@ -218,7 +218,11 @@ class HookedMonotonicClock(FakeMonotonicClock):
 class StorageSafetyRegressionTest(unittest.TestCase):
     def test_policy_contract_is_complete_and_verified_jobs_have_evidence(self) -> None:
         policy_path = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"
-        verified_jobs = {"daily", "external-review-preflight"}
+        verified_jobs = {
+            "daily",
+            "external-review-preflight",
+            "fog-research-worker",
+        }
         for job in SCHEDULED_JOBS:
             with self.subTest(job=job):
                 global_policy, policy, rules = load_policy(policy_path, job)
@@ -269,6 +273,9 @@ class StorageSafetyRegressionTest(unittest.TestCase):
         )
         self.assertEqual(fog_policy.max_bytes, 2147483648)
         self.assertEqual(fog_policy.max_file_count, 30000)
+        self.assertIn("R18", fog_policy.verification_basis)
+        self.assertIn("兩輪", fog_policy.verification_basis)
+        self.assertIn("外層 lifecycle exit 0", fog_policy.verification_basis)
         _global_policy, preflight_policy, _rules = load_policy(
             policy_path,
             "external-review-preflight",

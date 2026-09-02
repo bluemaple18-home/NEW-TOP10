@@ -146,8 +146,8 @@
       "sample_interval_seconds": 60
     },
     "fog-research-worker": {
-      "launch_verified": false,
-      "verification_basis": "2026-08-03 第一週期在代表性 grid/replay 工作負載中觀測 peak RSS 3191783424 bytes、swap delta 594081219 bytes；因當時 policy 缺 hard RSS/swap ceiling 而人工送 TERM，guard 隔離停止並拒絕重啟。hard ceilings 已補但未再跑完整週期，維持 NO-GO。",
+      "launch_verified": true,
+      "verification_basis": "2026-09-02 至 2026-09-03 R18 外接 clean-room 代表性兩輪均 OK，topic run count 各 1，peak process-tree RSS 799424512/758562816 bytes，memory pressure 全程 1，swap delta -50331648/-434561352 bytes，unknown writes 均為空，process groups quiescent；外層 lifecycle exit 0 且 clean-room 已清除。維持 max_bytes=2 GiB、max_file_count=30000、RSS=2 GiB 與 swap=2 GiB hard ceilings；只授權 fog-research-worker 進入另經 Owner 核准的 live activation。證據：docs/evidence/REVALIDATE-NEW-TOP10-AUTONOMOUS-RESEARCH-RUNTIME-R18。",
       "meter_paths": ["logs", "data/research/research_ledger.duckdb", "data/research/research_ledger.duckdb.wal", "data/research/.research-ledger-rebuild", "artifacts/market_regime_history.json", "artifacts/autonomous_research", "artifacts/weekend_training", "artifacts/harness_status", "artifacts/research_map", "artifacts/research_reviews", "artifacts/host_runner"],
       "registered_write_paths": ["logs", "data/research/research_ledger.duckdb", "data/research/research_ledger.duckdb.wal", "data/research/.research-ledger-rebuild", "artifacts"],
       "cleanup_rule_ids": ["runtime_workspace", "logs", "log_errors", "research_snapshots", "autonomous_run_dirs", "harness_status", "weekend_replay_runs"],

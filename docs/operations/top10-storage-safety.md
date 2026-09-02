@@ -2,16 +2,16 @@
 
 ## 目前結論
 
-`docs/operations/top10-storage-policy.json` 目前只將 `daily.launch_verified=true`。這是
-2026-08-27 使用 main checkout real-data snapshot，在 fresh no-`.git` sandbox 內完成兩個
-serial representative validation cycles、sandbox-only reclaim drill 與 14 天峰值推估後的
-policy candidate；不等於已授權 load、enable、kickstart 或手動執行 live launchd。
+`docs/operations/top10-storage-policy.json` 目前將 `daily`、`external-review-preflight` 與
+`fog-research-worker` 設為 `launch_verified=true`。其中 Fog 依 2026-09-02 至 2026-09-03
+R18 外接 clean-room 兩個完整代表性週期、hard ceiling、零 unknown writes、process group
+quiescence 與 lifecycle cleanup exit `0` 驗證；門檻未放寬。
 
-其餘七個排程仍維持 `launch_verified=false`。這是刻意的 fail-closed 狀態：修復版尚未完成
-各 job 的兩個代表性完整週期，因此 repo 中的數字對這七個 job 仍只是 provisional ceiling，
+其餘五個排程仍維持 `launch_verified=false`。這是刻意的 fail-closed 狀態：尚未完成
+各 job 的兩個代表性完整週期，因此 repo 中的數字對這五個 job 仍只是 provisional ceiling，
 不是 live 核准預算。
 
-`daily.launch_verified=true` 只解除 storage policy 的 pre-child fail-closed 原因；實際
+`launch_verified=true` 只解除各 job storage policy 的 pre-child fail-closed 原因；實際
 載入、啟用、kickstart 或手動執行 live launchd 仍是外部控制面動作，必須另有 operator
 授權。對仍為 `launch_verified=false` 的 job：
 
