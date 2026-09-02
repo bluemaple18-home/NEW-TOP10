@@ -141,6 +141,27 @@ def _git_lines(project_root: Path, args: Sequence[str]) -> tuple[int, list[str]]
     return code, raw.decode("utf-8", errors="replace").splitlines()
 
 
+def _resolve_project_root(project_root: Path) -> tuple[Path | None, list[str]]:
+    lexical = project_root.absolute()
+    try:
+        resolved = lexical.resolve(strict=True)
+    except OSError:
+        return None, ["ROOT_UNAVAILABLE"]
+    if lexical.is_symlink() or lexical != resolved:
+        return None, ["ROOT_SYMLINK"]
+    return resolved, []
+
+
+def _pin_head(project_root: Path) -> tuple[str | None, list[str]]:
+    code, raw = _git_bytes(project_root, ["rev-parse", "--verify", "HEAD^{commit}"])
+    if code != 0:
+        return None, ["GIT_HEAD_PIN_UNAVAILABLE"]
+    commit = raw.decode("utf-8", errors="replace").strip()
+    if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit):
+        return None, ["GIT_HEAD_PIN_INVALID"]
+    return commit, []
+
+
 def _base_result(contract: _AuthorityContract) -> dict[str, Any]:
     manifest = _expected_by_path(contract)[contract.manifest_path]
     return {
@@ -195,15 +216,16 @@ def _load_json(raw: bytes, code: str) -> tuple[Mapping[str, Any] | None, list[st
 def _verify_head_file_set(
     project_root: Path,
     contract: _AuthorityContract,
+    commit: str,
 ) -> list[str]:
     expected = set(_expected_by_path(contract))
     errors: list[str] = []
     code, head_files = _git_lines(
         project_root,
-        ["ls-tree", "-r", "--name-only", "HEAD", "--", contract.output_root],
+        ["ls-tree", "-r", "--name-only", commit, "--", contract.output_root],
     )
     if code != 0:
-        errors.append("GIT_HEAD_UNAVAILABLE")
+        errors.append("GIT_HEAD_FILE_SET_UNAVAILABLE")
         head_files = []
     actual_head = {item for item in head_files if item}
     for path in sorted(expected - actual_head):
@@ -214,14 +236,18 @@ def _verify_head_file_set(
         project_root,
         ["diff", "--cached", "--name-only", "--", contract.output_root],
     )
-    if code == 0:
+    if code != 0:
+        errors.append("GIT_STAGED_STATE_UNAVAILABLE")
+    else:
         for path in sorted(item for item in staged if item):
             errors.append(f"SOURCE_STAGED_NOT_HEAD:{path}")
     code, staged_added = _git_lines(
         project_root,
         ["diff", "--cached", "--name-only", "--diff-filter=A", "--", contract.output_root],
     )
-    if code == 0:
+    if code != 0:
+        errors.append("GIT_STAGED_STATE_UNAVAILABLE")
+    else:
         for path in sorted(item for item in staged_added if item and item not in expected):
             errors.append(f"SOURCE_STAGED_NOT_HEAD:{path}")
     return errors
@@ -231,6 +257,7 @@ def _verify_expected_bytes(
     project_root: Path,
     contract: _AuthorityContract,
     result: dict[str, Any],
+    commit: str,
 ) -> tuple[list[str], dict[str, bytes]]:
     errors: list[str] = []
     committed: dict[str, bytes] = {}
@@ -241,7 +268,7 @@ def _verify_expected_bytes(
             _set_file_status(result, path, str(error))
             errors.append(f"{error}:{path}")
             continue
-        code, head_raw = _git_bytes(project_root, ["show", f"HEAD:{path}"])
+        code, head_raw = _git_bytes(project_root, ["show", f"{commit}:{path}"])
         if code != 0:
             _set_file_status(result, path, "SOURCE_NOT_COMMITTED")
             errors.append(f"SOURCE_NOT_COMMITTED:{path}")
@@ -347,11 +374,20 @@ def _verify_with_contract(
     project_root: Path,
     contract: _AuthorityContract,
 ) -> dict[str, Any]:
-    root = project_root.resolve()
     result = _base_result(contract)
     errors: list[str] = []
-    errors.extend(_verify_head_file_set(root, contract))
-    byte_errors, committed = _verify_expected_bytes(root, contract, result)
+    root, root_errors = _resolve_project_root(project_root)
+    errors.extend(root_errors)
+    if root is None:
+        result["errors"] = sorted(set(errors))
+        return result
+    commit, commit_errors = _pin_head(root)
+    errors.extend(commit_errors)
+    if commit is None:
+        result["errors"] = sorted(set(errors))
+        return result
+    errors.extend(_verify_head_file_set(root, contract, commit))
+    byte_errors, committed = _verify_expected_bytes(root, contract, result, commit)
     errors.extend(byte_errors)
     errors.extend(_verify_identity(contract, committed))
     manifest_path = root / contract.manifest_path
@@ -365,6 +401,10 @@ def _verify_with_contract(
             errors.append("BUNDLE_VERIFIER_EXCEPTION")
     else:
         errors.append("MANIFEST_UNAVAILABLE")
+    final_commit, final_commit_errors = _pin_head(root)
+    errors.extend(final_commit_errors)
+    if final_commit is not None and final_commit != commit:
+        errors.append("HEAD_CHANGED_DURING_VERIFICATION")
     result["errors"] = sorted(set(errors))
     result["status"] = STATUS_REGISTERED if not result["errors"] else STATUS_REJECTED
     return result

@@ -180,13 +180,8 @@ def test_private_fixture_positive_verifies_committed_bytes_and_json_shape(tmp_pa
 
 def test_real_r13_bundle_is_registered_after_implementation_commit() -> None:
     result = authority.verify_registered_r13_bundle()
-    if result["status"] == authority.STATUS_REJECTED:
-        assert any(
-            item.startswith("SOURCE_NOT_COMMITTED:") for item in result["errors"]
-        )
-        assert result["downstream_authority"] == "NONE"
-        return
     assert result["status"] == authority.STATUS_REGISTERED
+    assert result["errors"] == []
     assert result["identity"] == {
         "scenario": "regime_shadow_research",
         "ranking_date": "2026-09-01",
@@ -429,6 +424,57 @@ def test_contract_rejects_absolute_traversal_symlink_and_cli_arbitrary_path(
     (tmp_path / link_path).symlink_to(tmp_path / contract.manifest_path)
     linked = _verify(tmp_path, contract)
     assert any(error.startswith("PATH_SYMLINK:") for error in linked["errors"])
+
+
+def test_head_move_during_verification_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _init_repo(tmp_path)
+    contract = _fixture(tmp_path)
+    original = authority._git_bytes
+    moved = False
+
+    def moving_git(project: Path, args) -> tuple[int, bytes]:
+        nonlocal moved
+        result = original(project, args)
+        if not moved and list(args[:1]) == ["ls-tree"]:
+            extra = project / contract.output_root / "regime_shadow_ranking.json"
+            extra.write_text("{}\n", encoding="utf-8")
+            _git(project, "add", extra.relative_to(project).as_posix())
+            _git(project, "commit", "-qm", "move head")
+            moved = True
+        return result
+
+    monkeypatch.setattr(authority, "_git_bytes", moving_git)
+    result = _verify(tmp_path, contract)
+    assert result["status"] == authority.STATUS_REJECTED
+    assert "HEAD_CHANGED_DURING_VERIFICATION" in result["errors"]
+    assert not any(error.startswith("EXTRA_TRACKED_FILE:") for error in result["errors"])
+
+
+def test_staged_state_git_failure_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _init_repo(tmp_path)
+    contract = _fixture(tmp_path)
+    original = authority._git_bytes
+
+    def failing_git(project: Path, args) -> tuple[int, bytes]:
+        if list(args[:2]) == ["diff", "--cached"]:
+            return 128, b""
+        return original(project, args)
+
+    monkeypatch.setattr(authority, "_git_bytes", failing_git)
+    result = _verify(tmp_path, contract)
+    assert result["status"] == authority.STATUS_REJECTED
+    assert result["errors"] == ["GIT_STAGED_STATE_UNAVAILABLE"]
+
+
+def test_project_root_symlink_is_rejected_before_resolve(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    _init_repo(real)
+    contract = _fixture(real)
+    link = tmp_path / "repo-link"
+    link.symlink_to(real, target_is_directory=True)
+    result = _verify(link, contract)
+    assert result["status"] == authority.STATUS_REJECTED
+    assert result["errors"] == ["ROOT_SYMLINK"]
 
 
 def test_historical_admission_regression_remains_fail_closed() -> None:
