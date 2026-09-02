@@ -49,6 +49,8 @@ baseline: d73001ca870974625530f33f0766e7abf5231124
 - R1 external receipt：cycle 1 `OK` 但僅 `4.42s / 67,403,776 bytes RSS`，queue 已耗盡而非代表性 workload；cycle 2 因 `MISSING_VALID_LIVE_RESOURCE_SAMPLE` STOP。兩輪 memory pressure 均為 `2`、swap delta `0`，但整體 verdict 必須維持 `NO-GO / REPRESENTATIVE_WORKLOAD_EMPTY`。
 - R1 另揭露共用 lifecycle 的 evidence staging 位於 sandbox volume，無法跨 volume 原子 rename 回 repo；candidate harness 已改為在目的 volume 建 staging 後原子發布，仍由 lifecycle 負責 sandbox ownership、budget 與 cleanup。
 - R2 修正方向：validation-only fresh sandbox 固定 `TOP10_RESEARCH_ALLOW_RERUN=1`，避免正式 queue 已消耗時空跑；copy allowlist 排除 tests/docs/mlruns/web 等非 runtime roots，只補入 storage policy，維持 5 GiB／50,000 files lifecycle hard limit而不放寬預算。
+- R2 external receipt：仍為 `4.46s / 73,678,848 bytes RSS` 空週期，cycle 2 同樣 `MISSING_VALID_LIVE_RESOURCE_SAMPLE`；證明 `--rerun` 依設計不能繞過 manager policy。直接資料比對確認真正 blocker 是 canonical `artifacts/market_regime_history.json` 僅到 `2026-07-27`，但 features 與既有 append-only authority 已到 `2026-09-01`。
+- regime authority candidate：新增 v2 append-only updater，只採用 extension 中晚於 canonical end 的 26 個交易日，逐 byte 保留既有 282 個歷史 rows，並以 features 日期集合拒絕 gap；真實資料 copy 測試得到 `282 → 308 rows / end=2026-09-01`，沒有重算或覆蓋歷史 regime。
 
 ## Boundary
 

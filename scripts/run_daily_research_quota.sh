@@ -56,6 +56,9 @@ REFRESH_RESEARCH_MAP="${TOP10_REFRESH_RESEARCH_MAP:-1}"
 LOG_DIR="$PROJECT_DIR/logs"
 OUTPUT="artifacts/autonomous_research/autonomous_research_daily_quota_${RUN_DATE}.json"
 RUNTIME_RECEIPT="artifacts/autonomous_research/closed_regime_runtime_receipt_${RUN_DATE}.json"
+REGIME_HISTORY="artifacts/market_regime_history.json"
+REGIME_EXTENSION="artifacts/model_experiments/market_regime_history_append_only_2026-07-22.json"
+REGIME_UPDATE_RECEIPT="artifacts/autonomous_research/fog_regime_authority_update_latest.json"
 BATCH_VERIFICATION="artifacts/autonomous_research/research_spine_batch_verification_${RESEARCH_BATCH_ID}.json"
 LEDGER_BATCH_VERIFICATION="artifacts/autonomous_research/research_ledger_batch_verification_${RESEARCH_BATCH_ID}.json"
 RESEARCH_LEDGER="data/research/research_ledger.duckdb"
@@ -76,7 +79,7 @@ RUN_ARGS=(
   --research-batch-id "$RESEARCH_BATCH_ID"
   --execute
   --closed-regime-research
-  --market-regime-history artifacts/market_regime_history.json
+  --market-regime-history "$REGIME_HISTORY"
   --research-contract config/regime_research_contract.json
   --baseline-dir "$BASELINE_DIR"
   --max-topics "$MAX_TOPICS"
@@ -102,6 +105,12 @@ fi
 RUN_ARGS+=(--output "$OUTPUT")
 
 mkdir -p "$LOG_DIR"
+
+"${RUNNER_CMD[@]}" scripts/update_fog_regime_authority.py \
+  --base "$REGIME_HISTORY" \
+  --extension "$REGIME_EXTENSION" \
+  --features data/clean/features.parquet \
+  --receipt "$REGIME_UPDATE_RECEIPT" >> "$LOG_FILE" 2>&1
 
 echo "========================================" | tee -a "$LOG_FILE"
 echo "開始每日研究配額 - $(date)" | tee -a "$LOG_FILE"
