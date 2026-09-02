@@ -21,6 +21,7 @@ FIXED_ENVIRONMENT = {
     "LC_ALL": "C",
     "TZ": "Asia/Taipei",
     "PYTHONDONTWRITEBYTECODE": "1",
+    "TOP10_STORAGE_VALIDATION_MODE": "1",
     "OMP_NUM_THREADS": "1",
     "OPENBLAS_NUM_THREADS": "1",
     "MKL_NUM_THREADS": "1",
@@ -126,13 +127,18 @@ def materialize_verified_runner(runtime_root: Path, source: bytes) -> int:
 
 
 def main() -> None:
-    if len(sys.argv) != 3 or sys.argv[1] != "--runner-sha256":
-        fail("argv 必須由 pinned contract 固定為 runner digest", 64)
+    if len(sys.argv) != 5 or sys.argv[1] != "--runner-sha256" or sys.argv[3] != "--source-commit":
+        fail("argv 必須由 pinned contract 固定 runner digest 與 source commit", 64)
     expected_digest = sys.argv[2]
     if len(expected_digest) != 64 or any(
         character not in "0123456789abcdef" for character in expected_digest
     ):
         fail("runner digest 格式不符", 64)
+    source_commit = sys.argv[4]
+    if len(source_commit) not in {40, 64} or any(
+        character not in "0123456789abcdef" for character in source_commit
+    ):
+        fail("source commit 格式不符", 64)
 
     sandbox = Path.cwd().resolve()
     if (sandbox / ".git").exists() or (sandbox / ".git").is_symlink():
@@ -167,6 +173,7 @@ def main() -> None:
     environment = dict(FIXED_ENVIRONMENT)
     environment.update({key: str(path) for key, path in runtime_paths.items()})
     environment["TOP10_DAILY_PYTHON"] = str(python_bin)
+    environment["TOP10_VALIDATION_SOURCE_COMMIT"] = source_commit
     runner_fd = materialize_verified_runner(runtime_root, runner_source)
     try:
         os.dup2(runner_fd, 0, inheritable=True)

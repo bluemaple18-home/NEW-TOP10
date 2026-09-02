@@ -19,13 +19,19 @@ class ExternalFogRevalidationTest(unittest.TestCase):
             entrypoint.write_text("print('entrypoint')\n", encoding="utf-8")
             runner.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
 
-            marker_path, contract_path = revalidation.build_validation_contract(sandbox)
+            source_commit = "a" * 40
+            marker_path, contract_path = revalidation.build_validation_contract(
+                sandbox, source_commit
+            )
             marker = json.loads(marker_path.read_text(encoding="utf-8"))
             contract = json.loads(contract_path.read_text(encoding="utf-8"))
 
             self.assertEqual(contract["job"], revalidation.JOB)
             self.assertEqual(contract["entrypoint_sha256"], revalidation.sha256_file(entrypoint))
-            self.assertEqual(contract["argv"], ["--runner-sha256", revalidation.sha256_file(runner)])
+            self.assertEqual(
+                contract["argv"],
+                ["--runner-sha256", revalidation.sha256_file(runner), "--source-commit", source_commit],
+            )
             registration = marker["trusted_entrypoints"][revalidation.JOB]
             self.assertEqual(registration["contract_sha256"], revalidation.sha256_file(contract_path))
             self.assertEqual(marker["sandbox_root"], str(sandbox))

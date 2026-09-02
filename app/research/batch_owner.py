@@ -131,6 +131,13 @@ def _git_head(project_root: Path) -> str:
         check=False,
     )
     if completed.returncode != 0:
+        validation_head = os.environ.get("TOP10_VALIDATION_SOURCE_COMMIT", "")
+        if (
+            os.environ.get("TOP10_STORAGE_VALIDATION_MODE") == "1"
+            and re.fullmatch(r"[0-9a-f]{40,64}", validation_head)
+            and not (project_root / ".git").exists()
+        ):
+            return validation_head
         raise BatchOwnerAuthorityError("GIT_HEAD_UNAVAILABLE")
     return completed.stdout.strip()
 

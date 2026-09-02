@@ -1,0 +1,141 @@
+{
+  "child_exit_code": 0,
+  "command": [
+    "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j/.venv/bin/python",
+    "-I",
+    "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j/scripts/storage_validation/fog_research_worker.py",
+    "--runner-sha256",
+    "a7e3ed290449675c60b4ee4e89d52735d8f5be61ca205e64c85bd859c05fd054"
+  ],
+  "final_process_group_checked_at": "2026-09-02T08:57:01.264618+00:00",
+  "final_process_group_quiescent": true,
+  "job": "fog-research-worker",
+  "launch_verified": false,
+  "limits": {
+    "expected_growth_bytes_per_hour": 16777216,
+    "max_bytes": 2147483648,
+    "max_file_count": 30000,
+    "max_process_tree_rss_bytes": 2147483648,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 14400,
+    "stabilize_after_seconds": 18000
+  },
+  "max_runtime_seconds": 7200.0,
+  "process_group": {
+    "final_checked_at": "2026-09-02T08:57:01.264618+00:00",
+    "final_quiescent": true,
+    "verified_identity": {
+      "group_id": 94071,
+      "leader_pid": 94071,
+      "leader_start_token": "Wed Sep  2 16:56:42 2026",
+      "session_id": 94071
+    }
+  },
+  "process_group_identity": {
+    "group_id": 94071,
+    "leader_pid": 94071,
+    "leader_start_token": "Wed Sep  2 16:56:42 2026",
+    "session_id": 94071
+  },
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 2697528,
+    "bytes_before": 2697528,
+    "dry_run": false,
+    "file_count_after": 184,
+    "file_count_before": 184,
+    "removed_paths": []
+  },
+  "samples": [
+    {
+      "host_free_bytes": 138030276608,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "preflight",
+      "project_bytes": 1326947441,
+      "project_file_count": 21411,
+      "rss_bytes": 0,
+      "swap_bytes": 7132875325,
+      "timestamp": 1788339399.149781
+    },
+    {
+      "host_free_bytes": 138344091648,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "project_bytes": 1040928305,
+      "project_file_count": 12730,
+      "rss_bytes": 51183616,
+      "swap_bytes": 7132875325,
+      "timestamp": 1788339402.648473
+    },
+    {
+      "host_free_bytes": 138344144896,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "final",
+      "project_bytes": 1040942911,
+      "project_file_count": 12741,
+      "rss_bytes": 0,
+      "swap_bytes": 7132875325,
+      "timestamp": 1788339419.336786
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "OK",
+  "summary": {
+    "elapsed_seconds": 20.187005043029785,
+    "first_memory_pressure_level": 2,
+    "host_free_bytes_delta": 313868288,
+    "last_memory_pressure_level": 2,
+    "observed_growth_bytes_per_hour": 0.0,
+    "peak_live_memory_pressure_level": 2,
+    "peak_rss_bytes": 51183616,
+    "project_bytes_delta": -286004530,
+    "project_file_count_delta": -8670,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": {
+    "marker": {
+      "jobs": [
+        "fog-research-worker"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j",
+      "schema_version": "top10-storage-validation-root.v1",
+      "trusted_entrypoints": {
+        "fog-research-worker": {
+          "contract_path": "validation/fog-entrypoint-contract.json",
+          "contract_sha256": "f09c4cf70ac76cfa4b2809697eddf1b84000014bcb881c211cdc9dfc14ade8d5"
+        }
+      }
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j/logs/storage_safety/runtime/fog-research-worker/tmp/joblib",
+      "MPLCONFIGDIR": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j/logs/storage_safety/runtime/fog-research-worker/cache/matplotlib",
+      "TMPDIR": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j/logs/storage_safety/runtime/fog-research-worker/tmp",
+      "UV_CACHE_DIR": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j/logs/storage_safety/runtime/fog-research-worker/cache/uv",
+      "XDG_CACHE_HOME": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j/logs/storage_safety/runtime/fog-research-worker/cache/xdg"
+    },
+    "sandbox_input_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j",
+    "sandbox_output_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j",
+    "source_input_root": "/Users/mattkuo/TOP10new",
+    "trusted_entrypoint": {
+      "argv": [
+        "--runner-sha256",
+        "a7e3ed290449675c60b4ee4e89d52735d8f5be61ca205e64c85bd859c05fd054"
+      ],
+      "contract_path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j/validation/fog-entrypoint-contract.json",
+      "contract_sha256": "f09c4cf70ac76cfa4b2809697eddf1b84000014bcb881c211cdc9dfc14ade8d5",
+      "entrypoint_path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r4-kwtp5g_j/scripts/storage_validation/fog_research_worker.py",
+      "entrypoint_sha256": "19f41fc191c200f73cc20248b422723fb4d32fe606e56319710ba1ff7d43352b"
+    }
+  },
+  "validation_only": true,
+  "verification_basis": "2026-08-03 第一週期在代表性 grid/replay 工作負載中觀測 peak RSS 3191783424 bytes、swap delta 594081219 bytes；因當時 policy 缺 hard RSS/swap ceiling 而人工送 TERM，guard 隔離停止並拒絕重啟。hard ceilings 已補但未再跑完整週期，維持 NO-GO。"
+}

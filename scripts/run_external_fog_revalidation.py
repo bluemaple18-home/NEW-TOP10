@@ -77,7 +77,7 @@ def copy_project(source: Path, sandbox: Path) -> None:
         raise RuntimeError(f"sandbox 仍含 symlink：{links[0]}")
 
 
-def build_validation_contract(sandbox: Path) -> tuple[Path, Path]:
+def build_validation_contract(sandbox: Path, source_commit: str) -> tuple[Path, Path]:
     runner = sandbox / "scripts" / "run_fog_research_worker.sh"
     entrypoint = sandbox / "scripts" / "storage_validation" / "fog_research_worker.py"
     contract = sandbox / "validation" / "fog-entrypoint-contract.json"
@@ -88,7 +88,12 @@ def build_validation_contract(sandbox: Path) -> tuple[Path, Path]:
         "interpreter": "python-isolated",
         "entrypoint": entrypoint.relative_to(sandbox).as_posix(),
         "entrypoint_sha256": sha256_file(entrypoint),
-        "argv": ["--runner-sha256", sha256_file(runner)],
+        "argv": [
+            "--runner-sha256",
+            sha256_file(runner),
+            "--source-commit",
+            source_commit,
+        ],
     }
     write_json(contract, contract_payload)
     marker_payload = {
@@ -190,18 +195,19 @@ def main() -> int:
 
     evidence = sandbox / EVIDENCE_DIR
     evidence.mkdir()
+    source_commit = subprocess.check_output(
+        ["git", "-C", str(PROJECT_ROOT), "rev-parse", "HEAD"], text=True
+    ).strip()
     summary: dict[str, Any] = {
         "schema_version": "top10-external-fog-revalidation.v1",
-        "source_commit": subprocess.check_output(
-            ["git", "-C", str(PROJECT_ROOT), "rev-parse", "HEAD"], text=True
-        ).strip(),
+        "source_commit": source_commit,
         "sandbox_root": str(sandbox),
         "cycles": [],
     }
     result = 70
     try:
         copy_project(PROJECT_ROOT, sandbox)
-        marker, contract = build_validation_contract(sandbox)
+        marker, contract = build_validation_contract(sandbox, source_commit)
         for cycle in (1, 2):
             code, receipt = run_cycle(sandbox, marker, contract, cycle)
             summary["cycles"].append(

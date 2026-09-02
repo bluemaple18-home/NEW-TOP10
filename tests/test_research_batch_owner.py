@@ -16,6 +16,7 @@ from app.research.eligibility import build_projection as build_eligibility
 from app.research.observation_ingest import ingest_corpus
 from app.research.batch_owner import (
     BatchOwnerAuthorityError,
+    _git_head,
     build_batch_intent,
     load_batch_intent_reference,
     publish_batch_intent,
@@ -34,6 +35,23 @@ from tests.test_autonomous_research_receipts import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_git_head_accepts_only_validation_pinned_commit_without_git(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TOP10_STORAGE_VALIDATION_MODE", "1")
+    monkeypatch.setenv("TOP10_VALIDATION_SOURCE_COMMIT", "a" * 40)
+    assert _git_head(tmp_path) == "a" * 40
+
+
+def test_git_head_rejects_unpinned_no_git_validation_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TOP10_STORAGE_VALIDATION_MODE", "1")
+    monkeypatch.setenv("TOP10_VALIDATION_SOURCE_COMMIT", "not-a-commit")
+    with pytest.raises(BatchOwnerAuthorityError, match="GIT_HEAD_UNAVAILABLE"):
+        _git_head(tmp_path)
 RUN_ARGS = [
     "scripts/run_autonomous_research.py",
     "--date",
