@@ -11,7 +11,7 @@
 | TimesFM 3 | restricted-shadow preflight only | `DEFERRED / LAST / HOLD` |
 | TPEx TSKG | `bc61e5d`、`78134f4`、`c081e36` 與既有 review/reconciliation | `INTEGRATED_CURRENT_DAY_ONLY / REVIEW_GO` |
 | Daily incident | separate Codex task | isolated; not duplicated here |
-| Overlay shadow | `artifacts/model_experiments/overlay_shadow_daily_status.json`，generated `2026-09-02T03:14:48Z` | Chip `22/60`、Event `9/60`；`ACCUMULATING` |
+| Overlay shadow | `artifacts/model_experiments/overlay_shadow_daily_status.json`，generated `2026-09-02T03:14:48Z` | background only；Chip `22/60`、Event `9/60`；非 frontier |
 
 ## Verification
 

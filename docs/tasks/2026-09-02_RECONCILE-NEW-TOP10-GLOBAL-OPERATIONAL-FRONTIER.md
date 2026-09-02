@@ -16,7 +16,7 @@ date: 2026-09-02
 - B0/C0/BC 與 Forecast 依 canonical backlog／merge history 收斂；不存在尚未完成的非 TimesFM implementation frontier。
 - TimesFM 3 固定 `DEFERRED / LAST / HOLD`，不能因前線空白自動提前。
 - 「報牌沒動」是另一個已存在的 task，本線不重複調查。
-- Overlay shadow 已由舊的 `WAITING_FOR_NEW_OOS_DATES` 進入正常 `ACCUMULATING`；Chip=`22/60`、Event=`9/60`，不構成 implementation blocker。
+- Overlay shadow 已由舊的 `WAITING_FOR_NEW_OOS_DATES` 進入正常 `ACCUMULATING`；Chip=`22/60`、Event=`9/60`，只列為 background monitor，不構成 implementation blocker 或 Mainline frontier。
 
 ## Acceptance evidence
 
