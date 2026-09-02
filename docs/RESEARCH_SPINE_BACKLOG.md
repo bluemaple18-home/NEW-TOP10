@@ -1,8 +1,8 @@
 # NEW-TOP10 Research Spine Backlog
 
-更新：2026-09-01
+更新：2026-09-02
 
-狀態：`CARD_A_CLOSED / BACKLOG_RECONCILIATION_PENDING_MAIN / B0_P1_AND_C0_P1_ADMITTED_AFTER_MERGE / BC_CP1_REQUIRED / PHASE_2_AND_B1_TO_D1_NOT_ADMITTED`
+狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_AUTHORITY_RECONCILIATION_REQUIRED / PHASE_2_AND_B1_TO_D1_NOT_ADMITTED / R14_NO_GO`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -20,28 +20,17 @@ Repository：`bluemaple18-home/NEW-TOP10`
 
 ### 現況
 
-`main` 上的舊版 `docs/RESEARCH_SPINE_BACKLOG.md` 仍停在 Card A 施工期，與 Card A 已完成及 #13／#14 新狀態不一致。
+F0 已完成於 `35bb9927eb0eac9a624dcaf0dcffcbf88857c070`；B0-P1、C0-P1、C0／BC evidence 與後續 R1–R14 已整合。current-tip independent acceptance 已在 `78d3b3b1d246dd37f8a1094ff85ba5175dae995e` 裁決 `REVIEW_GO_CURRENT_TIP_BASELINE`。
 
-因此目前唯一先行動作是：
+這個 GO 只接受目前 tracked tree 作為非 production 基線。repo 內未找到獨立 BC-CP1 admission decision artifact；C0 Phase 2 task 對 `ADMIT_C0_PHASE_2` 的自我引用，以及已 merge 的 Phase 2 evidence，都不能單獨成為 current admission authority。
 
-```text
-F0 — BACKLOG AUTHORITY RECONCILIATION
-```
-
-本分支／PR 僅更新 backlog authority，不修改 runtime、schema、queue、runner、model、backtest、scheduler、publish 或 production。
-
-### 正式派工條件
-
-B0 Phase 1 與 C0 Phase 1 只有在本 backlog reconciliation 合併進 `origin/main` 後，才可建立正式 worktree。
-
-正式 worktree 必須固定：
+因此目前唯一先行治理動作是：
 
 ```text
-NEW-TOP10 = reconciliation merge 後的 clean origin/main SHA
-AI Core   = 派工時最新 clean origin/main SHA + docs/ai-core-backlog.md
+BC-CP1_AUTHORITY_RECONCILIATION
 ```
 
-不得直接使用本文件建立前的舊 main、dirty local checkout 或 `aeae2c3`。
+此 gate 只可重建可驗證的既有 decision provenance，或以 current accepted inputs 重新裁決；不得執行 B0-P2、C0-P2、B1、C1、runtime mutation、benchmark、capture、replay 或 production。
 
 ---
 
@@ -50,8 +39,9 @@ AI Core   = 派工時最新 clean origin/main SHA + docs/ai-core-backlog.md
 ### NEW-TOP10
 
 ```text
-observed origin/main = 2b9eccda11433016261c529ad1f94352bcfcd6d5
-commit               = merge: integrate A6 research spine closure
+accepted local main  = 78d3b3b1d246dd37f8a1094ff85ba5175dae995e
+local origin/main ref = 5d7c5296beb912827aaa828f4d3b68d72dcec16f
+authority note       = local main acceptance is not a push/deploy authorization
 ```
 
 ### AI Core
@@ -74,18 +64,18 @@ canonical backlog    = docs/ai-core-backlog.md
 
 ## 2. Current unique frontier
 
-### F0 — current
+### BC-CP1 authority reconciliation — current
 
 ```text
-BACKLOG_RECONCILIATION_PENDING_MAIN
+F0                         = ACCEPTED
+B0-P1 / C0-P1              = ACCEPTED
+CURRENT INTEGRATED BASELINE = ACCEPTED / NON_PRODUCTION
+BC-CP1 DECISION PROVENANCE = MISSING_STANDALONE_ARTIFACT
+B0-P2 / C0-P2 / B1 / C1   = NOT_ADMITTED
+R14                         = NO_GO / NOT_ADMITTED
 ```
 
-F0 合併後，准入兩條**部分平行、Phase-1-only**研究線：
-
-- [#13 B0 — Matrix Authority and Search Design](https://github.com/bluemaple18-home/NEW-TOP10/issues/13)
-  `PHASE_1_ADMITTED / READ_ONLY / SHARED_CHECKPOINT_REQUIRED / PHASE_2_NOT_ADMITTED`
-- [#14 C0 — Execution Capacity and Control Cutover Precheck](https://github.com/bluemaple18-home/NEW-TOP10/issues/14)
-  `PHASE_1_ADMITTED / READ_ONLY_INVENTORY / SHARED_CHECKPOINT_REQUIRED / PHASE_2_NOT_ADMITTED / NO_CUTOVER`
+已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史，不因檔案存在而自動取得 current execution authority。下一卡只能先處理 BC-CP1 decision provenance；不得直接跳到任何 Phase 2 或 implementation。
 
 ### 部分平行規則
 
@@ -263,10 +253,10 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 
 | Card | Current status | Depends on | Bounded scope |
 |---|---|---|---|
-| F0 Backlog Authority Reconciliation | `CURRENT / DOCS_ONLY` | Card A closed | 將 Card A closeout、B0/C0 phased admission 寫入 mainline backlog |
-| B0-P1 Matrix Authority Checkpoint | `ADMITTED_AFTER_F0_MERGE` | F0 | matrix authority、dimension taxonomy、exact count、E1–E4 initial classification |
-| C0-P1 Execution Inventory Checkpoint | `ADMITTED_AFTER_F0_MERGE` | F0 | execution authority、runner seam、queue/bridge inventory、benchmark readiness |
-| BC-CP1 Shared Checkpoint | `BLOCKED_BY_B0_P1_AND_C0_P1` | 兩線 Phase 1 | cross-lane synthesis；裁決是否准入各自 Phase 2 |
+| F0 Backlog Authority Reconciliation | `ACCEPTED @ 35bb992` | Card A closed | 將 Card A closeout、B0/C0 phased admission 寫入 mainline backlog |
+| B0-P1 Matrix Authority Checkpoint | `ACCEPTED / CURRENT_BASELINE` | F0 | matrix authority、dimension taxonomy、exact count、E1–E4 initial classification |
+| C0-P1 Execution Inventory Checkpoint | `ACCEPTED / CURRENT_BASELINE` | F0 | execution authority、runner seam、queue/bridge inventory、benchmark readiness |
+| BC-CP1 Shared Checkpoint | `AUTHORITY_RECONCILIATION_REQUIRED` | 兩線 Phase 1 已接受 | 重建或重新裁決 cross-lane decision；未完成前不得推導 Phase 2 admission |
 | B0-P2 Search and Final Research Design | `NOT_ADMITTED` | BC-CP1 | search policy、overfit guards、full donor matrix、RegimePolicyBundle draft |
 | C0-P2 Capacity and Cutover Design | `NOT_ADMITTED` | BC-CP1＋B0 facts | capacity、claim/retry、dual-write、canary、rollback、bridge removal plan |
 | B1 Discrete Combination Kernel | `PLANNED / NOT_ADMITTED` | B0 fully accepted | count／generate／rank／unrank／chunk／identity／neighbor／constraint validation |
@@ -638,15 +628,15 @@ B0／C0：
 
 ```text
 CURRENT:
-- F0 backlog reconciliation → merge to main first
-
-AFTER F0 MERGE:
-- #13 B0 Phase 1 → one GPT-5.5 strict/core-bounded Worker
-- #14 C0 Phase 1 → one GPT-5.5 strict/core-bounded Worker
-- Sol → reviewer / checkpoint integrator only
+- accepted non-production baseline = 78d3b3b
+- F0 / B0-P1 / C0-P1 = ACCEPTED
+- R13 = REGISTERED_FORWARD_BUNDLE_VERIFIED / downstream_authority=NONE
+- R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
 
 REQUIRED NEXT GATE:
-- BC-CP1
+- BC-CP1 authority reconciliation
+- reconstruct verifiable prior decision provenance or issue a new current-input decision
+- no Phase 2 execution while this gate is unresolved
 
 NOT ADMITTED:
 - B0 Phase 2 / C0 Phase 2
