@@ -35,6 +35,10 @@ REQUIRED_DOC_AUTHORITIES = (
     Path("architecture/fog_runtime_receipt_v3.schema.json"),
     Path("operations/top10-storage-policy.json"),
 )
+REQUIRED_ARTIFACT_AUTHORITIES = (
+    Path("artifacts/model_experiments/market_regime_history_2023-11-21_2026-05-15.json"),
+    Path("artifacts/model_experiments/market_regime_history_append_only_2026-07-22.json"),
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -55,8 +59,15 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 def copy_ignore(directory: str, names: list[str]) -> set[str]:
     ignored = {name for name in names if name in SKIP_NAMES or name.endswith(".pyc")}
-    if Path(directory).name == "artifacts":
-        ignored.update(name for name in names if name == "archive")
+    path = Path(directory)
+    if path.name == "artifacts":
+        ignored.update(name for name in names if name in {"archive", "model_experiments"})
+    if path.name == "weekend_training" and path.parent.name == "artifacts":
+        ignored.update(
+            name
+            for name in names
+            if name == "staging" or name.startswith("replay_runs_")
+        )
     return ignored
 
 
@@ -72,6 +83,11 @@ def copy_project(source: Path, sandbox: Path) -> None:
     for relative in REQUIRED_DOC_AUTHORITIES:
         authority_source = source / "docs" / relative
         authority_target = sandbox / "docs" / relative
+        authority_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(authority_source, authority_target)
+    for relative in REQUIRED_ARTIFACT_AUTHORITIES:
+        authority_source = source / relative
+        authority_target = sandbox / relative
         authority_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(authority_source, authority_target)
     python_source = (source / ".venv" / "bin" / "python").resolve(strict=True)

@@ -23,6 +23,28 @@ class ExternalFogRevalidationTest(unittest.TestCase):
             assert (sandbox / "docs/operations/top10-storage-policy.json").is_file()
             assert not (sandbox / "docs/tasks").exists()
 
+    def test_copy_project_excludes_generated_outputs_and_keeps_explicit_regime_authorities(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp) / "sandbox"
+            sandbox.mkdir()
+
+            revalidation.copy_project(revalidation.PROJECT_ROOT, sandbox)
+
+            model_root = sandbox / "artifacts/model_experiments"
+            self.assertEqual(
+                {path.relative_to(sandbox).as_posix() for path in model_root.rglob("*") if path.is_file()},
+                {
+                    "artifacts/model_experiments/market_regime_history_2023-11-21_2026-05-15.json",
+                    "artifacts/model_experiments/market_regime_history_append_only_2026-07-22.json",
+                },
+            )
+            weekend_root = sandbox / "artifacts/weekend_training"
+            self.assertFalse((weekend_root / "staging").exists())
+            self.assertEqual(list(weekend_root.glob("replay_runs_*")), [])
+            copied_files = [path for path in sandbox.rglob("*") if path.is_file()]
+            self.assertLess(len(copied_files), 50_000)
+            self.assertLess(sum(path.stat().st_size for path in copied_files), 5 * 1024**3)
+
     def test_run_cycle_rejects_guard_ok_when_topic_runs_are_empty(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-external-fog-empty-") as tmp:
             sandbox = Path(tmp)

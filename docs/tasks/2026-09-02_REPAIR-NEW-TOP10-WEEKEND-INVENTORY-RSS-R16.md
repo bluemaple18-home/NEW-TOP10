@@ -1,6 +1,6 @@
 ---
 id: REPAIR-NEW-TOP10-WEEKEND-INVENTORY-RSS-R16
-status: READY_FOR_EXTERNAL_REVALIDATION
+status: COMPLETE
 type: runtime-repair
 risk: high
 baseline: a9bdcd7
@@ -40,3 +40,4 @@ baseline: a9bdcd7
 - 2026-09-02：假說 1 部分成立但不足以提供安全餘裕；group transient 約 `27 bytes/row`，僅移除該結構仍接近 2 GiB。採用更小的 existing seam：summary-only + bounded queue 改為兩段 streaming，第一段只保留 compact equivalence summary，第二段聚合 counts 並最多保留 144 筆代表。
 - 2026-09-02：full-record／`--include-records` 路徑與既有 public API 保持不變；streaming 與 full-record 的 summary 語義比對通過。
 - 2026-09-02：受影響回歸 `85 passed, 31 subtests passed`；retry circuit shell test PASS。尚未宣稱 external capacity PASS，等待 R17 明確授權。
+- 2026-09-02：R17 兩輪 runtime peak RSS 分別為 `771,194,880`／`810,205,184 bytes`，memory pressure 全程 `1`、兩輪 topic run 均為 `1`，證明 inventory RSS 修復 external GREEN。整體 R17 另由 lifecycle file-count budget 擋下，已分卡處理。
