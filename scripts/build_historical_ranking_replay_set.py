@@ -308,6 +308,11 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     if completed_authority is not None and args.capture_authority_artifact is not None:
         strict_input_paths["completed_trade_date_authority"] = resolve_path(args.capture_authority_artifact)
     inputs_before = snapshot_inputs(PROJECT_ROOT, strict_input_paths)
+    if (
+        completed_authority is not None
+        and inputs_before.get("completed_trade_date_authority") != completed_authority
+    ):
+        raise RankingProvenanceError("completed trade date authority 在 validation 與 initial snapshot 間漂移")
     strict_universe = load_universe(data_dir, pd.DataFrame({"stock_id": []}), strict=True)
     validate_universe_coverage(strict_universe, dates)
     bundle = BundleRun(

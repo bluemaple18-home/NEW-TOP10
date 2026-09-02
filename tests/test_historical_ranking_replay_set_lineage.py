@@ -2,6 +2,8 @@ from argparse import Namespace
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts import build_historical_ranking_replay_set as ranking_set
 
 
@@ -180,3 +182,44 @@ def test_forward_capture_uses_completion_authority_not_wall_clock(tmp_path, monk
     assert receipt["capture_mode"] == "FORWARD_CAPTURE"
     assert receipt["admission_eligible"] == "pending_registration"
     assert receipt["strict_inputs"]["completed_trade_date_authority"]["path"] == "artifacts/automation_status_2026-09-01.json"
+
+
+def test_forward_capture_rejects_authority_replaced_after_validation_before_initial_snapshot(tmp_path, monkeypatch):
+    monkeypatch.setattr(ranking_set, "PROJECT_ROOT", tmp_path)
+    data_dir = tmp_path / "data"
+    model_dir = tmp_path / "models"
+    artifacts = tmp_path / "artifacts"
+    data_dir.mkdir()
+    model_dir.mkdir()
+    artifacts.mkdir()
+    for path in (data_dir / "features.parquet", data_dir / "universe.parquet", model_dir / "latest_lgbm.pkl", tmp_path / "signals.yaml"):
+        path.write_bytes(b"fixture")
+    authority_path = artifacts / "automation_status.json"
+    authority = {
+        "status": "OK", "run_date": "2026-09-01",
+        "steps": [{"name": "data.freshness.after_etl", "status": "OK"}, {"name": "ranking", "status": "OK"}],
+        "metadata": {"data_freshness": {"datasets": {
+            "features.parquet": {"latest_date": "2026-09-01", "latest_market_coverage": {"markets": [{"market_type": "TWSE", "status": "OK"}, {"market_type": "TPEX", "status": "OK"}]}},
+            "universe.parquet": {"latest_date": "2026-09-01"},
+        }}},
+    }
+    authority_path.write_text(json.dumps(authority), encoding="utf-8")
+    original_validate = ranking_set.validate_completed_trade_date_authority
+
+    def validate_then_replace(**kwargs):
+        result = original_validate(**kwargs)
+        authority_path.write_text(json.dumps({**authority, "replacement": True}), encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(ranking_set, "validate_completed_trade_date_authority", validate_then_replace)
+    monkeypatch.setattr(ranking_set, "load_trade_dates", lambda **_kwargs: ["2026-09-01"])
+    monkeypatch.setattr(ranking_set, "producer_source_lineage", lambda *_args: {"source_commit": "a" * 40, "dependencies": []})
+
+    with pytest.raises(ranking_set.RankingProvenanceError, match="validation 與 initial snapshot 間漂移"):
+        ranking_set.build_payload(Namespace(
+            start_date="2026-09-01", end_date="2026-09-01", data_dir=str(data_dir), model_dir=str(model_dir),
+            config=str(tmp_path / "signals.yaml"), output_dir=str(tmp_path / "output"), stride=1, max_dates=None,
+            top_n=10, legacy_per_date_load=False, manifest=str(tmp_path / "output" / "manifest.json"),
+            scenario="baseline_research", forward_capture=True, capture_trade_date="2026-09-01",
+            capture_authority_artifact="artifacts/automation_status.json", run_identity="authority-replaced",
+        ))

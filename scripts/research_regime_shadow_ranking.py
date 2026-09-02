@@ -409,6 +409,11 @@ def build_shadow(args: argparse.Namespace) -> dict[str, Any]:
         # dates-from-dir 的 ranking 僅是排程日期來源，絕不作為 scoring lineage。
         strict_input_paths[f"calendar_schedule_{date_text}"] = source_dir / f"ranking_{date_text}.csv"
     inputs_before = snapshot_inputs(PROJECT_ROOT, strict_input_paths)
+    if (
+        completed_authority is not None
+        and inputs_before.get("completed_trade_date_authority") != completed_authority
+    ):
+        raise RankingProvenanceError("completed trade date authority 在 validation 與 initial snapshot 間漂移")
     validate_receipt_universe(data_dir / "universe.parquet", dates)
     bundle = BundleRun(
         project_root=PROJECT_ROOT,
