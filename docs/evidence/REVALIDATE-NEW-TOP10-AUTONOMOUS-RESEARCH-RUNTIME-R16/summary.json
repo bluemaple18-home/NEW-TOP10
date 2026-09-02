@@ -1,0 +1,30 @@
+{
+  "cycles": [
+    {
+      "cycle": 1,
+      "guard_exit_code": 70,
+      "reasons": [
+        "PROCESS_TREE_RSS_BUDGET_EXCEEDED"
+      ],
+      "status": "STOPPED",
+      "summary": {
+        "elapsed_seconds": 176.0325891971588,
+        "first_memory_pressure_level": 1,
+        "host_free_bytes_delta": 31772672,
+        "last_memory_pressure_level": 1,
+        "observed_growth_bytes_per_hour": 0.0,
+        "peak_live_memory_pressure_level": 1,
+        "peak_rss_bytes": 2236661760,
+        "project_bytes_delta": -122267391,
+        "project_file_count_delta": -8632,
+        "registered_unmetered_changed_paths": [],
+        "swap_bytes_delta": -75497472,
+        "unknown_changed_paths": []
+      }
+    }
+  ],
+  "sandbox_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-revalidation-r16-l2pyjlrk",
+  "schema_version": "top10-external-fog-revalidation.v1",
+  "source_commit": "a9bdcd7d695d6eb55dcae9de9756dff396ee839f",
+  "verdict": "NO-GO"
+}

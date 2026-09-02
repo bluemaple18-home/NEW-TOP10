@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import sys
+import tracemalloc
+from argparse import Namespace
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -168,6 +171,91 @@ def test_inventory_fails_loud_when_source_snapshot_stays_inconsistent(monkeypatc
 
     with pytest.raises(builder.SnapshotInconsistentError):
         builder.build_payload_and_rows(RUN_DATE)
+
+
+def test_summary_only_bounded_cli_does_not_materialize_full_inventory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row_count = 50_000
+    topic = {"topic_id": "topic-1", "candidate_dir": "artifacts/backtest/candidate"}
+
+    def dimensions(_: dict[str, Any]):
+        for index in range(row_count):
+            yield {
+                "horizon": str(index),
+                "stop_loss": "none",
+                "take_profit": "0.15",
+                "group_exposure": "none",
+                "regime_gate": "ALL",
+                "risk_guard": "NONE",
+                "entry_filter": "TOPIC_DEFAULT",
+            }
+
+    monkeypatch.setattr(builder, "parse_args", lambda: Namespace(
+        date=RUN_DATE,
+        include_records=False,
+        write_bounded_frontier_queue=True,
+        max_frontier_representatives=144,
+    ))
+    monkeypatch.setattr(builder, "load_topics", lambda: [topic])
+    monkeypatch.setattr(builder, "load_map", lambda: fog_map(0, row_count))
+    monkeypatch.setattr(builder, "load_history", lambda: [])
+    monkeypatch.setattr(builder, "base_scenarios_by_v2_combo", lambda topics, records: {})
+    monkeypatch.setattr(builder, "stage2_combo_ids", lambda date: set())
+    monkeypatch.setattr(builder, "all_v2_dimensions", dimensions)
+    monkeypatch.setattr(builder, "v2_combo_id", lambda topic, item: f"combo-{item['horizon']}")
+    monkeypatch.setattr(builder, "is_default_coordinate", lambda item: False)
+    monkeypatch.setattr(builder, "unsupported_reason", lambda topic, item: None)
+    monkeypatch.setattr(builder, "rule_prune_reason", lambda item: None)
+    monkeypatch.setattr(builder, "equivalence_key", lambda topic, item: f"group-{int(item['horizon']) // 6}")
+    monkeypatch.setattr(builder, "priority_score", lambda row, stage2_ids: int(row["dimensions"]["horizon"]) % 11)
+    monkeypatch.setattr(builder, "expanded_universe_total", lambda topic_count: row_count)
+    monkeypatch.setattr(__import__("research_map_contract"), "SCENARIO_DIMENSION_GRID", [{}])
+    monkeypatch.setattr(builder, "inventory_paths", lambda date: (tmp_path / "inventory.json", tmp_path / "inventory.md"))
+    monkeypatch.setattr(builder, "queue_paths", lambda date: (tmp_path / "queue.json", tmp_path / "queue.md"))
+
+    tracemalloc.start()
+    try:
+        assert builder.main() == 0
+        _, peak_bytes = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert peak_bytes < 35_000_000
+
+
+def test_streaming_summary_matches_full_record_semantics(monkeypatch: pytest.MonkeyPatch) -> None:
+    rows = [
+        {**row("processed", "EXECUTED_REPLAY"), "equivalence_key": "g1", "priority_score": 1},
+        {**row("inherited", "PENDING"), "equivalence_key": "g1", "priority_score": 9},
+        {**row("low", "PENDING"), "equivalence_key": "g2", "priority_score": 2},
+        {**row("high", "PENDING"), "equivalence_key": "g2", "priority_score": 8},
+        {
+            **row("unsupported", "PENDING"),
+            "equivalence_key": "g3",
+            "eligible_for_replay": False,
+            "unsupported_reason": "MISSING_BASELINE_RANKINGS_DIR:test",
+        },
+    ]
+    source = builder.InventorySource(
+        topics=[{"topic_id": "topic-1"}],
+        fog_map=fog_map(1, len(rows)),
+        latest_records={},
+        base_by_v2={},
+        stage2_ids=set(),
+    )
+    monkeypatch.setattr(builder, "build_initial_rows", lambda date: (deepcopy(rows), source.fog_map))
+    monkeypatch.setattr(builder, "load_inventory_source", lambda date: source)
+    monkeypatch.setattr(builder, "iter_initial_rows", lambda loaded: iter(deepcopy(rows)))
+    monkeypatch.setattr(builder, "load_topics", lambda: source.topics)
+    monkeypatch.setattr(builder, "expanded_universe_total", lambda topic_count: len(rows))
+
+    full_payload, _ = builder.build_payload_and_rows_once(RUN_DATE)
+    streaming_payload, frontier = builder.build_summary_and_bounded_frontier_once(RUN_DATE, 1)
+
+    assert streaming_payload["summary"] == full_payload["summary"]
+    assert [item["combo_id"] for item in frontier["items"]] == ["high"]
 
 
 def test_verifier_remains_fail_closed_for_stale_inventory_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
