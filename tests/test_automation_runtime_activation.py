@@ -80,6 +80,10 @@ class FakeCommandRunner:
                 return activation.CommandResult(37, "", "duplicate bootout rejected")
             state["loaded"] = False
             state["running"] = False
+            if failure == "interrupt_after":
+                raise activation.ActivationError(
+                    "injected signal after bootout mutation before probe"
+                )
             if failure == "after":
                 return activation.CommandResult(5, "", "injected bootout-after")
             return activation.CommandResult(0, "", "")
@@ -98,6 +102,11 @@ class FakeCommandRunner:
             state["loaded"] = True
             state["running"] = False
             state["root"] = _project_root_from_plist(Path(command[3]))
+            if failure == "interrupt_after":
+                del self.failures[("bootstrap", label)]
+                raise activation.ActivationError(
+                    "injected signal after bootstrap mutation before probe"
+                )
             if failure == "after":
                 del self.failures[("bootstrap", label)]
                 return activation.CommandResult(5, "", "injected bootstrap-after")
@@ -252,6 +261,24 @@ def test_first_bootout_failure_restores_exact_prestate_without_duplicate_mutatio
         assert runner.calls.count(("bootstrap", "com.new-top10.daily")) == 1
 
 
+def test_bootout_interruption_after_mutation_before_probe_restores_exact_prestate(
+    activation_env: dict[str, object],
+) -> None:
+    runner = activation_env["runner"]
+    build = activation_env["build"]
+    assert isinstance(runner, FakeCommandRunner)
+    assert callable(build)
+    before = _target_bytes(activation_env)
+    runner.fail("bootout", "com.new-top10.daily", when="interrupt_after")
+
+    transaction = build()
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+    assert runner.calls.count(("bootstrap", "com.new-top10.daily")) == 1
+
+
 @pytest.mark.parametrize("when", ["before", "after"])
 def test_plist_replace_failure_restores_exact_bytes_and_topology(
     activation_env: dict[str, object], when: str
@@ -263,6 +290,25 @@ def test_plist_replace_failure_restores_exact_bytes_and_topology(
     def hook(event: str, job: str | None) -> None:
         if job == "daily" and event == f"{when}_plist_replace":
             raise OSError(f"injected replace-{when}")
+
+    transaction = build(hook=hook)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
+def test_plist_replace_interruption_after_mutation_before_verify_restores_exact_prestate(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    assert callable(build)
+    before = _target_bytes(activation_env)
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_plist_replace_mutation_before_verify":
+            raise activation.ActivationError(
+                "injected signal after plist mutation before verify"
+            )
 
     transaction = build(hook=hook)
     assert transaction.run() == "ROLLED_BACK_NO_GO"
@@ -287,6 +333,24 @@ def test_bootstrap_failure_before_or_after_mutation_is_detected_and_reversed(
     assert _target_bytes(activation_env) == before
     _assert_old_topology(activation_env)
     # 一次是 activation 嘗試，一次是 rollback restore；fake runtime 會拒絕重複 bootstrap。
+    assert runner.calls.count(("bootstrap", "com.new-top10.daily")) == 2
+
+
+def test_bootstrap_interruption_after_mutation_before_probe_restores_exact_prestate(
+    activation_env: dict[str, object],
+) -> None:
+    runner = activation_env["runner"]
+    build = activation_env["build"]
+    assert isinstance(runner, FakeCommandRunner)
+    assert callable(build)
+    before = _target_bytes(activation_env)
+    runner.fail("bootstrap", "com.new-top10.daily", when="interrupt_after")
+
+    transaction = build()
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
     assert runner.calls.count(("bootstrap", "com.new-top10.daily")) == 2
 
 
@@ -318,6 +382,37 @@ def test_denial_root_switch_is_explicitly_mirrored_then_cleared_before_bootout(
         new_marker = runtime_root / "logs" / "storage_safety" / "restart_denied" / f"{job}.json"
         assert activation.sha256_file(old_marker) == old_hashes[job]
         assert not new_marker.exists()
+
+
+def test_denial_mirror_interruption_after_write_before_verify_removes_transaction_marker(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    old_root = activation_env["old_root"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(old_root, Path)
+    assert isinstance(runtime_root, Path)
+    old_marker = (
+        old_root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+    )
+    old_hash = activation.sha256_file(old_marker)
+    new_marker = (
+        runtime_root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+    )
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_denial_mirror_write_before_verify":
+            raise activation.ActivationError(
+                "injected signal after denial mirror write before verify"
+            )
+
+    transaction = build(hook=hook)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert activation.sha256_file(old_marker) == old_hash
+    assert not new_marker.exists()
+    _assert_old_topology(activation_env)
 
 
 def test_new_denial_created_during_rollback_is_preserved(

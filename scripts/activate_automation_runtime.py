@@ -78,6 +78,8 @@ class JobState:
     pre_print_sha256: str | None
     old_denial_sha256: str | None
     snapshot_path: Path | None = None
+    # 以下旗標代表「rollback obligation 已武裝」，必須早於可能的外部 mutation 設定。
+    # 它們不是 mutation 已成功完成的 receipt；rollback 會再 probe 真實狀態後才決定是否反向操作。
     denial_mirrored_sha256: str | None = None
     denial_cleared: bool = False
     booted_out: bool = False
@@ -380,8 +382,13 @@ class ActivationTransaction:
                 )
             new_marker = self._denial_path(self.runtime_root, job.guard_name)
             self.fault_hook("before_denial_mirror", job.guard_name)
-            self._atomic_write(new_marker, old_bytes)
+            # accepted runtime 在 _prepare() 已驗證 marker 不存在；先登記 ownership，避免
+            # atomic write 完成後、Python bookkeeping 前收到 signal 時遺失 rollback 責任。
             job.denial_mirrored_sha256 = old_hash
+            self._atomic_write(new_marker, old_bytes)
+            self.fault_hook(
+                "after_denial_mirror_write_before_verify", job.guard_name
+            )
             self._event("denial_mirrored", job=job.guard_name, detail=f"sha256={old_hash}")
             self.fault_hook("after_denial_mirror", job.guard_name)
             if sha256_file(new_marker) != old_hash:
@@ -402,12 +409,14 @@ class ActivationTransaction:
 
     def _bootout(self, job: JobState) -> None:
         self.fault_hook("before_bootout", job.guard_name)
+        # 先武裝 restore obligation；若 signal 落在 launchctl mutation 與 probe 之間，
+        # rollback 仍會依真實 loaded state 決定是否需要 bootstrap 舊 job。
+        job.booted_out = True
         result = self._run(
             [self.launchctl_bin, "bootout", self.domain, str(job.installed_path)]
         )
+        self.fault_hook("after_bootout_mutation_before_probe", job.guard_name)
         loaded_after, _, _ = self._probe(job.label)
-        if not loaded_after:
-            job.booted_out = True
         if result.returncode != 0:
             raise ActivationError(
                 f"bootout failed: {job.label}: {(result.stderr or result.stdout).strip()}"
@@ -419,29 +428,27 @@ class ActivationTransaction:
 
     def _replace_plist(self, job: JobState) -> None:
         self.fault_hook("before_plist_replace", job.guard_name)
-        try:
-            os.replace(job.staged_path, job.installed_path)
-        except Exception:
-            if job.installed_path.is_file():
-                current_hash = sha256_file(job.installed_path)
-                if current_hash != job.old_sha256:
-                    job.replaced = True
-            raise
-        if sha256_file(job.installed_path) != job.new_sha256:
-            job.replaced = True
-            raise ActivationError(f"atomic plist replace hash mismatch: {job.label}")
+        # 先武裝 exact-bytes restore obligation。即使 os.replace 尚未 mutation 就失敗，
+        # rollback 也會先比對 hash，old bytes 未變時不做多餘 rewrite。
         job.replaced = True
+        os.replace(job.staged_path, job.installed_path)
+        self.fault_hook(
+            "after_plist_replace_mutation_before_verify", job.guard_name
+        )
+        if sha256_file(job.installed_path) != job.new_sha256:
+            raise ActivationError(f"atomic plist replace hash mismatch: {job.label}")
         self._event("plist_replace_complete", job=job.guard_name, detail=f"sha256={job.new_sha256}")
         self.fault_hook("after_plist_replace", job.guard_name)
 
     def _bootstrap(self, job: JobState) -> None:
         self.fault_hook("before_bootstrap", job.guard_name)
+        # 與 bootout 相同：先登記 rollback obligation，再做外部 mutation。
+        job.bootstrapped = True
         result = self._run(
             [self.launchctl_bin, "bootstrap", self.domain, str(job.installed_path)]
         )
+        self.fault_hook("after_bootstrap_mutation_before_probe", job.guard_name)
         loaded_after, _, print_text = self._probe(job.label)
-        if loaded_after:
-            job.bootstrapped = True
         if result.returncode != 0:
             raise ActivationError(
                 f"bootstrap failed: {job.label}: {(result.stderr or result.stdout).strip()}"
@@ -472,20 +479,30 @@ class ActivationTransaction:
 
     def _rollback_job(self, job: JobState) -> None:
         if job.bootstrapped:
-            result = self._run(
-                [self.launchctl_bin, "bootout", self.domain, str(job.installed_path)]
-            )
-            loaded_after, _, _ = self._probe(job.label)
-            if result.returncode != 0 and loaded_after:
-                self.rollback_errors.append(
-                    f"rollback bootout failed and job remains loaded: {job.label}"
+            loaded_now, _, _ = self._probe(job.label)
+            if loaded_now:
+                result = self._run(
+                    [self.launchctl_bin, "bootout", self.domain, str(job.installed_path)]
                 )
-            elif not loaded_after:
+                loaded_after, _, _ = self._probe(job.label)
+                if result.returncode != 0 and loaded_after:
+                    self.rollback_errors.append(
+                        f"rollback bootout failed and job remains loaded: {job.label}"
+                    )
+                elif not loaded_after:
+                    job.bootstrapped = False
+            else:
                 job.bootstrapped = False
 
         if job.replaced:
             try:
-                self._atomic_write(job.installed_path, job.old_bytes)
+                current_hash = (
+                    sha256_file(job.installed_path)
+                    if job.installed_path.is_file()
+                    else None
+                )
+                if current_hash != job.old_sha256:
+                    self._atomic_write(job.installed_path, job.old_bytes)
                 job.replaced = False
             except Exception as exc:  # noqa: BLE001 - rollback 要繼續收集所有 failure state。
                 self.rollback_errors.append(f"restore plist failed {job.label}: {exc}")
