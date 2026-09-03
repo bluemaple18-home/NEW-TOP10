@@ -39,6 +39,7 @@ from app.storage_safety import (  # noqa: E402
     TrustedValidationEntrypoint,
     UntrustedValidationEntrypoint,
     VALIDATION_ENTRYPOINT_SCHEMA_VERSION,
+    _atomic_json,
     _existing_lexical_directory,
     capture_process_group_identity,
     evaluate_preflight,
@@ -299,6 +300,285 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             unknown_changed_paths(before, after, ("registered",)),
             ("source.py",),
         )
+
+    def test_persistent_denial_preserves_original_unknown_write_evidence(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-denial-evidence-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            (root / "artifacts").mkdir()
+            policy = fixture_job_policy(sample_interval_seconds=1)
+            policy = replace(
+                policy,
+                registered_write_paths=("output", "logs", "artifacts"),
+            )
+            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+            command = [
+                "/bin/sh",
+                "-c",
+                "printf changed > source.py; printf unmetered > artifacts/new.txt; sleep 30",
+            ]
+
+            stopped = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                policy,
+                (),
+                command,
+                sampler=lambda _pid: replace(sample, timestamp=time.time()),
+            )
+            marker_path = root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+            marker = json.loads(marker_path.read_text(encoding="utf-8"))
+            denied = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                policy,
+                (),
+                command,
+                sampler=lambda _pid: replace(sample, timestamp=time.time()),
+            )
+            receipt = json.loads(
+                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            self.assertEqual((stopped, denied), (70, 75))
+            self.assertEqual(marker["unknown_changed_paths"], ["source.py"])
+            self.assertEqual(
+                marker["registered_unmetered_changed_paths"],
+                ["artifacts/new.txt"],
+            )
+            self.assertEqual(receipt["status"], "RESTART_DENIED")
+            self.assertEqual(
+                receipt["reasons"],
+                [
+                    "UNREGISTERED_WRITE_PATH",
+                    "REGISTERED_WRITE_OUTSIDE_METER",
+                    "PERSISTENT_RESTART_DENIED_MARKER",
+                ],
+            )
+            self.assertEqual(receipt["summary"]["unknown_changed_paths"], ["source.py"])
+            self.assertEqual(
+                receipt["summary"]["registered_unmetered_changed_paths"],
+                ["artifacts/new.txt"],
+            )
+
+    def test_persistent_denial_handles_legacy_and_malformed_marker_fields(self) -> None:
+        cases = (
+            (
+                "legacy",
+                {"reasons": ["UNREGISTERED_WRITE_PATH"]},
+                ["UNREGISTERED_WRITE_PATH", "PERSISTENT_RESTART_DENIED_MARKER"],
+            ),
+            (
+                "malformed",
+                {
+                    "reasons": None,
+                    "unknown_changed_paths": "source.py",
+                    "registered_unmetered_changed_paths": {"path": "artifacts/new.txt"},
+                },
+                ["PERSISTENT_RESTART_DENIED_MARKER"],
+            ),
+        )
+        for label, fields, expected_reasons in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory(
+                prefix=f"top10-storage-{label}-marker-"
+            ) as tmp:
+                root = Path(tmp)
+                (root / "output").mkdir()
+                marker = root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+                marker.parent.mkdir(parents=True)
+                marker.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "top10-storage-restart-denied.v1",
+                            "job": "daily",
+                            "automatic_clear_allowed": False,
+                            **fields,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                spawned = root / "output" / "spawned"
+
+                result = run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(),
+                    (),
+                    ["/usr/bin/touch", str(spawned)],
+                )
+                receipt = json.loads(
+                    (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+
+                self.assertEqual(result, 75)
+                self.assertFalse(spawned.exists())
+                self.assertEqual(receipt["reasons"], expected_reasons)
+                self.assertEqual(receipt["summary"]["unknown_changed_paths"], [])
+                self.assertEqual(
+                    receipt["summary"]["registered_unmetered_changed_paths"], []
+                )
+
+    def test_internal_error_after_unknown_write_preserves_stop_evidence(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-error-evidence-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+            termination_attempts = 0
+
+            def fail_first_termination(
+                process: subprocess.Popen[bytes],
+                grace_seconds: float = 5.0,
+                *,
+                identity: ProcessGroupIdentity | None = None,
+            ) -> None:
+                nonlocal termination_attempts
+                termination_attempts += 1
+                if termination_attempts == 1:
+                    raise RuntimeError("fixture termination failure")
+                terminate_process_group(
+                    process,
+                    grace_seconds,
+                    identity=identity,
+                )
+
+            with mock.patch(
+                "app.storage_safety.terminate_process_group",
+                side_effect=fail_first_termination,
+            ):
+                result = run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(sample_interval_seconds=1),
+                    (),
+                    ["/bin/sh", "-c", "printf changed > source.py; sleep 30"],
+                    sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                )
+            marker = json.loads(
+                (
+                    root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+                ).read_text(encoding="utf-8")
+            )
+            receipt = json.loads(
+                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            self.assertEqual(result, 70)
+            self.assertGreaterEqual(termination_attempts, 2)
+            self.assertEqual(marker["unknown_changed_paths"], ["source.py"])
+            self.assertEqual(receipt["summary"]["unknown_changed_paths"], ["source.py"])
+            self.assertEqual(
+                receipt["reasons"],
+                ["UNREGISTERED_WRITE_PATH", "GUARD_INTERNAL_ERROR_RuntimeError"],
+            )
+
+    def test_stop_evidence_survives_one_time_marker_or_receipt_write_failure(self) -> None:
+        for failure_target in ("marker", "receipt"):
+            with self.subTest(failure_target=failure_target), tempfile.TemporaryDirectory(
+                prefix=f"top10-storage-{failure_target}-write-failure-"
+            ) as tmp:
+                root = Path(tmp)
+                (root / "output").mkdir()
+                sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+                failure_injected = False
+
+                def fail_once(path: Path, payload: dict[str, object]) -> None:
+                    nonlocal failure_injected
+                    is_target = (
+                        failure_target == "marker" and path.parent.name == "restart_denied"
+                    ) or (
+                        failure_target == "receipt"
+                        and path.name == "daily_latest.json"
+                        and payload.get("status") == "STOPPED"
+                    )
+                    if is_target and not failure_injected:
+                        failure_injected = True
+                        raise OSError("fixture atomic write failure")
+                    _atomic_json(path, payload)
+
+                with mock.patch("app.storage_safety._atomic_json", side_effect=fail_once):
+                    result = run_guarded_job(
+                        root,
+                        fixture_global_policy(),
+                        fixture_job_policy(sample_interval_seconds=1),
+                        (),
+                        ["/bin/sh", "-c", "printf changed > source.py; sleep 30"],
+                        sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                    )
+                marker = json.loads(
+                    (
+                        root
+                        / "logs"
+                        / "storage_safety"
+                        / "restart_denied"
+                        / "daily.json"
+                    ).read_text(encoding="utf-8")
+                )
+                receipt = json.loads(
+                    (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+
+                self.assertEqual(result, 70)
+                self.assertTrue(failure_injected)
+                self.assertEqual(marker["unknown_changed_paths"], ["source.py"])
+                self.assertEqual(receipt["summary"]["unknown_changed_paths"], ["source.py"])
+                self.assertEqual(
+                    receipt["reasons"],
+                    ["UNREGISTERED_WRITE_PATH", "GUARD_INTERNAL_ERROR_OSError"],
+                )
+
+    def test_exception_branch_retries_transient_denial_marker_write(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-exception-marker-retry-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            unrelated = root / "unrelated.txt"
+            unrelated.write_text("unchanged", encoding="utf-8")
+            spawned = root / "output" / "spawned"
+            marker_failures = 0
+
+            def fail_first_marker(path: Path, payload: dict[str, object]) -> None:
+                nonlocal marker_failures
+                if path.parent.name == "restart_denied" and marker_failures == 0:
+                    marker_failures += 1
+                    raise OSError("fixture transient marker failure")
+                _atomic_json(path, payload)
+
+            def failing_sampler(_pid: int | None) -> Sample:
+                raise RuntimeError("fixture preflight sampler failure")
+
+            with mock.patch("app.storage_safety._atomic_json", side_effect=fail_first_marker):
+                result = run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(),
+                    (),
+                    ["/usr/bin/touch", str(spawned)],
+                    sampler=failing_sampler,
+                )
+            marker = json.loads(
+                (
+                    root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+                ).read_text(encoding="utf-8")
+            )
+            receipt = json.loads(
+                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            self.assertEqual(result, 70)
+            self.assertEqual(marker_failures, 1)
+            self.assertFalse(spawned.exists())
+            self.assertEqual(unrelated.read_text(encoding="utf-8"), "unchanged")
+            self.assertEqual(marker["reasons"], ["GUARD_INTERNAL_ERROR_RuntimeError"])
+            self.assertEqual(receipt["reasons"], marker["reasons"])
 
     def test_guard_stops_registered_new_and_modified_files_outside_meter(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-unmetered-") as tmp:

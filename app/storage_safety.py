@@ -1328,8 +1328,30 @@ def run_guarded_job(
     previous_signal_handlers: dict[int, Any] = {}
     final_process_group_quiescent: bool | None = None
     final_process_group_checked_at: str | None = None
+    stop_reasons: tuple[str, ...] = ()
+    observed_unknown_paths: tuple[str, ...] = ()
+    observed_registered_unmetered_paths: tuple[str, ...] = ()
 
     if denied_path.exists():
+        original_reasons: tuple[str, ...] = ()
+        original_unknown_paths: tuple[str, ...] = ()
+        original_registered_unmetered_paths: tuple[str, ...] = ()
+        try:
+            denial = json.loads(denied_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            denial = None
+        if isinstance(denial, dict):
+            def string_list(field: str) -> tuple[str, ...]:
+                value = denial.get(field)
+                if not isinstance(value, list):
+                    return ()
+                return tuple(item for item in value if isinstance(item, str))
+
+            original_reasons = string_list("reasons")
+            original_unknown_paths = string_list("unknown_changed_paths")
+            original_registered_unmetered_paths = string_list(
+                "registered_unmetered_changed_paths"
+            )
         _atomic_json(
             receipt_path,
             _receipt_payload(
@@ -1337,13 +1359,18 @@ def run_guarded_job(
                 command=command,
                 status="RESTART_DENIED",
                 samples=[],
-                reasons=("PERSISTENT_RESTART_DENIED_MARKER",),
+                reasons=tuple(
+                    dict.fromkeys(
+                        (*original_reasons, "PERSISTENT_RESTART_DENIED_MARKER")
+                    )
+                ),
                 child_exit_code=None,
                 reclaimed=None,
                 validation_only=validation_only,
                 max_runtime_seconds=max_runtime_seconds,
-                unknown_paths=(),
+                unknown_paths=original_unknown_paths,
                 validation_context=validation_context,
+                registered_unmetered_paths=original_registered_unmetered_paths,
             ),
         )
         return 75
@@ -1450,8 +1477,6 @@ def run_guarded_job(
         )
         next_sample_target = started_at + sample_schedule_interval
         last_safe_observation_at = started_at
-        stop_reasons: tuple[str, ...] = ()
-
         def sample_live_child() -> tuple[float, float] | None:
             """回傳存活 child 的完成間距與 sampler duration；phase 僅分類 evidence。"""
 
@@ -1580,8 +1605,6 @@ def run_guarded_job(
         pump_thread = threading.Thread(target=pump, name=f"storage-log-{policy.job}", daemon=True)
         pump_thread.start()
         defer_first_write_until_scheduled = False
-        observed_unknown_paths: tuple[str, ...] = ()
-        observed_registered_unmetered_paths: tuple[str, ...] = ()
         while process.poll() is None:
             if pump_errors:
                 stop_reasons = ("LOG_CAPTURE_FAILED",)
@@ -1821,6 +1844,10 @@ def run_guarded_job(
                     "job": policy.job,
                     "reasons": list(stop_reasons),
                     "automatic_clear_allowed": False,
+                    "unknown_changed_paths": list(observed_unknown_paths),
+                    "registered_unmetered_changed_paths": list(
+                        observed_registered_unmetered_paths
+                    ),
                 },
             )
             _atomic_json(
@@ -1868,11 +1895,12 @@ def run_guarded_job(
         )
         return int(process.returncode or 0)
     except Exception as exc:
-        reasons = (
+        internal_reasons = (
             ("UNTRUSTED_VALIDATION_ENTRYPOINT",)
             if isinstance(exc, UntrustedValidationEntrypoint)
             else (f"GUARD_INTERNAL_ERROR_{type(exc).__name__}",)
         )
+        reasons = tuple(dict.fromkeys((*stop_reasons, *internal_reasons)))
         if process is not None and process_group is not None:
             try:
                 terminate_process_group(process, identity=process_group)
@@ -1880,15 +1908,20 @@ def run_guarded_job(
                 final_process_group_quiescent = process_group_is_quiescent(process_group)
             except (OSError, RuntimeError, subprocess.TimeoutExpired):
                 reasons = (*reasons, "PROCESS_GROUP_TERMINATION_FAILED")
-        _atomic_json(
-            denied_path,
-            {
-                "schema_version": RESTART_DENIED_SCHEMA_VERSION,
-                "job": policy.job,
-                "reasons": list(reasons),
-                "automatic_clear_allowed": False,
-            },
-        )
+        denial_payload = {
+            "schema_version": RESTART_DENIED_SCHEMA_VERSION,
+            "job": policy.job,
+            "reasons": list(reasons),
+            "automatic_clear_allowed": False,
+            "unknown_changed_paths": list(observed_unknown_paths),
+            "registered_unmetered_changed_paths": list(
+                observed_registered_unmetered_paths
+            ),
+        }
+        try:
+            _atomic_json(denied_path, denial_payload)
+        except OSError:
+            _atomic_json(denied_path, denial_payload)
         _atomic_json(
             receipt_path,
             _receipt_payload(
@@ -1901,8 +1934,9 @@ def run_guarded_job(
                 reclaimed=reclaimed,
                 validation_only=validation_only,
                 max_runtime_seconds=max_runtime_seconds,
-                unknown_paths=(),
+                unknown_paths=observed_unknown_paths,
                 validation_context=validation_context,
+                registered_unmetered_paths=observed_registered_unmetered_paths,
                 process_group_identity=process_group,
                 final_process_group_quiescent=final_process_group_quiescent,
                 final_process_group_checked_at=final_process_group_checked_at,
