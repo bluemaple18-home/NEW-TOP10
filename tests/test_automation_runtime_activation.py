@@ -384,6 +384,140 @@ def test_denial_root_switch_is_explicitly_mirrored_then_cleared_before_bootout(
         assert not new_marker.exists()
 
 
+def test_new_denial_after_preflight_before_mirror_is_preserved_and_blocks_activation(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(runtime_root, Path)
+    new_marker = (
+        runtime_root
+        / "logs"
+        / "storage_safety"
+        / "restart_denied"
+        / "daily.json"
+    )
+    payload = {"reason": "NEW_DENIAL_AFTER_PREFLIGHT"}
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "before_denial_mirror":
+            new_marker.parent.mkdir(parents=True, exist_ok=True)
+            new_marker.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    transaction = build(hook=hook)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert new_marker.is_file()
+    assert json.loads(new_marker.read_text(encoding="utf-8")) == payload
+    _assert_old_topology(activation_env)
+
+
+def test_same_hash_external_denial_before_mirror_completion_is_preserved_on_rollback(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    old_root = activation_env["old_root"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(old_root, Path)
+    assert isinstance(runtime_root, Path)
+    old_marker = (
+        old_root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+    )
+    old_bytes = old_marker.read_bytes()
+    new_marker = (
+        runtime_root
+        / "logs"
+        / "storage_safety"
+        / "restart_denied"
+        / "daily.json"
+    )
+
+    transaction = build()
+    original_create = transaction._create_owned_denial_mirror
+
+    def fail_before_ownership(
+        job_state: activation.JobState, path: Path, data: bytes
+    ) -> None:
+        if path == new_marker:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+            raise OSError("injected external same-hash denial before mirror completion")
+        original_create(job_state, path, data)
+
+    transaction._create_owned_denial_mirror = fail_before_ownership  # type: ignore[method-assign]
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert new_marker.is_file()
+    assert new_marker.read_bytes() == old_bytes
+    assert transaction.new_denial_preserved[0]["job"] == "daily"
+    _assert_old_topology(activation_env)
+
+
+def test_same_hash_external_replacement_after_mirror_is_preserved_on_rollback(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(runtime_root, Path)
+    new_marker = (
+        runtime_root
+        / "logs"
+        / "storage_safety"
+        / "restart_denied"
+        / "daily.json"
+    )
+    replaced_identity: tuple[int, int] | None = None
+
+    def hook(event: str, job: str | None) -> None:
+        nonlocal replaced_identity
+        if job == "daily" and event == "after_denial_mirror_write_before_verify":
+            mirrored_bytes = new_marker.read_bytes()
+            replacement = new_marker.with_name("daily.external.json")
+            replacement.write_bytes(mirrored_bytes)
+            os.replace(replacement, new_marker)
+            stat_result = new_marker.stat()
+            replaced_identity = (stat_result.st_dev, stat_result.st_ino)
+            raise activation.ActivationError(
+                "injected same-hash external replacement after mirror"
+            )
+
+    transaction = build(hook=hook)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert new_marker.is_file()
+    current = new_marker.stat()
+    assert replaced_identity == (current.st_dev, current.st_ino)
+    assert transaction.new_denial_preserved[0]["job"] == "daily"
+    _assert_old_topology(activation_env)
+
+
+def test_runtime_storage_guard_lock_contention_blocks_activation_before_bootout(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    runtime_root = activation_env["runtime_root"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(runtime_root, Path)
+    assert isinstance(runner, FakeCommandRunner)
+    lock_path = runtime_root / "logs" / "storage_safety" / "daily.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = lock_path.open("a+")
+    activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB)
+    try:
+        transaction = build()
+        assert transaction.run() == "ROLLED_BACK_NO_GO"
+    finally:
+        activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
+        handle.close()
+
+    assert not any(operation == "bootout" for operation, _ in runner.calls)
+    _assert_old_topology(activation_env)
+
+
 def test_denial_mirror_interruption_after_write_before_verify_removes_transaction_marker(
     activation_env: dict[str, object],
 ) -> None:

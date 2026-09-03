@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -16,7 +17,7 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Iterable, Sequence, TextIO
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -81,6 +82,7 @@ class JobState:
     # 以下旗標代表「rollback obligation 已武裝」，必須早於可能的外部 mutation 設定。
     # 它們不是 mutation 已成功完成的 receipt；rollback 會再 probe 真實狀態後才決定是否反向操作。
     denial_mirrored_sha256: str | None = None
+    denial_mirrored_identity: tuple[int, int] | None = None
     denial_cleared: bool = False
     booted_out: bool = False
     replaced: bool = False
@@ -148,6 +150,7 @@ class ActivationTransaction:
         self.events: list[dict[str, object]] = []
         self.rollback_errors: list[str] = []
         self.new_denial_preserved: list[dict[str, str]] = []
+        self._denial_lock_handles: dict[str, TextIO] = {}
         self.armed = False
         self._old_signal_handlers: dict[int, object] = {}
         self.status = "INITIALIZING"
@@ -369,6 +372,69 @@ class ActivationTransaction:
             if tmp.exists():
                 tmp.unlink()
 
+    def _create_owned_denial_mirror(self, job: JobState, path: Path, data: bytes) -> None:
+        """以 no-replace hard-link 建立 mirror，並在 mutation 前武裝 inode ownership。"""
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, raw_tmp = tempfile.mkstemp(prefix=f".{path.name}.a4-", dir=str(path.parent))
+        tmp = Path(raw_tmp)
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+            stat_result = tmp.stat()
+            job.denial_mirrored_identity = (stat_result.st_dev, stat_result.st_ino)
+            os.link(tmp, path)
+        finally:
+            if tmp.exists():
+                tmp.unlink()
+
+    @staticmethod
+    def _path_identity(path: Path) -> tuple[int, int] | None:
+        try:
+            stat_result = path.stat()
+        except FileNotFoundError:
+            return None
+        return stat_result.st_dev, stat_result.st_ino
+
+    def _acquire_denial_locks(self) -> None:
+        runtime_dir = self.runtime_root / "logs" / "storage_safety"
+        runtime_dir.mkdir(parents=True, exist_ok=True)
+        for job in self.jobs:
+            lock_path = runtime_dir / f"{job.guard_name}.lock"
+            handle = lock_path.open("a+")
+            self._denial_lock_handles[job.guard_name] = handle
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                self._denial_lock_handles.pop(job.guard_name, None)
+                handle.close()
+                raise ActivationError(
+                    f"accepted runtime storage guard lock 正被持有: {job.guard_name}"
+                ) from exc
+            new_marker = self._denial_path(self.runtime_root, job.guard_name)
+            if new_marker.exists():
+                raise ActivationError(
+                    f"accepted runtime denial 在 preflight 後出現，拒絕覆寫: {job.guard_name}"
+                )
+        self._event("denial_writer_locks_acquired")
+
+    def _release_denial_lock(self, job: JobState) -> None:
+        handle = self._denial_lock_handles.get(job.guard_name)
+        if handle is None:
+            return
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            handle.close()
+            self._denial_lock_handles.pop(job.guard_name, None)
+        self._event("denial_writer_lock_released", job=job.guard_name)
+
+    def _release_all_denial_locks(self) -> None:
+        for job in self.jobs:
+            self._release_denial_lock(job)
+
     def _mirror_and_clear_denials(self) -> None:
         for job in self.jobs:
             old_marker = self._denial_path(job.old_root, job.guard_name)
@@ -385,15 +451,26 @@ class ActivationTransaction:
             # accepted runtime 在 _prepare() 已驗證 marker 不存在；先登記 ownership，避免
             # atomic write 完成後、Python bookkeeping 前收到 signal 時遺失 rollback 責任。
             job.denial_mirrored_sha256 = old_hash
-            self._atomic_write(new_marker, old_bytes)
+            try:
+                self._create_owned_denial_mirror(job, new_marker, old_bytes)
+            except FileExistsError as exc:
+                raise ActivationError(
+                    f"accepted runtime denial 在 preflight 後出現，拒絕覆寫: {job.guard_name}"
+                ) from exc
             self.fault_hook(
                 "after_denial_mirror_write_before_verify", job.guard_name
             )
             self._event("denial_mirrored", job=job.guard_name, detail=f"sha256={old_hash}")
             self.fault_hook("after_denial_mirror", job.guard_name)
+            if self._path_identity(new_marker) != job.denial_mirrored_identity:
+                raise ActivationError(f"denial mirror ownership changed: {job.guard_name}")
             if sha256_file(new_marker) != old_hash:
                 raise ActivationError(f"denial mirror hash mismatch: {job.guard_name}")
             self.fault_hook("before_denial_clear", job.guard_name)
+            if self._path_identity(new_marker) != job.denial_mirrored_identity:
+                raise ActivationError(
+                    f"new denial ownership changed before explicit clear: {job.guard_name}"
+                )
             if sha256_file(new_marker) != old_hash:
                 raise ActivationError(
                     f"new denial evidence appeared before explicit clear: {job.guard_name}"
@@ -473,6 +550,11 @@ class ActivationTransaction:
             current_old_hash = sha256_file(old_marker) if old_marker.is_file() else None
             if current_old_hash != job.old_denial_sha256:
                 raise ActivationError(f"old denial evidence changed during activation: {job.guard_name}")
+            new_marker = self._denial_path(self.runtime_root, job.guard_name)
+            if new_marker.exists():
+                raise ActivationError(
+                    f"accepted runtime 在 activation 期間出現新 denial: {job.guard_name}"
+                )
         if self._snapshot_out_of_scope_plists() != self.out_of_scope_plists_before:
             raise ActivationError("out-of-scope launchd plist changed during bounded activation")
         self._event("activation_verification_complete")
@@ -531,9 +613,8 @@ class ActivationTransaction:
                     self.rollback_errors.append(f"restore running state failed: {job.label}")
 
         new_marker = self._denial_path(self.runtime_root, job.guard_name)
-        if new_marker.is_file() and job.denial_mirrored_sha256 and not job.denial_cleared:
-            current_hash = sha256_file(new_marker)
-            if current_hash == job.denial_mirrored_sha256:
+        if new_marker.is_file() and job.denial_mirrored_identity and not job.denial_cleared:
+            if self._path_identity(new_marker) == job.denial_mirrored_identity:
                 new_marker.unlink()
                 self._event("transaction_denial_mirror_removed_on_rollback", job=job.guard_name)
 
@@ -652,10 +733,12 @@ class ActivationTransaction:
             self._prepare()
             self._persist_prestate_evidence()
             self._arm()
+            self._acquire_denial_locks()
             self._mirror_and_clear_denials()
             for job in self.jobs:
                 self._bootout(job)
                 self._replace_plist(job)
+                self._release_denial_lock(job)
                 self._bootstrap(job)
             self._verify_success()
             self.status = "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
@@ -683,6 +766,7 @@ class ActivationTransaction:
             return self.status
         finally:
             self._cleanup_staging()
+            self._release_all_denial_locks()
             if self.armed:
                 self._disarm()
 
