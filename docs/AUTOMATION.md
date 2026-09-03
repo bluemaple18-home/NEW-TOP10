@@ -17,12 +17,20 @@
 
 ### 1. 安裝自動排程 (macOS 推薦)
 
+正式 launchd 不得直接使用日常開發 checkout。先從已驗收 commit 建立 detached linked worktree，並在該 runtime checkout 建立獨立 `.venv`：
+
 ```bash
 cd <repo-root>
+git worktree add --detach <runtime-checkout> <accepted-commit>
+cd <runtime-checkout>
+uv sync --frozen
+cd <repo-root>
+TOP10_RUNTIME_CHECKOUT=<runtime-checkout> \
+TOP10_RUNTIME_COMMIT=<accepted-40-char-commit-sha> \
 bash scripts/setup_launchd.sh
 ```
 
-**說明**: 正式 daily 的唯一 owner 是 `com.new-top10.daily` launchd job，並指向 `scripts/run_daily_publish.sh`。macOS 開機後會自動載入。
+**說明**: `setup_launchd.sh` 會先驗證 runtime checkout 與開發 checkout 不同、屬於同一 canonical Git repo、使用 detached HEAD 且精確 pin 到指定 commit；任何非 `logs/artifacts/data/models` 的 runtime working-tree 漂移都會 fail closed。正式 daily 的唯一 owner 是 `com.new-top10.daily` launchd job，並指向 runtime checkout 內的 `scripts/run_daily_publish.sh`。安裝／重裝會修改並載入 LaunchAgents，屬於 live activation，只有取得對應授權後才能執行。
 
 ### 2. 手動測試腳本
 

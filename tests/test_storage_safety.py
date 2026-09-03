@@ -991,6 +991,57 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertFalse(old_b.exists())
             self.assertEqual(protected.read_bytes(), protected_hash)
 
+    def test_guard_preserves_required_runtime_temp_dirs_across_pre_spawn_reclaim(self) -> None:
+        """pre-spawn reclaim 不得刪掉本次 child 已綁定的 TMPDIR。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-storage-runtime-tmp-") as tmp:
+            root = Path(tmp)
+            runtime_root = root / "logs" / "storage_safety" / "runtime" / "daily"
+            for path in (
+                runtime_root / "tmp" / "joblib",
+                runtime_root / "cache" / "uv",
+                runtime_root / "cache" / "xdg",
+                runtime_root / "cache" / "matplotlib",
+            ):
+                path.mkdir(parents=True, exist_ok=True)
+            tmpdir = runtime_root / "tmp"
+            output = root / "output"
+            output.mkdir()
+            rule = RetentionRule(
+                rule_id="runtime_workspace",
+                base_path="logs/storage_safety/runtime/daily",
+                pattern="**/*",
+                retention_seconds=86400,
+                max_files=20000,
+                max_bytes=2 * 1024 * 1024 * 1024,
+                protect_newest=16,
+            )
+            policy = fixture_job_policy(cleanup_rule_ids=("runtime_workspace",))
+            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+            command = (
+                "/bin/sh",
+                "-c",
+                'mktemp "$TMPDIR/top10-a2.XXXXXX" >/dev/null && printf ok > output/temp-ok',
+            )
+
+            with mock.patch.dict(os.environ, {"TMPDIR": str(tmpdir)}):
+                result = run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    policy,
+                    (rule,),
+                    command,
+                    sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                )
+
+            receipt = json.loads(
+                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(0, result, receipt)
+            self.assertEqual("ok", (output / "temp-ok").read_text(encoding="utf-8"))
+
     def test_baseline_reclaim_never_matches_unlock_policy(self) -> None:
         policy_path = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"
         _, _, rules = load_policy(policy_path, "baseline-harness")

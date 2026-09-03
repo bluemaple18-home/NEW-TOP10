@@ -17,6 +17,14 @@ STATE_FILE="$TEST_ROOT/logs/fog_research_retry_20990106.state"
 CONTEXT_FILE="$TEST_ROOT/logs/fog_research_retry_20990106.context.log"
 mkdir -p "$TEST_ROOT/scripts" "$TEST_ROOT/logs"
 cp "$PROJECT_ROOT/scripts/run_fog_research_worker.sh" "$TEST_ROOT/scripts/run_fog_research_worker.sh"
+
+FAKE_PS="$TEST_ROOT/fake-ps"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'pid="${@: -1}"' \
+  'printf "token-%s\\n" "$pid"' > "$FAKE_PS"
+chmod +x "$FAKE_PS"
+
 cat > "$TEST_ROOT/fake_python.sh" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -99,6 +107,7 @@ printf '%s\n' '{"foreign":true}' > "$FOREIGN_CONTEXT"
 
 write_open_state
 TOP10_DAILY_PYTHON="$TEST_ROOT/fake_python.sh" \
+TOP10_PROCESS_IDENTITY_PS_BIN="$FAKE_PS" \
 TOP10_RUN_DATE="$RUN_DATE" \
 TOP10_REPLAY_DRAIN_ENABLED=0 \
 bash "$TEST_ROOT/scripts/run_fog_research_worker.sh"
@@ -109,6 +118,7 @@ test -z "$(find "$TEST_ROOT/logs" -name 'fog_runtime_run_context.*' ! -name 'fog
 
 write_open_state
 TOP10_DAILY_PYTHON="$TEST_ROOT/fake_python.sh" \
+TOP10_PROCESS_IDENTITY_PS_BIN="$FAKE_PS" \
 TOP10_RUN_DATE="$RUN_DATE" \
 TOP10_FOG_RESEARCH_RECOVER_CIRCUIT=1 \
 TOP10_REPLAY_DRAIN_ENABLED=0 \
@@ -121,6 +131,7 @@ test -z "$(find "$TEST_ROOT/logs" -name 'fog_runtime_run_context.*' ! -name 'fog
 write_open_state
 FAKE_VERIFY_OK=1 \
 TOP10_DAILY_PYTHON="$TEST_ROOT/fake_python.sh" \
+TOP10_PROCESS_IDENTITY_PS_BIN="$FAKE_PS" \
 TOP10_RUN_DATE="$RUN_DATE" \
 TOP10_FOG_RESEARCH_RECOVER_CIRCUIT=1 \
 TOP10_FOG_RESEARCH_MAX_BATCHES=1 \
@@ -136,6 +147,7 @@ test -z "$(find "$TEST_ROOT/logs" -name 'fog_runtime_run_context.*' ! -name 'fog
 
 if FAKE_CONTEXT_OK=0 \
   TOP10_DAILY_PYTHON="$TEST_ROOT/fake_python.sh" \
+  TOP10_PROCESS_IDENTITY_PS_BIN="$FAKE_PS" \
   TOP10_RUN_DATE="$RUN_DATE" \
   TOP10_REPLAY_DRAIN_ENABLED=0 \
   bash "$TEST_ROOT/scripts/run_fog_research_worker.sh"; then

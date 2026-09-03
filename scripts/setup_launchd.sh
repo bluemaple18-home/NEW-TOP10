@@ -4,14 +4,47 @@
 
 set -e
 
-PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SOURCE_PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+RUNTIME_PROJECT_DIR="${TOP10_RUNTIME_CHECKOUT:-}"
+RUNTIME_COMMIT="${TOP10_RUNTIME_COMMIT:-}"
+
+if [ -z "$RUNTIME_PROJECT_DIR" ] || [ -z "$RUNTIME_COMMIT" ]; then
+    echo "❌ 需要明確提供 TOP10_RUNTIME_CHECKOUT 與 TOP10_RUNTIME_COMMIT" >&2
+    exit 64
+fi
+
+if [ "$RUNTIME_PROJECT_DIR" = "$SOURCE_PROJECT_DIR" ]; then
+    echo "❌ runtime checkout 不得與開發 checkout 相同" >&2
+    exit 64
+fi
+
+SOURCE_PYTHON_BIN="$SOURCE_PROJECT_DIR/.venv/bin/python"
+if [ ! -x "$SOURCE_PYTHON_BIN" ]; then
+    echo "❌ 安裝器需要可執行的 source .venv/bin/python" >&2
+    exit 69
+fi
+
+"$SOURCE_PYTHON_BIN" "$SOURCE_PROJECT_DIR/scripts/validate_runtime_checkout.py" \
+    --source-root "$SOURCE_PROJECT_DIR" \
+    --runtime-root "$RUNTIME_PROJECT_DIR" \
+    --accepted-commit "$RUNTIME_COMMIT"
+
+PROJECT_DIR="$(cd "$RUNTIME_PROJECT_DIR" && pwd -P)"
+RUNTIME_PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"
+if [ ! -x "$RUNTIME_PYTHON_BIN" ]; then
+    echo "❌ runtime checkout 尚未建立 .venv；請先在 runtime checkout 執行 uv sync --frozen" >&2
+    exit 69
+fi
+
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 
 echo "========================================="
 echo "🔧 NEW-TOP10 launchd 排程設定 (macOS)"
 echo "========================================="
 echo ""
-echo "專案路徑: $PROJECT_DIR"
+echo "開發 checkout: $SOURCE_PROJECT_DIR"
+echo "Runtime checkout: $PROJECT_DIR"
+echo "Runtime commit: $RUNTIME_COMMIT"
 echo "LaunchAgents: $LAUNCH_AGENTS_DIR"
 echo ""
 echo "將設定以下排程:"

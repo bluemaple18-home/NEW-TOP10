@@ -105,3 +105,29 @@ class SchedulerOwnershipTests(unittest.TestCase):
             "StartCalendarInterval entries must only contain Weekday, Hour, and Minute",
             errors,
         )
+
+    def test_setup_launchd_rejects_development_checkout_as_runtime(self) -> None:
+        """正式排程不得再把目前開發 checkout 當成 production runtime root。"""
+
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        environment = os.environ | {
+            "TOP10_RUNTIME_CHECKOUT": str(PROJECT_ROOT),
+            "TOP10_RUNTIME_COMMIT": head,
+        }
+        completed = subprocess.run(
+            ["bash", "scripts/setup_launchd.sh"],
+            cwd=PROJECT_ROOT,
+            input="n\n",
+            text=True,
+            capture_output=True,
+            env=environment,
+            check=False,
+        )
+        self.assertEqual(64, completed.returncode)
+        self.assertIn("runtime checkout 不得與開發 checkout 相同", completed.stderr)

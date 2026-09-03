@@ -753,6 +753,19 @@ def reclaim_allowlisted(
     )
 
 
+def _materialize_active_runtime_workspace(root: Path, job: str) -> None:
+    """reclaim 後重建本次 invocation 在 child spawn 前必須存在的 runtime 目錄。"""
+
+    runtime_root = root / "logs" / "storage_safety" / "runtime" / job
+    for path in (
+        runtime_root / "tmp" / "joblib",
+        runtime_root / "cache" / "uv",
+        runtime_root / "cache" / "xdg",
+        runtime_root / "cache" / "matplotlib",
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+
+
 class RotatingLog:
     """在寫入前輪替，確保 guard 自己的 log 有硬上限。"""
 
@@ -1437,6 +1450,7 @@ def run_guarded_job(
             return 78
 
         reclaimed = reclaim_allowlisted(root, rules, execute=True)
+        _materialize_active_runtime_workspace(root, policy.job)
         before_writes = project_write_snapshot(root)
         spawn_command = list(command)
         if validation_only:

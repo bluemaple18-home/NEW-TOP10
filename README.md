@@ -106,7 +106,11 @@ cat artifacts/ranking_$(date +%Y-%m-%d).csv
 ### 快速安裝（macOS）
 
 ```bash
-# 一鍵安裝自動排程
+# 正式排程使用獨立 detached runtime checkout；安裝會修改 LaunchAgents，需先取得 live activation 授權
+git worktree add --detach <runtime-checkout> <accepted-commit>
+cd <runtime-checkout> && uv sync --frozen && cd <repo-root>
+TOP10_RUNTIME_CHECKOUT=<runtime-checkout> \
+TOP10_RUNTIME_COMMIT=<accepted-40-char-commit-sha> \
 bash scripts/setup_launchd.sh
 ```
 

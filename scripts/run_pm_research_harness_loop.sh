@@ -23,14 +23,87 @@ DRY_RUN_SEND="${TOP10_PM_RESEARCH_DRY_RUN_SEND:-1}"
 LOG_FILE="$LOG_DIR/pm_research_harness_loop_${RUN_DATE//-/}.log"
 LOCK_DIR="$LOG_DIR/pm_research_harness_loop.lock"
 LOCK_PID_FILE="$LOCK_DIR/pid"
+LOCK_START_TOKEN_FILE="$LOCK_DIR/start_token"
 FOG_LOCK_DIR="$LOG_DIR/fog_research_worker.lock"
 FOG_LOCK_PID_FILE="$FOG_LOCK_DIR/pid"
+FOG_LOCK_START_TOKEN_FILE="$FOG_LOCK_DIR/start_token"
 QUEUE_OWNER="${TOP10_RESEARCH_QUEUE_OWNER:-fog_worker}"
 QUEUE_OWNER_LOCK_DIR="$LOG_DIR/research_queue_owner.lock"
 QUEUE_OWNER_PID_FILE="$QUEUE_OWNER_LOCK_DIR/pid"
 QUEUE_OWNER_NAME_FILE="$QUEUE_OWNER_LOCK_DIR/owner"
+QUEUE_OWNER_START_TOKEN_FILE="$QUEUE_OWNER_LOCK_DIR/start_token"
 PM_LOCK_HELD=0
 QUEUE_OWNER_LOCK_HELD=0
+PS_BIN="${TOP10_PROCESS_IDENTITY_PS_BIN:-/bin/ps}"
+
+process_start_token() {
+  local pid="$1"
+  case "$pid" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  "$PS_BIN" -o lstart= -p "$pid" 2>/dev/null || true
+}
+
+write_lock_identity() {
+  local pid_file="$1"
+  local start_token_file="$2"
+  local start_token=""
+  start_token="$(process_start_token "$$")"
+  if [ -z "$start_token" ]; then
+    return 1
+  fi
+  printf '%s\n' "$$" > "$pid_file"
+  printf '%s\n' "$start_token" > "$start_token_file"
+}
+
+lock_owner_state() {
+  local pid_file="$1"
+  local start_token_file="$2"
+  local existing_pid=""
+  local stored_start_token=""
+  local actual_start_token=""
+
+  if [ ! -r "$pid_file" ]; then
+    printf '%s\n' "STALE"
+    return 0
+  fi
+  existing_pid="$(cat "$pid_file" 2>/dev/null || true)"
+  case "$existing_pid" in
+    ''|*[!0-9]*)
+      printf '%s\n' "STALE"
+      return 0
+      ;;
+  esac
+  if ! kill -0 "$existing_pid" 2>/dev/null; then
+    printf '%s\n' "STALE"
+    return 0
+  fi
+  if [ ! -r "$start_token_file" ]; then
+    printf '%s\n' "UNKNOWN"
+    return 0
+  fi
+  stored_start_token="$(cat "$start_token_file" 2>/dev/null || true)"
+  actual_start_token="$(process_start_token "$existing_pid")"
+  if [ -z "$stored_start_token" ] || [ -z "$actual_start_token" ]; then
+    printf '%s\n' "UNKNOWN"
+  elif [ "$stored_start_token" = "$actual_start_token" ]; then
+    printf '%s\n' "ACTIVE"
+  else
+    printf '%s\n' "STALE"
+  fi
+}
+
+lock_identity_is_current_process() {
+  local pid_file="$1"
+  local start_token_file="$2"
+  local current_start_token=""
+  [ -r "$pid_file" ] || return 1
+  [ -r "$start_token_file" ] || return 1
+  [ "$(cat "$pid_file" 2>/dev/null || true)" = "$$" ] || return 1
+  current_start_token="$(process_start_token "$$")"
+  [ -n "$current_start_token" ] || return 1
+  [ "$(cat "$start_token_file" 2>/dev/null || true)" = "$current_start_token" ]
+}
 
 if [ "$QUEUE_OWNER" != "pm_research_harness" ]; then
   echo "pm research harness loop skipped; queue owner=$QUEUE_OWNER" >> "$LOG_FILE" 2>&1
@@ -46,45 +119,58 @@ if [ "$ENABLED" != "1" ] && [ "$ENABLED" != "true" ] && [ "$ENABLED" != "TRUE" ]
   exit 0
 fi
 
-if [ -r "$FOG_LOCK_PID_FILE" ]; then
+if [ -d "$FOG_LOCK_DIR" ]; then
   fog_pid="$(cat "$FOG_LOCK_PID_FILE" 2>/dev/null || true)"
-  if [ -n "$fog_pid" ] && kill -0 "$fog_pid" 2>/dev/null; then
+  fog_lock_state="$(lock_owner_state "$FOG_LOCK_PID_FILE" "$FOG_LOCK_START_TOKEN_FILE")"
+  if [ "$fog_lock_state" = "ACTIVE" ]; then
     echo "pm research harness loop skipped; fog research worker active pid=$fog_pid" >> "$LOG_FILE" 2>&1
+    exit 0
+  elif [ "$fog_lock_state" = "UNKNOWN" ]; then
+    echo "pm research harness loop skipped; fog research worker lock identity unverified pid=$fog_pid" >> "$LOG_FILE" 2>&1
     exit 0
   fi
 fi
 
 cleanup_locks() {
-  if [ "$PM_LOCK_HELD" = "1" ] && [ -r "$LOCK_PID_FILE" ] && [ "$(cat "$LOCK_PID_FILE")" = "$$" ]; then
-    rm -f "$LOCK_PID_FILE"
+  if [ "$PM_LOCK_HELD" = "1" ] && lock_identity_is_current_process "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"; then
+    rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
     rmdir "$LOCK_DIR" 2>/dev/null || true
   fi
-  if [ "$QUEUE_OWNER_LOCK_HELD" = "1" ] && [ -r "$QUEUE_OWNER_PID_FILE" ] && [ "$(cat "$QUEUE_OWNER_PID_FILE")" = "$$" ]; then
-    rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE"
+  if [ "$QUEUE_OWNER_LOCK_HELD" = "1" ] && lock_identity_is_current_process "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"; then
+    rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
     rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
   fi
 }
 
 acquire_queue_owner_lock() {
   if mkdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null; then
-    echo "$$" > "$QUEUE_OWNER_PID_FILE"
+    if ! write_lock_identity "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"; then
+      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+      echo "pm research harness loop skipped; cannot establish research queue lock identity" | tee -a "$LOG_FILE"
+      exit 0
+    fi
     echo "pm_research_harness" > "$QUEUE_OWNER_NAME_FILE"
     QUEUE_OWNER_LOCK_HELD=1
     return 0
   fi
 
-  local existing_pid=""
-  if [ -r "$QUEUE_OWNER_PID_FILE" ]; then
-    existing_pid="$(cat "$QUEUE_OWNER_PID_FILE" 2>/dev/null || true)"
-  fi
-  if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+  local existing_pid="$(cat "$QUEUE_OWNER_PID_FILE" 2>/dev/null || true)"
+  local owner_state="$(lock_owner_state "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE")"
+  if [ "$owner_state" = "ACTIVE" ]; then
     echo "pm research harness loop skipped; research queue owned by pid=$existing_pid" | tee -a "$LOG_FILE"
+    exit 0
+  elif [ "$owner_state" = "UNKNOWN" ]; then
+    echo "pm research harness loop skipped; research queue lock identity unverified pid=$existing_pid" | tee -a "$LOG_FILE"
     exit 0
   fi
 
-  rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE"
+  rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
   if rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null && mkdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null; then
-    echo "$$" > "$QUEUE_OWNER_PID_FILE"
+    if ! write_lock_identity "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"; then
+      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+      echo "pm research harness loop skipped; cannot establish research queue lock identity" | tee -a "$LOG_FILE"
+      exit 0
+    fi
     echo "pm_research_harness" > "$QUEUE_OWNER_NAME_FILE"
     QUEUE_OWNER_LOCK_HELD=1
     return 0
@@ -95,20 +181,30 @@ acquire_queue_owner_lock() {
 }
 
 if mkdir "$LOCK_DIR" 2>/dev/null; then
-  echo "$$" > "$LOCK_PID_FILE"
+  if ! write_lock_identity "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"; then
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+    echo "pm research harness loop skipped; cannot establish lock identity" | tee -a "$LOG_FILE"
+    exit 0
+  fi
   PM_LOCK_HELD=1
 else
-  if [ -r "$LOCK_PID_FILE" ]; then
-    existing_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
-    if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
-      echo "pm research harness loop skipped; existing pid=$existing_pid" | tee -a "$LOG_FILE"
-      exit 0
-    fi
+  existing_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
+  owner_state="$(lock_owner_state "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE")"
+  if [ "$owner_state" = "ACTIVE" ]; then
+    echo "pm research harness loop skipped; existing pid=$existing_pid" | tee -a "$LOG_FILE"
+    exit 0
+  elif [ "$owner_state" = "UNKNOWN" ]; then
+    echo "pm research harness loop skipped; lock identity unverified pid=$existing_pid" | tee -a "$LOG_FILE"
+    exit 0
   fi
-  rm -f "$LOCK_PID_FILE"
+  rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
   rmdir "$LOCK_DIR" 2>/dev/null || true
   mkdir "$LOCK_DIR"
-  echo "$$" > "$LOCK_PID_FILE"
+  if ! write_lock_identity "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"; then
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+    echo "pm research harness loop skipped; cannot establish lock identity" | tee -a "$LOG_FILE"
+    exit 0
+  fi
   PM_LOCK_HELD=1
 fi
 
