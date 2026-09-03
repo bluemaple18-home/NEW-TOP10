@@ -298,7 +298,14 @@ def load_policy(path: Path, job: str) -> tuple[GlobalPolicy, JobPolicy, tuple[Re
 
 def _safe_root_path(root: Path, relative: str) -> Path:
     root = root.resolve()
-    candidate = (root / _relative_path(relative, "path")).resolve()
+    relative_path = _relative_path(relative, "path")
+    candidate = root / relative_path
+    current = root
+    for part in Path(relative_path).parts:
+        current /= part
+        if current.is_symlink():
+            raise ValueError(f"path 不得包含 symlink: {relative_path}")
+    candidate = candidate.resolve()
     candidate.relative_to(root)
     return candidate
 
@@ -308,6 +315,11 @@ def _iter_regular_files(base: Path) -> Iterable[Path]:
         return
     if base.is_symlink():
         raise ValueError(f"meter path 不得是 symlink: {base}")
+    if base.is_file():
+        yield base
+        return
+    if not base.is_dir():
+        return
     for directory, dirnames, filenames in os.walk(base, followlinks=False):
         dirnames[:] = sorted(
             name

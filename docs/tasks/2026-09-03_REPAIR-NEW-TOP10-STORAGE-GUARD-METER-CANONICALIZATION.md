@@ -51,3 +51,16 @@ parent: ACTIVATE-NEW-TOP10-FOG-RESEARCH-WORKER
 - 2026-09-03：微基準使用臨時 13,140-file fixture，無 live workload：old/new `measure_paths()` median
   `0.7168s → 0.3298s`（`2.17x`），regular-file resolve calls `0`、one-measure total resolve calls `5`；
   `take_sample()` median `0.3312s`，min/max `0.3194s/0.3384s`。
+- 2026-09-03：Gen1 Reviewer NO-GO repair 假說：H1 `_iter_regular_files()` 未處理 regular-file meter root，導致 fog policy 中
+  `data/research/research_ledger.duckdb`、`.wal`、`artifacts/market_regime_history.json` 等單檔 meter 漏算；H2 `_safe_root_path()`
+  先 resolve 才驗 symlink，使 repo-internal symlink root 被接受。兩者均限於 meter inventory seam。
+- 2026-09-03：Gen1 P1 RED：
+  `uv run pytest tests/test_storage_safety.py::StorageSafetyRegressionTest::test_file_meter_paths_count_existing_files_and_preserve_overlap -q`
+  在舊實作失敗，existing regular-file meter 回 `0` bytes／`0` files；同測試涵蓋 missing file meter 為 `0` 與 parent directory + file overlap 只算一次。
+- 2026-09-03：Gen1 P2 RED：
+  `uv run pytest tests/test_storage_safety.py::StorageSafetyRegressionTest::test_meter_paths_reject_symlink_directory_and_file_roots -q`
+  在舊實作失敗，repo-internal symlink directory meter root 未被拒絕；同測試涵蓋 symlink file meter root。
+- 2026-09-03：Gen1 修復：`_iter_regular_files()` 對 existing regular file 直接 yield、missing path 維持空 inventory；
+  `_safe_root_path()` 在 resolve 前逐段拒絕 lexical symlink component，並保留原 resolved containment。
+- 2026-09-03：Gen1 GREEN：P1/P2 targeted tests、canonicalization regression、overlap regression 均通過；完整
+  `uv run pytest tests/test_storage_safety.py -q` 為 `68 passed, 31 subtests passed in 8.58s`。

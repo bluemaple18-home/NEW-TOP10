@@ -376,6 +376,54 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertEqual(inventory.bytes, 7)
             self.assertEqual(inventory.file_count, 2)
 
+    def test_file_meter_paths_count_existing_files_and_preserve_overlap(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-file-meter-") as tmp:
+            root = Path(tmp)
+            ledger = root / "data" / "research" / "research_ledger.duckdb"
+            ledger.parent.mkdir(parents=True)
+            ledger.write_bytes(b"ledger")
+            artifacts = root / "artifacts"
+            artifacts.mkdir()
+            regime = artifacts / "market_regime_history.json"
+            regime.write_bytes(b"regime")
+            other = artifacts / "other.bin"
+            other.write_bytes(b"ok")
+
+            file_only = measure_paths(
+                root,
+                (
+                    "data/research/research_ledger.duckdb",
+                    "data/research/missing.duckdb",
+                ),
+            )
+            overlapped = measure_paths(
+                root,
+                ("artifacts", "artifacts/market_regime_history.json"),
+            )
+
+            self.assertEqual(file_only.bytes, 6)
+            self.assertEqual(file_only.file_count, 1)
+            self.assertEqual(overlapped.bytes, 8)
+            self.assertEqual(overlapped.file_count, 2)
+
+    def test_meter_paths_reject_symlink_directory_and_file_roots(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-symlink-meter-") as tmp:
+            root = Path(tmp)
+            real_dir = root / "real-data"
+            real_dir.mkdir()
+            (real_dir / "payload.bin").write_bytes(b"payload")
+            real_file = root / "real-ledger.duckdb"
+            real_file.write_bytes(b"ledger")
+            linked_dir = root / "linked-data"
+            linked_file = root / "linked-ledger.duckdb"
+            linked_dir.symlink_to(real_dir, target_is_directory=True)
+            linked_file.symlink_to(real_file)
+
+            with self.assertRaisesRegex(ValueError, "不得包含 symlink"):
+                measure_paths(root, ("linked-data",))
+            with self.assertRaisesRegex(ValueError, "不得包含 symlink"):
+                measure_paths(root, ("linked-ledger.duckdb",))
+
     def test_overlapping_meter_paths_do_not_resolve_each_regular_file(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-meter-resolve-") as tmp:
             root = Path(tmp)
