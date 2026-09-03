@@ -129,12 +129,13 @@ fi
 
 acquire_lock() {
   if mkdir "$LOCK_DIR" 2>/dev/null; then
+    # mkdir 成功即代表本 process 已取得這個 lock directory 的唯一 reservation。
+    # 必須先武裝 ownership flag，否則 identity 寫到一半失敗時 EXIT trap 無法清掉半鎖。
+    FOG_LOCK_HELD=1
     if ! write_lock_identity "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"; then
-      rmdir "$LOCK_DIR" 2>/dev/null || true
       echo "fog research worker skipped; cannot establish lock identity" | tee -a "$LOG_FILE"
       exit 0
     fi
-    FOG_LOCK_HELD=1
     return 0
   fi
 
@@ -150,12 +151,11 @@ acquire_lock() {
 
   rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
   if rmdir "$LOCK_DIR" 2>/dev/null && mkdir "$LOCK_DIR" 2>/dev/null; then
+    FOG_LOCK_HELD=1
     if ! write_lock_identity "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"; then
-      rmdir "$LOCK_DIR" 2>/dev/null || true
       echo "fog research worker skipped; cannot establish lock identity" | tee -a "$LOG_FILE"
       exit 0
     fi
-    FOG_LOCK_HELD=1
     return 0
   fi
 
@@ -165,13 +165,12 @@ acquire_lock() {
 
 acquire_queue_owner_lock() {
   if mkdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null; then
+    QUEUE_OWNER_LOCK_HELD=1
     if ! write_lock_identity "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"; then
-      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
       echo "fog research worker skipped; cannot establish research queue lock identity" | tee -a "$LOG_FILE"
       exit 0
     fi
     echo "fog_worker" > "$QUEUE_OWNER_NAME_FILE"
-    QUEUE_OWNER_LOCK_HELD=1
     return 0
   fi
 
@@ -187,13 +186,12 @@ acquire_queue_owner_lock() {
 
   rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
   if rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null && mkdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null; then
+    QUEUE_OWNER_LOCK_HELD=1
     if ! write_lock_identity "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"; then
-      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
       echo "fog research worker skipped; cannot establish research queue lock identity" | tee -a "$LOG_FILE"
       exit 0
     fi
     echo "fog_worker" > "$QUEUE_OWNER_NAME_FILE"
-    QUEUE_OWNER_LOCK_HELD=1
     return 0
   fi
 
@@ -202,13 +200,29 @@ acquire_queue_owner_lock() {
 }
 
 cleanup_locks() {
-  if [ "$FOG_LOCK_HELD" = "1" ] && lock_identity_is_current_process "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"; then
-    rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
-    rmdir "$LOCK_DIR" 2>/dev/null || true
+  if [ "$FOG_LOCK_HELD" = "1" ]; then
+    if lock_identity_is_current_process "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"; then
+      rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
+      rmdir "$LOCK_DIR" 2>/dev/null || true
+    elif [ -f "$LOCK_PID_FILE" ] && [ "$(cat "$LOCK_PID_FILE" 2>/dev/null || true)" = "$$" ]; then
+      # identity 只寫到一半時仍可證明 pid 是自己；只清自己的 partial lock。
+      rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
+      rmdir "$LOCK_DIR" 2>/dev/null || true
+    elif [ ! -e "$LOCK_PID_FILE" ] && [ ! -e "$LOCK_START_TOKEN_FILE" ]; then
+      # identity 尚未寫入時只允許移除空目錄；若已被別人接管，rmdir 會 fail closed。
+      rmdir "$LOCK_DIR" 2>/dev/null || true
+    fi
   fi
-  if [ "$QUEUE_OWNER_LOCK_HELD" = "1" ] && lock_identity_is_current_process "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"; then
-    rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
-    rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+  if [ "$QUEUE_OWNER_LOCK_HELD" = "1" ]; then
+    if lock_identity_is_current_process "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"; then
+      rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
+      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+    elif [ -f "$QUEUE_OWNER_PID_FILE" ] && [ "$(cat "$QUEUE_OWNER_PID_FILE" 2>/dev/null || true)" = "$$" ]; then
+      rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
+      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+    elif [ ! -e "$QUEUE_OWNER_PID_FILE" ] && [ ! -e "$QUEUE_OWNER_NAME_FILE" ] && [ ! -e "$QUEUE_OWNER_START_TOKEN_FILE" ]; then
+      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+    fi
   fi
 }
 
@@ -224,7 +238,22 @@ cleanup() {
   cleanup_locks
 }
 
-trap cleanup EXIT INT TERM
+handle_signal() {
+  local signal="$1"
+  # signal teardown 必須先完成 bounded cleanup，再終止 process；不可釋放 ownership 後回到主流程。
+  trap '' INT TERM
+  trap - EXIT
+  cleanup
+  case "$signal" in
+    INT) exit 130 ;;
+    TERM) exit 143 ;;
+    *) exit 1 ;;
+  esac
+}
+
+trap cleanup EXIT
+trap 'handle_signal INT' INT
+trap 'handle_signal TERM' TERM
 acquire_lock
 acquire_queue_owner_lock
 
