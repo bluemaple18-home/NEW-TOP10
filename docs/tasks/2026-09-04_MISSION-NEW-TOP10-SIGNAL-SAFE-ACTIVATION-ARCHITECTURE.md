@@ -2,7 +2,7 @@
 id: MISSION-NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 chain_id: NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 supersedes_blocked_chain: NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
-status: REPAIR_3_R4_FINDING_RESOLVED_READY_FOR_FIXED_SHA_REVIEW
+status: CODE_ACCEPTED_NO_PRODUCTION_AUTHORITY
 type: architecture-mission
 priority: P0
 owner: TOP10new operations
@@ -93,3 +93,5 @@ push_allowed: false
 - Repair 3 fixed candidate `3023ed022b72738c49afca5a3311044a19eb0b72` 第四輪 review 分歧：Reviewer A `GO`；Reviewer B `NO_GO`，指出 lock cleanup exception 可跳過 `_disarm()`。
 - Mainline 已用真實 `LOCK_UN` failure injection 重現 P1，並在原授權 teardown boundary 內收斂：逐 lock 釋放、B4 各步獨立 exception boundary、signal teardown 必跑、CLI unexpected exception exit 75。
 - 收斂後 Mainline 驗證：`134 passed, 35 subtests passed`；`py_compile`、`git diff --check` 與 debug-marker 檢查通過。下一步只建立新 fixed candidate 並做兩次全新獨立 review。
+- Final fixed candidate `70ff1e9dda855e1030a8bb169e77931d49f629a8` 已由兩位全新 clean-context Reviewer 獨立審查：Reviewer A `GO`；Reviewer B 初判的 dependency success no-op P1 經 production fault-contract 裁決後由 Reviewer 明確撤回，final `GO`。
+- 本 mission 已完成 code／test／雙 review acceptance；不包含 A4 activation、launchd、marker、push 或任何 production mutation authority。
