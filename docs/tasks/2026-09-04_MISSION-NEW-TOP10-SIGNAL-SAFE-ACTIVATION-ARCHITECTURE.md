@@ -2,7 +2,7 @@
 id: MISSION-NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 chain_id: NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 supersedes_blocked_chain: NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
-status: REPAIR_2_READY_FOR_FIXED_SHA_REVIEW
+status: BLOCKED_BY_THIRD_REPAIR_AUTHORIZATION
 type: architecture-mission
 priority: P0
 owner: TOP10new operations
@@ -83,3 +83,5 @@ push_allowed: false
 - 第二次 Repair 已補：staging plist file fsync、每次 activation／rollback plist replace 的 `LaunchAgents` parent-directory fsync、durability-failure cleanup 後 bounded pending-signal drain，以及 success seal 前 bounded handler handoff。
 - Mainline 驗證：`129 passed, 35 subtests passed`；四個受影響 Python 檔案通過 `py_compile`；`git diff --check` 與 debug-marker 檢查通過。
 - 下一步只建立 Repair 2 fixed candidate，交由兩位全新 clean-context Reviewer 審查；production／launchd／marker mutation 仍為 0。
+- Repair 2 fixed candidate `696c15d7436f8f8af3be918bd652394c4279351c` 經第三輪兩位 Reviewer 一致 `NO_GO`；剩餘單一 P1 為 signal teardown 結果未參與 terminal return／receipt truth。
+- 第二次 Repair 已用完；目前 `BLOCKED_BY_THIRD_REPAIR_AUTHORIZATION`，production 邊界不變。
