@@ -2,7 +2,7 @@
 id: MISSION-NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 chain_id: NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 supersedes_blocked_chain: NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
-status: REPAIR_3_READY_FOR_FIXED_SHA_REVIEW
+status: REPAIR_3_R4_FINDING_RESOLVED_READY_FOR_FIXED_SHA_REVIEW
 type: architecture-mission
 priority: P0
 owner: TOP10new operations
@@ -90,3 +90,6 @@ push_allowed: false
 - Repair 3 已移除 `run()` try／except 內 early return，保留 `ReceiptDurabilityError` 與 rollback 互斥，並讓 `_disarm() -> bool` 以 original handlers／mask readback post-condition 決定唯一 terminal status。
 - Receipt 已固定標示 teardown 需由 process exit status 驗證；teardown 未確認時統一回 `SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO`，不混入 topology 組合狀態。
 - Mainline 驗證：`133 passed, 35 subtests passed`；`py_compile`、`git diff --check` 與 debug-marker 檢查通過。production／launchd／marker mutation 仍為 0。
+- Repair 3 fixed candidate `3023ed022b72738c49afca5a3311044a19eb0b72` 第四輪 review 分歧：Reviewer A `GO`；Reviewer B `NO_GO`，指出 lock cleanup exception 可跳過 `_disarm()`。
+- Mainline 已用真實 `LOCK_UN` failure injection 重現 P1，並在原授權 teardown boundary 內收斂：逐 lock 釋放、B4 各步獨立 exception boundary、signal teardown 必跑、CLI unexpected exception exit 75。
+- 收斂後 Mainline 驗證：`134 passed, 35 subtests passed`；`py_compile`、`git diff --check` 與 debug-marker 檢查通過。下一步只建立新 fixed candidate 並做兩次全新獨立 review。

@@ -654,16 +654,33 @@ class ActivationTransaction:
         handle = self._denial_lock_handles.get(job.guard_name)
         if handle is None:
             return
+        release_errors: list[str] = []
         try:
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        finally:
+        except Exception as exc:  # noqa: BLE001 - close 仍可能釋放 process-owned lock。
+            release_errors.append(f"unlock {type(exc).__name__}: {exc}")
+        try:
             handle.close()
+        except Exception as exc:  # noqa: BLE001 - 其他 job 與 signal teardown 仍須執行。
+            release_errors.append(f"close {type(exc).__name__}: {exc}")
+        finally:
             self._denial_lock_handles.pop(job.guard_name, None)
+        if release_errors:
+            raise ActivationError(
+                f"denial lock release failed {job.guard_name}: "
+                + "; ".join(release_errors)
+            )
         self._event("denial_writer_lock_released", job=job.guard_name)
 
     def _release_all_denial_locks(self) -> None:
+        release_errors: list[str] = []
         for job in self.jobs:
-            self._release_denial_lock(job)
+            try:
+                self._release_denial_lock(job)
+            except Exception as exc:  # noqa: BLE001 - 每個 lock 都必須嘗試釋放。
+                release_errors.append(f"{job.guard_name}: {type(exc).__name__}: {exc}")
+        if release_errors:
+            raise ActivationError("; ".join(release_errors))
 
     def _mirror_and_clear_denials(self) -> None:
         for job in self.jobs:
@@ -1034,6 +1051,7 @@ class ActivationTransaction:
 
     def run(self) -> str:
         teardown_confirmed = True
+        protection_release_errors: list[str] = []
         try:
             self._prepare()
             self._arm()
@@ -1088,12 +1106,33 @@ class ActivationTransaction:
                         f"{type(receipt_exc).__name__}: {receipt_exc}"
                     )
         finally:
-            self._cleanup_staging()
-            self._release_all_denial_locks()
+            # B4 各步驟使用獨立 exception boundary；前一步失敗不得跳過後續
+            # lock release 或 signal ownership teardown。
+            for name, release in (
+                ("staging cleanup", self._cleanup_staging),
+                ("denial lock release", self._release_all_denial_locks),
+            ):
+                try:
+                    release()
+                except Exception as exc:  # noqa: BLE001 - 收斂後統一由 CLI fail closed。
+                    protection_release_errors.append(
+                        f"{name}: {type(exc).__name__}: {exc}"
+                    )
             if self.armed or self._old_signal_handlers or self._old_signal_mask is not None:
-                teardown_confirmed = self._disarm()
+                try:
+                    teardown_confirmed = self._disarm()
+                except Exception as exc:  # noqa: BLE001 - 不得讓 teardown exception 冒充成功。
+                    teardown_confirmed = False
+                    protection_release_errors.append(
+                        f"signal teardown: {type(exc).__name__}: {exc}"
+                    )
         if not teardown_confirmed:
             self.status = "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+        if protection_release_errors:
+            raise ActivationError(
+                "protection release failed after topology result "
+                f"{self.status}: {'; '.join(protection_release_errors)}"
+            )
         return self.status
 
 
@@ -1131,6 +1170,9 @@ def main() -> int:
     except RuntimeCheckoutError as exc:
         print(f"A4_ACTIVATION_NO_GO: {exc}", file=sys.stderr)
         return 64
+    except Exception as exc:  # noqa: BLE001 - CLI 不得讓 teardown exception 冒充成功退出。
+        print(f"A4_ACTIVATION_NO_GO: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 75
     print(status)
     if status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING":
         return 0

@@ -1727,6 +1727,100 @@ def test_confirmed_signal_teardown_preserves_success_status_and_exit_zero(
         original_pthread_sigmask(signal.SIG_SETMASK, initial_mask)
 
 
+def test_lock_release_failure_cannot_skip_signal_teardown_or_cli_no_go(
+    activation_env: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lock cleanup 失敗仍須完成 signal teardown，CLI 並以 75 fail closed。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    runtime_root = activation_env["runtime_root"]
+    launch_agents = activation_env["launch_agents"]
+    old_root = activation_env["old_root"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    assert isinstance(runtime_root, Path)
+    assert isinstance(launch_agents, Path)
+    assert isinstance(old_root, Path)
+
+    transaction = build()
+    original_flock = activation.fcntl.flock
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    previous_handlers = {
+        signum: signal.getsignal(signum)
+        for signum in (signal.SIGINT, signal.SIGTERM)
+    }
+    initial_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+    expected_mask = initial_mask - {signal.SIGINT, signal.SIGTERM}
+    original_pthread_sigmask(signal.SIG_SETMASK, expected_mask)
+    unlock_failed = False
+
+    def fail_first_unlock(fd: int, operation: int) -> object:
+        nonlocal unlock_failed
+        if operation == activation.fcntl.LOCK_UN and not unlock_failed:
+            unlock_failed = True
+            raise OSError("injected denial lock release failure")
+        return original_flock(fd, operation)
+
+    monkeypatch.setattr(activation.fcntl, "flock", fail_first_unlock)
+    try:
+        with pytest.raises(activation.ActivationError, match="denial lock release failed"):
+            transaction.run()
+
+        durable = json.loads(receipt.read_text(encoding="utf-8"))
+        assert unlock_failed
+        assert durable["status"] == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+        assert durable["signal_teardown"] == {
+            "attestation": "REQUIRES_PROCESS_EXIT_STATUS",
+            "confirmed_in_receipt": False,
+        }
+        assert all(
+            signal.getsignal(signum) == previous_handlers[signum]
+            for signum in (signal.SIGINT, signal.SIGTERM)
+        )
+        assert original_pthread_sigmask(signal.SIG_BLOCK, set()) == expected_mask
+        assert not transaction._denial_lock_handles
+        for guard_name, _, _ in activation.TARGET_JOBS:
+            lock_path = runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
+            with lock_path.open("a+") as handle:
+                original_flock(
+                    handle.fileno(),
+                    activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB,
+                )
+                original_flock(handle.fileno(), activation.fcntl.LOCK_UN)
+
+        class CleanupFailureTransaction:
+            def __init__(self, **kwargs: object) -> None:
+                del kwargs
+
+            def run(self) -> str:
+                raise activation.ActivationError("injected protection release failure")
+
+        monkeypatch.setattr(
+            activation,
+            "parse_args",
+            lambda: activation.argparse.Namespace(
+                activate=True,
+                runtime_root=runtime_root,
+                accepted_commit=ACCEPTED_SHA,
+                launch_agents_dir=launch_agents,
+                expected_old_root=old_root,
+                receipt=receipt,
+            ),
+        )
+        monkeypatch.setattr(
+            activation,
+            "ActivationTransaction",
+            CleanupFailureTransaction,
+        )
+        assert activation.main() == 75
+    finally:
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+        original_pthread_sigmask(signal.SIG_SETMASK, initial_mask)
+
+
 def test_original_signal_mask_is_restored_after_pre_syscall_release_failure(
     activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
