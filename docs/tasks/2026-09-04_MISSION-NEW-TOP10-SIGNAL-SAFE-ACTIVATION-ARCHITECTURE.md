@@ -2,11 +2,12 @@
 id: MISSION-NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 chain_id: NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 supersedes_blocked_chain: NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
-status: BLOCKED_BY_SECOND_REPAIR_AUTHORIZATION
+status: REPAIR_2_READY_FOR_FIXED_SHA_REVIEW
 type: architecture-mission
 priority: P0
 owner: TOP10new operations
 owner_authorization: "2026-09-04：那就改吧，我授權，繼續"
+repair_2_owner_authorization: "2026-09-04：授權"
 thickness: strict
 risk: critical
 production_change_allowed: false
@@ -78,3 +79,7 @@ push_allowed: false
 - Production／launchd／marker mutation：0。下一步僅建立 repair fixed candidate commit 並重新執行兩次互相獨立的唯讀安全 review。
 - Repair fixed candidate `eaea74ef53b50bad2b7bbf0f7153a246636d7cf2` 經第二輪兩位獨立 Reviewer 再次判定 `NO_GO`：durability-failure cleanup 前 pending-signal delivery，以及 `LaunchAgents` directory durability 均仍有 P1。
 - 第一個 bounded Repair generation 已用完；目前 `BLOCKED_BY_SECOND_REPAIR_AUTHORIZATION`，不得自行再改 code 或碰 production。
+- Owner 已於 2026-09-04 明確授權第二次 Repair；範圍只限第二輪 reviewer 的兩個 durability P1 與 targeted tests，production 邊界不變。
+- 第二次 Repair 已補：staging plist file fsync、每次 activation／rollback plist replace 的 `LaunchAgents` parent-directory fsync、durability-failure cleanup 後 bounded pending-signal drain，以及 success seal 前 bounded handler handoff。
+- Mainline 驗證：`129 passed, 35 subtests passed`；四個受影響 Python 檔案通過 `py_compile`；`git diff --check` 與 debug-marker 檢查通過。
+- 下一步只建立 Repair 2 fixed candidate，交由兩位全新 clean-context Reviewer 審查；production／launchd／marker mutation 仍為 0。

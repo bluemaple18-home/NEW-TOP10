@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
 import os
 import plistlib
 import shutil
@@ -342,6 +343,170 @@ def test_plist_replace_interruption_after_mutation_before_verify_restores_exact_
     _assert_old_topology(activation_env)
 
 
+def test_activation_plist_replace_flushes_file_and_fsyncs_parent_directory(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """每個 target plist replace 都必須由 file fsync 與 parent fsync 夾住。"""
+
+    build = activation_env["build"]
+    launch_agents = activation_env["launch_agents"]
+    assert callable(build)
+    assert isinstance(launch_agents, Path)
+    original_fsync = activation.os.fsync
+    original_replace = activation.os.replace
+    observed: list[tuple[str, str]] = []
+
+    def fd_path(fd: int) -> Path:
+        raw = activation.fcntl.fcntl(fd, 50, b"\0" * 1024)
+        return Path(os.fsdecode(raw.split(b"\0", 1)[0])).resolve()
+
+    def observe_fsync(fd: int) -> None:
+        path = fd_path(fd)
+        if path == launch_agents:
+            observed.append(("fsync-directory", path.name))
+        elif path.parent == launch_agents and ".a4-stage-" in path.name:
+            observed.append(("fsync-staged-file", path.name))
+        original_fsync(fd)
+
+    def observe_replace(source: Path, destination: Path) -> None:
+        source_path = Path(source)
+        destination_path = Path(destination)
+        if destination_path.parent == launch_agents:
+            observed.append(("replace", destination_path.name))
+            assert ".a4-stage-" in source_path.name
+        original_replace(source, destination)
+
+    monkeypatch.setattr(activation.os, "fsync", observe_fsync)
+    monkeypatch.setattr(activation.os, "replace", observe_replace)
+    transaction = build()
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+
+    expected = [
+        ("fsync-staged-file", f".{label}.a4-stage-{os.getpid()}.plist")
+        for _, label, _ in activation.TARGET_JOBS
+    ]
+    for _, label, _ in activation.TARGET_JOBS:
+        expected.extend(
+            [
+                ("replace", f"{label}.plist"),
+                ("fsync-directory", launch_agents.name),
+            ]
+        )
+    assert observed == expected
+
+
+def test_activation_plist_parent_fsync_failure_rolls_back_durably_once(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """一次性 LaunchAgents fsync failure 必須完成 durable exact rollback。"""
+
+    build = activation_env["build"]
+    launch_agents = activation_env["launch_agents"]
+    runtime_root = activation_env["runtime_root"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(launch_agents, Path)
+    assert isinstance(runtime_root, Path)
+    assert isinstance(receipt, Path)
+    before = _target_bytes(activation_env)
+    original_fsync = activation.os.fsync
+    original_replace = activation.os.replace
+    directory_fsync_calls = 0
+    plist_replaces: list[str] = []
+
+    def fail_first_launch_agents_fsync(fd: int) -> None:
+        nonlocal directory_fsync_calls
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            raw = activation.fcntl.fcntl(fd, 50, b"\0" * 1024)
+            path = Path(os.fsdecode(raw.split(b"\0", 1)[0])).resolve()
+            if path == launch_agents:
+                directory_fsync_calls += 1
+                if directory_fsync_calls == 1:
+                    raise OSError("injected one-shot LaunchAgents fsync failure")
+        original_fsync(fd)
+
+    def count_plist_replace(source: Path, destination: Path) -> None:
+        destination_path = Path(destination)
+        if destination_path.parent == launch_agents:
+            plist_replaces.append(destination_path.name)
+        original_replace(source, destination)
+
+    monkeypatch.setattr(activation.os, "fsync", fail_first_launch_agents_fsync)
+    monkeypatch.setattr(activation.os, "replace", count_plist_replace)
+    transaction = build()
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    daily_plist = "com.new-top10.daily.plist"
+    assert directory_fsync_calls == 2
+    assert plist_replaces == [daily_plist, daily_plist]
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["status"] == "ROLLED_BACK_NO_GO"
+    assert not list(launch_agents.glob(".*.a4-stage-*.plist"))
+    for guard_name, _, _ in activation.TARGET_JOBS:
+        lock_path = runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
+        with lock_path.open("a+") as handle:
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB)
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
+
+
+def test_persistent_plist_parent_fsync_failure_is_rollback_verification_failed(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rollback bytes 可見但 parent fsync 未確認時不得宣稱 exact restore。"""
+
+    build = activation_env["build"]
+    launch_agents = activation_env["launch_agents"]
+    runtime_root = activation_env["runtime_root"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(launch_agents, Path)
+    assert isinstance(runtime_root, Path)
+    assert isinstance(receipt, Path)
+    before = _target_bytes(activation_env)
+    original_fsync = activation.os.fsync
+    original_replace = activation.os.replace
+    directory_fsync_calls = 0
+    plist_replaces: list[str] = []
+
+    def fail_launch_agents_fsync(fd: int) -> None:
+        nonlocal directory_fsync_calls
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            raw = activation.fcntl.fcntl(fd, 50, b"\0" * 1024)
+            path = Path(os.fsdecode(raw.split(b"\0", 1)[0])).resolve()
+            if path == launch_agents:
+                directory_fsync_calls += 1
+                raise OSError("injected persistent LaunchAgents fsync failure")
+        original_fsync(fd)
+
+    def count_plist_replace(source: Path, destination: Path) -> None:
+        destination_path = Path(destination)
+        if destination_path.parent == launch_agents:
+            plist_replaces.append(destination_path.name)
+        original_replace(source, destination)
+
+    monkeypatch.setattr(activation.os, "fsync", fail_launch_agents_fsync)
+    monkeypatch.setattr(activation.os, "replace", count_plist_replace)
+    transaction = build()
+    assert transaction.run() == "ROLLBACK_VERIFICATION_FAILED"
+
+    daily_plist = "com.new-top10.daily.plist"
+    assert directory_fsync_calls == 2
+    assert plist_replaces == [daily_plist, daily_plist]
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["status"] == "ROLLBACK_VERIFICATION_FAILED"
+    assert any("persistent LaunchAgents fsync failure" in item for item in durable["rollback_errors"])
+    assert not list(launch_agents.glob(".*.a4-stage-*.plist"))
+    for guard_name, _, _ in activation.TARGET_JOBS:
+        lock_path = runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
+        with lock_path.open("a+") as handle:
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB)
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
+
+
 @pytest.mark.parametrize("when", ["before", "after"])
 def test_bootstrap_failure_before_or_after_mutation_is_detected_and_reversed(
     activation_env: dict[str, object], when: str
@@ -544,7 +709,7 @@ def test_terminal_receipt_write_failure_rolls_back_and_releases_locks(
 def test_parent_directory_fsync_failure_is_post_rename_durability_no_go(
     activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """rename 後 fsync failure 不可 rollback 成 success receipt／舊拓撲。"""
+    """Pending signal 只能在 durability NO-GO 裁決與 outer cleanup 後交付。"""
 
     build = activation_env["build"]
     receipt = activation_env["receipt"]
@@ -554,25 +719,128 @@ def test_parent_directory_fsync_failure_is_post_rename_durability_no_go(
     assert isinstance(runtime_root, Path)
     transaction = build()
     original_fsync = activation.os.fsync
+    previous_handler = signal.getsignal(signal.SIGTERM)
+    delivered: list[tuple[str, bool, bool]] = []
     injected = False
+
+    class InjectedOriginalSignal(Exception):
+        """證明 original raising handler 不得搶先 outer teardown。"""
+
+    def original_handler(signum: int, frame: object) -> None:
+        del signum, frame
+        delivered.append(
+            (
+                transaction.status,
+                bool(transaction._denial_lock_handles),
+                all(not path.exists() for path in transaction.staging_paths),
+            )
+        )
+        raise InjectedOriginalSignal("injected original handler")
 
     def fail_directory_fsync(fd: int) -> None:
         nonlocal injected
-        if stat.S_ISDIR(os.fstat(fd).st_mode) and not injected:
-            injected = True
-            raise OSError("injected parent directory fsync failure")
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            raw = activation.fcntl.fcntl(fd, 50, b"\0" * 1024)
+            path = Path(os.fsdecode(raw.split(b"\0", 1)[0])).resolve()
+            if path == receipt.parent and not injected:
+                injected = True
+                assert receipt.exists()
+                os.kill(os.getpid(), signal.SIGTERM)
+                raise OSError("injected parent directory fsync failure")
         original_fsync(fd)
 
     monkeypatch.setattr(activation.os, "fsync", fail_directory_fsync)
-    assert transaction.run() == "ACTIVATED_RECEIPT_DURABILITY_UNCONFIRMED_NO_GO"
+    signal.signal(signal.SIGTERM, original_handler)
+    try:
+        assert transaction.run() == "ACTIVATED_RECEIPT_DURABILITY_UNCONFIRMED_NO_GO"
+    finally:
+        signal.signal(signal.SIGTERM, previous_handler)
 
     durable = json.loads(receipt.read_text(encoding="utf-8"))
     assert injected
+    assert delivered == []
+    assert transaction._signal_state_snapshot()["first"] == signal.SIGTERM
     assert durable["status"] == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
     runner = activation_env["runner"]
     assert isinstance(runner, FakeCommandRunner)
     assert all(state["root"] == runtime_root.resolve() for state in runner.states.values())
     assert not any(event["name"] == "rollback_started" for event in transaction.events)
+    for guard_name, _, _ in activation.TARGET_JOBS:
+        lock_path = runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
+        with lock_path.open("a+") as handle:
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB)
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
+
+
+def test_parent_directory_fsync_failure_drains_default_sigterm_after_cleanup(
+    activation_env: dict[str, object],
+) -> None:
+    """子行程的 default SIGTERM 不得搶先 durability NO-GO teardown。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    assert isinstance(runtime_root, Path)
+    context = multiprocessing.get_context("fork")
+    receiver, sender = context.Pipe(duplex=False)
+
+    def run_with_default_sigterm() -> None:
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        transaction = build()
+        original_fsync = activation.os.fsync
+        injected = False
+
+        def fail_directory_fsync(fd: int) -> None:
+            nonlocal injected
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                raw = activation.fcntl.fcntl(fd, 50, b"\0" * 1024)
+                path = Path(os.fsdecode(raw.split(b"\0", 1)[0])).resolve()
+                if path == receipt.parent and not injected:
+                    injected = True
+                    assert receipt.exists()
+                    os.kill(os.getpid(), signal.SIGTERM)
+                    raise OSError("injected parent directory fsync failure")
+            original_fsync(fd)
+
+        activation.os.fsync = fail_directory_fsync
+        result = transaction.run()
+        sender.send(
+            (
+                result,
+                injected,
+                transaction._signal_state_snapshot()["first"],
+                bool(transaction._denial_lock_handles),
+                all(not path.exists() for path in transaction.staging_paths),
+            )
+        )
+        sender.close()
+
+    process = context.Process(target=run_with_default_sigterm)
+    process.start()
+    sender.close()
+    process.join(timeout=10)
+    if process.is_alive():
+        process.terminate()
+        process.join(timeout=5)
+        pytest.fail("default SIGTERM subprocess timed out")
+
+    assert process.exitcode == 0
+    assert receiver.poll()
+    assert receiver.recv() == (
+        "ACTIVATED_RECEIPT_DURABILITY_UNCONFIRMED_NO_GO",
+        True,
+        signal.SIGTERM,
+        False,
+        True,
+    )
+    receiver.close()
+    for guard_name, _, _ in activation.TARGET_JOBS:
+        lock_path = runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
+        with lock_path.open("a+") as handle:
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB)
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
 
 
 def test_authoritative_receipt_rename_failure_rolls_back_without_receipt(
@@ -743,7 +1011,7 @@ def test_signal_pending_at_arm_mask_restore_aborts_before_first_mutation(
             if not injected:
                 injected = True
                 transaction._signal_abort(signal.SIGTERM, None)
-            elif restore_calls == 3:
+            elif restore_calls == 2:
                 assert signal.getsignal(signal.SIGTERM) == original_sigterm_handler
         return previous
 
@@ -752,8 +1020,8 @@ def test_signal_pending_at_arm_mask_restore_aborts_before_first_mutation(
 
     durable = json.loads(receipt.read_text(encoding="utf-8"))
     assert injected
-    # arm restore、rollback terminal receipt seal、disarm restore 各一次。
-    assert restore_calls == 3
+    # receipt 不再 unmask；只有 arm restore 與 outer disarm restore。
+    assert restore_calls == 2
     assert durable["signal_state"]["first"] == signal.SIGTERM
     assert _target_bytes(activation_env) == before
     _assert_old_topology(activation_env)
@@ -805,7 +1073,7 @@ def test_signal_during_final_receipt_write_is_excluded_after_seal_cutoff(
 def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
     activation_env: dict[str, object], signum: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """真 pending signal 只能在 original handler 接管且 receipt commit 後交付。"""
+    """真 pending signal 只能在 durable receipt 與 outer cleanup 後交付。"""
 
     build = activation_env["build"]
     runtime_root = activation_env["runtime_root"]
@@ -813,7 +1081,7 @@ def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
     assert callable(build)
     assert isinstance(runtime_root, Path)
     assert isinstance(receipt, Path)
-    delivered: list[tuple[int, bool, bool]] = []
+    delivered: list[tuple[int, bool, bool, bool, bool]] = []
     commit_masks: list[set[signal.Signals]] = []
     parent_fsync_completed = False
     previous_handler = signal.getsignal(signum)
@@ -827,7 +1095,15 @@ def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
 
     def original_handler(received: int, frame: object) -> None:
         del frame
-        delivered.append((received, receipt.exists(), parent_fsync_completed))
+        delivered.append(
+            (
+                received,
+                receipt.exists(),
+                parent_fsync_completed,
+                bool(transaction._denial_lock_handles),
+                all(not path.exists() for path in transaction.staging_paths),
+            )
+        )
 
     monkeypatch.setattr(activation.os, "fsync", track_parent_fsync)
     signal.signal(signum, original_handler)
@@ -848,7 +1124,7 @@ def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
 
     durable = json.loads(receipt.read_text(encoding="utf-8"))
     assert commit_masks and signum in commit_masks[0]
-    assert delivered == [(signum, True, True)]
+    assert delivered == [(signum, True, True, False, True)]
     assert durable["signal_state"]["count"] == 0
     runner = activation_env["runner"]
     assert isinstance(runner, FakeCommandRunner)
@@ -856,6 +1132,135 @@ def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
         state["loaded"] and state["root"] == runtime_root.resolve()
         for state in runner.states.values()
     )
+
+
+def test_precommit_handoff_retries_before_unmasking_pending_success_signal(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Precommit handoff 暫時失敗時，固定 retry 後才可 seal success。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    previous_handler = signal.getsignal(signal.SIGTERM)
+    original_signal = activation.signal.signal
+    delivered: list[tuple[int, str, bool, bool]] = []
+    restore_attempts = 0
+
+    def original_handler(signum: int, frame: object) -> None:
+        del frame
+        delivered.append(
+            (
+                signum,
+                transaction.status,
+                receipt.exists(),
+                bool(transaction._denial_lock_handles),
+            )
+        )
+
+    original_signal(signal.SIGTERM, original_handler)
+    transaction = build()
+    original_commit_receipt = transaction._commit_receipt
+
+    def fail_first_precommit_handler_restore(signum: int, handler: object) -> object:
+        nonlocal restore_attempts
+        if (
+            signum == signal.SIGTERM
+            and handler == original_handler
+            and transaction._receipt_seal_cutoff is not None
+            and not transaction._receipt_sealed
+        ):
+            restore_attempts += 1
+            if restore_attempts == 1:
+                raise OSError("injected pre-syscall precommit handler restore failure")
+        return original_signal(signum, handler)
+
+    def queue_pending_at_commit(staged_receipt: Path) -> None:
+        os.kill(os.getpid(), signal.SIGTERM)
+        original_commit_receipt(staged_receipt)
+
+    monkeypatch.setattr(activation.signal, "signal", fail_first_precommit_handler_restore)
+    monkeypatch.setattr(transaction, "_commit_receipt", queue_pending_at_commit)
+    try:
+        assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+        assert restore_attempts == 2
+        assert delivered == [
+            (
+                signal.SIGTERM,
+                "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING",
+                True,
+                False,
+            )
+        ]
+        assert signal.getsignal(signal.SIGTERM) == original_handler
+    finally:
+        original_signal(signal.SIGTERM, previous_handler)
+
+
+def test_persistent_precommit_handler_handoff_failure_rolls_back_without_success_receipt(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Success seal 前 handoff 持續失敗時必須 rollback 並保留 blocked obligation。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    assert isinstance(runtime_root, Path)
+    before = _target_bytes(activation_env)
+    original_signal = activation.signal.signal
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    previous_handler = signal.getsignal(signal.SIGTERM)
+    initial_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+    restore_attempts = 0
+    commit_statuses: list[str] = []
+
+    def original_handler(signum: int, frame: object) -> None:
+        del signum, frame
+
+    original_signal(signal.SIGTERM, original_handler)
+    transaction = build()
+    original_commit_receipt = transaction._commit_receipt
+
+    def fail_persistent_handler_restore(signum: int, handler: object) -> object:
+        nonlocal restore_attempts
+        if signum == signal.SIGTERM and handler == original_handler:
+            restore_attempts += 1
+            raise OSError("injected persistent precommit handler restore failure")
+        return original_signal(signum, handler)
+
+    def record_commit_status(staged_receipt: Path) -> None:
+        commit_statuses.append(transaction.status)
+        original_commit_receipt(staged_receipt)
+
+    monkeypatch.setattr(activation.signal, "signal", fail_persistent_handler_restore)
+    monkeypatch.setattr(transaction, "_commit_receipt", record_commit_status)
+    try:
+        assert transaction.run() == "ROLLED_BACK_NO_GO"
+        durable = json.loads(receipt.read_text(encoding="utf-8"))
+        final_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+        assert commit_statuses == ["ROLLED_BACK_NO_GO"]
+        assert durable["status"] == "ROLLED_BACK_NO_GO"
+        assert restore_attempts == 4
+        assert signal.SIGTERM in transaction._old_signal_handlers
+        assert signal.getsignal(signal.SIGTERM) == transaction._signal_abort
+        assert {signal.SIGINT, signal.SIGTERM}.issubset(final_mask)
+        assert transaction._old_signal_mask is not None
+        assert not transaction._denial_lock_handles
+        assert _target_bytes(activation_env) == before
+        _assert_old_topology(activation_env)
+        for guard_name, _, _ in activation.TARGET_JOBS:
+            lock_path = runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
+            with lock_path.open("a+") as handle:
+                activation.fcntl.flock(
+                    handle.fileno(), activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB
+                )
+                activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
+    finally:
+        original_signal(signal.SIGTERM, previous_handler)
+        original_pthread_sigmask(signal.SIG_SETMASK, initial_mask)
 
 
 @pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
@@ -972,7 +1377,7 @@ def test_partial_arm_handoffs_unresolved_handler_before_receipt_unmask(
         assert restore_attempts == 2
         assert len(commit_masks) == 1
         assert signal.SIGINT in commit_masks[0]
-        assert commit_handlers == [original_sigint_handler]
+        assert commit_handlers == [transaction._signal_abort]
         assert delivered == [(signal.SIGINT, True)]
         assert signal.getsignal(signal.SIGINT) == original_sigint_handler
     finally:
@@ -1006,7 +1411,7 @@ def test_disarm_mask_restore_error_preserves_transaction_failure(
         previous = original_pthread_sigmask(how, mask)
         if how == signal.SIG_SETMASK:
             restore_calls += 1
-            if restore_calls == 3:
+            if restore_calls == 2:
                 raise OSError("injected disarm mask restore failure")
         return previous
 
