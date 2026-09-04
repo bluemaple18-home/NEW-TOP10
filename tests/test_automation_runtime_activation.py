@@ -6,6 +6,7 @@ import json
 import os
 import plistlib
 import shutil
+import signal
 from pathlib import Path
 from typing import Callable
 
@@ -354,6 +355,71 @@ def test_bootstrap_interruption_after_mutation_before_probe_restores_exact_prest
     assert runner.calls.count(("bootstrap", "com.new-top10.daily")) == 2
 
 
+def test_second_signal_during_rollback_does_not_interrupt_exact_restore(
+    activation_env: dict[str, object],
+) -> None:
+    """rollback 已開始後的第二次 signal 不得中斷已武裝的 restore。"""
+
+    build = activation_env["build"]
+    assert callable(build)
+    before = _target_bytes(activation_env)
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_bootout_mutation_before_probe":
+            raise activation.ActivationError("injected first signal after bootout")
+
+    transaction = build(hook=hook)
+    original_run = transaction._run
+
+    def run_with_second_signal(command: list[str]) -> activation.CommandResult:
+        result = original_run(command)
+        if command[1] == "bootstrap" and command[3].endswith("com.new-top10.daily.plist"):
+            transaction._signal_abort(signal.SIGTERM, None)
+        return result
+
+    transaction._run = run_with_second_signal  # type: ignore[method-assign]
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
+def test_second_signal_after_failure_catch_before_rollback_entry_cannot_skip_restore(
+    activation_env: dict[str, object],
+) -> None:
+    """exception handler 已接手後，第二次 signal 不得阻止 rollback 進入。"""
+
+    build = activation_env["build"]
+    assert callable(build)
+    before = _target_bytes(activation_env)
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_bootout_mutation_before_probe":
+            raise activation.ActivationError("injected first signal after bootout")
+
+    transaction = build(hook=hook)
+    original_rollback = transaction._rollback
+    rollback_entered = False
+
+    def rollback_after_second_signal() -> None:
+        nonlocal rollback_entered
+        transaction._signal_abort(signal.SIGTERM, None)
+        rollback_entered = True
+        original_rollback()
+
+    transaction._rollback = rollback_after_second_signal  # type: ignore[method-assign]
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert rollback_entered
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+    assert any(
+        event["name"] == "rollback_signal_deferred"
+        and event.get("detail") == f"signal={signal.SIGTERM}"
+        for event in transaction.events
+    )
+
+
 def test_denial_root_switch_is_explicitly_mirrored_then_cleared_before_bootout(
     activation_env: dict[str, object],
 ) -> None:
@@ -516,6 +582,26 @@ def test_runtime_storage_guard_lock_contention_blocks_activation_before_bootout(
 
     assert not any(operation == "bootout" for operation, _ in runner.calls)
     _assert_old_topology(activation_env)
+
+
+def test_storage_guard_locks_remain_held_through_bootstrap_verification_and_commit(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    assert callable(build)
+
+    transaction = build()
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+
+    event_names = [event["name"] for event in transaction.events]
+    commit_index = event_names.index("transaction_committed")
+    release_indexes = [
+        index
+        for index, name in enumerate(event_names)
+        if name == "denial_writer_lock_released"
+    ]
+    assert len(release_indexes) == len(activation.TARGET_JOBS)
+    assert all(index > commit_index for index in release_indexes)
 
 
 def test_denial_mirror_interruption_after_write_before_verify_removes_transaction_marker(

@@ -16,6 +16,8 @@ from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
+import app.storage_safety as storage_safety
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEDULED_JOBS = {
@@ -421,6 +423,37 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 self.assertEqual(
                     receipt["summary"]["registered_unmetered_changed_paths"], []
                 )
+
+    def test_denial_created_while_acquiring_guard_lock_still_blocks_restart(self) -> None:
+        """取得 lock 後出現的 marker 也必須在啟動 child 前 fail closed。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-storage-marker-lock-race-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            marker = root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+            original_flock = storage_safety.fcntl.flock
+            marker_written = False
+
+            def flock_with_marker(fd: int, operation: int) -> None:
+                nonlocal marker_written
+                original_flock(fd, operation)
+                if operation & storage_safety.fcntl.LOCK_EX and not marker_written:
+                    marker.parent.mkdir(parents=True, exist_ok=True)
+                    marker.write_text('{"reason":"concurrent denial"}\n', encoding="utf-8")
+                    marker_written = True
+
+            with mock.patch.object(storage_safety.fcntl, "flock", side_effect=flock_with_marker):
+                result = run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(),
+                    (),
+                    ["/bin/sh", "-c", "printf ran > output/child-ran"],
+                    sampler=lambda _pid: Sample(0, 0, 0, 100_000, 50_000, 1024, 0),
+                )
+
+            self.assertEqual(result, 75)
+            self.assertFalse((root / "output" / "child-ran").exists())
 
     def test_internal_error_after_unknown_write_preserves_stop_evidence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-error-evidence-") as tmp:

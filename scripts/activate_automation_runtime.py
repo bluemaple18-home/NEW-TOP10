@@ -152,6 +152,7 @@ class ActivationTransaction:
         self.new_denial_preserved: list[dict[str, str]] = []
         self._denial_lock_handles: dict[str, TextIO] = {}
         self.armed = False
+        self._rollback_in_progress = False
         self._old_signal_handlers: dict[int, object] = {}
         self.status = "INITIALIZING"
         self.failure: str | None = None
@@ -343,6 +344,14 @@ class ActivationTransaction:
 
     def _signal_abort(self, signum: int, frame: object) -> None:
         del frame
+        if self._rollback_in_progress:
+            # restore obligation 已武裝；第二次 signal 不得切斷 exact topology restore。
+            self._event(
+                "rollback_signal_deferred",
+                result="DEFERRED",
+                detail=f"signal={signum}",
+            )
+            return
         raise ActivationError(f"received signal {signum} after rollback handler armed")
 
     def _arm(self) -> None:
@@ -663,6 +672,7 @@ class ActivationTransaction:
         self._event("rollback_verification_complete")
 
     def _rollback(self) -> None:
+        self._rollback_in_progress = True
         self.status = "ROLLING_BACK"
         self._event("rollback_started")
         self.fault_hook("rollback_started", None)
@@ -738,7 +748,6 @@ class ActivationTransaction:
             for job in self.jobs:
                 self._bootout(job)
                 self._replace_plist(job)
-                self._release_denial_lock(job)
                 self._bootstrap(job)
             self._verify_success()
             self.status = "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
@@ -746,6 +755,10 @@ class ActivationTransaction:
             self._write_receipt()
             return self.status
         except Exception as exc:  # noqa: BLE001 - transaction boundary 必須統一進 rollback。
+            if self.armed:
+                # exception handler 一接手即保護 restore，封住呼叫 _rollback() 前的 signal 窄窗。
+                self._rollback_in_progress = True
+                self.status = "ROLLING_BACK"
             self.failure = f"{type(exc).__name__}: {exc}"
             if self.armed:
                 try:

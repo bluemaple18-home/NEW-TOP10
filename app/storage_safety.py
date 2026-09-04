@@ -1345,6 +1345,32 @@ def run_guarded_job(
     observed_unknown_paths: tuple[str, ...] = ()
     observed_registered_unmetered_paths: tuple[str, ...] = ()
 
+    lock_path = runtime_dir / f"{policy.job}.lock"
+    lock_handle = lock_path.open("a+")
+    try:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        _atomic_json(
+            receipt_path,
+            _receipt_payload(
+                policy=policy,
+                command=command,
+                status="OVERLAP_BLOCKED",
+                samples=[],
+                reasons=("JOB_LOCK_HELD",),
+                child_exit_code=None,
+                reclaimed=None,
+                validation_only=validation_only,
+                max_runtime_seconds=max_runtime_seconds,
+                unknown_paths=(),
+                validation_context=validation_context,
+            ),
+        )
+        lock_handle.close()
+        return 0
+
+    # marker 必須在取得單一 job 的互斥鎖後才檢查，避免前次檢查與啟動 child
+    # 之間由另一個 guard 建立 fail-closed evidence。
     if denied_path.exists():
         original_reasons: tuple[str, ...] = ()
         original_unknown_paths: tuple[str, ...] = ()
@@ -1386,31 +1412,8 @@ def run_guarded_job(
                 registered_unmetered_paths=original_registered_unmetered_paths,
             ),
         )
-        return 75
-
-    lock_path = runtime_dir / f"{policy.job}.lock"
-    lock_handle = lock_path.open("a+")
-    try:
-        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        _atomic_json(
-            receipt_path,
-            _receipt_payload(
-                policy=policy,
-                command=command,
-                status="OVERLAP_BLOCKED",
-                samples=[],
-                reasons=("JOB_LOCK_HELD",),
-                child_exit_code=None,
-                reclaimed=None,
-                validation_only=validation_only,
-                max_runtime_seconds=max_runtime_seconds,
-                unknown_paths=(),
-                validation_context=validation_context,
-            ),
-        )
         lock_handle.close()
-        return 0
+        return 75
 
     if threading.current_thread() is threading.main_thread():
 
