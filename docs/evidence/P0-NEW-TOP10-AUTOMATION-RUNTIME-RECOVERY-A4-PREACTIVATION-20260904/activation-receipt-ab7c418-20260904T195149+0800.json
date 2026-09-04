@@ -1,0 +1,213 @@
+{
+  "accepted_commit": "ab7c4180422b028a6a2a39fa311ea0ba591d561e",
+  "canonical_commit": "ab7c4180422b028a6a2a39fa311ea0ba591d561e",
+  "domain": "gui/501",
+  "events": [
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "detail": "commit=ab7c4180422b028a6a2a39fa311ea0ba591d561e",
+      "name": "preflight_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "name": "rollback_handler_armed",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "name": "prestate_evidence_persisted",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "job": "daily",
+      "name": "staged_plist_validated",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "job": "external-review-preflight",
+      "name": "staged_plist_validated",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "job": "fog-research-worker",
+      "name": "staged_plist_validated",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "name": "denial_writer_locks_acquired",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "detail": "sha256=fc32f0cbb5e687a4263903340087cbfce7b0bc9066aae38c37e7d11b25291939",
+      "job": "daily",
+      "name": "denial_mirrored",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "detail": "preserved_old_sha256=fc32f0cbb5e687a4263903340087cbfce7b0bc9066aae38c37e7d11b25291939",
+      "job": "daily",
+      "name": "denial_explicitly_cleared_for_activation",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "detail": "sha256=ae1b23791e20a67965b80b5532831ae67018525df92165437a620b7e85d363d3",
+      "job": "fog-research-worker",
+      "name": "denial_mirrored",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "detail": "preserved_old_sha256=ae1b23791e20a67965b80b5532831ae67018525df92165437a620b7e85d363d3",
+      "job": "fog-research-worker",
+      "name": "denial_explicitly_cleared_for_activation",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "job": "daily",
+      "name": "bootout_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "detail": "sha256=83c5dd162365ed795d4ec3d382282f3dfd13ed4e9e7fd58887666f6a838a3724",
+      "job": "daily",
+      "name": "plist_replace_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "job": "daily",
+      "name": "bootstrap_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "job": "external-review-preflight",
+      "name": "bootout_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "detail": "sha256=730d518b413d7ad4ab5a42fa86e6656f7e4a72696610fed929ec060db88a6da2",
+      "job": "external-review-preflight",
+      "name": "plist_replace_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "job": "external-review-preflight",
+      "name": "bootstrap_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "job": "fog-research-worker",
+      "name": "bootout_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "detail": "sha256=fd98a6b426109fe9309706db4cb3393d1cf89e9a6f4358c49f7d77c483d44bb6",
+      "job": "fog-research-worker",
+      "name": "plist_replace_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "job": "fog-research-worker",
+      "name": "bootstrap_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "name": "activation_verification_complete",
+      "result": "OK"
+    },
+    {
+      "at": "2026-09-04T11:52:09+00:00",
+      "name": "transaction_committed",
+      "result": "OK"
+    }
+  ],
+  "failure": null,
+  "finished_at": "2026-09-04T11:52:09+00:00",
+  "jobs": {
+    "daily": {
+      "installed_path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist",
+      "label": "com.new-top10.daily",
+      "new_sha256": "83c5dd162365ed795d4ec3d382282f3dfd13ed4e9e7fd58887666f6a838a3724",
+      "old_denial_sha256": "fc32f0cbb5e687a4263903340087cbfce7b0bc9066aae38c37e7d11b25291939",
+      "old_root": "/Users/mattkuo/TOP10new",
+      "old_sha256": "7c0e2238a91513745eebb01f3dc97269247bd1f05c7363bc1303e29bb18ce994",
+      "pre_loaded": true,
+      "pre_running": false,
+      "snapshot_path": "/Users/mattkuo/TOP10new/docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A4-PREACTIVATION-20260904/activation-receipt-ab7c418-20260904T195149+0800.prestate/com.new-top10.daily.plist"
+    },
+    "external-review-preflight": {
+      "installed_path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review-preflight.plist",
+      "label": "com.new-top10.external-review-preflight",
+      "new_sha256": "730d518b413d7ad4ab5a42fa86e6656f7e4a72696610fed929ec060db88a6da2",
+      "old_denial_sha256": null,
+      "old_root": "/Users/mattkuo/TOP10new",
+      "old_sha256": "1c9fc85d4703465d091848490e3bf6fe8bf7ac73e3d875ab68055a3c917cb9b5",
+      "pre_loaded": true,
+      "pre_running": false,
+      "snapshot_path": "/Users/mattkuo/TOP10new/docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A4-PREACTIVATION-20260904/activation-receipt-ab7c418-20260904T195149+0800.prestate/com.new-top10.external-review-preflight.plist"
+    },
+    "fog-research-worker": {
+      "installed_path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.fog-research-worker.plist",
+      "label": "com.new-top10.fog-research-worker",
+      "new_sha256": "fd98a6b426109fe9309706db4cb3393d1cf89e9a6f4358c49f7d77c483d44bb6",
+      "old_denial_sha256": "ae1b23791e20a67965b80b5532831ae67018525df92165437a620b7e85d363d3",
+      "old_root": "/Users/mattkuo/TOP10new",
+      "old_sha256": "bddb5641c2cf4d1b398e94496d37ddee7dd9d6f2cee38d21f35b774864e99c32",
+      "pre_loaded": true,
+      "pre_running": false,
+      "snapshot_path": "/Users/mattkuo/TOP10new/docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A4-PREACTIVATION-20260904/activation-receipt-ab7c418-20260904T195149+0800.prestate/com.new-top10.fog-research-worker.plist"
+    }
+  },
+  "mask_restore_errors": [],
+  "new_denial_preserved": [],
+  "out_of_scope_plists_before": {
+    "com.new-top10.baseline-harness.plist": "028bad4857e71a36080b3b382724b4516d50c9d8f2a0e9fb669f703078cb30ed",
+    "com.new-top10.external-review.plist": "ac9f7357fee7d11853c60d7081241f94cd5ced5dcf19ed643de87f6f2fe2d48e",
+    "com.new-top10.pm-research-harness.plist": "3a5473313bb6bfbcacc0f76cdde8b09a127e99a3d82dd7e507d618b384d25499",
+    "com.new-top10.reference.plist": "6f1d7bf81db236e03a288467c10de45b515ad7bf3e0a7a5e027e1a6bd2b3527e",
+    "com.new-top10.retrain.plist": "7e2523abb0bb1e0e443e491c5e5bebd938921d725c861b618ef0411a9a11a86b"
+  },
+  "receipt_seal": {
+    "commit_point": "authoritative rename plus parent directory fsync",
+    "cutoff": "2026-09-04T11:52:09+00:00",
+    "fresh_invocation_path_required": true,
+    "post_seal_signal_policy": "signals are captured only in bounded in-memory state and are excluded from the sealed receipt"
+  },
+  "rollback_errors": [],
+  "runtime_root": "/Users/mattkuo/TOP10-runtime-automation",
+  "schema_version": "top10.automation-runtime-activation.v1",
+  "signal_state": {
+    "count": 0,
+    "first": null,
+    "last": null,
+    "saturated": false
+  },
+  "signal_teardown": {
+    "attestation": "REQUIRES_PROCESS_EXIT_STATUS",
+    "confirmed_in_receipt": false
+  },
+  "source_root": "/Users/mattkuo/TOP10new",
+  "status": "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING",
+  "target_labels": [
+    "com.new-top10.daily",
+    "com.new-top10.external-review-preflight",
+    "com.new-top10.fog-research-worker"
+  ]
+}
