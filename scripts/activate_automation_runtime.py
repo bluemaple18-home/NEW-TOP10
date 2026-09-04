@@ -730,13 +730,17 @@ class ActivationTransaction:
 
     def _write_receipt(self) -> None:
         self.receipt_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(
-            self._receipt_payload(),
-            ensure_ascii=False,
-            indent=2,
-            sort_keys=True,
-        ).encode("utf-8") + b"\n"
-        self._atomic_write(self.receipt_path, payload)
+        while True:
+            event_count = len(self.events)
+            payload = json.dumps(
+                self._receipt_payload(),
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            ).encode("utf-8") + b"\n"
+            self._atomic_write(self.receipt_path, payload)
+            if len(self.events) == event_count:
+                return
 
     def run(self) -> str:
         try:
@@ -755,9 +759,10 @@ class ActivationTransaction:
             self._write_receipt()
             return self.status
         except Exception as exc:  # noqa: BLE001 - transaction boundary 必須統一進 rollback。
+            # 必須先於 armed 判斷武裝，避免 truth-test 本身收到第二 signal。
+            self._rollback_in_progress = True
             if self.armed:
                 # exception handler 一接手即保護 restore，封住呼叫 _rollback() 前的 signal 窄窗。
-                self._rollback_in_progress = True
                 self.status = "ROLLING_BACK"
             self.failure = f"{type(exc).__name__}: {exc}"
             if self.armed:

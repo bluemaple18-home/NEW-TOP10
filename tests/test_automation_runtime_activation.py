@@ -384,39 +384,76 @@ def test_second_signal_during_rollback_does_not_interrupt_exact_restore(
     _assert_old_topology(activation_env)
 
 
-def test_second_signal_after_failure_catch_before_rollback_entry_cannot_skip_restore(
+def test_second_signal_during_armed_check_cannot_skip_rollback_restore(
     activation_env: dict[str, object],
 ) -> None:
-    """exception handler 已接手後，第二次 signal 不得阻止 rollback 進入。"""
+    """armed 判斷與 protection 設置不可留下第二 signal 空窗。"""
 
     build = activation_env["build"]
     assert callable(build)
     before = _target_bytes(activation_env)
+    transaction: activation.ActivationTransaction
+
+    class SignalOnArmedCheck:
+        triggered = False
+
+        def __bool__(self) -> bool:
+            if not self.triggered:
+                self.triggered = True
+                transaction._signal_abort(signal.SIGTERM, None)
+            return True
 
     def hook(event: str, job: str | None) -> None:
         if job == "daily" and event == "after_bootout_mutation_before_probe":
+            transaction.armed = SignalOnArmedCheck()  # type: ignore[assignment]
             raise activation.ActivationError("injected first signal after bootout")
 
     transaction = build(hook=hook)
-    original_rollback = transaction._rollback
-    rollback_entered = False
-
-    def rollback_after_second_signal() -> None:
-        nonlocal rollback_entered
-        transaction._signal_abort(signal.SIGTERM, None)
-        rollback_entered = True
-        original_rollback()
-
-    transaction._rollback = rollback_after_second_signal  # type: ignore[method-assign]
     assert transaction.run() == "ROLLED_BACK_NO_GO"
 
-    assert rollback_entered
     assert _target_bytes(activation_env) == before
     _assert_old_topology(activation_env)
     assert any(
         event["name"] == "rollback_signal_deferred"
         and event.get("detail") == f"signal={signal.SIGTERM}"
         for event in transaction.events
+    )
+
+
+def test_signal_during_final_receipt_write_is_durable_in_receipt(
+    activation_env: dict[str, object],
+) -> None:
+    """final receipt bytes 必須包含寫入期間收到的 deferred signal。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_bootout_mutation_before_probe":
+            raise activation.ActivationError("injected first signal after bootout")
+
+    transaction = build(hook=hook)
+    original_atomic_write = transaction._atomic_write
+    injected = False
+
+    def atomic_write_with_signal(path: Path, data: bytes) -> None:
+        nonlocal injected
+        if path == receipt and transaction.status == "ROLLED_BACK_NO_GO" and not injected:
+            injected = True
+            transaction._signal_abort(signal.SIGTERM, None)
+        original_atomic_write(path, data)
+
+    transaction._atomic_write = atomic_write_with_signal  # type: ignore[method-assign]
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert injected
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert any(
+        event["name"] == "rollback_signal_deferred"
+        and event.get("detail") == f"signal={signal.SIGTERM}"
+        for event in durable["events"]
     )
 
 

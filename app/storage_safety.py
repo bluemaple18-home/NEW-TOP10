@@ -1372,48 +1372,50 @@ def run_guarded_job(
     # marker 必須在取得單一 job 的互斥鎖後才檢查，避免前次檢查與啟動 child
     # 之間由另一個 guard 建立 fail-closed evidence。
     if denied_path.exists():
-        original_reasons: tuple[str, ...] = ()
-        original_unknown_paths: tuple[str, ...] = ()
-        original_registered_unmetered_paths: tuple[str, ...] = ()
         try:
-            denial = json.loads(denied_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            denial = None
-        if isinstance(denial, dict):
-            def string_list(field: str) -> tuple[str, ...]:
-                value = denial.get(field)
-                if not isinstance(value, list):
-                    return ()
-                return tuple(item for item in value if isinstance(item, str))
+            original_reasons: tuple[str, ...] = ()
+            original_unknown_paths: tuple[str, ...] = ()
+            original_registered_unmetered_paths: tuple[str, ...] = ()
+            try:
+                denial = json.loads(denied_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                denial = None
+            if isinstance(denial, dict):
+                def string_list(field: str) -> tuple[str, ...]:
+                    value = denial.get(field)
+                    if not isinstance(value, list):
+                        return ()
+                    return tuple(item for item in value if isinstance(item, str))
 
-            original_reasons = string_list("reasons")
-            original_unknown_paths = string_list("unknown_changed_paths")
-            original_registered_unmetered_paths = string_list(
-                "registered_unmetered_changed_paths"
-            )
-        _atomic_json(
-            receipt_path,
-            _receipt_payload(
-                policy=policy,
-                command=command,
-                status="RESTART_DENIED",
-                samples=[],
-                reasons=tuple(
-                    dict.fromkeys(
-                        (*original_reasons, "PERSISTENT_RESTART_DENIED_MARKER")
-                    )
+                original_reasons = string_list("reasons")
+                original_unknown_paths = string_list("unknown_changed_paths")
+                original_registered_unmetered_paths = string_list(
+                    "registered_unmetered_changed_paths"
+                )
+            _atomic_json(
+                receipt_path,
+                _receipt_payload(
+                    policy=policy,
+                    command=command,
+                    status="RESTART_DENIED",
+                    samples=[],
+                    reasons=tuple(
+                        dict.fromkeys(
+                            (*original_reasons, "PERSISTENT_RESTART_DENIED_MARKER")
+                        )
+                    ),
+                    child_exit_code=None,
+                    reclaimed=None,
+                    validation_only=validation_only,
+                    max_runtime_seconds=max_runtime_seconds,
+                    unknown_paths=original_unknown_paths,
+                    validation_context=validation_context,
+                    registered_unmetered_paths=original_registered_unmetered_paths,
                 ),
-                child_exit_code=None,
-                reclaimed=None,
-                validation_only=validation_only,
-                max_runtime_seconds=max_runtime_seconds,
-                unknown_paths=original_unknown_paths,
-                validation_context=validation_context,
-                registered_unmetered_paths=original_registered_unmetered_paths,
-            ),
-        )
-        lock_handle.close()
-        return 75
+            )
+            return 75
+        finally:
+            lock_handle.close()
 
     if threading.current_thread() is threading.main_thread():
 

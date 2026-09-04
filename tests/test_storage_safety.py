@@ -455,6 +455,79 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertEqual(result, 75)
             self.assertFalse((root / "output" / "child-ran").exists())
 
+    def test_denial_receipt_write_failure_releases_guard_lock(self) -> None:
+        """marker refusal receipt 失敗時也必須關閉 lock，讓後續程序可取得。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-storage-denial-receipt-error-") as tmp:
+            root = Path(tmp).resolve()
+            (root / "output").mkdir()
+            runtime_dir = root / "logs" / "storage_safety"
+            marker = runtime_dir / "restart_denied" / "daily.json"
+            marker.parent.mkdir(parents=True)
+            marker.write_text('{"reason":"existing denial"}\n', encoding="utf-8")
+            receipt = runtime_dir / "daily_latest.json"
+            lock_path = runtime_dir / "daily.lock"
+            original_open = Path.open
+            original_atomic_json = storage_safety._atomic_json
+            held: dict[str, object] = {}
+
+            class TrackingHandle:
+                def __init__(self, handle: object) -> None:
+                    self.handle = handle
+                    self.closed = False
+
+                def fileno(self) -> int:
+                    return self.handle.fileno()  # type: ignore[union-attr]
+
+                def close(self) -> None:
+                    self.closed = True
+                    self.handle.close()  # type: ignore[union-attr]
+
+            def open_with_tracking(path: Path, *args: object, **kwargs: object) -> object:
+                handle = original_open(path, *args, **kwargs)
+                if path == lock_path:
+                    tracked = TrackingHandle(handle)
+                    held["handle"] = tracked
+                    return tracked
+                return handle
+
+            def fail_receipt(path: Path, payload: dict[str, object]) -> None:
+                if path == receipt:
+                    raise OSError("injected denial receipt write failure")
+                original_atomic_json(path, payload)
+
+            with (
+                mock.patch.object(Path, "open", new=open_with_tracking),
+                mock.patch.object(storage_safety, "_atomic_json", side_effect=fail_receipt),
+                self.assertRaisesRegex(OSError, "injected denial receipt write failure"),
+            ):
+                run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(),
+                    (),
+                    ["/bin/true"],
+                )
+
+            tracked = held["handle"]
+            self.assertTrue(tracked.closed)  # type: ignore[union-attr]
+            reacquire = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "import fcntl,sys; "
+                        "h=open(sys.argv[1], 'a+'); "
+                        "fcntl.flock(h.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)"
+                    ),
+                    str(lock_path),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(reacquire.returncode, 0, reacquire.stderr)
+
     def test_internal_error_after_unknown_write_preserves_stop_evidence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-error-evidence-") as tmp:
             root = Path(tmp)
