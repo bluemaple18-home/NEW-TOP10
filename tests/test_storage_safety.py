@@ -249,7 +249,8 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                     runtime_rule.base_path,
                     f"logs/storage_safety/runtime/{job}",
                 )
-                self.assertGreater(global_policy.start_min_free_bytes, global_policy.runtime_min_free_bytes)
+                self.assertEqual(global_policy.start_min_free_bytes, 0)
+                self.assertEqual(global_policy.start_min_free_percent, 0.10)
 
         payload = json.loads(policy_path.read_text(encoding="utf-8"))
         _global_policy, fog_policy, _rules = load_policy(
@@ -293,6 +294,56 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             invalid.write_text(json.dumps(payload), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "JSON boolean"):
                 load_policy(invalid, "daily")
+
+    def test_policy_rejects_noncanonical_start_threshold(self) -> None:
+        policy_path = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"
+        for field, value in (
+            ("start_min_free_bytes", 1),
+            ("start_min_free_percent", 0.09),
+            ("start_min_free_percent", 0.11),
+        ):
+            with self.subTest(field=field, value=value), tempfile.TemporaryDirectory(
+                prefix="top10-storage-start-threshold-"
+            ) as tmp:
+                payload = json.loads(policy_path.read_text(encoding="utf-8"))
+                payload["host"][field] = value
+                invalid = Path(tmp) / "invalid.json"
+                invalid.write_text(json.dumps(payload), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "只採用全域 10%"):
+                    load_policy(invalid, "daily")
+
+    def test_preflight_uses_ten_percent_without_fixed_gib_floor(self) -> None:
+        policy_path = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"
+        global_policy, policy, _rules = load_policy(policy_path, "daily")
+        total = 245_107_195_904
+
+        above_ten_below_fifteen = Sample(
+            0,
+            0,
+            0,
+            total,
+            32_000_000_000,
+            0,
+            0,
+        )
+        below_ten = Sample(
+            0,
+            0,
+            0,
+            total,
+            24_000_000_000,
+            0,
+            0,
+        )
+
+        self.assertNotIn(
+            "HOST_START_FREE_SPACE_BELOW_THRESHOLD",
+            evaluate_preflight(global_policy, policy, above_ten_below_fifteen).reasons,
+        )
+        self.assertIn(
+            "HOST_START_FREE_SPACE_BELOW_THRESHOLD",
+            evaluate_preflight(global_policy, policy, below_ten).reasons,
+        )
 
     def test_unknown_write_detection_includes_deletions(self) -> None:
         before = {"registered/ok.txt": (1, 1), "source.py": (2, 2)}

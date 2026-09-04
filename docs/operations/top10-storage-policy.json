@@ -1,8 +1,8 @@
 {
   "schema_version": "top10-storage-policy.v1",
   "host": {
-    "start_min_free_bytes": 32212254720,
-    "start_min_free_percent": 0.15,
+    "start_min_free_bytes": 0,
+    "start_min_free_percent": 0.10,
     "runtime_min_free_bytes": 21474836480,
     "runtime_min_free_percent": 0.10,
     "require_swap_metric": true

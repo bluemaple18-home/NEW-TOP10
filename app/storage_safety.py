@@ -163,6 +163,12 @@ def _positive_int(value: Any, field: str) -> int:
     return value
 
 
+def _nonnegative_int(value: Any, field: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise ValueError(f"{field} 不得小於 0")
+    return value
+
+
 def _strict_bool(value: Any, field: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{field} 必須是 JSON boolean")
@@ -211,7 +217,9 @@ def load_policy(path: Path, job: str) -> tuple[GlobalPolicy, JobPolicy, tuple[Re
         raise ValueError("storage policy 缺少 retention_rules")
 
     global_policy = GlobalPolicy(
-        start_min_free_bytes=_positive_int(host["start_min_free_bytes"], "start_min_free_bytes"),
+        start_min_free_bytes=_nonnegative_int(
+            host["start_min_free_bytes"], "start_min_free_bytes"
+        ),
         start_min_free_percent=_fraction(host["start_min_free_percent"], "start_min_free_percent"),
         runtime_min_free_bytes=_positive_int(host["runtime_min_free_bytes"], "runtime_min_free_bytes"),
         runtime_min_free_percent=_fraction(
@@ -222,10 +230,10 @@ def load_policy(path: Path, job: str) -> tuple[GlobalPolicy, JobPolicy, tuple[Re
         log_backups=_positive_int(logging["backups"], "logging.backups"),
     )
     if (
-        global_policy.start_min_free_bytes <= global_policy.runtime_min_free_bytes
-        or global_policy.start_min_free_percent <= global_policy.runtime_min_free_percent
+        global_policy.start_min_free_bytes != 0
+        or global_policy.start_min_free_percent != 0.10
     ):
-        raise ValueError("host 啟動門檻必須嚴格高於 runtime 保留線")
+        raise ValueError("host 啟動門檻必須只採用全域 10%，不得設定固定 GiB 下限")
     raw = jobs[job]
     meter_paths = tuple(
         _relative_path(item, "meter_paths") for item in _string_list(raw["meter_paths"], "meter_paths")

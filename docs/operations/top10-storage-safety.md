@@ -5,7 +5,8 @@
 `docs/operations/top10-storage-policy.json` 目前將 `daily`、`external-review-preflight` 與
 `fog-research-worker` 設為 `launch_verified=true`。其中 Fog 依 2026-09-02 至 2026-09-03
 R18 外接 clean-room 兩個完整代表性週期、hard ceiling、零 unknown writes、process group
-quiescence 與 lifecycle cleanup exit `0` 驗證；門檻未放寬。
+quiescence 與 lifecycle cleanup exit `0` 驗證；逐 job 預算與 runtime 停損未放寬，啟動主機
+基線則依現行全域 Rule 24 校正為 `10%`。
 
 其餘五個排程仍維持 `launch_verified=false`。這是刻意的 fail-closed 狀態：尚未完成
 各 job 的兩個代表性完整週期，因此 repo 中的數字對這五個 job 仍只是 provisional ceiling，
@@ -86,7 +87,7 @@ child 的 `TMPDIR`、uv／XDG／Matplotlib cache 與 joblib temp 都被收斂到
 
 ## 門檻與停損
 
-- 啟動前主機保留：`max(30 GiB, 15%)`。
+- 啟動前主機保留：主機總容量的 `10%`；不得另設較高固定 GiB 下限。
 - 執行中主機保留：`max(20 GiB, 10%)`。
 - swap 指標讀不到即 fail closed。
 - 任一 `live` sample 的 process-tree RSS 或必要 swap 指標讀不到即停損；`preflight`／`final`
