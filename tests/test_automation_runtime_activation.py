@@ -232,7 +232,8 @@ def test_preflight_failure_occurs_before_first_bootout_and_cleans_stage(
     before = _target_bytes(activation_env)
 
     transaction = build()
-    assert transaction.run() == "PRECHECK_FAILED"
+    # staging 寫入與 lint 都在 arm 後，故任何失敗都走唯一 rollback path。
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
 
     assert not any(operation == "bootout" for operation, _ in runner.calls)
     assert _target_bytes(activation_env) == before
@@ -355,6 +356,167 @@ def test_bootstrap_interruption_after_mutation_before_probe_restores_exact_prest
     assert runner.calls.count(("bootstrap", "com.new-top10.daily")) == 2
 
 
+def test_cross_signal_is_captured_at_safe_point_then_rolls_back_once(
+    activation_env: dict[str, object],
+) -> None:
+    """兩種 signal 只更新 bounded state，下一個 safe point 才進 rollback。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    before = _target_bytes(activation_env)
+    transaction: activation.ActivationTransaction
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_bootout_mutation_before_probe":
+            transaction._signal_abort(signal.SIGINT, None)
+            transaction._signal_abort(signal.SIGTERM, None)
+
+    transaction = build(hook=hook)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["signal_state"] == {
+        "count": 2,
+        "first": signal.SIGINT,
+        "last": signal.SIGTERM,
+        "saturated": False,
+    }
+    assert "safe point" in (durable["failure"] or "")
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
+def test_signal_between_arm_handler_installations_is_captured_without_raise(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    assert isinstance(runner, FakeCommandRunner)
+    transaction = build()
+    original_signal = activation.signal.signal
+    injected = False
+
+    def install_with_cross_signal(signum: int, handler: object) -> object:
+        nonlocal injected
+        previous = original_signal(signum, handler)
+        if signum == signal.SIGINT and handler == transaction._signal_abort and not injected:
+            injected = True
+            transaction._signal_abort(signal.SIGINT, None)
+        return previous
+
+    monkeypatch.setattr(activation.signal, "signal", install_with_cross_signal)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert injected
+    assert durable["signal_state"]["first"] == signal.SIGINT
+    assert not any(operation == "bootout" for operation, _ in runner.calls)
+
+
+@pytest.mark.parametrize(
+    "mutation_event",
+    [
+        "after_denial_mirror_write_before_verify",
+        "after_denial_clear",
+        "after_bootout_mutation_before_probe",
+        "after_plist_replace_mutation_before_verify",
+        "after_bootstrap_mutation_before_probe",
+    ],
+)
+def test_signal_after_each_mutation_rolls_back_at_next_safe_point(
+    activation_env: dict[str, object], mutation_event: str
+) -> None:
+    build = activation_env["build"]
+    assert callable(build)
+    before = _target_bytes(activation_env)
+    transaction: activation.ActivationTransaction
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == mutation_event:
+            transaction._signal_abort(signal.SIGINT, None)
+
+    transaction = build(hook=hook)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
+def test_signal_storm_is_bounded_and_rollback_resources_are_released(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    runtime_root = activation_env["runtime_root"]
+    launch_agents = activation_env["launch_agents"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(runtime_root, Path)
+    assert isinstance(launch_agents, Path)
+    assert isinstance(receipt, Path)
+    transaction: activation.ActivationTransaction
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_bootout_mutation_before_probe":
+            for signum in (signal.SIGINT, signal.SIGTERM) * 5:
+                transaction._signal_abort(signum, None)
+
+    transaction = build(hook=hook)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["signal_state"] == {
+        "count": 2,
+        "first": signal.SIGINT,
+        "last": signal.SIGTERM,
+        "saturated": True,
+    }
+    assert not list(launch_agents.glob(".*.a4-stage-*.plist"))
+    for guard_name, _, _ in activation.TARGET_JOBS:
+        lock_path = runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
+        with lock_path.open("a+") as handle:
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB)
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
+
+
+def test_terminal_receipt_write_failure_rolls_back_and_releases_locks(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    runtime_root = activation_env["runtime_root"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(runtime_root, Path)
+    assert isinstance(receipt, Path)
+    before = _target_bytes(activation_env)
+
+    transaction = build()
+    attempts = 0
+
+    def fail_terminal_receipt(staged: Path) -> None:
+        nonlocal attempts
+        del staged
+        attempts += 1
+        raise OSError("injected terminal receipt failure")
+
+    transaction._commit_receipt = fail_terminal_receipt  # type: ignore[method-assign]
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert attempts == 1
+    assert not receipt.exists()
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+    for guard_name, _, _ in activation.TARGET_JOBS:
+        lock_path = runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
+        with lock_path.open("a+") as handle:
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB)
+            activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
+
+
 def test_second_signal_during_rollback_does_not_interrupt_exact_restore(
     activation_env: dict[str, object],
 ) -> None:
@@ -384,46 +546,55 @@ def test_second_signal_during_rollback_does_not_interrupt_exact_restore(
     _assert_old_topology(activation_env)
 
 
-def test_second_signal_during_armed_check_cannot_skip_rollback_restore(
-    activation_env: dict[str, object],
+def test_signal_pending_at_arm_mask_restore_aborts_before_first_mutation(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """armed 判斷與 protection 設置不可留下第二 signal 空窗。"""
+    """arm 完成 state 後才 restore mask；pending signal 由下一個 safe point 處理。"""
 
     build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    runner = activation_env["runner"]
     assert callable(build)
+    assert isinstance(receipt, Path)
+    assert isinstance(runner, FakeCommandRunner)
     before = _target_bytes(activation_env)
-    transaction: activation.ActivationTransaction
+    original_sigint_handler = signal.getsignal(signal.SIGINT)
+    original_sigterm_handler = signal.getsignal(signal.SIGTERM)
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    injected = False
+    restore_calls = 0
+    transaction = build()
 
-    class SignalOnArmedCheck:
-        triggered = False
-
-        def __bool__(self) -> bool:
-            if not self.triggered:
-                self.triggered = True
+    def restore_mask_with_pending_signal(how: int, mask: set[signal.Signals]) -> set[signal.Signals]:
+        nonlocal injected, restore_calls
+        previous = original_pthread_sigmask(how, mask)
+        if how == signal.SIG_SETMASK:
+            restore_calls += 1
+            if not injected:
+                injected = True
                 transaction._signal_abort(signal.SIGTERM, None)
-            return True
+            elif restore_calls == 3:
+                assert signal.getsignal(signal.SIGTERM) == original_sigterm_handler
+        return previous
 
-    def hook(event: str, job: str | None) -> None:
-        if job == "daily" and event == "after_bootout_mutation_before_probe":
-            transaction.armed = SignalOnArmedCheck()  # type: ignore[assignment]
-            raise activation.ActivationError("injected first signal after bootout")
-
-    transaction = build(hook=hook)
+    monkeypatch.setattr(activation.signal, "pthread_sigmask", restore_mask_with_pending_signal)
     assert transaction.run() == "ROLLED_BACK_NO_GO"
 
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert injected
+    # arm restore、rollback terminal receipt seal、disarm restore 各一次。
+    assert restore_calls == 3
+    assert durable["signal_state"]["first"] == signal.SIGTERM
     assert _target_bytes(activation_env) == before
     _assert_old_topology(activation_env)
-    assert any(
-        event["name"] == "rollback_signal_deferred"
-        and event.get("detail") == f"signal={signal.SIGTERM}"
-        for event in transaction.events
-    )
+    assert not any(operation == "bootout" for operation, _ in runner.calls)
+    assert signal.getsignal(signal.SIGINT) == original_sigint_handler
 
 
-def test_signal_during_final_receipt_write_is_durable_in_receipt(
+def test_signal_during_final_receipt_write_is_excluded_after_seal_cutoff(
     activation_env: dict[str, object],
 ) -> None:
-    """final receipt bytes 必須包含寫入期間收到的 deferred signal。"""
+    """seal 後 signal 不得觸發 receipt rewrite 或被誤稱為已收錄。"""
 
     build = activation_env["build"]
     receipt = activation_env["receipt"]
@@ -435,26 +606,197 @@ def test_signal_during_final_receipt_write_is_durable_in_receipt(
             raise activation.ActivationError("injected first signal after bootout")
 
     transaction = build(hook=hook)
-    original_atomic_write = transaction._atomic_write
+    original_commit_receipt = transaction._commit_receipt
     injected = False
 
-    def atomic_write_with_signal(path: Path, data: bytes) -> None:
+    def commit_with_signal(staged: Path) -> None:
         nonlocal injected
-        if path == receipt and transaction.status == "ROLLED_BACK_NO_GO" and not injected:
+        if transaction.status == "ROLLED_BACK_NO_GO" and not injected:
             injected = True
             transaction._signal_abort(signal.SIGTERM, None)
-        original_atomic_write(path, data)
+        original_commit_receipt(staged)
 
-    transaction._atomic_write = atomic_write_with_signal  # type: ignore[method-assign]
+    transaction._commit_receipt = commit_with_signal  # type: ignore[method-assign]
     assert transaction.run() == "ROLLED_BACK_NO_GO"
     assert injected
 
     durable = json.loads(receipt.read_text(encoding="utf-8"))
-    assert any(
-        event["name"] == "rollback_signal_deferred"
-        and event.get("detail") == f"signal={signal.SIGTERM}"
-        for event in durable["events"]
+    assert durable["signal_state"] == {
+        "count": 0,
+        "first": None,
+        "last": None,
+        "saturated": False,
+    }
+    assert transaction._signal_state_snapshot()["first"] == signal.SIGTERM
+    assert "excluded from the sealed receipt" in durable["receipt_seal"]["post_seal_signal_policy"]
+
+
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
+def test_signal_after_final_safe_point_before_seal_cutoff_rolls_back(
+    activation_env: dict[str, object], signum: int
+) -> None:
+    """cutoff 前捕獲的 signal 不得留下 activation success。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    before = _target_bytes(activation_env)
+
+    transaction = build()
+    original_write_receipt = transaction._write_receipt
+    injected = False
+
+    def capture_signal_before_cutoff() -> None:
+        nonlocal injected
+        if not injected:
+            injected = True
+            transaction._signal_abort(signum, None)
+        original_write_receipt()
+
+    transaction._write_receipt = capture_signal_before_cutoff  # type: ignore[method-assign]
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert injected
+    assert durable["status"] == "ROLLED_BACK_NO_GO"
+    assert durable["signal_state"]["first"] == signum
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
+def test_pending_signal_at_seal_transition_rolls_back(
+    activation_env: dict[str, object], signum: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """block 前已 pending 而尚未進 handler 的 signal 也必須阻止 success seal。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    before = _target_bytes(activation_env)
+    transaction = build()
+    original_sigpending = activation.signal.sigpending
+
+    def pending_at_success_seal() -> set[signal.Signals]:
+        if transaction.status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING":
+            return {signum}
+        return original_sigpending()
+
+    monkeypatch.setattr(activation.signal, "sigpending", pending_at_success_seal)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["status"] == "ROLLED_BACK_NO_GO"
+    assert durable["signal_state"]["first"] == signum
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
+def test_arm_mask_restore_error_preserves_handler_install_failure(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """_arm cleanup 的 mask restore error 不得覆蓋原 install failure。"""
+
+    build = activation_env["build"]
+    assert callable(build)
+    transaction = build()
+    original_signal = activation.signal.signal
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    mask_restore_failed = False
+
+    def fail_sigterm_install(signum: int, handler: object) -> object:
+        if signum == signal.SIGTERM and handler == transaction._signal_abort:
+            raise RuntimeError("injected handler install failure")
+        return original_signal(signum, handler)
+
+    def fail_one_arm_mask_restore(how: int, mask: set[signal.Signals]) -> set[signal.Signals]:
+        nonlocal mask_restore_failed
+        previous = original_pthread_sigmask(how, mask)
+        if how == signal.SIG_SETMASK and not mask_restore_failed:
+            mask_restore_failed = True
+            raise OSError("injected arm mask restore failure")
+        return previous
+
+    monkeypatch.setattr(activation.signal, "signal", fail_sigterm_install)
+    monkeypatch.setattr(activation.signal, "pthread_sigmask", fail_one_arm_mask_restore)
+    assert transaction.run() == "PRECHECK_FAILED"
+
+    assert mask_restore_failed
+    assert (transaction.failure or "").startswith("RuntimeError: injected handler install failure")
+    assert signal.getsignal(signal.SIGINT) != transaction._signal_abort
+
+
+def test_disarm_mask_restore_error_preserves_transaction_failure(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """_disarm 的 mask restore error 不得覆蓋既有 rollback failure result。"""
+
+    build = activation_env["build"]
+    assert callable(build)
+    before = _target_bytes(activation_env)
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_bootout_mutation_before_probe":
+            raise activation.ActivationError("injected primary transaction failure")
+
+    transaction = build(hook=hook)
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    restore_calls = 0
+
+    def fail_disarm_mask_restore(how: int, mask: set[signal.Signals]) -> set[signal.Signals]:
+        nonlocal restore_calls
+        previous = original_pthread_sigmask(how, mask)
+        if how == signal.SIG_SETMASK:
+            restore_calls += 1
+            if restore_calls == 3:
+                raise OSError("injected disarm mask restore failure")
+        return previous
+
+    monkeypatch.setattr(activation.signal, "pthread_sigmask", fail_disarm_mask_restore)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert restore_calls == 3
+    assert (transaction.failure or "").startswith(
+        "ActivationError: injected primary transaction failure"
     )
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
+def test_receipt_mask_restore_failure_never_leaves_success_receipt_with_rollback_topology(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """receipt seal 尾端失敗必須發生在 authoritative success commit 前。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    transaction = build()
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    injected = False
+
+    def fail_once_after_cutoff(how: int, mask: set[signal.Signals]) -> set[signal.Signals]:
+        nonlocal injected
+        previous = original_pthread_sigmask(how, mask)
+        if (
+            how == signal.SIG_SETMASK
+            and transaction._receipt_seal_cutoff is not None
+            and not injected
+        ):
+            injected = True
+            raise OSError("injected receipt mask restore failure")
+        return previous
+
+    monkeypatch.setattr(activation.signal, "pthread_sigmask", fail_once_after_cutoff)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert injected
+    assert durable["status"] == "ROLLED_BACK_NO_GO"
+    _assert_old_topology(activation_env)
 
 
 def test_denial_root_switch_is_explicitly_mirrored_then_cleared_before_bootout(

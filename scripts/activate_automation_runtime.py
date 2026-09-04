@@ -28,6 +28,7 @@ from validate_runtime_checkout import RuntimeCheckoutError, validate_runtime_che
 
 
 SCHEMA_VERSION = "top10.automation-runtime-activation.v1"
+MAX_RECORDED_SIGNALS = 2
 TARGET_JOBS = (
     ("daily", "com.new-top10.daily", "com.new-top10.daily.plist"),
     (
@@ -154,6 +155,16 @@ class ActivationTransaction:
         self.armed = False
         self._rollback_in_progress = False
         self._old_signal_handlers: dict[int, object] = {}
+        self._old_signal_mask: set[signal.Signals] | None = None
+        self._first_signal: int | None = None
+        self._last_signal: int | None = None
+        self._signal_count = 0
+        self._signal_saturated = False
+        self._receipt_seal_attempted = False
+        self._receipt_sealed = False
+        self._receipt_seal_cutoff: str | None = None
+        self._receipt_signal_snapshot: dict[str, int | bool | None] | None = None
+        self._mask_restore_errors: list[str] = []
         self.status = "INITIALIZING"
         self.failure: str | None = None
         self.canonical_commit: str | None = None
@@ -212,7 +223,6 @@ class ActivationTransaction:
         *,
         label: str,
         template_name: str,
-        staged_path: Path,
     ) -> bytes:
         template_path = self.runtime_root / "scripts" / template_name
         if not template_path.is_file():
@@ -222,13 +232,8 @@ class ActivationTransaction:
         )
         if "__PROJECT_DIR__" in rendered:
             raise ActivationError(f"plist placeholder 未完全替換: {template_name}")
-        staged_path.write_text(rendered, encoding="utf-8")
-        lint = self._run([self.plutil_bin, "-lint", str(staged_path)])
-        if lint.returncode != 0:
-            raise ActivationError(
-                f"plutil lint 失敗: {template_name}: {(lint.stderr or lint.stdout).strip()}"
-            )
-        payload = plistlib.loads(staged_path.read_bytes())
+        rendered_bytes = rendered.encode("utf-8")
+        payload = plistlib.loads(rendered_bytes)
         if payload.get("Label") != label:
             raise ActivationError(
                 f"plist label mismatch: expected={label} actual={payload.get('Label')}"
@@ -243,7 +248,7 @@ class ActivationTransaction:
             raise ActivationError(
                 f"plist runtime path 未全部指向 accepted runtime: {template_name}"
             )
-        return staged_path.read_bytes()
+        return rendered_bytes
 
     def _snapshot_out_of_scope_plists(self) -> dict[str, str]:
         target_names = {f"{label}.plist" for _, label, _ in TARGET_JOBS}
@@ -296,7 +301,6 @@ class ActivationTransaction:
             new_bytes = self._render_and_validate_plist(
                 label=label,
                 template_name=template_name,
-                staged_path=staged_path,
             )
 
             old_denial = self._denial_path(old_root, guard_name)
@@ -327,10 +331,31 @@ class ActivationTransaction:
 
         self._event("preflight_complete", detail=f"commit={self.canonical_commit}")
 
+    def _safe_point(self, point: str) -> None:
+        if self._first_signal is not None:
+            raise ActivationError(
+                f"received signal {self._first_signal} at safe point {point}"
+            )
+
+    def _stage_and_lint_plists(self) -> None:
+        for job in self.jobs:
+            self._safe_point(f"before_stage_plist:{job.guard_name}")
+            job.staged_path.write_bytes(job.new_bytes)
+            lint = self._run([self.plutil_bin, "-lint", str(job.staged_path)])
+            self._safe_point(f"after_stage_plist_write:{job.guard_name}")
+            if lint.returncode != 0:
+                raise ActivationError(
+                    f"plutil lint 失敗: {job.template_name}: "
+                    f"{(lint.stderr or lint.stdout).strip()}"
+                )
+            self._event("staged_plist_validated", job=job.guard_name)
+
     def _persist_prestate_evidence(self) -> None:
+        self._safe_point("before_prestate_evidence")
         snapshot_dir = self.receipt_path.parent / f"{self.receipt_path.stem}.prestate"
         snapshot_dir.mkdir(parents=True, exist_ok=True)
         for job in self.jobs:
+            self._safe_point(f"before_prestate_snapshot:{job.guard_name}")
             snapshot_path = snapshot_dir / f"{job.label}.plist"
             if snapshot_path.exists() and snapshot_path.read_bytes() != job.old_bytes:
                 raise ActivationError(f"prestate snapshot collision: {snapshot_path}")
@@ -338,34 +363,95 @@ class ActivationTransaction:
             if sha256_file(snapshot_path) != job.old_sha256:
                 raise ActivationError(f"prestate snapshot hash mismatch: {job.label}")
             job.snapshot_path = snapshot_path
+            self._safe_point(f"after_prestate_snapshot:{job.guard_name}")
         self.status = "PREPARED_NO_MUTATION"
         self._event("prestate_evidence_persisted")
-        self._write_receipt()
 
     def _signal_abort(self, signum: int, frame: object) -> None:
         del frame
-        if self._rollback_in_progress:
-            # restore obligation 已武裝；第二次 signal 不得切斷 exact topology restore。
-            self._event(
-                "rollback_signal_deferred",
-                result="DEFERRED",
-                detail=f"signal={signum}",
-            )
-            return
-        raise ActivationError(f"received signal {signum} after rollback handler armed")
+        # Python handler 只能寫 bounded scalar state；不得在非同步路徑執行 I/O、
+        # append receipt event 或 raise。abort 只會在主控制流的 safe point 發生。
+        if self._first_signal is None:
+            self._first_signal = signum
+        self._last_signal = signum
+        if self._signal_count < MAX_RECORDED_SIGNALS:
+            self._signal_count += 1
+        else:
+            self._signal_saturated = True
+
+    def _signal_state_snapshot(self) -> dict[str, int | bool | None]:
+        return {
+            "count": self._signal_count,
+            "first": self._first_signal,
+            "last": self._last_signal,
+            "saturated": self._signal_saturated,
+        }
 
     def _arm(self) -> None:
-        for signum in (signal.SIGINT, signal.SIGTERM):
-            self._old_signal_handlers[signum] = signal.getsignal(signum)
-            signal.signal(signum, self._signal_abort)
-        self.armed = True
-        self._event("rollback_handler_armed")
+        watched = (signal.SIGINT, signal.SIGTERM)
+        pthread_sigmask = getattr(signal, "pthread_sigmask", None)
+        old_mask: set[signal.Signals] | None = None
+        if callable(pthread_sigmask):
+            old_mask = pthread_sigmask(signal.SIG_BLOCK, set(watched))
+            self._old_signal_mask = old_mask
+        try:
+            for signum in watched:
+                self._old_signal_handlers[signum] = signal.getsignal(signum)
+                signal.signal(signum, self._signal_abort)
+            self.armed = True
+            self._event("rollback_handler_armed")
+        except Exception as exc:
+            for signum, handler in self._old_signal_handlers.items():
+                try:
+                    signal.signal(signum, handler)
+                except Exception as restore_exc:  # noqa: BLE001 - 保留原 arm failure。
+                    self._mask_restore_errors.append(
+                        f"arm handler restore failed {signum}: {type(restore_exc).__name__}: {restore_exc}"
+                    )
+            self._old_signal_handlers.clear()
+            if old_mask is not None:
+                try:
+                    pthread_sigmask(signal.SIG_SETMASK, old_mask)
+                except Exception as restore_exc:  # noqa: BLE001 - 不得覆蓋 arm failure。
+                    self._mask_restore_errors.append(
+                        f"arm mask restore failed: {type(restore_exc).__name__}: {restore_exc}"
+                    )
+            raise exc
+        if old_mask is not None:
+            pthread_sigmask(signal.SIG_SETMASK, old_mask)
 
     def _disarm(self) -> None:
-        for signum, handler in self._old_signal_handlers.items():
-            signal.signal(signum, handler)
-        self._old_signal_handlers.clear()
-        self.armed = False
+        watched = (signal.SIGINT, signal.SIGTERM)
+        pthread_sigmask = getattr(signal, "pthread_sigmask", None)
+        old_mask: set[signal.Signals] | None = None
+        if callable(pthread_sigmask):
+            try:
+                old_mask = pthread_sigmask(signal.SIG_BLOCK, set(watched))
+            except Exception as exc:  # noqa: BLE001 - teardown 必須繼續 restore handlers。
+                self._mask_restore_errors.append(
+                    f"disarm mask block failed: {type(exc).__name__}: {exc}"
+                )
+        try:
+            for signum, handler in self._old_signal_handlers.items():
+                try:
+                    signal.signal(signum, handler)
+                except Exception as exc:  # noqa: BLE001 - 逐一嘗試 exact restore。
+                    self._mask_restore_errors.append(
+                        f"disarm handler restore failed {signum}: {type(exc).__name__}: {exc}"
+                    )
+        finally:
+            self._old_signal_handlers.clear()
+            self.armed = False
+            self._old_signal_mask = None
+            if old_mask is not None:
+                # pending signals 在此點交給 exact restored handler；此前 staging、locks
+                # 與 transaction-owned handler 都已釋放，故不會中斷 rollback/cleanup。
+                try:
+                    pthread_sigmask(signal.SIG_SETMASK, old_mask)
+                except Exception as exc:  # noqa: BLE001 - 不得覆蓋既有 transaction failure。
+                    self._mask_restore_errors.append(
+                        f"disarm mask restore failed: {type(exc).__name__}: {exc}"
+                    )
 
     def _atomic_write(self, path: Path, data: bytes) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -380,6 +466,29 @@ class ActivationTransaction:
         finally:
             if tmp.exists():
                 tmp.unlink()
+
+    def _stage_receipt_payload(self, data: bytes) -> Path:
+        """先寫入同目錄 staging；只有 _commit_receipt 才是 authoritative receipt write。"""
+
+        self.receipt_path.parent.mkdir(parents=True, exist_ok=True)
+        fd, raw_tmp = tempfile.mkstemp(
+            prefix=f".{self.receipt_path.name}.a4-seal-",
+            dir=str(self.receipt_path.parent),
+        )
+        staged = Path(raw_tmp)
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except Exception:
+            if staged.exists():
+                staged.unlink()
+            raise
+        return staged
+
+    def _commit_receipt(self, staged: Path) -> None:
+        os.replace(staged, self.receipt_path)
 
     def _create_owned_denial_mirror(self, job: JobState, path: Path, data: bytes) -> None:
         """以 no-replace hard-link 建立 mirror，並在 mutation 前武裝 inode ownership。"""
@@ -408,9 +517,11 @@ class ActivationTransaction:
         return stat_result.st_dev, stat_result.st_ino
 
     def _acquire_denial_locks(self) -> None:
+        self._safe_point("before_denial_lock_directory")
         runtime_dir = self.runtime_root / "logs" / "storage_safety"
         runtime_dir.mkdir(parents=True, exist_ok=True)
         for job in self.jobs:
+            self._safe_point(f"before_denial_lock:{job.guard_name}")
             lock_path = runtime_dir / f"{job.guard_name}.lock"
             handle = lock_path.open("a+")
             self._denial_lock_handles[job.guard_name] = handle
@@ -427,6 +538,7 @@ class ActivationTransaction:
                 raise ActivationError(
                     f"accepted runtime denial 在 preflight 後出現，拒絕覆寫: {job.guard_name}"
                 )
+            self._safe_point(f"after_denial_lock:{job.guard_name}")
         self._event("denial_writer_locks_acquired")
 
     def _release_denial_lock(self, job: JobState) -> None:
@@ -446,6 +558,7 @@ class ActivationTransaction:
 
     def _mirror_and_clear_denials(self) -> None:
         for job in self.jobs:
+            self._safe_point(f"before_denial_mirror:{job.guard_name}")
             old_marker = self._denial_path(job.old_root, job.guard_name)
             if not old_marker.is_file():
                 continue
@@ -457,6 +570,7 @@ class ActivationTransaction:
                 )
             new_marker = self._denial_path(self.runtime_root, job.guard_name)
             self.fault_hook("before_denial_mirror", job.guard_name)
+            self._safe_point(f"before_denial_mirror_write:{job.guard_name}")
             # accepted runtime 在 _prepare() 已驗證 marker 不存在；先登記 ownership，避免
             # atomic write 完成後、Python bookkeeping 前收到 signal 時遺失 rollback 責任。
             job.denial_mirrored_sha256 = old_hash
@@ -469,8 +583,10 @@ class ActivationTransaction:
             self.fault_hook(
                 "after_denial_mirror_write_before_verify", job.guard_name
             )
+            self._safe_point(f"after_denial_mirror_write:{job.guard_name}")
             self._event("denial_mirrored", job=job.guard_name, detail=f"sha256={old_hash}")
             self.fault_hook("after_denial_mirror", job.guard_name)
+            self._safe_point(f"after_denial_mirror:{job.guard_name}")
             if self._path_identity(new_marker) != job.denial_mirrored_identity:
                 raise ActivationError(f"denial mirror ownership changed: {job.guard_name}")
             if sha256_file(new_marker) != old_hash:
@@ -484,8 +600,10 @@ class ActivationTransaction:
                 raise ActivationError(
                     f"new denial evidence appeared before explicit clear: {job.guard_name}"
                 )
+            self._safe_point(f"before_denial_clear:{job.guard_name}")
             new_marker.unlink()
             job.denial_cleared = True
+            self._safe_point(f"after_denial_clear:{job.guard_name}")
             self._event(
                 "denial_explicitly_cleared_for_activation",
                 job=job.guard_name,
@@ -494,7 +612,9 @@ class ActivationTransaction:
             self.fault_hook("after_denial_clear", job.guard_name)
 
     def _bootout(self, job: JobState) -> None:
+        self._safe_point(f"before_bootout:{job.guard_name}")
         self.fault_hook("before_bootout", job.guard_name)
+        self._safe_point(f"before_bootout_mutation:{job.guard_name}")
         # 先武裝 restore obligation；若 signal 落在 launchctl mutation 與 probe 之間，
         # rollback 仍會依真實 loaded state 決定是否需要 bootstrap 舊 job。
         job.booted_out = True
@@ -502,6 +622,7 @@ class ActivationTransaction:
             [self.launchctl_bin, "bootout", self.domain, str(job.installed_path)]
         )
         self.fault_hook("after_bootout_mutation_before_probe", job.guard_name)
+        self._safe_point(f"after_bootout_mutation:{job.guard_name}")
         loaded_after, _, _ = self._probe(job.label)
         if result.returncode != 0:
             raise ActivationError(
@@ -513,7 +634,9 @@ class ActivationTransaction:
         self.fault_hook("after_bootout", job.guard_name)
 
     def _replace_plist(self, job: JobState) -> None:
+        self._safe_point(f"before_plist_replace:{job.guard_name}")
         self.fault_hook("before_plist_replace", job.guard_name)
+        self._safe_point(f"before_plist_replace_mutation:{job.guard_name}")
         # 先武裝 exact-bytes restore obligation。即使 os.replace 尚未 mutation 就失敗，
         # rollback 也會先比對 hash，old bytes 未變時不做多餘 rewrite。
         job.replaced = True
@@ -521,19 +644,23 @@ class ActivationTransaction:
         self.fault_hook(
             "after_plist_replace_mutation_before_verify", job.guard_name
         )
+        self._safe_point(f"after_plist_replace_mutation:{job.guard_name}")
         if sha256_file(job.installed_path) != job.new_sha256:
             raise ActivationError(f"atomic plist replace hash mismatch: {job.label}")
         self._event("plist_replace_complete", job=job.guard_name, detail=f"sha256={job.new_sha256}")
         self.fault_hook("after_plist_replace", job.guard_name)
 
     def _bootstrap(self, job: JobState) -> None:
+        self._safe_point(f"before_bootstrap:{job.guard_name}")
         self.fault_hook("before_bootstrap", job.guard_name)
+        self._safe_point(f"before_bootstrap_mutation:{job.guard_name}")
         # 與 bootout 相同：先登記 rollback obligation，再做外部 mutation。
         job.bootstrapped = True
         result = self._run(
             [self.launchctl_bin, "bootstrap", self.domain, str(job.installed_path)]
         )
         self.fault_hook("after_bootstrap_mutation_before_probe", job.guard_name)
+        self._safe_point(f"after_bootstrap_mutation:{job.guard_name}")
         loaded_after, _, print_text = self._probe(job.label)
         if result.returncode != 0:
             raise ActivationError(
@@ -724,36 +851,95 @@ class ActivationTransaction:
             "out_of_scope_plists_before": self.out_of_scope_plists_before,
             "rollback_errors": self.rollback_errors,
             "new_denial_preserved": self.new_denial_preserved,
+            "mask_restore_errors": self._mask_restore_errors,
             "events": self.events,
+            "signal_state": self._receipt_signal_snapshot,
+            "receipt_seal": {
+                "cutoff": self._receipt_seal_cutoff,
+                "post_seal_signal_policy": (
+                    "signals are captured only in bounded in-memory state and are excluded "
+                    "from the sealed receipt"
+                ),
+            },
             "finished_at": utc_now(),
         }
 
     def _write_receipt(self) -> None:
-        self.receipt_path.parent.mkdir(parents=True, exist_ok=True)
-        while True:
-            event_count = len(self.events)
+        if self._receipt_seal_attempted:
+            raise ActivationError("terminal receipt seal 已嘗試；不得重寫")
+        watched = (signal.SIGINT, signal.SIGTERM)
+        pthread_sigmask = getattr(signal, "pthread_sigmask", None)
+        old_mask: set[signal.Signals] | None = None
+        write_error: Exception | None = None
+        mask_restore_attempted = False
+        staged_receipt: Path | None = None
+        try:
+            if callable(pthread_sigmask):
+                old_mask = pthread_sigmask(signal.SIG_BLOCK, set(watched))
+            if self.status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING":
+                # Mask block 是 cutoff transition 的起點。先同步處理已捕獲或已
+                # pending 的 signal；此後新到訊號在 restore mask 時才交給 handler，
+                # 屬於 receipt 明示的 post-seal policy。
+                pending = signal.sigpending() if hasattr(signal, "sigpending") else set()
+                for signum in watched:
+                    if signum in pending:
+                        self._signal_abort(signum, None)
+                self._safe_point("before_receipt_seal_cutoff")
+            self.receipt_path.parent.mkdir(parents=True, exist_ok=True)
+            self._receipt_seal_cutoff = utc_now()
+            self._receipt_signal_snapshot = self._signal_state_snapshot()
             payload = json.dumps(
                 self._receipt_payload(),
                 ensure_ascii=False,
                 indent=2,
                 sort_keys=True,
             ).encode("utf-8") + b"\n"
-            self._atomic_write(self.receipt_path, payload)
-            if len(self.events) == event_count:
-                return
+            staged_receipt = self._stage_receipt_payload(payload)
+            # 若 restore 失敗，還沒有 authoritative receipt；讓 outer rollback
+            # 寫入唯一 terminal NO-GO receipt，而不是留下 success receipt 後回滾。
+            if old_mask is not None:
+                mask_restore_attempted = True
+                pthread_sigmask(signal.SIG_SETMASK, old_mask)
+                old_mask = None
+            self._receipt_seal_attempted = True
+            self._commit_receipt(staged_receipt)
+            staged_receipt = None
+            self._receipt_sealed = True
+        except Exception as exc:
+            write_error = exc
+            raise
+        finally:
+            if old_mask is not None and not mask_restore_attempted:
+                try:
+                    pthread_sigmask(signal.SIG_SETMASK, old_mask)
+                except Exception as restore_exc:  # noqa: BLE001 - 原 failure 優先保留。
+                    self._mask_restore_errors.append(
+                        f"receipt seal mask restore failed: "
+                        f"{type(restore_exc).__name__}: {restore_exc}"
+                    )
+                    if write_error is None:
+                        raise
+            if staged_receipt is not None and staged_receipt.exists():
+                staged_receipt.unlink()
 
     def run(self) -> str:
         try:
             self._prepare()
-            self._persist_prestate_evidence()
             self._arm()
+            self._safe_point("after_arm")
+            self._persist_prestate_evidence()
+            self._stage_and_lint_plists()
             self._acquire_denial_locks()
+            self._safe_point("after_denial_locks")
             self._mirror_and_clear_denials()
+            self._safe_point("after_denial_mirror")
             for job in self.jobs:
                 self._bootout(job)
                 self._replace_plist(job)
                 self._bootstrap(job)
+                self._safe_point(f"after_job_mutations:{job.guard_name}")
             self._verify_success()
+            self._safe_point("before_success_commit")
             self.status = "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
             self._event("transaction_committed")
             self._write_receipt()
@@ -780,7 +966,14 @@ class ActivationTransaction:
             else:
                 self.status = "PRECHECK_FAILED"
             self._cleanup_staging(record_errors=self.armed)
-            self._write_receipt()
+            if not self._receipt_seal_attempted:
+                try:
+                    self._write_receipt()
+                except Exception as receipt_exc:  # noqa: BLE001 - receipt failure 只能 NO-GO。
+                    self.failure = (
+                        f"{self.failure}; terminal receipt seal failed: "
+                        f"{type(receipt_exc).__name__}: {receipt_exc}"
+                    )
             return self.status
         finally:
             self._cleanup_staging()
