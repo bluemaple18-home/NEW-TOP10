@@ -1238,7 +1238,8 @@ def test_persistent_precommit_handler_handoff_failure_rolls_back_without_success
     monkeypatch.setattr(activation.signal, "signal", fail_persistent_handler_restore)
     monkeypatch.setattr(transaction, "_commit_receipt", record_commit_status)
     try:
-        assert transaction.run() == "ROLLED_BACK_NO_GO"
+        assert transaction.run() == "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+        assert transaction.status == "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
         durable = json.loads(receipt.read_text(encoding="utf-8"))
         final_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
         assert commit_statuses == ["ROLLED_BACK_NO_GO"]
@@ -1461,6 +1462,269 @@ def test_post_commit_mask_restore_failure_keeps_success_topology_and_retries(
     assert isinstance(runtime_root, Path)
     assert isinstance(runner, FakeCommandRunner)
     assert all(state["root"] == runtime_root.resolve() for state in runner.states.values())
+
+
+def test_persistent_post_seal_mask_failure_returns_generic_no_go(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Durable success 後 mask teardown 未確認時，run/main 必須 generic NO-GO。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    runtime_root = activation_env["runtime_root"]
+    launch_agents = activation_env["launch_agents"]
+    old_root = activation_env["old_root"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    assert isinstance(runtime_root, Path)
+    assert isinstance(launch_agents, Path)
+    assert isinstance(old_root, Path)
+    transaction = build()
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    initial_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+    expected_mask = initial_mask - {signal.SIGINT, signal.SIGTERM}
+    original_pthread_sigmask(signal.SIG_SETMASK, expected_mask)
+    restore_attempts = 0
+
+    def fail_persistent_post_seal_restore(
+        how: int, mask: set[signal.Signals]
+    ) -> set[signal.Signals]:
+        nonlocal restore_attempts
+        if how == signal.SIG_SETMASK and transaction._receipt_sealed:
+            restore_attempts += 1
+            raise OSError("injected persistent post-seal mask restore failure")
+        return original_pthread_sigmask(how, mask)
+
+    monkeypatch.setattr(
+        activation.signal,
+        "pthread_sigmask",
+        fail_persistent_post_seal_restore,
+    )
+    try:
+        assert transaction.run() == "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+        current_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+        durable = json.loads(receipt.read_text(encoding="utf-8"))
+        assert transaction.status == "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+        assert restore_attempts == 2
+        assert current_mask != expected_mask
+        assert durable["status"] == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+        assert durable["signal_teardown"] == {
+            "attestation": "REQUIRES_PROCESS_EXIT_STATUS",
+            "confirmed_in_receipt": False,
+        }
+
+        class TeardownNoGoTransaction:
+            def __init__(self, **kwargs: object) -> None:
+                del kwargs
+
+            def run(self) -> str:
+                return "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+
+        monkeypatch.setattr(
+            activation,
+            "parse_args",
+            lambda: activation.argparse.Namespace(
+                activate=True,
+                runtime_root=runtime_root,
+                accepted_commit=ACCEPTED_SHA,
+                launch_agents_dir=launch_agents,
+                expected_old_root=old_root,
+                receipt=receipt,
+            ),
+        )
+        monkeypatch.setattr(activation, "ActivationTransaction", TeardownNoGoTransaction)
+        assert activation.main() == 75
+    finally:
+        original_pthread_sigmask(signal.SIG_SETMASK, initial_mask)
+
+
+def test_persistent_rollback_teardown_mask_failure_returns_generic_no_go(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rollback topology完成但mask未確認時，不得回傳topology business status。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    before = _target_bytes(activation_env)
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_bootout_mutation_before_probe":
+            raise activation.ActivationError("injected rollback trigger")
+
+    transaction = build(hook=hook)
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    initial_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+    expected_mask = initial_mask - {signal.SIGINT, signal.SIGTERM}
+    original_pthread_sigmask(signal.SIG_SETMASK, expected_mask)
+    restore_attempts = 0
+
+    def fail_persistent_rollback_restore(
+        how: int, mask: set[signal.Signals]
+    ) -> set[signal.Signals]:
+        nonlocal restore_attempts
+        if how == signal.SIG_SETMASK and transaction._rollback_in_progress:
+            restore_attempts += 1
+            raise OSError("injected persistent rollback mask restore failure")
+        return original_pthread_sigmask(how, mask)
+
+    monkeypatch.setattr(
+        activation.signal,
+        "pthread_sigmask",
+        fail_persistent_rollback_restore,
+    )
+    try:
+        assert transaction.run() == "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+        current_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+        durable = json.loads(receipt.read_text(encoding="utf-8"))
+        assert transaction.status == "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+        assert restore_attempts == 2
+        assert current_mask != expected_mask
+        assert durable["status"] == "ROLLED_BACK_NO_GO"
+        assert durable["signal_teardown"] == {
+            "attestation": "REQUIRES_PROCESS_EXIT_STATUS",
+            "confirmed_in_receipt": False,
+        }
+        assert _target_bytes(activation_env) == before
+        _assert_old_topology(activation_env)
+
+        class TeardownNoGoTransaction:
+            def __init__(self, **kwargs: object) -> None:
+                del kwargs
+
+            def run(self) -> str:
+                return transaction.status
+
+        monkeypatch.setattr(
+            activation,
+            "parse_args",
+            lambda: activation.argparse.Namespace(
+                activate=True,
+                runtime_root=activation_env["runtime_root"],
+                accepted_commit=ACCEPTED_SHA,
+                launch_agents_dir=activation_env["launch_agents"],
+                expected_old_root=activation_env["old_root"],
+                receipt=receipt,
+            ),
+        )
+        monkeypatch.setattr(activation, "ActivationTransaction", TeardownNoGoTransaction)
+        assert activation.main() == 75
+    finally:
+        original_pthread_sigmask(signal.SIG_SETMASK, initial_mask)
+
+
+def test_mask_restore_without_postcondition_change_returns_generic_no_go(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SIG_SETMASK 無 exception但未改state時，readback必須判定teardown失敗。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    transaction = build()
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    initial_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+    expected_mask = initial_mask - {signal.SIGINT, signal.SIGTERM}
+    original_pthread_sigmask(signal.SIG_SETMASK, expected_mask)
+    ignored_restores = 0
+
+    def ignore_post_seal_mask_restore(
+        how: int, mask: set[signal.Signals]
+    ) -> set[signal.Signals]:
+        nonlocal ignored_restores
+        if how == signal.SIG_SETMASK and transaction._receipt_sealed:
+            ignored_restores += 1
+            return original_pthread_sigmask(signal.SIG_BLOCK, set())
+        return original_pthread_sigmask(how, mask)
+
+    monkeypatch.setattr(
+        activation.signal,
+        "pthread_sigmask",
+        ignore_post_seal_mask_restore,
+    )
+    try:
+        assert transaction.run() == "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+        current_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+        durable = json.loads(receipt.read_text(encoding="utf-8"))
+        assert transaction.status == "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+        assert ignored_restores == 1
+        assert current_mask != expected_mask
+        assert durable["status"] == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+        assert durable["signal_teardown"] == {
+            "attestation": "REQUIRES_PROCESS_EXIT_STATUS",
+            "confirmed_in_receipt": False,
+        }
+    finally:
+        original_pthread_sigmask(signal.SIG_SETMASK, initial_mask)
+
+
+def test_confirmed_signal_teardown_preserves_success_status_and_exit_zero(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Handler與mask post-condition exact時，成功status與exit 0維持不變。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    original_signal = activation.signal.signal
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    previous_handlers = {
+        signum: signal.getsignal(signum)
+        for signum in (signal.SIGINT, signal.SIGTERM)
+    }
+    initial_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+    expected_mask = initial_mask - {signal.SIGINT, signal.SIGTERM}
+    original_pthread_sigmask(signal.SIG_SETMASK, expected_mask)
+
+    def original_handler(signum: int, frame: object) -> None:
+        del signum, frame
+
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        original_signal(signum, original_handler)
+    transaction = build()
+    try:
+        assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+        assert transaction.status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+        assert all(
+            signal.getsignal(signum) == original_handler
+            for signum in (signal.SIGINT, signal.SIGTERM)
+        )
+        assert original_pthread_sigmask(signal.SIG_BLOCK, set()) == expected_mask
+        durable = json.loads(receipt.read_text(encoding="utf-8"))
+        assert durable["status"] == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+        assert durable["signal_teardown"] == {
+            "attestation": "REQUIRES_PROCESS_EXIT_STATUS",
+            "confirmed_in_receipt": False,
+        }
+
+        class SuccessfulTransaction:
+            def __init__(self, **kwargs: object) -> None:
+                del kwargs
+
+            def run(self) -> str:
+                return transaction.status
+
+        monkeypatch.setattr(
+            activation,
+            "parse_args",
+            lambda: activation.argparse.Namespace(
+                activate=True,
+                runtime_root=activation_env["runtime_root"],
+                accepted_commit=ACCEPTED_SHA,
+                launch_agents_dir=activation_env["launch_agents"],
+                expected_old_root=activation_env["old_root"],
+                receipt=receipt,
+            ),
+        )
+        monkeypatch.setattr(activation, "ActivationTransaction", SuccessfulTransaction)
+        assert activation.main() == 0
+    finally:
+        for signum, handler in previous_handlers.items():
+            original_signal(signum, handler)
+        original_pthread_sigmask(signal.SIG_SETMASK, initial_mask)
 
 
 def test_original_signal_mask_is_restored_after_pre_syscall_release_failure(

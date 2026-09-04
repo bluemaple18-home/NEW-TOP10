@@ -159,7 +159,9 @@ class ActivationTransaction:
         self.armed = False
         self._rollback_in_progress = False
         self._old_signal_handlers: dict[int, object] = {}
+        self._original_signal_handlers: dict[int, object] = {}
         self._old_signal_mask: set[signal.Signals] | None = None
+        self._original_signal_mask: set[signal.Signals] | None = None
         self._first_signal: int | None = None
         self._last_signal: int | None = None
         self._signal_count = 0
@@ -420,9 +422,12 @@ class ActivationTransaction:
         if callable(pthread_sigmask):
             old_mask = pthread_sigmask(signal.SIG_BLOCK, set(watched))
             self._old_signal_mask = old_mask
+            self._original_signal_mask = old_mask
         try:
             for signum in watched:
-                self._old_signal_handlers[signum] = signal.getsignal(signum)
+                original_handler = signal.getsignal(signum)
+                self._original_signal_handlers[signum] = original_handler
+                self._old_signal_handlers[signum] = original_handler
                 signal.signal(signum, self._signal_abort)
             self.armed = True
             self._event("rollback_handler_armed")
@@ -442,13 +447,12 @@ class ActivationTransaction:
         if old_mask is not None:
             pthread_sigmask(signal.SIG_SETMASK, old_mask)
 
-    def _disarm(self) -> None:
+    def _disarm(self) -> bool:
         watched = (signal.SIGINT, signal.SIGTERM)
         pthread_sigmask = getattr(signal, "pthread_sigmask", None)
-        current_mask: set[signal.Signals] | None = None
         if callable(pthread_sigmask):
             try:
-                current_mask = pthread_sigmask(signal.SIG_BLOCK, set(watched))
+                pthread_sigmask(signal.SIG_BLOCK, set(watched))
             except Exception as exc:  # noqa: BLE001 - teardown 必須繼續 restore handlers。
                 self._mask_restore_errors.append(
                     f"disarm mask block failed: {type(exc).__name__}: {exc}"
@@ -460,41 +464,67 @@ class ActivationTransaction:
                 self._mask_restore_errors.append(
                     f"durability no-go pending drain failed: {type(exc).__name__}: {exc}"
                 )
-        try:
+        for _ in range(2):
+            if not self._old_signal_handlers:
+                break
+            for signum, handler in tuple(self._old_signal_handlers.items()):
+                try:
+                    signal.signal(signum, handler)
+                except Exception as exc:  # noqa: BLE001 - 逐一嘗試 exact restore。
+                    self._mask_restore_errors.append(
+                        f"disarm handler restore failed {signum}: "
+                        f"{type(exc).__name__}: {exc}"
+                    )
+                else:
+                    self._old_signal_handlers.pop(signum, None)
+
+        handlers_confirmed = True
+        for signum, expected_handler in self._original_signal_handlers.items():
+            try:
+                current_handler = signal.getsignal(signum)
+            except Exception as exc:  # noqa: BLE001 - readback failure即未確認。
+                self._mask_restore_errors.append(
+                    f"disarm handler readback failed {signum}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                handlers_confirmed = False
+                self._old_signal_handlers[signum] = expected_handler
+                continue
+            if current_handler != expected_handler:
+                handlers_confirmed = False
+                self._old_signal_handlers[signum] = expected_handler
+        self.armed = bool(self._old_signal_handlers)
+
+        restore_mask = self._original_signal_mask
+        mask_confirmed = restore_mask is None
+        if restore_mask is not None and handlers_confirmed:
+            # pending signals 在此點交給 exact restored handler；此前 staging、locks
+            # 與 transaction-owned handler 都已釋放，故不會中斷 rollback/cleanup。
             for _ in range(2):
-                if not self._old_signal_handlers:
+                try:
+                    pthread_sigmask(signal.SIG_SETMASK, restore_mask)
+                except Exception as exc:  # noqa: BLE001 - 不得覆蓋既有 transaction failure。
+                    self._mask_restore_errors.append(
+                        f"disarm mask restore failed: {type(exc).__name__}: {exc}"
+                    )
+                else:
                     break
-                for signum, handler in tuple(self._old_signal_handlers.items()):
-                    try:
-                        signal.signal(signum, handler)
-                    except Exception as exc:  # noqa: BLE001 - 逐一嘗試 exact restore。
-                        self._mask_restore_errors.append(
-                            f"disarm handler restore failed {signum}: "
-                            f"{type(exc).__name__}: {exc}"
-                        )
-                    else:
-                        self._old_signal_handlers.pop(signum, None)
-        finally:
-            self.armed = bool(self._old_signal_handlers)
-            restore_mask = self._old_signal_mask
-            if restore_mask is None:
-                restore_mask = self._pending_signal_mask_restore
-            if restore_mask is None:
-                restore_mask = current_mask
-            if restore_mask is not None and not self._old_signal_handlers:
-                # pending signals 在此點交給 exact restored handler；此前 staging、locks
-                # 與 transaction-owned handler 都已釋放，故不會中斷 rollback/cleanup。
-                for _ in range(2):
-                    try:
-                        pthread_sigmask(signal.SIG_SETMASK, restore_mask)
-                    except Exception as exc:  # noqa: BLE001 - 不得覆蓋既有 transaction failure。
-                        self._mask_restore_errors.append(
-                            f"disarm mask restore failed: {type(exc).__name__}: {exc}"
-                        )
-                    else:
-                        self._old_signal_mask = None
-                        self._pending_signal_mask_restore = None
-                        break
+        if callable(pthread_sigmask) and self._original_signal_mask is not None:
+            try:
+                observed_mask = pthread_sigmask(signal.SIG_BLOCK, set())
+            except Exception as exc:  # noqa: BLE001 - readback failure即未確認。
+                self._mask_restore_errors.append(
+                    f"disarm mask readback failed: {type(exc).__name__}: {exc}"
+                )
+                mask_confirmed = False
+            else:
+                mask_confirmed = observed_mask == self._original_signal_mask
+                if mask_confirmed:
+                    self._old_signal_mask = None
+                    self._pending_signal_mask_restore = None
+                else:
+                    self._old_signal_mask = self._original_signal_mask
+        return handlers_confirmed and mask_confirmed
 
     def _handoff_signal_handlers(self) -> None:
         """在 watched signals blocked 時把 ownership 逐一交回原 handler。"""
@@ -935,6 +965,10 @@ class ActivationTransaction:
             "mask_restore_errors": self._mask_restore_errors,
             "events": self.events,
             "signal_state": self._receipt_signal_snapshot,
+            "signal_teardown": {
+                "attestation": "REQUIRES_PROCESS_EXIT_STATUS",
+                "confirmed_in_receipt": False,
+            },
             "receipt_seal": {
                 "cutoff": self._receipt_seal_cutoff,
                 "commit_point": "authoritative rename plus parent directory fsync",
@@ -999,6 +1033,7 @@ class ActivationTransaction:
                 staged_receipt.unlink()
 
     def run(self) -> str:
+        teardown_confirmed = True
         try:
             self._prepare()
             self._arm()
@@ -1019,7 +1054,6 @@ class ActivationTransaction:
             self.status = "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
             self._event("transaction_committed")
             self._write_receipt()
-            return self.status
         except Exception as exc:  # noqa: BLE001 - transaction boundary 必須統一進 rollback。
             # 必須先於 armed 判斷武裝，避免 truth-test 本身收到第二 signal。
             self._rollback_in_progress = True
@@ -1031,8 +1065,7 @@ class ActivationTransaction:
                 # rename 已可見但 durability 未確認；one-seal 下不得 rollback 成
                 # success receipt／舊拓撲。CLI 維持 NO-GO，拓撲保持與 receipt 一致。
                 self.status = "ACTIVATED_RECEIPT_DURABILITY_UNCONFIRMED_NO_GO"
-                return self.status
-            if self.armed:
+            elif self.armed:
                 try:
                     self._rollback()
                 except RollbackVerificationError as rollback_exc:
@@ -1046,7 +1079,6 @@ class ActivationTransaction:
                     )
             else:
                 self.status = "PRECHECK_FAILED"
-            self._cleanup_staging(record_errors=self.armed)
             if not self._receipt_path_conflict and not self._receipt_seal_attempted:
                 try:
                     self._write_receipt()
@@ -1055,12 +1087,14 @@ class ActivationTransaction:
                         f"{self.failure}; terminal receipt seal failed: "
                         f"{type(receipt_exc).__name__}: {receipt_exc}"
                     )
-            return self.status
         finally:
             self._cleanup_staging()
             self._release_all_denial_locks()
             if self.armed or self._old_signal_handlers or self._old_signal_mask is not None:
-                self._disarm()
+                teardown_confirmed = self._disarm()
+        if not teardown_confirmed:
+            self.status = "SIGNAL_TEARDOWN_UNCONFIRMED_NO_GO"
+        return self.status
 
 
 def parse_args() -> argparse.Namespace:
