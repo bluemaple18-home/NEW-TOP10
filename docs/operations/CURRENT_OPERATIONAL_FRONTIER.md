@@ -10,7 +10,7 @@
 - Research Spine B0/C0/BC：B0-P1、C0-P1、BC-CP2 current-tip baseline 與 C0-P2 已接受；BC-CP1 已決定並結案；B0-P2=`NO_GO_B0_PHASE_2_INSUFFICIENT_DECISION_VALUE`；B1–D1 未 admission；R14=`NO_GO_R14_INSUFFICIENT_DECISION_VALUE`。目前沒有可執行的 Research Spine implementation frontier。
 - Forecast：FM0、FC1、FC2 vendor-neutral baseline 已分別合併於 `ff3d30b`、`9abc159`、`02730a7`。TimesFM 3 僅完成 restricted-shadow preflight，狀態固定為 `DEFERRED / LAST / HOLD`；未下載模型、未安裝 runtime、未執行 inference，且不是目前前線。
 - TPEx TSKG：`INTEGRATED_CURRENT_DAY_ONLY / REVIEW_GO`。實作、review、repair 與狀態 reconciliation 均已存在；舊 dossier 的 `IMPLEMENTED_PENDING_REVIEW` 已校正，不得重派。
-- Automation runtime：A4 bounded activation 已於 2026-09-04 完成；daily、external-review-preflight、fog-research-worker 三條 installed launchd job 已切到 detached runtime `ab7c4180422b028a6a2a39fa311ea0ba591d561e`。Activation receipt 為 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`、CLI exit `0`；目前不得提前宣稱自然排程已恢復。
+- Automation runtime：A4 bounded activation 已於 2026-09-04 完成；daily、external-review-preflight、fog-research-worker 三條 installed launchd job 已切到 detached runtime `ab7c4180422b028a6a2a39fa311ea0ba591d561e`。Activation receipt 為 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`、CLI exit `0`。Fog 第一個自然週期已因 `LIVE_SAMPLE_CADENCE_EXCEEDED` 停止並建立 persistent restart-denied marker；A5 目前為 `BLOCKED_WITH_REPRODUCIBLE_EVIDENCE`。
 
 ## Operational frontier
 
@@ -21,7 +21,7 @@ Automation P0 已收斂狀態：
 1. A0 checkout isolation 已落到 installed scheduler path，development checkout 與 runtime 分離。
 2. A1–A3 bounded repairs 與 regression evidence 已完成；signal-safe activation repair 已經兩個獨立 reviewer 接受。
 3. A4 已保存 prestate 與原始 denial hash，三條 plist 已切換且 runtime marker clear。
-4. A5 等待自然排程證據：Fog 連續 2 個 15 分鐘 cadence、External Review Preflight 連續 2 個 17:40 排程、Daily 連續 2 個交易日 17:30 報牌發文。
+4. A5 Fog 已在 2026-09-04 20:07 首次自然啟動，20:12 因 live sample 超過 60 秒 cadence 被 SIGTERM；後續 6 次自然 invocation 均被 persistent marker fail closed。External Review Preflight 與 Daily 尚未到下一個自然排程。
 5. A6 五個 disabled job intent reconciliation 尚未開始，維持 `pending`。
 
 不得用 manual run、kickstart、單次 plist/launchctl 狀態或舊 artifact 代替 A5 自然週期。詳細 acceptance 與 hard stops 以 P0 card 為準。
@@ -31,7 +31,7 @@ Automation P0 已收斂狀態：
 1. `RESEARCH-FUNDAMENTAL-READINESS-01`：`COMPLETED_BLOCKED_DATA`；`VOLUME-CLIMAX-WARNING-SHADOW-01`：`COMPLETED_MONITORING`。兩者都不是待實作卡。
 2. 2026-06／2026-07 文件中的 `READY_FOR_RESEARCH`、`READY_FOR_SHADOW_RERANK_GUARD`、`READY_FOR_FIRST_WAVE_RESEARCH` 是歷史狀態；後續結果已存在，未經新的 measured-gap admission 不得當成目前前線。
 
-因此下一個 Mainline 動作只有讀取自然週期 receipt 並依 A5 契約判定；不再開新 repair，除非自然執行出現可重現 failure。TimesFM 仍排最後，不因目前只剩等待型驗收而自動提前。
+因此下一個 Mainline 動作是收斂 Fog cadence failure 的最小 recovery 決策；沒有新 production 授權前不清 marker、不 kickstart。TimesFM 仍排最後。
 
 ## Background monitors（不屬於 operational frontier）
 

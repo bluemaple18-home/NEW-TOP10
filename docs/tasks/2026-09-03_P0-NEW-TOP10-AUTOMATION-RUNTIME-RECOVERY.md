@@ -1,7 +1,7 @@
 ---
 id: P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
 chain_id: NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
-status: PARTIAL_RECOVERY_NATURAL_ACCEPTANCE_PENDING
+status: BLOCKED_WITH_REPRODUCIBLE_EVIDENCE
 type: recovery-program
 priority: P0
 owner: TOP10new operations
@@ -450,6 +450,6 @@ Owner 後續分別明確授權 dormant runtime pin 與 A4 production activation�
 - 原始 denial hash 已保存，runtime 端三個 restart-denied marker 均 clear。
 - Activation receipt 與 post-activation verdict：`docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A4-PREACTIVATION-20260904/`。
 
-目前 program terminal state：`PARTIAL_RECOVERY_NATURAL_ACCEPTANCE_PENDING`。
+目前 program terminal state：`BLOCKED_WITH_REPRODUCIBLE_EVIDENCE`。
 
-下一個 Mainline 動作只讀驗收 A5 自然週期；不得以 manual run／kickstart 代替。A6 disabled-job intent reconciliation 維持 `pending`，不得因 A4 成功自動 enable。
+2026-09-04 20:07 的第一個 Fog 自然週期已在 20:12 因 `LIVE_SAMPLE_CADENCE_EXCEEDED` 被 guard 終止，之後 6 次自然 invocation 均被 persistent marker 拒絕。詳細證據位於 `docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A5-NATURAL-20260905/`。下一個 Mainline 動作是決定 Fog marker 的 bounded recovery；不得以 manual run／kickstart 代替。A6 disabled-job intent reconciliation 維持 `pending`。

@@ -1,0 +1,10 @@
+{
+  "automatic_clear_allowed": false,
+  "job": "fog-research-worker",
+  "reasons": [
+    "LIVE_SAMPLE_CADENCE_EXCEEDED"
+  ],
+  "registered_unmetered_changed_paths": [],
+  "schema_version": "top10-storage-restart-denied.v1",
+  "unknown_changed_paths": []
+}
