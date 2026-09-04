@@ -7,6 +7,7 @@ import os
 import plistlib
 import shutil
 import signal
+import stat
 from pathlib import Path
 from typing import Callable
 
@@ -238,6 +239,29 @@ def test_preflight_failure_occurs_before_first_bootout_and_cleans_stage(
     assert not any(operation == "bootout" for operation, _ in runner.calls)
     assert _target_bytes(activation_env) == before
     assert not list(launch_agents.glob(".*.a4-stage-*.plist"))
+    _assert_old_topology(activation_env)
+
+
+def test_existing_receipt_path_is_rejected_before_any_mutation(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    assert isinstance(runner, FakeCommandRunner)
+    stale = b'{"status":"ACTIVATED_PARTIAL_ACCEPTANCE_PENDING","stale":true}\n'
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_bytes(stale)
+    before = _target_bytes(activation_env)
+
+    transaction = build()
+    assert transaction.run() == "PRECHECK_FAILED"
+
+    assert receipt.read_bytes() == stale
+    assert not any(operation == "bootout" for operation, _ in runner.calls)
+    assert _target_bytes(activation_env) == before
     _assert_old_topology(activation_env)
 
 
@@ -517,6 +541,68 @@ def test_terminal_receipt_write_failure_rolls_back_and_releases_locks(
             activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
 
 
+def test_parent_directory_fsync_failure_is_post_rename_durability_no_go(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """rename 後 fsync failure 不可 rollback 成 success receipt／舊拓撲。"""
+
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    assert isinstance(runtime_root, Path)
+    transaction = build()
+    original_fsync = activation.os.fsync
+    injected = False
+
+    def fail_directory_fsync(fd: int) -> None:
+        nonlocal injected
+        if stat.S_ISDIR(os.fstat(fd).st_mode) and not injected:
+            injected = True
+            raise OSError("injected parent directory fsync failure")
+        original_fsync(fd)
+
+    monkeypatch.setattr(activation.os, "fsync", fail_directory_fsync)
+    assert transaction.run() == "ACTIVATED_RECEIPT_DURABILITY_UNCONFIRMED_NO_GO"
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert injected
+    assert durable["status"] == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    runner = activation_env["runner"]
+    assert isinstance(runner, FakeCommandRunner)
+    assert all(state["root"] == runtime_root.resolve() for state in runner.states.values())
+    assert not any(event["name"] == "rollback_started" for event in transaction.events)
+
+
+def test_authoritative_receipt_rename_failure_rolls_back_without_receipt(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    build = activation_env["build"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(receipt, Path)
+    before = _target_bytes(activation_env)
+    original_replace = activation.os.replace
+    injected = False
+
+    def fail_receipt_rename(source: Path, destination: Path) -> None:
+        nonlocal injected
+        if Path(destination) == receipt:
+            injected = True
+            raise OSError("injected authoritative receipt rename failure")
+        original_replace(source, destination)
+
+    monkeypatch.setattr(activation.os, "replace", fail_receipt_rename)
+    transaction = build()
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert injected
+    assert not receipt.exists()
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
 def test_second_signal_during_rollback_does_not_interrupt_exact_restore(
     activation_env: dict[str, object],
 ) -> None:
@@ -543,6 +629,90 @@ def test_second_signal_during_rollback_does_not_interrupt_exact_restore(
     assert transaction.run() == "ROLLED_BACK_NO_GO"
 
     assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
+def test_second_signal_matrix_does_not_interrupt_rollback_side_effects(
+    activation_env: dict[str, object],
+) -> None:
+    """plist restore、bootout/bootstrap、cleanup、verification 均不受後續 signal 中斷。"""
+
+    build = activation_env["build"]
+    launch_agents = activation_env["launch_agents"]
+    assert callable(build)
+    assert isinstance(launch_agents, Path)
+    before = _target_bytes(activation_env)
+    transaction: activation.ActivationTransaction
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "external-review-preflight" and event == "after_bootstrap_mutation_before_probe":
+            raise activation.ActivationError("injected rollback matrix trigger")
+        if event == "before_rollback_verification":
+            os.kill(os.getpid(), signal.SIGTERM)
+
+    transaction = build(hook=hook)
+    original_run = transaction._run
+    original_atomic_write = transaction._atomic_write
+    original_cleanup = transaction._cleanup_staging
+
+    def run_with_signals(command: list[str]) -> activation.CommandResult:
+        if transaction.status == "ROLLING_BACK" and command[1] in {"bootout", "bootstrap"}:
+            os.kill(os.getpid(), signal.SIGINT)
+        result = original_run(command)
+        if transaction.status == "ROLLING_BACK" and command[1] in {"bootout", "bootstrap"}:
+            os.kill(os.getpid(), signal.SIGTERM)
+        return result
+
+    def atomic_write_with_signals(path: Path, data: bytes) -> None:
+        if transaction.status == "ROLLING_BACK" and path.parent == launch_agents:
+            os.kill(os.getpid(), signal.SIGINT)
+        original_atomic_write(path, data)
+        if transaction.status == "ROLLING_BACK" and path.parent == launch_agents:
+            os.kill(os.getpid(), signal.SIGTERM)
+
+    def cleanup_with_signals(*, record_errors: bool = False) -> None:
+        if transaction.status == "ROLLING_BACK":
+            os.kill(os.getpid(), signal.SIGINT)
+        original_cleanup(record_errors=record_errors)
+        if transaction.status == "ROLLING_BACK":
+            os.kill(os.getpid(), signal.SIGTERM)
+
+    transaction._run = run_with_signals  # type: ignore[method-assign]
+    transaction._atomic_write = atomic_write_with_signals  # type: ignore[method-assign]
+    transaction._cleanup_staging = cleanup_with_signals  # type: ignore[method-assign]
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert _target_bytes(activation_env) == before
+    assert not list(launch_agents.glob(".*.a4-stage-*.plist"))
+    _assert_old_topology(activation_env)
+
+
+def test_second_signal_does_not_interrupt_transaction_marker_restore(
+    activation_env: dict[str, object],
+) -> None:
+    build = activation_env["build"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(runtime_root, Path)
+    transaction: activation.ActivationTransaction
+
+    def hook(event: str, job: str | None) -> None:
+        if job == "daily" and event == "after_denial_mirror_write_before_verify":
+            raise activation.ActivationError("injected marker rollback trigger")
+
+    transaction = build(hook=hook)
+    original_identity = transaction._path_identity
+    marker = runtime_root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+
+    def identity_with_signal(path: Path) -> tuple[int, int] | None:
+        if transaction._rollback_in_progress and path == marker:
+            os.kill(os.getpid(), signal.SIGTERM)
+        return original_identity(path)
+
+    transaction._path_identity = identity_with_signal  # type: ignore[method-assign]
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert not marker.exists()
     _assert_old_topology(activation_env)
 
 
@@ -632,6 +802,63 @@ def test_signal_during_final_receipt_write_is_excluded_after_seal_cutoff(
 
 
 @pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
+def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
+    activation_env: dict[str, object], signum: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """真 pending signal 只能在 original handler 接管且 receipt commit 後交付。"""
+
+    build = activation_env["build"]
+    runtime_root = activation_env["runtime_root"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(runtime_root, Path)
+    assert isinstance(receipt, Path)
+    delivered: list[tuple[int, bool, bool]] = []
+    commit_masks: list[set[signal.Signals]] = []
+    parent_fsync_completed = False
+    previous_handler = signal.getsignal(signum)
+    original_fsync = activation.os.fsync
+
+    def track_parent_fsync(fd: int) -> None:
+        nonlocal parent_fsync_completed
+        original_fsync(fd)
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            parent_fsync_completed = True
+
+    def original_handler(received: int, frame: object) -> None:
+        del frame
+        delivered.append((received, receipt.exists(), parent_fsync_completed))
+
+    monkeypatch.setattr(activation.os, "fsync", track_parent_fsync)
+    signal.signal(signum, original_handler)
+    try:
+        transaction = build()
+        original_commit = transaction._commit_receipt
+
+        def queue_during_release_to_commit(staged: Path) -> None:
+            commit_masks.append(signal.pthread_sigmask(signal.SIG_BLOCK, set()))
+            assert signal.getsignal(signum) == original_handler
+            os.kill(os.getpid(), signum)
+            original_commit(staged)
+
+        transaction._commit_receipt = queue_during_release_to_commit  # type: ignore[method-assign]
+        assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    finally:
+        signal.signal(signum, previous_handler)
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert commit_masks and signum in commit_masks[0]
+    assert delivered == [(signum, True, True)]
+    assert durable["signal_state"]["count"] == 0
+    runner = activation_env["runner"]
+    assert isinstance(runner, FakeCommandRunner)
+    assert all(
+        state["loaded"] and state["root"] == runtime_root.resolve()
+        for state in runner.states.values()
+    )
+
+
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
 def test_signal_after_final_safe_point_before_seal_cutoff_rolls_back(
     activation_env: dict[str, object], signum: int
 ) -> None:
@@ -694,38 +921,67 @@ def test_pending_signal_at_seal_transition_rolls_back(
     _assert_old_topology(activation_env)
 
 
-def test_arm_mask_restore_error_preserves_handler_install_failure(
+def test_partial_arm_handoffs_unresolved_handler_before_receipt_unmask(
     activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """_arm cleanup 的 mask restore error 不得覆蓋原 install failure。"""
+    """Partial arm 的 pending signal 只能在 durable receipt 後交回原 handler。"""
 
     build = activation_env["build"]
+    receipt = activation_env["receipt"]
     assert callable(build)
+    assert isinstance(receipt, Path)
     transaction = build()
     original_signal = activation.signal.signal
-    original_pthread_sigmask = activation.signal.pthread_sigmask
-    mask_restore_failed = False
+    previous_sigint_handler = signal.getsignal(signal.SIGINT)
+    original_commit_receipt = transaction._commit_receipt
+    delivered: list[tuple[int, bool]] = []
+    commit_masks: list[set[signal.Signals]] = []
+    commit_handlers: list[object] = []
+    install_failed = False
+    first_restore_failed = False
+    restore_attempts = 0
 
-    def fail_sigterm_install(signum: int, handler: object) -> object:
+    def original_sigint_handler(signum: int, frame: object) -> None:
+        del frame
+        delivered.append((signum, receipt.exists()))
+
+    def fail_install_then_first_restore(signum: int, handler: object) -> object:
+        nonlocal install_failed, first_restore_failed, restore_attempts
         if signum == signal.SIGTERM and handler == transaction._signal_abort:
+            install_failed = True
             raise RuntimeError("injected handler install failure")
+        if signum == signal.SIGINT and handler == original_sigint_handler and install_failed:
+            restore_attempts += 1
+            if not first_restore_failed:
+                first_restore_failed = True
+                raise OSError("injected pre-syscall handler restore failure")
         return original_signal(signum, handler)
 
-    def fail_one_arm_mask_restore(how: int, mask: set[signal.Signals]) -> set[signal.Signals]:
-        nonlocal mask_restore_failed
-        previous = original_pthread_sigmask(how, mask)
-        if how == signal.SIG_SETMASK and not mask_restore_failed:
-            mask_restore_failed = True
-            raise OSError("injected arm mask restore failure")
-        return previous
+    def queue_pending_at_receipt_commit(staged_receipt: Path) -> None:
+        commit_masks.append(signal.pthread_sigmask(signal.SIG_BLOCK, set()))
+        commit_handlers.append(signal.getsignal(signal.SIGINT))
+        os.kill(os.getpid(), signal.SIGINT)
+        original_commit_receipt(staged_receipt)
 
-    monkeypatch.setattr(activation.signal, "signal", fail_sigterm_install)
-    monkeypatch.setattr(activation.signal, "pthread_sigmask", fail_one_arm_mask_restore)
-    assert transaction.run() == "PRECHECK_FAILED"
+    original_signal(signal.SIGINT, original_sigint_handler)
+    monkeypatch.setattr(activation.signal, "signal", fail_install_then_first_restore)
+    monkeypatch.setattr(transaction, "_commit_receipt", queue_pending_at_receipt_commit)
+    try:
+        assert transaction.run() == "PRECHECK_FAILED"
+        assert install_failed and first_restore_failed
+        assert restore_attempts == 2
+        assert len(commit_masks) == 1
+        assert signal.SIGINT in commit_masks[0]
+        assert commit_handlers == [original_sigint_handler]
+        assert delivered == [(signal.SIGINT, True)]
+        assert signal.getsignal(signal.SIGINT) == original_sigint_handler
+    finally:
+        original_signal(signal.SIGINT, previous_sigint_handler)
 
-    assert mask_restore_failed
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["status"] == "PRECHECK_FAILED"
+    assert durable["signal_state"]["count"] == 0
     assert (transaction.failure or "").startswith("RuntimeError: injected handler install failure")
-    assert signal.getsignal(signal.SIGINT) != transaction._signal_abort
 
 
 def test_disarm_mask_restore_error_preserves_transaction_failure(
@@ -765,10 +1021,10 @@ def test_disarm_mask_restore_error_preserves_transaction_failure(
     _assert_old_topology(activation_env)
 
 
-def test_receipt_mask_restore_failure_never_leaves_success_receipt_with_rollback_topology(
+def test_post_commit_mask_restore_failure_keeps_success_topology_and_retries(
     activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """receipt seal 尾端失敗必須發生在 authoritative success commit 前。"""
+    """durable commit 後 restore 失敗不得 rollback，finally 必須 bounded retry。"""
 
     build = activation_env["build"]
     receipt = activation_env["receipt"]
@@ -780,7 +1036,6 @@ def test_receipt_mask_restore_failure_never_leaves_success_receipt_with_rollback
 
     def fail_once_after_cutoff(how: int, mask: set[signal.Signals]) -> set[signal.Signals]:
         nonlocal injected
-        previous = original_pthread_sigmask(how, mask)
         if (
             how == signal.SIG_SETMASK
             and transaction._receipt_seal_cutoff is not None
@@ -788,15 +1043,61 @@ def test_receipt_mask_restore_failure_never_leaves_success_receipt_with_rollback
         ):
             injected = True
             raise OSError("injected receipt mask restore failure")
-        return previous
+        return original_pthread_sigmask(how, mask)
 
     monkeypatch.setattr(activation.signal, "pthread_sigmask", fail_once_after_cutoff)
-    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
 
     durable = json.loads(receipt.read_text(encoding="utf-8"))
     assert injected
-    assert durable["status"] == "ROLLED_BACK_NO_GO"
-    _assert_old_topology(activation_env)
+    assert durable["status"] == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    runtime_root = activation_env["runtime_root"]
+    runner = activation_env["runner"]
+    assert isinstance(runtime_root, Path)
+    assert isinstance(runner, FakeCommandRunner)
+    assert all(state["root"] == runtime_root.resolve() for state in runner.states.values())
+
+
+def test_original_signal_mask_is_restored_after_pre_syscall_release_failure(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """teardown 必須使用 arm-time mask，不可把 failure 後的 blocked mask 當原狀。"""
+
+    build = activation_env["build"]
+    assert callable(build)
+    transaction = build()
+    original_pthread_sigmask = activation.signal.pthread_sigmask
+    initial_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+    expected_mask = initial_mask - {signal.SIGINT, signal.SIGTERM}
+    original_pthread_sigmask(signal.SIG_SETMASK, expected_mask)
+    injected = False
+
+    def fail_before_release_syscall(
+        how: int, mask: set[signal.Signals]
+    ) -> set[signal.Signals]:
+        nonlocal injected
+        if (
+            how == signal.SIG_SETMASK
+            and transaction._receipt_seal_cutoff is not None
+            and not injected
+        ):
+            injected = True
+            raise OSError("injected pre-syscall mask restore failure")
+        return original_pthread_sigmask(how, mask)
+
+    monkeypatch.setattr(activation.signal, "pthread_sigmask", fail_before_release_syscall)
+    try:
+        assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+        final_mask = original_pthread_sigmask(signal.SIG_BLOCK, set())
+        assert injected
+        assert final_mask == expected_mask
+        runtime_root = activation_env["runtime_root"]
+        runner = activation_env["runner"]
+        assert isinstance(runtime_root, Path)
+        assert isinstance(runner, FakeCommandRunner)
+        assert all(state["root"] == runtime_root.resolve() for state in runner.states.values())
+    finally:
+        original_pthread_sigmask(signal.SIG_SETMASK, initial_mask)
 
 
 def test_denial_root_switch_is_explicitly_mirrored_then_cleared_before_bootout(

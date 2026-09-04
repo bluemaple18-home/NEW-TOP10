@@ -2,7 +2,7 @@
 id: MISSION-NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 chain_id: NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 supersedes_blocked_chain: NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
-status: READY_FOR_FIXED_SHA_REVIEW
+status: READY_FOR_REPAIR_FIXED_SHA_REVIEW
 type: architecture-mission
 priority: P0
 owner: TOP10new operations
@@ -72,5 +72,7 @@ push_allowed: false
 - Signal handler 已改為 bounded scalar capture；abort 僅由同步 safe point 觸發。
 - Receipt 先完成同目錄 staging 與 signal-mask release，之後才以單次 `os.replace` 成為 authoritative receipt，避免 success receipt 與 rollback topology 分歧。
 - RED/GREEN 已涵蓋 final safe point 至 seal cutoff、receipt mask restore failure、cross-signal、signal storm、rollback interruption 與 lock release。
-- Mainline 驗證：`115 passed, 35 subtests passed`；四個受影響 Python 檔案通過 `py_compile`；`git diff --check` 通過。
-- Production／launchd／marker mutation：0。下一步僅建立 fixed candidate commit 並執行兩次互相獨立的唯讀安全 review。
+- 第一個 fixed candidate `4aa9b95f6c62c0e1899f6459656b6553bf591577` 經兩位獨立 Reviewer 判定 `NO_GO`；原始 findings 已保存於本 mission evidence 目錄。
+- 唯一一次 bounded Repair generation 已補：signal ownership handoff、partial-arm restore obligation、arm-time original mask exact restore、fresh receipt path、parent-directory fsync、rollback second-signal matrix。
+- Mainline Repair 驗證：`123 passed, 35 subtests passed`；四個受影響 Python 檔案通過 `py_compile`；`git diff --check` 通過。
+- Production／launchd／marker mutation：0。下一步僅建立 repair fixed candidate commit 並重新執行兩次互相獨立的唯讀安全 review。

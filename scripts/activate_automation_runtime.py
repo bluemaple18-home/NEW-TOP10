@@ -52,6 +52,10 @@ class RollbackVerificationError(ActivationError):
     """rollback 後外部狀態無法證明已回復。"""
 
 
+class ReceiptDurabilityError(ActivationError):
+    """receipt 已 rename，但 parent directory durability 尚未確認。"""
+
+
 @dataclass(frozen=True)
 class CommandResult:
     returncode: int
@@ -161,10 +165,14 @@ class ActivationTransaction:
         self._signal_count = 0
         self._signal_saturated = False
         self._receipt_seal_attempted = False
+        self._receipt_renamed = False
+        self._receipt_durable = False
         self._receipt_sealed = False
         self._receipt_seal_cutoff: str | None = None
         self._receipt_signal_snapshot: dict[str, int | bool | None] | None = None
+        self._receipt_path_conflict = False
         self._mask_restore_errors: list[str] = []
+        self._pending_signal_mask_restore: set[signal.Signals] | None = None
         self.status = "INITIALIZING"
         self.failure: str | None = None
         self.canonical_commit: str | None = None
@@ -263,6 +271,9 @@ class ActivationTransaction:
 
     def _prepare(self) -> None:
         self.status = "PREPARING"
+        if self.receipt_path.exists():
+            self._receipt_path_conflict = True
+            raise ActivationError(f"receipt path 必須為 fresh invocation path: {self.receipt_path}")
         self.canonical_commit = validate_runtime_checkout(
             self.source_root,
             self.runtime_root,
@@ -401,15 +412,11 @@ class ActivationTransaction:
             self.armed = True
             self._event("rollback_handler_armed")
         except Exception as exc:
-            for signum, handler in self._old_signal_handlers.items():
-                try:
-                    signal.signal(signum, handler)
-                except Exception as restore_exc:  # noqa: BLE001 - 保留原 arm failure。
-                    self._mask_restore_errors.append(
-                        f"arm handler restore failed {signum}: {type(restore_exc).__name__}: {restore_exc}"
-                    )
-            self._old_signal_handlers.clear()
-            if old_mask is not None:
+            try:
+                self._handoff_signal_handlers()
+            except ActivationError as restore_exc:
+                self._mask_restore_errors.append(f"arm handler restore incomplete: {restore_exc}")
+            if old_mask is not None and not self._old_signal_handlers:
                 try:
                     pthread_sigmask(signal.SIG_SETMASK, old_mask)
                 except Exception as restore_exc:  # noqa: BLE001 - 不得覆蓋 arm failure。
@@ -423,35 +430,59 @@ class ActivationTransaction:
     def _disarm(self) -> None:
         watched = (signal.SIGINT, signal.SIGTERM)
         pthread_sigmask = getattr(signal, "pthread_sigmask", None)
-        old_mask: set[signal.Signals] | None = None
+        current_mask: set[signal.Signals] | None = None
         if callable(pthread_sigmask):
             try:
-                old_mask = pthread_sigmask(signal.SIG_BLOCK, set(watched))
+                current_mask = pthread_sigmask(signal.SIG_BLOCK, set(watched))
             except Exception as exc:  # noqa: BLE001 - teardown 必須繼續 restore handlers。
                 self._mask_restore_errors.append(
                     f"disarm mask block failed: {type(exc).__name__}: {exc}"
                 )
         try:
-            for signum, handler in self._old_signal_handlers.items():
+            for signum, handler in tuple(self._old_signal_handlers.items()):
                 try:
                     signal.signal(signum, handler)
                 except Exception as exc:  # noqa: BLE001 - 逐一嘗試 exact restore。
                     self._mask_restore_errors.append(
                         f"disarm handler restore failed {signum}: {type(exc).__name__}: {exc}"
                     )
+                else:
+                    self._old_signal_handlers.pop(signum, None)
         finally:
-            self._old_signal_handlers.clear()
-            self.armed = False
-            self._old_signal_mask = None
-            if old_mask is not None:
+            self.armed = bool(self._old_signal_handlers)
+            restore_mask = self._old_signal_mask
+            if restore_mask is None:
+                restore_mask = self._pending_signal_mask_restore
+            if restore_mask is None:
+                restore_mask = current_mask
+            if restore_mask is not None:
                 # pending signals 在此點交給 exact restored handler；此前 staging、locks
                 # 與 transaction-owned handler 都已釋放，故不會中斷 rollback/cleanup。
                 try:
-                    pthread_sigmask(signal.SIG_SETMASK, old_mask)
+                    pthread_sigmask(signal.SIG_SETMASK, restore_mask)
                 except Exception as exc:  # noqa: BLE001 - 不得覆蓋既有 transaction failure。
                     self._mask_restore_errors.append(
                         f"disarm mask restore failed: {type(exc).__name__}: {exc}"
                     )
+                else:
+                    self._old_signal_mask = None
+                    self._pending_signal_mask_restore = None
+
+    def _handoff_signal_handlers(self) -> None:
+        """在 watched signals blocked 時把 ownership 逐一交回原 handler。"""
+
+        restore_errors: list[str] = []
+        for signum, handler in tuple(self._old_signal_handlers.items()):
+            try:
+                signal.signal(signum, handler)
+            except Exception as exc:  # noqa: BLE001 - 未完成項目保留為 teardown obligation。
+                restore_errors.append(
+                    f"handler handoff failed {signum}: {type(exc).__name__}: {exc}"
+                )
+            else:
+                self._old_signal_handlers.pop(signum, None)
+        if restore_errors:
+            raise ActivationError("; ".join(restore_errors))
 
     def _atomic_write(self, path: Path, data: bytes) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -489,6 +520,18 @@ class ActivationTransaction:
 
     def _commit_receipt(self, staged: Path) -> None:
         os.replace(staged, self.receipt_path)
+        self._receipt_renamed = True
+        try:
+            directory_fd = os.open(self.receipt_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except Exception as exc:
+            raise ReceiptDurabilityError(
+                "receipt authoritative rename 完成，但 parent directory fsync 未確認"
+            ) from exc
+        self._receipt_durable = True
 
     def _create_owned_denial_mirror(self, job: JobState, path: Path, data: bytes) -> None:
         """以 no-replace hard-link 建立 mirror，並在 mutation 前武裝 inode ownership。"""
@@ -856,6 +899,8 @@ class ActivationTransaction:
             "signal_state": self._receipt_signal_snapshot,
             "receipt_seal": {
                 "cutoff": self._receipt_seal_cutoff,
+                "commit_point": "authoritative rename plus parent directory fsync",
+                "fresh_invocation_path_required": True,
                 "post_seal_signal_policy": (
                     "signals are captured only in bounded in-memory state and are excluded "
                     "from the sealed receipt"
@@ -897,14 +942,32 @@ class ActivationTransaction:
             staged_receipt = self._stage_receipt_payload(payload)
             # 若 restore 失敗，還沒有 authoritative receipt；讓 outer rollback
             # 寫入唯一 terminal NO-GO receipt，而不是留下 success receipt 後回滾。
-            if old_mask is not None:
-                mask_restore_attempted = True
-                pthread_sigmask(signal.SIG_SETMASK, old_mask)
-                old_mask = None
+            if self._old_signal_handlers:
+                self._handoff_signal_handlers()
             self._receipt_seal_attempted = True
             self._commit_receipt(staged_receipt)
             staged_receipt = None
             self._receipt_sealed = True
+            if old_mask is not None:
+                self._pending_signal_mask_restore = (
+                    self._old_signal_mask
+                    if self._old_signal_mask is not None
+                    else old_mask
+                )
+                mask_restore_attempted = True
+                try:
+                    pthread_sigmask(
+                        signal.SIG_SETMASK,
+                        self._pending_signal_mask_restore,
+                    )
+                except Exception as restore_exc:  # noqa: BLE001 - durable commit 後由 teardown bounded retry。
+                    self._mask_restore_errors.append(
+                        f"post-commit mask restore failed: "
+                        f"{type(restore_exc).__name__}: {restore_exc}"
+                    )
+                else:
+                    self._pending_signal_mask_restore = None
+                    old_mask = None
         except Exception as exc:
             write_error = exc
             raise
@@ -951,6 +1014,11 @@ class ActivationTransaction:
                 # exception handler 一接手即保護 restore，封住呼叫 _rollback() 前的 signal 窄窗。
                 self.status = "ROLLING_BACK"
             self.failure = f"{type(exc).__name__}: {exc}"
+            if isinstance(exc, ReceiptDurabilityError) and self._receipt_renamed:
+                # rename 已可見但 durability 未確認；one-seal 下不得 rollback 成
+                # success receipt／舊拓撲。CLI 維持 NO-GO，拓撲保持與 receipt 一致。
+                self.status = "ACTIVATED_RECEIPT_DURABILITY_UNCONFIRMED_NO_GO"
+                return self.status
             if self.armed:
                 try:
                     self._rollback()
@@ -966,7 +1034,7 @@ class ActivationTransaction:
             else:
                 self.status = "PRECHECK_FAILED"
             self._cleanup_staging(record_errors=self.armed)
-            if not self._receipt_seal_attempted:
+            if not self._receipt_path_conflict and not self._receipt_seal_attempted:
                 try:
                     self._write_receipt()
                 except Exception as receipt_exc:  # noqa: BLE001 - receipt failure 只能 NO-GO。
@@ -978,7 +1046,7 @@ class ActivationTransaction:
         finally:
             self._cleanup_staging()
             self._release_all_denial_locks()
-            if self.armed:
+            if self.armed or self._old_signal_handlers or self._old_signal_mask is not None:
                 self._disarm()
 
 
