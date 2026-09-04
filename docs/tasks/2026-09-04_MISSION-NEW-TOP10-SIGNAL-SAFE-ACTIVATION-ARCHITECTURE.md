@@ -2,7 +2,7 @@
 id: MISSION-NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 chain_id: NEW-TOP10-SIGNAL-SAFE-ACTIVATION-ARCHITECTURE-20260904
 supersedes_blocked_chain: NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
-status: READY_FOR_REPAIR_FIXED_SHA_REVIEW
+status: BLOCKED_BY_SECOND_REPAIR_AUTHORIZATION
 type: architecture-mission
 priority: P0
 owner: TOP10new operations
@@ -76,3 +76,5 @@ push_allowed: false
 - 唯一一次 bounded Repair generation 已補：signal ownership handoff、partial-arm restore obligation、arm-time original mask exact restore、fresh receipt path、parent-directory fsync、rollback second-signal matrix。
 - Mainline Repair 驗證：`123 passed, 35 subtests passed`；四個受影響 Python 檔案通過 `py_compile`；`git diff --check` 通過。
 - Production／launchd／marker mutation：0。下一步僅建立 repair fixed candidate commit 並重新執行兩次互相獨立的唯讀安全 review。
+- Repair fixed candidate `eaea74ef53b50bad2b7bbf0f7153a246636d7cf2` 經第二輪兩位獨立 Reviewer 再次判定 `NO_GO`：durability-failure cleanup 前 pending-signal delivery，以及 `LaunchAgents` directory durability 均仍有 P1。
+- 第一個 bounded Repair generation 已用完；目前 `BLOCKED_BY_SECOND_REPAIR_AUTHORIZATION`，不得自行再改 code 或碰 production。
