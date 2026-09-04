@@ -1,0 +1,8 @@
+{
+  "automatic_clear_allowed": false,
+  "job": "daily",
+  "reasons": [
+    "UNREGISTERED_WRITE_PATH"
+  ],
+  "schema_version": "top10-storage-restart-denied.v1"
+}

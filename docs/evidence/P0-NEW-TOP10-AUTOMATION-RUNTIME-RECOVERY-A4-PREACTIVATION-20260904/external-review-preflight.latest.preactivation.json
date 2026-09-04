@@ -1,0 +1,121 @@
+{
+  "child_exit_code": 1,
+  "command": [
+    "/bin/bash",
+    "/Users/mattkuo/TOP10new/scripts/run_external_review_provider_preflight.sh"
+  ],
+  "final_process_group_checked_at": "2026-09-03T09:40:07.260598+00:00",
+  "final_process_group_quiescent": true,
+  "job": "external-review-preflight",
+  "launch_verified": true,
+  "limits": {
+    "expected_growth_bytes_per_hour": 8388608,
+    "max_bytes": 536870912,
+    "max_file_count": 5000,
+    "max_process_tree_rss_bytes": 1073741824,
+    "max_swap_growth_bytes": 536870912,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 30,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 3600,
+    "stabilize_after_seconds": 7200
+  },
+  "max_runtime_seconds": null,
+  "process_group": {
+    "final_checked_at": "2026-09-03T09:40:07.260598+00:00",
+    "final_quiescent": true,
+    "verified_identity": {
+      "group_id": 12956,
+      "leader_pid": 12956,
+      "leader_start_token": "Thu Sep  3 17:40:06 2026",
+      "session_id": 12956
+    }
+  },
+  "process_group_identity": {
+    "group_id": 12956,
+    "leader_pid": 12956,
+    "leader_start_token": "Thu Sep  3 17:40:06 2026",
+    "session_id": 12956
+  },
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 784116,
+    "bytes_before": 784710,
+    "dry_run": false,
+    "file_count_after": 47,
+    "file_count_before": 48,
+    "removed_paths": [
+      "artifacts/external_review/2026-07-30/external_review_summary_2026-07-30.md"
+    ]
+  },
+  "samples": [
+    {
+      "host_free_bytes": 53987745792,
+      "host_total_bytes": 245107195904,
+      "memory_pressure_level": 2,
+      "phase": "preflight",
+      "process_rss_attribution": [],
+      "project_bytes": 2736635,
+      "project_file_count": 93,
+      "rss_bytes": 0,
+      "swap_bytes": 6341913477,
+      "timestamp": 1788428404.2608042
+    },
+    {
+      "host_free_bytes": 53986058240,
+      "host_total_bytes": 245107195904,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "process_rss_attribution": [
+        {
+          "command": "/bin/bash /Users/mattkuo/TOP10new/scripts/run_external_review_provider_preflight.sh",
+          "pid": 12956,
+          "ppid": 12918,
+          "rss_bytes": 2048000
+        },
+        {
+          "command": "(date)",
+          "pid": 12961,
+          "ppid": 12956,
+          "rss_bytes": 147456
+        }
+      ],
+      "project_bytes": 2736635,
+      "project_file_count": 93,
+      "rss_bytes": 2195456,
+      "swap_bytes": 6341913477,
+      "timestamp": 1788428406.39965
+    },
+    {
+      "host_free_bytes": 53986009088,
+      "host_total_bytes": 245107195904,
+      "memory_pressure_level": 2,
+      "phase": "final",
+      "process_rss_attribution": [],
+      "project_bytes": 2739626,
+      "project_file_count": 95,
+      "rss_bytes": 0,
+      "swap_bytes": 6341913477,
+      "timestamp": 1788428406.4936378
+    }
+  ],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "CHILD_FAILED",
+  "summary": {
+    "elapsed_seconds": 2.2328336238861084,
+    "first_memory_pressure_level": 2,
+    "host_free_bytes_delta": -1736704,
+    "last_memory_pressure_level": 2,
+    "observed_growth_bytes_per_hour": 4822392.445550717,
+    "peak_live_memory_pressure_level": 2,
+    "peak_rss_bytes": 2195456,
+    "project_bytes_delta": 2991,
+    "project_file_count_delta": 2,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "validation_context": null,
+  "validation_only": false,
+  "verification_basis": "2026-08-27 account19 canonical provider preflight receipt：ChatGPT 與 Gemini 均 PASS，mode=probe_only、review_packet_sent=false。隔離 validation-only capacity cycle-1/cycle-2 均 OK：reasons=[]、unknown_changed_paths=[]、swap delta=0、final_process_group_quiescent=true；cycle-1 project delta=4554 bytes/4 files、cycle-2=4554 bytes/3 files，兩輪 peak RSS=3997696 bytes。此值只證明 guarded preflight policy readiness；不授權安裝或啟用 LaunchAgent。"
+}

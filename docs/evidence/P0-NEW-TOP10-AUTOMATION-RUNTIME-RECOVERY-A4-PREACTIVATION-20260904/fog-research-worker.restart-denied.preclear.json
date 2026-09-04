@@ -1,0 +1,13 @@
+{
+  "automatic_clear_allowed": false,
+  "job": "fog-research-worker",
+  "reasons": [
+    "UNREGISTERED_WRITE_PATH"
+  ],
+  "registered_unmetered_changed_paths": [],
+  "schema_version": "top10-storage-restart-denied.v1",
+  "unknown_changed_paths": [
+    "docs/operations/CURRENT_OPERATIONAL_FRONTIER.md",
+    "docs/tasks/2026-09-03_P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY.md"
+  ]
+}

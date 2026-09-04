@@ -1,0 +1,58 @@
+{
+  "child_exit_code": null,
+  "command": [
+    "/bin/bash",
+    "/Users/mattkuo/TOP10new/scripts/run_fog_research_worker.sh"
+  ],
+  "final_process_group_checked_at": null,
+  "final_process_group_quiescent": null,
+  "job": "fog-research-worker",
+  "launch_verified": true,
+  "limits": {
+    "expected_growth_bytes_per_hour": 16777216,
+    "max_bytes": 2147483648,
+    "max_file_count": 30000,
+    "max_process_tree_rss_bytes": 2147483648,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 14400,
+    "stabilize_after_seconds": 18000
+  },
+  "max_runtime_seconds": null,
+  "process_group": {
+    "final_checked_at": null,
+    "final_quiescent": null,
+    "verified_identity": null
+  },
+  "process_group_identity": null,
+  "reasons": [
+    "UNREGISTERED_WRITE_PATH",
+    "PERSISTENT_RESTART_DENIED_MARKER"
+  ],
+  "reclaim": null,
+  "samples": [],
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "RESTART_DENIED",
+  "summary": {
+    "elapsed_seconds": 0.0,
+    "first_memory_pressure_level": null,
+    "host_free_bytes_delta": null,
+    "last_memory_pressure_level": null,
+    "observed_growth_bytes_per_hour": 0.0,
+    "peak_live_memory_pressure_level": null,
+    "peak_rss_bytes": null,
+    "project_bytes_delta": null,
+    "project_file_count_delta": null,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": null,
+    "unknown_changed_paths": [
+      "docs/operations/CURRENT_OPERATIONAL_FRONTIER.md",
+      "docs/tasks/2026-09-03_P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY.md"
+    ]
+  },
+  "validation_context": null,
+  "validation_only": false,
+  "verification_basis": "2026-09-02 至 2026-09-03 R18 外接 clean-room 代表性兩輪均 OK，topic run count 各 1，peak process-tree RSS 799424512/758562816 bytes，memory pressure 全程 1，swap delta -50331648/-434561352 bytes，unknown writes 均為空，process groups quiescent；外層 lifecycle exit 0 且 clean-room 已清除。維持 max_bytes=2 GiB、max_file_count=30000、RSS=2 GiB 與 swap=2 GiB hard ceilings；只授權 fog-research-worker 進入另經 Owner 核准的 live activation。證據：docs/evidence/REVALIDATE-NEW-TOP10-AUTONOMOUS-RESEARCH-RUNTIME-R18。"
+}
