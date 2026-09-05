@@ -1400,6 +1400,28 @@ def _invocation_claim_matches(
     )
 
 
+def _unresolved_invocation_archive(
+    runtime_dir: Path,
+    job: str,
+) -> Path | None:
+    """回傳未完成 claim；損壞 archive 也視為可能的 partial claim。"""
+
+    receipts_dir = runtime_dir / "receipts" / job
+    if not receipts_dir.is_dir():
+        return None
+    for candidate in sorted(receipts_dir.glob("*.json")):
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return candidate
+        if (
+            isinstance(payload, dict)
+            and payload.get("schema_version") == INVOCATION_CLAIM_SCHEMA_VERSION
+        ):
+            return candidate
+    return None
+
+
 def _json_payload_sha256(payload: dict[str, Any]) -> str:
     return hashlib.sha256(_json_document_bytes(payload)).hexdigest()
 
@@ -1859,6 +1881,10 @@ def run_guarded_job(
         and receipt_only_denial.get("restart_denied") is True
         and receipt_only_denial.get("restart_denied_marker_persisted") is False
     ):
+        lock_handle.close()
+        return 75
+
+    if _unresolved_invocation_archive(runtime_dir, policy.job) is not None:
         lock_handle.close()
         return 75
 
@@ -2425,10 +2451,13 @@ def run_guarded_job(
             )
         ) and base_archive_path.exists():
             archive_variant = "recovery"
-        root_receipt_path = write_receipt(
-            stopped_receipt,
+        root_receipt_path = _receipt_archive_path(
+            runtime_dir,
+            policy.job,
+            resolved_invocation_id,
             archive_variant=archive_variant,
         )
+        stopped_receipt["restart_denied_marker_persisted"] = True
         denial_payload = {
             "schema_version": RESTART_DENIED_SCHEMA_VERSION,
             "job": policy.job,
@@ -2440,7 +2469,7 @@ def run_guarded_job(
             ),
             "root_invocation_id": resolved_invocation_id,
             "root_receipt_path": root_receipt_path.relative_to(root).as_posix(),
-            "root_receipt_sha256": _sha256_file(root_receipt_path),
+            "root_receipt_sha256": _json_payload_sha256(stopped_receipt),
             "root_claim_token": claim_token,
             "root_receipt": stopped_receipt,
         }
@@ -2468,6 +2497,15 @@ def run_guarded_job(
                     marker_failure_receipt,
                     archive_variant="marker-write-failed",
                 )
+                return 70
+        try:
+            write_receipt(
+                stopped_receipt,
+                archive_variant=archive_variant,
+            )
+        except OSError:
+            # marker 已內嵌 hash-bound 完整 receipt；下一輪會在 child 前還原。
+            return 70
         return 70
     finally:
         if process is not None and process_group is not None:

@@ -991,6 +991,79 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertIn("FIXTURE_RUNTIME_STOP", restored["reasons"])
             self.assertGreaterEqual(len(restored["samples"]), 2)
 
+    def test_unresolved_claim_blocks_new_invocation_after_pre_marker_death(self) -> None:
+        """claim 已落盤但 marker 尚未完成時死亡，下一輪不得到達 child spawn。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-storage-pre-marker-crash-") as tmp:
+            root = Path(tmp).resolve()
+            (root / "output").mkdir()
+
+            def fail_preflight(_pid: int | None) -> Sample:
+                raise RuntimeError("fixture exception path")
+
+            def die_before_marker(path: Path, payload: dict[str, object]) -> None:
+                if path.parent.name == "restart_denied":
+                    raise KeyboardInterrupt("fixture process death before marker")
+                _atomic_json(path, payload)
+
+            with (
+                mock.patch.object(
+                    storage_safety,
+                    "_atomic_json",
+                    side_effect=die_before_marker,
+                ),
+                self.assertRaisesRegex(KeyboardInterrupt, "death before marker"),
+            ):
+                run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(),
+                    (),
+                    ["/usr/bin/touch", "output/first-child"],
+                    sampler=fail_preflight,
+                    invocation_id="daily-pre-marker-crash",
+                )
+
+            denied = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(),
+                (),
+                ["/usr/bin/touch", "output/second-child"],
+                invocation_id="daily-after-pre-marker-crash",
+            )
+
+            self.assertEqual(denied, 75)
+            self.assertFalse((root / "output" / "first-child").exists())
+            self.assertFalse((root / "output" / "second-child").exists())
+
+    def test_partial_invocation_archive_fails_closed_before_spawn(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-partial-claim-") as tmp:
+            root = Path(tmp).resolve()
+            (root / "output").mkdir()
+            partial = (
+                root
+                / "logs"
+                / "storage_safety"
+                / "receipts"
+                / "daily"
+                / "interrupted-claim.json"
+            )
+            partial.parent.mkdir(parents=True)
+            partial.write_bytes(b'{"schema_version":"top10-storage-invocation-')
+
+            result = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(),
+                (),
+                ["/usr/bin/touch", "output/child-ran"],
+                invocation_id="daily-after-partial-claim",
+            )
+
+            self.assertEqual(result, 75)
+            self.assertFalse((root / "output" / "child-ran").exists())
+
     def test_duplicate_invocation_is_rejected_before_child_spawn(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-duplicate-invocation-") as tmp:
             root = Path(tmp)
