@@ -38,3 +38,15 @@
 - 本紀錄只證明 candidate code/test；不是 production GO。
 - production runtime 仍是舊 SHA，GUI launchd domain 仍需額外授權處理；本輪未啟用 A4。
 - A5 仍須等實際自然 cadence、正確 run-date artifact、publish/provider terminal result 與連續兩次 accepted cycle。
+
+## 第二輪 re-review 與修復
+
+- 被審 SHA：`b20cb4cf11e5d9fe7e5221f1b1d24bd07b44be04`
+- Re-reviewer：
+  - `01a06f9c-69a7-7c43-978b-86d8bb93cbb8`：`VERDICT: GO`，未發現 P0/P1。
+  - `01a06f9c-7a81-7b82-8dba-d664a1230d9f`：`VERDICT: NO_GO`，重現 exception path 在 STOPPED receipt 已寫、marker 尚未寫時死亡，下一輪可到達 spawn。
+- 修復 commit：`23e50d8776f47cde87f1c0414d82fc136f4b58f4`
+  - exception path 改為 marker-first，marker 先內嵌完整 STOPPED receipt，再完成 archive/latest。
+  - claim 已落盤、marker 尚未完成時若死亡，任何後續新 invocation 都會因 unresolved claim 在 child 前回 `75`。
+  - malformed/partial receipt archive 亦視為 unresolved claim，避免半寫入 claim fail open。
+- GREEN：`151 passed, 38 subtests passed in 17.66s`；`git diff --check` 與 shell syntax 均通過。
