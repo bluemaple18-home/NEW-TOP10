@@ -50,3 +50,15 @@
   - claim 已落盤、marker 尚未完成時若死亡，任何後續新 invocation 都會因 unresolved claim 在 child 前回 `75`。
   - malformed/partial receipt archive 亦視為 unresolved claim，避免半寫入 claim fail open。
 - GREEN：`151 passed, 38 subtests passed in 17.66s`；`git diff --check` 與 shell syntax 均通過。
+
+## 第三輪雙 Reviewer gate
+
+- 固定被審 SHA：`82bad691066af1405396c0937488b9508eda485e`
+- repair base：`b20cb4cf11e5d9fe7e5221f1b1d24bd07b44be04`
+- Reviewer E：`01a06fa9-2dcd-7b20-9da9-aea351994651`，`VERDICT: GO`。
+  - `151 passed, 38 subtests passed`。
+  - pre-marker death、post-marker death、成功 receipt、activation clear 邊界均通過。
+- Reviewer F：`01a06fa8-fb35-7a40-8f4e-cb2de89f470a`，`VERDICT: GO`。
+  - 獨立 tempdir probes 驗證 duplicate、partial/corrupt archive、marker path traversal、digest/invocation/job/status binding 均 fail closed。
+  - natural/manual 仍為 `natural_trigger_verified=false`、`consecutive_natural_guard_cycles=0`、`accepted_natural_cycles=0`。
+- Mainline verdict：`CANDIDATE_GREEN / NATURAL_ACCEPTANCE_PENDING`；candidate code 已通過雙 Reviewer P0/P1 gate，但 production runtime、GUI launchd domain 與 A5 連續自然週期仍未驗收。
