@@ -44,6 +44,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     run = subparsers.add_parser("run", help="在 guard 內執行 child command")
     run.add_argument("--job", required=True)
+    run.add_argument(
+        "--trigger-type",
+        choices=("natural", "manual"),
+        default=os.environ.get("TOP10_STORAGE_TRIGGER_TYPE", "manual"),
+    )
+    run.add_argument(
+        "--scheduled-at",
+        default=os.environ.get("TOP10_STORAGE_SCHEDULED_AT"),
+    )
+    run.add_argument(
+        "--invocation-id",
+        default=os.environ.get("TOP10_STORAGE_INVOCATION_ID"),
+    )
     run.add_argument("command", nargs=argparse.REMAINDER)
 
     validate_run = subparsers.add_parser(
@@ -210,6 +223,9 @@ def main(argv: list[str] | None = None) -> int:
         max_runtime_seconds=max_runtime_seconds,
         validation_context=validation_context,
         trusted_validation_entrypoint=trusted_entrypoint,
+        trigger_type=("validation" if validation_only else args.trigger_type),
+        scheduled_at=(None if validation_only else args.scheduled_at),
+        invocation_id=(None if validation_only else args.invocation_id),
     )
 
 

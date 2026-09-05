@@ -28,6 +28,21 @@ def _write_receipt(tmp_path: Path, payload: dict) -> None:
     receipt.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _write_denial_marker(tmp_path: Path, reasons: list[str]) -> None:
+    marker = (
+        tmp_path
+        / "logs"
+        / "storage_safety"
+        / "restart_denied"
+        / "fog-research-worker.json"
+    )
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(
+        json.dumps({"job": "fog-research-worker", "reasons": reasons}),
+        encoding="utf-8",
+    )
+
+
 def _write_active_lock(tmp_path: Path) -> Path:
     lock_dir = tmp_path / "logs" / "fog_research_worker.lock"
     lock_dir.mkdir(parents=True, exist_ok=True)
@@ -83,6 +98,29 @@ def test_terminal_success_requires_exit_zero_and_quiescent_group(tmp_path: Path)
     payload = json.loads(completed.stdout)
     assert payload["health_state"] == "TERMINAL_SUCCESS"
     assert payload["healthy"] is True
+
+
+def test_restart_denied_marker_overrides_stale_success_receipt(tmp_path: Path) -> None:
+    _write_receipt(
+        tmp_path,
+        {
+            "status": "OK",
+            "child_exit_code": 0,
+            "process_group_identity": {"leader_pid": 123},
+            "final_process_group_quiescent": True,
+            "reasons": [],
+        },
+    )
+    _write_denial_marker(tmp_path, ["LIVE_SAMPLE_CADENCE_EXCEEDED"])
+
+    completed = _run_verifier(tmp_path)
+
+    assert completed.returncode == 1, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["health_state"] == "TERMINAL_FAILURE"
+    assert payload["healthy"] is False
+    assert payload["restart_denied"] is True
+    assert payload["reasons"] == ["LIVE_SAMPLE_CADENCE_EXCEEDED"]
 
 
 def test_supervisor_only_is_not_healthy(tmp_path: Path) -> None:

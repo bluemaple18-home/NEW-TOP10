@@ -57,7 +57,11 @@ from app.storage_safety import (  # noqa: E402
     terminate_process_group,
     unknown_changed_paths,
 )
-from scripts.storage_safety import _path_under_root, validate_isolated_root  # noqa: E402
+from scripts.storage_safety import (  # noqa: E402
+    _path_under_root,
+    parse_args as parse_storage_args,
+    validate_isolated_root,
+)
 
 
 def fixture_global_policy() -> GlobalPolicy:
@@ -129,6 +133,51 @@ def test_take_sample_attributes_process_tree_rss_by_pid_and_command() -> None:
         "rss_bytes": 64 * 1024,
         "command": "python strategy_matrix.py --scenario baseline",
     }
+    assert [row["probe"] for row in sample.to_dict()["probe_timings"]] == [
+        "meter_paths",
+        "disk_usage",
+        "process_tree_rss",
+        "swap",
+        "memory_pressure",
+        "sample_total",
+    ]
+
+
+def test_host_metric_subprocesses_are_bounded_and_timeout_as_unavailable() -> None:
+    timeout = subprocess.TimeoutExpired(["probe"], 5)
+
+    with (
+        mock.patch("app.storage_safety.sys.platform", "darwin"),
+        mock.patch("app.storage_safety.subprocess.run", side_effect=timeout) as run,
+    ):
+        assert storage_safety.read_swap_bytes() is None
+        assert read_memory_pressure_level() is None
+        assert storage_safety.process_tree_rss_snapshot(100) == (None, ())
+
+    assert len(run.call_args_list) == 3
+    assert all(call.kwargs["timeout"] == 5.0 for call in run.call_args_list)
+
+
+def test_storage_guard_cli_accepts_scheduler_invocation_metadata() -> None:
+    args = parse_storage_args(
+        [
+            "run",
+            "--job",
+            "daily",
+            "--trigger-type",
+            "natural",
+            "--scheduled-at",
+            "2026-09-05T09:30:00+00:00",
+            "--invocation-id",
+            "daily-20260905T093000Z-test",
+            "--",
+            "/usr/bin/true",
+        ]
+    )
+
+    assert args.trigger_type == "natural"
+    assert args.scheduled_at == "2026-09-05T09:30:00+00:00"
+    assert args.invocation_id == "daily-20260905T093000Z-test"
 
 
 def validation_contract_fixture(
@@ -249,6 +298,14 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                     runtime_rule.base_path,
                     f"logs/storage_safety/runtime/{job}",
                 )
+                receipt_rule = next(
+                    rule for rule in rules if rule.rule_id == "storage_receipts"
+                )
+                self.assertEqual(
+                    receipt_rule.base_path,
+                    f"logs/storage_safety/receipts/{job}",
+                )
+                self.assertGreaterEqual(receipt_rule.protect_newest, 2)
                 self.assertEqual(global_policy.start_min_free_bytes, 0)
                 self.assertEqual(global_policy.start_min_free_percent, 0.10)
 
@@ -379,6 +436,8 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 command,
                 sampler=lambda _pid: replace(sample, timestamp=time.time()),
             )
+            receipt_path = root / "logs" / "storage_safety" / "daily_latest.json"
+            stopped_receipt = receipt_path.read_bytes()
             marker_path = root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
             marker = json.loads(marker_path.read_text(encoding="utf-8"))
             denied = run_guarded_job(
@@ -389,25 +448,47 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 command,
                 sampler=lambda _pid: replace(sample, timestamp=time.time()),
             )
-            receipt = json.loads(
-                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
-                    encoding="utf-8"
-                )
-            )
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
 
             self.assertEqual((stopped, denied), (70, 75))
+            self.assertEqual(receipt_path.read_bytes(), stopped_receipt)
+            root_receipt_path = root / marker["root_receipt_path"]
+            self.assertTrue(root_receipt_path.is_file())
+            self.assertEqual(
+                hashlib.sha256(root_receipt_path.read_bytes()).hexdigest(),
+                marker["root_receipt_sha256"],
+            )
+            unrelated_latest = {
+                **receipt,
+                "status": "OK",
+                "invocation_id": "unrelated-old-success",
+                "reasons": [],
+            }
+            receipt_path.write_text(
+                json.dumps(unrelated_latest, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            recovered_denial = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                policy,
+                (),
+                command,
+                sampler=lambda _pid: replace(sample, timestamp=time.time()),
+            )
+            self.assertEqual(recovered_denial, 75)
+            self.assertEqual(receipt_path.read_bytes(), root_receipt_path.read_bytes())
             self.assertEqual(marker["unknown_changed_paths"], ["source.py"])
             self.assertEqual(
                 marker["registered_unmetered_changed_paths"],
                 ["artifacts/new.txt"],
             )
-            self.assertEqual(receipt["status"], "RESTART_DENIED")
+            self.assertEqual(receipt["status"], "STOPPED")
             self.assertEqual(
                 receipt["reasons"],
                 [
                     "UNREGISTERED_WRITE_PATH",
                     "REGISTERED_WRITE_OUTSIDE_METER",
-                    "PERSISTENT_RESTART_DENIED_MARKER",
                 ],
             )
             self.assertEqual(receipt["summary"]["unknown_changed_paths"], ["source.py"])
@@ -474,6 +555,47 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 self.assertEqual(
                     receipt["summary"]["registered_unmetered_changed_paths"], []
                 )
+
+    def test_legacy_denial_replaces_unrelated_success_latest(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-legacy-success-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            runtime_dir = root / "logs" / "storage_safety"
+            marker = runtime_dir / "restart_denied" / "daily.json"
+            marker.parent.mkdir(parents=True)
+            marker.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "top10-storage-restart-denied.v1",
+                        "job": "daily",
+                        "reasons": ["LIVE_SAMPLE_CADENCE_EXCEEDED"],
+                        "automatic_clear_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            latest = runtime_dir / "daily_latest.json"
+            latest.write_text(
+                json.dumps({"job": "daily", "status": "OK"}),
+                encoding="utf-8",
+            )
+
+            result = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(),
+                (),
+                ["/usr/bin/touch", str(root / "output" / "spawned")],
+            )
+            receipt = json.loads(latest.read_text(encoding="utf-8"))
+
+            self.assertEqual(result, 75)
+            self.assertEqual(receipt["status"], "RESTART_DENIED")
+            self.assertEqual(
+                receipt["reasons"],
+                ["LIVE_SAMPLE_CADENCE_EXCEEDED", "PERSISTENT_RESTART_DENIED_MARKER"],
+            )
+            self.assertFalse((root / "output" / "spawned").exists())
 
     def test_denial_created_while_acquiring_guard_lock_still_blocks_restart(self) -> None:
         """取得 lock 後出現的 marker 也必須在啟動 child 前 fail closed。"""
@@ -2875,12 +2997,12 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 sampler=sampler,
                 monotonic_clock=clock,
                 process_waiter=wait_for_process,
+                trigger_type="natural",
+                scheduled_at="2026-09-05T09:30:00+00:00",
+                invocation_id="daily-20260905T093000Z-test",
             )
-            receipt = json.loads(
-                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
-                    encoding="utf-8"
-                )
-            )
+            receipt_path = root / "logs" / "storage_safety" / "daily_latest.json"
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             denial_path = (
                 root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
             )
@@ -2888,6 +3010,13 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertEqual(receipt["status"], "OK")
             self.assertEqual(receipt["child_exit_code"], 0)
+            self.assertEqual(receipt["trigger_type"], "natural")
+            self.assertEqual(receipt["scheduled_at"], "2026-09-05T09:30:00+00:00")
+            self.assertEqual(receipt["invocation_id"], "daily-20260905T093000Z-test")
+            self.assertIs(receipt["child_spawned"], True)
+            self.assertEqual(receipt["consecutive_natural_guard_cycles"], 1)
+            self.assertEqual(receipt["accepted_natural_cycles"], 0)
+            self.assertEqual(receipt["acceptance_status"], "NATURAL_ACCEPTANCE_PENDING")
             self.assertEqual(receipt["reasons"], [])
             self.assertIsNotNone(receipt["process_group_identity"])
             self.assertEqual(
@@ -2901,7 +3030,59 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertIs(receipt["final_process_group_quiescent"], True)
             self.assertEqual(receipt["process_group"]["final_quiescent"], True)
             self.assertIsNotNone(receipt["final_process_group_checked_at"])
+            archived_receipt = (
+                root
+                / "logs"
+                / "storage_safety"
+                / "receipts"
+                / "daily"
+                / "daily-20260905T093000Z-test.json"
+            )
+            self.assertEqual(
+                json.loads(archived_receipt.read_text(encoding="utf-8")),
+                receipt,
+            )
             self.assertFalse(denial_path.exists())
+
+            (root / "output" / "ready").unlink()
+            second_result = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(sample_interval_seconds=10),
+                (),
+                [
+                    sys.executable,
+                    "-c",
+                    "import signal,sys,time; from pathlib import Path; "
+                    "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0)); "
+                    "Path('output/ready').write_text('ready'); "
+                    "time.sleep(30)",
+                ],
+                sampler=sampler,
+                monotonic_clock=clock,
+                process_waiter=wait_for_process,
+                trigger_type="natural",
+                scheduled_at="2026-09-05T09:40:00+00:00",
+                invocation_id="daily-20260905T094000Z-test",
+            )
+            second_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            self.assertEqual(second_result, 0)
+            self.assertEqual(second_receipt["consecutive_natural_guard_cycles"], 2)
+            self.assertEqual(second_receipt["accepted_natural_cycles"], 0)
+            self.assertEqual(
+                second_receipt["acceptance_status"],
+                "NATURAL_ACCEPTANCE_PENDING",
+            )
+            self.assertTrue(
+                (
+                    root
+                    / "logs"
+                    / "storage_safety"
+                    / "receipts"
+                    / "daily"
+                    / "daily-20260905T094000Z-test.json"
+                ).is_file()
+            )
             self.assertEqual(
                 [sample["phase"] for sample in receipt["samples"]],
                 ["preflight", "live", "final"],
@@ -3983,6 +4164,10 @@ raise SystemExit(
             "JOBLIB_TEMP_FOLDER",
         ):
             self.assertIn(f"export {variable}=", wrapper)
+        self.assertIn('"$PPID" -eq 1', wrapper)
+        self.assertIn("--trigger-type", wrapper)
+        self.assertIn("--scheduled-at", wrapper)
+        self.assertIn("--invocation-id", wrapper)
         self.assertNotIn("TOP10_DAILY_PYTHON", wrapper)
 
     def test_research_quota_archive_respects_hard_file_limit_across_cycles(self) -> None:

@@ -37,6 +37,7 @@ VALIDATION_ENTRYPOINT_SCHEMA_VERSION = "top10-storage-validation-entrypoint.v1"
 _TRUSTED_VALIDATION_TOKEN = object()
 _LIVE_SAMPLE_SCHEDULE_NUMERATOR = 19
 _LIVE_SAMPLE_SCHEDULE_DENOMINATOR = 20
+_HOST_PROBE_TIMEOUT_SECONDS = 5.0
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,13 @@ class ProcessRssAttribution:
 
 
 @dataclass(frozen=True)
+class ProbeTiming:
+    probe: str
+    duration_seconds: float
+    available: bool
+
+
+@dataclass(frozen=True)
 class Sample:
     timestamp: float
     project_bytes: int
@@ -107,6 +115,7 @@ class Sample:
     phase: str = "live"
     memory_pressure_level: int | None = None
     process_rss_attribution: tuple[ProcessRssAttribution, ...] = ()
+    probe_timings: tuple[ProbeTiming, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -442,8 +451,9 @@ def read_swap_bytes() -> int | None:
             text=True,
             capture_output=True,
             check=False,
+            timeout=_HOST_PROBE_TIMEOUT_SECONDS,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return None
     if completed.returncode != 0:
         return None
@@ -467,8 +477,9 @@ def read_memory_pressure_level(
             text=True,
             capture_output=True,
             check=False,
+            timeout=_HOST_PROBE_TIMEOUT_SECONDS,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return None
     if completed.returncode != 0:
         return None
@@ -483,12 +494,16 @@ def process_tree_rss_snapshot(
 ) -> tuple[int | None, tuple[ProcessRssAttribution, ...]]:
     if root_pid is None or root_pid <= 0:
         return 0, ()
-    completed = subprocess.run(
-        ["/bin/ps", "-axo", "pid=,ppid=,rss=,command="],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            ["/bin/ps", "-axo", "pid=,ppid=,rss=,command="],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=_HOST_PROBE_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None, ()
     if completed.returncode != 0:
         return None, ()
     parents: dict[int, list[int]] = defaultdict(list)
@@ -531,9 +546,53 @@ def process_tree_rss_bytes(root_pid: int | None) -> int | None:
 
 
 def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -> Sample:
-    inventory = measure_paths(root, policy.meter_paths)
-    disk = shutil.disk_usage(root)
-    rss_bytes, process_rss_attribution = process_tree_rss_snapshot(process_pid)
+    sample_started_at = time.monotonic()
+    timings: list[ProbeTiming] = []
+
+    def timed_probe(
+        name: str,
+        operation: Callable[[], Any],
+        *,
+        available: Callable[[Any], bool] = lambda value: value is not None,
+    ) -> Any:
+        started_at = time.monotonic()
+        value = operation()
+        timings.append(
+            ProbeTiming(
+                probe=name,
+                duration_seconds=max(0.0, time.monotonic() - started_at),
+                available=available(value),
+            )
+        )
+        return value
+
+    inventory = timed_probe(
+        "meter_paths",
+        lambda: measure_paths(root, policy.meter_paths),
+        available=lambda _value: True,
+    )
+    disk = timed_probe(
+        "disk_usage",
+        lambda: shutil.disk_usage(root),
+        available=lambda _value: True,
+    )
+    rss_bytes, process_rss_attribution = timed_probe(
+        "process_tree_rss",
+        lambda: process_tree_rss_snapshot(process_pid),
+        available=lambda value: value[0] is not None,
+    )
+    swap_bytes = timed_probe("swap", read_swap_bytes)
+    memory_pressure_level = timed_probe(
+        "memory_pressure",
+        read_memory_pressure_level,
+    )
+    timings.append(
+        ProbeTiming(
+            probe="sample_total",
+            duration_seconds=max(0.0, time.monotonic() - sample_started_at),
+            available=True,
+        )
+    )
     return Sample(
         timestamp=time.time(),
         project_bytes=inventory.bytes,
@@ -541,9 +600,10 @@ def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -
         host_total_bytes=disk.total,
         host_free_bytes=disk.free,
         rss_bytes=rss_bytes,
-        swap_bytes=read_swap_bytes(),
-        memory_pressure_level=read_memory_pressure_level(),
+        swap_bytes=swap_bytes,
+        memory_pressure_level=memory_pressure_level,
         process_rss_attribution=process_rss_attribution,
+        probe_timings=tuple(timings),
     )
 
 
@@ -1197,6 +1257,140 @@ def _utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _normalize_invocation_metadata(
+    job: str,
+    *,
+    trigger_type: str | None,
+    scheduled_at: str | None,
+    invocation_id: str | None,
+    validation_only: bool,
+) -> tuple[str, str, str]:
+    resolved_trigger = "validation" if validation_only else (trigger_type or "manual")
+    if resolved_trigger not in {"natural", "manual", "validation"}:
+        raise ValueError("trigger_type 必須是 natural／manual／validation")
+    resolved_scheduled_at = scheduled_at or _utc_timestamp()
+    try:
+        parsed_scheduled_at = datetime.fromisoformat(resolved_scheduled_at)
+    except ValueError as exc:
+        raise ValueError("scheduled_at 必須是 ISO-8601 timestamp") from exc
+    if parsed_scheduled_at.tzinfo is None:
+        raise ValueError("scheduled_at 必須包含 timezone")
+    resolved_invocation_id = invocation_id or (
+        f"{job}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}-{os.getpid()}"
+    )
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", resolved_invocation_id):
+        raise ValueError("invocation_id 格式不安全")
+    return resolved_trigger, resolved_scheduled_at, resolved_invocation_id
+
+
+def _previous_consecutive_natural_guard_cycles(receipt_path: Path) -> int:
+    try:
+        payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    value = (
+        payload.get("consecutive_natural_guard_cycles")
+        if isinstance(payload, dict)
+        else None
+    )
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        return 0
+    return value
+
+
+def _write_receipt(
+    runtime_dir: Path,
+    receipt_path: Path,
+    job: str,
+    invocation_id: str,
+    payload: dict[str, Any],
+    *,
+    update_latest: bool = True,
+    archive_variant: str | None = None,
+) -> Path:
+    archive_path = _receipt_archive_path(
+        runtime_dir,
+        job,
+        invocation_id,
+        archive_variant=archive_variant,
+    )
+    if archive_path.exists():
+        raise FileExistsError(f"invocation receipt 已存在: {archive_path.stem}")
+    _atomic_json(archive_path, payload)
+    if update_latest:
+        _atomic_json(receipt_path, payload)
+    return archive_path
+
+
+def _receipt_archive_path(
+    runtime_dir: Path,
+    job: str,
+    invocation_id: str,
+    *,
+    archive_variant: str | None = None,
+) -> Path:
+    archive_stem = (
+        invocation_id
+        if archive_variant is None
+        else f"{invocation_id}.{archive_variant}"
+    )
+    return runtime_dir / "receipts" / job / f"{archive_stem}.json"
+
+
+def _json_payload_sha256(payload: dict[str, Any]) -> str:
+    body = json.dumps(
+        payload,
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+        allow_nan=False,
+    ) + "\n"
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def _receipt_matches_denial_marker(
+    raw_receipt: bytes,
+    denial: dict[str, Any],
+) -> dict[str, Any] | None:
+    expected_digest = denial.get("root_receipt_sha256")
+    expected_invocation = denial.get("root_invocation_id")
+    if not isinstance(expected_digest, str) or not isinstance(expected_invocation, str):
+        return None
+    if not hmac.compare_digest(hashlib.sha256(raw_receipt).hexdigest(), expected_digest):
+        return None
+    try:
+        payload = json.loads(raw_receipt)
+    except (UnicodeDecodeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("invocation_id") != expected_invocation:
+        return None
+    if payload.get("job") != denial.get("job"):
+        return None
+    if payload.get("status") != "STOPPED":
+        return None
+    return payload
+
+
+def _marker_bound_root_receipt(
+    root: Path,
+    denial: dict[str, Any],
+) -> dict[str, Any] | None:
+    relative = denial.get("root_receipt_path")
+    if not isinstance(relative, str):
+        return None
+    parts = Path(relative).parts
+    if parts[:3] != ("logs", "storage_safety", "receipts"):
+        return None
+    try:
+        candidate = _safe_root_path(root, relative)
+        raw_receipt = candidate.read_bytes()
+    except (OSError, ValueError):
+        return None
+    return _receipt_matches_denial_marker(raw_receipt, denial)
+
+
 def _receipt_payload(
     *,
     policy: JobPolicy,
@@ -1214,6 +1408,10 @@ def _receipt_payload(
     process_group_identity: ProcessGroupIdentity | None = None,
     final_process_group_quiescent: bool | None = None,
     final_process_group_checked_at: str | None = None,
+    trigger_type: str = "manual",
+    scheduled_at: str | None = None,
+    invocation_id: str = "unknown",
+    previous_consecutive_natural_guard_cycles: int = 0,
 ) -> dict[str, Any]:
     first = samples[0] if samples else None
     last = samples[-1] if samples else None
@@ -1223,10 +1421,54 @@ def _receipt_payload(
         if first and last and elapsed_seconds > 0
         else 0.0
     )
+    child_spawned = process_group_identity is not None
+    natural_success = (
+        trigger_type == "natural"
+        and status == "OK"
+        and child_exit_code == 0
+        and final_process_group_quiescent is True
+    )
+    consecutive_natural_guard_cycles = (
+        previous_consecutive_natural_guard_cycles + 1
+        if natural_success
+        else 0
+        if trigger_type == "natural"
+        else previous_consecutive_natural_guard_cycles
+    )
+    if natural_success:
+        acceptance_status = "NATURAL_ACCEPTANCE_PENDING"
+    elif status in {"STOPPED", "RESTART_DENIED", "NO-GO", "CHILD_FAILED"}:
+        acceptance_status = "NO-GO"
+    else:
+        acceptance_status = "NOT_APPLICABLE"
     return {
         "schema_version": RECEIPT_SCHEMA_VERSION,
         "job": policy.job,
         "status": status,
+        "scheduled_at": scheduled_at,
+        "trigger_type": trigger_type,
+        "invocation_id": invocation_id,
+        "child_spawned": child_spawned,
+        "child_terminal_status": status if child_spawned else None,
+        # Storage Guard 只能證明 scheduler／child／process-group 這一層；artifact
+        # run date 與 publish/provider terminal result 尚未核對前不得自稱 ACCEPTED。
+        "consecutive_natural_guard_cycles": consecutive_natural_guard_cycles,
+        "accepted_natural_cycles": 0,
+        "acceptance_status": acceptance_status,
+        "artifact_run_date": None,
+        "publish_or_provider_result": None,
+        "restart_denied": status in {"STOPPED", "RESTART_DENIED"},
+        "restart_denied_reason": (
+            list(reasons) if status in {"STOPPED", "RESTART_DENIED"} else []
+        ),
+        "supervisor_pid": os.getpid(),
+        "child_pid": (
+            process_group_identity.leader_pid
+            if process_group_identity is not None
+            else None
+        ),
+        "lock_owner_status": "HELD_BY_OTHER" if status == "OVERLAP_BLOCKED" else "HELD",
+        "last_progress_at": _utc_timestamp(),
         "command": list(command),
         "launch_verified": policy.launch_verified,
         "validation_only": validation_only,
@@ -1318,6 +1560,9 @@ def run_guarded_job(
     trusted_validation_entrypoint: TrustedValidationEntrypoint | None = None,
     monotonic_clock: Callable[[], float] | None = None,
     process_waiter: Callable[[subprocess.Popen[bytes], float], int | None] | None = None,
+    trigger_type: str | None = None,
+    scheduled_at: str | None = None,
+    invocation_id: str | None = None,
 ) -> int:
     """執行單一排程週期；停損時留下 marker，後續嘗試一律拒絕。"""
 
@@ -1331,6 +1576,42 @@ def run_guarded_job(
     runtime_dir = root / "logs" / "storage_safety"
     receipt_path = runtime_dir / f"{policy.job}_latest.json"
     denied_path = runtime_dir / "restart_denied" / f"{policy.job}.json"
+    resolved_trigger, resolved_scheduled_at, resolved_invocation_id = (
+        _normalize_invocation_metadata(
+            policy.job,
+            trigger_type=trigger_type,
+            scheduled_at=scheduled_at,
+            invocation_id=invocation_id,
+            validation_only=validation_only,
+        )
+    )
+    previous_natural_cycles = 0
+
+    def receipt_payload(**kwargs: Any) -> dict[str, Any]:
+        return _receipt_payload(
+            **kwargs,
+            trigger_type=resolved_trigger,
+            scheduled_at=resolved_scheduled_at,
+            invocation_id=resolved_invocation_id,
+            previous_consecutive_natural_guard_cycles=previous_natural_cycles,
+        )
+
+    def write_receipt(
+        payload: dict[str, Any],
+        *,
+        update_latest: bool = True,
+        archive_variant: str | None = None,
+    ) -> Path:
+        return _write_receipt(
+            runtime_dir,
+            receipt_path,
+            policy.job,
+            resolved_invocation_id,
+            payload,
+            update_latest=update_latest,
+            archive_variant=archive_variant,
+        )
+
     samples: list[Sample] = []
     take = sampler or (lambda pid: take_sample(root, policy, pid))
     monotonic_now = monotonic_clock or time.monotonic
@@ -1358,9 +1639,8 @@ def run_guarded_job(
     try:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        _atomic_json(
-            receipt_path,
-            _receipt_payload(
+        write_receipt(
+            receipt_payload(
                 policy=policy,
                 command=command,
                 status="OVERLAP_BLOCKED",
@@ -1377,32 +1657,63 @@ def run_guarded_job(
         lock_handle.close()
         return 0
 
+    previous_natural_cycles = _previous_consecutive_natural_guard_cycles(receipt_path)
+
     # marker 必須在取得單一 job 的互斥鎖後才檢查，避免前次檢查與啟動 child
     # 之間由另一個 guard 建立 fail-closed evidence。
     if denied_path.exists():
         try:
-            original_reasons: tuple[str, ...] = ()
-            original_unknown_paths: tuple[str, ...] = ()
-            original_registered_unmetered_paths: tuple[str, ...] = ()
+            # persistent denial 是前次 STOPPED 的後續結果，不能覆寫唯一一份
+            # root-cause receipt。原始 reasons／write evidence 由 marker 保留；
+            # latest receipt 必須維持在建立 marker 的失敗 invocation。只有 legacy
+            # marker 沒有任何 receipt 時，才補一份 RESTART_DENIED 可觀察狀態。
             try:
                 denial = json.loads(denied_path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 denial = None
-            if isinstance(denial, dict):
-                def string_list(field: str) -> tuple[str, ...]:
-                    value = denial.get(field)
-                    if not isinstance(value, list):
-                        return ()
-                    return tuple(item for item in value if isinstance(item, str))
-
-                original_reasons = string_list("reasons")
-                original_unknown_paths = string_list("unknown_changed_paths")
-                original_registered_unmetered_paths = string_list(
-                    "registered_unmetered_changed_paths"
+            denial_payload = denial if isinstance(denial, dict) else {}
+            latest_exists = receipt_path.exists()
+            marker_has_root_binding = all(
+                isinstance(denial_payload.get(field), str)
+                for field in (
+                    "root_invocation_id",
+                    "root_receipt_path",
+                    "root_receipt_sha256",
                 )
-            _atomic_json(
-                receipt_path,
-                _receipt_payload(
+            )
+            if latest_exists and marker_has_root_binding:
+                try:
+                    latest_raw = receipt_path.read_bytes()
+                except OSError:
+                    latest_raw = b""
+                if _receipt_matches_denial_marker(latest_raw, denial_payload) is not None:
+                    return 75
+            if marker_has_root_binding:
+                root_receipt = _marker_bound_root_receipt(root, denial_payload)
+                if root_receipt is not None:
+                    _atomic_json(receipt_path, root_receipt)
+                    return 75
+            elif latest_exists:
+                # 舊 marker 沒有 hash binding；既有 latest 是唯一可保留的 root evidence。
+                try:
+                    legacy_latest = json.loads(receipt_path.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    legacy_latest = None
+                if (
+                    isinstance(legacy_latest, dict)
+                    and legacy_latest.get("status") in {"STOPPED", "RESTART_DENIED"}
+                ):
+                    return 75
+
+            def marker_strings(field: str) -> tuple[str, ...]:
+                value = denial_payload.get(field)
+                if not isinstance(value, list):
+                    return ()
+                return tuple(item for item in value if isinstance(item, str))
+
+            original_reasons = marker_strings("reasons")
+            write_receipt(
+                receipt_payload(
                     policy=policy,
                     command=command,
                     status="RESTART_DENIED",
@@ -1416,9 +1727,11 @@ def run_guarded_job(
                     reclaimed=None,
                     validation_only=validation_only,
                     max_runtime_seconds=max_runtime_seconds,
-                    unknown_paths=original_unknown_paths,
+                    unknown_paths=marker_strings("unknown_changed_paths"),
                     validation_context=validation_context,
-                    registered_unmetered_paths=original_registered_unmetered_paths,
+                    registered_unmetered_paths=marker_strings(
+                        "registered_unmetered_changed_paths"
+                    ),
                 ),
             )
             return 75
@@ -1444,9 +1757,8 @@ def run_guarded_job(
             validation_only=validation_only,
         )
         if preflight_decision.triggered:
-            _atomic_json(
-                receipt_path,
-                _receipt_payload(
+            write_receipt(
+                receipt_payload(
                     policy=policy,
                     command=command,
                     status="NO-GO",
@@ -1864,6 +2176,32 @@ def run_guarded_job(
             if process_group is not None:
                 final_process_group_checked_at = _utc_timestamp()
                 final_process_group_quiescent = process_group_is_quiescent(process_group)
+            stopped_receipt = receipt_payload(
+                policy=policy,
+                command=command,
+                status="STOPPED",
+                samples=samples,
+                reasons=stop_reasons,
+                child_exit_code=process.returncode,
+                reclaimed=reclaimed,
+                validation_only=validation_only,
+                max_runtime_seconds=max_runtime_seconds,
+                unknown_paths=observed_unknown_paths,
+                validation_context=validation_context,
+                registered_unmetered_paths=observed_registered_unmetered_paths,
+                process_group_identity=process_group,
+                final_process_group_quiescent=final_process_group_quiescent,
+                final_process_group_checked_at=final_process_group_checked_at,
+            )
+            root_receipt_path = _receipt_archive_path(
+                runtime_dir,
+                policy.job,
+                resolved_invocation_id,
+            )
+            if root_receipt_path.exists():
+                raise FileExistsError(
+                    f"invocation receipt 已存在: {root_receipt_path.stem}"
+                )
             _atomic_json(
                 denied_path,
                 {
@@ -1875,34 +2213,17 @@ def run_guarded_job(
                     "registered_unmetered_changed_paths": list(
                         observed_registered_unmetered_paths
                     ),
+                    "root_invocation_id": resolved_invocation_id,
+                    "root_receipt_path": root_receipt_path.relative_to(root).as_posix(),
+                    "root_receipt_sha256": _json_payload_sha256(stopped_receipt),
                 },
             )
-            _atomic_json(
-                receipt_path,
-                _receipt_payload(
-                    policy=policy,
-                    command=command,
-                    status="STOPPED",
-                    samples=samples,
-                    reasons=stop_reasons,
-                    child_exit_code=process.returncode,
-                    reclaimed=reclaimed,
-                    validation_only=validation_only,
-                    max_runtime_seconds=max_runtime_seconds,
-                    unknown_paths=observed_unknown_paths,
-                    validation_context=validation_context,
-                    registered_unmetered_paths=observed_registered_unmetered_paths,
-                    process_group_identity=process_group,
-                    final_process_group_quiescent=final_process_group_quiescent,
-                    final_process_group_checked_at=final_process_group_checked_at,
-                ),
-            )
+            write_receipt(stopped_receipt)
             return 70
 
         final_reclaim = reclaim_allowlisted(root, rules, execute=True)
-        _atomic_json(
-            receipt_path,
-            _receipt_payload(
+        write_receipt(
+            receipt_payload(
                 policy=policy,
                 command=command,
                 status="OK" if process.returncode == 0 else "CHILD_FAILED",
@@ -1935,6 +2256,33 @@ def run_guarded_job(
                 final_process_group_quiescent = process_group_is_quiescent(process_group)
             except (OSError, RuntimeError, subprocess.TimeoutExpired):
                 reasons = (*reasons, "PROCESS_GROUP_TERMINATION_FAILED")
+        stopped_receipt = receipt_payload(
+            policy=policy,
+            command=command,
+            status="STOPPED",
+            samples=samples,
+            reasons=reasons,
+            child_exit_code=process.returncode if process is not None else None,
+            reclaimed=reclaimed,
+            validation_only=validation_only,
+            max_runtime_seconds=max_runtime_seconds,
+            unknown_paths=observed_unknown_paths,
+            validation_context=validation_context,
+            registered_unmetered_paths=observed_registered_unmetered_paths,
+            process_group_identity=process_group,
+            final_process_group_quiescent=final_process_group_quiescent,
+            final_process_group_checked_at=final_process_group_checked_at,
+        )
+        base_archive_path = (
+            runtime_dir
+            / "receipts"
+            / policy.job
+            / f"{resolved_invocation_id}.json"
+        )
+        root_receipt_path = write_receipt(
+            stopped_receipt,
+            archive_variant="recovery" if base_archive_path.exists() else None,
+        )
         denial_payload = {
             "schema_version": RESTART_DENIED_SCHEMA_VERSION,
             "job": policy.job,
@@ -1944,31 +2292,14 @@ def run_guarded_job(
             "registered_unmetered_changed_paths": list(
                 observed_registered_unmetered_paths
             ),
+            "root_invocation_id": resolved_invocation_id,
+            "root_receipt_path": root_receipt_path.relative_to(root).as_posix(),
+            "root_receipt_sha256": _sha256_file(root_receipt_path),
         }
         try:
             _atomic_json(denied_path, denial_payload)
         except OSError:
             _atomic_json(denied_path, denial_payload)
-        _atomic_json(
-            receipt_path,
-            _receipt_payload(
-                policy=policy,
-                command=command,
-                status="STOPPED",
-                samples=samples,
-                reasons=reasons,
-                child_exit_code=process.returncode if process is not None else None,
-                reclaimed=reclaimed,
-                validation_only=validation_only,
-                max_runtime_seconds=max_runtime_seconds,
-                unknown_paths=observed_unknown_paths,
-                validation_context=validation_context,
-                registered_unmetered_paths=observed_registered_unmetered_paths,
-                process_group_identity=process_group,
-                final_process_group_quiescent=final_process_group_quiescent,
-                final_process_group_checked_at=final_process_group_checked_at,
-            ),
-        )
         return 70
     finally:
         if process is not None and process_group is not None:

@@ -108,6 +108,15 @@ def classify(
     receipt_path = root / "logs" / "storage_safety" / "fog-research-worker_latest.json"
     receipt = _read_json(receipt_path)
     receipt_status = str(receipt.get("status") or "").upper() or None
+    denial_path = (
+        root
+        / "logs"
+        / "storage_safety"
+        / "restart_denied"
+        / "fog-research-worker.json"
+    )
+    denial = _read_json(denial_path)
+    restart_denied = denial_path.exists()
     child_pid, child_identity_state = _active_child_identity(root, ps_bin)
     child_running = child_identity_state == "ACTIVE"
     last_progress_at, last_progress_epoch = _latest_progress(root)
@@ -120,7 +129,14 @@ def classify(
     supervisor_alive = _pid_alive(supervisor_pid)
 
     child_terminal_status: str | None = None
-    if child_running and progress_recent:
+    if restart_denied:
+        health_state = "TERMINAL_FAILURE"
+        child_terminal_status = (
+            receipt_status
+            if receipt_status in TERMINAL_FAILURE_STATUSES
+            else "RESTART_DENIED"
+        )
+    elif child_running and progress_recent:
         health_state = "WORKFLOW_PROGRESSING"
     elif child_running:
         health_state = "CHILD_RUNNING"
@@ -140,6 +156,12 @@ def classify(
         health_state = "UNKNOWN"
 
     healthy = health_state in {"WORKFLOW_PROGRESSING", "TERMINAL_SUCCESS"}
+    receipt_reasons = (
+        receipt.get("reasons") if isinstance(receipt.get("reasons"), list) else []
+    )
+    denial_reasons = (
+        denial.get("reasons") if isinstance(denial.get("reasons"), list) else []
+    )
     return {
         "schema_version": "top10-fog-runtime-health.v1",
         "health_state": health_state,
@@ -155,7 +177,18 @@ def classify(
         "progress_max_age_seconds": progress_max_age_seconds,
         "receipt_status": receipt_status,
         "receipt_path": receipt_path.relative_to(root).as_posix(),
-        "reasons": receipt.get("reasons") if isinstance(receipt.get("reasons"), list) else [],
+        "scheduled_at": receipt.get("scheduled_at"),
+        "trigger_type": receipt.get("trigger_type"),
+        "invocation_id": receipt.get("invocation_id"),
+        "child_exit_code": receipt.get("child_exit_code"),
+        "artifact_run_date": receipt.get("artifact_run_date"),
+        "publish_or_provider_result": receipt.get("publish_or_provider_result"),
+        "restart_denied": restart_denied,
+        "restart_denied_reason": denial_reasons,
+        "lock_owner_status": child_identity_state,
+        "accepted_natural_cycles": receipt.get("accepted_natural_cycles", 0),
+        "acceptance_status": receipt.get("acceptance_status"),
+        "reasons": denial_reasons if restart_denied else receipt_reasons,
     }
 
 

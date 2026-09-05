@@ -27,6 +27,20 @@ if [ "$#" -eq 0 ]; then
   exit 64
 fi
 
+# launchd 直接啟動時 parent 是 PID 1；互動 shell／驗證執行預設為 manual。
+# 明確 override 保留給測試與維運，但不由 child command 反向推導 trigger。
+TRIGGER_TYPE="${TOP10_STORAGE_TRIGGER_TYPE:-}"
+if [ -z "$TRIGGER_TYPE" ]; then
+  if [ "$PPID" -eq 1 ]; then
+    TRIGGER_TYPE="natural"
+  else
+    TRIGGER_TYPE="manual"
+  fi
+fi
+INVOCATION_STAMP="$(date -u '+%Y%m%dT%H%M%SZ')"
+SCHEDULED_AT="${TOP10_STORAGE_SCHEDULED_AT:-$(date -u '+%Y-%m-%dT%H:%M:%SZ')}"
+INVOCATION_ID="${TOP10_STORAGE_INVOCATION_ID:-${JOB}-${INVOCATION_STAMP}-$$}"
+
 # 將 child 的暫存與下載型 cache 收斂到可量測的專案路徑；不改寫 HOME，
 # 也不讓 uv、Matplotlib 或 joblib 把排程產物散落到其他專案／使用者 cache。
 TOP10_STORAGE_RUNTIME_ROOT="$PROJECT_DIR/logs/storage_safety/runtime/$JOB"
@@ -48,4 +62,9 @@ if [ ! -x "$PYTHON_BIN" ]; then
   exit 69
 fi
 
-exec "$PYTHON_BIN" scripts/storage_safety.py run --job "$JOB" -- "$@"
+exec "$PYTHON_BIN" scripts/storage_safety.py run \
+  --job "$JOB" \
+  --trigger-type "$TRIGGER_TYPE" \
+  --scheduled-at "$SCHEDULED_AT" \
+  --invocation-id "$INVOCATION_ID" \
+  -- "$@"
