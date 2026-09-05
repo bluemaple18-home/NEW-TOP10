@@ -30,6 +30,19 @@ DEFAULT_POLICY = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.js
 VALIDATION_MARKER_SCHEMA = "top10-storage-validation-root.v1"
 
 
+def _effective_trigger_type(
+    requested: str,
+    *,
+    parent_pid: int | None = None,
+) -> str:
+    """一般 CLI 不得把 caller 自述的 natural 直接當 scheduler origin。"""
+
+    resolved_parent = os.getppid() if parent_pid is None else parent_pid
+    if requested == "natural" and resolved_parent != 1:
+        return "manual"
+    return requested
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="TOP10 project-scoped storage safety guard")
     parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
@@ -47,7 +60,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     run.add_argument(
         "--trigger-type",
         choices=("natural", "manual"),
-        default=os.environ.get("TOP10_STORAGE_TRIGGER_TYPE", "manual"),
+        default="manual",
     )
     run.add_argument(
         "--scheduled-at",
@@ -223,7 +236,11 @@ def main(argv: list[str] | None = None) -> int:
         max_runtime_seconds=max_runtime_seconds,
         validation_context=validation_context,
         trusted_validation_entrypoint=trusted_entrypoint,
-        trigger_type=("validation" if validation_only else args.trigger_type),
+        trigger_type=(
+            "validation"
+            if validation_only
+            else _effective_trigger_type(args.trigger_type)
+        ),
         scheduled_at=(None if validation_only else args.scheduled_at),
         invocation_id=(None if validation_only else args.invocation_id),
     )

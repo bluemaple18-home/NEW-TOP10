@@ -27,15 +27,13 @@ if [ "$#" -eq 0 ]; then
   exit 64
 fi
 
-# launchd 直接啟動時 parent 是 PID 1；互動 shell／驗證執行預設為 manual。
-# 明確 override 保留給測試與維運，但不由 child command 反向推導 trigger。
-TRIGGER_TYPE="${TOP10_STORAGE_TRIGGER_TYPE:-}"
-if [ -z "$TRIGGER_TYPE" ]; then
-  if [ "$PPID" -eq 1 ]; then
-    TRIGGER_TYPE="natural"
-  else
-    TRIGGER_TYPE="manual"
-  fi
+# launchd 直接啟動時 parent 是 PID 1；caller env 不得自述 natural。
+# manual kickstart 仍與自然 fire 同為 PID 1，所以 receipt 只記 origin candidate，
+# natural acceptance 必須由外部 cadence verifier 完成。
+if [ "$PPID" -eq 1 ]; then
+  TRIGGER_TYPE="natural"
+else
+  TRIGGER_TYPE="manual"
 fi
 INVOCATION_STAMP="$(date -u '+%Y%m%dT%H%M%SZ')"
 SCHEDULED_AT="${TOP10_STORAGE_SCHEDULED_AT:-$(date -u '+%Y-%m-%dT%H:%M:%SZ')}"

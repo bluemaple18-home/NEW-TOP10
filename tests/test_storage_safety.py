@@ -58,6 +58,7 @@ from app.storage_safety import (  # noqa: E402
     unknown_changed_paths,
 )
 from scripts.storage_safety import (  # noqa: E402
+    _effective_trigger_type,
     _path_under_root,
     parse_args as parse_storage_args,
     validate_isolated_root,
@@ -178,6 +179,12 @@ def test_storage_guard_cli_accepts_scheduler_invocation_metadata() -> None:
     assert args.trigger_type == "natural"
     assert args.scheduled_at == "2026-09-05T09:30:00+00:00"
     assert args.invocation_id == "daily-20260905T093000Z-test"
+
+
+def test_manual_cli_cannot_self_attest_natural_origin() -> None:
+    assert _effective_trigger_type("natural", parent_pid=4321) == "manual"
+    assert _effective_trigger_type("natural", parent_pid=1) == "natural"
+    assert _effective_trigger_type("manual", parent_pid=1) == "manual"
 
 
 def validation_contract_fixture(
@@ -558,7 +565,7 @@ class StorageSafetyRegressionTest(unittest.TestCase):
 
     def test_legacy_denial_replaces_unrelated_success_latest(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-legacy-success-") as tmp:
-            root = Path(tmp)
+            root = Path(tmp).resolve()
             (root / "output").mkdir()
             runtime_dir = root / "logs" / "storage_safety"
             marker = runtime_dir / "restart_denied" / "daily.json"
@@ -858,6 +865,177 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertEqual(unrelated.read_text(encoding="utf-8"), "unchanged")
             self.assertEqual(marker["reasons"], ["GUARD_INTERNAL_ERROR_RuntimeError"])
             self.assertEqual(receipt["reasons"], marker["reasons"])
+
+    def test_persistent_marker_write_failure_blocks_next_child_from_receipt(self) -> None:
+        """marker 無法落盤時，durable STOPPED receipt 仍須封住下一次啟動。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-storage-marker-persistent-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            original_atomic_json = storage_safety._atomic_json
+
+            def fail_marker(path: Path, payload: dict[str, object]) -> None:
+                if path.parent.name == "restart_denied":
+                    raise OSError("fixture persistent marker failure")
+                original_atomic_json(path, payload)
+
+            with mock.patch.object(
+                storage_safety,
+                "_atomic_json",
+                side_effect=fail_marker,
+            ):
+                stopped = run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(sample_interval_seconds=1),
+                    (),
+                    ["/bin/sh", "-c", "printf changed > source.py; sleep 1"],
+                    sampler=lambda _pid: Sample(
+                        time.time(), 0, 0, 100_000, 50_000, 1024, 0
+                    ),
+                    invocation_id="daily-marker-failure",
+                )
+                denied = run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(sample_interval_seconds=1),
+                    (),
+                    ["/bin/sh", "-c", "printf ran > output/second-child"],
+                    sampler=lambda _pid: Sample(
+                        time.time(), 0, 0, 100_000, 50_000, 1024, 0
+                    ),
+                    invocation_id="daily-after-marker-failure",
+                )
+
+            receipt = json.loads(
+                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual((stopped, denied), (70, 75))
+            self.assertFalse((root / "output" / "second-child").exists())
+            self.assertIs(receipt["restart_denied_marker_persisted"], False)
+            self.assertIn("RESTART_DENIED_MARKER_WRITE_FAILED", receipt["reasons"])
+
+    def test_marker_embeds_root_receipt_for_post_marker_process_death(self) -> None:
+        """marker 成功後立刻死亡，下一輪仍須還原完整 root forensic receipt。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-storage-marker-crash-") as tmp:
+            root = Path(tmp).resolve()
+            (root / "output").mkdir()
+            runtime_dir = root / "logs" / "storage_safety"
+            archive = runtime_dir / "receipts" / "daily" / "daily-crash-window.json"
+            original_atomic_json = storage_safety._atomic_json
+            marker_written = False
+
+            def die_after_marker(path: Path, payload: dict[str, object]) -> None:
+                nonlocal marker_written
+                if path.parent.name == "restart_denied":
+                    original_atomic_json(path, payload)
+                    marker_written = True
+                    return
+                if marker_written and path == archive and payload.get("status") == "STOPPED":
+                    raise KeyboardInterrupt("fixture process death after marker")
+                original_atomic_json(path, payload)
+
+            with (
+                mock.patch.object(
+                    storage_safety,
+                    "_atomic_json",
+                    side_effect=die_after_marker,
+                ),
+                mock.patch.object(
+                    storage_safety,
+                    "evaluate_runtime",
+                    return_value=storage_safety.StopDecision(
+                        True,
+                        ("FIXTURE_RUNTIME_STOP",),
+                    ),
+                ),
+                self.assertRaisesRegex(KeyboardInterrupt, "process death after marker"),
+            ):
+                run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(sample_interval_seconds=1),
+                    (),
+                    ["/bin/sleep", "30"],
+                    sampler=lambda _pid: Sample(
+                        time.time(), 0, 0, 100_000, 50_000, 1024, 0
+                    ),
+                    invocation_id="daily-crash-window",
+                )
+
+            marker = json.loads(
+                (runtime_dir / "restart_denied" / "daily.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            claim = json.loads(archive.read_text(encoding="utf-8"))
+            self.assertEqual(claim["schema_version"], "top10-storage-invocation-claim.v1")
+            self.assertEqual(marker["root_receipt"]["status"], "STOPPED")
+
+            denied = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(),
+                (),
+                ["/bin/sh", "-c", "printf ran > output/second-child"],
+                invocation_id="daily-after-crash-window",
+            )
+            restored = json.loads(archive.read_text(encoding="utf-8"))
+
+            self.assertEqual(denied, 75)
+            self.assertFalse((root / "output" / "second-child").exists())
+            self.assertEqual(restored["status"], "STOPPED")
+            self.assertIn("FIXTURE_RUNTIME_STOP", restored["reasons"])
+            self.assertGreaterEqual(len(restored["samples"]), 2)
+
+    def test_duplicate_invocation_is_rejected_before_child_spawn(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-duplicate-invocation-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            command = [
+                sys.executable,
+                "-c",
+                "from pathlib import Path; import time; "
+                "p=Path('output/count.txt'); "
+                "p.write_text((p.read_text() if p.exists() else '') + 'x'); "
+                "time.sleep(1)",
+            ]
+            sampler = lambda _pid: Sample(
+                time.time(), 0, 0, 100_000, 50_000, 1024, 0
+            )
+
+            first = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(sample_interval_seconds=1),
+                (),
+                command,
+                sampler=sampler,
+                invocation_id="daily-duplicate",
+            )
+            second = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(sample_interval_seconds=1),
+                (),
+                command,
+                sampler=sampler,
+                invocation_id="daily-duplicate",
+            )
+
+            latest = json.loads(
+                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual((first, second), (0, 75), latest.get("reasons"))
+            self.assertEqual(
+                (root / "output" / "count.txt").read_text(encoding="utf-8"),
+                "x",
+            )
 
     def test_guard_stops_registered_new_and_modified_files_outside_meter(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-unmetered-") as tmp:
@@ -3007,14 +3185,15 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
             )
 
-            self.assertEqual(result, 0)
+            self.assertEqual(result, 0, receipt.get("reasons"))
             self.assertEqual(receipt["status"], "OK")
             self.assertEqual(receipt["child_exit_code"], 0)
             self.assertEqual(receipt["trigger_type"], "natural")
             self.assertEqual(receipt["scheduled_at"], "2026-09-05T09:30:00+00:00")
             self.assertEqual(receipt["invocation_id"], "daily-20260905T093000Z-test")
             self.assertIs(receipt["child_spawned"], True)
-            self.assertEqual(receipt["consecutive_natural_guard_cycles"], 1)
+            self.assertEqual(receipt["consecutive_natural_guard_cycles"], 0)
+            self.assertIs(receipt["natural_trigger_verified"], False)
             self.assertEqual(receipt["accepted_natural_cycles"], 0)
             self.assertEqual(receipt["acceptance_status"], "NATURAL_ACCEPTANCE_PENDING")
             self.assertEqual(receipt["reasons"], [])
@@ -3067,7 +3246,8 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             )
             second_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             self.assertEqual(second_result, 0)
-            self.assertEqual(second_receipt["consecutive_natural_guard_cycles"], 2)
+            self.assertEqual(second_receipt["consecutive_natural_guard_cycles"], 0)
+            self.assertIs(second_receipt["natural_trigger_verified"], False)
             self.assertEqual(second_receipt["accepted_natural_cycles"], 0)
             self.assertEqual(
                 second_receipt["acceptance_status"],
@@ -4156,6 +4336,7 @@ raise SystemExit(
                 self.assertNotIn("KeepAlive", payload)
 
         wrapper = (PROJECT_ROOT / "scripts" / "run_with_storage_guard.sh").read_text(encoding="utf-8")
+        self.assertNotIn("TOP10_STORAGE_TRIGGER_TYPE:-", wrapper)
         for variable in (
             "TMPDIR",
             "UV_CACHE_DIR",
