@@ -37,4 +37,4 @@
 
 ## Next decision
 
-未取得新的 production 授權前維持 marker。若授權 bounded recovery，只清 Fog marker並等待下一次自然 15 分鐘 cadence；不做 manual run 或 kickstart。若再次 cadence failure，停止重試並以新 receipt 建立最小 repair。
+本判決當時未取得新的 production 授權，因此先維持 marker。後續 Owner 已授權 bounded recovery；marker 清除成功，但下一次自然 invocation 因 GUI launchd domain 留在 on-demand-only mode 而未建立。後續證據與新 blocker 見 `a5-fog-marker-clear-launchd-domain-no-go.md`。

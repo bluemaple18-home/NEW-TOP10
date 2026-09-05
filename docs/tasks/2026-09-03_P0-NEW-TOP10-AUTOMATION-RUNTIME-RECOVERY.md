@@ -453,3 +453,11 @@ Owner 後續分別明確授權 dormant runtime pin 與 A4 production activation�
 目前 program terminal state：`BLOCKED_WITH_REPRODUCIBLE_EVIDENCE`。
 
 2026-09-04 20:07 的第一個 Fog 自然週期已在 20:12 因 `LIVE_SAMPLE_CADENCE_EXCEEDED` 被 guard 終止，之後 6 次自然 invocation 均被 persistent marker 拒絕。詳細證據位於 `docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A5-NATURAL-20260905/`。下一個 Mainline 動作是決定 Fog marker 的 bounded recovery；不得以 manual run／kickstart 代替。A6 disabled-job intent reconciliation 維持 `pending`。
+
+## 10. A5 control-plane checkpoint — 2026-09-05
+
+Owner 已明確授權單一 Fog marker clear 與下一個自然 15 分鐘週期取證。清除前 marker identity／SHA、runtime SHA、容量、程序與 lock 均已驗證；只刪除 Fog marker，未做 manual run、kickstart、reload 或其他 production mutation。
+
+Marker 清除後，Fog `runs` 從 02:22 到 10:40 持續停在 `7`，latest receipt 與 worker log 也未更新。launchd unified log 證明這不是新的 Fog execution failure：2026-09-04 21:54:20 的 Restart 在 21:55:05 因 `cmux` 無法結束而中斷，GUI launchd domain 已先進入 on-demand-only mode；Fog 21:57:26 的 interval event 因此只 pending，domain response 為 `36`。
+
+目前 program terminal state維持：`BLOCKED_WITH_REPRODUCIBLE_EVIDENCE`；具體 blocker 為 `BLOCKED_BY_GUI_LAUNCHD_DOMAIN`。下一個 Mainline 動作不是改 Fog code，也不是 kickstart，而是取得 Owner 對完整 GUI session recovery 的獨立授權；session 恢復後仍須等待自然 interval 完成 A5。詳細證據見 `docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A5-NATURAL-20260905/a5-fog-marker-clear-launchd-domain-no-go.md`。

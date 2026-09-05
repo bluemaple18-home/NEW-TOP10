@@ -11,7 +11,7 @@
 - Daily、External Review Preflight、Fog 的 installed plist 與 launchd owner 均已指向隔離 runtime。
 - A4 後未手動觸發 child、未 push、未修改其他五條 disabled job。
 - `main` 與 `origin/main` 已同步在 `25d54dab6fa4514ee7f2b2ea0afc3da14a33f6de`。
-- Fog 第一個自然週期已失敗；目前有 persistent restart-denied marker。
+- Fog 第一個自然週期已失敗；原 persistent marker 已依 Owner 的單次明確授權清除，目前未復生。
 - Canonical frontier：`docs/operations/CURRENT_OPERATIONAL_FRONTIER.md`。
 - Program authority：`docs/tasks/2026-09-03_P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY.md`。
 
@@ -23,7 +23,7 @@
 
 ## Blocker
 
-Fog 在 2026-09-04 20:07 自然啟動後，於 20:12 因 `LIVE_SAMPLE_CADENCE_EXCEEDED` 被 guard 終止；後續 6 次 invocation 被 persistent marker 拒絕。A5 目前為 `BLOCKED_WITH_REPRODUCIBLE_EVIDENCE`。沒有新授權前不得清 marker 或 kickstart。
+Fog 在 2026-09-04 20:07 自然啟動後，於 20:12 因 `LIVE_SAMPLE_CADENCE_EXCEEDED` 被 guard 終止；後續 6 次 invocation 被 persistent marker 拒絕。Marker 已於 2026-09-05 02:21–02:22 清除，但 launchd 沒建立第 8 次 invocation。RCA 證明 2026-09-04 21:54 的 Restart 被 `cmux` 中斷後，GUI launchd domain 留在 on-demand-only mode；Fog interval event 只 pending，response `36`。A5 目前為 `BLOCKED_BY_GUI_LAUNCHD_DOMAIN`。
 
 ## Candidate fork
 
@@ -32,7 +32,7 @@ Fog 在 2026-09-04 20:07 自然啟動後，於 20:12 因 `LIVE_SAMPLE_CADENCE_EX
 
 ## Next step
 
-決定 Fog bounded recovery：目前 sampler timing 已回復正常，但第一個 detailed STOPPED receipt 被後續 persistent-denial latest receipt 覆寫，無法證明昨晚五分鐘 stall 的精確來源。先保留 marker；若 Owner 授權 clear，僅允許等待下一次自然 cadence 重試，不做 manual kickstart。
+取得 Owner 對完整 GUI login session／正常重開機的獨立授權，解除失敗 Restart 留下的 on-demand-only domain；之後只等待自然 cadence，不做 manual kickstart。Fog marker 目前不存在，不再重複清除。
 
 ## Evidence
 
@@ -40,7 +40,8 @@ Fog 在 2026-09-04 20:07 自然啟動後，於 20:12 因 `LIVE_SAMPLE_CADENCE_EX
 - Activation receipt：同目錄下 `activation-receipt-ab7c418-20260904T195149+0800.json`
 - Receipt SHA-256：`0a00d989c5f221feb02ec3bc90874ab2d46983c34bd65b32a93fe8b179b9f7a2`
 - A5 Fog failure：`docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A5-NATURAL-20260905/a5-fog-first-natural-no-go.md`
+- A5 GUI launchd domain blocker：`docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A5-NATURAL-20260905/a5-fog-marker-clear-launchd-domain-no-go.md`
 
 ## Limits
 
-沒有新授權前，不 kickstart、不補跑、不改 launchd/plist、marker、runtime SHA，不送外部 write、不 push。
+沒有新授權前，不 kickstart、不補跑、不改 launchd/plist、marker、runtime SHA，不登出／重開機，不送外部 write、不 push。
