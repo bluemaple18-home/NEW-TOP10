@@ -1,8 +1,8 @@
 # NEW-TOP10 Research Spine Backlog
 
-更新：2026-09-02
+更新：2026-09-06
 
-狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO`
+狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO / TALIB_01_P1_REGISTERED_NOT_ADMITTED`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -74,10 +74,13 @@ BC-CP1                     = ADMIT_C0_PHASE_2 / DECIDED
 C0-P2                      = ACCEPTED / SPENT_AND_CLOSED
 B0-P2                      = NO_GO_INSUFFICIENT_DECISION_VALUE
 B1 / C1                    = NOT_ADMITTED
-R14                         = NO_GO / NOT_ADMITTED
+R14                        = NO_GO / NOT_ADMITTED
+TALIB-01                   = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY
 ```
 
 已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史；BC-CP1 decision只讓既有C0-P2 scope完成權限閉環，不產生current execution authority。B0-P2已因缺research-valid measured gap與E4 decision value裁決NO-GO；不得直接跳到B1、C1或implementation。獨立Forecast／TFM3 fork不由本backlog自動准入。
+
+[#16 TALIB-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) 只登記 TA-Lib 作為 P1 indicator-provider / correctness donor；它不改變 current frontier、不 admission runtime implementation，也不增加 canonical Research Matrix 維度。
 
 ### 部分平行規則
 
@@ -272,6 +275,7 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 | C5 Legacy Bridge Retirement | `PLANNED / NOT_ADMITTED` | C4＋per-bridge evidence | 逐橋移除 A6 指定 readers/writers/adapters |
 | D0 RegimePolicyBundle | `PLANNED / NOT_ADMITTED` | B4＋C4 evidence | primary、alternatives、fallback、evidence、validity lifecycle |
 | D1 Promotion and Expiry Gate | `PLANNED / NOT_ADMITTED` | D0 accepted | development → validation → sealed OOS → forward shadow → review／expiry |
+| [#16 TALIB-01 Indicator Provider & Conformance Hardening](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing indicator seam audit | TA-Lib adapter、indicator metadata/compatibility gate、behavioral conformance、RunReceipt provenance；**zero canonical Research Matrix dimension growth** |
 
 ---
 
@@ -526,6 +530,75 @@ B0-P1、C0-P1 只固定直接支援 authority／count／identity／runner seam�
 - Ray Tune responsibility boundary。
 - Taskiq／Celery（reference only）。
 
+### TALIB-01 — P1 indicator-provider / correctness donor
+
+Issue authority：[#16](https://github.com/bluemaple18-home/NEW-TOP10/issues/16)
+
+Current verdict：
+
+```text
+PRIORITY = P1
+REUSE = ABSORB / DIRECT_REUSE_WITH_ADAPTER
+ADMISSION = REGISTERED / NOT_ADMITTED
+RUNTIME_AUTHORITY = NONE
+CANONICAL_MATRIX_DIMENSION_DELTA = 0
+```
+
+TA-Lib 的定位只允許是 `Technical Indicator Compute Provider`、indicator metadata donor 與 conformance/correctness prior art。不得把它升格為 Market Data Truth、Research Truth、Backtest Engine 或策略有效性的 oracle。
+
+未來若 Owner 明確 admission bounded implementation，P1 scope 限制為：
+
+```text
+P1-A indicator provider adapter
+P1-B indicator canonical metadata / execution-semantics contract
+P1-C compile-time compatibility gate
+P1-D behavioral Indicator Conformance Corpus
+P1-E RunReceipt indicator provenance
+```
+
+其中 provider、provider version、wrapper version、backend、lookback、warmup、unstable period、stability class、history-start policy、missing-data policy **不得因 TA-Lib integration 自動升格為 canonical Research Matrix 維度**。它們應依語意放在 TrialSpec/execution semantics、compile validation、RunReceipt provenance 或 conformance evidence。
+
+允許建立獨立 `Indicator Conformance Matrix` 驗 provider / implementation，但該矩陣不是 Research Matrix，不得改變 canonical research-space count。
+
+最低 acceptance 邊界：
+
+- TA-Lib 導入造成的 canonical Research Matrix dimension growth = `0`；
+- invalid indicator configuration 在 execution 前被 compatibility gate 拒絕；
+- conformance corpus 至少覆蓋 full-range/partial-range、不同 history start、flat price、zero close、tiny-scale values、NaN gaps、period/session boundaries 與已知歷史 defect classes；
+- wrapper `set/get` round-trip 不得單獨作 correctness proof，必須驗 observable behavior；
+- material provider/core/wrapper/backend/input/output provenance 可由 RunReceipt／其 referenced artifact 重建；
+- provider swap 不得要求改寫 Research Spine、核心 strategy semantics 或 backtest authority。
+
+P2 watch only：TA-Lib current `main` 的 0.8.x streaming/codegen 只作 donor/reference；必須等正式 0.8.x release pin 且證明 batch-vs-stream conformance，才可另行裁決 production adoption。沒有多 executor language 的 measured requirement，不建立 NEW-TOP10 自有 general indicator codegen subsystem。
+
+Hard stops：
+
+```text
+NO new canonical research dimensions solely for TA-Lib concerns
+NO Research Spine replacement
+NO Backtest/Strategy Matrix replacement
+NO Existing Backtest Engine replacement
+NO TA-Lib formula copy into Research Spine authority code
+NO direct StrategySpec/TrialSpec binding to Python talib.* implementation detail
+NO TA-Lib output as research oracle
+NO unreleased 0.8.x streaming production dependency
+NO runtime / queue / runner / schema / scheduler / publish / production authority from this registration
+```
+
+Pinned research sources for future admission review：
+
+- `https://github.com/TA-Lib/ta-lib`
+- `https://ta-lib.org/functions/`
+- `https://ta-lib.org/api/`
+- `https://ta-lib.org/functions/stability.html`
+- `https://github.com/TA-Lib/ta-lib/blob/main/CLAUDE.md`
+- `https://github.com/TA-Lib/ta-lib/blob/main/docs/streaming-api-design.md`
+- `https://github.com/TA-Lib/ta-lib/issues/98`
+- `https://github.com/ta-lib/ta-lib-python`
+- `https://github.com/ta-lib/ta-lib-python/issues/752`
+
+2026-09-06 research observation：latest formal core release observed=`v0.7.1`（2026-07-03）；current main 含未正式 release 的 0.8.1 work；license=`BSD-3-Clause`。若未來 admission 時 upstream 已前進，必須重新 pin exact release/SHA 與 wrapper version，不得沿用本次 observed version 作永久 authority。
+
 每一個實際使用的 donor 都必須固定：
 
 ```text
@@ -623,6 +696,7 @@ B0／C0：
 - Phase 1 各自只交四份文件。
 - 不在每個小發現重審。
 - BC-CP1已完成；B0-P2 admission已裁決NO-GO。Research Spine目前沒有active execution frontier。
+- TALIB-01 只是 P1 donor registration；未經 Owner 後續明確 admission 不得施工，也不得擴大 Research Matrix。
 - 卡片研究完成不等於下一張自動 admission。
 - B 不得因最優化需求取得 execution authority。
 - C 不得因可靠執行需求取得 decision authority。
@@ -636,11 +710,13 @@ CURRENT:
 - F0 / B0-P1 / C0-P1 = ACCEPTED
 - R13 = REGISTERED_FORWARD_BUNDLE_VERIFIED / downstream_authority=NONE
 - R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
+- TALIB-01 = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 
 REQUIRED NEXT GATE:
 - no active Research Spine execution gate
 - B0-P2 = NO_GO_INSUFFICIENT_DECISION_VALUE
 - C0-P2 = ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY
+- TALIB-01 requires a future explicit Owner admission before bounded implementation
 - independent Forecast / TFM3 fork requires its own preflight and authority
 
 NOT ADMITTED:
@@ -648,6 +724,7 @@ NOT ADMITTED:
 - B1 / B2 / B3 / B4
 - C1 / C2 / C3 / C4 / C5
 - D0 / D1
+- TALIB-01 provider implementation / conformance execution / 0.8.x streaming adoption
 
 NO CHANGE AUTHORIZED:
 - runtime / queue / runner / schema / database
