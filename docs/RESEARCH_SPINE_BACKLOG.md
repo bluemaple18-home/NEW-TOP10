@@ -2,7 +2,7 @@
 
 更新：2026-09-06
 
-狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO / TALIB_01_P1_REGISTERED_NOT_ADMITTED / ME_D1_P1_REGISTERED_NOT_ADMITTED`
+狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO / TALIB_01_P1_REGISTERED_NOT_ADMITTED / ME_D1_P1_REGISTERED_NOT_ADMITTED / RADAR_01_P1_REGISTERED_NOT_ADMITTED`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -59,6 +59,7 @@ canonical backlog    = docs/ai-core-backlog.md
 - `aeae2c3`：歷史草稿／問題清單，只可逐段取材；不 merge、不作 execution base。
 - Trace V2：只有固定可驗證來源後，才可作 cross-project combination-kernel donor；無 pin 時標示 `UNPINNED_CROSS_PROJECT_DONOR`。
 - OMI：market evidence／lineage supplemental prior art；ME-D1 只吸收其 target-architecture seam，不把 OMI 變成 runtime dependency，也不是 B／C governing architecture。
+- Owner-provided signal-radar product pattern：只吸收 post-close scanner／confluence／evidence-backed UI 的 product interaction pattern；RADAR-01 不複製其 proprietary signal inventory、marketing claims 或 backtest percentages。
 
 ---
 
@@ -77,6 +78,7 @@ B1 / C1                    = NOT_ADMITTED
 R14                        = NO_GO / NOT_ADMITTED
 TALIB-01                   = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY
 ME-D1                      = P1 REGISTERED / NOT_ADMITTED / FINALIZED_DAILY_CLOSE_ONLY / NO_RUNTIME_AUTHORITY
+RADAR-01                   = P1 REGISTERED / NOT_ADMITTED / DAILY_CLOSE_PRODUCT_PROJECTION / NO_RUNTIME_AUTHORITY
 ```
 
 已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史；BC-CP1 decision只讓既有C0-P2 scope完成權限閉環，不產生current execution authority。B0-P2已因缺research-valid measured gap與E4 decision value裁決NO-GO；不得直接跳到B1、C1或implementation。獨立Forecast／TFM3 fork不由本backlog自動准入。
@@ -84,6 +86,8 @@ ME-D1                      = P1 REGISTERED / NOT_ADMITTED / FINALIZED_DAILY_CLOS
 [#16 TALIB-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) 只登記 TA-Lib 作為 P1 indicator-provider / correctness donor；它不改變 current frontier、不 admission runtime implementation，也不增加 canonical Research Matrix 維度。
 
 [#17 ME-D1](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) 只登記「finalized Daily Close first slice + future Market Evidence seam」。它保留未來完整 Market Evidence target architecture，但不 admission 即時行情、多 provider resolver、repair/reconciliation、broker integration 或其他 market-data runtime；Research Spine 與 canonical Research Matrix 維度均不變。
+
+[#18 RADAR-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) 只登記「Daily Close → eligible SignalSpec → scanner → SignalOccurrence → deterministic confluence → Radar Projection」的產品化路徑。它是 rebuildable product projection，不是 Research Truth、Research Matrix 或 production ranking authority；不 admission intraday、額外市場資料源、AI signal/ranking authority、scheduler/publish 或 production。
 
 ### 部分平行規則
 
@@ -181,6 +185,8 @@ Layer D — Regime Policy Promotion
 把通過多階段驗證的研究結果封裝成有生命週期的盤況配置。
 ```
 
+RADAR-01 若未來 admission，位於上述 Research Spine／Research Ledger 之上的 **product projection surface**，不是新增 Layer A–D authority。它只能消費已治理的 Daily Close input、SignalSpec 與 research evidence，產出可刪除重建的 scanner/radar views。
+
 ---
 
 ## 5. Card A closeout and permanent invariants
@@ -207,6 +213,7 @@ Card A 母卡與 A0–A6 均已完成／主線接受：
 7. compatibility bridge 必須有 owner、removal condition、removal test、target stage。
 8. B 可消費 Card A projections，但不得執行。
 9. C 可執行 admitted specs，但不得重新計算 priority。
+10. SignalOccurrence、ConfluenceScore、Radar ranking／view 與 AI explanation 都是 downstream rebuildable projections，不得升格為 Research Truth。
 
 ---
 
@@ -253,7 +260,7 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
               C5 Legacy Bridge Retirement
 ```
 
-依賴圖只表示 prerequisite，不代表任何 Phase 2 或後續卡已獲授權。
+依賴圖只表示 prerequisite，不代表任何 Phase 2 或後續卡已獲授權。ME-D1、TALIB-01、RADAR-01 是獨立 registered donor/product cards，不藉由此 B/C/D prerequisite graph 自動取得 implementation authority。
 
 ---
 
@@ -280,6 +287,7 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 | D1 Promotion and Expiry Gate | `PLANNED / NOT_ADMITTED` | D0 accepted | development → validation → sealed OOS → forward shadow → review／expiry |
 | [#16 TALIB-01 Indicator Provider & Conformance Hardening](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing indicator seam audit | TA-Lib adapter、indicator metadata/compatibility gate、behavioral conformance、RunReceipt provenance；**zero canonical Research Matrix dimension growth** |
 | [#17 ME-D1 Daily Close Evidence Slice & Future Market Evidence Seam](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing dataset/input seam audit | finalized Daily Close → validated observation → immutable DatasetSnapshot；保留 future Market Evidence seam，**zero Research Spine / Matrix dimension growth** |
+| [#18 RADAR-01 Daily Close Signal Radar Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋ME-D1 input seam＋existing Signal/Research Ledger audit | SignalSpec catalog、Daily Close scanner、SignalOccurrence、evidence-backed stats、deterministic confluence、Radar Projection；**zero Research Spine / Matrix dimension growth** |
 
 ---
 
@@ -774,6 +782,163 @@ Pinned OMI sources for future admission review：
 
 若未來 admission 時 OMI upstream 已前進，必須重新 pin exact release/SHA 並做 delta check；本次 observed SHA 只保存 2026-09-06 donor research provenance，不是永久 implementation authority。
 
+### RADAR-01 — P1 Daily Close signal-radar product projection
+
+Issue authority：[#18](https://github.com/bluemaple18-home/NEW-TOP10/issues/18)
+
+Owner ruling / current verdict：
+
+```text
+PRIORITY = P1
+REUSE = EXTEND_EXISTING / PRODUCT_PROJECTION
+ADMISSION = REGISTERED / NOT_ADMITTED
+RUNTIME_AUTHORITY = NONE
+CURRENT_INPUT_SCOPE = FINALIZED_DAILY_CLOSE_ONLY
+RESEARCH_SPINE_DELTA = 0
+CANONICAL_MATRIX_DIMENSION_DELTA = 0
+AI_DECISION_AUTHORITY = NONE
+```
+
+定位只允許是 **Research Spine／Research Ledger 之上的 rebuildable product projection**：
+
+```text
+ME-D1 finalized Daily DatasetSnapshot
+        ↓
+Indicator Provider Boundary
+  ├─ existing/native
+  └─ TALIB-01 future adapter (only if separately admitted)
+        ↓
+Radar-eligible SignalSpec
+        ↓
+Daily Market-wide Signal Scanner
+        ↓
+SignalOccurrence
+        ↓
+Deterministic Confluence Engine
+        ↓
+Radar Projection
+  ├─ bullish
+  ├─ bearish
+  └─ later personalized views
+        ↓
+optional AI explanation (P2, downstream only)
+```
+
+永久 semantic split：
+
+```text
+Indicator != Signal != Research Trial != Radar Rank
+```
+
+- `Indicator` 是計算結果／feature primitive，例如 `RSI(14)`；
+- `SignalSpec` 是 deterministic condition，例如 `RSI crosses above 30` 或已治理的 composite condition；
+- `TrialSpec / Matrix` 是研究與驗證空間；
+- `SignalOccurrence / ConfluenceScore / Radar view` 是可重建產品 projection。
+
+TALIB-01 若未來 admission，只可提供 indicator computation / metadata / conformance；不得因 RADAR-01 被強制施工，也不得成為 SignalSpec、研究 admission 或 Radar rank authority。
+
+未來若 Owner 明確 admission bounded implementation，P1 scope 限制為：
+
+```text
+P1-A Signal Catalog / SignalSpec contract
+P1-B finalized-Daily market-wide scanner
+P1-C SignalOccurrence + Radar Projection
+P1-D evidence-backed historical statistics
+P1-E deterministic confluence ranking with redundancy policy
+```
+
+SignalSpec 最小語意應由既有 contract 映射或等價欄位覆蓋：
+
+```text
+signal_id / signal_version
+name / category / direction
+deterministic rule reference
+required indicators / features
+required dataset contract
+evaluation horizon
+regime applicability when evidence-backed
+research_evidence_ref
+eligibility_status
+educational_explanation_ref
+```
+
+`SignalOccurrence` 至少應能追到：instrument、trading_date、SignalSpec version、direction、input DatasetSnapshot fingerprint、indicator/provider provenance reference、rule evaluation result、research_evidence_ref 與 projection build version。它不得成為第二套 canonical signal/research truth。
+
+Radar 顯示歷史表現時不得只保留 `win_rate`。底層 evidence/projection reference 至少要能追到適用的 `sample_size`、forward horizon、return distribution／robust summary、downside/drawdown、regime-conditioned result、OOS/sealed/forward status、freshness/evidence version 與 Research Ledger/receipt reference。UI 可以縮減欄位，但 authority 不可縮成一個勝率。
+
+Signal eligibility 必須阻擋 feature zoo：
+
+```text
+Candidate Signal
+      ↓
+Research Matrix / governed evaluation
+      ↓
+Evidence / acceptance criteria
+      ↓
+Radar Eligible SignalSpec
+      ↓
+Daily scanner
+```
+
+競品有 36、50 或 200 個訊號都不是 NEW-TOP10 的數量目標。沒有最低研究 evidence 的 signal 不因 UI 需求直接進 Radar。
+
+Confluence 第一版必須 deterministic、可稽核；LLM 不得計算 authoritative rank。單純 `hit count` 不能直接當有意義的共振分數，因 MA5/MA10/MA20／多頭排列等高度相關訊號會重複投票。至少先固定 signal-family grouping 與 redundancy/correlation policy；精確 scoring math 若會影響 production ranking，仍需另行 evidence/admission。
+
+P2 / Later only：
+
+```text
+P2 AI one-line explanation = structured deterministic evidence → LLM explanation only
+P2 personalized Radar Profile = filter/weight already-admitted SignalSpecs only
+LATER push notification / intraday radar = separate market-data/runtime admission required
+```
+
+AI 可以解釋「為何入榜、證據、反證、資料限制」，不可創造 authoritative signal、改寫 SignalOccurrence、覆蓋 Research Ledger evidence 或取得 rank authority。
+
+Explicitly deferred / NOT ADMITTED：
+
+```text
+intraday / live radar
+realtime provider / broker integration
+multi-provider resolver / fallback / repair runtime
+fundamental / institutional / branch-flow sources only to imitate competitor breadth
+blind signal-count expansion / feature zoo
+new canonical Research Matrix dimensions
+second canonical signal/research truth store
+AI-generated authoritative signals or AI ranking authority
+raw hit-count ranking without documented redundancy policy
+scheduler / publish / production changes
+Existing Backtest Engine authority changes
+```
+
+Future admitted RADAR-01 acceptance boundary：
+
+- canonical Research Matrix dimension growth = `0`；
+- Research Spine 與 Existing Backtest Engine authority 不變；
+- scanner 只消費 finalized immutable Daily `DatasetSnapshot`，不直接 fetch provider；
+- 相同 dataset fingerprint + SignalSpec versions + indicator semantics 產生 deterministic occurrences；
+- `SignalOccurrence`／Radar 可由上游 contracts/evidence 重建；
+- displayed historical stats 可追到 governed research evidence，`win_rate` 不單獨成 authority；
+- Radar-eligible SignalSpec 必須通過明確 evidence／eligibility gate；
+- confluence 不把高度相關 signal variants 當獨立票無限累加；
+- AI explanation 可完全移除而不影響 deterministic signal/rank/evidence inspectability；
+- current market-data scope 仍是 Daily Close；不要求 intraday 或 provider-platform expansion；
+- 本卡不取得 scheduler/publish/production authority。
+
+Hard stops：
+
+```text
+NO Research Spine replacement
+NO Research Matrix replacement or canonical dimension growth
+NO Existing Backtest Engine replacement
+NO second canonical research/signal truth
+NO feature-zoo target based on competitor signal count
+NO AI authority over signal generation or ranking
+NO intraday / live / provider expansion from RADAR-01
+NO runtime / queue / runner / scheduler / publish / production authority
+```
+
+Product donor provenance：Owner 於 2026-09-06 提供一個 post-close 全市場 signal-radar pattern，包含分類訊號、同日多訊號共振、歷史統計／教學與一句話 AI 解讀。只吸收 interaction/product architecture；未提供可驗證 public source URL，因此 backlog 不捏造 donor URL，也不採信其 proprietary signal formulas、marketing claims 或回測勝率為 prior-art evidence。
+
 每一個實際使用的 donor 都必須固定：
 
 ```text
@@ -873,6 +1038,7 @@ B0／C0：
 - BC-CP1已完成；B0-P2 admission已裁決NO-GO。Research Spine目前沒有active execution frontier。
 - TALIB-01 只是 P1 donor registration；未經 Owner 後續明確 admission 不得施工，也不得擴大 Research Matrix。
 - ME-D1 只是 P1 Daily Close / future Market Evidence seam registration；未經 Owner 後續明確 admission 不得施工，完整 Market Evidence runtime 仍 deferred。
+- RADAR-01 只是 P1 Daily Close product-projection registration；未經 Owner 後續明確 admission 不得施工，不得取得 AI/ranking/runtime authority，也不得藉 Radar 需求擴市場資料範圍。
 - 卡片研究完成不等於下一張自動 admission。
 - B 不得因最優化需求取得 execution authority。
 - C 不得因可靠執行需求取得 decision authority。
@@ -888,6 +1054,7 @@ CURRENT:
 - R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
 - TALIB-01 = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 - ME-D1 = P1 REGISTERED / NOT_ADMITTED / FINALIZED_DAILY_CLOSE_ONLY / TARGET_ARCHITECTURE_PRESERVED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
+- RADAR-01 = P1 REGISTERED / NOT_ADMITTED / DAILY_CLOSE_PRODUCT_PROJECTION / AI_AUTHORITY=NONE / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 
 REQUIRED NEXT GATE:
 - no active Research Spine execution gate
@@ -895,6 +1062,7 @@ REQUIRED NEXT GATE:
 - C0-P2 = ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY
 - TALIB-01 requires a future explicit Owner admission before bounded implementation
 - ME-D1 requires a future explicit Owner admission before any Daily Close implementation; full Market Evidence Plane requires a separate measured-need admission
+- RADAR-01 requires a future explicit Owner admission after ME-D1 input seam + existing Signal/Research Ledger audit; confluence production ranking requires bounded evidence/admission
 - independent Forecast / TFM3 fork requires its own preflight and authority
 
 NOT ADMITTED:
@@ -905,6 +1073,8 @@ NOT ADMITTED:
 - TALIB-01 provider implementation / conformance execution / 0.8.x streaming adoption
 - ME-D1 Daily Close implementation / data migration / provider rollout
 - full Market Evidence provider resolver / fallback / repair / live-intraday runtime
+- RADAR-01 SignalSpec/scanner/SignalOccurrence/confluence/Radar implementation
+- RADAR-01 AI explanation / personalized profile / push / intraday expansion
 
 NO CHANGE AUTHORIZED:
 - runtime / queue / runner / schema / database
