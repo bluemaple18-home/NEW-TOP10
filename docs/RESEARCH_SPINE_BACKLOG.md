@@ -2,7 +2,7 @@
 
 更新：2026-09-06
 
-狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO / TALIB_01_P1_REGISTERED_NOT_ADMITTED`
+狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO / TALIB_01_P1_REGISTERED_NOT_ADMITTED / ME_D1_P1_REGISTERED_NOT_ADMITTED`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -58,7 +58,7 @@ canonical backlog    = docs/ai-core-backlog.md
 
 - `aeae2c3`：歷史草稿／問題清單，只可逐段取材；不 merge、不作 execution base。
 - Trace V2：只有固定可驗證來源後，才可作 cross-project combination-kernel donor；無 pin 時標示 `UNPINNED_CROSS_PROJECT_DONOR`。
-- OMI：market evidence／lineage supplemental prior art，不是 B／C governing architecture。
+- OMI：market evidence／lineage supplemental prior art；ME-D1 只吸收其 target-architecture seam，不把 OMI 變成 runtime dependency，也不是 B／C governing architecture。
 
 ---
 
@@ -76,11 +76,14 @@ B0-P2                      = NO_GO_INSUFFICIENT_DECISION_VALUE
 B1 / C1                    = NOT_ADMITTED
 R14                        = NO_GO / NOT_ADMITTED
 TALIB-01                   = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY
+ME-D1                      = P1 REGISTERED / NOT_ADMITTED / FINALIZED_DAILY_CLOSE_ONLY / NO_RUNTIME_AUTHORITY
 ```
 
 已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史；BC-CP1 decision只讓既有C0-P2 scope完成權限閉環，不產生current execution authority。B0-P2已因缺research-valid measured gap與E4 decision value裁決NO-GO；不得直接跳到B1、C1或implementation。獨立Forecast／TFM3 fork不由本backlog自動准入。
 
 [#16 TALIB-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) 只登記 TA-Lib 作為 P1 indicator-provider / correctness donor；它不改變 current frontier、不 admission runtime implementation，也不增加 canonical Research Matrix 維度。
+
+[#17 ME-D1](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) 只登記「finalized Daily Close first slice + future Market Evidence seam」。它保留未來完整 Market Evidence target architecture，但不 admission 即時行情、多 provider resolver、repair/reconciliation、broker integration 或其他 market-data runtime；Research Spine 與 canonical Research Matrix 維度均不變。
 
 ### 部分平行規則
 
@@ -276,6 +279,7 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 | D0 RegimePolicyBundle | `PLANNED / NOT_ADMITTED` | B4＋C4 evidence | primary、alternatives、fallback、evidence、validity lifecycle |
 | D1 Promotion and Expiry Gate | `PLANNED / NOT_ADMITTED` | D0 accepted | development → validation → sealed OOS → forward shadow → review／expiry |
 | [#16 TALIB-01 Indicator Provider & Conformance Hardening](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing indicator seam audit | TA-Lib adapter、indicator metadata/compatibility gate、behavioral conformance、RunReceipt provenance；**zero canonical Research Matrix dimension growth** |
+| [#17 ME-D1 Daily Close Evidence Slice & Future Market Evidence Seam](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing dataset/input seam audit | finalized Daily Close → validated observation → immutable DatasetSnapshot；保留 future Market Evidence seam，**zero Research Spine / Matrix dimension growth** |
 
 ---
 
@@ -516,7 +520,7 @@ B0-P1、C0-P1 只固定直接支援 authority／count／identity／runner seam�
 - Ax、BoTorch。
 - Open Bandit Pipeline（admissibility only）。
 - Deflated Sharpe Ratio、Probability of Backtest Overfitting。
-- OMI（supplemental evidence semantics only）。
+- OMI（supplemental evidence semantics only；完整吸收邊界由 ME-D1 固定）。
 
 ### C0 Phase 2 registered sources
 
@@ -598,6 +602,177 @@ Pinned research sources for future admission review：
 - `https://github.com/ta-lib/ta-lib-python/issues/752`
 
 2026-09-06 research observation：latest formal core release observed=`v0.7.1`（2026-07-03）；current main 含未正式 release 的 0.8.1 work；license=`BSD-3-Clause`。若未來 admission 時 upstream 已前進，必須重新 pin exact release/SHA 與 wrapper version，不得沿用本次 observed version 作永久 authority。
+
+### ME-D1 — P1 Daily Close evidence slice / future Market Evidence seam
+
+Issue authority：[#17](https://github.com/bluemaple18-home/NEW-TOP10/issues/17)
+
+Owner ruling / current verdict：
+
+```text
+PRIORITY = P1
+REUSE = ARCHITECTURE_ABSORB / EXTEND_EXISTING
+ADMISSION = REGISTERED / NOT_ADMITTED
+RUNTIME_AUTHORITY = NONE
+CURRENT_MARKET_DATA_SCOPE = FINALIZED_DAILY_CLOSE_ONLY
+TARGET_MARKET_EVIDENCE_ARCHITECTURE = PRESERVED / DEFERRED
+RESEARCH_SPINE_DELTA = 0
+CANONICAL_MATRIX_DIMENSION_DELTA = 0
+```
+
+此卡固定兩層而不可混為同一 implementation scope：
+
+```text
+CURRENT / first bounded slice if separately admitted
+Daily Close Source
+        ↓
+Daily Close Adapter
+        ↓
+Validated DailyBar / DailyClose Observation
+        ↓
+Immutable DatasetSnapshot
+        ↓
+ResearchDefinition / Canonical TrialSpec / Matrix
+        ↓
+Existing Backtest Engine
+
+TARGET / preserved architecture, not admitted now
+Provider Adapter(s)
+        ↓
+Raw Fetch Receipt / MarketObservation
+        ↓
+Pure Resolver
+  selection · freshness · fallback · repair/reconciliation
+        ↓
+DatasetSnapshot + MarketEvidenceManifest
+        ↓
+Research Spine
+```
+
+`DatasetSnapshot` 是 Market Evidence 與 Research Spine 的 handoff seam。未來增加 provider、resolver 或 richer market evidence 時，Research Spine／Matrix／Existing Backtest Engine 不應因 provider architecture 而改寫。
+
+永久 authority boundary：
+
+```text
+MarketObservation != ResearchObservation
+Dataset Registry != Research Ledger
+Capability Registry != Parameter Catalog
+Market Evidence Plane != Research Spine
+OMI != runtime dependency
+```
+
+若未來 Owner 明確 admission ME-D1 bounded implementation，Daily Close 最小 data/evidence contract 必須由既有 contract 映射或等價欄位覆蓋：
+
+```text
+instrument / symbol identity
+trading_date
+open / high / low / close (when daily OHLC is supplied)
+volume (when supplied)
+price_basis / adjustment_policy
+source / provider identity
+observed_at / fetched_at
+finalization_status
+dataset_version / dataset_fingerprint
+missing / duplicate status
+calendar / trade-date semantics
+lineage to exact DatasetSnapshot consumed by the trial
+```
+
+以上是 data contract / provenance / reproducibility semantics，**不是 Research Matrix 維度**。provider、source、freshness、finalization、version、adjustment policy 不得因 Market Evidence work 自動膨脹 canonical research-space count；只有本來就是研究問題的語意才可由另卡明確裁決為研究維度。
+
+最低 deterministic validation：
+
+- missing 不得 silent convert to `0`；
+- duplicate `(instrument, trading_date)` 必須 reject 或依固定 deterministic rule 顯式分類／解決；
+- canonical research dataset 預設只消費 finalized EOD data；
+- raw / adjusted price basis 必須明示，不得在相同 dataset identity 下 silent drift；
+- 若保留 OHLC，必須驗基本值域／關係 invariant，例如 `low <= open/close <= high`；
+- 缺交易日／gap 保留為 evidence，不得默默製造不存在的 bar；
+- 同一 immutable `DatasetSnapshot` / fingerprint 必須代表同一 research input truth，可被重跑與稽核；
+- backtest／strategy authority 不得直接呼叫 provider API 或把 mutable CSV path 當 implicit canonical truth。
+
+現在要保留但不必先長出完整 subsystem 的 seams：
+
+```text
+Source Adapter Boundary
+DatasetSnapshot Contract
+Evidence / Lineage Metadata
+Dataset Version / Fingerprint
+reserved MarketEvidenceManifest boundary
+```
+
+OMI prior-art absorption：
+
+```text
+repo = https://github.com/lulu930128/open-market-intelligence
+observed main = dce83d63bc88da475001ae787c43a4ca848784e7
+README version = 4.5.0
+license = Apache-2.0
+role = TARGET-ARCHITECTURE REFERENCE / FUTURE MARKET-EVIDENCE DONOR
+runtime adoption = DEFERRED
+```
+
+只吸收下列 architecture concepts，不整包搬 OMI product/runtime：
+
+1. provider → provider-neutral/canonical observation → resolver 的 responsibility split；
+2. resolver 負責 resolve，不應在 read path 偷做 acquisition／repair；
+3. source、time、limitations、lineage 與 evidence 一起傳遞；
+4. session、finalization、authority、release、freshness、reconciliation 是正交語意，不應壓成單一 health/freshness flag；
+5. dataset／capability／lineage 等 executable truth 應由 typed contracts/registries 擁有，不由 UI 或文件複製 inventory 當 authority。
+
+Daily Close 第一階段只實作上述概念的最小適用子集；較完整的 session/freshness/authority/release/reconciliation/provider-role semantics 保留為 target seam，等 measured need 再 admission。
+
+Explicitly deferred / NOT ADMITTED：
+
+```text
+intraday / live quotes
+multi-provider automatic selection / fallback
+broker API / account integration
+Level 2 / order book
+live futures feeds
+fundamentals / news / ownership / institutional feeds
+live freshness arbitration
+automated repair / reconciliation runtime
+cross-market synchronization
+portfolio live valuation
+OMI UI / Decision Dock / MCP
+full provider registry / market-data runtime platform
+```
+
+Future admitted ME-D1 acceptance boundary：
+
+- canonical Research Matrix dimension growth = `0`；
+- Research Spine 與 Existing Backtest Engine authority 不變；
+- data acquisition 隔離在 adapter seam，backtest 不直接 fetch；
+- trial 可定位 exact immutable `DatasetSnapshot` / fingerprint；
+- raw/adjusted price basis、EOD finalization、gap/missing/duplicate semantics 明確且有 deterministic tests；
+- future resolver/provider expansion 可插在 DatasetSnapshot 上游而不改 Research Spine／Matrix；
+- OMI 不成為 runtime dependency；
+- full Market Evidence Plane 必須從 measured need 另行 admission，不得由 ME-D1 自動展開。
+
+Hard stops：
+
+```text
+NO full Market Evidence runtime from this registration
+NO live / intraday expansion from this registration
+NO automatic multi-provider fallback from this registration
+NO Research Spine replacement
+NO Existing Backtest Engine replacement
+NO canonical Research Matrix dimension growth
+NO provider-specific calls embedded in TrialSpec / strategy authority
+NO silent source / adjustment / finalization drift
+NO runtime / queue / runner / scheduler / publish / production authority
+```
+
+Pinned OMI sources for future admission review：
+
+- `https://github.com/lulu930128/open-market-intelligence`
+- `https://github.com/lulu930128/open-market-intelligence/blob/dce83d63bc88da475001ae787c43a4ca848784e7/README.md`
+- `https://github.com/lulu930128/open-market-intelligence/blob/dce83d63bc88da475001ae787c43a4ca848784e7/docs/architecture/index.md`
+- `https://github.com/lulu930128/open-market-intelligence/blob/dce83d63bc88da475001ae787c43a4ca848784e7/docs/architecture/BackendArchitecture.md`
+- `https://github.com/lulu930128/open-market-intelligence/blob/dce83d63bc88da475001ae787c43a4ca848784e7/docs/architecture/MarketTemporalContract.md`
+
+若未來 admission 時 OMI upstream 已前進，必須重新 pin exact release/SHA 並做 delta check；本次 observed SHA 只保存 2026-09-06 donor research provenance，不是永久 implementation authority。
 
 每一個實際使用的 donor 都必須固定：
 
@@ -697,6 +872,7 @@ B0／C0：
 - 不在每個小發現重審。
 - BC-CP1已完成；B0-P2 admission已裁決NO-GO。Research Spine目前沒有active execution frontier。
 - TALIB-01 只是 P1 donor registration；未經 Owner 後續明確 admission 不得施工，也不得擴大 Research Matrix。
+- ME-D1 只是 P1 Daily Close / future Market Evidence seam registration；未經 Owner 後續明確 admission 不得施工，完整 Market Evidence runtime 仍 deferred。
 - 卡片研究完成不等於下一張自動 admission。
 - B 不得因最優化需求取得 execution authority。
 - C 不得因可靠執行需求取得 decision authority。
@@ -711,12 +887,14 @@ CURRENT:
 - R13 = REGISTERED_FORWARD_BUNDLE_VERIFIED / downstream_authority=NONE
 - R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
 - TALIB-01 = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
+- ME-D1 = P1 REGISTERED / NOT_ADMITTED / FINALIZED_DAILY_CLOSE_ONLY / TARGET_ARCHITECTURE_PRESERVED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 
 REQUIRED NEXT GATE:
 - no active Research Spine execution gate
 - B0-P2 = NO_GO_INSUFFICIENT_DECISION_VALUE
 - C0-P2 = ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY
 - TALIB-01 requires a future explicit Owner admission before bounded implementation
+- ME-D1 requires a future explicit Owner admission before any Daily Close implementation; full Market Evidence Plane requires a separate measured-need admission
 - independent Forecast / TFM3 fork requires its own preflight and authority
 
 NOT ADMITTED:
@@ -725,6 +903,8 @@ NOT ADMITTED:
 - C1 / C2 / C3 / C4 / C5
 - D0 / D1
 - TALIB-01 provider implementation / conformance execution / 0.8.x streaming adoption
+- ME-D1 Daily Close implementation / data migration / provider rollout
+- full Market Evidence provider resolver / fallback / repair / live-intraday runtime
 
 NO CHANGE AUTHORIZED:
 - runtime / queue / runner / schema / database
