@@ -12,6 +12,7 @@ import argparse
 import atexit
 import json
 import os
+import signal
 import subprocess
 import time
 from dataclasses import dataclass
@@ -26,6 +27,8 @@ from weekend_training_common import PRODUCTION_IMPACT, queue_paths, representati
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "representative-replay-drain.v1"
 DEFAULT_MANIFEST_PATH = PROJECT_ROOT / "docs" / "architecture" / "top10_harness_team.dashboard.json"
+TIMEOUT_RETURN_CODE = 124
+TERMINATION_GRACE_SECONDS = 2
 
 
 @dataclass
@@ -37,6 +40,7 @@ class CommandResult:
     stderr: str
     started_at: str
     finished_at: str
+    timed_out: bool = False
 
     @property
     def ok(self) -> bool:
@@ -69,15 +73,47 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def run_command(name: str, command: list[str]) -> CommandResult:
+def run_command(name: str, command: list[str], *, timeout_seconds: float | None = None) -> CommandResult:
     started_at = now_utc()
-    completed = subprocess.run(command, cwd=PROJECT_ROOT, text=True, capture_output=True, check=False)
+    process = subprocess.Popen(
+        command,
+        cwd=PROJECT_ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = process.communicate(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            stdout, stderr = process.communicate(timeout=TERMINATION_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            stdout, stderr = process.communicate()
+        return CommandResult(
+            name=name,
+            command=command,
+            returncode=TIMEOUT_RETURN_CODE,
+            stdout=(stdout or "")[-6000:],
+            stderr=((stderr or "") + f"\ncommand timed out after {timeout_seconds} seconds")[-6000:],
+            started_at=started_at,
+            finished_at=now_utc(),
+            timed_out=True,
+        )
     return CommandResult(
         name=name,
         command=command,
-        returncode=completed.returncode,
-        stdout=completed.stdout[-6000:],
-        stderr=completed.stderr[-6000:],
+        returncode=process.returncode,
+        stdout=stdout[-6000:],
+        stderr=stderr[-6000:],
         started_at=started_at,
         finished_at=now_utc(),
     )
@@ -166,7 +202,8 @@ def command_payload(result: CommandResult) -> dict[str, Any]:
         "name": result.name,
         "command": portable_command(result.command),
         "returncode": result.returncode,
-        "status": "OK" if result.ok else "FAILED",
+        "status": "TIMED_OUT" if result.timed_out else ("OK" if result.ok else "FAILED"),
+        "timed_out": result.timed_out,
         "started_at": result.started_at,
         "finished_at": result.finished_at,
         "stdout_tail": result.stdout,
@@ -174,11 +211,23 @@ def command_payload(result: CommandResult) -> dict[str, Any]:
     }
 
 
-def refresh_map_commands(run_date: str) -> list[CommandResult]:
-    return [
-        run_command("build_research_progress_after_replay", [python_bin(), "scripts/build_research_campaign_progress.py", "--date", run_date]),
-        run_command("build_fog_map_after_replay", [python_bin(), "scripts/build_research_fog_map.py", "--date", run_date]),
+def remaining_seconds(deadline: float) -> float:
+    return max(0.0, deadline - time.monotonic())
+
+
+def refresh_map_commands(run_date: str, *, deadline: float | None = None) -> list[CommandResult]:
+    commands = [
+        ("build_research_progress_after_replay", [python_bin(), "scripts/build_research_campaign_progress.py", "--date", run_date]),
+        ("build_fog_map_after_replay", [python_bin(), "scripts/build_research_fog_map.py", "--date", run_date]),
     ]
+    results: list[CommandResult] = []
+    for name, command in commands:
+        timeout_seconds = remaining_seconds(deadline) if deadline is not None else None
+        result = run_command(name, command, timeout_seconds=timeout_seconds)
+        results.append(result)
+        if result.timed_out:
+            break
+    return results
 
 
 def portable_command(command: list[str]) -> list[str]:
@@ -359,7 +408,7 @@ def main() -> int:
     errors: list[dict[str, Any]] = []
 
     if not args.skip_initial_linkage:
-        initial_refresh = refresh_map_commands(run_date)
+        initial_refresh = refresh_map_commands(run_date, deadline=deadline)
         failed_initial_refresh = [result for result in initial_refresh if not result.ok]
         if failed_initial_refresh:
             initial_queue = queue_summary(run_date)
@@ -368,7 +417,7 @@ def main() -> int:
                 run_id=run_id,
                 started_at=started_at,
                 status="FAILED",
-                stop_reason="initial_map_refresh_failed",
+                stop_reason="initial_map_refresh_timeout" if any(result.timed_out for result in failed_initial_refresh) else "initial_map_refresh_failed",
                 initial_queue=initial_queue,
                 latest_queue=initial_queue,
                 batches=[],
@@ -384,12 +433,16 @@ def main() -> int:
                 started_at=started_at,
                 artifact_paths=[progress],
                 metrics=payload["summary"],
-                failure_reason="initial fog map refresh failed",
+                failure_reason="initial fog map refresh timed out" if any(result.timed_out for result in failed_initial_refresh) else "initial fog map refresh failed",
                 next_action="inspect research campaign progress / fog map build before replay drain",
             )
-            print(json.dumps({"status": "FAILED", "output": repo_path(progress), "stop_reason": "initial_map_refresh_failed"}, ensure_ascii=False))
+            print(json.dumps({"status": "FAILED", "output": repo_path(progress), "stop_reason": payload["stop_reason"]}, ensure_ascii=False))
             return 1
-        linkage = run_command("initial_controlled_grid_linkage", [python_bin(), "scripts/run_controlled_grid_drain_host_runner.py", "--date", run_date])
+        linkage = run_command(
+            "initial_controlled_grid_linkage",
+            [python_bin(), "scripts/run_controlled_grid_drain_host_runner.py", "--date", run_date],
+            timeout_seconds=remaining_seconds(deadline),
+        )
         if not linkage.ok:
             initial_queue = queue_summary(run_date)
             payload = build_progress(
@@ -397,7 +450,7 @@ def main() -> int:
                 run_id=run_id,
                 started_at=started_at,
                 status="FAILED",
-                stop_reason="initial_linkage_failed",
+                stop_reason="initial_linkage_timeout" if linkage.timed_out else "initial_linkage_failed",
                 initial_queue=initial_queue,
                 latest_queue=initial_queue,
                 batches=[],
@@ -413,10 +466,10 @@ def main() -> int:
                 started_at=started_at,
                 artifact_paths=[progress],
                 metrics=payload["summary"],
-                failure_reason="initial controlled-grid linkage failed",
+                failure_reason="initial controlled-grid linkage timed out" if linkage.timed_out else "initial controlled-grid linkage failed",
                 next_action="inspect controlled_grid_drain_host_runner status before replay drain",
             )
-            print(json.dumps({"status": "FAILED", "output": repo_path(progress), "stop_reason": "initial_linkage_failed"}, ensure_ascii=False))
+            print(json.dumps({"status": "FAILED", "output": repo_path(progress), "stop_reason": payload["stop_reason"]}, ensure_ascii=False))
             return 1
 
     initial_queue = queue_summary(run_date)
@@ -495,13 +548,34 @@ def main() -> int:
             replay_command.append("--rerun")
         if args.force_append:
             replay_command.append("--force-append")
-        replay = run_command(f"representative_replay_batch_{batch_number}", replay_command)
-        map_refresh = refresh_map_commands(run_date)
-        verify = run_command("verify_representative_replay", [python_bin(), "scripts/verify_weekend_representative_replay.py", "--date", run_date])
-        linkage = run_command("controlled_grid_linkage_after_replay", [python_bin(), "scripts/run_controlled_grid_drain_host_runner.py", "--date", run_date])
+        replay = run_command(
+            f"representative_replay_batch_{batch_number}",
+            replay_command,
+            timeout_seconds=remaining_seconds(deadline),
+        )
+        command_results = [replay]
+        if not replay.timed_out:
+            map_refresh = refresh_map_commands(run_date, deadline=deadline)
+            command_results.extend(map_refresh)
+        else:
+            map_refresh = []
+        if not any(result.timed_out for result in command_results):
+            verify = run_command(
+                "verify_representative_replay",
+                [python_bin(), "scripts/verify_weekend_representative_replay.py", "--date", run_date],
+                timeout_seconds=remaining_seconds(deadline),
+            )
+            command_results.append(verify)
+        if not any(result.timed_out for result in command_results):
+            linkage = run_command(
+                "controlled_grid_linkage_after_replay",
+                [python_bin(), "scripts/run_controlled_grid_drain_host_runner.py", "--date", run_date],
+                timeout_seconds=remaining_seconds(deadline),
+            )
+            command_results.append(linkage)
         representative_json, _ = representative_paths(run_date)
         representative_payload = read_json(representative_json)
-        batch_status = "OK" if replay.ok and all(result.ok for result in map_refresh) and verify.ok and linkage.ok else "FAILED"
+        batch_status = "TIMED_OUT" if any(result.timed_out for result in command_results) else ("OK" if all(result.ok for result in command_results) else "FAILED")
         representative_summary = representative_payload.get("summary") if isinstance(representative_payload.get("summary"), dict) else {}
         queue_after = queue_summary(run_date)
         progress_evidence = batch_progress_evidence(
@@ -520,7 +594,7 @@ def main() -> int:
             "representative_summary": representative_summary,
             "progressed": progress_evidence["progressed"],
             "progress_evidence": progress_evidence,
-            "commands": [command_payload(replay), *[command_payload(result) for result in map_refresh], command_payload(verify), command_payload(linkage)],
+            "commands": [command_payload(result) for result in command_results],
             "queue_after": queue_after,
         }
         batches.append(batch)
@@ -530,7 +604,7 @@ def main() -> int:
             run_id=run_id,
             started_at=started_at,
             status="RUNNING" if batch_status == "OK" else batch_status,
-            stop_reason="running" if batch_status == "OK" else ("no_progress" if batch_status == "NO_PROGRESS" else "batch_failed"),
+            stop_reason="running" if batch_status == "OK" else ("no_progress" if batch_status == "NO_PROGRESS" else ("command_timeout" if batch_status == "TIMED_OUT" else "batch_failed")),
             initial_queue=initial_queue,
             latest_queue=latest_queue,
             batches=batches,
@@ -539,7 +613,7 @@ def main() -> int:
         write_progress(progress, payload)
         if batch_status != "OK":
             status = batch_status
-            stop_reason = "no_progress" if batch_status == "NO_PROGRESS" else "batch_failed"
+            stop_reason = "no_progress" if batch_status == "NO_PROGRESS" else ("command_timeout" if batch_status == "TIMED_OUT" else "batch_failed")
             errors.append(batch)
             break
 

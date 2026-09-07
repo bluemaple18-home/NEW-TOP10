@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
+import time
 import unittest
 from argparse import Namespace
 from pathlib import Path
@@ -13,6 +15,98 @@ import scripts.run_representative_replay_drain_worker as worker
 
 
 class RepresentativeReplayDrainWorkerTest(unittest.TestCase):
+    def test_run_command_timeout_terminates_process_group(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            child_pid_path = Path(tmp) / "child.pid"
+            command = [
+                sys.executable,
+                "-c",
+                (
+                    "import subprocess, sys, time; "
+                    "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']); "
+                    f"open({str(child_pid_path)!r}, 'w').write(str(child.pid)); "
+                    "time.sleep(30)"
+                ),
+            ]
+            started = time.monotonic()
+            result = worker.run_command("timeout_fixture", command, timeout_seconds=0.1)
+
+            self.assertTrue(result.timed_out)
+            self.assertEqual(result.returncode, worker.TIMEOUT_RETURN_CODE)
+            self.assertLess(time.monotonic() - started, 3)
+            child_pid = int(child_pid_path.read_text(encoding="utf-8"))
+            for _ in range(20):
+                if not worker.process_alive(child_pid):
+                    break
+                time.sleep(0.05)
+            self.assertFalse(worker.process_alive(child_pid))
+
+    def test_timeout_result_is_machine_readable(self) -> None:
+        result = worker.CommandResult(
+            name="timeout_fixture",
+            command=["fixture"],
+            returncode=worker.TIMEOUT_RETURN_CODE,
+            stdout="",
+            stderr="timeout after 1 seconds",
+            started_at="2099-01-01T00:00:00+00:00",
+            finished_at="2099-01-01T00:00:01+00:00",
+            timed_out=True,
+        )
+
+        self.assertEqual(worker.command_payload(result)["status"], "TIMED_OUT")
+
+    def test_timeout_stops_drain_with_machine_readable_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            args = Namespace(
+                date="2099-01-07",
+                run_id="timeout-fixture",
+                artifacts_dir=temp_root / "artifacts",
+                batch_size=6,
+                max_batches=1,
+                max_seconds=1800,
+                rerun=False,
+                force_append=False,
+                skip_initial_linkage=True,
+                lock_dir=temp_root / "representative_replay_drain.lock",
+                no_lock=True,
+            )
+            queue = {
+                "queue_path": str(temp_root / "queue.json"),
+                "status": "OK",
+                "representative_replay_count": 6,
+                "representative_combo_ids": ["combo-a"],
+            }
+            timed_out = worker.CommandResult(
+                name="representative_replay_batch_1",
+                command=["fixture"],
+                returncode=worker.TIMEOUT_RETURN_CODE,
+                stdout="",
+                stderr="timeout",
+                started_at="2099-01-07T00:00:00+00:00",
+                finished_at="2099-01-07T00:00:01+00:00",
+                timed_out=True,
+            )
+            representative_json = temp_root / "representative.json"
+            representative_json.write_text(json.dumps({"summary": {}}), encoding="utf-8")
+
+            with (
+                patch.object(worker, "parse_args", return_value=args),
+                patch.object(worker, "resolve_path", side_effect=lambda value: Path(value)),
+                patch.object(worker, "queue_summary", return_value=queue.copy()),
+                patch.object(worker, "run_command", return_value=timed_out) as run_command,
+                patch.object(worker, "representative_paths", return_value=(representative_json, representative_json.with_suffix(".md"))),
+                patch.object(worker, "write_research_worker_event"),
+            ):
+                exit_code = worker.main()
+
+            payload = json.loads(worker.progress_path(args.artifacts_dir, args.date).read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(run_command.call_count, 1)
+        self.assertEqual(payload["status"], "TIMED_OUT")
+        self.assertEqual(payload["stop_reason"], "command_timeout")
+        self.assertEqual(payload["batches"][0]["commands"][0]["status"], "TIMED_OUT")
     def test_queue_summary_counts_pending_representatives_from_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             queue = Path(tmp) / "queue.json"
@@ -153,7 +247,7 @@ class RepresentativeReplayDrainWorkerTest(unittest.TestCase):
             if str(entry.args[0]).startswith("representative_replay_batch_")
         ]
         self.assertEqual(exit_code, 1)
-        self.assertEqual(replay_calls, [call("representative_replay_batch_1", ANY)])
+        self.assertEqual(len(replay_calls), 1)
         self.assertEqual(written_payloads[-1]["status"], "NO_PROGRESS")
         self.assertEqual(written_payloads[-1]["stop_reason"], "no_progress")
         self.assertEqual(written_payloads[-1]["summary"]["batch_count"], 1)  # type: ignore[index]

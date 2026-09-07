@@ -30,6 +30,12 @@ git diff --check
 
 所有列出的命令皆於隔離開發 worktree 成功完成。
 
+## Repair 1：deadline 強制執行
+
+- RED：新增超時測試時，`run_command()` 不接受 timeout 參數，且沒有 timeout return code。
+- GREEN：每個 replay、map refresh、verification 與 linkage 子命令收到剩餘 deadline；逾時建立獨立 process group 的子命令會收到終止訊號，超過 2 秒 grace 才強制結束。
+- `tests.test_representative_replay_drain_worker` 驗證 0.1 秒 deadline 在 3 秒內返回、child PID 已結束，並驗證 receipt 為 `status=TIMED_OUT`、`stop_reason=command_timeout`、command status 為 `TIMED_OUT`。
+
 ## 殘餘風險
 
 本次未操作自然 Fog run、LaunchAgent 或 production runtime；新的排程與 Nice 設定待 Mainline 在受控 activation 驗證。
