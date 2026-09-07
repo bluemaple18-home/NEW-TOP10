@@ -80,7 +80,7 @@ B1 / C1                    = NOT_ADMITTED
 R14                        = NO_GO / NOT_ADMITTED
 TALIB-01                   = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY
 ME-D1                      = P1 BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / FINALIZED_DAILY_CLOSE_ONLY / NO_RUNTIME_AUTHORITY
-RADAR-01                   = P1 MEASURED_GAP_CONFIRMED / READY_FOR_OWNER_ADMISSION_DECISION / NOT_ADMITTED / DAILY_CLOSE_PRODUCT_PROJECTION / NO_RUNTIME_AUTHORITY
+RADAR-01 P1-A              = MAINLINE_ACCEPTED_LOCAL / CONTRACT_ONLY_PARITY_VERIFIED / RADAR_ELIGIBLE_COUNT=0 / NO_RUNTIME_AUTHORITY
 ```
 
 已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史；BC-CP1 decision只讓既有C0-P2 scope完成權限閉環，不產生current execution authority。B0-P2已因缺research-valid measured gap與E4 decision value裁決NO-GO；不得直接跳到B1、C1或implementation。獨立Forecast／TFM3 fork不由本backlog自動准入。
@@ -89,7 +89,7 @@ RADAR-01                   = P1 MEASURED_GAP_CONFIRMED / READY_FOR_OWNER_ADMISSI
 
 [#17 ME-D1](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) 的 first bounded finalized Daily Close slice 已由 Owner admission 並完成本機非 production acceptance。它保留未來完整 Market Evidence target architecture，但不 admission provider rollout、即時行情、多 provider resolver、repair/reconciliation、broker integration 或其他 market-data runtime；Research Spine 與 canonical Research Matrix 維度均不變。
 
-[#18 RADAR-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) 的既有 seam audit 已完成，狀態為 `MEASURED_GAP_CONFIRMED / READY_FOR_OWNER_ADMISSION_DECISION / NOT_ADMITTED`；證據見 `docs/evidence/RADAR-01-EXISTING-SEAM-AUDIT-20260907.md`。稽核證實現有 Daily Close、indicator/event、Research Ledger 與 read-model 可延伸，但同名訊號存在雙重計算語意漂移、missing-as-zero、SignalSpec／Occurrence／base-rate evidence／confluence contract 缺口。它仍只登記「Daily Close → eligible SignalSpec → scanner → SignalOccurrence → deterministic confluence → Radar Projection」的產品化路徑，是 rebuildable product projection，不是 Research Truth、Research Matrix 或 production ranking authority；不 admission intraday、額外市場資料源、AI signal/ranking authority、scheduler/publish 或 production。其 research-quality rule 維持 `BASE_RATE_BEFORE_SIGNAL`：任何 signal historical statistic 必須能與同 horizon / universe / relevant regime 的 baseline 比較，不得只報 absolute win rate / forward return。
+[#18 RADAR-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) 的既有 seam audit 與 Owner 准入的最小 P1-A 已完成本機 acceptance；SignalSpec authority／observability contract、fail-closed parity gate 與代表性資料驗證記錄於 `docs/evidence/RADAR-01-P1-A-SIGNAL-SPEC-AUTHORITY-20260907.md`，task authority 為 `docs/tasks/2026-09-07_CARD-RADAR-01-P1-A-SIGNAL-SPEC-AUTHORITY.md`。首批四個 catalog signal 均維持 `CONTRACT_ONLY`，`RADAR_ELIGIBLE_COUNT=0`。P1-B scanner、P1-C SignalOccurrence／Radar Projection、P1-D historical statistics、P1-E confluence 仍未准入。RADAR-01 是 rebuildable product projection，不是 Research Truth、Research Matrix 或 production ranking authority；不 admission intraday、額外市場資料源、AI signal/ranking authority、scheduler/publish 或 production。其 research-quality rule 維持 `BASE_RATE_BEFORE_SIGNAL`。
 
 ### 部分平行規則
 
@@ -290,7 +290,7 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 | D1 Promotion and Expiry Gate | `PLANNED / NOT_ADMITTED` | D0 accepted | development → validation → sealed OOS → forward shadow → review／expiry |
 | [#16 TALIB-01 Indicator Provider & Conformance Hardening](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing indicator seam audit | TA-Lib adapter、indicator metadata/compatibility gate、behavioral conformance、RunReceipt provenance；**zero canonical Research Matrix dimension growth** |
 | [#17 ME-D1 Daily Close Evidence Slice & Future Market Evidence Seam](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) | `P1 / BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / RE-REVIEW_GO / NO_RUNTIME_AUTHORITY` | first slice complete；commit／push／provider rollout另需 Owner 授權 | finalized Daily Close → validated observation → immutable DatasetSnapshot；保留 future Market Evidence seam，**zero Research Spine / Matrix dimension growth** |
-| [#18 RADAR-01 Daily Close Signal Radar Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) | `P1 / MEASURED_GAP_CONFIRMED / READY_FOR_OWNER_ADMISSION_DECISION / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner explicit admission；existing seam audit complete | 最小下一切片只可先 admission SignalSpec authority／observability contract；scanner、SignalOccurrence、evidence stats、confluence、Radar Projection 仍分別未准入；**zero Research Spine / Matrix dimension growth** |
+| [#18 RADAR-01 Daily Close Signal Radar Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) | `P1-A / MAINLINE_ACCEPTED_LOCAL / CONTRACT_ONLY_PARITY_VERIFIED / NO_RUNTIME_AUTHORITY` | targeted tests 與 516,169-row representative parity complete | SignalSpec authority／observability contract 已完成；四個 signals 均為 `CONTRACT_ONLY`、eligible count=0；scanner、SignalOccurrence、evidence stats、confluence、Radar Projection 仍分別未准入；**zero Research Spine / Matrix dimension growth** |
 
 ---
 
@@ -797,8 +797,8 @@ Owner ruling / current verdict：
 ```text
 PRIORITY = P1
 REUSE = EXTEND_EXISTING / PRODUCT_PROJECTION
-STATUS = MEASURED_GAP_CONFIRMED / READY_FOR_OWNER_ADMISSION_DECISION
-ADMISSION = NOT_ADMITTED
+STATUS = P1-A MAINLINE_ACCEPTED_LOCAL / CONTRACT_ONLY_PARITY_VERIFIED
+ADMISSION = P1-A SPENT_AND_CLOSED / P1-B_TO_P1-E_NOT_ADMITTED
 RUNTIME_AUTHORITY = NONE
 CURRENT_INPUT_SCOPE = FINALIZED_DAILY_CLOSE_ONLY
 RESEARCH_SPINE_DELTA = 0
@@ -1145,7 +1145,7 @@ B0／C0：
 - BC-CP1已完成；B0-P2 admission已裁決NO-GO。Research Spine目前沒有active execution frontier。
 - TALIB-01 只是 P1 donor registration；未經 Owner 後續明確 admission 不得施工，也不得擴大 Research Matrix。
 - ME-D1 第一個 bounded finalized Daily Close slice 已完成本機非 production acceptance；provider rollout、資料遷移與完整 Market Evidence runtime 仍需後續獨立 admission。
-- RADAR-01 既有 seam audit 已完成並確認 measured gap；未經 Owner 後續明確 admission 仍不得施工。最小候選只限 P1-A SignalSpec authority／observability contract，不得取得 AI/ranking/runtime authority，也不得藉 Radar 需求擴市場資料範圍；`Base Rate Before Signal` 是未來 bounded implementation 的 acceptance requirement，不是新的 runtime subsystem。
+- RADAR-01 最小 P1-A SignalSpec authority／observability contract 已完成本機 acceptance，四個初始 signals 均維持 `CONTRACT_ONLY`，不具 Radar eligibility。P1-B 至 P1-E 仍不得施工；P1-A 不得取得 AI/ranking/runtime authority，也不得藉 Radar 需求擴市場資料範圍；`Base Rate Before Signal` 仍是後續 evidence slice 的 acceptance requirement，不是新的 runtime subsystem。
 - 卡片研究完成不等於下一張自動 admission。
 - B 不得因最優化需求取得 execution authority。
 - C 不得因可靠執行需求取得 decision authority。
@@ -1161,15 +1161,15 @@ CURRENT:
 - R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
 - TALIB-01 = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 - ME-D1 = P1 BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / RE-REVIEW_GO / FINALIZED_DAILY_CLOSE_ONLY / TARGET_ARCHITECTURE_PRESERVED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
-- RADAR-01 = P1 MEASURED_GAP_CONFIRMED / READY_FOR_OWNER_ADMISSION_DECISION / NOT_ADMITTED / DAILY_CLOSE_PRODUCT_PROJECTION / BASE_RATE_BEFORE_SIGNAL / AI_AUTHORITY=NONE / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
+- RADAR-01 = P1-A MAINLINE_ACCEPTED_LOCAL / CONTRACT_ONLY_PARITY_VERIFIED / RADAR_ELIGIBLE_COUNT=0 / BASE_RATE_BEFORE_SIGNAL / AI_AUTHORITY=NONE / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 
 REQUIRED NEXT GATE:
-- no active Research Spine execution gate
+- current Research Spine execution gate = NONE
 - B0-P2 = NO_GO_INSUFFICIENT_DECISION_VALUE
 - C0-P2 = ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY
 - TALIB-01 requires a future explicit Owner admission before bounded implementation
 - ME-D1 bounded Daily Close implementation is accepted locally；commit／push／provider rollout／runtime activation仍需 Owner 另行明確授權；full Market Evidence Plane requires a separate measured-need admission
-- RADAR-01 existing Signal/Research Ledger audit is complete；P1-A SignalSpec authority／observability contract requires future explicit Owner admission；P1-B 至 P1-E 不因 P1-A admission 自動取得權限；任何 material signal-performance claim 必須比較 relevant base rate
+- RADAR-01 P1-A is accepted locally and its admission is spent；P1-B 至 P1-E 仍各自需要 Owner 明確 admission；任何 material signal-performance claim 必須比較 relevant base rate
 - independent Forecast / TFM3 fork requires its own preflight and authority
 
 NOT ADMITTED:
@@ -1180,7 +1180,7 @@ NOT ADMITTED:
 - TALIB-01 provider implementation / conformance execution / 0.8.x streaming adoption
 - ME-D1 historical data migration / provider rollout / runtime activation
 - full Market Evidence provider resolver / fallback / repair / live-intraday runtime
-- RADAR-01 SignalSpec/scanner/SignalOccurrence/confluence/Radar implementation
+- RADAR-01 P1-B scanner / P1-C SignalOccurrence + Radar / P1-D evidence statistics / P1-E confluence
 - RADAR-01 AI explanation / personalized profile / push / intraday expansion
 
 NO CHANGE AUTHORIZED:

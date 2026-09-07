@@ -1,0 +1,6 @@
+{"added_lines": 32, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/signals/__init__.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 11, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "docs/RESEARCH_SPINE_BACKLOG.md", "removed_lines": 11, "status": "M", "untracked": false}
+{"added_lines": 4, "binary": false, "lifecycle_side_effect": true, "old_path": null, "path": "docs/operations/CURRENT_OPERATIONAL_FRONTIER.md", "removed_lines": 4, "status": "M", "untracked": false}
+{"added_lines": 632, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/signals/specs.py", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 67, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "docs/tasks/2026-09-07_CARD-RADAR-01-P1-A-SIGNAL-SPEC-AUTHORITY.md", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 322, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_signal_specs.py", "removed_lines": 0, "status": "A", "untracked": true}

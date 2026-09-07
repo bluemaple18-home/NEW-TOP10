@@ -1,0 +1,109 @@
+{
+  "schema_version": "radar-p1a-parity-evidence.v1",
+  "generated_at": "2026-09-07T19:53:12+08:00",
+  "status": "PASS_CONTRACT_ONLY",
+  "validator": "app.signals.specs:validate_signal_parity",
+  "inputs": {
+    "features": "data/clean/features.parquet",
+    "events": "data/clean/events.parquet",
+    "identity_status": "UNBOUND_LEGACY_CLEAN_ARTIFACTS",
+    "grain": [
+      "date",
+      "stock_id"
+    ]
+  },
+  "summary": {
+    "row_count": 516169,
+    "signal_count": 4,
+    "radar_eligible_signal_count": 0,
+    "catalog_status": "CONTRACT_ONLY_PARITY_VERIFIED"
+  },
+  "signal_results": [
+    {
+      "signal_id": "ma5_cross_ma20_up",
+      "signal_version": "1.0.0",
+      "spec_content_id": "sha256:6d2b1f65c58cc6b338b672e2292baa1af712d9a4680baefa67fe07bdfa085537",
+      "compared_rows": 516169,
+      "observable_rows": 259891,
+      "unobservable_rows": 256278,
+      "mismatch_count": 0
+    },
+    {
+      "signal_id": "ma5_cross_ma20_down",
+      "signal_version": "1.0.0",
+      "spec_content_id": "sha256:acfe5c63156d00b6fac96c33e41a8cbb6f442ad568e9d46cf9085f9d5ebbc8fc",
+      "compared_rows": 516169,
+      "observable_rows": 259891,
+      "unobservable_rows": 256278,
+      "mismatch_count": 0
+    },
+    {
+      "signal_id": "rsi_rebound_from_40",
+      "signal_version": "1.0.0",
+      "spec_content_id": "sha256:899fb568682d67f808f5d41bd7dcb75c37336fb45028445f8a1188ccebae94ea",
+      "compared_rows": 516169,
+      "observable_rows": 489665,
+      "unobservable_rows": 26504,
+      "mismatch_count": 0
+    },
+    {
+      "signal_id": "rsi_break_below_50",
+      "signal_version": "1.0.0",
+      "spec_content_id": "sha256:f75145726a11681dce2f16d21592936c62e90cab65c42f430f72351c3ee60afd",
+      "compared_rows": 516169,
+      "observable_rows": 489665,
+      "unobservable_rows": 26504,
+      "mismatch_count": 0
+    }
+  ],
+  "warnings": [
+    {
+      "signal_id": "ma5_cross_ma20_up",
+      "reason_code": "REQUIRED_FEATURE_UNAVAILABLE",
+      "stage": "SIGNAL_SPEC_PARITY",
+      "affected_rows": 248230
+    },
+    {
+      "signal_id": "ma5_cross_ma20_up",
+      "reason_code": "REQUIRED_HISTORY_UNAVAILABLE",
+      "stage": "SIGNAL_SPEC_PARITY",
+      "affected_rows": 8048
+    },
+    {
+      "signal_id": "ma5_cross_ma20_down",
+      "reason_code": "REQUIRED_FEATURE_UNAVAILABLE",
+      "stage": "SIGNAL_SPEC_PARITY",
+      "affected_rows": 248230
+    },
+    {
+      "signal_id": "ma5_cross_ma20_down",
+      "reason_code": "REQUIRED_HISTORY_UNAVAILABLE",
+      "stage": "SIGNAL_SPEC_PARITY",
+      "affected_rows": 8048
+    },
+    {
+      "signal_id": "rsi_rebound_from_40",
+      "reason_code": "REQUIRED_FEATURE_UNAVAILABLE",
+      "stage": "SIGNAL_SPEC_PARITY",
+      "affected_rows": 2303
+    },
+    {
+      "signal_id": "rsi_rebound_from_40",
+      "reason_code": "REQUIRED_HISTORY_UNAVAILABLE",
+      "stage": "SIGNAL_SPEC_PARITY",
+      "affected_rows": 24201
+    },
+    {
+      "signal_id": "rsi_break_below_50",
+      "reason_code": "REQUIRED_FEATURE_UNAVAILABLE",
+      "stage": "SIGNAL_SPEC_PARITY",
+      "affected_rows": 2303
+    },
+    {
+      "signal_id": "rsi_break_below_50",
+      "reason_code": "REQUIRED_HISTORY_UNAVAILABLE",
+      "stage": "SIGNAL_SPEC_PARITY",
+      "affected_rows": 24201
+    }
+  ]
+}
