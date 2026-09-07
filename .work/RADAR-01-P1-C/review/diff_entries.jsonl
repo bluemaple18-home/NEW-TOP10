@@ -1,0 +1,7 @@
+{"added_lines": 24, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/signals/__init__.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 11, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": ".ai/codex_task_radar_01_p1c_occurrence_projection.md", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 0, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": ".ai/delegate_runs/delegate_20260907_204018.done", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 339, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/signals/occurrences.py", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 127, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/signals/radar_projection.py", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 65, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "docs/tasks/2026-09-07_CARD-RADAR-01-P1-C-SIGNAL-OCCURRENCE-RADAR-PROJECTION.md", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 227, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_signal_occurrence_radar_projection.py", "removed_lines": 0, "status": "A", "untracked": true}
