@@ -98,6 +98,7 @@ def write_anchor(root: Path) -> None:
                 "trigger_type": "natural",
                 "scheduled_at": "2026-09-07T00:00:00+00:00",
                 "invocation_id": invocation_id,
+                "final_process_group_checked_at": "2026-09-07T00:00:59.345344+00:00",
                 "child_exit_code": 0,
                 "final_process_group_quiescent": True,
                 "terminal_evidence_verified": True,
@@ -602,6 +603,14 @@ def test_cadence_drift_over_sixty_seconds_fails_closed() -> None:
     with tempfile.TemporaryDirectory(prefix="top10-fog-tight-cadence-") as tmp:
         root = Path(tmp)
         write_anchor(root)
+        receipt_path = next(
+            (root / "logs" / "storage_safety" / "receipts" / "fog-research-worker").glob(
+                "*.json"
+            )
+        )
+        previous = json.loads(receipt_path.read_text(encoding="utf-8"))
+        previous["final_process_group_checked_at"] = "2026-09-07T00:00:00+00:00"
+        receipt_path.write_text(json.dumps(previous), encoding="utf-8")
         scheduled_at = "2026-09-07T01:01:01+00:00"
         invocation_id = "fog-research-worker-20260907T010101Z-test"
         run_id = "fog-research-2026-09-07-tight-drift-b1"
@@ -626,6 +635,91 @@ def test_cadence_drift_over_sixty_seconds_fails_closed() -> None:
         assert result["cadence_verified"] is False
         assert result["cadence_drift_limit_seconds"] == 60
         assert result["accepted_natural_cycles"] == 0
+
+
+def test_cadence_uses_previous_terminal_completion_anchor() -> None:
+    """排程間隔應從上一輪 quiescent completion 算到本輪 scheduled_at。"""
+
+    with tempfile.TemporaryDirectory(prefix="top10-fog-completion-anchor-") as tmp:
+        root = Path(tmp)
+        write_anchor(root)
+        receipt_path = next(
+            (root / "logs" / "storage_safety" / "receipts" / "fog-research-worker").glob(
+                "*.json"
+            )
+        )
+        previous = json.loads(receipt_path.read_text(encoding="utf-8"))
+        previous["final_process_group_checked_at"] = (
+            "2026-09-07T00:00:59.345344+00:00"
+        )
+        receipt_path.write_text(json.dumps(previous), encoding="utf-8")
+        scheduled_at = "2026-09-07T01:01:00+00:00"
+        invocation_id = "fog-research-worker-20260907T010100Z-test"
+        write_event(root, run_id="fog-research-2026-09-07-completion-anchor-b1")
+        write_terminal_evidence(
+            root,
+            job="fog-research-worker",
+            scheduled_at=scheduled_at,
+            invocation_id=invocation_id,
+            run_id="fog-research-2026-09-07-completion-anchor-b1",
+            artifact_run_date=RUN_DATE,
+        )
+
+        result = evaluate_natural_acceptance(
+            root,
+            scheduled_at=scheduled_at,
+            invocation_id=invocation_id,
+            child_exit_code=0,
+            final_process_group_quiescent=True,
+        )
+
+        assert result["cadence_verified"] is True
+        assert result["accepted_natural_cycles"] == 1
+
+
+@pytest.mark.parametrize(
+    "completion_anchor",
+    [None, "2026-09-06T23:59:59+00:00", "not-a-timestamp"],
+)
+def test_invalid_previous_completion_anchor_fails_closed(
+    completion_anchor: str | None,
+) -> None:
+    with tempfile.TemporaryDirectory(prefix="top10-fog-invalid-completion-anchor-") as tmp:
+        root = Path(tmp)
+        write_anchor(root)
+        receipt_path = next(
+            (root / "logs" / "storage_safety" / "receipts" / "fog-research-worker").glob(
+                "*.json"
+            )
+        )
+        previous = json.loads(receipt_path.read_text(encoding="utf-8"))
+        if completion_anchor is None:
+            previous.pop("final_process_group_checked_at", None)
+        else:
+            previous["final_process_group_checked_at"] = completion_anchor
+        receipt_path.write_text(json.dumps(previous), encoding="utf-8")
+        invocation_id = "fog-research-worker-20260907T010000Z-test"
+        run_id = "fog-research-2026-09-07-invalid-completion-b1"
+        write_event(root, run_id=run_id)
+        write_terminal_evidence(
+            root,
+            job="fog-research-worker",
+            scheduled_at=SCHEDULED_AT,
+            invocation_id=invocation_id,
+            run_id=run_id,
+            artifact_run_date=RUN_DATE,
+        )
+
+        result = evaluate_natural_acceptance(
+            root,
+            scheduled_at=SCHEDULED_AT,
+            invocation_id=invocation_id,
+            child_exit_code=0,
+            final_process_group_quiescent=True,
+        )
+
+        assert result["cadence_verified"] is False
+        assert result["cadence_reason"] == "PREVIOUS_COMPLETION_ANCHOR_INVALID"
 
 
 @pytest.mark.parametrize(

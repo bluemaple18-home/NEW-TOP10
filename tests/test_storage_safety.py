@@ -3689,6 +3689,7 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                         "status": "OK",
                         "trigger_type": "natural",
                         "scheduled_at": "2026-09-07T00:00:00+00:00",
+                        "final_process_group_checked_at": "2026-09-07T00:00:59.345344+00:00",
                         "invocation_id": previous_invocation,
                         "child_exit_code": 0,
                         "final_process_group_quiescent": True,
@@ -3767,6 +3768,7 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                         "status": "OK",
                         "trigger_type": "natural",
                         "scheduled_at": "2026-09-07T00:00:00+00:00",
+                        "final_process_group_checked_at": "2026-09-07T00:00:59.345344+00:00",
                         "invocation_id": anchor_invocation,
                         "child_exit_code": 0,
                         "final_process_group_quiescent": True,
@@ -3810,6 +3812,17 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                     invocation_id=invocation_id,
                 )
                 self.assertEqual(result, 0)
+                if hour == 1:
+                    first_receipt_path = receipts / f"{invocation_id}.json"
+                    first_receipt = json.loads(
+                        first_receipt_path.read_text(encoding="utf-8")
+                    )
+                    first_receipt["final_process_group_checked_at"] = (
+                        "2026-09-07T01:00:59.345344+00:00"
+                    )
+                    first_receipt_path.write_text(
+                        json.dumps(first_receipt), encoding="utf-8"
+                    )
 
             receipt = json.loads(
                 (
@@ -3844,6 +3857,7 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                         "status": "OK",
                         "trigger_type": "natural",
                         "scheduled_at": "2026-09-07T00:00:00+00:00",
+                        "final_process_group_checked_at": "2026-09-07T00:00:59.345344+00:00",
                         "invocation_id": previous_invocation,
                         "child_exit_code": 0,
                         "final_process_group_quiescent": True,

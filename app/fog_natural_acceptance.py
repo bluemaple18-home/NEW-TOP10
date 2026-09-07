@@ -460,6 +460,16 @@ def _cadence_anchor_qualified_receipt(payload: dict[str, Any]) -> bool:
     )
 
 
+def _completion_anchor(payload: dict[str, Any]) -> datetime | None:
+    """回傳可信的上一輪 terminal completion anchor。"""
+
+    scheduled = _parse_timestamp(payload.get("scheduled_at"))
+    completed = _parse_timestamp(payload.get("final_process_group_checked_at"))
+    if scheduled is None or completed is None or completed < scheduled:
+        return None
+    return completed
+
+
 def _accepted_chain_qualified_receipt(payload: dict[str, Any]) -> bool:
     """非零 counter 必須重新通過完整 archived receipt chain 驗證。"""
 
@@ -562,7 +572,13 @@ def _cadence_result(
         previous.get("scheduled_at"), previous.get("invocation_id")
     ):
         return {**base, "cadence_reason": "PREVIOUS_INVOCATION_TIME_MISMATCH"}, previous
-    actual_interval = (current_scheduled - previous_scheduled).total_seconds()
+    previous_completion = _completion_anchor(previous)
+    if previous_completion is None:
+        return {
+            **base,
+            "cadence_reason": "PREVIOUS_COMPLETION_ANCHOR_INVALID",
+        }, previous
+    actual_interval = (current_scheduled - previous_completion).total_seconds()
     if abs(actual_interval - interval) > CADENCE_DRIFT_LIMIT_SECONDS:
         return {**base, "cadence_reason": "CADENCE_INTERVAL_MISMATCH"}, previous
     return {
