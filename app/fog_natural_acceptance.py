@@ -465,7 +465,18 @@ def _completion_anchor(payload: dict[str, Any]) -> datetime | None:
 
     scheduled = _parse_timestamp(payload.get("scheduled_at"))
     completed = _parse_timestamp(payload.get("final_process_group_checked_at"))
-    if scheduled is None or completed is None or completed < scheduled:
+    process_group = payload.get("process_group")
+    if not isinstance(process_group, dict):
+        return None
+    nested_completed = _parse_timestamp(process_group.get("final_checked_at"))
+    if (
+        scheduled is None
+        or completed is None
+        or nested_completed is None
+        or process_group.get("final_quiescent") is not True
+        or completed != nested_completed
+        or completed < scheduled
+    ):
         return None
     return completed
 

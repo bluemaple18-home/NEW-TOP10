@@ -3690,6 +3690,10 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                         "trigger_type": "natural",
                         "scheduled_at": "2026-09-07T00:00:00+00:00",
                         "final_process_group_checked_at": "2026-09-07T00:00:59.345344+00:00",
+                        "process_group": {
+                            "final_checked_at": "2026-09-07T00:00:59.345344+00:00",
+                            "final_quiescent": True,
+                        },
                         "invocation_id": previous_invocation,
                         "child_exit_code": 0,
                         "final_process_group_quiescent": True,
@@ -3769,6 +3773,10 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                         "trigger_type": "natural",
                         "scheduled_at": "2026-09-07T00:00:00+00:00",
                         "final_process_group_checked_at": "2026-09-07T00:00:59.345344+00:00",
+                        "process_group": {
+                            "final_checked_at": "2026-09-07T00:00:59.345344+00:00",
+                            "final_quiescent": True,
+                        },
                         "invocation_id": anchor_invocation,
                         "child_exit_code": 0,
                         "final_process_group_quiescent": True,
@@ -3820,6 +3828,9 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                     first_receipt["final_process_group_checked_at"] = (
                         "2026-09-07T01:00:59.345344+00:00"
                     )
+                    first_receipt["process_group"]["final_checked_at"] = (
+                        "2026-09-07T01:00:59.345344+00:00"
+                    )
                     first_receipt_path.write_text(
                         json.dumps(first_receipt), encoding="utf-8"
                     )
@@ -3858,6 +3869,10 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                         "trigger_type": "natural",
                         "scheduled_at": "2026-09-07T00:00:00+00:00",
                         "final_process_group_checked_at": "2026-09-07T00:00:59.345344+00:00",
+                        "process_group": {
+                            "final_checked_at": "2026-09-07T00:00:59.345344+00:00",
+                            "final_quiescent": True,
+                        },
                         "invocation_id": previous_invocation,
                         "child_exit_code": 0,
                         "final_process_group_quiescent": True,

@@ -99,6 +99,10 @@ def write_anchor(root: Path) -> None:
                 "scheduled_at": "2026-09-07T00:00:00+00:00",
                 "invocation_id": invocation_id,
                 "final_process_group_checked_at": "2026-09-07T00:00:59.345344+00:00",
+                "process_group": {
+                    "final_checked_at": "2026-09-07T00:00:59.345344+00:00",
+                    "final_quiescent": True,
+                },
                 "child_exit_code": 0,
                 "final_process_group_quiescent": True,
                 "terminal_evidence_verified": True,
@@ -610,6 +614,7 @@ def test_cadence_drift_over_sixty_seconds_fails_closed() -> None:
         )
         previous = json.loads(receipt_path.read_text(encoding="utf-8"))
         previous["final_process_group_checked_at"] = "2026-09-07T00:00:00+00:00"
+        previous["process_group"]["final_checked_at"] = "2026-09-07T00:00:00+00:00"
         receipt_path.write_text(json.dumps(previous), encoding="utf-8")
         scheduled_at = "2026-09-07T01:01:01+00:00"
         invocation_id = "fog-research-worker-20260907T010101Z-test"
@@ -652,6 +657,9 @@ def test_cadence_uses_previous_terminal_completion_anchor() -> None:
         previous["final_process_group_checked_at"] = (
             "2026-09-07T00:00:59.345344+00:00"
         )
+        previous["process_group"]["final_checked_at"] = (
+            "2026-09-07T00:00:59.345344+00:00"
+        )
         receipt_path.write_text(json.dumps(previous), encoding="utf-8")
         scheduled_at = "2026-09-07T01:01:00+00:00"
         invocation_id = "fog-research-worker-20260907T010100Z-test"
@@ -678,11 +686,23 @@ def test_cadence_uses_previous_terminal_completion_anchor() -> None:
 
 
 @pytest.mark.parametrize(
-    "completion_anchor",
-    [None, "2026-09-06T23:59:59+00:00", "not-a-timestamp"],
+    ("completion_anchor", "nested_anchor", "nested_quiescent"),
+    [
+        (None, "2026-09-07T00:00:59.345344+00:00", True),
+        ("2026-09-06T23:59:59+00:00", "2026-09-07T00:00:59+00:00", True),
+        ("not-a-timestamp", "2026-09-07T00:00:59+00:00", True),
+        (
+            "2026-09-07T00:00:59.345344+00:00",
+            "2026-09-07T00:00:59.345345+00:00",
+            True,
+        ),
+        ("2026-09-07T00:00:59.345344+00:00", "2026-09-07T00:00:59.345344+00:00", False),
+    ],
 )
 def test_invalid_previous_completion_anchor_fails_closed(
     completion_anchor: str | None,
+    nested_anchor: str,
+    nested_quiescent: bool,
 ) -> None:
     with tempfile.TemporaryDirectory(prefix="top10-fog-invalid-completion-anchor-") as tmp:
         root = Path(tmp)
@@ -697,6 +717,8 @@ def test_invalid_previous_completion_anchor_fails_closed(
             previous.pop("final_process_group_checked_at", None)
         else:
             previous["final_process_group_checked_at"] = completion_anchor
+        previous["process_group"]["final_checked_at"] = nested_anchor
+        previous["process_group"]["final_quiescent"] = nested_quiescent
         receipt_path.write_text(json.dumps(previous), encoding="utf-8")
         invocation_id = "fog-research-worker-20260907T010000Z-test"
         run_id = "fog-research-2026-09-07-invalid-completion-b1"
