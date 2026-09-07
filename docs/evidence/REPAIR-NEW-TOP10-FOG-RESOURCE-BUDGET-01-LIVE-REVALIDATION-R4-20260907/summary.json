@@ -1,0 +1,48 @@
+{
+  "cycles": [
+    {
+      "cycle": 1,
+      "guard_exit_code": 0,
+      "reasons": [],
+      "status": "OK",
+      "summary": {
+        "elapsed_seconds": 2935.046865940094,
+        "first_memory_pressure_level": 2,
+        "host_free_bytes_delta": -1477017600,
+        "last_memory_pressure_level": 1,
+        "observed_growth_bytes_per_hour": 78770408.43296668,
+        "peak_live_memory_pressure_level": 2,
+        "peak_rss_bytes": 701759488,
+        "project_bytes_delta": 64220789,
+        "project_file_count_delta": 645,
+        "registered_unmetered_changed_paths": [],
+        "swap_bytes_delta": 1035657544,
+        "unknown_changed_paths": []
+      }
+    },
+    {
+      "cycle": 2,
+      "guard_exit_code": 0,
+      "reasons": [],
+      "status": "OK",
+      "summary": {
+        "elapsed_seconds": 2087.6082561016083,
+        "first_memory_pressure_level": 1,
+        "host_free_bytes_delta": -314888192,
+        "last_memory_pressure_level": 2,
+        "observed_growth_bytes_per_hour": 653727.8227422262,
+        "peak_live_memory_pressure_level": 2,
+        "peak_rss_bytes": 643907584,
+        "project_bytes_delta": 379091,
+        "project_file_count_delta": 29,
+        "registered_unmetered_changed_paths": [],
+        "swap_bytes_delta": -474868613,
+        "unknown_changed_paths": []
+      }
+    }
+  ],
+  "sandbox_root": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-r4-20260907-zxyjfsul",
+  "schema_version": "top10-external-fog-revalidation.v1",
+  "source_commit": "26c88343ccac08ce4701b785bfa2c2c82bfa446d",
+  "verdict": "PASS_CANDIDATE"
+}

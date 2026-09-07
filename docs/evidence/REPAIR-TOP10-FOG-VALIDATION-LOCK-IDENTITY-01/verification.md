@@ -28,4 +28,12 @@ Fog runner 的 A3 lock identity 固定透過 `/bin/ps -o lstart=` 取得 start t
 - Fog shell contracts：8 組通過，含完整 identity 後 cleanup failure 的 RED/GREEN。
 - A/B re-review：均 `GO`；B 明確判定原 P1 closed。
 
-固定 commit 的兩輪 runtime validation 尚待完成。
+## 固定 SHA runtime validation 與啟用
+
+- 固定 commit：`26c88343ccac08ce4701b785bfa2c2c82bfa446d`。
+- R4 cycle 1：`OK`、child exit `0`、最終 process group quiescent、144/144 replay cases、peak RSS `701759488` bytes、unknown writes `[]`。
+- R4 cycle 2：`OK`、child exit `0`、最終 process group quiescent、144/144 replay cases、peak RSS `643907584` bytes、unknown writes `[]`。
+- 兩輪 validation 均無 denial reason；完整原始證據位於 `docs/evidence/REPAIR-NEW-TOP10-FOG-RESOURCE-BUDGET-01-LIVE-REVALIDATION-R4-20260907/`。
+- detached runtime `/Users/mattkuo/TOP10-runtime-automation-26c8834` 已 pin 到固定 commit，獨立 `.venv` 完成，啟用前容量 preflight 為 `PASS`。
+- A4 transaction CLI exit `0`，receipt 為 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`；三條 installed plist 均已指向新 runtime，rollback errors、mask restore errors 與新 runtime denial marker 均為空。
+- A5 尚待兩次連續自然 Fog 週期；不得用 manual run 或 `kickstart` 代替。

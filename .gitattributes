@@ -1,0 +1,2 @@
+# 啟用前快照必須逐位元保留，空白也是 receipt 雜湊的一部分。
+docs/evidence/A4-RUNTIME-ACTIVATION-26c8834-20260907/activation.prestate/*.plist -whitespace
