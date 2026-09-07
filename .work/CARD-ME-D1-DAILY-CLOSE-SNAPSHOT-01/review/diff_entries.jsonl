@@ -1,0 +1,11 @@
+{"added_lines": 50, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/pipeline/fetch_stage.py", "removed_lines": 1, "status": "M", "untracked": false}
+{"added_lines": 34, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/research/dataset_bundle.py", "removed_lines": 1, "status": "M", "untracked": false}
+{"added_lines": 77, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/research/run_receipts.py", "removed_lines": 16, "status": "M", "untracked": false}
+{"added_lines": 6, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "scripts/run_autonomous_research.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 59, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_autonomous_research_receipts.py", "removed_lines": 1, "status": "M", "untracked": false}
+{"added_lines": 70, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_research_dataset_bundle.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 14, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_validation_snapshot_adapter.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 43, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": ".ai/codex_task_me_d1_daily_close_snapshot.md", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 557, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/pipeline/daily_close_snapshot.py", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 66, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "docs/tasks/2026-09-07_CARD-ME-D1-DAILY-CLOSE-SNAPSHOT-01.md", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 150, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_daily_close_snapshot.py", "removed_lines": 0, "status": "A", "untracked": true}

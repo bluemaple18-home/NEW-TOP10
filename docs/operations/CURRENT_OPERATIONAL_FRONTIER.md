@@ -10,6 +10,7 @@
 - Research Spine B0/C0/BC：B0-P1、C0-P1、BC-CP2 current-tip baseline 與 C0-P2 已接受；BC-CP1 已決定並結案；B0-P2=`NO_GO_B0_PHASE_2_INSUFFICIENT_DECISION_VALUE`；B1–D1 未 admission；R14=`NO_GO_R14_INSUFFICIENT_DECISION_VALUE`。目前沒有可執行的 Research Spine implementation frontier。
 - Forecast：FM0、FC1、FC2 vendor-neutral baseline 已分別合併於 `ff3d30b`、`9abc159`、`02730a7`。TimesFM 3 僅完成 restricted-shadow preflight，狀態固定為 `DEFERRED / LAST / HOLD`；未下載模型、未安裝 runtime、未執行 inference，且不是目前前線。
 - TPEx TSKG：`INTEGRATED_CURRENT_DAY_ONLY / REVIEW_GO`。實作、review、repair 與狀態 reconciliation 均已存在；舊 dossier 的 `IMPLEMENTED_PENDING_REVIEW` 已校正，不得重派。
+- ME-D1：第一個 bounded finalized Daily Close snapshot slice 已在本機完成 `MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / NON_PRODUCTION`；沒有 commit、push、provider rollout、deploy 或 runtime activation，因此不成為 operational frontier，也不影響 Fog 的獨立自然週期觀察。
 - Automation runtime：resource-budget、validation confinement 與 lock identity 修復已整合至固定 commit `26c88343ccac08ce4701b785bfa2c2c82bfa446d`，並完成兩位盲審與兩輪固定 SHA 代表性 validation。2026-09-07 的 bounded activation 已將 daily、external-review-preflight、fog-research-worker 三條 installed launchd job 切到 detached runtime `/Users/mattkuo/TOP10-runtime-automation-26c8834`；receipt 為 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`、CLI exit `0`。Fog runtime activation 後的自然週期驗收目前為 `NATURAL_ACCEPTANCE_PENDING`；這不是已完成的 Research Spine Card A5。
 
 ## Operational frontier

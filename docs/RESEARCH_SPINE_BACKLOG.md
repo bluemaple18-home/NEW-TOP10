@@ -2,7 +2,7 @@
 
 更新：2026-09-07
 
-狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO / TALIB_01_P1_REGISTERED_NOT_ADMITTED / ME_D1_P1_SEAM_AUDITED_NOT_ADMITTED / RADAR_01_P1_REGISTERED_NOT_ADMITTED`
+狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO / TALIB_01_P1_REGISTERED_NOT_ADMITTED / ME_D1_P1_BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / RADAR_01_P1_REGISTERED_NOT_ADMITTED`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -79,7 +79,7 @@ B0-P2                      = NO_GO_INSUFFICIENT_DECISION_VALUE
 B1 / C1                    = NOT_ADMITTED
 R14                        = NO_GO / NOT_ADMITTED
 TALIB-01                   = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY
-ME-D1                      = P1 REGISTERED / NOT_ADMITTED / FINALIZED_DAILY_CLOSE_ONLY / NO_RUNTIME_AUTHORITY
+ME-D1                      = P1 BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / FINALIZED_DAILY_CLOSE_ONLY / NO_RUNTIME_AUTHORITY
 RADAR-01                   = P1 REGISTERED / NOT_ADMITTED / DAILY_CLOSE_PRODUCT_PROJECTION / NO_RUNTIME_AUTHORITY
 ```
 
@@ -87,7 +87,7 @@ RADAR-01                   = P1 REGISTERED / NOT_ADMITTED / DAILY_CLOSE_PRODUCT_
 
 [#16 TALIB-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) 只登記 TA-Lib 作為 P1 indicator-provider / correctness donor；它不改變 current frontier、不 admission runtime implementation，也不增加 canonical Research Matrix 維度。
 
-[#17 ME-D1](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) 只登記「finalized Daily Close first slice + future Market Evidence seam」。它保留未來完整 Market Evidence target architecture，但不 admission 即時行情、多 provider resolver、repair/reconciliation、broker integration 或其他 market-data runtime；Research Spine 與 canonical Research Matrix 維度均不變。
+[#17 ME-D1](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) 的 first bounded finalized Daily Close slice 已由 Owner admission 並完成本機非 production acceptance。它保留未來完整 Market Evidence target architecture，但不 admission provider rollout、即時行情、多 provider resolver、repair/reconciliation、broker integration 或其他 market-data runtime；Research Spine 與 canonical Research Matrix 維度均不變。
 
 [#18 RADAR-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) 只登記「Daily Close → eligible SignalSpec → scanner → SignalOccurrence → deterministic confluence → Radar Projection」的產品化路徑。它是 rebuildable product projection，不是 Research Truth、Research Matrix 或 production ranking authority；不 admission intraday、額外市場資料源、AI signal/ranking authority、scheduler/publish 或 production。其 research-quality rule 新增 `BASE_RATE_BEFORE_SIGNAL`：任何 signal historical statistic 必須能與同 horizon / universe / relevant regime 的 baseline 比較，不得只報 absolute win rate / forward return。
 
@@ -289,7 +289,7 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 | D0 RegimePolicyBundle | `PLANNED / NOT_ADMITTED` | B4＋C4 evidence | primary、alternatives、fallback、evidence、validity lifecycle |
 | D1 Promotion and Expiry Gate | `PLANNED / NOT_ADMITTED` | D0 accepted | development → validation → sealed OOS → forward shadow → review／expiry |
 | [#16 TALIB-01 Indicator Provider & Conformance Hardening](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing indicator seam audit | TA-Lib adapter、indicator metadata/compatibility gate、behavioral conformance、RunReceipt provenance；**zero canonical Research Matrix dimension growth** |
-| [#17 ME-D1 Daily Close Evidence Slice & Future Market Evidence Seam](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) | `P1 / SEAM_AUDITED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | existing seam audit complete；Owner admission pending | finalized Daily Close → validated observation → immutable DatasetSnapshot；保留 future Market Evidence seam，**zero Research Spine / Matrix dimension growth** |
+| [#17 ME-D1 Daily Close Evidence Slice & Future Market Evidence Seam](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) | `P1 / BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / RE-REVIEW_GO / NO_RUNTIME_AUTHORITY` | first slice complete；commit／push／provider rollout另需 Owner 授權 | finalized Daily Close → validated observation → immutable DatasetSnapshot；保留 future Market Evidence seam，**zero Research Spine / Matrix dimension growth** |
 | [#18 RADAR-01 Daily Close Signal Radar Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋ME-D1 input seam＋existing Signal/Research Ledger audit | SignalSpec catalog、Daily Close scanner、SignalOccurrence、evidence-backed stats、`Base Rate Before Signal`、deterministic confluence、Radar Projection；**zero Research Spine / Matrix dimension growth** |
 
 ---
@@ -623,15 +623,16 @@ Owner ruling / current verdict：
 ```text
 PRIORITY = P1
 REUSE = ARCHITECTURE_ABSORB / EXTEND_EXISTING
-ADMISSION = REGISTERED / NOT_ADMITTED
+ADMISSION = OWNER_ADMITTED_BOUNDED_IMPLEMENTATION / ACCEPTED_LOCAL
 RUNTIME_AUTHORITY = NONE
+PROVIDER_ROLLOUT = NOT_ADMITTED
 CURRENT_MARKET_DATA_SCOPE = FINALIZED_DAILY_CLOSE_ONLY
 TARGET_MARKET_EVIDENCE_ARCHITECTURE = PRESERVED / DEFERRED
 RESEARCH_SPINE_DELTA = 0
 CANONICAL_MATRIX_DIMENSION_DELTA = 0
 ```
 
-2026-09-07 已在固定基線 `f787437e2c88a327ad7be210f31d790fa96ee3f7` 完成 bounded read-only seam audit；證據位於 `docs/evidence/ME-D1-DAILY-CLOSE-SEAM-AUDIT-20260907.md`。Audit 確認既有 provider、validation snapshot、ETL parquet 與 DatasetBundle seams 可延伸，也確認 production 尚無 immutable provider-neutral Daily Close snapshot／finalization／price-basis／fetch lineage。狀態只提升為 `MEASURED_GAP_CONFIRMED / READY_FOR_OWNER_ADMISSION_DECISION`，**不構成 ME-D1 admission 或 implementation authority**。
+2026-09-07 先在固定基線 `f787437e2c88a327ad7be210f31d790fa96ee3f7` 完成 bounded read-only seam audit；證據位於 `docs/evidence/ME-D1-DAILY-CLOSE-SEAM-AUDIT-20260907.md`。同日 Owner 明確 admission 第一個 bounded slice，並在本機基線 `79596a11ee7803313784ff7306b772dc0b38ca1e` 完成 implementation、第一代 Repair 與原 Reviewer 複驗；結果位於 `docs/evidence/ME-D1-DAILY-CLOSE-SNAPSHOT-IMPLEMENTATION-20260907.md`，狀態為 `MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / NON_PRODUCTION`。這不授權 commit、push、provider rollout、deploy 或 production runtime。
 
 此卡固定兩層而不可混為同一 implementation scope：
 
@@ -674,7 +675,7 @@ Market Evidence Plane != Research Spine
 OMI != runtime dependency
 ```
 
-若未來 Owner 明確 admission ME-D1 bounded implementation，Daily Close 最小 data/evidence contract 必須由既有 contract 映射或等價欄位覆蓋：
+本次 admitted ME-D1 bounded implementation 的 Daily Close 最小 data/evidence contract 由既有 contract 映射或等價欄位覆蓋：
 
 ```text
 instrument / symbol identity
@@ -752,7 +753,7 @@ OMI UI / Decision Dock / MCP
 full provider registry / market-data runtime platform
 ```
 
-Future admitted ME-D1 acceptance boundary：
+Accepted bounded ME-D1 implementation boundary：
 
 - canonical Research Matrix dimension growth = `0`；
 - Research Spine 與 Existing Backtest Engine authority 不變；
@@ -1142,7 +1143,7 @@ B0／C0：
 - 不在每個小發現重審。
 - BC-CP1已完成；B0-P2 admission已裁決NO-GO。Research Spine目前沒有active execution frontier。
 - TALIB-01 只是 P1 donor registration；未經 Owner 後續明確 admission 不得施工，也不得擴大 Research Matrix。
-- ME-D1 已完成 bounded read-only seam audit，但仍是 P1 Daily Close / future Market Evidence seam registration；未經 Owner 後續明確 admission 不得施工，完整 Market Evidence runtime 仍 deferred。
+- ME-D1 第一個 bounded finalized Daily Close slice 已完成本機非 production acceptance；provider rollout、資料遷移與完整 Market Evidence runtime 仍需後續獨立 admission。
 - RADAR-01 只是 P1 Daily Close product-projection registration；未經 Owner 後續明確 admission 不得施工，不得取得 AI/ranking/runtime authority，也不得藉 Radar 需求擴市場資料範圍；`Base Rate Before Signal` 是未來 bounded implementation 的 acceptance requirement，不是新的 runtime subsystem。
 - 卡片研究完成不等於下一張自動 admission。
 - B 不得因最優化需求取得 execution authority。
@@ -1158,7 +1159,7 @@ CURRENT:
 - R13 = REGISTERED_FORWARD_BUNDLE_VERIFIED / downstream_authority=NONE
 - R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
 - TALIB-01 = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
-- ME-D1 = P1 SEAM_AUDITED / MEASURED_GAP_CONFIRMED / NOT_ADMITTED / FINALIZED_DAILY_CLOSE_ONLY / TARGET_ARCHITECTURE_PRESERVED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
+- ME-D1 = P1 BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / RE-REVIEW_GO / FINALIZED_DAILY_CLOSE_ONLY / TARGET_ARCHITECTURE_PRESERVED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 - RADAR-01 = P1 REGISTERED / NOT_ADMITTED / DAILY_CLOSE_PRODUCT_PROJECTION / BASE_RATE_BEFORE_SIGNAL / AI_AUTHORITY=NONE / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 
 REQUIRED NEXT GATE:
@@ -1166,7 +1167,7 @@ REQUIRED NEXT GATE:
 - B0-P2 = NO_GO_INSUFFICIENT_DECISION_VALUE
 - C0-P2 = ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY
 - TALIB-01 requires a future explicit Owner admission before bounded implementation
-- ME-D1 seam audit is complete；requires a future explicit Owner admission before any Daily Close implementation；full Market Evidence Plane requires a separate measured-need admission
+- ME-D1 bounded Daily Close implementation is accepted locally；commit／push／provider rollout／runtime activation仍需 Owner 另行明確授權；full Market Evidence Plane requires a separate measured-need admission
 - RADAR-01 requires a future explicit Owner admission after ME-D1 input seam + existing Signal/Research Ledger audit; any material signal-performance claim must compare against a relevant base rate; confluence production ranking requires bounded evidence/admission
 - independent Forecast / TFM3 fork requires its own preflight and authority
 
@@ -1176,13 +1177,13 @@ NOT ADMITTED:
 - C1 / C2 / C3 / C4 / C5
 - D0 / D1
 - TALIB-01 provider implementation / conformance execution / 0.8.x streaming adoption
-- ME-D1 Daily Close implementation / data migration / provider rollout
+- ME-D1 historical data migration / provider rollout / runtime activation
 - full Market Evidence provider resolver / fallback / repair / live-intraday runtime
 - RADAR-01 SignalSpec/scanner/SignalOccurrence/confluence/Radar implementation
 - RADAR-01 AI explanation / personalized profile / push / intraday expansion
 
 NO CHANGE AUTHORIZED:
-- runtime / queue / runner / schema / database
+- production runtime / queue / runner / schema / database
 - model / ranking / backtest math
 - scheduler / publish / production
 ```

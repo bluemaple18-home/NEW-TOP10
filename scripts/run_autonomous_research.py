@@ -170,6 +170,11 @@ def parse_args() -> argparse.Namespace:
         help="immutable daily Batch Intent id/path；canonical write 前必須驗證",
     )
     parser.add_argument("--features", default="data/clean/features.parquet")
+    parser.add_argument(
+        "--daily-close-manifest",
+        default=None,
+        help="optional immutable Daily Close manifest；未指定時維持既有 v1 dataset bundle",
+    )
     parser.add_argument("--baseline-dir", default=BASELINE_RANKINGS_DIR)
     parser.add_argument("--candidate-dir", default=None, help="指定候選 ranking 目錄；未指定時由 autopilot 自己選")
     parser.add_argument("--topic-index", type=int, default=0)
@@ -4050,6 +4055,7 @@ def main() -> int:
                     "same_day_hit_priority": "stop_loss",
                     "runner_policy_version": "strategy-matrix-replay.v1",
                 },
+                daily_close_manifest_path=getattr(args, "daily_close_manifest", None),
                 selection_reason_codes=(
                     ["EXISTING_QUEUE"]
                     if topic.topic_id in queue_ids

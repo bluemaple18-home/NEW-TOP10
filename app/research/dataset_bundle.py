@@ -8,6 +8,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Mapping
 
+from app.pipeline.daily_close_snapshot import validate_daily_close_manifest
 from app.research.contracts import (
     CANONICALIZATION_VERSION,
     HASH_PREFIX,
@@ -28,6 +29,7 @@ LEGACY_DIAGNOSTIC_ONLY = "LEGACY_DIAGNOSTIC_ONLY"
 FORECAST_TRIAL_CONSUMER_V1 = "FORECAST_TRIAL_V1"
 FORECAST_TRIAL_DATASET_CONTRACT_V1 = "forecast-trial-dataset.v1"
 FORECAST_CHANNEL_SET_V1 = "FORECAST_CHANNEL_SET_V1"
+DAILY_CLOSE_SNAPSHOT_V1 = "DAILY_CLOSE_SNAPSHOT_V1"
 
 _HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _GIT_BLOB_RE = re.compile(r"^git-sha1:[0-9a-f]{40}$")
@@ -40,6 +42,7 @@ _ROLE_IDENTITY = {
     "FUNDAMENTALS_SNAPSHOT": "FUNDAMENTALS_SNAPSHOT_V1",
     "UNIVERSE_ARTIFACT": "UNIVERSE_ARTIFACT_V1",
     "FORECAST_CHANNEL_SET": FORECAST_CHANNEL_SET_V1,
+    "DAILY_CLOSE_SNAPSHOT": DAILY_CLOSE_SNAPSHOT_V1,
 }
 
 _CONSUMER_MATRIX = {
@@ -58,6 +61,10 @@ _CONSUMER_MATRIX = {
     },
     ("STRATEGY_MATRIX_FEATURES_V1", "strategy-matrix-features.v1"): {
         "FEATURES_ARTIFACT": {RESOLVED},
+    },
+    ("STRATEGY_MATRIX_FEATURES_V2", "strategy-matrix-features.v2"): {
+        "FEATURES_ARTIFACT": {RESOLVED},
+        "DAILY_CLOSE_SNAPSHOT": {RESOLVED},
     },
     (FORECAST_TRIAL_CONSUMER_V1, FORECAST_TRIAL_DATASET_CONTRACT_V1): {
         "FORECAST_CHANNEL_SET": {RESOLVED},
@@ -86,6 +93,7 @@ _RESOLVED_FIELDS = {
     "format_contract",
     "coverage",
 }
+_DAILY_CLOSE_RESOLVED_FIELDS = _RESOLVED_FIELDS | {"manifest_ref", "records_ref"}
 _ABSENT_FIELDS = {
     "role",
     "member_key",
@@ -166,6 +174,8 @@ _COMPONENT_LEAFS = {
     "format_contract",
     "semantic_absence_code",
     "member_count",
+    "manifest_ref",
+    "records_ref",
 }
 _COVERAGE_LEAFS = {
     "schema_version",
@@ -435,9 +445,15 @@ def _validate_component(component: Mapping[str, Any], allowed: set[str], index: 
     if role == "FORECAST_CHANNEL_SET":
         return errors + _validate_forecast_channel_set(component, prefix)
     if status == RESOLVED:
-        errors.extend(_exact_fields(component, _RESOLVED_FIELDS, prefix))
+        expected_fields = _DAILY_CLOSE_RESOLVED_FIELDS if role == "DAILY_CLOSE_SNAPSHOT" else _RESOLVED_FIELDS
+        errors.extend(_exact_fields(component, expected_fields, prefix))
         errors.extend(_hash(component.get("content_id"), f"{prefix}content_id"))
         errors.extend(_nonempty(component.get("format_contract"), f"{prefix}format_contract"))
+        if role == "DAILY_CLOSE_SNAPSHOT":
+            for field in ("manifest_ref", "records_ref"):
+                ref = component.get(field)
+                if not isinstance(ref, str) or not re.fullmatch(r"source_corpus/sha256/[0-9a-f]{64}", ref):
+                    errors.append(f"{prefix}{field} must be a corpus-relative content-addressed ref")
         if role == "FUNDAMENTALS_SNAPSHOT":
             errors.extend(_validate_fundamentals_coverage(_mapping(component.get("coverage")), f"{prefix}coverage."))
         else:
@@ -582,6 +598,7 @@ def validate_dataset_bundle(
     manifest: Mapping[str, Any],
     *,
     fundamentals_snapshots: Mapping[str, Mapping[str, Any]] | None = None,
+    daily_close_manifests: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> ValidationResult:
     envelope = _mapping(manifest)
     errors = _exact_fields(envelope, _ENVELOPE_FIELDS)
@@ -642,6 +659,24 @@ def validate_dataset_bundle(
                     errors.append("fundamentals content_id must match snapshot_content_id")
                 if component.get("coverage") != snapshot.get("coverage"):
                     errors.append("fundamentals coverage must match snapshot coverage")
+        if role == "DAILY_CLOSE_SNAPSHOT" and component.get("resolution_status") == RESOLVED:
+            daily_manifest = _mapping((daily_close_manifests or {}).get(str(component.get("member_key"))))
+            if not daily_manifest:
+                errors.append("Daily Close manifest evidence is required")
+            else:
+                daily_result = validate_daily_close_manifest(daily_manifest)
+                errors.extend(f"Daily Close manifest.{error}" for error in daily_result.errors)
+                daily_identity = _mapping(daily_manifest.get("identity_payload"))
+                if daily_identity.get("resolution_status") == "UNRESOLVED_NO_OBSERVATION":
+                    errors.append("Daily Close manifest must contain observations")
+                if component.get("content_id") != daily_manifest.get("snapshot_id"):
+                    errors.append("Daily Close content_id must match snapshot_id")
+                if component.get("coverage") != daily_identity.get("coverage"):
+                    errors.append("Daily Close coverage must match snapshot coverage")
+                records_ref = component.get("records_ref")
+                records_content_id = str(daily_identity.get("records_content_id") or "")
+                if isinstance(records_ref, str) and Path(records_ref).name != records_content_id.removeprefix("sha256:"):
+                    errors.append("Daily Close records_ref must match records_content_id")
     for role, count in role_counts.items():
         if count != 1:
             errors.append(f"consumer role {role} must have exactly one record")
@@ -659,6 +694,7 @@ def build_dataset_bundle(
     transformation_identity: Mapping[str, Any],
     resolution_semantics: Mapping[str, Any],
     fundamentals_snapshots: Mapping[str, Mapping[str, Any]] | None = None,
+    daily_close_manifests: Mapping[str, Mapping[str, Any]] | None = None,
     metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     identity_payload = {
@@ -678,7 +714,11 @@ def build_dataset_bundle(
         "identity_payload": _canonical_identity_payload(identity_payload),
     }
     manifest["dataset_bundle_id"] = recompute_dataset_bundle_id(manifest)
-    result = validate_dataset_bundle(manifest, fundamentals_snapshots=fundamentals_snapshots)
+    result = validate_dataset_bundle(
+        manifest,
+        fundamentals_snapshots=fundamentals_snapshots,
+        daily_close_manifests=daily_close_manifests,
+    )
     if result.errors:
         raise ValueError("dataset bundle is not executable: " + "; ".join(result.errors))
     return manifest
@@ -799,6 +839,8 @@ def validate_requested_executed_bundle_refs(
     *,
     requested_fundamentals_snapshots: Mapping[str, Mapping[str, Any]] | None = None,
     executed_fundamentals_snapshots: Mapping[str, Mapping[str, Any]] | None = None,
+    requested_daily_close_manifests: Mapping[str, Mapping[str, Any]] | None = None,
+    executed_daily_close_manifests: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> ValidationResult:
     errors: list[str] = []
     payload = _mapping(envelope)
@@ -813,10 +855,12 @@ def validate_requested_executed_bundle_refs(
     requested_validation = validate_dataset_bundle(
         requested_manifest,
         fundamentals_snapshots=requested_fundamentals_snapshots,
+        daily_close_manifests=requested_daily_close_manifests,
     )
     executed_validation = validate_dataset_bundle(
         executed_manifest,
         fundamentals_snapshots=executed_fundamentals_snapshots,
+        daily_close_manifests=executed_daily_close_manifests,
     )
     errors.extend(f"requested_manifest.{error}" for error in requested_validation.errors)
     errors.extend(f"executed_manifest.{error}" for error in executed_validation.errors)
@@ -900,6 +944,7 @@ def publish_dataset_bundle_manifest(
     manifest: Mapping[str, Any],
     *,
     fundamentals_snapshots: Mapping[str, Mapping[str, Any]] | None = None,
+    daily_close_manifests: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> WriteResult:
     identity = str(manifest["dataset_bundle_id"]).removeprefix(HASH_PREFIX)
     target = corpus_root / "dataset_bundles" / f"{identity}.json"
@@ -909,6 +954,7 @@ def publish_dataset_bundle_manifest(
         validator=lambda payload: validate_dataset_bundle(
             payload,
             fundamentals_snapshots=fundamentals_snapshots,
+            daily_close_manifests=daily_close_manifests,
         ).errors,
         identity_field="dataset_bundle_id",
     )

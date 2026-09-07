@@ -3,11 +3,14 @@
 ETL 階段：資料擷取 (Fetch Stage)
 整合 DataFetcher 與 FinMind 資料
 """
+from datetime import datetime, timezone
+
 import pandas as pd
 from pathlib import Path
 from .base import PipelineStage
 from app.data.reference_repository import ReferenceRepository
 from app.data_fetcher import DataFetcherOrchestrator
+from app.pipeline.daily_close_snapshot import materialize_daily_close_snapshot
 from app.pipeline.validation_snapshot import (
     ValidationSnapshotProvider,
     load_validation_snapshot_from_environment,
@@ -35,14 +38,62 @@ class FetchStage(PipelineStage):
                 'provider_acquisition': 'snapshot',
                 **snapshot.metadata,
             }
+            daily_close_source = {
+                'provider_identity': f"validation-file@sha256:{snapshot.metadata['sha256']}",
+                'adapter_contract': 'validation-snapshot-provider.v1',
+                'endpoint_contract': {
+                    'transport': 'LOCAL_FILE',
+                    'format': Path(snapshot.metadata['path']).suffix.lower().removeprefix('.'),
+                    'finalization_authority': 'OFFICIAL_FINALIZED_DAILY_ENDPOINT_V1',
+                },
+            }
         else:
             orchestrator = DataFetcherOrchestrator(data_dir=str(context['dirs']['raw']))
+            daily_close_source = {
+                'provider_identity': 'TWSE_MI_INDEX+TPEX_STK_WN1430@official',
+                'adapter_contract': 'DataFetcherOrchestrator.fetch_historical_data.v1',
+                'endpoint_contract': {
+                    'finalization_authority': 'OFFICIAL_FINALIZED_DAILY_ENDPOINT_V1',
+                    'TWSE': {
+                        'method': 'GET',
+                        'url': 'https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX',
+                        'query_contract': {
+                            'date': 'YYYYMMDD',
+                            'response': 'json',
+                            'type': 'ALLBUT0999',
+                        },
+                    },
+                    'TPEX': {
+                        'method': 'GET',
+                        'url': 'https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php',
+                        'query_contract': {'d': 'ROC_YYY/MM/DD', 'l': 'zh-tw', 'se': 'AL'},
+                    },
+                },
+            }
 
         df = orchestrator.fetch_historical_data(
             start_date=context['start_date'],
             end_date=context['end_date']
         )
-        
+
+        daily_close = materialize_daily_close_snapshot(
+            df,
+            root=Path(context['dirs']['raw']) / 'daily_close_snapshots',
+            source=daily_close_source,
+            fetched_at=datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+            requested_start=context['start_date'],
+            requested_end=context['end_date'],
+        )
+        df = daily_close.frame
+        context['stats']['daily_close_snapshot'] = {
+            'snapshot_id': daily_close.manifest['snapshot_id'],
+            'manifest_path': str(daily_close.manifest_path),
+            'records_path': str(daily_close.records_path),
+            'records_content_id': daily_close.manifest['identity_payload']['records_content_id'],
+            'coverage': daily_close.manifest['identity_payload']['coverage'],
+            'resolution_status': daily_close.manifest['identity_payload']['resolution_status'],
+        }
+
         if df.empty:
             raise ValueError("資料擷取失敗，產出為空")
 

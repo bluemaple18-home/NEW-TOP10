@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from app.pipeline.daily_close_snapshot import load_daily_close_snapshot, validate_daily_close_manifest
 from app.research.contracts import (
     CANONICALIZATION_VERSION,
     TERMINAL_CAUSE_POLICY_VERSION,
@@ -55,6 +56,8 @@ class AttemptContext:
     requested_dataset_bundle_id: str = ""
     requested_dataset_bundle_manifest_ref: str = ""
     requested_dataset_bundle_manifest: dict[str, Any] | None = None
+    daily_close_snapshot_manifest: dict[str, Any] | None = None
+    daily_close_snapshot_refs: dict[str, str] | None = None
 
 
 def reconcile_orphan_attempts(
@@ -140,7 +143,11 @@ def _bundle_coverage(file_count: int) -> dict[str, Any]:
     }
 
 
-def _strategy_matrix_dataset_bundle(source_manifest: dict[str, Any]) -> dict[str, Any]:
+def _strategy_matrix_dataset_bundle(
+    source_manifest: dict[str, Any],
+    daily_close_manifest: dict[str, Any] | None = None,
+    daily_close_refs: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     files = source_manifest.get("files")
     if (
         source_manifest.get("resolution_status") != "RESOLVED"
@@ -149,28 +156,56 @@ def _strategy_matrix_dataset_bundle(source_manifest: dict[str, Any]) -> dict[str
         or not _valid_hash((files[0] if files else {}).get("hash"))
     ):
         raise ValueError("REQUESTED_DATASET_BUNDLE_INVALID")
-    return build_dataset_bundle(
-        consumer_id="STRATEGY_MATRIX_FEATURES_V1",
-        contract_version="strategy-matrix-features.v1",
-        components=[
+    components = [
+        {
+            "role": "FEATURES_ARTIFACT",
+            "member_key": "primary",
+            "identity_kind": "FEATURES_ARTIFACT_V1",
+            "content_id": files[0]["hash"],
+            "resolution_status": RESOLVED,
+            "format_contract": "features-artifact.v1",
+            "coverage": _bundle_coverage(1),
+        }
+    ]
+    consumer_id = "STRATEGY_MATRIX_FEATURES_V1"
+    contract_version = "strategy-matrix-features.v1"
+    transform_version = "strategy-matrix-source-adapter.v1"
+    daily_close_manifests = None
+    if daily_close_manifest is not None:
+        validation = validate_daily_close_manifest(daily_close_manifest)
+        identity = daily_close_manifest.get("identity_payload") or {}
+        if validation.errors or identity.get("resolution_status") == "UNRESOLVED_NO_OBSERVATION":
+            raise ValueError("DAILY_CLOSE_SNAPSHOT_MANIFEST_INVALID")
+        components.append(
             {
-                "role": "FEATURES_ARTIFACT",
+                "role": "DAILY_CLOSE_SNAPSHOT",
                 "member_key": "primary",
-                "identity_kind": "FEATURES_ARTIFACT_V1",
-                "content_id": files[0]["hash"],
+                "identity_kind": "DAILY_CLOSE_SNAPSHOT_V1",
+                "content_id": daily_close_manifest["snapshot_id"],
                 "resolution_status": RESOLVED,
-                "format_contract": "features-artifact.v1",
-                "coverage": _bundle_coverage(1),
+                "format_contract": "daily-close-snapshot.v1",
+                "coverage": identity["coverage"],
+                "manifest_ref": str((daily_close_refs or {}).get("manifest_ref") or ""),
+                "records_ref": str((daily_close_refs or {}).get("records_ref") or ""),
             }
-        ],
+        )
+        consumer_id = "STRATEGY_MATRIX_FEATURES_V2"
+        contract_version = "strategy-matrix-features.v2"
+        transform_version = "strategy-matrix-source-adapter.v2"
+        daily_close_manifests = {"primary": daily_close_manifest}
+    return build_dataset_bundle(
+        consumer_id=consumer_id,
+        contract_version=contract_version,
+        components=components,
         transformation_identity={
-            "contract_version": "strategy-matrix-source-adapter.v1",
+            "contract_version": transform_version,
             "git_blob_ids": ["git-sha1:" + "0" * 40],
         },
         resolution_semantics={
             "fallback_policy_version": "dataset-resolution-policy.v1",
             "identity_bearing_absence_is_explicit": True,
         },
+        daily_close_manifests=daily_close_manifests,
     )
 
 
@@ -185,6 +220,7 @@ def _dataset_binding_envelope(
     requested_ref: str,
     executed_ref: str,
     evidence_refs: list[str],
+    daily_close_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     requested_id = str(requested_manifest["dataset_bundle_id"])
     executed_id = str(executed_manifest["dataset_bundle_id"])
@@ -224,7 +260,14 @@ def _dataset_binding_envelope(
             delta["transition_profile_version"] = "m4-training-source-fallback.v1"
         binding["resolution_delta"] = delta
         envelope["resolution_delta"] = delta
-    result = validate_requested_executed_bundle_refs(envelope, requested_manifest, executed_manifest)
+    daily_close_manifests = {"primary": daily_close_manifest} if daily_close_manifest else None
+    result = validate_requested_executed_bundle_refs(
+        envelope,
+        requested_manifest,
+        executed_manifest,
+        requested_daily_close_manifests=daily_close_manifests,
+        executed_daily_close_manifests=daily_close_manifests,
+    )
     if result.status != "VALID":
         raise ValueError("DATASET_BUNDLE_BINDING_INVALID:" + "; ".join(result.errors))
     return binding
@@ -285,16 +328,41 @@ def begin_topic_attempt(
     regime_scope: dict[str, Any],
     features_path: str,
     execution_settings: dict[str, Any],
+    daily_close_manifest_path: str | None = None,
     selection_reason_codes: list[str] | None = None,
     research_batch_id: str = "UNSCOPED",
 ) -> AttemptContext:
+    daily_close_manifest: dict[str, Any] | None = None
+    daily_close_refs: dict[str, str] | None = None
+    if daily_close_manifest_path:
+        supplied_path = Path(daily_close_manifest_path)
+        resolved_path = supplied_path if supplied_path.is_absolute() else project_root / supplied_path
+        daily_close_snapshot = load_daily_close_snapshot(resolved_path)
+        daily_close_manifest = daily_close_snapshot.manifest
+        manifest_cas_id, manifest_cas_path = publish_file_to_cas(corpus_root, daily_close_snapshot.manifest_path)
+        records_cas_id, records_cas_path = publish_file_to_cas(corpus_root, daily_close_snapshot.records_path)
+        if records_cas_id != daily_close_manifest["identity_payload"]["records_content_id"]:
+            raise ValueError("DAILY_CLOSE_RECORDS_CORPUS_ID_MISMATCH")
+        daily_close_refs = {
+            "manifest_ref": _manifest_ref(manifest_cas_path, corpus_root),
+            "records_ref": _manifest_ref(records_cas_path, corpus_root),
+        }
     dataset_manifest = _source_manifest((project_root / features_path).resolve())
     dataset_hash = str(
         (dataset_manifest.get("files") or [{}])[0].get("hash")
         or content_hash(dataset_manifest)
     )
-    requested_bundle_manifest = _strategy_matrix_dataset_bundle(dataset_manifest)
-    requested_bundle_write = publish_dataset_bundle_manifest(corpus_root, requested_bundle_manifest)
+    requested_bundle_manifest = _strategy_matrix_dataset_bundle(
+        dataset_manifest,
+        daily_close_manifest,
+        daily_close_refs,
+    )
+    daily_close_manifests = {"primary": daily_close_manifest} if daily_close_manifest else None
+    requested_bundle_write = publish_dataset_bundle_manifest(
+        corpus_root,
+        requested_bundle_manifest,
+        daily_close_manifests=daily_close_manifests,
+    )
     requested_bundle_id = str(requested_bundle_manifest["dataset_bundle_id"])
     requested_bundle_ref = _manifest_ref(requested_bundle_write.path, corpus_root)
     specs: dict[str, dict[str, Any]] = {}
@@ -421,6 +489,8 @@ def begin_topic_attempt(
         requested_bundle_id,
         requested_bundle_ref,
         requested_bundle_manifest,
+        daily_close_manifest,
+        daily_close_refs,
     )
 
 
@@ -667,10 +737,19 @@ def finish_topic_attempt(
                 reasons.add("EPISODE_AUTHORITY_HASH_MISMATCH")
                 continue
             try:
-                executed_bundle_manifest = _strategy_matrix_dataset_bundle(authority["dataset_manifest"])
+                executed_bundle_manifest = _strategy_matrix_dataset_bundle(
+                    authority["dataset_manifest"],
+                    context.daily_close_snapshot_manifest,
+                    context.daily_close_snapshot_refs,
+                )
                 executed_bundle_write = publish_dataset_bundle_manifest(
                     context.root,
                     executed_bundle_manifest,
+                    daily_close_manifests=(
+                        {"primary": context.daily_close_snapshot_manifest}
+                        if context.daily_close_snapshot_manifest
+                        else None
+                    ),
                 )
                 _dataset_binding_envelope(
                     context.requested_dataset_bundle_manifest or {},
@@ -678,6 +757,7 @@ def finish_topic_attempt(
                     requested_ref=context.requested_dataset_bundle_manifest_ref,
                     executed_ref=_manifest_ref(executed_bundle_write.path, context.root),
                     evidence_refs=[artifact_id],
+                    daily_close_manifest=context.daily_close_snapshot_manifest,
                 )
             except ValueError:
                 reasons.add("DATASET_BUNDLE_BINDING_INVALID")
@@ -874,6 +954,7 @@ def finish_topic_attempt(
                     for ref in unit.get("artifact_refs", [])
                     if _valid_hash(ref)
                 ],
+                daily_close_manifest=context.daily_close_snapshot_manifest,
             )
     else:
         bundle_binding = _not_executed_bundle_binding(context)

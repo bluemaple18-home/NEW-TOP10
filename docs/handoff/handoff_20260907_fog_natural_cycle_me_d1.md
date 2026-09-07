@@ -1,5 +1,11 @@
 # NEW-TOP10 Fog／ME-D1 主線換手
 
+## Successor status（2026-09-07）
+
+- Owner 已將 Fog natural-cycle observation 留在原對話；本 task 不再擁有或操作 Fog。
+- Owner 後續明確指示其他工作「開工」，ME-D1 第一個 bounded Daily Close slice 因而完成 admission、implementation、第一代 Repair 與原 Reviewer 複驗；狀態為 `MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / NON_PRODUCTION`。
+- 本 handoff 其餘 `NOT_ADMITTED`／pending 文字保留為換手當時的歷史快照；現況以 `docs/RESEARCH_SPINE_BACKLOG.md` 與 `docs/evidence/ME-D1-DAILY-CLOSE-SNAPSHOT-IMPLEMENTATION-20260907.md` 為準。
+
 ## Goal
 
 1. 唯讀等待 Fog runtime activation 後的兩次連續自然週期，取得完整 acceptance evidence。

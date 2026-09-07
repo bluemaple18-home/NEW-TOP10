@@ -657,3 +657,78 @@ def test_a1_sc_010_runtime_writer_contracts_are_not_mutated() -> None:
     import app.research.run_receipts as run_receipts
 
     assert not hasattr(run_receipts, "dataset_bundle_id")
+
+
+def test_daily_close_v2_component_requires_matching_verified_manifest(tmp_path: Path) -> None:
+    import pandas as pd
+
+    from app.pipeline.daily_close_snapshot import materialize_daily_close_snapshot
+
+    snapshot = materialize_daily_close_snapshot(
+        pd.DataFrame(
+            [
+                {
+                    "date": "2026-09-01",
+                    "stock_id": "2330",
+                    "stock_name": "台積電",
+                    "market": "TWSE",
+                    "open": 1200,
+                    "high": 1220,
+                    "low": 1190,
+                    "close": 1210,
+                    "volume": 2000,
+                    "value": 2420000,
+                }
+            ]
+        ),
+        root=tmp_path / "snapshots",
+        source={
+            "provider_identity": "fixture@v1",
+            "adapter_contract": "fixture.v1",
+            "endpoint_contract": {
+                "path": "/daily-close",
+                "finalization_authority": "OFFICIAL_FINALIZED_DAILY_ENDPOINT_V1",
+            },
+        },
+        fetched_at="2026-09-07T09:30:00Z",
+        requested_start="2026-09-01",
+        requested_end="2026-09-01",
+    )
+    daily_component = {
+        "role": "DAILY_CLOSE_SNAPSHOT",
+        "member_key": "primary",
+        "identity_kind": "DAILY_CLOSE_SNAPSHOT_V1",
+        "content_id": snapshot.manifest["snapshot_id"],
+        "resolution_status": RESOLVED,
+        "format_contract": "daily-close-snapshot.v1",
+        "coverage": snapshot.manifest["identity_payload"]["coverage"],
+        "manifest_ref": "source_corpus/sha256/" + "1" * 64,
+        "records_ref": "source_corpus/sha256/" + snapshot.manifest["identity_payload"]["records_content_id"][7:],
+    }
+    manifest = build_dataset_bundle(
+        consumer_id="STRATEGY_MATRIX_FEATURES_V2",
+        contract_version="strategy-matrix-features.v2",
+        components=[resolved("FEATURES_ARTIFACT", SHA_A), daily_component],
+        transformation_identity={
+            "contract_version": "strategy-matrix-source-adapter.v2",
+            "git_blob_ids": [GIT_A],
+        },
+        resolution_semantics={
+            "fallback_policy_version": "dataset-resolution-policy.v1",
+            "identity_bearing_absence_is_explicit": True,
+        },
+        daily_close_manifests={"primary": snapshot.manifest},
+    )
+
+    assert component_by_role(manifest, "DAILY_CLOSE_SNAPSHOT")["content_id"] == snapshot.manifest["snapshot_id"]
+    assert validate_dataset_bundle(
+        manifest,
+        daily_close_manifests={"primary": snapshot.manifest},
+    ).status == "EXECUTABLE"
+
+    tampered = deepcopy(snapshot.manifest)
+    tampered["identity_payload"]["price_basis"]["basis"] = "ADJUSTED"
+    assert validate_dataset_bundle(
+        manifest,
+        daily_close_manifests={"primary": tampered},
+    ).status == "NOT_EXECUTABLE"

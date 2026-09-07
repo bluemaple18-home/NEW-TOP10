@@ -27,6 +27,7 @@ def _representative_quotes() -> pd.DataFrame:
                     "close": close,
                     "volume": 1_000_000 + offset,
                     "value": close * (1_000_000 + offset),
+                    "transactions": 10_000 + offset,
                 }
             )
     return pd.DataFrame(rows)
@@ -39,7 +40,8 @@ def test_validation_snapshot_replaces_provider_only_and_runs_canonical_downstrea
     from app.pipeline import fetch_stage
 
     snapshot = tmp_path / "real_quotes.csv"
-    _representative_quotes().to_csv(snapshot, index=False)
+    original_quotes = _representative_quotes()
+    original_quotes.to_csv(snapshot, index=False)
     output_data = tmp_path / "output" / "data"
     monkeypatch.setenv("TOP10_STORAGE_VALIDATION_MODE", "1")
     monkeypatch.setenv("TOP10_VALIDATION_SNAPSHOT_INPUT", str(snapshot))
@@ -64,7 +66,27 @@ def test_validation_snapshot_replaces_provider_only_and_runs_canonical_downstrea
     assert metadata["provider_acquisition"] == "snapshot"
     assert metadata["coverage"]["stock_count"] == 6
     assert metadata["coverage"]["markets"] == ["TPEX", "TWSE"]
+    daily_close = pipeline.context["stats"]["daily_close_snapshot"]
+    assert daily_close["snapshot_id"].startswith("sha256:")
+    assert Path(daily_close["manifest_path"]).is_file()
+    assert Path(daily_close["records_path"]).is_file()
+    assert daily_close["coverage"]["status"] == "COMPLETE"
     assert (output_data / "clean" / "features.parquet").is_file()
+    from app.pipeline.daily_close_snapshot import load_daily_close_snapshot
+
+    fixed_input = load_daily_close_snapshot(daily_close["manifest_path"]).frame
+    enriched = pd.read_parquet(output_data / "clean" / "features.parquet")
+    expected = original_quotes.sort_values(["date", "stock_id"]).reset_index(drop=True)
+    pd.testing.assert_frame_equal(
+        fixed_input[list(expected.columns)],
+        expected,
+        check_dtype=False,
+    )
+    pd.testing.assert_frame_equal(
+        enriched[list(expected.columns)].sort_values(["date", "stock_id"]).reset_index(drop=True),
+        expected,
+        check_dtype=False,
+    )
     assert PipelineDataValidator(data_dir=output_data).validate_outputs().ok
 
 

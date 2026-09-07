@@ -40,7 +40,7 @@ def scenario() -> dict:
     }
 
 
-def begin(tmp_path: Path):
+def begin(tmp_path: Path, *, daily_close_manifest_path: str | None = None):
     features = tmp_path / "features.parquet"
     features.write_bytes(b"fixture")
     return begin_topic_attempt(
@@ -51,6 +51,7 @@ def begin(tmp_path: Path):
         research_stage="DEVELOPMENT_SCREEN",
         regime_scope={"regime_id": "RISK_OFF|"},
         features_path="features.parquet",
+        daily_close_manifest_path=daily_close_manifest_path,
         execution_settings={
             "max_ranking_files": 8,
             "top_n": 10,
@@ -199,6 +200,84 @@ def test_complete_matrix_execution_writes_exact_success_receipt(tmp_path: Path) 
         for unit in receipt["executed_units"]
         for field in ("regime_gate", "risk_guard", "entry_filter")
     )
+
+
+def test_daily_close_manifest_binds_requested_executed_bundle_and_receipt(tmp_path: Path) -> None:
+    import pandas as pd
+
+    from app.pipeline.daily_close_snapshot import materialize_daily_close_snapshot
+
+    snapshot = materialize_daily_close_snapshot(
+        pd.DataFrame(
+            [
+                {
+                    "date": "2026-09-01",
+                    "stock_id": "2330",
+                    "stock_name": "台積電",
+                    "market": "TWSE",
+                    "open": 1200,
+                    "high": 1220,
+                    "low": 1190,
+                    "close": 1210,
+                    "volume": 2000,
+                    "value": 2420000,
+                }
+            ]
+        ),
+        root=tmp_path / "snapshots",
+        source={
+            "provider_identity": "fixture@v1",
+            "adapter_contract": "fixture.v1",
+            "endpoint_contract": {
+                "path": "/daily-close",
+                "finalization_authority": "OFFICIAL_FINALIZED_DAILY_ENDPOINT_V1",
+            },
+        },
+        fetched_at="2026-09-07T09:30:00Z",
+        requested_start="2026-09-01",
+        requested_end="2026-09-01",
+    )
+    context = begin(tmp_path, daily_close_manifest_path=str(snapshot.manifest_path))
+    baseline = tmp_path / "daily_close_baseline.json"
+    candidate = tmp_path / "daily_close_candidate.json"
+    write_matrix(baseline, context, "baseline")
+    write_matrix(candidate, context, "candidate")
+    authority = tmp_path / "daily_close_development_authority.json"
+    write_development_authority(authority, context)
+
+    receipt = finish_topic_attempt(
+        context,
+        terminal_status="SUCCEEDED",
+        matrix_paths=[baseline, candidate],
+        lineage_authority_paths=[authority],
+    )
+    requested_components = context.requested_dataset_bundle_manifest["identity_payload"]["components"]
+    daily_component = next(item for item in requested_components if item["role"] == "DAILY_CLOSE_SNAPSHOT")
+
+    assert daily_component["content_id"] == snapshot.manifest["snapshot_id"]
+    assert receipt["bundle_binding"]["requested_dataset_bundle_id"] == receipt["bundle_binding"]["executed_dataset_bundle_id"]
+    assert all(
+        unit["executed_dataset_bundle_id"] == context.requested_dataset_bundle_id
+        for unit in receipt["executed_units"]
+    )
+
+    snapshot.manifest_path.parent.parent.rename(tmp_path / "moved-original-snapshot-root")
+    persisted_receipt = json.loads((context.root / "receipts" / f"{context.run_id}.json").read_text())
+    bundle_ref = persisted_receipt["bundle_binding"]["requested_dataset_bundle_manifest_ref"]
+    persisted_bundle = json.loads((context.root / bundle_ref).read_text())
+    persisted_component = next(
+        item
+        for item in persisted_bundle["identity_payload"]["components"]
+        if item["role"] == "DAILY_CLOSE_SNAPSHOT"
+    )
+    assert not Path(persisted_component["manifest_ref"]).is_absolute()
+    assert not Path(persisted_component["records_ref"]).is_absolute()
+
+    from app.pipeline.daily_close_snapshot import load_daily_close_snapshot_from_component
+
+    rebuilt = load_daily_close_snapshot_from_component(context.root, persisted_component)
+    assert rebuilt.manifest["snapshot_id"] == snapshot.manifest["snapshot_id"]
+    pd.testing.assert_frame_equal(rebuilt.frame, snapshot.frame)
 
 
 def test_missing_matrix_fails_closed_instead_of_claiming_success(tmp_path: Path) -> None:
