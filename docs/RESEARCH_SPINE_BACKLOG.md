@@ -2,7 +2,7 @@
 
 更新：2026-09-07
 
-狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO / TALIB_01_P1_REGISTERED_NOT_ADMITTED / ME_D1_P1_REGISTERED_NOT_ADMITTED / RADAR_01_P1_REGISTERED_NOT_ADMITTED`
+狀態：`CARD_A_CLOSED / F0_ACCEPTED / B0_P1_AND_C0_P1_ACCEPTED / CURRENT_TIP_BASELINE_ACCEPTED / BC_CP1_DECIDED / C0_P2_ACCEPTED_CLOSED / B0_P2_NO_GO_INSUFFICIENT_DECISION_VALUE / B1_TO_D1_NOT_ADMITTED / R14_NO_GO / TALIB_01_P1_REGISTERED_NOT_ADMITTED / ME_D1_P1_SEAM_AUDITED_NOT_ADMITTED / RADAR_01_P1_REGISTERED_NOT_ADMITTED`
 
 Repository：`bluemaple18-home/NEW-TOP10`
 
@@ -39,9 +39,9 @@ ADMIT_C0_PHASE_2 / SPENT_AND_CLOSED
 ### NEW-TOP10
 
 ```text
-accepted local main  = 78d3b3b1d246dd37f8a1094ff85ba5175dae995e
-local origin/main ref = 5d7c5296beb912827aaa828f4d3b68d72dcec16f
-authority note       = local main acceptance is not a push/deploy authorization
+reconciled source baseline = f787437e2c88a327ad7be210f31d790fa96ee3f7
+observed origin/main       = f787437e2c88a327ad7be210f31d790fa96ee3f7
+authority note             = 這是 2026-09-07 seam audit 的固定證據基線；docs-only reconciliation commit 可再推進 HEAD，且不構成 push/deploy 或 implementation authority
 ```
 
 ### AI Core
@@ -289,7 +289,7 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 | D0 RegimePolicyBundle | `PLANNED / NOT_ADMITTED` | B4＋C4 evidence | primary、alternatives、fallback、evidence、validity lifecycle |
 | D1 Promotion and Expiry Gate | `PLANNED / NOT_ADMITTED` | D0 accepted | development → validation → sealed OOS → forward shadow → review／expiry |
 | [#16 TALIB-01 Indicator Provider & Conformance Hardening](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing indicator seam audit | TA-Lib adapter、indicator metadata/compatibility gate、behavioral conformance、RunReceipt provenance；**zero canonical Research Matrix dimension growth** |
-| [#17 ME-D1 Daily Close Evidence Slice & Future Market Evidence Seam](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing dataset/input seam audit | finalized Daily Close → validated observation → immutable DatasetSnapshot；保留 future Market Evidence seam，**zero Research Spine / Matrix dimension growth** |
+| [#17 ME-D1 Daily Close Evidence Slice & Future Market Evidence Seam](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) | `P1 / SEAM_AUDITED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | existing seam audit complete；Owner admission pending | finalized Daily Close → validated observation → immutable DatasetSnapshot；保留 future Market Evidence seam，**zero Research Spine / Matrix dimension growth** |
 | [#18 RADAR-01 Daily Close Signal Radar Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋ME-D1 input seam＋existing Signal/Research Ledger audit | SignalSpec catalog、Daily Close scanner、SignalOccurrence、evidence-backed stats、`Base Rate Before Signal`、deterministic confluence、Radar Projection；**zero Research Spine / Matrix dimension growth** |
 
 ---
@@ -630,6 +630,8 @@ TARGET_MARKET_EVIDENCE_ARCHITECTURE = PRESERVED / DEFERRED
 RESEARCH_SPINE_DELTA = 0
 CANONICAL_MATRIX_DIMENSION_DELTA = 0
 ```
+
+2026-09-07 已在固定基線 `f787437e2c88a327ad7be210f31d790fa96ee3f7` 完成 bounded read-only seam audit；證據位於 `docs/evidence/ME-D1-DAILY-CLOSE-SEAM-AUDIT-20260907.md`。Audit 確認既有 provider、validation snapshot、ETL parquet 與 DatasetBundle seams 可延伸，也確認 production 尚無 immutable provider-neutral Daily Close snapshot／finalization／price-basis／fetch lineage。狀態只提升為 `MEASURED_GAP_CONFIRMED / READY_FOR_OWNER_ADMISSION_DECISION`，**不構成 ME-D1 admission 或 implementation authority**。
 
 此卡固定兩層而不可混為同一 implementation scope：
 
@@ -1140,7 +1142,7 @@ B0／C0：
 - 不在每個小發現重審。
 - BC-CP1已完成；B0-P2 admission已裁決NO-GO。Research Spine目前沒有active execution frontier。
 - TALIB-01 只是 P1 donor registration；未經 Owner 後續明確 admission 不得施工，也不得擴大 Research Matrix。
-- ME-D1 只是 P1 Daily Close / future Market Evidence seam registration；未經 Owner 後續明確 admission 不得施工，完整 Market Evidence runtime 仍 deferred。
+- ME-D1 已完成 bounded read-only seam audit，但仍是 P1 Daily Close / future Market Evidence seam registration；未經 Owner 後續明確 admission 不得施工，完整 Market Evidence runtime 仍 deferred。
 - RADAR-01 只是 P1 Daily Close product-projection registration；未經 Owner 後續明確 admission 不得施工，不得取得 AI/ranking/runtime authority，也不得藉 Radar 需求擴市場資料範圍；`Base Rate Before Signal` 是未來 bounded implementation 的 acceptance requirement，不是新的 runtime subsystem。
 - 卡片研究完成不等於下一張自動 admission。
 - B 不得因最優化需求取得 execution authority。
@@ -1156,7 +1158,7 @@ CURRENT:
 - R13 = REGISTERED_FORWARD_BUNDLE_VERIFIED / downstream_authority=NONE
 - R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
 - TALIB-01 = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
-- ME-D1 = P1 REGISTERED / NOT_ADMITTED / FINALIZED_DAILY_CLOSE_ONLY / TARGET_ARCHITECTURE_PRESERVED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
+- ME-D1 = P1 SEAM_AUDITED / MEASURED_GAP_CONFIRMED / NOT_ADMITTED / FINALIZED_DAILY_CLOSE_ONLY / TARGET_ARCHITECTURE_PRESERVED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 - RADAR-01 = P1 REGISTERED / NOT_ADMITTED / DAILY_CLOSE_PRODUCT_PROJECTION / BASE_RATE_BEFORE_SIGNAL / AI_AUTHORITY=NONE / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 
 REQUIRED NEXT GATE:
@@ -1164,7 +1166,7 @@ REQUIRED NEXT GATE:
 - B0-P2 = NO_GO_INSUFFICIENT_DECISION_VALUE
 - C0-P2 = ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY
 - TALIB-01 requires a future explicit Owner admission before bounded implementation
-- ME-D1 requires a future explicit Owner admission before any Daily Close implementation; full Market Evidence Plane requires a separate measured-need admission
+- ME-D1 seam audit is complete；requires a future explicit Owner admission before any Daily Close implementation；full Market Evidence Plane requires a separate measured-need admission
 - RADAR-01 requires a future explicit Owner admission after ME-D1 input seam + existing Signal/Research Ledger audit; any material signal-performance claim must compare against a relevant base rate; confluence production ranking requires bounded evidence/admission
 - independent Forecast / TFM3 fork requires its own preflight and authority
 

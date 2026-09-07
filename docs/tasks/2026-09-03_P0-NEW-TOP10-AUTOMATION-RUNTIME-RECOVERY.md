@@ -21,6 +21,8 @@ external_write_allowed: false
 
 # P0 — NEW-TOP10 Automation Runtime Recovery
 
+> **名詞澄清（2026-09-07）**：本卡歷史分解中的 `A4`／`A5`／`A6` 只是 Automation Recovery 內部分段，不是 canonical Research Spine Card A4／A5／A6。Research Spine Card A5=`MATCHED-LEARNING-PROJECTION`，已 closed。現行狀態與通知一律使用「Fog runtime activation 後的 natural-cycle acceptance」，不再單獨稱為 A5。
+
 👉 [假設與目標確認] 目標：把 NEW-TOP10 八個正式 launchd job 的「有設定」恢復成「可證明自然排程有執行、child 有完成、正確日期產物有落地」；邊界：本卡只建立 recovery authority／切片／驗收契約，現在不清 marker、不重啟或 enable launchd、不殺 PID、不 deploy、不 push、不送外部 review；驗收：不得再以 plist、manual run、unit test、clean-room 或 `launch_verified=true` 單獨宣稱 automation 已修復。
 
 ## 0. P0 判定

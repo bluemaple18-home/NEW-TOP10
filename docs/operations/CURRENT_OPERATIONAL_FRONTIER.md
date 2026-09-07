@@ -10,11 +10,11 @@
 - Research Spine B0/C0/BC：B0-P1、C0-P1、BC-CP2 current-tip baseline 與 C0-P2 已接受；BC-CP1 已決定並結案；B0-P2=`NO_GO_B0_PHASE_2_INSUFFICIENT_DECISION_VALUE`；B1–D1 未 admission；R14=`NO_GO_R14_INSUFFICIENT_DECISION_VALUE`。目前沒有可執行的 Research Spine implementation frontier。
 - Forecast：FM0、FC1、FC2 vendor-neutral baseline 已分別合併於 `ff3d30b`、`9abc159`、`02730a7`。TimesFM 3 僅完成 restricted-shadow preflight，狀態固定為 `DEFERRED / LAST / HOLD`；未下載模型、未安裝 runtime、未執行 inference，且不是目前前線。
 - TPEx TSKG：`INTEGRATED_CURRENT_DAY_ONLY / REVIEW_GO`。實作、review、repair 與狀態 reconciliation 均已存在；舊 dossier 的 `IMPLEMENTED_PENDING_REVIEW` 已校正，不得重派。
-- Automation runtime：resource-budget、validation confinement 與 lock identity 修復已整合至固定 commit `26c88343ccac08ce4701b785bfa2c2c82bfa446d`，並完成兩位盲審與兩輪固定 SHA 代表性 validation。2026-09-07 的 A4 bounded activation 已將 daily、external-review-preflight、fog-research-worker 三條 installed launchd job 切到 detached runtime `/Users/mattkuo/TOP10-runtime-automation-26c8834`；receipt 為 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`、CLI exit `0`。A5 目前為 `NATURAL_ACCEPTANCE_PENDING`。
+- Automation runtime：resource-budget、validation confinement 與 lock identity 修復已整合至固定 commit `26c88343ccac08ce4701b785bfa2c2c82bfa446d`，並完成兩位盲審與兩輪固定 SHA 代表性 validation。2026-09-07 的 bounded activation 已將 daily、external-review-preflight、fog-research-worker 三條 installed launchd job 切到 detached runtime `/Users/mattkuo/TOP10-runtime-automation-26c8834`；receipt 為 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`、CLI exit `0`。Fog runtime activation 後的自然週期驗收目前為 `NATURAL_ACCEPTANCE_PENDING`；這不是已完成的 Research Spine Card A5。
 
 ## Operational frontier
 
-目前唯一 active operational frontier 是 P0 的 A5 natural scheduler acceptance。Research Spine 仍無新的 executable implementation frontier；TimesFM 仍 `DEFERRED / LAST / HOLD`。
+目前唯一 active operational observation 是 Fog runtime activation 後的 natural-cycle acceptance。Research Spine 仍無新的 executable implementation frontier；TimesFM 仍 `DEFERRED / LAST / HOLD`。
 
 Automation P0 已收斂狀態：
 
@@ -22,10 +22,10 @@ Automation P0 已收斂狀態：
 2. A1–A3 bounded repairs、regression evidence與雙盲 review 均完成；原 lock cleanup P1 已由 established identity fail-closed boundary 關閉。
 3. 固定 SHA R4 兩輪代表性 validation 均為 `OK`；每輪 144/144 replay cases、child exit `0`、最終 process group quiescent，peak RSS 約 `669 MiB`／`614 MiB`。
 4. A4 已保存 prestate 與原始 denial hash，三條 plist 已切到 `26c8834` runtime；新 runtime marker clear，舊 runtime marker僅保留作歷史證據。
-5. A5 只等待兩次連續自然 Fog 週期。已設定唯讀 watcher；狀態無變化時保持安靜，出現啟動、完成、失敗或需要 Owner 動作才回報。
+5. Fog 只等待兩次連續自然週期。已設定唯讀 watcher；狀態無變化時保持安靜，出現啟動、完成、失敗或需要 Owner 動作才回報。
 6. A6 五個 disabled job intent reconciliation 尚未開始，維持 `pending`。
 
-不得用 manual run、kickstart、單次 plist/launchctl 狀態或舊 artifact 代替 A5 自然週期。詳細 acceptance 與 hard stops 以 P0 card 為準。
+不得用 manual run、kickstart、單次 plist/launchctl 狀態或舊 artifact 代替 Fog natural-cycle acceptance。詳細 acceptance 與 hard stops 以 P0 recovery card 為準；該卡歷史內部分段標籤不得與 canonical Research Spine Card A5 混用。
 
 其餘非 automation 狀態分成兩類：
 
@@ -53,4 +53,4 @@ Automation P0 已收斂狀態：
 - 本線可做 read-only 查核、狀態 reconciliation 與已 admission 卡的本機驗證。
 - 不得以「沒有其他 executable card」作為 TimesFM admission、模型下載、runtime 安裝或外部存取授權。
 - scheduler、provider、ranking、publish、production、deploy、push 與外部 write 仍須各自的明確 authority boundary。
-- 本次 A4 production activation 授權已使用完畢；後續不得自行 `kickstart`、補跑、改 plist、clear 新 marker、切換 runtime SHA、登出／重開機或送外部 write。A5 僅做自然週期唯讀驗收。
+- 本次 production activation 授權已使用完畢；後續不得自行 `kickstart`、補跑、改 plist、clear 新 marker、切換 runtime SHA、登出／重開機或送外部 write。Fog natural-cycle acceptance 僅做唯讀驗收。

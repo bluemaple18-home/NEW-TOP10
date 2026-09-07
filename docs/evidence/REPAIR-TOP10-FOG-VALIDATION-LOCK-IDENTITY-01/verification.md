@@ -36,4 +36,4 @@ Fog runner 的 A3 lock identity 固定透過 `/bin/ps -o lstart=` 取得 start t
 - 兩輪 validation 均無 denial reason；完整原始證據位於 `docs/evidence/REPAIR-NEW-TOP10-FOG-RESOURCE-BUDGET-01-LIVE-REVALIDATION-R4-20260907/`。
 - detached runtime `/Users/mattkuo/TOP10-runtime-automation-26c8834` 已 pin 到固定 commit，獨立 `.venv` 完成，啟用前容量 preflight 為 `PASS`。
 - A4 transaction CLI exit `0`，receipt 為 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`；三條 installed plist 均已指向新 runtime，rollback errors、mask restore errors 與新 runtime denial marker 均為空。
-- A5 尚待兩次連續自然 Fog 週期；不得用 manual run 或 `kickstart` 代替。
+- Fog runtime activation 後尚待兩次連續自然週期；不得用 manual run 或 `kickstart` 代替。這不是 Research Spine Card A5。
