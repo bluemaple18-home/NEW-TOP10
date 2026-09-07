@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ctypes
 import os
 import stat
 import sys
@@ -45,7 +46,64 @@ FIXED_ENVIRONMENT = {
     "TOP10_REPLAY_DRAIN_BATCH_SIZE": "24",
     "TOP10_REPLAY_DRAIN_MAX_BATCHES": "6",
     "TOP10_REPLAY_DRAIN_MAX_SECONDS": "7200",
+    "TOP10_PROCESS_IDENTITY_MODE": "validation-libproc",
 }
+
+
+class ProcBSDInfo(ctypes.Structure):
+    """Darwin `proc_bsdinfo` ABI；只讀取 PID 與 process start time。"""
+
+    _fields_ = [
+        ("pbi_flags", ctypes.c_uint32),
+        ("pbi_status", ctypes.c_uint32),
+        ("pbi_xstatus", ctypes.c_uint32),
+        ("pbi_pid", ctypes.c_uint32),
+        ("pbi_ppid", ctypes.c_uint32),
+        ("pbi_uid", ctypes.c_uint32),
+        ("pbi_gid", ctypes.c_uint32),
+        ("pbi_ruid", ctypes.c_uint32),
+        ("pbi_rgid", ctypes.c_uint32),
+        ("pbi_svuid", ctypes.c_uint32),
+        ("pbi_svgid", ctypes.c_uint32),
+        ("rfu_1", ctypes.c_uint32),
+        ("pbi_comm", ctypes.c_char * 16),
+        ("pbi_name", ctypes.c_char * 32),
+        ("pbi_nfiles", ctypes.c_uint32),
+        ("pbi_pgid", ctypes.c_uint32),
+        ("pbi_pjobc", ctypes.c_uint32),
+        ("e_tdev", ctypes.c_uint32),
+        ("e_tpgid", ctypes.c_uint32),
+        ("pbi_nice", ctypes.c_int32),
+        ("pbi_start_tvsec", ctypes.c_uint64),
+        ("pbi_start_tvusec", ctypes.c_uint64),
+    ]
+
+
+def darwin_process_start_token(pid: int) -> str:
+    """不執行外部命令，以 libproc 取得可防 PID reuse 的 start token。"""
+
+    if pid <= 0:
+        raise ValueError("pid 必須為正整數")
+    libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+    proc_pidinfo = libproc.proc_pidinfo
+    proc_pidinfo.argtypes = [
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_uint64,
+        ctypes.c_void_p,
+        ctypes.c_int,
+    ]
+    proc_pidinfo.restype = ctypes.c_int
+    info = ProcBSDInfo()
+    expected_size = ctypes.sizeof(info)
+    actual_size = proc_pidinfo(pid, 3, 0, ctypes.byref(info), expected_size)
+    if (
+        actual_size != expected_size
+        or info.pbi_pid != pid
+        or info.pbi_start_tvsec <= 0
+    ):
+        raise RuntimeError("libproc 無法確認 process identity")
+    return f"{info.pbi_start_tvsec}.{info.pbi_start_tvusec:06d}"
 
 
 def fail(message: str, code: int) -> None:
@@ -127,6 +185,13 @@ def materialize_verified_runner(runtime_root: Path, source: bytes) -> int:
 
 
 def main() -> None:
+    if len(sys.argv) == 3 and sys.argv[1] == "--process-start-token":
+        try:
+            pid = int(sys.argv[2])
+            print(darwin_process_start_token(pid))
+        except (ValueError, OSError, RuntimeError):
+            raise SystemExit(1) from None
+        return
     if len(sys.argv) != 5 or sys.argv[1] != "--runner-sha256" or sys.argv[3] != "--source-commit":
         fail("argv 必須由 pinned contract 固定 runner digest 與 source commit", 64)
     expected_digest = sys.argv[2]
@@ -173,6 +238,10 @@ def main() -> None:
     environment = dict(FIXED_ENVIRONMENT)
     environment.update({key: str(path) for key, path in runtime_paths.items()})
     environment["TOP10_DAILY_PYTHON"] = str(python_bin)
+    # __file__ 是 parent 已驗證並在 sandbox 外 materialize 的唯讀 entrypoint；
+    # child 只能執行，不能用 sandbox 內 workload 改寫 helper。
+    environment["TOP10_PROCESS_IDENTITY_HELPER"] = str(Path(__file__).resolve())
+    environment["TOP10_PROCESS_IDENTITY_PYTHON_BIN"] = sys.executable
     environment["TOP10_VALIDATION_SOURCE_COMMIT"] = source_commit
     runner_fd = materialize_verified_runner(runtime_root, runner_source)
     try:

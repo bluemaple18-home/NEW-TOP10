@@ -17,4 +17,4 @@ forbidden probe 的 `TemporaryDirectory` 明確使用 `sandbox_root.parent`，�
 - Fog resource/wiring/signal/retry shell tests、plist lint、`git diff --check`：全部通過。
 - 兩位獨立 Reviewer：均 `GO`，無 P0/P1。
 
-兩個代表性 runtime validation cycles 尚待固定 commit 後執行。
+固定 commit R3 已成功通過 confinement、spawn child 且保持 scope 收斂；後續因 Seatbelt 拒絕 Fog runner 的 `/bin/ps`，由 `REPAIR-TOP10-FOG-VALIDATION-LOCK-IDENTITY-01` 承接，不再歸因於 confinement probe。

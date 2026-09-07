@@ -50,15 +50,34 @@ MAX_RETRIES="${TOP10_FOG_RESEARCH_MAX_RETRIES:-3}"
 RETRY_BACKOFF_SECONDS="${TOP10_FOG_RESEARCH_RETRY_BACKOFF_SECONDS:-30}"
 FOG_LOCK_HELD=0
 QUEUE_OWNER_LOCK_HELD=0
+FOG_LOCK_IDENTITY_ESTABLISHED=0
+QUEUE_OWNER_LOCK_IDENTITY_ESTABLISHED=0
 RUN_CONTEXT_FILE=""
 PS_BIN="${TOP10_PROCESS_IDENTITY_PS_BIN:-/bin/ps}"
+PROCESS_IDENTITY_MODE="${TOP10_PROCESS_IDENTITY_MODE:-ps}"
+PROCESS_IDENTITY_HELPER="${TOP10_PROCESS_IDENTITY_HELPER:-}"
+PROCESS_IDENTITY_PYTHON_BIN="${TOP10_PROCESS_IDENTITY_PYTHON_BIN:-$PYTHON_BIN}"
 
 process_start_token() {
   local pid="$1"
   case "$pid" in
     ''|*[!0-9]*) return 1 ;;
   esac
-  "$PS_BIN" -o lstart= -p "$pid" 2>/dev/null || true
+  case "$PROCESS_IDENTITY_MODE" in
+    ps)
+      "$PS_BIN" -o lstart= -p "$pid" 2>/dev/null || true
+      ;;
+    validation-libproc)
+      # Seatbelt 會拒絕 /bin/ps；只允許 trusted validation entrypoint
+      # 透過 macOS libproc 查詢同一 sandbox 內的 process start time。
+      [ -n "$PROCESS_IDENTITY_HELPER" ] || return 1
+      "$PROCESS_IDENTITY_PYTHON_BIN" -I "$PROCESS_IDENTITY_HELPER" \
+        --process-start-token "$pid" 2>/dev/null || true
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 write_lock_identity() {
@@ -136,6 +155,7 @@ acquire_lock() {
       echo "fog research worker skipped; cannot establish lock identity" | tee -a "$LOG_FILE"
       exit 0
     fi
+    FOG_LOCK_IDENTITY_ESTABLISHED=1
     return 0
   fi
 
@@ -156,6 +176,7 @@ acquire_lock() {
       echo "fog research worker skipped; cannot establish lock identity" | tee -a "$LOG_FILE"
       exit 0
     fi
+    FOG_LOCK_IDENTITY_ESTABLISHED=1
     return 0
   fi
 
@@ -170,6 +191,7 @@ acquire_queue_owner_lock() {
       echo "fog research worker skipped; cannot establish research queue lock identity" | tee -a "$LOG_FILE"
       exit 0
     fi
+    QUEUE_OWNER_LOCK_IDENTITY_ESTABLISHED=1
     echo "fog_worker" > "$QUEUE_OWNER_NAME_FILE"
     return 0
   fi
@@ -191,6 +213,7 @@ acquire_queue_owner_lock() {
       echo "fog research worker skipped; cannot establish research queue lock identity" | tee -a "$LOG_FILE"
       exit 0
     fi
+    QUEUE_OWNER_LOCK_IDENTITY_ESTABLISHED=1
     echo "fog_worker" > "$QUEUE_OWNER_NAME_FILE"
     return 0
   fi
@@ -200,30 +223,54 @@ acquire_queue_owner_lock() {
 }
 
 cleanup_locks() {
+  local cleanup_status=0
   if [ "$FOG_LOCK_HELD" = "1" ]; then
-    if lock_identity_is_current_process "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"; then
-      rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
-      rmdir "$LOCK_DIR" 2>/dev/null || true
-    elif [ -f "$LOCK_PID_FILE" ] && [ "$(cat "$LOCK_PID_FILE" 2>/dev/null || true)" = "$$" ]; then
-      # identity 只寫到一半時仍可證明 pid 是自己；只清自己的 partial lock。
-      rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
-      rmdir "$LOCK_DIR" 2>/dev/null || true
-    elif [ ! -e "$LOCK_PID_FILE" ] && [ ! -e "$LOCK_START_TOKEN_FILE" ]; then
-      # identity 尚未寫入時只允許移除空目錄；若已被別人接管，rmdir 會 fail closed。
-      rmdir "$LOCK_DIR" 2>/dev/null || true
+    if [ "$FOG_LOCK_IDENTITY_ESTABLISHED" = "1" ]; then
+      if lock_identity_is_current_process "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"; then
+        rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+        FOG_LOCK_HELD=0
+        FOG_LOCK_IDENTITY_ESTABLISHED=0
+      else
+        echo "fog research worker cleanup blocked; lock identity unverified lock=$LOCK_DIR" | tee -a "$LOG_FILE"
+        cleanup_status=1
+      fi
+    else
+      if [ -f "$LOCK_PID_FILE" ] && [ "$(cat "$LOCK_PID_FILE" 2>/dev/null || true)" = "$$" ]; then
+        # identity 只寫到一半時仍可證明 pid 是自己；只清自己的 partial lock。
+        rm -f "$LOCK_PID_FILE" "$LOCK_START_TOKEN_FILE"
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+        FOG_LOCK_HELD=0
+      elif [ ! -e "$LOCK_PID_FILE" ] && [ ! -e "$LOCK_START_TOKEN_FILE" ]; then
+        # identity 尚未寫入時只允許移除空目錄；若已被別人接管，rmdir 會 fail closed。
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+        FOG_LOCK_HELD=0
+      fi
     fi
   fi
   if [ "$QUEUE_OWNER_LOCK_HELD" = "1" ]; then
-    if lock_identity_is_current_process "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"; then
-      rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
-      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
-    elif [ -f "$QUEUE_OWNER_PID_FILE" ] && [ "$(cat "$QUEUE_OWNER_PID_FILE" 2>/dev/null || true)" = "$$" ]; then
-      rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
-      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
-    elif [ ! -e "$QUEUE_OWNER_PID_FILE" ] && [ ! -e "$QUEUE_OWNER_NAME_FILE" ] && [ ! -e "$QUEUE_OWNER_START_TOKEN_FILE" ]; then
-      rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+    if [ "$QUEUE_OWNER_LOCK_IDENTITY_ESTABLISHED" = "1" ]; then
+      if lock_identity_is_current_process "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"; then
+        rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
+        rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+        QUEUE_OWNER_LOCK_HELD=0
+        QUEUE_OWNER_LOCK_IDENTITY_ESTABLISHED=0
+      else
+        echo "fog research worker cleanup blocked; queue lock identity unverified lock=$QUEUE_OWNER_LOCK_DIR" | tee -a "$LOG_FILE"
+        cleanup_status=1
+      fi
+    else
+      if [ -f "$QUEUE_OWNER_PID_FILE" ] && [ "$(cat "$QUEUE_OWNER_PID_FILE" 2>/dev/null || true)" = "$$" ]; then
+        rm -f "$QUEUE_OWNER_PID_FILE" "$QUEUE_OWNER_NAME_FILE" "$QUEUE_OWNER_START_TOKEN_FILE"
+        rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+        QUEUE_OWNER_LOCK_HELD=0
+      elif [ ! -e "$QUEUE_OWNER_PID_FILE" ] && [ ! -e "$QUEUE_OWNER_NAME_FILE" ] && [ ! -e "$QUEUE_OWNER_START_TOKEN_FILE" ]; then
+        rmdir "$QUEUE_OWNER_LOCK_DIR" 2>/dev/null || true
+        QUEUE_OWNER_LOCK_HELD=0
+      fi
     fi
   fi
+  return "$cleanup_status"
 }
 
 cleanup_context() {
@@ -238,12 +285,24 @@ cleanup() {
   cleanup_locks
 }
 
+handle_exit() {
+  local status="$?"
+  trap - EXIT
+  if ! cleanup; then
+    # 主流程成功但 lock teardown 未確認時，terminal truth 必須是 NO_GO。
+    if [ "$status" -eq 0 ]; then
+      status=70
+    fi
+  fi
+  exit "$status"
+}
+
 handle_signal() {
   local signal="$1"
   # signal teardown 必須先完成 bounded cleanup，再終止 process；不可釋放 ownership 後回到主流程。
   trap '' INT TERM
   trap - EXIT
-  cleanup
+  cleanup || true
   case "$signal" in
     INT) exit 130 ;;
     TERM) exit 143 ;;
@@ -251,7 +310,7 @@ handle_signal() {
   esac
 }
 
-trap cleanup EXIT
+trap handle_exit EXIT
 trap 'handle_signal INT' INT
 trap 'handle_signal TERM' TERM
 acquire_lock

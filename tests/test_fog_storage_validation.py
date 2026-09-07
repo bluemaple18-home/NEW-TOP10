@@ -50,7 +50,9 @@ class FogStorageValidationEntrypointTest(unittest.TestCase):
             f"{prologue}"
             "printf '%s\\n' \"$TOP10_DAILY_PYTHON\" \"$TOP10_FOG_RESEARCH_ENABLED\" "
             "\"$TOP10_FOG_RESEARCH_MAX_RETRIES\" \"$TOP10_FOG_RESEARCH_RECOVER_CIRCUIT\" "
-            "\"$TOP10_REPLAY_DRAIN_ENABLED\" \"$HOME\" \"$TMPDIR\" \"$XDG_CACHE_HOME\" "
+            "\"$TOP10_REPLAY_DRAIN_ENABLED\" \"$TOP10_PROCESS_IDENTITY_MODE\" "
+            "\"$TOP10_PROCESS_IDENTITY_HELPER\" \"$TOP10_PROCESS_IDENTITY_PYTHON_BIN\" "
+            "\"$HOME\" \"$TMPDIR\" \"$XDG_CACHE_HOME\" "
             "\"$XDG_CONFIG_HOME\" \"$XDG_DATA_HOME\" \"$XDG_STATE_HOME\" "
             "> artifacts/fog-entrypoint-env.txt\n"
             "/usr/bin/env > artifacts/fog-entrypoint-process-env.txt\n"
@@ -115,6 +117,9 @@ class FogStorageValidationEntrypointTest(unittest.TestCase):
                     "1",
                     "0",
                     "1",
+                    "validation-libproc",
+                    str(entrypoint.resolve()),
+                    sys.executable,
                     str(runtime / "home"),
                     str(runtime / "tmp"),
                     str(runtime / "cache" / "xdg"),
@@ -191,6 +196,18 @@ class FogStorageValidationEntrypointTest(unittest.TestCase):
             self.assertEqual(child_environment["PYTHONDONTWRITEBYTECODE"], "1")
             self.assertEqual(child_environment["TOP10_RESEARCH_ALLOW_RERUN"], "1")
             self.assertEqual(child_environment["TOP10_STORAGE_VALIDATION_MODE"], "1")
+            self.assertEqual(
+                child_environment["TOP10_PROCESS_IDENTITY_MODE"],
+                "validation-libproc",
+            )
+            self.assertEqual(
+                child_environment["TOP10_PROCESS_IDENTITY_HELPER"],
+                str(entrypoint.resolve()),
+            )
+            self.assertEqual(
+                child_environment["TOP10_PROCESS_IDENTITY_PYTHON_BIN"],
+                sys.executable,
+            )
             self.assertEqual(child_environment["TOP10_VALIDATION_SOURCE_COMMIT"], "a" * 40)
             for name in (
                 "OMP_NUM_THREADS",
@@ -220,6 +237,32 @@ class FogStorageValidationEntrypointTest(unittest.TestCase):
                     for name in child_environment
                 )
             )
+
+    def test_libproc_helper_returns_stable_token_and_rejects_missing_pid(self) -> None:
+        command = [
+            sys.executable,
+            "-I",
+            str(ENTRYPOINT),
+            "--process-start-token",
+            str(os.getpid()),
+        ]
+        first = subprocess.run(command, text=True, capture_output=True, check=False)
+        second = subprocess.run(command, text=True, capture_output=True, check=False)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(first.stdout.strip(), second.stdout.strip())
+        seconds, microseconds = first.stdout.strip().split(".", 1)
+        self.assertGreater(int(seconds), 0)
+        self.assertEqual(len(microseconds), 6)
+
+        missing = subprocess.run(
+            [sys.executable, "-I", str(ENTRYPOINT), "--process-start-token", "999999"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(missing.returncode, 1)
+        self.assertEqual(missing.stdout, "")
 
     def test_fixed_bytecode_policy_blocks_source_tree_pyc_from_local_import(
         self,
