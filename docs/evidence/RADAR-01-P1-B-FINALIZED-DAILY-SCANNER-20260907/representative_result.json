@@ -1,0 +1,100 @@
+{
+  "authority": "VALIDATION_ONLY_NO_RADAR_ELIGIBILITY",
+  "feature_source": "data/clean/features.parquet",
+  "input_date_end": "2026-09-01",
+  "input_date_start": "2025-07-08",
+  "input_rows": 516169,
+  "input_stocks": 1967,
+  "report": {
+    "deterministic_replay_equal": true,
+    "eligible_signal_count": 4,
+    "feature_artifact_content_id": "sha256:aab60603280ae3d2a603b705ab02c5b19f518dcf178080482b2500b221f954ce",
+    "feature_matched_row_count": 1930,
+    "feature_missing_row_count": 0,
+    "hit_count": 220,
+    "indicator_semantics_ref": "git-sha1:5db7dcd0f390b8f47a1021fdef6c60a930d98d84",
+    "records_content_id": "sha256:7c9aa859c9a81b1193d39e25909b0b3dcd1a1bc7590b56da3b4e8791b5afbb7e",
+    "replay_scan_content_id": "sha256:ced9349f3558035d80c336756babdfe711e71d9c82384dd3eaaeb8836840abe1",
+    "scan_content_id": "sha256:ced9349f3558035d80c336756babdfe711e71d9c82384dd3eaaeb8836840abe1",
+    "scan_date": "2026-09-01",
+    "signal_summaries": [
+      {
+        "evaluated_rows": 1930,
+        "not_observable_rows": 875,
+        "not_triggered_rows": 1027,
+        "signal_id": "ma5_cross_ma20_down",
+        "signal_version": "1.0.0",
+        "spec_content_id": "sha256:3efd264e363ee7f29b0b1528521279c995de0cb7df03c523127a6f58765068fe",
+        "triggered_rows": 28
+      },
+      {
+        "evaluated_rows": 1930,
+        "not_observable_rows": 875,
+        "not_triggered_rows": 1009,
+        "signal_id": "ma5_cross_ma20_up",
+        "signal_version": "1.0.0",
+        "spec_content_id": "sha256:5f6308a81f89fc0b3725c9410241ad9461bd20bf09b451228c05abf20c11f0f8",
+        "triggered_rows": 46
+      },
+      {
+        "evaluated_rows": 1930,
+        "not_observable_rows": 23,
+        "not_triggered_rows": 1818,
+        "signal_id": "rsi_break_below_50",
+        "signal_version": "1.0.0",
+        "spec_content_id": "sha256:9901d9a1e7d5f2f31db57fb2bfa65332c4ae43e37c3accfd24d9d0913d629532",
+        "triggered_rows": 89
+      },
+      {
+        "evaluated_rows": 1930,
+        "not_observable_rows": 23,
+        "not_triggered_rows": 1850,
+        "signal_id": "rsi_rebound_from_40",
+        "signal_version": "1.0.0",
+        "spec_content_id": "sha256:98e7e94cdfd0cfe5b47373abe48e5469b6a897b187d6f5d3296256cf6083f100",
+        "triggered_rows": 57
+      }
+    ],
+    "snapshot_id": "sha256:e519a6e289c8ff37911c18bdcbc1ca72bec1c56ef3e221dcdae69b521765b2c2",
+    "snapshot_row_count": 1930,
+    "status": "PARTIAL",
+    "warnings": [
+      {
+        "affected_count": 47,
+        "reason_code": "SNAPSHOT_RESOLVED_WITH_GAPS",
+        "record_key": "2026-09-01/*",
+        "signal_id": null,
+        "stage": "FINALIZED_DAILY_INPUT"
+      },
+      {
+        "affected_count": 875,
+        "reason_code": "REQUIRED_FEATURE_UNAVAILABLE",
+        "record_key": "2026-09-01/1213,1218,1240,1259,1264",
+        "signal_id": "ma5_cross_ma20_down",
+        "stage": "SIGNAL_EVALUATION"
+      },
+      {
+        "affected_count": 875,
+        "reason_code": "REQUIRED_FEATURE_UNAVAILABLE",
+        "record_key": "2026-09-01/1213,1218,1240,1259,1264",
+        "signal_id": "ma5_cross_ma20_up",
+        "stage": "SIGNAL_EVALUATION"
+      },
+      {
+        "affected_count": 23,
+        "reason_code": "REQUIRED_HISTORY_UNAVAILABLE",
+        "record_key": "2026-09-01/2064,2235,2941,3115,3252",
+        "signal_id": "rsi_break_below_50",
+        "stage": "SIGNAL_EVALUATION"
+      },
+      {
+        "affected_count": 23,
+        "reason_code": "REQUIRED_HISTORY_UNAVAILABLE",
+        "record_key": "2026-09-01/2064,2235,2941,3115,3252",
+        "signal_id": "rsi_rebound_from_40",
+        "stage": "SIGNAL_EVALUATION"
+      }
+    ]
+  },
+  "snapshot_resolution_status": "RESOLVED_WITH_GAPS"
+}

@@ -1,0 +1,108 @@
+{
+  "coordinator_policy": {
+    "approval_bias": "suggestions_and_single_non_production_warning_do_not_block",
+    "block_on": [
+      "P0",
+      "P1",
+      "production_safety_risk",
+      "exploitable_security_issue",
+      "repeated_warning_pattern"
+    ],
+    "dedupe_by": [
+      "path",
+      "line",
+      "category",
+      "risk"
+    ]
+  },
+  "diff_summary": {
+    "added_lines": 1202,
+    "agents_material_files": [],
+    "changed_lines": 1216,
+    "files_reviewable": 6,
+    "files_total": 6,
+    "filtered_noise_files": [],
+    "lifecycle_side_effect_files": [
+      "docs/operations/CURRENT_OPERATIONAL_FRONTIER.md"
+    ],
+    "performance_sensitive_files": [],
+    "release_sensitive_files": [],
+    "removed_lines": 14,
+    "security_sensitive_files": []
+  },
+  "generated_at": "2026-09-07T20:19:14.840570+08:00",
+  "outputs": {
+    "diff_entries": "/Users/mattkuo/TOP10new/.work/CARD-RADAR-01-P1-B-FINALIZED-DAILY-SCANNER/review/diff_entries.jsonl",
+    "finding_schema": "/Users/mattkuo/TOP10new/.work/CARD-RADAR-01-P1-B-FINALIZED-DAILY-SCANNER/review/finding_schema.json",
+    "review_plan_json": "/Users/mattkuo/TOP10new/.work/CARD-RADAR-01-P1-B-FINALIZED-DAILY-SCANNER/review/review_plan.json",
+    "review_plan_md": "/Users/mattkuo/TOP10new/.work/CARD-RADAR-01-P1-B-FINALIZED-DAILY-SCANNER/review/review_plan.md",
+    "review_state": "/Users/mattkuo/TOP10new/.work/CARD-RADAR-01-P1-B-FINALIZED-DAILY-SCANNER/review/review_state.jsonl"
+  },
+  "reviewers": [
+    {
+      "blocks": true,
+      "dispatch_card": "任務ID / review｜coordinator / 請讀 review_plan.json / 目的：統整所有 finding / 證據路徑：review_state.jsonl",
+      "id": "coordinator",
+      "purpose": "統整 finding、去重、校正嚴重度、輸出最終決策。"
+    },
+    {
+      "blocks": true,
+      "dispatch_card": "任務ID / review｜correctness / 請讀 diff_entries.jsonl / 目的：找主要流程錯誤 / 證據路徑：finding_schema.json",
+      "id": "correctness",
+      "purpose": "檢查行為、資料流、狀態、邊界條件與錯誤處理。"
+    },
+    {
+      "blocks": true,
+      "dispatch_card": "任務ID / review｜regression / 請讀 diff_entries.jsonl / 目的：找回歸風險 / 證據路徑：finding_schema.json",
+      "id": "regression",
+      "purpose": "檢查既有 API、CLI、檔案格式、環境契約與跨機路徑。"
+    },
+    {
+      "blocks": false,
+      "dispatch_card": "任務ID / review｜test_gap / 請讀 review_plan.json / 目的：找驗證缺口 / 證據路徑：finding_schema.json",
+      "id": "test_gap",
+      "purpose": "檢查風險點是否有足夠測試或驗收證據。"
+    },
+    {
+      "blocks": false,
+      "dispatch_card": "任務ID / review｜maintainability / 請讀 diff_entries.jsonl / 目的：找非阻塞維護風險 / 證據路徑：finding_schema.json",
+      "id": "maintainability",
+      "purpose": "檢查重複、抽象、命名、可讀性與既有模式一致性。"
+    },
+    {
+      "blocks": true,
+      "dispatch_card": "任務ID / review｜failure_state / 請讀 lifecycle_side_effect_files 與 fixed diff / 目的：逐步驗證 failure state，不得只做靜態 fixed-diff 判讀 / 證據路徑：finding_schema.json",
+      "id": "failure_state",
+      "purpose": "從 trap／handler 武裝點開始，逐個副作用列舉失敗後的真實狀態、mutation、receipt 與 recovery。"
+    },
+    {
+      "blocks": false,
+      "dispatch_card": "任務ID / review｜agents_md / 請讀 agents_material_files / 目的：找 agent instructions drift / 證據路徑：finding_schema.json",
+      "id": "agents_md",
+      "purpose": "檢查 AGENTS.md、skill、rules 是否因工具鏈或架構變更而需要同步。"
+    }
+  ],
+  "risk_reasons": [
+    "large_diff",
+    "lifecycle_side_effect_failure_state_review"
+  ],
+  "risk_tier": "full",
+  "root": "/Users/mattkuo/TOP10new",
+  "schema_version": "review.orchestrator.plan.v1",
+  "side_effect_failure_state_policy": {
+    "disagreement_policy": "preserve_disagreement_and_block_until_evidence_resolves_it",
+    "minimum_independent_reviewers": 2,
+    "required": true,
+    "required_method": [
+      "start_at_each_trap_or_handler_arm_point",
+      "enumerate_each_ordered_side_effect",
+      "inject_failure_before_and_after_each_side_effect",
+      "record_true_external_and_durable_state",
+      "record_mutation_counts_and_receipt_state",
+      "prove_exact_restore_or_fail_closed_terminal_state"
+    ],
+    "reviewer_independence": "reviewers_must_not_read_each_others_verdict_before_submission"
+  },
+  "task_id": "CARD-RADAR-01-P1-B-FINALIZED-DAILY-SCANNER",
+  "task_thickness": "strict"
+}

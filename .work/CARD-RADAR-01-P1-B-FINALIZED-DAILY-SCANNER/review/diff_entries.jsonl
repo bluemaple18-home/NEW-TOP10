@@ -1,0 +1,6 @@
+{"added_lines": 18, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/signals/__init__.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 11, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "docs/RESEARCH_SPINE_BACKLOG.md", "removed_lines": 10, "status": "M", "untracked": false}
+{"added_lines": 4, "binary": false, "lifecycle_side_effect": true, "old_path": null, "path": "docs/operations/CURRENT_OPERATIONAL_FRONTIER.md", "removed_lines": 4, "status": "M", "untracked": false}
+{"added_lines": 598, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/signals/scanner.py", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 68, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "docs/tasks/2026-09-07_CARD-RADAR-01-P1-B-FINALIZED-DAILY-SCANNER.md", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 503, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_daily_signal_scanner.py", "removed_lines": 0, "status": "A", "untracked": true}
