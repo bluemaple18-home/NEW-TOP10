@@ -15,13 +15,16 @@
     </array>
 
     <key>StartInterval</key>
-    <integer>900</integer>
+    <integer>3600</integer>
 
     <key>ProcessType</key>
     <string>Background</string>
 
     <key>LowPriorityIO</key>
     <true/>
+
+    <key>Nice</key>
+    <integer>10</integer>
 
     <key>EnvironmentVariables</key>
     <dict>
