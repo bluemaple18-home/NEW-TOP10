@@ -582,6 +582,23 @@ else
   echo "representative replay drain skipped; exit_code=$EXIT_CODE enabled=${TOP10_REPLAY_DRAIN_ENABLED:-1}" | tee -a "$LOG_FILE"
 fi
 
+if [ -n "${TOP10_STORAGE_JOB:-}${TOP10_STORAGE_SCHEDULED_AT:-}${TOP10_STORAGE_INVOCATION_ID:-}" ]; then
+  if [ "${TOP10_STORAGE_JOB:-}" != "fog-research-worker" ] || [ -z "${TOP10_STORAGE_SCHEDULED_AT:-}" ] || [ -z "${TOP10_STORAGE_INVOCATION_ID:-}" ]; then
+    echo "fog terminal evidence failed; incomplete guard metadata" | tee -a "$LOG_FILE"
+    EXIT_CODE=70
+  elif [ "$EXIT_CODE" -eq 0 ] && [ "$CIRCUIT_OPEN" -eq 0 ] && [ -n "${RUN_ID:-}" ]; then
+    if ! "$PYTHON_BIN" scripts/write_fog_terminal_evidence.py \
+      --job "$TOP10_STORAGE_JOB" \
+      --scheduled-at "$TOP10_STORAGE_SCHEDULED_AT" \
+      --invocation-id "$TOP10_STORAGE_INVOCATION_ID" \
+      --run-id "$RUN_ID" \
+      --artifact-run-date "$RUN_DATE" >> "$LOG_FILE" 2>&1; then
+      echo "fog terminal evidence failed; invocation=$TOP10_STORAGE_INVOCATION_ID" | tee -a "$LOG_FILE"
+      EXIT_CODE=70
+    fi
+  fi
+fi
+
 if [ "$EXIT_CODE" -eq 0 ]; then
   echo "fog research worker finished - $(date)" | tee -a "$LOG_FILE"
 else

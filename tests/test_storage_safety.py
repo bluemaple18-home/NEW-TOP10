@@ -99,6 +99,75 @@ def fixture_job_policy(**overrides: object) -> JobPolicy:
     return replace(policy, **overrides)
 
 
+def write_fog_terminal_fixture(
+    root: Path,
+    *,
+    scheduled_at: str,
+    invocation_id: str,
+    run_date: str,
+    run_id: str,
+) -> None:
+    event_path = (
+        root
+        / "artifacts"
+        / "harness_status"
+        / run_date
+        / run_id
+        / "events"
+        / "fog_map.json"
+    )
+    event_path.parent.mkdir(parents=True, exist_ok=True)
+    event_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "top10-agent-status-event.v1",
+                "run_id": run_id,
+                "run_date": run_date,
+                "agent_id": "fog_map",
+                "status": "ok",
+                "decision": "pass",
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_path = (
+        root
+        / "logs"
+        / "storage_safety"
+        / "runtime"
+        / "fog-research-worker"
+        / "terminal_evidence"
+        / f"{invocation_id}.json"
+    )
+    evidence_path.parent.mkdir(parents=True, exist_ok=True)
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "top10-fog-terminal-evidence.v1",
+                "job": "fog-research-worker",
+                "scheduled_at": scheduled_at,
+                "invocation_id": invocation_id,
+                "run_id": run_id,
+                "artifact_run_date": run_date,
+                "terminal_result": "OK",
+                "canonical_artifact_path": event_path.relative_to(root).as_posix(),
+                "canonical_artifact_sha256": hashlib.sha256(
+                    event_path.read_bytes()
+                ).hexdigest(),
+                "event_status": "ok",
+                "event_decision": "pass",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def write_fog_plist_fixture(root: Path, start_interval: int = 3600) -> None:
+    path = root / "scripts" / "com.new-top10.fog-research-worker.plist"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(plistlib.dumps({"StartInterval": start_interval}))
+
+
 def test_take_sample_attributes_process_tree_rss_by_pid_and_command() -> None:
     ps_output = "\n".join(
         (
@@ -185,6 +254,61 @@ def test_manual_cli_cannot_self_attest_natural_origin() -> None:
     assert _effective_trigger_type("natural", parent_pid=4321) == "manual"
     assert _effective_trigger_type("natural", parent_pid=1) == "natural"
     assert _effective_trigger_type("manual", parent_pid=1) == "manual"
+
+
+def test_wrapper_preserves_non_fog_overrides_but_fog_self_generates_metadata() -> None:
+    """共同 wrapper 只對 Fog 封鎖 caller metadata；其他 job 保留既有 override。"""
+
+    with tempfile.TemporaryDirectory(prefix="top10-storage-wrapper-metadata-") as tmp:
+        root = Path(tmp)
+        scripts = root / "scripts"
+        python_bin = root / ".venv" / "bin" / "python"
+        scripts.mkdir(parents=True)
+        python_bin.parent.mkdir(parents=True)
+        shutil.copy2(PROJECT_ROOT / "scripts" / "run_with_storage_guard.sh", scripts)
+        python_bin.write_text(
+            """#!/usr/bin/env bash
+printf 'job=%s\n' "${TOP10_STORAGE_JOB:-}"
+printf 'scheduled=%s\n' "${TOP10_STORAGE_SCHEDULED_AT:-}"
+printf 'invocation=%s\n' "${TOP10_STORAGE_INVOCATION_ID:-}"
+printf 'arg=%s\n' "$@"
+""",
+            encoding="utf-8",
+        )
+        python_bin.chmod(0o755)
+        wrapper = scripts / "run_with_storage_guard.sh"
+        supplied_scheduled = "2026-09-05T09:30:00Z"
+        supplied_invocation = "daily-20260905T093000Z-supplied"
+        environment = {
+            **os.environ,
+            "TOP10_STORAGE_SCHEDULED_AT": supplied_scheduled,
+            "TOP10_STORAGE_INVOCATION_ID": supplied_invocation,
+        }
+
+        daily = subprocess.run(
+            [str(wrapper), "daily", "/usr/bin/true"],
+            cwd=root,
+            env=environment,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+        fog = subprocess.run(
+            [str(wrapper), "fog-research-worker", "/usr/bin/true"],
+            cwd=root,
+            env=environment,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+
+        assert f"scheduled={supplied_scheduled}" in daily
+        assert f"invocation={supplied_invocation}" in daily
+        assert f"arg={supplied_scheduled}" in daily
+        assert f"arg={supplied_invocation}" in daily
+        assert f"scheduled={supplied_scheduled}" not in fog
+        assert f"invocation={supplied_invocation}" not in fog
+        assert any(line.startswith("invocation=fog-research-worker-") for line in fog)
 
 
 def validation_contract_fixture(
@@ -3341,6 +3465,394 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 ["preflight", "live", "final"],
             )
 
+    def test_fog_ok_without_exact_terminal_evidence_stays_pending(self) -> None:
+        """未綁定 latest 不得讓 Fog 的成功 child 被計入自然驗收。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-fog-natural-missing-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            latest = (
+                root
+                / "logs"
+                / "storage_safety"
+                / "runtime"
+                / "fog-research-worker"
+                / "terminal_evidence"
+                / "latest.json"
+            )
+            latest.parent.mkdir(parents=True)
+            latest.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "top10-fog-terminal-evidence.v1",
+                        "job": "fog-research-worker",
+                        "scheduled_at": "2026-09-07T01:00:00+00:00",
+                        "invocation_id": "fog-research-worker-wrong",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+            invocation_id = "fog-research-worker-20260907T010000Z-test"
+
+            result = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(job="fog-research-worker"),
+                (),
+                ["/usr/bin/true"],
+                sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                trigger_type="natural",
+                scheduled_at="2026-09-07T01:00:00+00:00",
+                invocation_id=invocation_id,
+            )
+            receipt = json.loads(
+                (
+                    root
+                    / "logs"
+                    / "storage_safety"
+                    / "fog-research-worker_latest.json"
+                ).read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(result, 0)
+            self.assertEqual(receipt["acceptance_status"], "NATURAL_ACCEPTANCE_PENDING")
+            self.assertEqual(receipt["accepted_natural_cycles"], 0)
+            self.assertIs(receipt["terminal_evidence_verified"], False)
+            self.assertEqual(receipt["terminal_evidence_status"], "MISSING")
+            self.assertEqual(
+                receipt["terminal_evidence_path"],
+                "logs/storage_safety/runtime/fog-research-worker/terminal_evidence/"
+                f"{invocation_id}.json",
+            )
+
+    def test_fog_valid_terminal_evidence_without_cadence_stays_pending(self) -> None:
+        """Exact artifact 成功仍不能在缺 cadence provenance 時累加。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-fog-natural-evidence-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            run_date = "2026-09-07"
+            run_id = "fog-research-2026-09-07-20260907010000000000-b1"
+            invocation_id = "fog-research-worker-20260907T010000Z-test"
+            scheduled_at = "2026-09-07T01:00:00+00:00"
+            event_path = (
+                root
+                / "artifacts"
+                / "harness_status"
+                / run_date
+                / run_id
+                / "events"
+                / "fog_map.json"
+            )
+            event_path.parent.mkdir(parents=True)
+            event_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "top10-agent-status-event.v1",
+                        "run_id": run_id,
+                        "run_date": run_date,
+                        "agent_id": "fog_map",
+                        "status": "ok",
+                        "decision": "pass",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            evidence_path = (
+                root
+                / "logs"
+                / "storage_safety"
+                / "runtime"
+                / "fog-research-worker"
+                / "terminal_evidence"
+                / f"{invocation_id}.json"
+            )
+            evidence_path.parent.mkdir(parents=True)
+            evidence_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "top10-fog-terminal-evidence.v1",
+                        "job": "fog-research-worker",
+                        "scheduled_at": scheduled_at,
+                        "invocation_id": invocation_id,
+                        "run_id": run_id,
+                        "artifact_run_date": run_date,
+                        "terminal_result": "OK",
+                        "canonical_artifact_path": event_path.relative_to(root).as_posix(),
+                        "canonical_artifact_sha256": hashlib.sha256(
+                            event_path.read_bytes()
+                        ).hexdigest(),
+                        "event_status": "ok",
+                        "event_decision": "pass",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+
+            result = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(job="fog-research-worker"),
+                (),
+                ["/usr/bin/true"],
+                sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                trigger_type="natural",
+                scheduled_at=scheduled_at,
+                invocation_id=invocation_id,
+            )
+            receipt = json.loads(
+                (
+                    root
+                    / "logs"
+                    / "storage_safety"
+                    / "fog-research-worker_latest.json"
+                ).read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(result, 0)
+            self.assertIs(receipt["terminal_evidence_verified"], True)
+            self.assertEqual(receipt["terminal_evidence_status"], "VALID")
+            self.assertEqual(receipt["artifact_run_date"], run_date)
+            self.assertEqual(receipt["publish_or_provider_result"], "OK")
+            self.assertIs(receipt["cadence_verified"], False)
+            self.assertEqual(receipt["accepted_natural_cycles"], 0)
+            self.assertEqual(receipt["acceptance_status"], "NATURAL_ACCEPTANCE_PENDING")
+
+    def test_fog_valid_evidence_and_cadence_increment_counter(self) -> None:
+        """前一個合格 candidate receipt 可作 cadence anchor，但不能跳到兩輪。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-fog-natural-cadence-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            write_fog_plist_fixture(root)
+            previous_invocation = "fog-research-worker-20260907T000000Z-test"
+            previous_dir = (
+                root
+                / "logs"
+                / "storage_safety"
+                / "receipts"
+                / "fog-research-worker"
+            )
+            previous_dir.mkdir(parents=True)
+            (previous_dir / f"{previous_invocation}.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "top10-storage-guard-receipt.v1",
+                        "job": "fog-research-worker",
+                        "status": "OK",
+                        "trigger_type": "natural",
+                        "scheduled_at": "2026-09-07T00:00:00+00:00",
+                        "invocation_id": previous_invocation,
+                        "child_exit_code": 0,
+                        "final_process_group_quiescent": True,
+                        "terminal_evidence_verified": False,
+                        "terminal_evidence_status": "MISSING",
+                        "artifact_run_date": None,
+                        "publish_or_provider_result": None,
+                        "cadence_verified": False,
+                        "accepted_natural_cycles": 0,
+                        "acceptance_status": "NATURAL_ACCEPTANCE_PENDING",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            scheduled_at = "2026-09-07T01:00:00+00:00"
+            invocation_id = "fog-research-worker-20260907T010000Z-test"
+            write_fog_terminal_fixture(
+                root,
+                scheduled_at=scheduled_at,
+                invocation_id=invocation_id,
+                run_date="2026-09-07",
+                run_id="fog-research-2026-09-07-20260907010000000000-b1",
+            )
+            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+
+            result = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(job="fog-research-worker"),
+                (),
+                ["/usr/bin/true"],
+                sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                trigger_type="natural",
+                scheduled_at=scheduled_at,
+                invocation_id=invocation_id,
+            )
+            receipt = json.loads(
+                (
+                    root
+                    / "logs"
+                    / "storage_safety"
+                    / "fog-research-worker_latest.json"
+                ).read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(result, 0)
+            self.assertIs(receipt["terminal_evidence_verified"], True)
+            self.assertIs(receipt["cadence_verified"], True)
+            self.assertIs(receipt["natural_trigger_verified"], True)
+            self.assertEqual(
+                receipt["natural_provenance_method"],
+                "ARCHIVED_RECEIPT_CADENCE_V1",
+            )
+            self.assertEqual(receipt["accepted_natural_cycles"], 1)
+            self.assertEqual(receipt["acceptance_status"], "NATURAL_ACCEPTANCE_PENDING")
+
+    def test_fog_two_consecutive_verified_cycles_become_accepted(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-fog-natural-accepted-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            write_fog_plist_fixture(root)
+            anchor_invocation = "fog-research-worker-20260907T000000Z-test"
+            receipts = (
+                root
+                / "logs"
+                / "storage_safety"
+                / "receipts"
+                / "fog-research-worker"
+            )
+            receipts.mkdir(parents=True)
+            (receipts / f"{anchor_invocation}.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "top10-storage-guard-receipt.v1",
+                        "job": "fog-research-worker",
+                        "status": "OK",
+                        "trigger_type": "natural",
+                        "scheduled_at": "2026-09-07T00:00:00+00:00",
+                        "invocation_id": anchor_invocation,
+                        "child_exit_code": 0,
+                        "final_process_group_quiescent": True,
+                        "terminal_evidence_verified": False,
+                        "terminal_evidence_status": "MISSING",
+                        "artifact_run_date": None,
+                        "publish_or_provider_result": None,
+                        "cadence_verified": False,
+                        "accepted_natural_cycles": 0,
+                        "acceptance_status": "NATURAL_ACCEPTANCE_PENDING",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+
+            for hour in (1, 2):
+                scheduled_at = f"2026-09-07T{hour:02d}:00:00+00:00"
+                invocation_id = (
+                    f"fog-research-worker-20260907T{hour:02d}0000Z-test"
+                )
+                write_fog_terminal_fixture(
+                    root,
+                    scheduled_at=scheduled_at,
+                    invocation_id=invocation_id,
+                    run_date="2026-09-07",
+                    run_id=(
+                        "fog-research-2026-09-07-"
+                        f"20260907{hour:02d}0000000000-b1"
+                    ),
+                )
+                result = run_guarded_job(
+                    root,
+                    fixture_global_policy(),
+                    fixture_job_policy(job="fog-research-worker"),
+                    (),
+                    ["/usr/bin/true"],
+                    sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                    trigger_type="natural",
+                    scheduled_at=scheduled_at,
+                    invocation_id=invocation_id,
+                )
+                self.assertEqual(result, 0)
+
+            receipt = json.loads(
+                (
+                    root
+                    / "logs"
+                    / "storage_safety"
+                    / "fog-research-worker_latest.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(receipt["accepted_natural_cycles"], 2)
+            self.assertEqual(receipt["acceptance_status"], "ACCEPTED")
+
+    def test_fog_broken_symlink_denial_marker_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-fog-natural-denial-link-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            write_fog_plist_fixture(root)
+            previous_invocation = "fog-research-worker-20260907T000000Z-test"
+            receipts = (
+                root
+                / "logs"
+                / "storage_safety"
+                / "receipts"
+                / "fog-research-worker"
+            )
+            receipts.mkdir(parents=True)
+            (receipts / f"{previous_invocation}.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "top10-storage-guard-receipt.v1",
+                        "job": "fog-research-worker",
+                        "status": "OK",
+                        "trigger_type": "natural",
+                        "scheduled_at": "2026-09-07T00:00:00+00:00",
+                        "invocation_id": previous_invocation,
+                        "child_exit_code": 0,
+                        "final_process_group_quiescent": True,
+                        "terminal_evidence_verified": True,
+                        "terminal_evidence_status": "VALID",
+                        "artifact_run_date": "2026-09-07",
+                        "publish_or_provider_result": "OK",
+                        "accepted_natural_cycles": 0,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            scheduled_at = "2026-09-07T01:00:00+00:00"
+            invocation_id = "fog-research-worker-20260907T010000Z-test"
+            write_fog_terminal_fixture(
+                root,
+                scheduled_at=scheduled_at,
+                invocation_id=invocation_id,
+                run_date="2026-09-07",
+                run_id="fog-research-2026-09-07-20260907010000000000-b1",
+            )
+            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+
+            result = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                fixture_job_policy(job="fog-research-worker"),
+                (),
+                [
+                    "/bin/sh",
+                    "-c",
+                    "mkdir -p logs/storage_safety/restart_denied; "
+                    "ln -s missing logs/storage_safety/restart_denied/"
+                    "fog-research-worker.json",
+                ],
+                sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                trigger_type="natural",
+                scheduled_at=scheduled_at,
+                invocation_id=invocation_id,
+            )
+            receipt = json.loads(
+                (
+                    root
+                    / "logs"
+                    / "storage_safety"
+                    / "fog-research-worker_latest.json"
+                ).read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(result, 0)
+            self.assertIs(receipt["denial_marker_absent"], False)
+            self.assertEqual(receipt["accepted_natural_cycles"], 0)
+            self.assertEqual(receipt["acceptance_status"], "NATURAL_ACCEPTANCE_PENDING")
+
     def test_ok_receipt_requires_verified_final_process_group_quiescence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-quiescent-required-") as tmp:
             root = Path(tmp)
@@ -4446,6 +4958,13 @@ raise SystemExit(
         self.assertIn("--trigger-type", wrapper)
         self.assertIn("--scheduled-at", wrapper)
         self.assertIn("--invocation-id", wrapper)
+        self.assertIn('export TOP10_STORAGE_JOB="$JOB"', wrapper)
+        self.assertIn('export TOP10_STORAGE_SCHEDULED_AT="$SCHEDULED_AT"', wrapper)
+        self.assertIn('export TOP10_STORAGE_INVOCATION_ID="$INVOCATION_ID"', wrapper)
+        self.assertIn('if [ "$JOB" = "fog-research-worker" ]', wrapper)
+        self.assertIn("TOP10_STORAGE_SCHEDULED_AT:-", wrapper)
+        self.assertIn("TOP10_STORAGE_INVOCATION_ID:-", wrapper)
+        self.assertNotIn("TOP10_STORAGE_TRIGGER_TYPE=", wrapper)
         self.assertNotIn("TOP10_DAILY_PYTHON", wrapper)
 
     def test_research_quota_archive_respects_hard_file_limit_across_cycles(self) -> None:

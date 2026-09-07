@@ -500,6 +500,84 @@ class FogStorageValidationEntrypointTest(unittest.TestCase):
             self.assertIn("git checkout", completed.stderr)
             self.assertFalse((sandbox / "artifacts" / "fog-entrypoint-env.txt").exists())
 
+    def test_worker_publishes_terminal_evidence_from_guard_metadata(self) -> None:
+        worker = REAL_RUNNER.read_text(encoding="utf-8")
+
+        self.assertIn("scripts/write_fog_terminal_evidence.py", worker)
+        self.assertIn('--job "$TOP10_STORAGE_JOB"', worker)
+        self.assertIn('--scheduled-at "$TOP10_STORAGE_SCHEDULED_AT"', worker)
+        self.assertIn('--invocation-id "$TOP10_STORAGE_INVOCATION_ID"', worker)
+        self.assertIn('--run-id "$RUN_ID"', worker)
+        self.assertIn('--artifact-run-date "$RUN_DATE"', worker)
+        self.assertNotIn("TOP10_STORAGE_TRIGGER_TYPE", worker)
+
+    def test_terminal_writer_failure_cleans_exact_owned_worker_locks(self) -> None:
+        """Guarded writer 失敗後仍由既有 EXIT trap 釋放本次 exact-owned locks。"""
+
+        with tempfile.TemporaryDirectory(prefix="top10-fog-writer-failure-locks-") as tmp:
+            sandbox = Path(tmp)
+            scripts = sandbox / "scripts"
+            logs = sandbox / "logs"
+            scripts.mkdir()
+            logs.mkdir()
+            runner = scripts / REAL_RUNNER.name
+            runner.write_bytes(REAL_RUNNER.read_bytes())
+            runner.chmod(0o755)
+            fake_identity = sandbox / "fake-process-identity"
+            fake_identity.write_text(
+                "#!/usr/bin/env bash\n"
+                'pid="${@: -1}"\n'
+                'printf "token-%s\\n" "$pid"\n',
+                encoding="utf-8",
+            )
+            fake_identity.chmod(0o755)
+            fake_python = sandbox / "fake-python"
+            fake_python.write_text(
+                "#!/usr/bin/env bash\n"
+                'if [ "${1:-}" = "scripts/fog_runtime_time_authority.py" ]; then\n'
+                '  while [ "$#" -gt 0 ]; do\n'
+                '    if [ "$1" = "--field" ]; then\n'
+                '      case "${2:-}" in\n'
+                '        market_run_date) printf "%s\\n" "2099-01-03" ;;\n'
+                '        run_context_created_at_utc) printf "%s\\n" "2099-01-03T00:00:00Z" ;;\n'
+                "      esac\n"
+                "      exit 0\n"
+                "    fi\n"
+                "    shift\n"
+                "  done\n"
+                "fi\n"
+                'if [ "${1:-}" = "scripts/write_fog_terminal_evidence.py" ]; then exit 9; fi\n'
+                "exit 0\n",
+                encoding="utf-8",
+            )
+            fake_python.chmod(0o755)
+            environment = {
+                **os.environ,
+                "TOP10_DAILY_PYTHON": str(fake_python),
+                "TOP10_PROCESS_IDENTITY_PS_BIN": str(fake_identity),
+                "TOP10_FOG_RESEARCH_MAX_BATCHES": "1",
+                "TOP10_FOG_RESEARCH_BATCH_SLEEP_SECONDS": "0",
+                "TOP10_REPLAY_DRAIN_ENABLED": "0",
+                "TOP10_RESEARCH_QUEUE_OWNER": "fog_worker",
+                "TOP10_STORAGE_JOB": "fog-research-worker",
+                "TOP10_STORAGE_SCHEDULED_AT": "2099-01-02T16:00:00Z",
+                "TOP10_STORAGE_INVOCATION_ID": "fog-research-worker-20990102T160000Z-test",
+            }
+
+            completed = subprocess.run(
+                ["/bin/bash", str(runner)],
+                cwd=sandbox,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+
+            self.assertEqual(completed.returncode, 70, completed.stderr)
+            self.assertFalse((logs / "fog_research_worker.lock").exists())
+            self.assertFalse((logs / "research_queue_owner.lock").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -27,6 +27,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
+from app.fog_natural_acceptance import FOG_JOB, evaluate_natural_acceptance
+
 
 POLICY_SCHEMA_VERSION = "top10-storage-policy.v1"
 RECEIPT_SCHEMA_VERSION = "top10-storage-guard-receipt.v1"
@@ -2388,25 +2390,39 @@ def run_guarded_job(
             return 70
 
         final_reclaim = reclaim_allowlisted(root, rules, execute=True)
-        write_receipt(
-            receipt_payload(
-                policy=policy,
-                command=command,
-                status="OK" if process.returncode == 0 else "CHILD_FAILED",
-                samples=samples,
-                reasons=(),
-                child_exit_code=process.returncode,
-                reclaimed=final_reclaim,
-                validation_only=validation_only,
-                max_runtime_seconds=max_runtime_seconds,
-                unknown_paths=observed_unknown_paths,
-                validation_context=validation_context,
-                registered_unmetered_paths=observed_registered_unmetered_paths,
-                process_group_identity=process_group,
-                final_process_group_quiescent=final_process_group_quiescent,
-                final_process_group_checked_at=final_process_group_checked_at,
-            ),
+        final_receipt = receipt_payload(
+            policy=policy,
+            command=command,
+            status="OK" if process.returncode == 0 else "CHILD_FAILED",
+            samples=samples,
+            reasons=(),
+            child_exit_code=process.returncode,
+            reclaimed=final_reclaim,
+            validation_only=validation_only,
+            max_runtime_seconds=max_runtime_seconds,
+            unknown_paths=observed_unknown_paths,
+            validation_context=validation_context,
+            registered_unmetered_paths=observed_registered_unmetered_paths,
+            process_group_identity=process_group,
+            final_process_group_quiescent=final_process_group_quiescent,
+            final_process_group_checked_at=final_process_group_checked_at,
         )
+        if (
+            policy.job == FOG_JOB
+            and resolved_trigger == "natural"
+            and not validation_only
+            and process.returncode == 0
+        ):
+            final_receipt.update(
+                evaluate_natural_acceptance(
+                    root,
+                    scheduled_at=resolved_scheduled_at,
+                    invocation_id=resolved_invocation_id,
+                    child_exit_code=process.returncode,
+                    final_process_group_quiescent=final_process_group_quiescent,
+                )
+            )
+        write_receipt(final_receipt)
         return int(process.returncode or 0)
     except Exception as exc:
         internal_reasons = (

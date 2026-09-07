@@ -1,0 +1,10 @@
+{"added_lines": 34, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/storage_safety.py", "removed_lines": 18, "status": "M", "untracked": false}
+{"added_lines": 17, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "scripts/run_fog_research_worker.sh", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 5, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "scripts/run_with_storage_guard.sh", "removed_lines": 2, "status": "M", "untracked": false}
+{"added_lines": 11, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_fog_storage_validation.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 459, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_storage_safety.py", "removed_lines": 0, "status": "M", "untracked": false}
+{"added_lines": 35, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": ".ai/codex_task_fog_natural_acceptance_evidence.md", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 463, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "app/fog_natural_acceptance.py", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 88, "binary": false, "lifecycle_side_effect": true, "old_path": null, "path": "docs/tasks/2026-09-07_REPAIR-TOP10-FOG-NATURAL-ACCEPTANCE-EVIDENCE-01.md", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 44, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "scripts/write_fog_terminal_evidence.py", "removed_lines": 0, "status": "A", "untracked": true}
+{"added_lines": 291, "binary": false, "lifecycle_side_effect": false, "old_path": null, "path": "tests/test_fog_natural_acceptance.py", "removed_lines": 0, "status": "A", "untracked": true}

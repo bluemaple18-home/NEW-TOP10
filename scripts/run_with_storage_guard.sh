@@ -36,8 +36,18 @@ else
   TRIGGER_TYPE="manual"
 fi
 INVOCATION_STAMP="$(date -u '+%Y%m%dT%H%M%SZ')"
-SCHEDULED_AT="${TOP10_STORAGE_SCHEDULED_AT:-$(date -u '+%Y-%m-%dT%H:%M:%SZ')}"
-INVOCATION_ID="${TOP10_STORAGE_INVOCATION_ID:-${JOB}-${INVOCATION_STAMP}-$$}"
+if [ "$JOB" = "fog-research-worker" ]; then
+  # Fog acceptance metadata 只能由共同 wrapper 產生，不能沿用 caller／child 自述。
+  SCHEDULED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  INVOCATION_ID="${JOB}-${INVOCATION_STAMP}-$$"
+else
+  # 其他既有排程仍保留 scheduler fixture／replay 所需的 override 契約。
+  SCHEDULED_AT="${TOP10_STORAGE_SCHEDULED_AT:-$(date -u '+%Y-%m-%dT%H:%M:%SZ')}"
+  INVOCATION_ID="${TOP10_STORAGE_INVOCATION_ID:-${JOB}-${INVOCATION_STAMP}-$$}"
+fi
+export TOP10_STORAGE_JOB="$JOB"
+export TOP10_STORAGE_SCHEDULED_AT="$SCHEDULED_AT"
+export TOP10_STORAGE_INVOCATION_ID="$INVOCATION_ID"
 
 # 將 child 的暫存與下載型 cache 收斂到可量測的專案路徑；不改寫 HOME，
 # 也不讓 uv、Matplotlib 或 joblib 把排程產物散落到其他專案／使用者 cache。
