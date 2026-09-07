@@ -1,6 +1,6 @@
 ---
 id: REPAIR-TOP10-FOG-CROSS-JOB-SHARED-METER-01
-status: mainline-accepted-local
+status: deployed-natural-acceptance-pending
 type: repair
 owner_admission: 2026-09-07
 ---
@@ -89,3 +89,4 @@ owner_admission: 2026-09-07
 
 - `.work/REPAIR-TOP10-FOG-CROSS-JOB-SHARED-METER-01/`
 - `docs/evidence/REPAIR-TOP10-FOG-CROSS-JOB-SHARED-METER-20260907.md`
+- `docs/evidence/FOG-CROSS-JOB-RUNTIME-ACTIVATION-bb55fc4-20260907/`

@@ -1,6 +1,6 @@
 ---
 id: REPAIR-TOP10-FOG-CROSS-JOB-SHARED-METER-01
-status: mainline-accepted-local
+status: deployed-natural-acceptance-pending
 type: status
 ---
 
@@ -12,7 +12,7 @@ blocker：Fog policy 的 `registered_write_paths` 包含 `artifacts`，但 `mete
 
 fork：若 exact subtree metering 會削弱 unknown-write gate、超出現有 ceilings 或需要新 scheduler/ledger，停止回 Mainline，不擴 scope。
 
-目前狀態：`MAINLINE_ACCEPTED_LOCAL / PRODUCTION_MARKER_PRESERVED / DEPLOY_PENDING`。
+目前狀態：`DEPLOYED / NATURAL_ACCEPTANCE_PENDING / OLD_MARKER_PRESERVED`。
 
 限制：不清 marker、不 deploy、不 kickstart、不 push、不改 plist 或 production source。
 
@@ -44,4 +44,10 @@ fork：若 exact subtree metering 會削弱 unknown-write gate、超出現有 ce
   `fog-research-worker.meter_paths:+artifacts/external_review`。
 - Candidate production inventory：`1,291,575,653 bytes / 13,434 files`，低於 Fog
   `2 GiB / 30,000 files` ceiling；尚未把 local acceptance 宣稱為 production fixed。
-- Production 舊 marker 保留；未清除、未 kickstart、未 push。部署須另走既有 activation transaction。
+- 2026-09-07 19:03（Asia/Taipei）既有 bounded activation transaction 已將三條 idle jobs
+  切到 detached runtime `/Users/mattkuo/TOP10-runtime-automation-bb55fc4`，CLI exit `0`，
+  receipt status=`ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`。
+- 舊 runtime 的 Fog marker 原檔與 SHA-256
+  `c751e59f7410e3b1f0a729b8f9e3f582cd20be7ec75bc0d3efedf7fa405bdaf9` 保留；新 runtime
+  marker absent。未 manual run、未 kickstart、未 push。
+- 既有 `top10-fog` heartbeat 已原地更新到新 runtime 並恢復 ACTIVE；沒有建立第二個 watcher。

@@ -1,6 +1,6 @@
 ---
 id: REPAIR-TOP10-FOG-CROSS-JOB-SHARED-METER-01
-status: mainline-accepted-local
+status: deployed-natural-acceptance-pending
 type: result
 ---
 
@@ -56,9 +56,9 @@ exit_code=0
 - 兩名獨立 blind Reviewer 均為 `GO`，無未解 P0/P1；Mainline acceptance 已通過。
 - Reviewer A 記錄既存 `measure_paths()` 的檔案消失 TOCTOU P2；發生時會 fail closed，未造成容量
   漏算或本卡 contract 放寬，留待獨立 bounded repair。
-- 未在 production 重跑 Fog／external-review overlap；production marker 保留，未清除、未部署、
-  未 kickstart、未 push。
-- 此 GREEN 只證明 exact shared subtree policy contract；不宣告 production fixed，也不處理
+- 未在 production 重跑 Fog／external-review overlap；舊 production marker 原檔保留，新 runtime
+  已 activation，但尚未取得新的自然 invocation acceptance。未 kickstart、未 push。
+- 此 GREEN 與 activation 只證明 exact shared subtree contract 已部署；不宣告 Fog acceptance completed，也不處理
   external-review child exit `1`。
 
 ## Mainline verification
@@ -71,4 +71,19 @@ Fog limits: 2147483648 bytes / 30000 files
 fixed candidate hashes: MATCH
 debug markers: none
 git diff --check: PASS
+```
+
+## Production activation
+
+```text
+runtime: /Users/mattkuo/TOP10-runtime-automation-bb55fc4
+commit: bb55fc4c1b316c43398774133d9f6b73ecb53dbe
+runtime tests: 198 passed, 38 subtests passed
+capacity: fog/daily/external-review-preflight PASS
+activation CLI: exit 0
+receipt status: ACTIVATED_PARTIAL_ACCEPTANCE_PENDING
+postcheck: 3 jobs loaded, idle, paths point to new runtime
+old Fog marker hash: preserved
+new runtime markers: absent
+manual kickstart: not run
 ```

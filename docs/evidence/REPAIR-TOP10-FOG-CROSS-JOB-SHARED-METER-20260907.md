@@ -1,7 +1,7 @@
 ---
 id: REPAIR-TOP10-FOG-CROSS-JOB-SHARED-METER-20260907
 task: REPAIR-TOP10-FOG-CROSS-JOB-SHARED-METER-01
-status: MAINLINE_ACCEPTED_LOCAL
+status: DEPLOYED_NATURAL_ACCEPTANCE_PENDING
 date: 2026-09-07
 ---
 
@@ -57,8 +57,13 @@ free disk 約 `38.6 GB`。
 
 - Reviewer A（Anscombe）：`GO`，無 P0/P1；一項既存 fail-closed TOCTOU P2，另卡處理。
 - Reviewer B（Kant）：`GO`，無 findings。
-- Mainline：`MAINLINE_ACCEPTED_LOCAL`。
+- Mainline：local candidate `MAINLINE_ACCEPTED_LOCAL`；production activation
+  `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`。
 
-本 receipt 不宣告 production fixed。舊 production marker 原檔仍保留；未清 marker、未 deploy、
-未 kickstart、未 push。production completion 必須以既有 activation transaction 與後續自然週期
-runtime evidence 判定。
+2026-09-07 19:03（Asia/Taipei）已用既有 bounded transaction 把 daily、external-review-preflight、
+Fog 三條 idle jobs 切到 detached runtime `/Users/mattkuo/TOP10-runtime-automation-bb55fc4`；CLI
+exit `0`。舊 production marker 原檔及其 SHA 保留，新 runtime marker absent；未 manual run、
+未 kickstart、未 push。
+
+本 receipt 不宣告 Fog acceptance completed。production completion 必須由新 runtime 後續自然週期
+receipt 明確達成 `acceptance_status=ACCEPTED` 與 `accepted_natural_cycles>=2`。
