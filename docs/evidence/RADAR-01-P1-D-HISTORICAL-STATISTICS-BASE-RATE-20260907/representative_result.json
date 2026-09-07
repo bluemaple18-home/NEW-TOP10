@@ -1,0 +1,220 @@
+{
+  "authority": "VALIDATION_ONLY_NO_ELIGIBILITY_OR_RANKING_AUTHORITY",
+  "default_catalog": {
+    "authority_scope": "NO_ELIGIBILITY_OR_RANKING_AUTHORITY",
+    "eligible_signal_count": 0,
+    "statistics_count": 0,
+    "status": "NO_RADAR_ELIGIBLE_SIGNAL_SPEC",
+    "warning_reason_codes": [
+      "NO_RADAR_ELIGIBLE_SIGNAL_SPEC",
+      "SNAPSHOT_RESOLVED_WITH_GAPS"
+    ]
+  },
+  "feature_source": "data/clean/features.parquet",
+  "input": {
+    "date_end": "2026-09-01",
+    "date_start": "2025-07-08",
+    "feature_content_id": "sha256:aab60603280ae3d2a603b705ab02c5b19f518dcf178080482b2500b221f954ce",
+    "markets": [
+      "TPEX",
+      "TWSE"
+    ],
+    "records_content_id": "sha256:7c9aa859c9a81b1193d39e25909b0b3dcd1a1bc7590b56da3b4e8791b5afbb7e",
+    "rows": 516169,
+    "snapshot_id": "sha256:744ef762130d78e3606138b1dbbdc3ec073088eb73d75bf0a059458aada7c8e2",
+    "stocks": 1967
+  },
+  "limitations": [
+    "temporary validation-only snapshot, not official materialized Daily Close runtime evidence",
+    "UNADJUSTED price return, not total return; dividends, fees, tax and corporate actions are excluded",
+    "NOT_OOS and NOT_SEALED; no statistical-significance or causal claim",
+    "validation-only eligible clones do not mutate the default CONTRACT_ONLY catalog"
+  ],
+  "result": {
+    "all_coverage_counts_close": true,
+    "all_rate_edges_recompute": true,
+    "all_sample_counts_close": true,
+    "authority_scope": "NO_ELIGIBILITY_OR_RANKING_AUTHORITY",
+    "contract_version": "signal-historical-statistics.v1",
+    "deterministic_replay_equal": true,
+    "effective_sample_policy": "PER_INSTRUMENT_NON_OVERLAPPING_FORWARD_WINDOWS_V1",
+    "eligible_signal_count": 4,
+    "oos_status": "NOT_OOS",
+    "price_return_basis": "UNADJUSTED_PRICE_RETURN",
+    "replay_result_content_id": "sha256:f583c279cc5c8e23e5b9c1755197f2a3dafe5020d07e0005e07a68220e7fec63",
+    "research_status": "VALIDATION_ONLY",
+    "result_content_id": "sha256:f583c279cc5c8e23e5b9c1755197f2a3dafe5020d07e0005e07a68220e7fec63",
+    "result_id_recomputes": true,
+    "sealed_status": "NOT_SEALED",
+    "signals": [
+      {
+        "baseline": {
+          "direction_positive_rate": 0.5143552645785687,
+          "effective_sample_size": 101879,
+          "event_date_count": 277,
+          "mean_return": -0.004752158554165377,
+          "median_return": 0.002336448598130758,
+          "overlap_count": 404455,
+          "raw_sample_size": 506334
+        },
+        "conditional": {
+          "direction_positive_rate": 0.46243761491988444,
+          "effective_sample_size": 7614,
+          "event_date_count": 218,
+          "mae_mean": -0.049586180892465866,
+          "mean_return": -0.00844242600311865,
+          "median_return": -0.0016778948613062061,
+          "overlap_count": 202,
+          "raw_sample_size": 7816
+        },
+        "coverage": {
+          "evaluated_rows": 516169,
+          "not_observable_rows": 267932,
+          "not_triggered_rows": 240243,
+          "triggered_complete_outcomes": 7816,
+          "triggered_outcome_incomplete_rows": 178,
+          "triggered_rows": 7994
+        },
+        "coverage_closes": true,
+        "direction": "BEARISH",
+        "horizon_sessions": 5,
+        "incremental_edge": {
+          "direction_positive_rate_percentage_points": -5.191764965868428,
+          "mean_return_edge": -0.0036902674489532735,
+          "median_return_edge": -0.004014343459436964,
+          "rate_edge_recomputes": true
+        },
+        "raw_effective_overlap_closes": true,
+        "signal_id": "ma5_cross_ma20_down"
+      },
+      {
+        "baseline": {
+          "direction_positive_rate": 0.454735519586961,
+          "effective_sample_size": 101879,
+          "event_date_count": 277,
+          "mean_return": 0.004752158554165377,
+          "median_return": -0.002336448598130758,
+          "overlap_count": 404455,
+          "raw_sample_size": 506334
+        },
+        "conditional": {
+          "direction_positive_rate": 0.422011572079281,
+          "effective_sample_size": 8123,
+          "event_date_count": 218,
+          "mae_mean": -0.03765808832134804,
+          "mean_return": 0.002648923624528075,
+          "median_return": -0.004555808656036331,
+          "overlap_count": 208,
+          "raw_sample_size": 8331
+        },
+        "coverage": {
+          "evaluated_rows": 516169,
+          "not_observable_rows": 267932,
+          "not_triggered_rows": 239727,
+          "triggered_complete_outcomes": 8331,
+          "triggered_outcome_incomplete_rows": 179,
+          "triggered_rows": 8510
+        },
+        "coverage_closes": true,
+        "direction": "BULLISH",
+        "horizon_sessions": 5,
+        "incremental_edge": {
+          "direction_positive_rate_percentage_points": -3.2723947507679982,
+          "mean_return_edge": -0.002103234929637302,
+          "median_return_edge": -0.0022193600579055728,
+          "rate_edge_recomputes": true
+        },
+        "raw_effective_overlap_closes": true,
+        "signal_id": "ma5_cross_ma20_up"
+      },
+      {
+        "baseline": {
+          "direction_positive_rate": 0.5143552645785687,
+          "effective_sample_size": 101879,
+          "event_date_count": 277,
+          "mean_return": -0.004752158554165377,
+          "median_return": 0.002336448598130758,
+          "overlap_count": 404455,
+          "raw_sample_size": 506334
+        },
+        "conditional": {
+          "direction_positive_rate": 0.488770907724112,
+          "effective_sample_size": 21284,
+          "event_date_count": 263,
+          "mae_mean": -0.04785656477948795,
+          "mean_return": -0.005978976683230479,
+          "median_return": 0.0,
+          "overlap_count": 4719,
+          "raw_sample_size": 26003
+        },
+        "coverage": {
+          "evaluated_rows": 516169,
+          "not_observable_rows": 46043,
+          "not_triggered_rows": 443571,
+          "triggered_complete_outcomes": 26003,
+          "triggered_outcome_incomplete_rows": 552,
+          "triggered_rows": 26555
+        },
+        "coverage_closes": true,
+        "direction": "BEARISH",
+        "horizon_sessions": 5,
+        "incremental_edge": {
+          "direction_positive_rate_percentage_points": -2.5584356854456702,
+          "mean_return_edge": -0.0012268181290651017,
+          "median_return_edge": -0.002336448598130758,
+          "rate_edge_recomputes": true
+        },
+        "raw_effective_overlap_closes": true,
+        "signal_id": "rsi_break_below_50"
+      },
+      {
+        "baseline": {
+          "direction_positive_rate": 0.454735519586961,
+          "effective_sample_size": 101879,
+          "event_date_count": 277,
+          "mean_return": 0.004752158554165377,
+          "median_return": -0.002336448598130758,
+          "overlap_count": 404455,
+          "raw_sample_size": 506334
+        },
+        "conditional": {
+          "direction_positive_rate": 0.4440552995391705,
+          "effective_sample_size": 16275,
+          "event_date_count": 263,
+          "mae_mean": -0.033966212103048385,
+          "mean_return": 0.004859933451516617,
+          "median_return": -0.0031948881789138905,
+          "overlap_count": 3352,
+          "raw_sample_size": 19627
+        },
+        "coverage": {
+          "evaluated_rows": 516169,
+          "not_observable_rows": 46043,
+          "not_triggered_rows": 450238,
+          "triggered_complete_outcomes": 19627,
+          "triggered_outcome_incomplete_rows": 261,
+          "triggered_rows": 19888
+        },
+        "coverage_closes": true,
+        "direction": "BULLISH",
+        "horizon_sessions": 5,
+        "incremental_edge": {
+          "direction_positive_rate_percentage_points": -1.0680220047790512,
+          "mean_return_edge": 0.0001077748973512399,
+          "median_return_edge": -0.0008584395807831324,
+          "rate_edge_recomputes": true
+        },
+        "raw_effective_overlap_closes": true,
+        "signal_id": "rsi_rebound_from_40"
+      }
+    ],
+    "status": "COMPLETE_WITH_EXCLUSIONS",
+    "warning_reason_codes": [
+      "BASELINE_OUTCOME_HORIZON_UNAVAILABLE",
+      "REQUIRED_FEATURE_UNAVAILABLE",
+      "REQUIRED_HISTORY_UNAVAILABLE",
+      "SNAPSHOT_RESOLVED_WITH_GAPS",
+      "TRIGGERED_OUTCOME_HORIZON_UNAVAILABLE"
+    ]
+  }
+}

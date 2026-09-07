@@ -83,6 +83,7 @@ ME-D1                      = P1 BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / FINALIZE
 RADAR-01 P1-A              = MAINLINE_ACCEPTED_LOCAL / CONTRACT_ONLY_PARITY_VERIFIED / RADAR_ELIGIBLE_COUNT=0 / NO_RUNTIME_AUTHORITY
 RADAR-01 P1-B              = MAINLINE_ACCEPTED_LOCAL / VALIDATION_REPLAY_VERIFIED / DEFAULT_ELIGIBLE_COUNT=0 / NO_RUNTIME_AUTHORITY
 RADAR-01 P1-C              = MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / VALIDATION_REPLAY_VERIFIED / NO_RANKING_AUTHORITY / NO_RUNTIME_AUTHORITY
+RADAR-01 P1-D              = MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / VALIDATION_REPLAY_VERIFIED / DEFAULT_STATISTICS_COUNT=0 / NOT_OOS / NOT_SEALED / NO_RUNTIME_AUTHORITY
 ```
 
 已 merge 的 C0 Phase 2 與 BC-CP2 R1–R14 文件保留為設計／證據歷史；BC-CP1 decision只讓既有C0-P2 scope完成權限閉環，不產生current execution authority。B0-P2已因缺research-valid measured gap與E4 decision value裁決NO-GO；不得直接跳到B1、C1或implementation。獨立Forecast／TFM3 fork不由本backlog自動准入。
@@ -91,7 +92,7 @@ RADAR-01 P1-C              = MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / VALIDATION
 
 [#17 ME-D1](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) 的 first bounded finalized Daily Close slice 已由 Owner admission 並完成本機非 production acceptance。它保留未來完整 Market Evidence target architecture，但不 admission provider rollout、即時行情、多 provider resolver、repair/reconciliation、broker integration 或其他 market-data runtime；Research Spine 與 canonical Research Matrix 維度均不變。
 
-[#18 RADAR-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) 的 P1-A、P1-B finalized-Daily read-only scanner 與 P1-C SignalOccurrence／no-rank Radar Projection 均已完成本機 acceptance。P1-B 證據見 `docs/evidence/RADAR-01-P1-B-FINALIZED-DAILY-SCANNER-20260907.md`；P1-C 證據見 `docs/evidence/RADAR-01-P1-C-SIGNAL-OCCURRENCE-RADAR-PROJECTION-20260907.md`。P1-C 只消費 exact ME-D1 snapshot、P1-B report 與 Radar-eligible SignalSpec；目前 catalog eligible count=0，因此 default projection 明示 no-eligible，代表性 220 occurrences 只屬 validation-only clones，不得宣稱 signal edge。P1-D historical statistics/base-rate 與 P1-E confluence 仍未准入。RADAR-01 是 rebuildable product projection，不是 Research Truth、Research Matrix 或 production ranking authority；不 admission intraday、額外市場資料源、AI signal/ranking authority、scheduler/publish 或 production。其 research-quality rule 維持 `BASE_RATE_BEFORE_SIGNAL`。
+[#18 RADAR-01](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) 的 P1-A～P1-D 均已完成本機 acceptance。P1-B 證據見 `docs/evidence/RADAR-01-P1-B-FINALIZED-DAILY-SCANNER-20260907.md`；P1-C 證據見 `docs/evidence/RADAR-01-P1-C-SIGNAL-OCCURRENCE-RADAR-PROJECTION-20260907.md`；P1-D 證據見 `docs/evidence/RADAR-01-P1-D-HISTORICAL-STATISTICS-BASE-RATE-20260907.md`。P1-C 只消費 exact ME-D1 snapshot、P1-B report 與 Radar-eligible SignalSpec；P1-D 在同一 exact boundary 上計算 historical statistics 與 relevant base rate。catalog eligible count=0，因此 default projection 與 statistics 都明示 no-eligible；代表性 replay 只屬 validation-only clones，不得宣稱 signal edge。P1-E confluence 仍未准入。RADAR-01 是 rebuildable product projection，不是 Research Truth、Research Matrix 或 production ranking authority；不 admission intraday、額外市場資料源、AI signal/ranking authority、scheduler/publish 或 production。其 research-quality rule 維持 `BASE_RATE_BEFORE_SIGNAL`。
 
 ### 部分平行規則
 
@@ -292,7 +293,7 @@ B4 Regime Finalist         C4 Shadow / Canary Cutover
 | D1 Promotion and Expiry Gate | `PLANNED / NOT_ADMITTED` | D0 accepted | development → validation → sealed OOS → forward shadow → review／expiry |
 | [#16 TALIB-01 Indicator Provider & Conformance Hardening](https://github.com/bluemaple18-home/NEW-TOP10/issues/16) | `P1 / REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY` | Owner future admission＋existing indicator seam audit | TA-Lib adapter、indicator metadata/compatibility gate、behavioral conformance、RunReceipt provenance；**zero canonical Research Matrix dimension growth** |
 | [#17 ME-D1 Daily Close Evidence Slice & Future Market Evidence Seam](https://github.com/bluemaple18-home/NEW-TOP10/issues/17) | `P1 / BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / RE-REVIEW_GO / NO_RUNTIME_AUTHORITY` | first slice complete；commit／push／provider rollout另需 Owner 授權 | finalized Daily Close → validated observation → immutable DatasetSnapshot；保留 future Market Evidence seam，**zero Research Spine / Matrix dimension growth** |
-| [#18 RADAR-01 Daily Close Signal Radar Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) | `P1-A/P1-B/P1-C MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / NO_RUNTIME_AUTHORITY` | 116 targeted tests＋516,169-row validation replay | finalized-Daily scanner 與 rebuildable SignalOccurrence/no-rank Radar projection 已完成；四個 catalog signals 仍為 `CONTRACT_ONLY`、eligible count=0；P1-D evidence stats／P1-E confluence 未准入；**zero Research Spine / Matrix dimension growth** |
+| [#18 RADAR-01 Daily Close Signal Radar Projection](https://github.com/bluemaple18-home/NEW-TOP10/issues/18) | `P1-A/P1-B/P1-C/P1-D MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / NO_RUNTIME_AUTHORITY` | P1-C 116 tests＋P1-D 98 tests＋516,169-row validation replays | finalized-Daily scanner、rebuildable SignalOccurrence/no-rank Radar projection、historical statistics 與 relevant base rate 已完成；四個 catalog signals 仍為 `CONTRACT_ONLY`、default eligible/statistics=0；P1-E confluence 未准入；**zero Research Spine / Matrix dimension growth** |
 
 ---
 
@@ -799,8 +800,8 @@ Owner ruling / current verdict：
 ```text
 PRIORITY = P1
 REUSE = EXTEND_EXISTING / PRODUCT_PROJECTION
-STATUS = P1-A/P1-B/P1-C MAINLINE_ACCEPTED_LOCAL
-ADMISSION = P1-C SPENT_AND_CLOSED / P1-D_TO_P1-E_NOT_ADMITTED
+STATUS = P1-A/P1-B/P1-C/P1-D MAINLINE_ACCEPTED_LOCAL
+ADMISSION = P1-D SPENT_AND_CLOSED / P1-E_NOT_ADMITTED
 RUNTIME_AUTHORITY = NONE
 CURRENT_INPUT_SCOPE = FINALIZED_DAILY_CLOSE_ONLY
 RESEARCH_SPINE_DELTA = 0
@@ -1147,7 +1148,7 @@ B0／C0：
 - BC-CP1已完成；B0-P2 admission已裁決NO-GO。Research Spine目前沒有active execution frontier。
 - TALIB-01 只是 P1 donor registration；未經 Owner 後續明確 admission 不得施工，也不得擴大 Research Matrix。
 - ME-D1 第一個 bounded finalized Daily Close slice 已完成本機非 production acceptance；provider rollout、資料遷移與完整 Market Evidence runtime 仍需後續獨立 admission。
-- RADAR-01 P1-A、P1-B finalized-Daily read-only scanner 與 P1-C rebuildable SignalOccurrence/no-rank Radar projection 已完成本機 acceptance。四個初始 signals 仍維持 `CONTRACT_ONLY`，不具 Radar eligibility；default projection 明示 no-eligible。P1-D/P1-E 仍不得施工，也不得藉 Radar 需求擴市場資料範圍；`Base Rate Before Signal` 仍是後續 evidence slice 的 acceptance requirement，不是新的 runtime subsystem。
+- RADAR-01 P1-A、P1-B finalized-Daily read-only scanner、P1-C rebuildable SignalOccurrence/no-rank Radar projection 與 P1-D historical statistics/relevant base-rate projection 已完成本機 acceptance。四個初始 signals 仍維持 `CONTRACT_ONLY`，default eligible/statistics 均為 0；P1-D 的 516,169-row replay 只使用 validation-only clones，為 `NOT_OOS / NOT_SEALED / NO_ELIGIBILITY_OR_RANKING_AUTHORITY`。P1-E 仍不得施工，也不得藉 Radar 需求擴市場資料範圍。
 - 卡片研究完成不等於下一張自動 admission。
 - B 不得因最優化需求取得 execution authority。
 - C 不得因可靠執行需求取得 decision authority。
@@ -1163,7 +1164,7 @@ CURRENT:
 - R14 = NO_GO_R14_INSUFFICIENT_DECISION_VALUE
 - TALIB-01 = P1 REGISTERED / NOT_ADMITTED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 - ME-D1 = P1 BOUNDED_IMPLEMENTATION_ACCEPTED_LOCAL / RE-REVIEW_GO / FINALIZED_DAILY_CLOSE_ONLY / TARGET_ARCHITECTURE_PRESERVED / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
-- RADAR-01 = P1-A/P1-B/P1-C MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / VALIDATION_REPLAY_VERIFIED / FINALIZED_DAILY_SIGNAL_OCCURRENCE_NO_RANK_PROJECTION / RADAR_ELIGIBLE_COUNT=0 / BASE_RATE_BEFORE_SIGNAL / AI_AUTHORITY=NONE / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
+- RADAR-01 = P1-A/P1-B/P1-C/P1-D MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / VALIDATION_REPLAY_VERIFIED / FINALIZED_DAILY_SIGNAL_OCCURRENCE_AND_HISTORICAL_STATISTICS_NO_RANK_PROJECTION / DEFAULT_RADAR_ELIGIBLE_COUNT=0 / DEFAULT_STATISTICS_COUNT=0 / BASE_RATE_BEFORE_SIGNAL / NOT_OOS / NOT_SEALED / AI_AUTHORITY=NONE / NO_RUNTIME_AUTHORITY / MATRIX_DIMENSION_DELTA=0
 
 REQUIRED NEXT GATE:
 - current Research Spine execution gate = NONE
@@ -1171,7 +1172,7 @@ REQUIRED NEXT GATE:
 - C0-P2 = ACCEPTED / SPENT_AND_CLOSED / NO_EXECUTION_AUTHORITY
 - TALIB-01 requires a future explicit Owner admission before bounded implementation
 - ME-D1 bounded Daily Close implementation is accepted locally；commit／push／provider rollout／runtime activation仍需 Owner 另行明確授權；full Market Evidence Plane requires a separate measured-need admission
-- RADAR-01 P1-C is accepted locally and its admission is spent；P1-D historical statistics/base-rate 與 P1-E confluence 仍各自需要 Owner 明確 admission；任何 material signal-performance claim 必須比較 relevant base rate
+- RADAR-01 P1-D historical statistics/base-rate is accepted locally and its admission is spent；P1-E confluence 仍需要 Owner 明確 admission；任何 material signal-performance claim 必須比較 relevant base rate，且本次 validation replay 不構成 promotion evidence
 - independent Forecast / TFM3 fork requires its own preflight and authority
 
 NOT ADMITTED:
@@ -1182,7 +1183,7 @@ NOT ADMITTED:
 - TALIB-01 provider implementation / conformance execution / 0.8.x streaming adoption
 - ME-D1 historical data migration / provider rollout / runtime activation
 - full Market Evidence provider resolver / fallback / repair / live-intraday runtime
-- RADAR-01 P1-D evidence statistics / relevant base-rate comparison / P1-E confluence
+- RADAR-01 P1-E confluence
 - RADAR-01 AI explanation / personalized profile / push / intraday expansion
 
 NO CHANGE AUTHORIZED:

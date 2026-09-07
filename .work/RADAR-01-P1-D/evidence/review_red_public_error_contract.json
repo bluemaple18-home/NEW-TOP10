@@ -1,0 +1,13 @@
+{
+  "chain_id": "RADAR-01-P1-D-STRICT-20260907",
+  "candidate_digest": "sha256:afcfafea1f77334f9365e16e8a243de58372fbca47b54db8fd277b9de1ca1321",
+  "finding_id": "RADAR-P1D-STRICT-001",
+  "status": "RED_REPRODUCED",
+  "command": ".venv/bin/python /tmp/radar_p1d_review_red.py",
+  "exit_code": 1,
+  "observations": [
+    "signal_column/required_features overlap leaked ValueError: cannot reindex on an axis with duplicate labels",
+    "snapshot_manifest_path=None leaked TypeError",
+    "failing external specs iterable leaked RuntimeError"
+  ]
+}

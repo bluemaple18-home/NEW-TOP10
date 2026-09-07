@@ -11,12 +11,12 @@
 - Forecast：FM0、FC1、FC2 vendor-neutral baseline 已分別合併於 `ff3d30b`、`9abc159`、`02730a7`。TimesFM 3 僅完成 restricted-shadow preflight，狀態固定為 `DEFERRED / LAST / HOLD`；未下載模型、未安裝 runtime、未執行 inference，且不是目前前線。
 - TPEx TSKG：`INTEGRATED_CURRENT_DAY_ONLY / REVIEW_GO`。實作、review、repair 與狀態 reconciliation 均已存在；舊 dossier 的 `IMPLEMENTED_PENDING_REVIEW` 已校正，不得重派。
 - ME-D1：第一個 bounded finalized Daily Close snapshot slice 已在本機完成 `MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / NON_PRODUCTION`，整合 commit 為 `40fea63`；未 push、provider rollout、deploy 或 runtime activation，因此不成為 operational frontier，也不影響 Fog 的獨立自然週期觀察。ME-D1 仍為 `NOT_ADMITTED`，不得自行擴成 implementation。
-- RADAR-01：P1-A、P1-B finalized-Daily read-only scanner 與 P1-C rebuildable SignalOccurrence/no-rank Radar projection 已完成 `MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / VALIDATION_REPLAY_VERIFIED / NON_RUNTIME`。116 targeted tests 與 516,169-row validation replay 通過，產生 220 個 validation-only occurrences／217 items；目前四個 SignalSpec 仍全為 `CONTRACT_ONLY`、default Radar eligible count=0。P1-D/P1-E 未准入。
+- RADAR-01：P1-A～P1-D 已完成 `MAINLINE_ACCEPTED_LOCAL / RE-REVIEW_GO / VALIDATION_REPLAY_VERIFIED / NON_RUNTIME`。P1-C 的 516,169-row replay 產生 220 個 validation-only occurrences／217 items；P1-D 的同規模 replay 驗證 historical statistics、same-window relevant base rate、effective-N 與 deterministic content ID。四個 SignalSpec 仍全為 `CONTRACT_ONLY`，default eligible/statistics 均為 0；P1-D 是 `NOT_OOS / NOT_SEALED / NO_ELIGIBILITY_OR_RANKING_AUTHORITY`。P1-E 未准入。
 - Automation runtime：Fog invocation-bound terminal evidence 與 cross-job shared meter 修復已整合至固定 commit `bb55fc4c1b316c43398774133d9f6b73ecb53dbe`。2026-09-07 19:03 的 bounded activation 已將 daily、external-review-preflight、fog-research-worker 三條 installed launchd job 切到 detached runtime `/Users/mattkuo/TOP10-runtime-automation-bb55fc4`；receipt 為 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`、CLI exit `0`。Fog 自然週期驗收仍為 `NATURAL_ACCEPTANCE_PENDING`；這不是已完成的 Research Spine Card A5。
 
 ## Operational frontier
 
-Fog runtime natural-cycle acceptance 仍由既有另一 task 唯讀觀察。Research Spine 目前沒有 active implementation frontier；RADAR-01 P1-C 已在本機接受且沒有 ranking/runtime authority。TimesFM 仍 `DEFERRED / LAST / HOLD`。
+Fog runtime natural-cycle acceptance 仍由既有另一 task 唯讀觀察。Research Spine 目前沒有 active implementation frontier；RADAR-01 P1-D 已在本機接受且沒有 eligibility/ranking/runtime authority。TimesFM 仍 `DEFERRED / LAST / HOLD`。
 
 Automation P0 已收斂狀態：
 
@@ -34,7 +34,7 @@ Automation P0 已收斂狀態：
 1. `RESEARCH-FUNDAMENTAL-READINESS-01`：`COMPLETED_BLOCKED_DATA`；`VOLUME-CLIMAX-WARNING-SHADOW-01`：`COMPLETED_MONITORING`。兩者都不是待實作卡。
 2. 2026-06／2026-07 文件中的 `READY_FOR_RESEARCH`、`READY_FOR_SHADOW_RERANK_GUARD`、`READY_FOR_FIRST_WAVE_RESEARCH` 是歷史狀態；後續結果已存在，未經新的 measured-gap admission 不得當成目前前線。
 
-因此 automation 下一個動作仍只是由既有 watcher 讀取自然週期證據；不得用 `kickstart` 冒充 natural acceptance。新 runtime 的 Fog marker 目前不存在；若復生即 fail closed 並停止驗收。Research Spine 的 RADAR-01 P1-C 已完成並停止，不自動進 P1-D。TimesFM 仍排最後。
+因此 automation 下一個動作仍只是由既有 watcher 讀取自然週期證據；不得用 `kickstart` 冒充 natural acceptance。新 runtime 的 Fog marker 目前不存在；若復生即 fail closed 並停止驗收。Research Spine 的 RADAR-01 P1-D 已完成並停止，不自動進 P1-E。TimesFM 仍排最後。
 
 ## Background monitors（不屬於 operational frontier）
 
@@ -53,7 +53,7 @@ Automation P0 已收斂狀態：
 ## Operational boundary
 
 - 本線可做 read-only 查核、狀態 reconciliation 與已 admission 卡的本機驗證。
-- RADAR-01 P1-C 已完成 in-memory rebuildable SignalOccurrence 與 no-rank Radar projection；未獲新 admission 前不得修改既有 signal 計算、持久化 occurrence、建立 historical statistics/base-rate 或沿用既有 scoring weights 作 confluence authority。
+- RADAR-01 P1-D 已完成 in-memory rebuildable historical statistics 與 relevant-base-rate projection；未獲新 admission 前不得修改既有 signal eligibility、持久化 statistics/occurrence，或沿用既有 scoring weights 建立 confluence authority。
 - 不得以「沒有其他 executable card」作為 TimesFM admission、模型下載、runtime 安裝或外部存取授權。
 - scheduler、provider、ranking、publish、production、deploy、push 與外部 write 仍須各自的明確 authority boundary。
 - 本次 production activation 授權已使用完畢；後續不得自行 `kickstart`、補跑、改 plist、clear 新 marker、切換 runtime SHA、登出／重開機或送外部 write。Fog natural-cycle acceptance 僅做唯讀驗收；既有 watcher 已續用。

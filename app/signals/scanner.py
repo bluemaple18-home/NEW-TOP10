@@ -326,6 +326,26 @@ def _validate_feature_snapshot_boundary(
     return normalized
 
 
+def _load_validated_signal_history(
+    snapshot_manifest_path: Path | str,
+    feature_artifact_path: Path | str,
+    *,
+    indicator_semantics_ref: str,
+    specs: Iterable[SignalSpec] | None,
+) -> tuple[DailyCloseSnapshot, pd.DataFrame, str, str, tuple[SignalSpec, ...]]:
+    """共用 exact snapshot／immutable feature／spec 驗證邊界。"""
+
+    snapshot = _load_snapshot(snapshot_manifest_path)
+    semantics_ref = _validate_indicator_semantics_ref(indicator_semantics_ref)
+    selected = _select_specs(specs)
+    raw_features, feature_content_id = _load_feature_artifact(
+        feature_artifact_path,
+        columns=_required_feature_columns(selected),
+    )
+    features = _validate_feature_snapshot_boundary(snapshot, raw_features)
+    return snapshot, features, feature_content_id, semantics_ref, selected
+
+
 def _candidate_dates(snapshot: DailyCloseSnapshot) -> tuple[pd.Timestamp, ...]:
     raw = snapshot.manifest["identity_payload"]["observation_evidence"][
         "business_date_candidates"
@@ -448,14 +468,14 @@ def scan_finalized_daily_signals(
 ) -> DailySignalScanReport:
     """掃描 snapshot observed-through date，回傳不落盤的 deterministic report。"""
 
-    snapshot = _load_snapshot(snapshot_manifest_path)
-    semantics_ref = _validate_indicator_semantics_ref(indicator_semantics_ref)
-    selected = _select_specs(specs)
-    raw_features, feature_content_id = _load_feature_artifact(
-        feature_artifact_path,
-        columns=_required_feature_columns(selected),
+    snapshot, features, feature_content_id, semantics_ref, selected = (
+        _load_validated_signal_history(
+            snapshot_manifest_path,
+            feature_artifact_path,
+            indicator_semantics_ref=indicator_semantics_ref,
+            specs=specs,
+        )
     )
-    features = _validate_feature_snapshot_boundary(snapshot, raw_features)
     identity = snapshot.manifest["identity_payload"]
     scan_date = str(identity["finalization"]["observed_through_date"])
     scan_timestamp = pd.Timestamp(scan_date)
