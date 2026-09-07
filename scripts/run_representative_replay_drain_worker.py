@@ -81,22 +81,15 @@ def run_command(name: str, command: list[str], *, timeout_seconds: float | None 
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        start_new_session=True,
     )
     try:
         stdout, stderr = process.communicate(timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
+        terminate_process_tree(process.pid, signal.SIGTERM)
         try:
             stdout, stderr = process.communicate(timeout=TERMINATION_GRACE_SECONDS)
         except subprocess.TimeoutExpired:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            terminate_process_tree(process.pid, signal.SIGKILL)
             stdout, stderr = process.communicate()
         return CommandResult(
             name=name,
@@ -117,6 +110,45 @@ def run_command(name: str, command: list[str], *, timeout_seconds: float | None 
         started_at=started_at,
         finished_at=now_utc(),
     )
+
+
+def descendant_pids(root_pid: int) -> list[int]:
+    """只列出目前仍由 direct child 衍生的後代，避免碰觸外層 Storage Guard 群組。"""
+    try:
+        completed = subprocess.run(
+            ["/bin/ps", "-axo", "pid=,ppid="],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return []
+    children: dict[int, list[int]] = {}
+    for line in completed.stdout.splitlines():
+        fields = line.split()
+        if len(fields) != 2:
+            continue
+        try:
+            pid, parent_pid = (int(value) for value in fields)
+        except ValueError:
+            continue
+        children.setdefault(parent_pid, []).append(pid)
+    descendants: list[int] = []
+    pending = list(children.get(root_pid, []))
+    while pending:
+        pid = pending.pop()
+        descendants.append(pid)
+        pending.extend(children.get(pid, []))
+    return descendants
+
+
+def terminate_process_tree(root_pid: int, signum: signal.Signals) -> None:
+    """先終止後代再終止 direct child，使內層 timeout 不誤殺呼叫者所在群組。"""
+    for pid in [*reversed(descendant_pids(root_pid)), root_pid]:
+        try:
+            os.kill(pid, signum)
+        except ProcessLookupError:
+            continue
 
 
 def acquire_lock(lock_dir: Path) -> bool:

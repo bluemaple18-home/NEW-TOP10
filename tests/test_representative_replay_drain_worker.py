@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import signal
+import subprocess
 import sys
 import tempfile
 import time
@@ -18,13 +20,17 @@ class RepresentativeReplayDrainWorkerTest(unittest.TestCase):
     def test_run_command_timeout_terminates_process_group(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             child_pid_path = Path(tmp) / "child.pid"
+            parent_pid_path = Path(tmp) / "parent.pid"
+            parent_pgid_path = Path(tmp) / "parent.pgid"
             command = [
                 sys.executable,
                 "-c",
                 (
-                    "import subprocess, sys, time; "
+                    "import os, subprocess, sys, time; "
                     "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']); "
                     f"open({str(child_pid_path)!r}, 'w').write(str(child.pid)); "
+                    f"open({str(parent_pid_path)!r}, 'w').write(str(os.getpid())); "
+                    f"open({str(parent_pgid_path)!r}, 'w').write(str(os.getpgrp())); "
                     "time.sleep(30)"
                 ),
             ]
@@ -34,12 +40,53 @@ class RepresentativeReplayDrainWorkerTest(unittest.TestCase):
             self.assertTrue(result.timed_out)
             self.assertEqual(result.returncode, worker.TIMEOUT_RETURN_CODE)
             self.assertLess(time.monotonic() - started, 3)
+            self.assertTrue(parent_pid_path.exists())
+            self.assertEqual(int(parent_pgid_path.read_text(encoding="utf-8")), os.getpgrp())
             child_pid = int(child_pid_path.read_text(encoding="utf-8"))
             for _ in range(20):
                 if not worker.process_alive(child_pid):
                     break
                 time.sleep(0.05)
             self.assertFalse(worker.process_alive(child_pid))
+
+    def test_outer_group_termination_terminates_worker_descendants(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            parent_pid_path = temp_root / "parent.pid"
+            child_pid_path = temp_root / "child.pid"
+            command_code = (
+                "import os, subprocess, sys, time; "
+                "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']); "
+                f"open({str(child_pid_path)!r}, 'w').write(str(child.pid)); "
+                f"open({str(parent_pid_path)!r}, 'w').write(str(os.getpid())); "
+                "time.sleep(30)"
+            )
+            outer_code = (
+                "import sys; "
+                f"sys.path.insert(0, {str(Path(__file__).resolve().parents[1] / 'scripts')!r}); "
+                "import run_representative_replay_drain_worker as worker; "
+                f"worker.run_command('outer_group_fixture', [sys.executable, '-c', {command_code!r}])"
+            )
+            outer = subprocess.Popen([sys.executable, "-c", outer_code], start_new_session=True)
+            try:
+                for _ in range(50):
+                    if parent_pid_path.exists() and child_pid_path.exists():
+                        break
+                    time.sleep(0.02)
+                self.assertTrue(parent_pid_path.exists())
+                self.assertTrue(child_pid_path.exists())
+                os.killpg(outer.pid, signal.SIGTERM)
+                outer.wait(timeout=2)
+                for _ in range(20):
+                    child_pid = int(child_pid_path.read_text(encoding="utf-8"))
+                    if not worker.process_alive(child_pid):
+                        break
+                    time.sleep(0.05)
+                self.assertFalse(worker.process_alive(int(child_pid_path.read_text(encoding="utf-8"))))
+            finally:
+                if outer.poll() is None:
+                    os.killpg(outer.pid, signal.SIGKILL)
+                    outer.wait(timeout=2)
 
     def test_timeout_result_is_machine_readable(self) -> None:
         result = worker.CommandResult(
