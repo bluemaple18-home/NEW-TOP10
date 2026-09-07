@@ -1,0 +1,30 @@
+{
+  "cycles": [
+    {
+      "cycle": 1,
+      "guard_exit_code": 70,
+      "reasons": [
+        "GUARD_INTERNAL_ERROR_RuntimeError"
+      ],
+      "status": "STOPPED",
+      "summary": {
+        "elapsed_seconds": 0.0,
+        "first_memory_pressure_level": 2,
+        "host_free_bytes_delta": 0,
+        "last_memory_pressure_level": 2,
+        "observed_growth_bytes_per_hour": 0.0,
+        "peak_live_memory_pressure_level": null,
+        "peak_rss_bytes": null,
+        "project_bytes_delta": 0,
+        "project_file_count_delta": 0,
+        "registered_unmetered_changed_paths": [],
+        "swap_bytes_delta": 0,
+        "unknown_changed_paths": []
+      }
+    }
+  ],
+  "sandbox_root": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk",
+  "schema_version": "top10-external-fog-revalidation.v1",
+  "source_commit": "b3bcea3b105dde5859bc986c7ae926ad794fbb83",
+  "verdict": "NO-GO"
+}

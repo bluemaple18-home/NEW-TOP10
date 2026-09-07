@@ -4049,6 +4049,30 @@ raise SystemExit(
             )
             self.assertEqual(protected_file.read_text(encoding="utf-8"), "original\n")
 
+    def test_validation_confinement_forbidden_probe_stays_outside_redirected_tmpdir(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-storage-probe-tmpdir-") as tmp:
+            fixture_root = Path(tmp).resolve()
+            sandbox = fixture_root / "sandbox"
+            source = fixture_root / "source"
+            redirected_tmp = sandbox / "logs" / "storage_safety" / "runtime" / "tmp"
+            redirected_tmp.mkdir(parents=True)
+            source.mkdir()
+
+            with (
+                mock.patch.dict(os.environ, {"TMPDIR": str(redirected_tmp)}),
+                mock.patch.object(tempfile, "tempdir", None),
+            ):
+                command = storage_safety._validation_spawn_command(
+                    sandbox,
+                    source,
+                    ["/usr/bin/true"],
+                )
+
+            self.assertEqual(command[0], "/usr/bin/sandbox-exec")
+            self.assertEqual(command[-1], "/usr/bin/true")
+
     def test_validation_source_root_must_be_real_directory_without_symlinks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-source-root-") as tmp:
             root = Path(tmp).resolve()

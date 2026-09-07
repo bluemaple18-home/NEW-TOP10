@@ -1,0 +1,173 @@
+{
+  "acceptance_status": "NO-GO",
+  "accepted_natural_cycles": 0,
+  "artifact_run_date": null,
+  "child_exit_code": null,
+  "child_pid": null,
+  "child_spawned": false,
+  "child_terminal_status": null,
+  "command": [
+    "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk/.venv/bin/python",
+    "-I",
+    "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk/scripts/storage_validation/fog_research_worker.py",
+    "--runner-sha256",
+    "a0f5a5b9577831be186049a0ff478f03d1d15c0dbe571562021bf0ea6bc3d53d",
+    "--source-commit",
+    "b3bcea3b105dde5859bc986c7ae926ad794fbb83"
+  ],
+  "consecutive_natural_guard_cycles": 0,
+  "final_process_group_checked_at": null,
+  "final_process_group_quiescent": null,
+  "invocation_id": "fog-research-worker-20260907T040033395437Z-92823",
+  "job": "fog-research-worker",
+  "last_progress_at": "2026-09-07T04:00:35.276804+00:00",
+  "launch_verified": true,
+  "limits": {
+    "expected_growth_bytes_per_hour": 16777216,
+    "max_bytes": 2147483648,
+    "max_file_count": 30000,
+    "max_process_tree_rss_bytes": 2147483648,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 14400,
+    "stabilize_after_seconds": 18000
+  },
+  "lock_owner_status": "HELD",
+  "max_runtime_seconds": 7200.0,
+  "natural_trigger_verified": false,
+  "process_group": {
+    "final_checked_at": null,
+    "final_quiescent": null,
+    "verified_identity": null
+  },
+  "process_group_identity": null,
+  "publish_or_provider_result": null,
+  "reasons": [
+    "GUARD_INTERNAL_ERROR_RuntimeError"
+  ],
+  "reclaim": {
+    "bytes_after": 2118522,
+    "bytes_before": 2118522,
+    "dry_run": false,
+    "file_count_after": 106,
+    "file_count_before": 106,
+    "removed_paths": []
+  },
+  "representative_workload": {
+    "run_artifact": null,
+    "topic_ids": [],
+    "topic_run_count": 0
+  },
+  "restart_denied": true,
+  "restart_denied_marker_persisted": true,
+  "restart_denied_reason": [
+    "GUARD_INTERNAL_ERROR_RuntimeError"
+  ],
+  "samples": [
+    {
+      "host_free_bytes": 47651913728,
+      "host_total_bytes": 245107195904,
+      "memory_pressure_level": 2,
+      "phase": "preflight",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2584102500004519,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2042000889778137e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 8.329989213962108e-07,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.007144540999433957,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0023637089998373995,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2679564170011872,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [],
+      "project_bytes": 1187892288,
+      "project_file_count": 9806,
+      "rss_bytes": 0,
+      "swap_bytes": 5072087941,
+      "timestamp": 1788753633.663821
+    }
+  ],
+  "scheduled_at": "2026-09-07T04:00:33.395175+00:00",
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "STOPPED",
+  "summary": {
+    "elapsed_seconds": 0.0,
+    "first_memory_pressure_level": 2,
+    "host_free_bytes_delta": 0,
+    "last_memory_pressure_level": 2,
+    "observed_growth_bytes_per_hour": 0.0,
+    "peak_live_memory_pressure_level": null,
+    "peak_rss_bytes": null,
+    "project_bytes_delta": 0,
+    "project_file_count_delta": 0,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": 0,
+    "unknown_changed_paths": []
+  },
+  "supervisor_pid": 92823,
+  "trigger_type": "validation",
+  "validation_context": {
+    "marker": {
+      "jobs": [
+        "fog-research-worker"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk",
+      "schema_version": "top10-storage-validation-root.v1",
+      "trusted_entrypoints": {
+        "fog-research-worker": {
+          "contract_path": "validation/fog-entrypoint-contract.json",
+          "contract_sha256": "9443df340f08c834b5f797346397a5babd41fef825c17e5a4905db3fe510db49"
+        }
+      }
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk/logs/storage_safety/runtime/fog-research-worker/tmp/joblib",
+      "MPLCONFIGDIR": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk/logs/storage_safety/runtime/fog-research-worker/cache/matplotlib",
+      "TMPDIR": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk/logs/storage_safety/runtime/fog-research-worker/tmp",
+      "UV_CACHE_DIR": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk/logs/storage_safety/runtime/fog-research-worker/cache/uv",
+      "XDG_CACHE_HOME": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk/logs/storage_safety/runtime/fog-research-worker/cache/xdg"
+    },
+    "sandbox_input_root": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk",
+    "sandbox_output_root": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk",
+    "source_input_root": "/Users/mattkuo/TOP10new",
+    "trusted_entrypoint": {
+      "argv": [
+        "--runner-sha256",
+        "a0f5a5b9577831be186049a0ff478f03d1d15c0dbe571562021bf0ea6bc3d53d",
+        "--source-commit",
+        "b3bcea3b105dde5859bc986c7ae926ad794fbb83"
+      ],
+      "contract_path": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk/validation/fog-entrypoint-contract.json",
+      "contract_sha256": "9443df340f08c834b5f797346397a5babd41fef825c17e5a4905db3fe510db49",
+      "entrypoint_path": "/private/var/folders/ws/gs_gm3yd45z88y29wk5kzff00000gn/T/ai-core-top10-fog-resource-budget-20260907-arxokzbk/scripts/storage_validation/fog_research_worker.py",
+      "entrypoint_sha256": "e53d21324bff716de4659720813371bb02bbeeb698d2e288db136c40bce2a97f"
+    }
+  },
+  "validation_only": true,
+  "verification_basis": "2026-09-02 至 2026-09-03 R18 外接 clean-room 代表性兩輪均 OK，topic run count 各 1，peak process-tree RSS 799424512/758562816 bytes，memory pressure 全程 1，swap delta -50331648/-434561352 bytes，unknown writes 均為空，process groups quiescent；外層 lifecycle exit 0 且 clean-room 已清除。維持 max_bytes=2 GiB、max_file_count=30000、RSS=2 GiB 與 swap=2 GiB hard ceilings；只授權 fog-research-worker 進入另經 Owner 核准的 live activation。證據：docs/evidence/REVALIDATE-NEW-TOP10-AUTONOMOUS-RESEARCH-RUNTIME-R18。"
+}

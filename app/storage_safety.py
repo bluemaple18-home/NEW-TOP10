@@ -1071,7 +1071,12 @@ def _validation_spawn_command(
     probe_root.mkdir(parents=True, exist_ok=True)
     allowed_probe = probe_root / "allowed"
     allowed_probe.unlink(missing_ok=True)
-    with tempfile.TemporaryDirectory(prefix="top10-storage-confinement-probe-") as tmp:
+    # validation runtime 會把 TMPDIR 收斂到 sandbox；禁止依賴 tempfile 的
+    # process-global cache，否則「禁止寫入」探針也會落入允許寫入的 sandbox。
+    with tempfile.TemporaryDirectory(
+        prefix="top10-storage-confinement-probe-",
+        dir=sandbox_root.parent,
+    ) as tmp:
         forbidden_probe = Path(tmp) / "forbidden"
         completed = subprocess.run(
             [
