@@ -8,6 +8,11 @@ R18 外接 clean-room 兩個完整代表性週期、hard ceiling、零 unknown w
 quiescence 與 lifecycle cleanup exit `0` 驗證；逐 job 預算與 runtime 停損未放寬，啟動主機
 基線則依現行全域 Rule 24 校正為 `10%`。
 
+Fog 的 `meter_paths` 另明示 `artifacts/external_review/`：這是與
+`external-review-preflight` 同一 checkout 重疊執行時的共用容量 scope，不代表 Fog 是該檔案
+writer，也不擴成整個 `artifacts/`。既有 unknown-write gate、hard ceilings、cleanup allowlist
+與逐 job `launch_verified` 均維持不變。
+
 其餘五個排程仍維持 `launch_verified=false`。這是刻意的 fail-closed 狀態：尚未完成
 各 job 的兩個代表性完整週期，因此 repo 中的數字對這五個 job 仍只是 provisional ceiling，
 不是 live 核准預算。

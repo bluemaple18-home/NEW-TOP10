@@ -500,6 +500,51 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "只採用全域 10%"):
                     load_policy(invalid, "daily")
 
+    def test_fog_meters_sibling_external_review_changes_and_keeps_unknown_fail_closed(
+        self,
+    ) -> None:
+        policy_path = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"
+        _global_policy, policy, _rules = load_policy(
+            policy_path,
+            "fog-research-worker",
+        )
+
+        with tempfile.TemporaryDirectory(prefix="top10-fog-shared-meter-") as tmp:
+            root = Path(tmp)
+            shared = root / "artifacts" / "external_review"
+            shared.mkdir(parents=True)
+            retained = shared / "retained.json"
+            removed = shared / "old.json"
+            retained.write_bytes(b"12345")
+            removed.write_bytes(b"old")
+            before = storage_safety.project_write_snapshot(root)
+
+            removed.unlink()
+            (shared / "new.json").write_bytes(b"1234567")
+            (root / "source.py").write_bytes(b"unknown")
+            after = storage_safety.project_write_snapshot(root)
+
+            self.assertEqual(
+                storage_safety.registered_changed_paths_outside_meter(
+                    before,
+                    after,
+                    policy.registered_write_paths,
+                    policy.meter_paths,
+                ),
+                (),
+            )
+            self.assertEqual(
+                unknown_changed_paths(before, after, policy.registered_write_paths),
+                ("source.py",),
+            )
+            inventory = measure_paths(root, policy.meter_paths)
+
+        self.assertEqual((inventory.bytes, inventory.file_count), (12, 2))
+        self.assertEqual(policy.meter_paths.count("artifacts/external_review"), 1)
+        self.assertNotIn("artifacts", policy.meter_paths)
+        self.assertTrue(policy.launch_verified)
+        self.assertEqual((policy.max_bytes, policy.max_file_count), (2147483648, 30000))
+
     def test_preflight_uses_ten_percent_without_fixed_gib_floor(self) -> None:
         policy_path = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"
         global_policy, policy, _rules = load_policy(policy_path, "daily")
