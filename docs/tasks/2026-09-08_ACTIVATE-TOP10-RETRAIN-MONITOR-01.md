@@ -1,6 +1,6 @@
 ---
 id: ACTIVATE-TOP10-RETRAIN-MONITOR-01
-status: IMPLEMENTATION_AUTHORIZED / PRODUCTION_ACTIVATION_AUTHORIZED
+status: DEPLOYED / NATURAL_ACCEPTANCE_PENDING
 type: bounded-production-activation
 risk: critical
 owner: TOP10new operations
@@ -22,7 +22,7 @@ push_allowed: false
 
 ## Blocking edges
 
-1. `ACT-RM-SEL`：activation allowlist 支援 `retrain`，且未指定 selector 時仍只處理原三條核心 job。
+1. `ACT-RM-SEL`：activation allowlist 支援 `retrain-monitor`，且未指定 selector 時仍只處理原三條核心 job。
 2. `ACT-RM-DORMANT`：只有額外顯式 dormant-target authority 才可接納 confirmed disabled／unloaded prestate；transaction 必須保存並可回復 disable override、loaded state 與 plist bytes。
 3. `ACT-RM-POLICY`：排程改用獨立 `retrain-monitor` storage identity；`retrain-monitor.launch_verified=true` 只涵蓋已量測 monitor branch，原 `retrain.launch_verified=false` 維持模型重訓 fail closed。
 4. `ACT-RM-TEST`：retrain-monitor-only happy path、缺 dormant authority 的零 mutation拒絕、enable/bootstrap failure rollback 與 out-of-scope invariants 有 deterministic tests。
@@ -30,7 +30,7 @@ push_allowed: false
 6. `ACT-RM-REVIEW`：兩名互不先讀 verdict 的 Reviewer 均為 GO。
 7. `ACT-RM-LIVE`：只在前六項通過後執行一次 activation transaction。
 
-目前 frontier：`ACT-RM-SEL`。
+目前 frontier：`ACT-RM-LIVE` 已完成；等待首次 02:00 自然週期證據。
 
 ## Allowed files
 
@@ -52,7 +52,7 @@ push_allowed: false
 
 ## Acceptance
 
-- activation selector 只接受 allowlist，`retrain` 可被單選。
+- activation selector 只接受 allowlist，`retrain-monitor` 可被單選。
 - legacy no-selector default 仍精確是 daily、external-review-preflight、Fog。
 - scheduled plist 的 storage identity 必須是 `retrain-monitor`；原 `retrain` policy 持續拒絕未驗證的模型重訓。
 - disabled／unloaded target 缺額外顯式 authority 時必須在任何 mutation 前拒絕；取得 authority後的 rollback 必須回復原 disabled／unloaded state。
@@ -62,3 +62,12 @@ push_allowed: false
 - activation 後狀態只能是 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`；不得在首個自然週期前宣稱 healthy。
 
 Trace preflight：`not-applicable`；本卡是既有 `A6-DISABLED-JOB-INTENT-RECONCILIATION` 的單一 operational activation slice，不新增產品需求或 Jira mutation。
+
+## Result
+
+- Implementation commits：`6985887`、`ad16417`、`64402be`、`8fe9366`。
+- Repair 3 兩名原 Reviewer bounded re-review：`GO / GO`。
+- Fixed runtime：`/Users/mattkuo/TOP10-runtime-automation-8fe9366`，commit `8fe93667e2673a366239aa84b36f481fba79d89e`。
+- Production activation receipt：`docs/evidence/ACTIVATE-TOP10-RETRAIN-MONITOR-01/activation-repair3.json`，status=`ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`。
+- `com.new-top10.retrain` 已 enabled／loaded／not running，runs=`0`；calendar 維持每日 02:00。
+- 未執行 manual run、`kickstart`、model retraining、Fog mutation、其他 job activation 或 push。
