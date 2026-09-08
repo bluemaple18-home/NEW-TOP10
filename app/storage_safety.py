@@ -40,6 +40,7 @@ PROTECTED_SNAPSHOT_MAX_FILES = 50_000
 VALIDATION_ENTRYPOINT_SCHEMA_VERSION = "top10-storage-validation-entrypoint.v1"
 _TRUSTED_VALIDATION_TOKEN = object()
 _LIVE_SAMPLE_SCHEDULE_NUMERATOR = 19
+_FOG_LIVE_SAMPLE_SCHEDULE_NUMERATOR = 18
 _LIVE_SAMPLE_SCHEDULE_DENOMINATOR = 20
 _HOST_PROBE_TIMEOUT_SECONDS = 5.0
 
@@ -1975,12 +1976,17 @@ def run_guarded_job(
         )
         process, process_group = _spawn_verified_process_group(spawn_command, cwd=root)
         started_at = monotonic_now()
-        # 目標排程固定使用 hard maximum 的 95%，保留 5% completion headroom。
-        # policy 僅接受 1..300 秒，因此 headroom 明確有界於 0.05..15 秒；
+        # Fog 目標使用 hard maximum 的 90%，其餘 job 維持 95%。
+        # Fog 曾因 probe 從 1.13 秒升至 4.77 秒耗盡原 3 秒餘裕；60 秒
+        # policy 現在預留 6 秒。1..300 秒 policy 的餘裕有界於 0.1..30 秒；
         # ceiling 本身不變，真正 completion gap 仍以完整 hard maximum 判斷。
         sample_schedule_interval = (
             policy.sample_interval_seconds
-            * _LIVE_SAMPLE_SCHEDULE_NUMERATOR
+            * (
+                _FOG_LIVE_SAMPLE_SCHEDULE_NUMERATOR
+                if policy.job == FOG_JOB
+                else _LIVE_SAMPLE_SCHEDULE_NUMERATOR
+            )
             / _LIVE_SAMPLE_SCHEDULE_DENOMINATOR
         )
         next_sample_target = started_at + sample_schedule_interval

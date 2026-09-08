@@ -2140,6 +2140,83 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertAlmostEqual(waits[1], 56.795)
             self.assertAlmostEqual(waits[2], 56.795)
 
+    def test_live_sampling_handles_recorded_fog_probe_latency_spike(self) -> None:
+        """重播 2026-09-08 故障的 probe 變動；硬上限仍為 60 秒。"""
+        self._check_fog_probe_spike(4.769675375)
+
+    def test_fog_probe_spike_over_hard_maximum_still_denies_restart(self) -> None:
+        """餘裕增加後，真實超標仍必須停損並拒絕下一次啟動。"""
+        self._check_fog_probe_spike(8.0, expected_reason="LIVE_SAMPLE_CADENCE_EXCEEDED")
+
+    def test_fog_runtime_deadline_preempts_next_sample(self) -> None:
+        """提前取樣後，較早的 runtime deadline 仍立即停損。"""
+        self._check_fog_probe_spike(
+            4.769675375, expected_reason="HARD_RUNTIME_EXCEEDED", runtime_limit=30.0,
+        )
+
+    def _check_fog_probe_spike(
+        self, spike: float, *, expected_reason: str | None = None,
+        runtime_limit: float | None = None,
+    ) -> None:
+        with tempfile.TemporaryDirectory(prefix="top10-fog-probe-spike-") as tmp:
+            root = Path(tmp)
+            (root / "output").mkdir()
+            clock = FakeMonotonicClock()
+            durations = iter((1.132989875, spike, 1.132989875))
+            completions: list[float] = []
+            waits: list[float] = []
+
+            def sampler(pid: int | None) -> Sample:
+                if pid is not None:
+                    clock.advance(next(durations))
+                    completions.append(clock())
+                return Sample(-clock(), 0, 0, 100_000, 50_000, 1024, 0)
+
+            def waiter(process: subprocess.Popen[bytes], timeout: float) -> None:
+                waits.append(timeout)
+                if len(waits) <= 2:
+                    # 由 receipt 完成間隔扣除 57 秒 target 與 probe 差值得出。
+                    clock.advance(timeout + 0.094261279)
+                    raise subprocess.TimeoutExpired(process.args, timeout)
+                process.terminate()
+                process.wait(timeout=2)
+
+            policy = fixture_job_policy(job="fog-research-worker", sample_interval_seconds=60)
+            result = run_guarded_job(
+                root, fixture_global_policy(),
+                policy, (),
+                ["/bin/sleep", "30"], sampler=sampler,
+                monotonic_clock=clock, process_waiter=waiter,
+                max_runtime_seconds=runtime_limit,
+            )
+            receipt = json.loads(
+                (root / "logs/storage_safety/fog-research-worker_latest.json").read_text()
+            )
+            marker = root / "logs/storage_safety/restart_denied/fog-research-worker.json"
+            if expected_reason is not None:
+                self.assertEqual(result, 70)
+                self.assertEqual(receipt["reasons"], [expected_reason])
+                self.assertEqual(receipt["status"], "STOPPED")
+                self.assertIs(receipt["final_process_group_quiescent"], True)
+                self.assertTrue(marker.exists())
+                self.assertFalse(json.loads(marker.read_text())["automatic_clear_allowed"])
+                if expected_reason == "LIVE_SAMPLE_CADENCE_EXCEEDED":
+                    self.assertGreater(completions[-1] - completions[-2], 60)
+                else:
+                    self.assertEqual(len(completions), 1)
+                    self.assertAlmostEqual(clock(), 30.094261279)
+                self.assertEqual(run_guarded_job(
+                    root, fixture_global_policy(), policy, (), ["/bin/sleep", "30"],
+                    sampler=sampler, monotonic_clock=clock, process_waiter=waiter,
+                ), 75)
+                return
+            self.assertNotIn("LIVE_SAMPLE_CADENCE_EXCEEDED", receipt["reasons"])
+            self.assertEqual(result, receipt["child_exit_code"])
+            self.assertEqual(len(completions), 3)
+            self.assertTrue(all(b - a <= 60 for a, b in zip(completions, completions[1:])))
+            self.assertTrue(all(wait > 0 for wait in waits))
+            self.assertFalse(marker.exists())
+
     def test_live_sampling_hard_maximum_stops_true_completion_overrun(
         self,
     ) -> None:
