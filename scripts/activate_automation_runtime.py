@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""以 bounded transaction 切換三條核心 launchd 排程到獨立 runtime checkout。"""
+"""以 bounded transaction 切換指定核心 launchd 排程到獨立 runtime checkout。"""
 
 from __future__ import annotations
 
@@ -121,7 +121,7 @@ def noop_fault_hook(event: str, job: str | None) -> None:
 
 
 class ActivationTransaction:
-    """只處理 daily / external-review-preflight / fog-research-worker。"""
+    """只處理允許清單內的核心 job；未指定時維持三條全選。"""
 
     def __init__(
         self,
@@ -137,7 +137,25 @@ class ActivationTransaction:
         domain: str | None = None,
         command_runner: CommandRunner = default_command_runner,
         fault_hook: FaultHook = noop_fault_hook,
+        target_jobs: Sequence[str] | None = None,
     ) -> None:
+        requested_jobs = (
+            tuple(guard_name for guard_name, _, _ in TARGET_JOBS)
+            if target_jobs is None
+            else tuple(target_jobs)
+        )
+        if not requested_jobs:
+            raise ActivationError("target_jobs 不得為空")
+        if len(set(requested_jobs)) != len(requested_jobs):
+            raise ActivationError("target_jobs 不得重複")
+        allowed_jobs = {guard_name for guard_name, _, _ in TARGET_JOBS}
+        unknown_jobs = sorted(set(requested_jobs) - allowed_jobs)
+        if unknown_jobs:
+            raise ActivationError(f"未知 target_jobs: {', '.join(unknown_jobs)}")
+        requested_set = set(requested_jobs)
+        self.target_jobs = tuple(
+            job for job in TARGET_JOBS if job[0] in requested_set
+        )
         self.source_root = source_root.resolve()
         self.runtime_root = runtime_root.resolve()
         self.accepted_commit = accepted_commit
@@ -261,7 +279,7 @@ class ActivationTransaction:
         return rendered_bytes
 
     def _snapshot_out_of_scope_plists(self) -> dict[str, str]:
-        target_names = {f"{label}.plist" for _, label, _ in TARGET_JOBS}
+        target_names = {f"{label}.plist" for _, label, _ in self.target_jobs}
         return {
             path.name: sha256_file(path)
             for path in sorted(self.launch_agents_dir.glob("com.new-top10.*.plist"))
@@ -290,7 +308,7 @@ class ActivationTransaction:
         self.out_of_scope_plists_before = self._snapshot_out_of_scope_plists()
         self.jobs.clear()
         self.staging_paths.clear()
-        for guard_name, label, template_name in TARGET_JOBS:
+        for guard_name, label, template_name in self.target_jobs:
             installed_path = self.launch_agents_dir / f"{label}.plist"
             if not installed_path.is_file():
                 raise ActivationError(f"缺少既有 installed plist: {installed_path}")
@@ -961,7 +979,7 @@ class ActivationTransaction:
             "accepted_commit": self.accepted_commit,
             "canonical_commit": self.canonical_commit,
             "domain": self.domain,
-            "target_labels": [label for _, label, _ in TARGET_JOBS],
+            "target_labels": [label for _, label, _ in self.target_jobs],
             "jobs": {
                 job.guard_name: {
                     "label": job.label,
@@ -1147,6 +1165,13 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path.home() / "Library" / "LaunchAgents",
     )
+    parser.add_argument(
+        "--job",
+        dest="target_jobs",
+        action="append",
+        choices=[guard_name for guard_name, _, _ in TARGET_JOBS],
+        help="只切換指定 job；可重複傳入，未指定時維持三條全選。",
+    )
     parser.add_argument("--activate", action="store_true")
     return parser.parse_args()
 
@@ -1156,16 +1181,17 @@ def main() -> int:
     if not args.activate:
         print("A4_ACTIVATION_NO_GO: 缺 --activate 明確 mutation flag", file=sys.stderr)
         return 64
-    source_root = SCRIPT_DIR.parent
-    transaction = ActivationTransaction(
-        source_root=source_root,
-        runtime_root=args.runtime_root,
-        accepted_commit=args.accepted_commit,
-        launch_agents_dir=args.launch_agents_dir,
-        expected_old_root=args.expected_old_root,
-        receipt_path=args.receipt,
-    )
     try:
+        source_root = SCRIPT_DIR.parent
+        transaction = ActivationTransaction(
+            source_root=source_root,
+            runtime_root=args.runtime_root,
+            accepted_commit=args.accepted_commit,
+            launch_agents_dir=args.launch_agents_dir,
+            expected_old_root=args.expected_old_root,
+            receipt_path=args.receipt,
+            target_jobs=getattr(args, "target_jobs", None),
+        )
         status = transaction.run()
     except RuntimeCheckoutError as exc:
         print(f"A4_ACTIVATION_NO_GO: {exc}", file=sys.stderr)

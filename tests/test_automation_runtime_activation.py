@@ -19,6 +19,7 @@ from scripts import activate_automation_runtime as activation
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED_SHA = "a" * 40
+FOG_ONLY = ("fog-research-worker",)
 
 
 def _project_root_from_plist(path: Path) -> Path:
@@ -173,6 +174,7 @@ def activation_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
     def build(
         *,
         hook: activation.FaultHook = activation.noop_fault_hook,
+        target_jobs: tuple[str, ...] | None = None,
     ) -> activation.ActivationTransaction:
         return activation.ActivationTransaction(
             source_root=PROJECT_ROOT,
@@ -186,6 +188,7 @@ def activation_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
             domain="gui/999",
             command_runner=runner,
             fault_hook=hook,
+            target_jobs=target_jobs,
         )
 
     return {
@@ -219,6 +222,33 @@ def _assert_old_topology(env: dict[str, object]) -> None:
             "running": False,
             "root": old_root.resolve(),
         }
+
+
+def _assert_fog_only_never_created_unselected_artifacts(
+    env: dict[str, object],
+) -> None:
+    """未選 job 不得產生 runtime marker、lock 或 prestate snapshot。"""
+
+    runtime_root = env["runtime_root"]
+    receipt = env["receipt"]
+    assert isinstance(runtime_root, Path)
+    assert isinstance(receipt, Path)
+    prestate_dir = receipt.parent / f"{receipt.stem}.prestate"
+    for guard_name, label in (
+        ("daily", "com.new-top10.daily"),
+        ("external-review-preflight", "com.new-top10.external-review-preflight"),
+    ):
+        assert not (
+            runtime_root
+            / "logs"
+            / "storage_safety"
+            / "restart_denied"
+            / f"{guard_name}.json"
+        ).exists()
+        assert not (
+            runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
+        ).exists()
+        assert not (prestate_dir / f"{label}.plist").exists()
 
 
 def test_preflight_failure_occurs_before_first_bootout_and_cleans_stage(
@@ -2153,3 +2183,227 @@ def test_bounded_activation_never_changes_out_of_scope_plist(
         if operation in {"bootout", "bootstrap", "kickstart"}
     }
     assert touched_labels <= {label for _, label, _ in activation.TARGET_JOBS}
+
+
+def test_fog_only_activation_keeps_other_core_jobs_byte_and_runtime_identical(
+    activation_env: dict[str, object],
+) -> None:
+    """Fog-only 成功路徑不得 mutation 另外兩條核心 job。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    receipt = activation_env["receipt"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    assert isinstance(receipt, Path)
+    before = _target_bytes(activation_env)
+    before_states = {label: dict(state) for label, state in runner.states.items()}
+
+    transaction = build(target_jobs=FOG_ONLY)
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+
+    fog_label = "com.new-top10.fog-research-worker"
+    for label, old_bytes in before.items():
+        if label != fog_label:
+            assert _target_bytes(activation_env)[label] == old_bytes
+            assert runner.states[label] == before_states[label]
+    touched_labels = {
+        label
+        for operation, label in runner.calls
+        if operation in {"bootout", "bootstrap", "kickstart"}
+    }
+    assert touched_labels == {fog_label}
+    _assert_fog_only_never_created_unselected_artifacts(activation_env)
+    daily_marker = (
+        activation_env["old_root"]
+        / "logs"
+        / "storage_safety"
+        / "restart_denied"
+        / "daily.json"
+    )
+    assert isinstance(daily_marker, Path)
+    assert json.loads(daily_marker.read_text(encoding="utf-8"))["job"] == "daily"
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["target_labels"] == [fog_label]
+    assert set(durable["jobs"]) == {"fog-research-worker"}
+    assert {
+        "com.new-top10.daily.plist",
+        "com.new-top10.external-review-preflight.plist",
+    } <= set(durable["out_of_scope_plists_before"])
+
+
+@pytest.mark.parametrize(
+    ("fault_event", "expected_bootout", "expected_bootstrap"),
+    [
+        ("before_denial_mirror", 0, 0),
+        ("after_denial_mirror_write_before_verify", 0, 0),
+        ("after_denial_clear", 0, 0),
+        ("before_bootout", 0, 0),
+        ("after_bootout_mutation_before_probe", 1, 1),
+        ("before_plist_replace", 1, 1),
+        ("after_plist_replace", 1, 1),
+        ("after_bootstrap", 2, 2),
+    ],
+)
+def test_fog_only_failure_states_restore_exactly_without_touching_other_jobs(
+    activation_env: dict[str, object],
+    fault_event: str,
+    expected_bootout: int,
+    expected_bootstrap: int,
+) -> None:
+    """Fog-only 在 mutation 前、中、後失敗都只 rollback Fog 且精確一次。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    before = _target_bytes(activation_env)
+    before_states = {label: dict(state) for label, state in runner.states.items()}
+
+    def hook(event: str, job: str | None) -> None:
+        if event == fault_event and job == "fog-research-worker":
+            raise activation.ActivationError(f"injected {fault_event}")
+
+    transaction = build(hook=hook, target_jobs=FOG_ONLY)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert _target_bytes(activation_env) == before
+    assert runner.states == before_states
+    fog_label = "com.new-top10.fog-research-worker"
+    mutation_calls = [
+        (operation, label)
+        for operation, label in runner.calls
+        if operation in {"bootout", "bootstrap", "kickstart"}
+    ]
+    assert {label for _, label in mutation_calls} <= {fog_label}
+    assert mutation_calls.count(("bootout", fog_label)) == expected_bootout
+    assert mutation_calls.count(("bootstrap", fog_label)) == expected_bootstrap
+    _assert_fog_only_never_created_unselected_artifacts(activation_env)
+
+
+def test_fog_only_detects_unselected_core_plist_drift_and_returns_no_go(
+    activation_env: dict[str, object],
+) -> None:
+    """未選核心 plist 在 transaction 中漂移時不得宣稱 bounded success。"""
+
+    build = activation_env["build"]
+    launch_agents = activation_env["launch_agents"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(launch_agents, Path)
+    assert isinstance(runner, FakeCommandRunner)
+    daily_path = launch_agents / "com.new-top10.daily.plist"
+
+    def hook(event: str, job: str | None) -> None:
+        if event == "after_bootstrap" and job == "fog-research-worker":
+            daily_path.write_bytes(daily_path.read_bytes() + b"\n<!-- injected drift -->\n")
+
+    transaction = build(hook=hook, target_jobs=FOG_ONLY)
+    assert transaction.run() == "ROLLBACK_VERIFICATION_FAILED"
+    assert "out-of-scope launchd plist changed" in (transaction.failure or "")
+    assert runner.states["com.new-top10.daily"]["root"] == activation_env["old_root"]
+    _assert_fog_only_never_created_unselected_artifacts(activation_env)
+
+
+def test_fog_only_receipt_seal_failure_rolls_back_only_fog(
+    activation_env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """成功拓樸後 receipt seal 失敗，仍只可 rollback Fog。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    before = _target_bytes(activation_env)
+    before_states = {label: dict(state) for label, state in runner.states.items()}
+    transaction = build(target_jobs=FOG_ONLY)
+
+    def fail_receipt_stage(payload: bytes) -> Path:
+        del payload
+        raise activation.ActivationError("injected receipt stage failure")
+
+    monkeypatch.setattr(transaction, "_stage_receipt_payload", fail_receipt_stage)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert _target_bytes(activation_env) == before
+    assert runner.states == before_states
+    _assert_fog_only_never_created_unselected_artifacts(activation_env)
+
+
+@pytest.mark.parametrize(
+    ("target_jobs", "message"),
+    [
+        ((), "不得為空"),
+        (("fog-research-worker", "fog-research-worker"), "不得重複"),
+        (("unknown-job",), "未知 target_jobs"),
+    ],
+)
+def test_target_job_selection_rejects_invalid_scope_before_preflight(
+    activation_env: dict[str, object],
+    target_jobs: tuple[str, ...],
+    message: str,
+) -> None:
+    """空、重複或未知 selector 必須在任何 runtime probe 前 fail closed。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+
+    with pytest.raises(activation.ActivationError, match=message):
+        build(target_jobs=target_jobs)
+    assert runner.calls == []
+
+
+def test_parse_args_accepts_repeatable_bounded_job_selector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI 只接受 allowlist job，並保留使用者明確選取範圍。"""
+
+    monkeypatch.setattr(
+        activation.sys,
+        "argv",
+        [
+            "activate_automation_runtime.py",
+            "--runtime-root",
+            "/tmp/runtime",
+            "--accepted-commit",
+            ACCEPTED_SHA,
+            "--expected-old-root",
+            "/tmp/old",
+            "--receipt",
+            "/tmp/receipt.json",
+            "--job",
+            "fog-research-worker",
+            "--activate",
+        ],
+    )
+
+    args = activation.parse_args()
+    assert args.target_jobs == ["fog-research-worker"]
+
+
+def test_cli_duplicate_job_selector_uses_uniform_no_go_boundary(
+    activation_env: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """重複 selector 不得洩漏 traceback 或繞過 CLI exit contract。"""
+
+    monkeypatch.setattr(
+        activation,
+        "parse_args",
+        lambda: activation.argparse.Namespace(
+            activate=True,
+            runtime_root=activation_env["runtime_root"],
+            accepted_commit=ACCEPTED_SHA,
+            launch_agents_dir=activation_env["launch_agents"],
+            expected_old_root=activation_env["old_root"],
+            receipt=activation_env["receipt"],
+            target_jobs=["fog-research-worker", "fog-research-worker"],
+        ),
+    )
+
+    assert activation.main() == 75
+    captured = capsys.readouterr()
+    assert "A4_ACTIVATION_NO_GO: ActivationError: target_jobs 不得重複" in captured.err
+    assert "Traceback" not in captured.err
