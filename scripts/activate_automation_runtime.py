@@ -341,8 +341,20 @@ class ActivationTransaction:
             "--trigger",
             "scheduled",
         ]
-        if label == "com.new-top10.retrain" and arguments == legacy_retrain_arguments:
-            return "retrain"
+        if label == "com.new-top10.retrain":
+            guarded_retrain_arguments = [
+                "/bin/bash",
+                str(old_root / "scripts" / "run_with_storage_guard.sh"),
+                "retrain",
+                "/bin/bash",
+                str(old_root / "scripts" / "daily_retrain.sh"),
+                "monitor",
+                "--trigger",
+                "scheduled",
+            ]
+            if arguments in (legacy_retrain_arguments, guarded_retrain_arguments):
+                return "retrain"
+            raise ActivationError("retrain plist prestate argv 未核准")
         return cls._plist_storage_identity(data)
 
     def _render_and_validate_plist(

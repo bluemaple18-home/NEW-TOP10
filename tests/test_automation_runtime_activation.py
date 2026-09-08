@@ -2755,7 +2755,91 @@ def test_dormant_retrain_rejects_legacy_unguarded_command_drift(
     )
 
     assert transaction.run() == "PRECHECK_FAILED"
-    assert "plist 無法唯一判定 storage identity" in (transaction.failure or "")
+    assert "retrain plist prestate argv 未核准" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
+@pytest.mark.parametrize("wrong_identity", ["daily", "reference", "unknown", "../retrain"])
+def test_dormant_retrain_rejects_guard_shaped_identity_drift(
+    activation_env: dict[str, object],
+    wrong_identity: str,
+) -> None:
+    """retrain label 不得用 generic guard 將舊 identity 偽裝成其他 job。"""
+
+    build = activation_env["build"]
+    launch_agents = activation_env["launch_agents"]
+    old_root = activation_env["old_root"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(launch_agents, Path)
+    assert isinstance(old_root, Path)
+    assert isinstance(runner, FakeCommandRunner)
+    installed = launch_agents / f"{RETRAIN_LABEL}.plist"
+    payload = plistlib.loads(installed.read_bytes())
+    payload["ProgramArguments"] = [
+        "/bin/bash",
+        str(old_root / "scripts" / "run_with_storage_guard.sh"),
+        wrong_identity,
+        "/bin/bash",
+        str(old_root / "scripts" / "daily_retrain.sh"),
+        "monitor",
+        "--trigger",
+        "scheduled",
+    ]
+    installed.write_bytes(plistlib.dumps(payload))
+    marker = (
+        old_root
+        / "logs"
+        / "storage_safety"
+        / "restart_denied"
+        / "retrain.json"
+    )
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text('{"reason":"LEGACY_RETRAIN_DENIAL"}\n', encoding="utf-8")
+    before = _target_bytes(activation_env)
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "retrain plist prestate argv 未核准" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
+def test_dormant_retrain_rejects_guarded_child_argv_drift(
+    activation_env: dict[str, object],
+) -> None:
+    """即使 identity 正確，guarded child argv 漂移也必須拒絕。"""
+
+    build = activation_env["build"]
+    launch_agents = activation_env["launch_agents"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(launch_agents, Path)
+    assert isinstance(runner, FakeCommandRunner)
+    installed = launch_agents / f"{RETRAIN_LABEL}.plist"
+    payload = plistlib.loads(installed.read_bytes())
+    payload["ProgramArguments"].append("--unexpected")
+    installed.write_bytes(plistlib.dumps(payload))
+    before = _target_bytes(activation_env)
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "retrain plist prestate argv 未核准" in (transaction.failure or "")
     assert _target_bytes(activation_env) == before
     assert all(
         operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
