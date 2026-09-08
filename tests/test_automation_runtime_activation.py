@@ -295,6 +295,23 @@ def _target_bytes(env: dict[str, object]) -> dict[str, bytes]:
     }
 
 
+def _install_legacy_unguarded_retrain(env: dict[str, object]) -> None:
+    launch_agents = env["launch_agents"]
+    old_root = env["old_root"]
+    assert isinstance(launch_agents, Path)
+    assert isinstance(old_root, Path)
+    installed = launch_agents / f"{RETRAIN_LABEL}.plist"
+    payload = plistlib.loads(installed.read_bytes())
+    payload["ProgramArguments"] = [
+        "/bin/bash",
+        str(old_root / "scripts" / "daily_retrain.sh"),
+        "monitor",
+        "--trigger",
+        "scheduled",
+    ]
+    installed.write_bytes(plistlib.dumps(payload))
+
+
 def _assert_old_topology(env: dict[str, object]) -> None:
     old_root = env["old_root"]
     runner = env["runner"]
@@ -2693,6 +2710,59 @@ def test_dormant_retrain_rendered_program_arguments_drift_fails_closed(
     )
 
 
+def test_dormant_retrain_accepts_exact_legacy_unguarded_monitor_prestate(
+    activation_env: dict[str, object],
+) -> None:
+    """既有 direct monitor plist 應安全映射至舊 retrain identity。"""
+
+    build = activation_env["build"]
+    assert callable(build)
+    _install_legacy_unguarded_retrain(activation_env)
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    durable = json.loads(transaction.receipt_path.read_text(encoding="utf-8"))
+    retrain = durable["jobs"]["retrain-monitor"]
+    assert retrain["old_storage_identity"] == "retrain"
+    assert retrain["new_storage_identity"] == "retrain-monitor"
+
+
+def test_dormant_retrain_rejects_legacy_unguarded_command_drift(
+    activation_env: dict[str, object],
+) -> None:
+    """legacy 例外不得接納非 canonical direct monitor argv。"""
+
+    build = activation_env["build"]
+    launch_agents = activation_env["launch_agents"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(launch_agents, Path)
+    assert isinstance(runner, FakeCommandRunner)
+    _install_legacy_unguarded_retrain(activation_env)
+    installed = launch_agents / f"{RETRAIN_LABEL}.plist"
+    payload = plistlib.loads(installed.read_bytes())
+    payload["ProgramArguments"][-1] = "manual"
+    installed.write_bytes(plistlib.dumps(payload))
+    before = _target_bytes(activation_env)
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "plist 無法唯一判定 storage identity" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
 def test_dormant_retrain_old_identity_marker_blocks_before_mutation(
     activation_env: dict[str, object],
 ) -> None:
@@ -2705,6 +2775,8 @@ def test_dormant_retrain_old_identity_marker_blocks_before_mutation(
     assert callable(build)
     assert isinstance(runner, FakeCommandRunner)
     assert isinstance(old_root, Path)
+    _install_legacy_unguarded_retrain(activation_env)
+    before = _target_bytes(activation_env)
     marker = (
         old_root
         / "logs"
@@ -2750,6 +2822,8 @@ def test_dormant_retrain_old_identity_held_lock_blocks_before_mutation(
     assert callable(build)
     assert isinstance(runner, FakeCommandRunner)
     assert isinstance(old_root, Path)
+    _install_legacy_unguarded_retrain(activation_env)
+    before = _target_bytes(activation_env)
     lock_path = old_root / "logs" / "storage_safety" / "retrain.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     handle = lock_path.open("a+")

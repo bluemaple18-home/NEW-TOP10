@@ -322,6 +322,29 @@ class ActivationTransaction:
             raise ActivationError("plist storage identity 無效")
         return identity
 
+    @classmethod
+    def _old_plist_storage_identity(
+        cls,
+        data: bytes,
+        *,
+        label: str,
+        old_root: Path,
+    ) -> str:
+        """只接納已確認的 legacy direct retrain-monitor 拓撲。"""
+
+        payload = plistlib.loads(data)
+        arguments = payload.get("ProgramArguments")
+        legacy_retrain_arguments = [
+            "/bin/bash",
+            str(old_root / "scripts" / "daily_retrain.sh"),
+            "monitor",
+            "--trigger",
+            "scheduled",
+        ]
+        if label == "com.new-top10.retrain" and arguments == legacy_retrain_arguments:
+            return "retrain"
+        return cls._plist_storage_identity(data)
+
     def _render_and_validate_plist(
         self,
         *,
@@ -405,7 +428,11 @@ class ActivationTransaction:
                 raise ActivationError(f"缺少既有 installed plist: {installed_path}")
             old_bytes = installed_path.read_bytes()
             old_root = self._plist_project_root(old_bytes)
-            old_storage_identity = self._plist_storage_identity(old_bytes)
+            old_storage_identity = self._old_plist_storage_identity(
+                old_bytes,
+                label=label,
+                old_root=old_root,
+            )
             if old_root != self.expected_old_root:
                 raise ActivationError(
                     f"舊 scheduler root drift: job={guard_name} expected={self.expected_old_root} actual={old_root}"
