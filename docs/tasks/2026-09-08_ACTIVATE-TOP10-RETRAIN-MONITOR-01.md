@@ -35,7 +35,11 @@ push_allowed: false
 ## Allowed files
 
 - `scripts/activate_automation_runtime.py`
+- `scripts/run_with_storage_guard.sh`
+- `scripts/com.new-top10.retrain.plist`
+- `docs/operations/top10-storage-policy.json`
 - `tests/test_automation_runtime_activation.py`
+- `tests/test_storage_safety.py`
 - 本卡與 `docs/evidence/ACTIVATE-TOP10-RETRAIN-MONITOR-01/`
 - `docs/operations/CURRENT_OPERATIONAL_FRONTIER.md`
 
@@ -52,6 +56,7 @@ push_allowed: false
 - legacy no-selector default 仍精確是 daily、external-review-preflight、Fog。
 - scheduled plist 的 storage identity 必須是 `retrain-monitor`；原 `retrain` policy 持續拒絕未驗證的模型重訓。
 - disabled／unloaded target 缺額外顯式 authority 時必須在任何 mutation 前拒絕；取得 authority後的 rollback 必須回復原 disabled／unloaded state。
+- 新 `retrain-monitor` identity 必須綁定唯一完整 monitor argv；舊 `retrain` marker／held lock 或 launchctl readback 不明時，必須在 mutation 前 fail closed。
 - transaction 的 prestate、out-of-scope hashes、rollback 與 terminal receipt 完整。
 - installed retrain plist 最終只指向 fixed detached runtime；其他 installed plist byte hash 不變。
 - activation 後狀態只能是 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`；不得在首個自然週期前宣稱 healthy。

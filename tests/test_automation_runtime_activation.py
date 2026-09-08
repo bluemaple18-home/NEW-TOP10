@@ -70,6 +70,7 @@ class FakeCommandRunner:
         self.fail_plutil = False
         self.print_disabled_style = "macos"
         self.print_disabled_overrides: dict[str, str] = {}
+        self.print_results: dict[str, list[activation.CommandResult | None]] = {}
 
     def fail(self, operation: str, label: str, *, when: str) -> None:
         self.failures[(operation, label)] = when
@@ -90,8 +91,17 @@ class FakeCommandRunner:
             label = command[2].rsplit("/", 1)[-1]
             state = self.states[label]
             self.calls.append(("print", label))
+            queued = self.print_results.get(label)
+            if queued:
+                override = queued.pop(0)
+                if override is not None:
+                    return override
             if not state["loaded"]:
-                return activation.CommandResult(113, "", "not loaded")
+                return activation.CommandResult(
+                    113,
+                    "",
+                    f'Could not find service "{label}" in domain for user gui: 999',
+                )
             run_state = "running" if state["running"] else "waiting"
             root = state["root"]
             output = (
@@ -217,9 +227,12 @@ def activation_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
 
     for guard_name, label, template_name in activation.TARGET_JOBS:
         shutil.copy2(PROJECT_ROOT / "scripts" / template_name, scripts_dir / template_name)
-        (launch_agents / f"{label}.plist").write_bytes(
-            _render_template(template_name, old_root)
-        )
+        installed_bytes = _render_template(template_name, old_root)
+        if guard_name == "retrain-monitor":
+            installed_payload = plistlib.loads(installed_bytes)
+            installed_payload["ProgramArguments"][2] = "retrain"
+            installed_bytes = plistlib.dumps(installed_payload)
+        (launch_agents / f"{label}.plist").write_bytes(installed_bytes)
 
     untouched = launch_agents / "com.new-top10.external-review.plist"
     untouched.write_bytes(b"out-of-scope-must-remain-identical\n")
@@ -2599,6 +2612,168 @@ def test_dormant_retrain_unknown_print_disabled_value_fails_closed(
     )
 
 
+def test_dormant_retrain_transient_launchctl_print_fails_preflight_closed(
+    activation_env: dict[str, object],
+) -> None:
+    """launchctl 暫時錯誤不得被誤判成明確 unloaded。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    runner.print_results[RETRAIN_LABEL] = [
+        activation.CommandResult(5, "", "Input/output error")
+    ]
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "launchctl print 無法判定 service state" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
+def test_dormant_retrain_unknown_rollback_readback_is_verification_failed(
+    activation_env: dict[str, object],
+) -> None:
+    """rollback 中 launchctl readback 不明時不得宣稱已回復。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    runner.fail("bootstrap", RETRAIN_LABEL, when="after")
+    runner.print_results[RETRAIN_LABEL] = [
+        None,
+        None,
+        activation.CommandResult(5, "", "Input/output error during rollback"),
+    ]
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+    assert transaction.run() == "ROLLBACK_VERIFICATION_FAILED"
+    assert "launchctl print 無法判定 service state" in (transaction.failure or "")
+
+
+def test_dormant_retrain_rendered_program_arguments_drift_fails_closed(
+    activation_env: dict[str, object],
+) -> None:
+    """retrain-monitor rendered argv 必須逐項完整符合核准命令。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    runtime_root = activation_env["runtime_root"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    assert isinstance(runtime_root, Path)
+    template = runtime_root / "scripts" / "com.new-top10.retrain.plist"
+    payload = plistlib.loads(template.read_bytes())
+    payload["ProgramArguments"].append("--unexpected")
+    template.write_bytes(plistlib.dumps(payload))
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "retrain-monitor ProgramArguments drift" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
+def test_dormant_retrain_old_identity_marker_blocks_before_mutation(
+    activation_env: dict[str, object],
+) -> None:
+    """舊 retrain denial 不得因 identity 遷移而被略過或清除。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    old_root = activation_env["old_root"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    assert isinstance(old_root, Path)
+    marker = (
+        old_root
+        / "logs"
+        / "storage_safety"
+        / "restart_denied"
+        / "retrain.json"
+    )
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text('{"reason":"LEGACY_RETRAIN_DENIAL"}\n', encoding="utf-8")
+    marker_hash = activation.sha256_file(marker)
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "舊 storage identity 已有 restart-denied" in (transaction.failure or "")
+    assert activation.sha256_file(marker) == marker_hash
+    receipt = activation_env["receipt"]
+    assert isinstance(receipt, Path)
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    retrain = durable["jobs"]["retrain-monitor"]
+    assert retrain["old_storage_identity"] == "retrain"
+    assert retrain["new_storage_identity"] == "retrain-monitor"
+    assert retrain["old_storage_marker_sha256"] == marker_hash
+    assert retrain["new_storage_marker_sha256"] is None
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
+def test_dormant_retrain_old_identity_held_lock_blocks_before_mutation(
+    activation_env: dict[str, object],
+) -> None:
+    """舊 retrain writer lock 被持有時不得開始 activation mutation。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    old_root = activation_env["old_root"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    assert isinstance(old_root, Path)
+    lock_path = old_root / "logs" / "storage_safety" / "retrain.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = lock_path.open("a+")
+    activation.fcntl.flock(
+        handle.fileno(), activation.fcntl.LOCK_EX | activation.fcntl.LOCK_NB
+    )
+    try:
+        transaction = build(
+            target_jobs=RETRAIN_ONLY,
+            allow_dormant_target_activation=True,
+        )
+        assert transaction.run() == "PRECHECK_FAILED"
+    finally:
+        activation.fcntl.flock(handle.fileno(), activation.fcntl.LOCK_UN)
+        handle.close()
+
+    assert "舊 storage identity lock 正被持有" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
 def test_disabled_retrain_happy_path_is_explicit_and_bounded(
     activation_env: dict[str, object],
 ) -> None:
@@ -2625,6 +2800,21 @@ def test_disabled_retrain_happy_path_is_explicit_and_bounded(
     assert runner.states[RETRAIN_LABEL]["disabled"] is False
     assert runner.states[RETRAIN_LABEL]["loaded"] is True
     assert runner.states[RETRAIN_LABEL]["root"] == activation_env["runtime_root"]
+    launch_agents = activation_env["launch_agents"]
+    runtime_root = activation_env["runtime_root"]
+    assert isinstance(launch_agents, Path)
+    assert isinstance(runtime_root, Path)
+    installed = launch_agents / f"{RETRAIN_LABEL}.plist"
+    assert plistlib.loads(installed.read_bytes())["ProgramArguments"] == [
+        "/bin/bash",
+        str(runtime_root / "scripts" / "run_with_storage_guard.sh"),
+        "retrain-monitor",
+        "/bin/bash",
+        str(runtime_root / "scripts" / "daily_retrain.sh"),
+        "monitor",
+        "--trigger",
+        "scheduled",
+    ]
     mutation_calls = [
         (operation, label)
         for operation, label in runner.calls
@@ -2640,8 +2830,13 @@ def test_disabled_retrain_happy_path_is_explicit_and_bounded(
     assert set(durable["jobs"]) == {"retrain-monitor"}
     assert durable["jobs"]["retrain-monitor"]["pre_disabled"] is True
     assert durable["jobs"]["retrain-monitor"]["disabled_state_mutated"] is True
-    runtime_root = activation_env["runtime_root"]
-    assert isinstance(runtime_root, Path)
+    assert durable["jobs"]["retrain-monitor"]["old_storage_identity"] == "retrain"
+    assert (
+        durable["jobs"]["retrain-monitor"]["new_storage_identity"]
+        == "retrain-monitor"
+    )
+    assert durable["jobs"]["retrain-monitor"]["old_storage_marker_sha256"] is None
+    assert durable["jobs"]["retrain-monitor"]["new_storage_marker_sha256"] is None
     assert (
         runtime_root / "logs" / "storage_safety" / "retrain-monitor.lock"
     ).is_file()

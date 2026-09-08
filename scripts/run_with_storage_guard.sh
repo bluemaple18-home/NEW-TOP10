@@ -27,6 +27,18 @@ if [ "$#" -eq 0 ]; then
   exit 64
 fi
 
+if [ "$JOB" = "retrain-monitor" ] && {
+  [ "$#" -ne 5 ] ||
+  [ "$1" != "/bin/bash" ] ||
+  [ "$2" != "$PROJECT_DIR/scripts/daily_retrain.sh" ] ||
+  [ "$3" != "monitor" ] ||
+  [ "$4" != "--trigger" ] ||
+  [ "$5" != "scheduled" ]
+}; then
+  echo "storage guard retrain-monitor requires the canonical monitor command" >&2
+  exit 64
+fi
+
 # launchd 直接啟動時 parent 是 PID 1；caller env 不得自述 natural。
 # manual kickstart 仍與自然 fire 同為 PID 1，所以 receipt 只記 origin candidate，
 # natural acceptance 必須由外部 cadence verifier 完成。

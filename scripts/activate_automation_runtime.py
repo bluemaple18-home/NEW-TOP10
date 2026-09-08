@@ -77,6 +77,8 @@ FaultHook = Callable[[str, str | None], None]
 @dataclass
 class JobState:
     guard_name: str
+    old_storage_identity: str
+    new_storage_identity: str
     label: str
     template_name: str
     installed_path: Path
@@ -91,6 +93,7 @@ class JobState:
     pre_print_sha256: str | None
     pre_disabled: bool | None
     old_denial_sha256: str | None
+    new_denial_sha256: str | None
     snapshot_path: Path | None = None
     # 以下旗標代表「rollback obligation 已武裝」，必須早於可能的外部 mutation 設定。
     # 它們不是 mutation 已成功完成的 receipt；rollback 會再 probe 真實狀態後才決定是否反向操作。
@@ -193,6 +196,7 @@ class ActivationTransaction:
         self.rollback_errors: list[str] = []
         self.new_denial_preserved: list[dict[str, str]] = []
         self._denial_lock_handles: dict[str, TextIO] = {}
+        self._old_denial_lock_handles: dict[str, TextIO] = {}
         self.armed = False
         self._rollback_in_progress = False
         self._old_signal_handlers: dict[int, object] = {}
@@ -242,9 +246,20 @@ class ActivationTransaction:
         result = self._run(
             [self.launchctl_bin, "print", f"{self.domain}/{label}"]
         )
-        if result.returncode != 0:
-            return False, False, result.stdout + result.stderr
         text = result.stdout + result.stderr
+        if result.returncode != 0:
+            service_not_found = re.search(
+                rf'Could not find service "{re.escape(label)}" '
+                rf'in domain for user gui:\s*\d+',
+                text,
+            )
+            if result.returncode == 113 and service_not_found is not None:
+                return False, False, text
+            raise ActivationError(
+                "launchctl print 無法判定 service state: "
+                f"label={label} exit={result.returncode} "
+                f"detail={(result.stderr or result.stdout).strip()}"
+            )
         running = bool(re.search(r"(?m)^\s*state\s*=\s*running\s*$", text))
         return True, running, text
 
@@ -289,6 +304,24 @@ class ActivationTransaction:
             )
         return next(iter(roots))
 
+    @staticmethod
+    def _plist_storage_identity(data: bytes) -> str:
+        payload = plistlib.loads(data)
+        arguments = payload.get("ProgramArguments")
+        if not isinstance(arguments, list):
+            raise ActivationError("installed plist 缺 ProgramArguments")
+        guard_indexes = [
+            index
+            for index, raw in enumerate(arguments)
+            if isinstance(raw, str) and raw.endswith("/scripts/run_with_storage_guard.sh")
+        ]
+        if len(guard_indexes) != 1 or guard_indexes[0] + 1 >= len(arguments):
+            raise ActivationError("plist 無法唯一判定 storage identity")
+        identity = arguments[guard_indexes[0] + 1]
+        if not isinstance(identity, str) or not identity:
+            raise ActivationError("plist storage identity 無效")
+        return identity
+
     def _render_and_validate_plist(
         self,
         *,
@@ -319,6 +352,21 @@ class ActivationTransaction:
             raise ActivationError(
                 f"plist runtime path 未全部指向 accepted runtime: {template_name}"
             )
+        if label == "com.new-top10.retrain":
+            expected_arguments = [
+                "/bin/bash",
+                str(self.runtime_root / "scripts" / "run_with_storage_guard.sh"),
+                "retrain-monitor",
+                "/bin/bash",
+                str(self.runtime_root / "scripts" / "daily_retrain.sh"),
+                "monitor",
+                "--trigger",
+                "scheduled",
+            ]
+            if arguments != expected_arguments:
+                raise ActivationError(
+                    f"retrain-monitor ProgramArguments drift: {arguments!r}"
+                )
         return rendered_bytes
 
     def _snapshot_out_of_scope_plists(self) -> dict[str, str]:
@@ -357,6 +405,7 @@ class ActivationTransaction:
                 raise ActivationError(f"缺少既有 installed plist: {installed_path}")
             old_bytes = installed_path.read_bytes()
             old_root = self._plist_project_root(old_bytes)
+            old_storage_identity = self._plist_storage_identity(old_bytes)
             if old_root != self.expected_old_root:
                 raise ActivationError(
                     f"舊 scheduler root drift: job={guard_name} expected={self.expected_old_root} actual={old_root}"
@@ -383,17 +432,17 @@ class ActivationTransaction:
                 label=label,
                 template_name=template_name,
             )
+            new_storage_identity = self._plist_storage_identity(new_bytes)
 
-            old_denial = self._denial_path(old_root, guard_name)
-            new_denial = self._denial_path(self.runtime_root, guard_name)
-            if new_denial.exists():
-                raise ActivationError(
-                    f"accepted runtime 已有 restart-denied；拒絕覆寫或隱藏新證據: {new_denial}"
-                )
-
+            old_denial = self._denial_path(old_root, old_storage_identity)
+            new_denial = self._denial_path(self.runtime_root, new_storage_identity)
+            old_denial_sha256 = sha256_file(old_denial) if old_denial.is_file() else None
+            new_denial_sha256 = sha256_file(new_denial) if new_denial.is_file() else None
             self.jobs.append(
                 JobState(
                     guard_name=guard_name,
+                    old_storage_identity=old_storage_identity,
+                    new_storage_identity=new_storage_identity,
                     label=label,
                     template_name=template_name,
                     installed_path=installed_path,
@@ -407,9 +456,20 @@ class ActivationTransaction:
                     pre_running=running,
                     pre_print_sha256=sha256_bytes(print_text.encode("utf-8")),
                     pre_disabled=pre_disabled,
-                    old_denial_sha256=(sha256_file(old_denial) if old_denial.is_file() else None),
+                    old_denial_sha256=old_denial_sha256,
+                    new_denial_sha256=new_denial_sha256,
                 )
             )
+            if old_storage_identity != new_storage_identity and old_denial_sha256 is not None:
+                raise ActivationError(
+                    "舊 storage identity 已有 restart-denied；禁止 identity 遷移時清除: "
+                    f"{old_storage_identity} sha256={old_denial_sha256}"
+                )
+            if new_denial.exists():
+                raise ActivationError(
+                    f"accepted runtime 已有 restart-denied；拒絕覆寫或隱藏新證據: {new_denial}"
+                )
+            self._acquire_old_identity_lock(self.jobs[-1])
 
         self._event("preflight_complete", detail=f"commit={self.canonical_commit}")
 
@@ -694,13 +754,34 @@ class ActivationTransaction:
             return None
         return stat_result.st_dev, stat_result.st_ino
 
+    def _acquire_old_identity_lock(self, job: JobState) -> None:
+        if job.old_storage_identity == job.new_storage_identity:
+            return
+        lock_path = (
+            job.old_root
+            / "logs"
+            / "storage_safety"
+            / f"{job.old_storage_identity}.lock"
+        )
+        if not lock_path.is_file():
+            return
+        handle = lock_path.open("r+")
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            handle.close()
+            raise ActivationError(
+                f"舊 storage identity lock 正被持有: {job.old_storage_identity}"
+            ) from exc
+        self._old_denial_lock_handles[job.guard_name] = handle
+
     def _acquire_denial_locks(self) -> None:
         self._safe_point("before_denial_lock_directory")
         runtime_dir = self.runtime_root / "logs" / "storage_safety"
         runtime_dir.mkdir(parents=True, exist_ok=True)
         for job in self.jobs:
             self._safe_point(f"before_denial_lock:{job.guard_name}")
-            lock_path = runtime_dir / f"{job.guard_name}.lock"
+            lock_path = runtime_dir / f"{job.new_storage_identity}.lock"
             handle = lock_path.open("a+")
             self._denial_lock_handles[job.guard_name] = handle
             try:
@@ -711,7 +792,9 @@ class ActivationTransaction:
                 raise ActivationError(
                     f"accepted runtime storage guard lock 正被持有: {job.guard_name}"
                 ) from exc
-            new_marker = self._denial_path(self.runtime_root, job.guard_name)
+            new_marker = self._denial_path(
+                self.runtime_root, job.new_storage_identity
+            )
             if new_marker.exists():
                 raise ActivationError(
                     f"accepted runtime denial 在 preflight 後出現，拒絕覆寫: {job.guard_name}"
@@ -748,13 +831,23 @@ class ActivationTransaction:
                 self._release_denial_lock(job)
             except Exception as exc:  # noqa: BLE001 - 每個 lock 都必須嘗試釋放。
                 release_errors.append(f"{job.guard_name}: {type(exc).__name__}: {exc}")
+        for guard_name, handle in tuple(self._old_denial_lock_handles.items()):
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                handle.close()
+            except Exception as exc:  # noqa: BLE001 - 其餘 lock 仍須釋放。
+                release_errors.append(
+                    f"old {guard_name}: {type(exc).__name__}: {exc}"
+                )
+            finally:
+                self._old_denial_lock_handles.pop(guard_name, None)
         if release_errors:
             raise ActivationError("; ".join(release_errors))
 
     def _mirror_and_clear_denials(self) -> None:
         for job in self.jobs:
             self._safe_point(f"before_denial_mirror:{job.guard_name}")
-            old_marker = self._denial_path(job.old_root, job.guard_name)
+            old_marker = self._denial_path(job.old_root, job.old_storage_identity)
             if not old_marker.is_file():
                 continue
             old_bytes = old_marker.read_bytes()
@@ -763,7 +856,7 @@ class ActivationTransaction:
                 raise ActivationError(
                     f"舊 denial marker 在 transaction snapshot 後改變: {job.guard_name}"
                 )
-            new_marker = self._denial_path(self.runtime_root, job.guard_name)
+            new_marker = self._denial_path(self.runtime_root, job.new_storage_identity)
             self.fault_hook("before_denial_mirror", job.guard_name)
             self._safe_point(f"before_denial_mirror_write:{job.guard_name}")
             # accepted runtime 在 _prepare() 已驗證 marker 不存在；先登記 ownership，避免
@@ -906,11 +999,13 @@ class ActivationTransaction:
                     raise ActivationError(
                         f"post-activation disabled state mismatch: {job.label}"
                     )
-            old_marker = self._denial_path(job.old_root, job.guard_name)
+            old_marker = self._denial_path(job.old_root, job.old_storage_identity)
             current_old_hash = sha256_file(old_marker) if old_marker.is_file() else None
             if current_old_hash != job.old_denial_sha256:
                 raise ActivationError(f"old denial evidence changed during activation: {job.guard_name}")
-            new_marker = self._denial_path(self.runtime_root, job.guard_name)
+            new_marker = self._denial_path(
+                self.runtime_root, job.new_storage_identity
+            )
             if new_marker.exists():
                 raise ActivationError(
                     f"accepted runtime 在 activation 期間出現新 denial: {job.guard_name}"
@@ -998,7 +1093,7 @@ class ActivationTransaction:
                 if result.returncode != 0:
                     self.rollback_errors.append(f"restore running state failed: {job.label}")
 
-        new_marker = self._denial_path(self.runtime_root, job.guard_name)
+        new_marker = self._denial_path(self.runtime_root, job.new_storage_identity)
         if new_marker.is_file() and job.denial_mirrored_identity and not job.denial_cleared:
             if self._path_identity(new_marker) == job.denial_mirrored_identity:
                 new_marker.unlink()
@@ -1026,12 +1121,14 @@ class ActivationTransaction:
                     if disabled != job.pre_disabled:
                         mismatches.append(f"disabled:{job.label}")
 
-            old_marker = self._denial_path(job.old_root, job.guard_name)
+            old_marker = self._denial_path(job.old_root, job.old_storage_identity)
             current_old_hash = sha256_file(old_marker) if old_marker.is_file() else None
             if current_old_hash != job.old_denial_sha256:
                 mismatches.append(f"old-denial:{job.guard_name}")
 
-            new_marker = self._denial_path(self.runtime_root, job.guard_name)
+            new_marker = self._denial_path(
+                self.runtime_root, job.new_storage_identity
+            )
             if new_marker.is_file():
                 preserved_hash = sha256_file(new_marker)
                 self.new_denial_preserved.append(
@@ -1103,7 +1200,11 @@ class ActivationTransaction:
                     "pre_running": job.pre_running,
                     "pre_disabled": job.pre_disabled,
                     "disabled_state_mutated": job.disabled_state_mutated,
+                    "old_storage_identity": job.old_storage_identity,
+                    "new_storage_identity": job.new_storage_identity,
                     "old_denial_sha256": job.old_denial_sha256,
+                    "old_storage_marker_sha256": job.old_denial_sha256,
+                    "new_storage_marker_sha256": job.new_denial_sha256,
                     "snapshot_path": str(job.snapshot_path) if job.snapshot_path else None,
                 }
                 for job in self.jobs

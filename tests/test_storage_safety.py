@@ -298,7 +298,15 @@ printf 'arg=%s\n' "$@"
             text=True,
         ).stdout.splitlines()
         retrain_monitor = subprocess.run(
-            [str(wrapper), "retrain-monitor", "/usr/bin/true"],
+            [
+                str(wrapper),
+                "retrain-monitor",
+                "/bin/bash",
+                str(root / "scripts" / "daily_retrain.sh"),
+                "monitor",
+                "--trigger",
+                "scheduled",
+            ],
             cwd=root,
             env=environment,
             check=True,
@@ -321,9 +329,116 @@ printf 'arg=%s\n' "$@"
         assert "job=retrain-monitor" in retrain_monitor
         assert f"arg={supplied_scheduled}" in retrain_monitor
         assert f"arg={supplied_invocation}" in retrain_monitor
+        assert retrain_monitor[-5:] == [
+            "arg=/bin/bash",
+            f"arg={root / 'scripts' / 'daily_retrain.sh'}",
+            "arg=monitor",
+            "arg=--trigger",
+            "arg=scheduled",
+        ]
         assert f"scheduled={supplied_scheduled}" not in fog
         assert f"invocation={supplied_invocation}" not in fog
         assert any(line.startswith("invocation=fog-research-worker-") for line in fog)
+
+
+def test_wrapper_retrain_monitor_rejects_noncanonical_commands_before_runtime_setup() -> None:
+    with tempfile.TemporaryDirectory(prefix="top10-storage-wrapper-contract-") as tmp:
+        root = Path(tmp)
+        scripts = root / "scripts"
+        python_bin = root / ".venv" / "bin" / "python"
+        scripts.mkdir(parents=True)
+        python_bin.parent.mkdir(parents=True)
+        shutil.copy2(PROJECT_ROOT / "scripts" / "run_with_storage_guard.sh", scripts)
+        python_bin.write_text(
+            """#!/usr/bin/env bash
+: > "$WRAPPER_CHILD_MARKER"
+""",
+            encoding="utf-8",
+        )
+        python_bin.chmod(0o755)
+        wrapper = scripts / "run_with_storage_guard.sh"
+        canonical_script = str(root / "scripts" / "daily_retrain.sh")
+        marker = root / "python-child-spawned"
+        environment = {**os.environ, "WRAPPER_CHILD_MARKER": str(marker)}
+        rejected_commands = (
+            ("/usr/bin/true",),
+            ("/bin/sh", canonical_script, "monitor", "--trigger", "scheduled"),
+            ("/bin/bash", canonical_script, "retrain", "--trigger", "scheduled"),
+            ("/bin/bash", canonical_script, "status", "--trigger", "scheduled"),
+            ("/bin/bash", canonical_script, "monitor"),
+            ("/bin/bash", canonical_script, "monitor", "--source", "scheduled"),
+            ("/bin/bash", canonical_script, "monitor", "--trigger", "manual"),
+            (
+                "/bin/bash",
+                canonical_script,
+                "monitor",
+                "--trigger",
+                "scheduled",
+                "extra",
+            ),
+            (
+                "/bin/bash",
+                str(root.resolve() / "scripts" / "alternate_retrain.sh"),
+                "monitor",
+                "--trigger",
+                "scheduled",
+            ),
+            (
+                "/bin/bash",
+                "scripts/daily_retrain.sh",
+                "monitor",
+                "--trigger",
+                "scheduled",
+            ),
+        )
+
+        for command in rejected_commands:
+            result = subprocess.run(
+                [str(wrapper), "retrain-monitor", *command],
+                cwd=root,
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            assert result.returncode == 64
+            assert "requires the canonical monitor command" in result.stderr
+            assert not (root / "logs" / "storage_safety" / "runtime").exists()
+            assert not marker.exists()
+
+
+def test_wrapper_other_jobs_keep_arbitrary_child_contract() -> None:
+    with tempfile.TemporaryDirectory(prefix="top10-storage-wrapper-other-jobs-") as tmp:
+        root = Path(tmp)
+        scripts = root / "scripts"
+        python_bin = root / ".venv" / "bin" / "python"
+        scripts.mkdir(parents=True)
+        python_bin.parent.mkdir(parents=True)
+        shutil.copy2(PROJECT_ROOT / "scripts" / "run_with_storage_guard.sh", scripts)
+        python_bin.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        python_bin.chmod(0o755)
+        wrapper = scripts / "run_with_storage_guard.sh"
+
+        for job in (
+            "daily",
+            "retrain",
+            "reference",
+            "fog-research-worker",
+            "pm-research-harness",
+            "external-review",
+            "external-review-preflight",
+            "baseline-harness",
+        ):
+            result = subprocess.run(
+                [str(wrapper), job, "/usr/bin/true"],
+                cwd=root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            assert result.returncode == 0, (job, result.stderr)
 
 
 def validation_contract_fixture(
