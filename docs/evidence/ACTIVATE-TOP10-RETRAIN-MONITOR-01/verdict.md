@@ -34,6 +34,7 @@
 - Installed plist SHA-256：`f924c257846a152783e4d6396d22baa23094e7acfadd6150b50fecc658f90871`。
 - Postcheck：enabled、loaded、not running、runs=`0`，calendar event為 02:00，ProgramArguments 全部指向 fixed runtime。
 - 新 runtime denial marker absent；`retrain-monitor.lock` nonblocking acquisition 成功，證明 transaction lock 已釋放。
+- `activation-repair3.prestate/com.new-top10.retrain.plist` 是 transaction 保存的舊 installed plist exact bytes；其中 5 個 whitespace-only lines 原樣保留，檔案 SHA-256 仍精確等於 receipt 的 `old_sha256`。因此格式檢查只對此 immutable raw snapshot 作明示排除；其餘 delivery diff 全數通過 `git diff --check`。
 
 ## Out-of-scope invariants
 
