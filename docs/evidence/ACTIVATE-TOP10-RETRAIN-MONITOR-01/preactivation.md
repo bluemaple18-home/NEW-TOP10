@@ -6,8 +6,8 @@
 
 ## Fixed scope
 
-- Accepted commit：`ad16417b13711184a163f2734da69d9fbc1cf785`
-- Detached runtime：`/Users/mattkuo/TOP10-runtime-automation-ad16417`
+- Accepted commit：`8fe93667e2673a366239aa84b36f481fba79d89e`
+- Detached runtime：`/Users/mattkuo/TOP10-runtime-automation-8fe9366`
 - 唯一 target：`com.new-top10.retrain`
 - 唯一 workload：`/bin/bash <runtime>/scripts/daily_retrain.sh monitor --trigger scheduled`
 - 明確排除：model retraining、Fog、其他 launchd job、manual run、`kickstart`、push、外部送出。
@@ -21,11 +21,11 @@
 
 ## Safety and tests
 
-- Candidate runtime activation suite：`88 passed`。
+- Candidate runtime activation suite：`95 passed`。
 - Candidate runtime storage suite：`100 passed, 39 subtests passed`。
 - `bash -n`、plist lint、`git diff --check`：PASS。
 - retrain-monitor live capacity measure：`PASS`。
-- Sample：host free=`27,022,692,352`、host total=`245,107,195,904`、project bytes=`3,241,729,137`、project files=`30,962`、memory pressure=`2`、RSS=`0`、swap=`11,778,454,978`。
+- Sample：host free=`26,373,304,320`、host total=`245,107,195,904`、project bytes=`3,241,729,137`、project files=`30,962`、memory pressure=`2`、RSS=`0`、swap=`11,561,336,832`。
 
 ## Review closure
 
@@ -34,6 +34,9 @@
 - Reviewer 1：`GO`；`R1-P1-RETRAIN-DENIAL-IDENTITY-MIGRATION` resolved。
 - Reviewer 2：`GO`；`R2-P1-01`、`R2-P1-02` resolved。
 - 修補後 contract：舊 retrain marker／held lock、非明確 service-not-found 的 launchctl readback、非 canonical monitor argv 均在 mutation 前 fail closed；rollback readback unknown 不得宣稱回復成功。
+- 首次 production precheck receipt 為 `PRECHECK_FAILED`，原因是 installed legacy plist 尚未經 storage guard；該次未發生 mutation。
+- Repair 2：`64402be`；兩名 Reviewer 皆因 retrain label 仍可落入 generic identity parser 而 `NO-GO`。
+- Repair 3：`8fe9366`；retrain label 只接受 exact legacy direct monitor 或 exact guarded `retrain` monitor argv，wrong／unknown／path-like identity 與 child argv drift 均 fail closed。兩名原 Reviewer bounded re-review 均 `GO`。
 
 ## Production prestate
 
