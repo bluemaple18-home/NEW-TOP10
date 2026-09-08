@@ -25,7 +25,7 @@ Automation P0 已收斂狀態：
 3. 固定 SHA `c757cf2` 的兩輪代表性 Fog validation 均為 `OK`；child exit `0`、最終 process group quiescent，peak RSS 約 `659 MiB`／`594 MiB`，unknown writes 均為空；`c757cf2..c69834a` 未修改 Fog workload。
 4. 最新 activation 已保存 exact Fog prestate 與原始 denial hash，只將 Fog plist 切到 `c69834a` runtime；previous `bb55fc4` Fog marker 原檔與 hash 保留，新 runtime marker absent，daily／external-review-preflight 未變。
 5. Fog 等待 receipt 達成兩次連續 accepted natural cycles；不得由 fire 次數推定。既有 `top10-fog` heartbeat 維持 paused，未建立第二個 watcher；自然週期由原 `TOP10 自動化恢復主線` 對話唯讀觀察。
-6. A6 五個 disabled job intent reconciliation 尚未開始，維持 `pending`。
+6. A6 五個 disabled job intent reconciliation 已完成：`reference`、02:00 monitor-only `retrain`、`external-review`、research-only `baseline-harness`=`SHOULD_BE_PRODUCTION`；`pm-research-harness`=`SUPERSEDED`。四個 activation candidates 均未取得 activation authority，禁止 bulk enable。
 
 不得用 manual run、kickstart、單次 plist/launchctl 狀態或舊 artifact 代替 Fog natural-cycle acceptance。詳細 acceptance 與 hard stops 以 P0 recovery card 為準；該卡歷史內部分段標籤不得與 canonical Research Spine Card A5 混用。
 

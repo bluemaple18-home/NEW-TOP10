@@ -1,7 +1,7 @@
 ---
 id: P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
 chain_id: NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-20260903
-status: BLOCKED_WITH_REPRODUCIBLE_EVIDENCE
+status: PARTIAL_RECOVERY_NATURAL_ACCEPTANCE_PENDING
 type: recovery-program
 priority: P0
 owner: TOP10new operations
@@ -454,7 +454,7 @@ Owner 後續分別明確授權 dormant runtime pin 與 A4 production activation�
 
 目前 program terminal state：`BLOCKED_WITH_REPRODUCIBLE_EVIDENCE`。
 
-2026-09-04 20:07 的第一個 Fog 自然週期已在 20:12 因 `LIVE_SAMPLE_CADENCE_EXCEEDED` 被 guard 終止，之後 6 次自然 invocation 均被 persistent marker 拒絕。詳細證據位於 `docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A5-NATURAL-20260905/`。下一個 Mainline 動作是決定 Fog marker 的 bounded recovery；不得以 manual run／kickstart 代替。A6 disabled-job intent reconciliation 維持 `pending`。
+2026-09-04 20:07 的第一個 Fog 自然週期已在 20:12 因 `LIVE_SAMPLE_CADENCE_EXCEEDED` 被 guard 終止，之後 6 次自然 invocation 均被 persistent marker 拒絕。詳細證據位於 `docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A5-NATURAL-20260905/`。當時下一個 Mainline 動作是決定 Fog marker 的 bounded recovery；不得以 manual run／kickstart 代替。A6 intent reconciliation 在此 checkpoint 當時為 `pending`，後續狀態由第 11 節取代。
 
 ## 10. A5 control-plane checkpoint — 2026-09-05
 
@@ -463,3 +463,17 @@ Owner 已明確授權單一 Fog marker clear 與下一個自然 15 分鐘週期�
 Marker 清除後，Fog `runs` 從 02:22 到 10:40 持續停在 `7`，latest receipt 與 worker log 也未更新。launchd unified log 證明這不是新的 Fog execution failure：2026-09-04 21:54:20 的 Restart 在 21:55:05 因 `cmux` 無法結束而中斷，GUI launchd domain 已先進入 on-demand-only mode；Fog 21:57:26 的 interval event 因此只 pending，domain response 為 `36`。
 
 目前 program terminal state維持：`BLOCKED_WITH_REPRODUCIBLE_EVIDENCE`；具體 blocker 為 `BLOCKED_BY_GUI_LAUNCHD_DOMAIN`。下一個 Mainline 動作不是改 Fog code，也不是 kickstart，而是取得 Owner 對完整 GUI session recovery 的獨立授權；session 恢復後仍須等待自然 interval 完成 A5。詳細證據見 `docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A5-NATURAL-20260905/a5-fog-marker-clear-launchd-domain-no-go.md`。
+
+## 11. A6 disabled-job intent checkpoint — 2026-09-08
+
+Owner 已明確授權 A6 intent reconciliation；本輪僅做 canonical docs、plist、歷史 receipts 與現行 workflow owner 的唯讀比對，未 enable、load、reload、kickstart、補跑、deploy 或外送。
+
+- `reference`：`SHOULD_BE_PRODUCTION`。
+- `retrain`：`SHOULD_BE_PRODUCTION`，但只指 02:00 scheduled monitor，不授權 scheduled model retraining。
+- `pm-research-harness`：`SUPERSEDED`，queue owner 維持 `fog_worker`，不得形成第二 writer。
+- `external-review`：`SHOULD_BE_PRODUCTION`，外部送出與 activation 仍需獨立授權。
+- `baseline-harness`：`SHOULD_BE_PRODUCTION`，只涵蓋受控 research-only smoke，不授權 ranking／promotion。
+
+A6 intent ambiguity 已關閉；四個 disabled activation candidates 必須各自走 detached runtime、capacity／rollback、side-effect authority 與自然週期驗收，禁止 bulk enable。完整矩陣見 `docs/evidence/P0-NEW-TOP10-AUTOMATION-RUNTIME-RECOVERY-A6-INTENT-20260908.md`。
+
+目前 program terminal state維持：`PARTIAL_RECOVERY_NATURAL_ACCEPTANCE_PENDING`。Fog acceptance 與四個 activation candidates 均未因 A6 verdict 自動完成。
