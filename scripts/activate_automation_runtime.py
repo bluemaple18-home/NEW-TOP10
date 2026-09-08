@@ -29,6 +29,12 @@ from validate_runtime_checkout import RuntimeCheckoutError, validate_runtime_che
 
 SCHEMA_VERSION = "top10.automation-runtime-activation.v1"
 MAX_RECORDED_SIGNALS = 2
+LEGACY_DEFAULT_TARGET_JOBS = (
+    "daily",
+    "external-review-preflight",
+    "fog-research-worker",
+)
+DORMANT_TARGET_JOBS = {"retrain-monitor"}
 TARGET_JOBS = (
     ("daily", "com.new-top10.daily", "com.new-top10.daily.plist"),
     (
@@ -41,6 +47,7 @@ TARGET_JOBS = (
         "com.new-top10.fog-research-worker",
         "com.new-top10.fog-research-worker.plist",
     ),
+    ("retrain-monitor", "com.new-top10.retrain", "com.new-top10.retrain.plist"),
 )
 
 
@@ -82,6 +89,7 @@ class JobState:
     pre_loaded: bool
     pre_running: bool
     pre_print_sha256: str | None
+    pre_disabled: bool | None
     old_denial_sha256: str | None
     snapshot_path: Path | None = None
     # 以下旗標代表「rollback obligation 已武裝」，必須早於可能的外部 mutation 設定。
@@ -92,6 +100,8 @@ class JobState:
     booted_out: bool = False
     replaced: bool = False
     bootstrapped: bool = False
+    disabled_state_restore_armed: bool = False
+    disabled_state_mutated: bool = False
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -138,9 +148,10 @@ class ActivationTransaction:
         command_runner: CommandRunner = default_command_runner,
         fault_hook: FaultHook = noop_fault_hook,
         target_jobs: Sequence[str] | None = None,
+        allow_dormant_target_activation: bool = False,
     ) -> None:
         requested_jobs = (
-            tuple(guard_name for guard_name, _, _ in TARGET_JOBS)
+            LEGACY_DEFAULT_TARGET_JOBS
             if target_jobs is None
             else tuple(target_jobs)
         )
@@ -153,9 +164,17 @@ class ActivationTransaction:
         if unknown_jobs:
             raise ActivationError(f"未知 target_jobs: {', '.join(unknown_jobs)}")
         requested_set = set(requested_jobs)
+        dormant_requested = requested_set & DORMANT_TARGET_JOBS
+        if dormant_requested and not allow_dormant_target_activation:
+            raise ActivationError(
+                "dormant target activation 需要 --allow-dormant-target-activation"
+            )
+        if allow_dormant_target_activation and requested_set != DORMANT_TARGET_JOBS:
+            raise ActivationError("dormant target activation 只允許單選 retrain-monitor")
         self.target_jobs = tuple(
             job for job in TARGET_JOBS if job[0] in requested_set
         )
+        self.allow_dormant_target_activation = allow_dormant_target_activation
         self.source_root = source_root.resolve()
         self.runtime_root = runtime_root.resolve()
         self.accepted_commit = accepted_commit
@@ -228,6 +247,30 @@ class ActivationTransaction:
         text = result.stdout + result.stderr
         running = bool(re.search(r"(?m)^\s*state\s*=\s*running\s*$", text))
         return True, running, text
+
+    def _probe_disabled(self, label: str) -> tuple[bool, str]:
+        result = self._run([self.launchctl_bin, "print-disabled", self.domain])
+        text = result.stdout + result.stderr
+        if result.returncode != 0:
+            raise ActivationError(
+                f"launchctl print-disabled failed: {(result.stderr or result.stdout).strip()}"
+            )
+        match = re.search(
+            rf'(?m)^\s*"?{re.escape(label)}"?\s*=>\s*([^\s]+)\s*$',
+            text,
+        )
+        if match is None:
+            raise ActivationError(f"print-disabled 缺少 target label: {label}")
+        value = match.group(1)
+        states = {
+            "disabled": True,
+            "enabled": False,
+            "true": True,
+            "false": False,
+        }
+        if value not in states:
+            raise ActivationError(f"print-disabled 未知 disabled state: {label}: {value}")
+        return states[value], text
 
     @staticmethod
     def _plist_project_root(data: bytes) -> Path:
@@ -320,7 +363,14 @@ class ActivationTransaction:
                 )
 
             loaded, running, print_text = self._probe(label)
-            if not loaded:
+            pre_disabled: bool | None = None
+            if guard_name in DORMANT_TARGET_JOBS:
+                if loaded:
+                    raise ActivationError(f"dormant target 必須維持 unloaded prestate: {label}")
+                pre_disabled, _ = self._probe_disabled(label)
+                if not pre_disabled:
+                    raise ActivationError(f"dormant target 並非 disabled: {label}")
+            elif not loaded:
                 raise ActivationError(f"A4 前置拓樸不符：{label} 目前未載入")
             if running:
                 raise ActivationError(f"A4 拒絕中斷正在執行的 job: {label}")
@@ -356,6 +406,7 @@ class ActivationTransaction:
                     pre_loaded=loaded,
                     pre_running=running,
                     pre_print_sha256=sha256_bytes(print_text.encode("utf-8")),
+                    pre_disabled=pre_disabled,
                     old_denial_sha256=(sha256_file(old_denial) if old_denial.is_file() else None),
                 )
             )
@@ -795,6 +846,28 @@ class ActivationTransaction:
         self._event("plist_replace_complete", job=job.guard_name, detail=f"sha256={job.new_sha256}")
         self.fault_hook("after_plist_replace", job.guard_name)
 
+    def _enable_dormant_target(self, job: JobState) -> None:
+        self._safe_point(f"before_enable:{job.guard_name}")
+        self.fault_hook("before_enable", job.guard_name)
+        self._safe_point(f"before_enable_mutation:{job.guard_name}")
+        # launchctl 可能先 mutation 再回傳錯誤；呼叫前即武裝 disabled restore obligation。
+        job.disabled_state_restore_armed = True
+        result = self._run(
+            [self.launchctl_bin, "enable", f"{self.domain}/{job.label}"]
+        )
+        self.fault_hook("after_enable_mutation_before_probe", job.guard_name)
+        self._safe_point(f"after_enable_mutation:{job.guard_name}")
+        disabled_after, _ = self._probe_disabled(job.label)
+        job.disabled_state_mutated = disabled_after != job.pre_disabled
+        if result.returncode != 0:
+            raise ActivationError(
+                f"enable failed: {job.label}: {(result.stderr or result.stdout).strip()}"
+            )
+        if disabled_after:
+            raise ActivationError(f"enable returned success but job remains disabled: {job.label}")
+        self._event("disabled_state_enabled", job=job.guard_name)
+        self.fault_hook("after_enable", job.guard_name)
+
     def _bootstrap(self, job: JobState) -> None:
         self._safe_point(f"before_bootstrap:{job.guard_name}")
         self.fault_hook("before_bootstrap", job.guard_name)
@@ -827,6 +900,12 @@ class ActivationTransaction:
             loaded, _, print_text = self._probe(job.label)
             if not loaded or str(self.runtime_root) not in print_text:
                 raise ActivationError(f"post-activation topology mismatch: {job.label}")
+            if job.pre_disabled is not None:
+                disabled, _ = self._probe_disabled(job.label)
+                if disabled:
+                    raise ActivationError(
+                        f"post-activation disabled state mismatch: {job.label}"
+                    )
             old_marker = self._denial_path(job.old_root, job.guard_name)
             current_old_hash = sha256_file(old_marker) if old_marker.is_file() else None
             if current_old_hash != job.old_denial_sha256:
@@ -871,6 +950,31 @@ class ActivationTransaction:
             except Exception as exc:  # noqa: BLE001 - rollback 要繼續收集所有 failure state。
                 self.rollback_errors.append(f"restore plist failed {job.label}: {exc}")
 
+        if job.disabled_state_restore_armed and job.pre_disabled is not None:
+            try:
+                disabled_now, _ = self._probe_disabled(job.label)
+                job.disabled_state_mutated = (
+                    job.disabled_state_mutated or disabled_now != job.pre_disabled
+                )
+                if disabled_now != job.pre_disabled:
+                    operation = "disable" if job.pre_disabled else "enable"
+                    result = self._run(
+                        [self.launchctl_bin, operation, f"{self.domain}/{job.label}"]
+                    )
+                    disabled_after, _ = self._probe_disabled(job.label)
+                    if result.returncode != 0 or disabled_after != job.pre_disabled:
+                        self.rollback_errors.append(
+                            f"restore disabled state failed: {job.label}"
+                        )
+                    else:
+                        job.disabled_state_restore_armed = False
+                else:
+                    job.disabled_state_restore_armed = False
+            except Exception as exc:  # noqa: BLE001 - rollback 仍須繼續驗證其他狀態。
+                self.rollback_errors.append(
+                    f"restore disabled state exception {job.label}: {exc}"
+                )
+
         if job.booted_out:
             loaded_now, _, _ = self._probe(job.label)
             if not loaded_now:
@@ -913,6 +1017,14 @@ class ActivationTransaction:
                 mismatches.append(f"running:{job.label}")
             if loaded and str(job.old_root) not in print_text:
                 mismatches.append(f"root:{job.label}")
+            if job.pre_disabled is not None:
+                try:
+                    disabled, _ = self._probe_disabled(job.label)
+                except Exception as exc:  # noqa: BLE001 - readback failure 即無法證明 rollback。
+                    mismatches.append(f"disabled-readback:{job.label}:{exc}")
+                else:
+                    if disabled != job.pre_disabled:
+                        mismatches.append(f"disabled:{job.label}")
 
             old_marker = self._denial_path(job.old_root, job.guard_name)
             current_old_hash = sha256_file(old_marker) if old_marker.is_file() else None
@@ -989,6 +1101,8 @@ class ActivationTransaction:
                     "old_root": str(job.old_root),
                     "pre_loaded": job.pre_loaded,
                     "pre_running": job.pre_running,
+                    "pre_disabled": job.pre_disabled,
+                    "disabled_state_mutated": job.disabled_state_mutated,
                     "old_denial_sha256": job.old_denial_sha256,
                     "snapshot_path": str(job.snapshot_path) if job.snapshot_path else None,
                 }
@@ -1081,8 +1195,11 @@ class ActivationTransaction:
             self._mirror_and_clear_denials()
             self._safe_point("after_denial_mirror")
             for job in self.jobs:
-                self._bootout(job)
+                if job.pre_loaded:
+                    self._bootout(job)
                 self._replace_plist(job)
+                if job.pre_disabled:
+                    self._enable_dormant_target(job)
                 self._bootstrap(job)
                 self._safe_point(f"after_job_mutations:{job.guard_name}")
             self._verify_success()
@@ -1172,6 +1289,11 @@ def parse_args() -> argparse.Namespace:
         choices=[guard_name for guard_name, _, _ in TARGET_JOBS],
         help="只切換指定 job；可重複傳入，未指定時維持三條全選。",
     )
+    parser.add_argument(
+        "--allow-dormant-target-activation",
+        action="store_true",
+        help="明確允許單選 disabled/unloaded retrain-monitor 並由 transaction enable/bootstrap。",
+    )
     parser.add_argument("--activate", action="store_true")
     return parser.parse_args()
 
@@ -1191,6 +1313,9 @@ def main() -> int:
             expected_old_root=args.expected_old_root,
             receipt_path=args.receipt,
             target_jobs=getattr(args, "target_jobs", None),
+            allow_dormant_target_activation=getattr(
+                args, "allow_dormant_target_activation", False
+            ),
         )
         status = transaction.run()
     except RuntimeCheckoutError as exc:

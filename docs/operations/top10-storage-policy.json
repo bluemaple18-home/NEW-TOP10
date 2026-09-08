@@ -136,6 +136,23 @@
       "retention_days": 14,
       "sample_interval_seconds": 60
     },
+    "retrain-monitor": {
+      "launch_verified": true,
+      "verification_basis": "2026-08-03 兩個 scheduled monitor 週期均 OK：project delta 11030/1997 bytes、peak RSS 231112704/170065920 bytes、swap delta 1832323645/0 bytes；此 launch_verified=true 僅授權 daily_retrain.sh monitor --trigger scheduled 的排程監控，不授權模型 retrain。",
+      "meter_paths": ["logs", "artifacts", "data", "models"],
+      "registered_write_paths": ["logs", "artifacts", "data", "models"],
+      "cleanup_rule_ids": ["runtime_workspace", "storage_receipts", "logs", "log_errors"],
+      "max_bytes": 8589934592,
+      "max_file_count": 75000,
+      "max_process_tree_rss_bytes": 4294967296,
+      "max_swap_growth_bytes": 2147483648,
+      "expected_growth_bytes_per_hour": 1073741824,
+      "spike_window_seconds": 14400,
+      "stabilize_after_seconds": 21600,
+      "reclaim_after_seconds": 86400,
+      "retention_days": 14,
+      "sample_interval_seconds": 60
+    },
     "reference": {
       "launch_verified": false,
       "verification_basis": "2026-08-03 第一週期由 guard 以 PROJECT_FILE_COUNT_BUDGET_EXCEEDED 停止：uv runtime/cache 使 file count 29414→53734，超過 45000；未跑第二週期，維持 NO-GO。",

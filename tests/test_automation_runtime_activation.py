@@ -20,6 +20,28 @@ from scripts import activate_automation_runtime as activation
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED_SHA = "a" * 40
 FOG_ONLY = ("fog-research-worker",)
+RETRAIN_ONLY = ("retrain-monitor",)
+RETRAIN_LABEL = "com.new-top10.retrain"
+LEGACY_DEFAULT_LABELS = {
+    "com.new-top10.daily",
+    "com.new-top10.external-review-preflight",
+    "com.new-top10.fog-research-worker",
+}
+MACOS_PRINT_DISABLED_FIXTURE = """disabled services = {
+    "com.new-top10.daily" => enabled
+    "com.new-top10.external-review-preflight" => enabled
+    "com.new-top10.fog-research-worker" => enabled
+    "com.new-top10.retrain" => __RETRAIN_STATE__
+}
+"""
+
+
+def _legacy_target_rows() -> tuple[tuple[str, str, str], ...]:
+    return tuple(
+        job
+        for job in activation.TARGET_JOBS
+        if job[0] in activation.LEGACY_DEFAULT_TARGET_JOBS
+    )
 
 
 def _project_root_from_plist(path: Path) -> Path:
@@ -35,12 +57,19 @@ class FakeCommandRunner:
 
     def __init__(self, old_root: Path) -> None:
         self.states = {
-            label: {"loaded": True, "running": False, "root": old_root.resolve()}
-            for _, label, _ in activation.TARGET_JOBS
+            label: {
+                "loaded": guard_name != "retrain-monitor",
+                "running": False,
+                "root": old_root.resolve(),
+                "disabled": guard_name == "retrain-monitor",
+            }
+            for guard_name, label, _ in activation.TARGET_JOBS
         }
         self.calls: list[tuple[str, str | None]] = []
         self.failures: dict[tuple[str, str], str] = {}
         self.fail_plutil = False
+        self.print_disabled_style = "macos"
+        self.print_disabled_overrides: dict[str, str] = {}
 
     def fail(self, operation: str, label: str, *, when: str) -> None:
         self.failures[(operation, label)] = when
@@ -73,6 +102,39 @@ class FakeCommandRunner:
             )
             return activation.CommandResult(0, output, "")
 
+        if operation == "print-disabled":
+            self.calls.append(("print-disabled", None))
+            if self.print_disabled_style == "macos":
+                retrain_state = self.print_disabled_overrides.get(
+                    RETRAIN_LABEL,
+                    self._disabled_value(self.states[RETRAIN_LABEL]),
+                )
+                output = MACOS_PRINT_DISABLED_FIXTURE.replace(
+                    "__RETRAIN_STATE__", retrain_state
+                )
+            else:
+                entries = "\n".join(
+                    f'    "{label}" => {self.print_disabled_overrides.get(label, self._disabled_value(state))}'
+                    for label, state in self.states.items()
+                )
+                output = f"disabled services = {{\n{entries}\n}}\n"
+            return activation.CommandResult(0, output, "")
+
+        if operation in {"enable", "disable"}:
+            label = command[2].rsplit("/", 1)[-1]
+            self.calls.append((operation, label))
+            failure = self._failure(operation, label)
+            if failure == "before":
+                del self.failures[(operation, label)]
+                return activation.CommandResult(5, "", f"injected {operation}-before")
+            self.states[label]["disabled"] = operation == "disable"
+            if failure in {"after", "interrupt_after"}:
+                del self.failures[(operation, label)]
+                if failure == "interrupt_after":
+                    raise activation.ActivationError(f"injected {operation} interruption")
+                return activation.CommandResult(5, "", f"injected {operation}-after")
+            return activation.CommandResult(0, "", "")
+
         if operation == "bootout":
             label = self._label_from_plist(command[3])
             self.calls.append(("bootout", label))
@@ -101,6 +163,8 @@ class FakeCommandRunner:
                 del self.failures[("bootstrap", label)]
                 return activation.CommandResult(5, "", "injected bootstrap-before")
             state = self.states[label]
+            if state["disabled"]:
+                return activation.CommandResult(5, "", "service disabled")
             if state["loaded"]:
                 return activation.CommandResult(37, "", "duplicate bootstrap rejected")
             state["loaded"] = True
@@ -126,6 +190,11 @@ class FakeCommandRunner:
             return activation.CommandResult(0, "", "")
 
         raise AssertionError(f"unexpected command: {command}")
+
+    def _disabled_value(self, state: dict[str, object]) -> str:
+        if self.print_disabled_style == "bool":
+            return str(state["disabled"]).lower()
+        return "disabled" if state["disabled"] else "enabled"
 
 
 def _render_template(template_name: str, root: Path) -> bytes:
@@ -175,6 +244,7 @@ def activation_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
         *,
         hook: activation.FaultHook = activation.noop_fault_hook,
         target_jobs: tuple[str, ...] | None = None,
+        allow_dormant_target_activation: bool = False,
     ) -> activation.ActivationTransaction:
         return activation.ActivationTransaction(
             source_root=PROJECT_ROOT,
@@ -189,6 +259,7 @@ def activation_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
             command_runner=runner,
             fault_hook=hook,
             target_jobs=target_jobs,
+            allow_dormant_target_activation=allow_dormant_target_activation,
         )
 
     return {
@@ -217,10 +288,12 @@ def _assert_old_topology(env: dict[str, object]) -> None:
     assert isinstance(old_root, Path)
     assert isinstance(runner, FakeCommandRunner)
     for _, label, _ in activation.TARGET_JOBS:
+        expected_dormant = label == RETRAIN_LABEL
         assert runner.states[label] == {
-            "loaded": True,
+            "loaded": not expected_dormant,
             "running": False,
             "root": old_root.resolve(),
+            "disabled": expected_dormant,
         }
 
 
@@ -413,9 +486,9 @@ def test_activation_plist_replace_flushes_file_and_fsyncs_parent_directory(
 
     expected = [
         ("fsync-staged-file", f".{label}.a4-stage-{os.getpid()}.plist")
-        for _, label, _ in activation.TARGET_JOBS
+        for _, label, _ in _legacy_target_rows()
     ]
-    for _, label, _ in activation.TARGET_JOBS:
+    for _, label, _ in _legacy_target_rows():
         expected.extend(
             [
                 ("replace", f"{label}.plist"),
@@ -793,7 +866,10 @@ def test_parent_directory_fsync_failure_is_post_rename_durability_no_go(
     assert durable["status"] == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
     runner = activation_env["runner"]
     assert isinstance(runner, FakeCommandRunner)
-    assert all(state["root"] == runtime_root.resolve() for state in runner.states.values())
+    assert all(
+        runner.states[label]["root"] == runtime_root.resolve()
+        for label in LEGACY_DEFAULT_LABELS
+    )
     assert not any(event["name"] == "rollback_started" for event in transaction.events)
     for guard_name, _, _ in activation.TARGET_JOBS:
         lock_path = runtime_root / "logs" / "storage_safety" / f"{guard_name}.lock"
@@ -1159,8 +1235,9 @@ def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
     runner = activation_env["runner"]
     assert isinstance(runner, FakeCommandRunner)
     assert all(
-        state["loaded"] and state["root"] == runtime_root.resolve()
-        for state in runner.states.values()
+        runner.states[label]["loaded"]
+        and runner.states[label]["root"] == runtime_root.resolve()
+        for label in LEGACY_DEFAULT_LABELS
     )
 
 
@@ -1491,7 +1568,10 @@ def test_post_commit_mask_restore_failure_keeps_success_topology_and_retries(
     runner = activation_env["runner"]
     assert isinstance(runtime_root, Path)
     assert isinstance(runner, FakeCommandRunner)
-    assert all(state["root"] == runtime_root.resolve() for state in runner.states.values())
+    assert all(
+        runner.states[label]["root"] == runtime_root.resolve()
+        for label in LEGACY_DEFAULT_LABELS
+    )
 
 
 def test_persistent_post_seal_mask_failure_returns_generic_no_go(
@@ -1888,7 +1968,10 @@ def test_original_signal_mask_is_restored_after_pre_syscall_release_failure(
         runner = activation_env["runner"]
         assert isinstance(runtime_root, Path)
         assert isinstance(runner, FakeCommandRunner)
-        assert all(state["root"] == runtime_root.resolve() for state in runner.states.values())
+        assert all(
+            runner.states[label]["root"] == runtime_root.resolve()
+            for label in LEGACY_DEFAULT_LABELS
+        )
     finally:
         original_pthread_sigmask(signal.SIG_SETMASK, initial_mask)
 
@@ -2073,7 +2156,7 @@ def test_storage_guard_locks_remain_held_through_bootstrap_verification_and_comm
         for index, name in enumerate(event_names)
         if name == "denial_writer_lock_released"
     ]
-    assert len(release_indexes) == len(activation.TARGET_JOBS)
+    assert len(release_indexes) == len(activation.LEGACY_DEFAULT_TARGET_JOBS)
     assert all(index > commit_index for index in release_indexes)
 
 
@@ -2373,13 +2456,15 @@ def test_parse_args_accepts_repeatable_bounded_job_selector(
             "--receipt",
             "/tmp/receipt.json",
             "--job",
-            "fog-research-worker",
+            "retrain-monitor",
+            "--allow-dormant-target-activation",
             "--activate",
         ],
     )
 
     args = activation.parse_args()
-    assert args.target_jobs == ["fog-research-worker"]
+    assert args.target_jobs == ["retrain-monitor"]
+    assert args.allow_dormant_target_activation is True
 
 
 def test_cli_duplicate_job_selector_uses_uniform_no_go_boundary(
@@ -2407,3 +2492,214 @@ def test_cli_duplicate_job_selector_uses_uniform_no_go_boundary(
     captured = capsys.readouterr()
     assert "A4_ACTIVATION_NO_GO: ActivationError: target_jobs 不得重複" in captured.err
     assert "Traceback" not in captured.err
+
+
+def test_legacy_default_scope_remains_exactly_three_loaded_jobs(
+    activation_env: dict[str, object],
+) -> None:
+    """擴充 allowlist 不得把 dormant retrain 偷渡進 legacy default。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+
+    transaction = build()
+    assert {label for _, label, _ in transaction.target_jobs} == LEGACY_DEFAULT_LABELS
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    assert not any(label == RETRAIN_LABEL for _, label in runner.calls)
+
+
+def test_dormant_retrain_requires_explicit_flag_before_any_mutation(
+    activation_env: dict[str, object],
+) -> None:
+    """只給 selector 不足以授權 disabled/unloaded job activation。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+
+    with pytest.raises(activation.ActivationError, match="dormant target"):
+        build(target_jobs=RETRAIN_ONLY)
+
+    assert runner.calls == []
+    assert _target_bytes(activation_env) == before
+    assert runner.states[RETRAIN_LABEL]["disabled"] is True
+    assert runner.states[RETRAIN_LABEL]["loaded"] is False
+
+
+def test_dormant_retrain_explicit_flag_requires_observed_disabled_prestate(
+    activation_env: dict[str, object],
+) -> None:
+    """顯式旗標仍須由 print-disabled 證明 target 當下確實 disabled。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    runner.states[RETRAIN_LABEL]["disabled"] = False
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+    assert ("print-disabled", None) in runner.calls
+
+
+def test_dormant_retrain_accepts_boolean_print_disabled_compatibility(
+    activation_env: dict[str, object],
+) -> None:
+    """舊 bool 形式仍可相容，但 selector identity 必須是 retrain-monitor。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    runner.print_disabled_style = "bool"
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    assert transaction.jobs[0].guard_name == "retrain-monitor"
+
+
+def test_dormant_retrain_unknown_print_disabled_value_fails_closed(
+    activation_env: dict[str, object],
+) -> None:
+    """未知 launchctl disabled state 不得被猜成 enabled 或 disabled。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    runner.print_disabled_overrides[RETRAIN_LABEL] = "unknown-state"
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "未知 disabled state" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
+def test_disabled_retrain_happy_path_is_explicit_and_bounded(
+    activation_env: dict[str, object],
+) -> None:
+    """顯式 dormant selector 只 enable/bootstrap retrain 並留下完整 receipt。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    receipt = activation_env["receipt"]
+    before = _target_bytes(activation_env)
+    before_states = {label: dict(state) for label, state in runner.states.items()}
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    assert isinstance(receipt, Path)
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+
+    for label in LEGACY_DEFAULT_LABELS:
+        assert _target_bytes(activation_env)[label] == before[label]
+        assert runner.states[label] == before_states[label]
+    assert runner.states[RETRAIN_LABEL]["disabled"] is False
+    assert runner.states[RETRAIN_LABEL]["loaded"] is True
+    assert runner.states[RETRAIN_LABEL]["root"] == activation_env["runtime_root"]
+    mutation_calls = [
+        (operation, label)
+        for operation, label in runner.calls
+        if operation in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+    ]
+    assert mutation_calls == [
+        ("enable", RETRAIN_LABEL),
+        ("bootstrap", RETRAIN_LABEL),
+    ]
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["target_labels"] == [RETRAIN_LABEL]
+    assert set(durable["jobs"]) == {"retrain-monitor"}
+    assert durable["jobs"]["retrain-monitor"]["pre_disabled"] is True
+    assert durable["jobs"]["retrain-monitor"]["disabled_state_mutated"] is True
+    runtime_root = activation_env["runtime_root"]
+    assert isinstance(runtime_root, Path)
+    assert (
+        runtime_root / "logs" / "storage_safety" / "retrain-monitor.lock"
+    ).is_file()
+    assert not (
+        runtime_root / "logs" / "storage_safety" / "retrain.lock"
+    ).exists()
+    assert {
+        "com.new-top10.daily.plist",
+        "com.new-top10.external-review-preflight.plist",
+        "com.new-top10.fog-research-worker.plist",
+    } <= set(durable["out_of_scope_plists_before"])
+
+
+@pytest.mark.parametrize(
+    ("operation", "when", "expected_disabled_mutation"),
+    [
+        ("enable", "before", False),
+        ("enable", "after", True),
+        ("bootstrap", "after", True),
+    ],
+)
+def test_dormant_retrain_mutation_failure_restores_disabled_unloaded_prestate(
+    activation_env: dict[str, object],
+    operation: str,
+    when: str,
+    expected_disabled_mutation: bool,
+) -> None:
+    """enable/bootstrap 任一步失敗都須回復舊 bytes 與 disabled/unloaded。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    receipt = activation_env["receipt"]
+    before = _target_bytes(activation_env)
+    legacy_states = {
+        label: dict(runner.states[label]) for label in LEGACY_DEFAULT_LABELS
+    }
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    assert isinstance(receipt, Path)
+    runner.fail(operation, RETRAIN_LABEL, when=when)
+
+    transaction = build(
+        target_jobs=RETRAIN_ONLY,
+        allow_dormant_target_activation=True,
+    )
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+
+    assert _target_bytes(activation_env) == before
+    assert runner.states[RETRAIN_LABEL]["disabled"] is True
+    assert runner.states[RETRAIN_LABEL]["loaded"] is False
+    for label, state in legacy_states.items():
+        assert runner.states[label] == state
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["jobs"]["retrain-monitor"]["pre_disabled"] is True
+    assert (
+        durable["jobs"]["retrain-monitor"]["disabled_state_mutated"]
+        is expected_disabled_mutation
+    )
+    assert set(durable["out_of_scope_plists_before"]) >= {
+        f"{label}.plist" for label in LEGACY_DEFAULT_LABELS
+    }

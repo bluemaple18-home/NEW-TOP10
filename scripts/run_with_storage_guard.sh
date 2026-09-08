@@ -14,7 +14,7 @@ fi
 shift
 
 case "$JOB" in
-  daily|retrain|reference|fog-research-worker|pm-research-harness|external-review|external-review-preflight|baseline-harness)
+  daily|retrain|retrain-monitor|reference|fog-research-worker|pm-research-harness|external-review|external-review-preflight|baseline-harness)
     ;;
   *)
     echo "storage guard rejects unknown job: $JOB" >&2

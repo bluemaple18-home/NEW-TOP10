@@ -15,7 +15,7 @@
     <array>
         <string>/bin/bash</string>
         <string>__PROJECT_DIR__/scripts/run_with_storage_guard.sh</string>
-        <string>retrain</string>
+        <string>retrain-monitor</string>
         <string>/bin/bash</string>
         <string>__PROJECT_DIR__/scripts/daily_retrain.sh</string>
         <string>monitor</string>

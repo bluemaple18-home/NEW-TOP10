@@ -21,15 +21,19 @@ import app.storage_safety as storage_safety
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEDULED_JOBS = {
-    "daily": "run_daily_publish.sh",
-    "retrain": "daily_retrain.sh",
-    "reference": "run_reference_update.sh",
-    "fog-research-worker": "run_fog_research_worker.sh",
-    "pm-research-harness": "run_pm_research_harness_loop.sh",
-    "external-review": "run_external_review_host_runner.sh",
-    "external-review-preflight": "run_external_review_provider_preflight.sh",
-    "baseline-harness": "run_baseline_harness_host_runner.sh",
+    "daily": ("daily", "run_daily_publish.sh"),
+    "retrain": ("retrain-monitor", "daily_retrain.sh"),
+    "reference": ("reference", "run_reference_update.sh"),
+    "fog-research-worker": ("fog-research-worker", "run_fog_research_worker.sh"),
+    "pm-research-harness": ("pm-research-harness", "run_pm_research_harness_loop.sh"),
+    "external-review": ("external-review", "run_external_review_host_runner.sh"),
+    "external-review-preflight": (
+        "external-review-preflight",
+        "run_external_review_provider_preflight.sh",
+    ),
+    "baseline-harness": ("baseline-harness", "run_baseline_harness_host_runner.sh"),
 }
+POLICY_JOBS = {storage_job for storage_job, _ in SCHEDULED_JOBS.values()} | {"retrain"}
 
 from app.storage_safety import (  # noqa: E402
     GlobalPolicy,
@@ -293,6 +297,14 @@ printf 'arg=%s\n' "$@"
             capture_output=True,
             text=True,
         ).stdout.splitlines()
+        retrain_monitor = subprocess.run(
+            [str(wrapper), "retrain-monitor", "/usr/bin/true"],
+            cwd=root,
+            env=environment,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
         fog = subprocess.run(
             [str(wrapper), "fog-research-worker", "/usr/bin/true"],
             cwd=root,
@@ -306,6 +318,9 @@ printf 'arg=%s\n' "$@"
         assert f"invocation={supplied_invocation}" in daily
         assert f"arg={supplied_scheduled}" in daily
         assert f"arg={supplied_invocation}" in daily
+        assert "job=retrain-monitor" in retrain_monitor
+        assert f"arg={supplied_scheduled}" in retrain_monitor
+        assert f"arg={supplied_invocation}" in retrain_monitor
         assert f"scheduled={supplied_scheduled}" not in fog
         assert f"invocation={supplied_invocation}" not in fog
         assert any(line.startswith("invocation=fog-research-worker-") for line in fog)
@@ -405,8 +420,11 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             "daily",
             "external-review-preflight",
             "fog-research-worker",
+            "retrain-monitor",
         }
-        for job in SCHEDULED_JOBS:
+        policy_payload = json.loads(policy_path.read_text(encoding="utf-8"))
+        self.assertEqual(set(policy_payload["jobs"]), POLICY_JOBS)
+        for job in POLICY_JOBS:
             with self.subTest(job=job):
                 global_policy, policy, rules = load_policy(policy_path, job)
                 self.assertIs(policy.launch_verified, job in verified_jobs)
@@ -439,6 +457,30 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 self.assertGreaterEqual(receipt_rule.protect_newest, 2)
                 self.assertEqual(global_policy.start_min_free_bytes, 0)
                 self.assertEqual(global_policy.start_min_free_percent, 0.10)
+
+        retrain_policy = policy_payload["jobs"]["retrain"]
+        retrain_monitor_policy = policy_payload["jobs"]["retrain-monitor"]
+        self.assertIs(retrain_policy["launch_verified"], False)
+        self.assertIs(retrain_monitor_policy["launch_verified"], True)
+        self.assertEqual(
+            retrain_monitor_policy["verification_basis"],
+            "2026-08-03 兩個 scheduled monitor 週期均 OK：project delta "
+            "11030/1997 bytes、peak RSS 231112704/170065920 bytes、swap delta "
+            "1832323645/0 bytes；此 launch_verified=true 僅授權 daily_retrain.sh "
+            "monitor --trigger scheduled 的排程監控，不授權模型 retrain。",
+        )
+        self.assertEqual(
+            {
+                key: value
+                for key, value in retrain_monitor_policy.items()
+                if key not in {"launch_verified", "verification_basis"}
+            },
+            {
+                key: value
+                for key, value in retrain_policy.items()
+                if key not in {"launch_verified", "verification_basis"}
+            },
+        )
 
         payload = json.loads(policy_path.read_text(encoding="utf-8"))
         _global_policy, fog_policy, _rules = load_policy(
@@ -5080,7 +5122,7 @@ raise SystemExit(
                     protected.wait(timeout=2)
 
     def test_all_scheduled_jobs_enter_through_fail_closed_storage_guard(self) -> None:
-        for job, original_entrypoint in SCHEDULED_JOBS.items():
+        for job, (storage_job, original_entrypoint) in SCHEDULED_JOBS.items():
             with self.subTest(job=job):
                 path = PROJECT_ROOT / "scripts" / f"com.new-top10.{job}.plist"
                 payload = plistlib.loads(path.read_bytes())
@@ -5088,12 +5130,23 @@ raise SystemExit(
                 self.assertEqual(arguments[:3], [
                     "/bin/bash",
                     "__PROJECT_DIR__/scripts/run_with_storage_guard.sh",
-                    job,
+                    storage_job,
                 ])
                 self.assertIn(f"__PROJECT_DIR__/scripts/{original_entrypoint}", arguments)
                 self.assertEqual(payload["StandardOutPath"], "/dev/null")
                 self.assertEqual(payload["StandardErrorPath"], "/dev/null")
                 self.assertNotIn("KeepAlive", payload)
+                if job == "retrain":
+                    self.assertEqual(
+                        arguments[3:],
+                        [
+                            "/bin/bash",
+                            "__PROJECT_DIR__/scripts/daily_retrain.sh",
+                            "monitor",
+                            "--trigger",
+                            "scheduled",
+                        ],
+                    )
 
         wrapper = (PROJECT_ROOT / "scripts" / "run_with_storage_guard.sh").read_text(encoding="utf-8")
         self.assertNotIn("TOP10_STORAGE_TRIGGER_TYPE:-", wrapper)
