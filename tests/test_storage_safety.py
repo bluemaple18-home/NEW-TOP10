@@ -2298,12 +2298,12 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             self.assertAlmostEqual(waits[2], 56.795)
 
     def test_live_sampling_handles_recorded_fog_probe_latency_spike(self) -> None:
-        """重播 2026-09-08 故障的 probe 變動；硬上限仍為 60 秒。"""
-        self._check_fog_probe_spike(4.769675375)
+        """重播 2026-09-08 production 10.34 秒 probe；硬上限仍為 60 秒。"""
+        self._check_fog_probe_spike(10.339485291)
 
     def test_fog_probe_spike_over_hard_maximum_still_denies_restart(self) -> None:
-        """餘裕增加後，真實超標仍必須停損並拒絕下一次啟動。"""
-        self._check_fog_probe_spike(8.0, expected_reason="LIVE_SAMPLE_CADENCE_EXCEEDED")
+        """超過新 12 秒 completion headroom 的真實超標仍必須停損。"""
+        self._check_fog_probe_spike(15.0, expected_reason="LIVE_SAMPLE_CADENCE_EXCEEDED")
 
     def test_fog_runtime_deadline_preempts_next_sample(self) -> None:
         """提前取樣後，較早的 runtime deadline 仍立即停損。"""
@@ -2332,7 +2332,7 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             def waiter(process: subprocess.Popen[bytes], timeout: float) -> None:
                 waits.append(timeout)
                 if len(waits) <= 2:
-                    # 由 receipt 完成間隔扣除 57 秒 target 與 probe 差值得出。
+                    # 重播 production scheduler 約 94ms 的 target lateness。
                     clock.advance(timeout + 0.094261279)
                     raise subprocess.TimeoutExpired(process.args, timeout)
                 process.terminate()
