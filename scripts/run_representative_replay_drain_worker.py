@@ -438,6 +438,7 @@ def main() -> int:
     previous_progress = read_json(progress)
     batches: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    initial_linkage_completed = False
 
     if not args.skip_initial_linkage:
         initial_refresh = refresh_map_commands(run_date, deadline=deadline)
@@ -503,6 +504,7 @@ def main() -> int:
             )
             print(json.dumps({"status": "FAILED", "output": repo_path(progress), "stop_reason": payload["stop_reason"]}, ensure_ascii=False))
             return 1
+        initial_linkage_completed = True
 
     initial_queue = queue_summary(run_date)
     latest_queue = initial_queue
@@ -598,7 +600,11 @@ def main() -> int:
                 timeout_seconds=remaining_seconds(deadline),
             )
             command_results.append(verify)
-        if not any(result.timed_out for result in command_results):
+        post_linkage_deferred = initial_linkage_completed and args.max_batches == 1
+        if (
+            not any(result.timed_out for result in command_results)
+            and not post_linkage_deferred
+        ):
             linkage = run_command(
                 "controlled_grid_linkage_after_replay",
                 [python_bin(), "scripts/run_controlled_grid_drain_host_runner.py", "--date", run_date],
@@ -626,6 +632,7 @@ def main() -> int:
             "representative_summary": representative_summary,
             "progressed": progress_evidence["progressed"],
             "progress_evidence": progress_evidence,
+            "post_linkage_deferred": post_linkage_deferred,
             "commands": [command_payload(result) for result in command_results],
             "queue_after": queue_after,
         }

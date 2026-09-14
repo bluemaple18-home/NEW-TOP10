@@ -154,6 +154,87 @@ class RepresentativeReplayDrainWorkerTest(unittest.TestCase):
         self.assertEqual(payload["status"], "TIMED_OUT")
         self.assertEqual(payload["stop_reason"], "command_timeout")
         self.assertEqual(payload["batches"][0]["commands"][0]["status"], "TIMED_OUT")
+
+    def test_default_single_batch_runs_only_one_full_controlled_grid_linkage(self) -> None:
+        """1800 秒預算下，預設單 batch 不得前後各重建一次 296 萬列 linkage。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            artifacts_dir = temp_root / "artifacts"
+            representative_json = temp_root / "representative.json"
+            representative_json.write_text(
+                json.dumps(
+                    {
+                        "summary": {
+                            "selected_count": 6,
+                            "completed_count": 6,
+                            "appended_run_history_count": 6,
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            args = Namespace(
+                date="2099-01-08",
+                run_id="single-linkage-fixture",
+                artifacts_dir=artifacts_dir,
+                batch_size=6,
+                max_batches=1,
+                max_seconds=1800,
+                rerun=False,
+                force_append=False,
+                skip_initial_linkage=False,
+                lock_dir=temp_root / "representative_replay_drain.lock",
+                no_lock=True,
+            )
+            queue = {
+                "queue_path": str(temp_root / "queue.json"),
+                "status": "OK",
+                "representative_replay_count": 6,
+                "representative_combo_ids": ["combo-a"],
+            }
+            successful = worker.CommandResult(
+                name="fixture",
+                command=["fixture"],
+                returncode=0,
+                stdout="",
+                stderr="",
+                started_at="2099-01-08T00:00:00+00:00",
+                finished_at="2099-01-08T00:00:01+00:00",
+            )
+
+            def run_command(name: str, command: list[str], **_kwargs: object) -> worker.CommandResult:
+                return worker.CommandResult(
+                    name=name,
+                    command=command,
+                    returncode=successful.returncode,
+                    stdout=successful.stdout,
+                    stderr=successful.stderr,
+                    started_at=successful.started_at,
+                    finished_at=successful.finished_at,
+                )
+
+            with (
+                patch.object(worker, "parse_args", return_value=args),
+                patch.object(worker, "resolve_path", side_effect=lambda value: Path(value)),
+                patch.object(worker, "queue_summary", return_value=queue.copy()),
+                patch.object(worker, "run_command", side_effect=run_command) as command_mock,
+                patch.object(
+                    worker,
+                    "representative_paths",
+                    return_value=(representative_json, representative_json.with_suffix(".md")),
+                ),
+                patch.object(worker, "write_research_worker_event"),
+            ):
+                exit_code = worker.main()
+
+        linkage_names = [
+            entry.args[0]
+            for entry in command_mock.call_args_list
+            if "controlled_grid_linkage" in str(entry.args[0])
+        ]
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(linkage_names, ["initial_controlled_grid_linkage"])
+
     def test_queue_summary_counts_pending_representatives_from_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             queue = Path(tmp) / "queue.json"

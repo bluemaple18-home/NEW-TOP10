@@ -40,7 +40,7 @@ PROTECTED_SNAPSHOT_MAX_FILES = 50_000
 VALIDATION_ENTRYPOINT_SCHEMA_VERSION = "top10-storage-validation-entrypoint.v1"
 _TRUSTED_VALIDATION_TOKEN = object()
 _LIVE_SAMPLE_SCHEDULE_NUMERATOR = 19
-_FOG_LIVE_SAMPLE_SCHEDULE_NUMERATOR = 16
+_FOG_LIVE_SAMPLE_SCHEDULE_NUMERATOR = 14
 _LIVE_SAMPLE_SCHEDULE_DENOMINATOR = 20
 _HOST_PROBE_TIMEOUT_SECONDS = 5.0
 
@@ -1976,10 +1976,12 @@ def run_guarded_job(
         )
         process, process_group = _spawn_verified_process_group(spawn_command, cwd=root)
         started_at = monotonic_now()
-        # Fog 目標使用 hard maximum 的 80%，其餘 job 維持 95%。
-        # 2026-09-08 production probe 曾達 10.34 秒；90% target 只留 6 秒，
-        # 因此合法取樣也會撞 60 秒 hard maximum。80% target 留 12 秒餘裕，
-        # 是 5% 刻度下能涵蓋實測峰值的最小調整；hard maximum 本身不變。
+        # Fog 目標使用 hard maximum 的 70%，其餘 job 維持 95%。
+        # 2026-09-14 production meter_paths 在 DuckDB rebuild I/O 競爭時曾達
+        # 14.25 秒、sample_total 14.79 秒；80% target 的 12 秒 completion
+        # headroom 已被合法 probe 打穿。70% target 留 18 秒，涵蓋目前實測尖峰
+        # 與 scheduler lateness；60 秒 hard maximum 本身不變，真實 completion
+        # overrun 仍會 fail closed。
         sample_schedule_interval = (
             policy.sample_interval_seconds
             * (

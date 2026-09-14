@@ -2301,9 +2301,13 @@ class StorageSafetyRegressionTest(unittest.TestCase):
         """重播 2026-09-08 production 10.34 秒 probe；硬上限仍為 60 秒。"""
         self._check_fog_probe_spike(10.339485291)
 
+    def test_live_sampling_handles_recorded_2026_09_14_fog_probe_latency_spike(self) -> None:
+        """重播 2026-09-14 production 14.79 秒 probe；合法 I/O 尖峰不得永久封鎖 Fog。"""
+        self._check_fog_probe_spike(14.793615834088996)
+
     def test_fog_probe_spike_over_hard_maximum_still_denies_restart(self) -> None:
-        """超過新 12 秒 completion headroom 的真實超標仍必須停損。"""
-        self._check_fog_probe_spike(15.0, expected_reason="LIVE_SAMPLE_CADENCE_EXCEEDED")
+        """超過新 18 秒 completion headroom 的真實超標仍必須停損。"""
+        self._check_fog_probe_spike(20.0, expected_reason="LIVE_SAMPLE_CADENCE_EXCEEDED")
 
     def test_fog_runtime_deadline_preempts_next_sample(self) -> None:
         """提前取樣後，較早的 runtime deadline 仍立即停損。"""
