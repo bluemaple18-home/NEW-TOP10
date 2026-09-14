@@ -30,7 +30,7 @@ push_allowed: false
 6. `ACT-RM-REVIEW`：兩名互不先讀 verdict 的 Reviewer 均為 GO。
 7. `ACT-RM-LIVE`：只在前六項通過後執行一次 activation transaction。
 
-目前 frontier：`ACT-RM-LIVE` 已完成；等待首次 02:00 自然週期證據。
+目前 frontier：`ACT-RM-LIVE` 已完成。2026-09-09～11 已觀測到三輪 02:00 附近成功執行，但現有證據無法排除 `kickstart`、歷史 loaded config/runtime drift 或 receipt 事後同步改寫，因此自然週期驗收維持 `NATURAL_ACCEPTANCE_PENDING`。
 
 ## Allowed files
 
@@ -60,6 +60,7 @@ push_allowed: false
 - transaction 的 prestate、out-of-scope hashes、rollback 與 terminal receipt 完整。
 - installed retrain plist 最終只指向 fixed detached runtime；其他 installed plist byte hash 不變。
 - activation 後狀態只能是 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`；不得在首個自然週期前宣稱 healthy。
+- 自然週期驗收必須具備每輪獨立於 runtime receipt tree 的外部 cadence provenance，且能區分 calendar fire 與 `kickstart`，並綁定當輪 loaded job identity、runtime identity、receipt digest 與 service generation/continuity；wrapper 的 `trigger_type=natural`、驗收當下的 plist/HEAD 或 aggregate `launchctl runs` 均不得單獨作為證明。
 
 Trace preflight：`not-applicable`；本卡是既有 `A6-DISABLED-JOB-INTENT-RECONCILIATION` 的單一 operational activation slice，不新增產品需求或 Jira mutation。
 
@@ -69,5 +70,7 @@ Trace preflight：`not-applicable`；本卡是既有 `A6-DISABLED-JOB-INTENT-REC
 - Repair 3 兩名原 Reviewer bounded re-review：`GO / GO`。
 - Fixed runtime：`/Users/mattkuo/TOP10-runtime-automation-8fe9366`，commit `8fe93667e2673a366239aa84b36f481fba79d89e`。
 - Production activation receipt：`docs/evidence/ACTIVATE-TOP10-RETRAIN-MONITOR-01/activation-repair3.json`，status=`ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`。
-- `com.new-top10.retrain` 已 enabled／loaded／not running，runs=`0`；calendar 維持每日 02:00。
+- `com.new-top10.retrain` 目前 enabled／loaded／not running，calendar 維持每日 02:00；2026-09-11 查核時 launchctl `runs=3`、`last exit code=0`。
+- 2026-09-09～11 三份 post-activation receipt 均為 `status=OK`、child exit `0`、final process group quiescent，時間分別落在 02:00 後 `4s / 1s / 2s`，且目前 retrain-monitor restart-denied marker absent。這些只證明三輪成功執行與目前狀態，尚不足以證明三輪都是 calendar natural fire。
+- 獨立 review 發現三項 P1 provenance 缺口：無法排除 02:00 附近 `kickstart`；archive/latest 可同步竄改而無外部 digest anchor；驗收當下的 plist/runtime identity 無法回溯證明三輪期間未漂移。closeout 已撤回，未保留會誤判 `ACCEPTED` 的 verifier。
 - 未執行 manual run、`kickstart`、model retraining、Fog mutation、其他 job activation 或 push。

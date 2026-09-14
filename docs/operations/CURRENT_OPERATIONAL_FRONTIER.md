@@ -1,6 +1,6 @@
 # NEW-TOP10 Current Operational Frontier
 
-更新：2026-09-08
+更新：2026-09-14
 
 👉 [假設與目標確認] 目標：只以目前主線與可重跑證據界定唯一前線；邊界：不重啟歷史卡、不碰 TimesFM、push、額外 production mutation 或外部 write；驗收：已整合鏈、等待條件與未 admission 候選可被明確區分。
 
@@ -12,8 +12,8 @@
 - TPEx TSKG：`INTEGRATED_CURRENT_DAY_ONLY / REVIEW_GO`。實作、review、repair 與狀態 reconciliation 均已存在；舊 dossier 的 `IMPLEMENTED_PENDING_REVIEW` 已校正，不得重派。
 - ME-D1：第一個 bounded finalized Daily Close snapshot slice 已完成 `MAINLINE_ACCEPTED / RE-REVIEW_GO / INTEGRATED / PUSHED / NON_PRODUCTION`，整合 commit 為 `40fea63`；provider rollout、deploy 與 runtime activation仍未准入，因此不成為 operational frontier，也不影響 Fog 的獨立自然週期觀察。ME-D1 不得自行擴成完整 Market Evidence implementation。
 - RADAR-01：P1-A～P1-D 已完成 `MAINLINE_ACCEPTED / RE-REVIEW_GO / VALIDATION_REPLAY_VERIFIED / INTEGRATED / PUSHED / NON_RUNTIME`。P1-C 的 516,169-row replay 產生 220 個 validation-only occurrences／217 items；P1-D 的同規模 replay 驗證 historical statistics、same-window relevant base rate、effective-N 與 deterministic content ID。四個 SignalSpec 仍全為 `CONTRACT_ONLY`，default eligible/statistics 均為 0；P1-D 是 `NOT_OOS / NOT_SEALED / NO_ELIGIBILITY_OR_RANKING_AUTHORITY`。P1-E 未准入。
-- Automation runtime：Fog cadence／取樣修補與 Fog-only activation selector 已整合並推送；production Fog runtime 固定在 `c69834ae85f7cdc57761f35ce29eca129b420e98`，deployment evidence commit 為 `ea0ea5b`。2026-09-08 11:15 的 bounded activation 只將 `fog-research-worker` 切到 detached runtime `/Users/mattkuo/TOP10-runtime-automation-c69834a`；daily 與 external-review-preflight 仍指向 `bb55fc4`。Receipt 為 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`、CLI exit `0`；Fog 自然週期驗收仍為 `NATURAL_ACCEPTANCE_PENDING`，accepted cycles=`0`。這不是已完成的 Research Spine Card A5。
-- Retrain monitor：A6 admission 後的 bounded repair、容量閘門與三輪 review／repair 已完成；production `com.new-top10.retrain` 已只以 `monitor --trigger scheduled` 接到 detached runtime `/Users/mattkuo/TOP10-runtime-automation-8fe9366`。目前 enabled、loaded、not running、runs=`0`，receipt=`ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`；等待下一個每日 02:00 自然週期，不得 manual run 或 `kickstart`。
+- Automation runtime：Fog production 已以 bounded Fog-only transaction 切到 fixed detached runtime `/Users/mattkuo/TOP10-runtime-automation-67f2d28`，commit `67f2d28c9825973eac1beb62d40b7d20c6304d47`；activation evidence 已由 `ea3981f` 推送。2026-09-14 查核為 loaded、not running、StartInterval `3600`、runs=`1`、last exit=`0`，restart-denied marker absent。這只證明切換後已有一次成功執行，不足以取代兩輪 invocation-bound natural acceptance；Fog 仍為 `NATURAL_ACCEPTANCE_PENDING`。daily 與 external-review-preflight 未隨 Fog 切換。
+- Retrain monitor：A6 admission 後的 bounded repair、容量閘門、三輪 review／repair與 production activation 已完成；`com.new-top10.retrain` 只以 `monitor --trigger scheduled` 接到 detached runtime `/Users/mattkuo/TOP10-runtime-automation-8fe9366`。2026-09-14 查核為 enabled、loaded、not running、runs=`6`、last exit=`0`，restart-denied marker absent。但缺少能區分 calendar fire／`kickstart` 並保存每輪 historical identity/digest 的外部 provenance，因此自然週期仍為 `NATURAL_ACCEPTANCE_PENDING`。
 
 ## Operational frontier
 
@@ -35,7 +35,7 @@ Automation P0 已收斂狀態：
 1. `RESEARCH-FUNDAMENTAL-READINESS-01`：`COMPLETED_BLOCKED_DATA`；`VOLUME-CLIMAX-WARNING-SHADOW-01`：`COMPLETED_MONITORING`。兩者都不是待實作卡。
 2. 2026-06／2026-07 文件中的 `READY_FOR_RESEARCH`、`READY_FOR_SHADOW_RERANK_GUARD`、`READY_FOR_FIRST_WAVE_RESEARCH` 是歷史狀態；後續結果已存在，未經新的 measured-gap admission 不得當成目前前線。
 
-因此 automation 下一個動作只剩唯讀自然週期驗收：Fog 由既有 watcher 持續觀察，retrain monitor 等待下一個 02:00 排程後查核 receipt；兩者都不得用 `kickstart` 冒充 natural acceptance。新 runtime 的 Fog marker 目前不存在；若復生即 fail closed 並停止驗收。Research Spine 的 RADAR-01 P1-D 已完成並停止，不自動進 P1-E。TimesFM 仍排最後。
+因此 automation 目前仍有兩個唯讀自然驗收邊界：Fog 由既有 watcher 持續觀察；retrain monitor 已有三輪成功執行證據，但缺外部 cadence provenance，不能關成 natural acceptance。兩者都不得用 `kickstart` 冒充自然週期。新 runtime 的 Fog marker 目前不存在；若復生即 fail closed 並停止驗收。`reference`、`external-review`、research-only `baseline-harness` 仍只是未 activation 的 candidates。Research Spine 的 RADAR-01 P1-D 已完成並停止，不自動進 P1-E。TimesFM 仍排最後。
 
 ## Background monitors（不屬於 operational frontier）
 
@@ -57,4 +57,4 @@ Automation P0 已收斂狀態：
 - RADAR-01 P1-D 已完成 in-memory rebuildable historical statistics 與 relevant-base-rate projection；未獲新 admission 前不得修改既有 signal eligibility、持久化 statistics/occurrence，或沿用既有 scoring weights 建立 confluence authority。
 - 不得以「沒有其他 executable card」作為 TimesFM admission、模型下載、runtime 安裝或外部存取授權。
 - scheduler、provider、ranking、publish、production、deploy、push 與外部 write 仍須各自的明確 authority boundary。
-- 本次 retrain-monitor production activation 授權已使用完畢；後續不得自行 `kickstart`、補跑、改 plist、clear marker、切換 runtime SHA、登出／重開機或送外部 write。Fog natural-cycle acceptance 仍由原對話唯讀觀察；retrain monitor 只等待 02:00 自然排程證據。
+- 本次 retrain-monitor production activation 授權已使用完畢；自然週期驗收仍 pending。後續不得自行 `kickstart`、補跑、改 plist、clear marker、切換 runtime SHA、登出／重開機或送外部 write。Fog natural-cycle acceptance 仍由原對話唯讀觀察。

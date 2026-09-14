@@ -1,6 +1,6 @@
 # Retrain monitor production activation verdict
 
-日期：2026-09-08（Asia/Taipei）
+日期：2026-09-11（Asia/Taipei）
 
 狀態：`DEPLOYED / NATURAL_ACCEPTANCE_PENDING`
 
@@ -49,4 +49,10 @@
 
 ## Remaining acceptance
 
-目前 runs=`0` 是部署後尚未到下一個 02:00 的預期狀態，不等於自然週期已通過。不得 manual run 或 `kickstart`；下一步只讀驗證首次自然 invocation、monitor terminal result、storage receipt、marker／lock狀態，再依既有 acceptance contract累積自然週期證據。
+- 2026-09-11 查核時 launchd：enabled／loaded／not running，`runs=3`、`last exit code=0`；installed plist SHA-256 仍為 `f924c257846a152783e4d6396d22baa23094e7acfadd6150b50fecc658f90871`，runtime 當下仍為 detached clean `8fe93667e2673a366239aa84b36f481fba79d89e`。
+- 2026-09-09、10、11 三份 post-activation receipt 都在 02:00 後 `4s / 1s / 2s` 出現，均 `status=OK`、child exit `0`、terminal process group quiescent；目前 retrain-monitor restart-denied marker absent。這證明成功執行，不足以單獨證明 calendar natural fire。
+- 獨立 review 找到三項 P1：目前觀測無法區分 02:00 附近的 `kickstart`；archive/latest 同步改寫時沒有獨立 digest anchor；驗收當下的 loaded plist/runtime identity 無法證明三輪期間的歷史 identity continuity。另有一項 P2：launchd unload/reload 或 login generation 變更可能重置 `runs`，aggregate count 不能當永久累積證據。
+- 因此先前本機產生的 natural-acceptance verifier 與 `ACCEPTED` evidence 已撤回，不作 canonical evidence。後續 acceptance 需要每輪由 runtime receipt tree 之外的 observer 保存可區分 calendar fire / kickstart 的 cadence provenance，並綁定 loaded job identity、service generation、runtime SHA 與 receipt digest。
+- 三輪 workload 的 model health report 為 `WARN`，包含 factor monitor warning／industry momentum monitor reject；這些是模型監控觀察，不授權模型重訓或 promotion。
+
+本卡維持 `NATURAL_ACCEPTANCE_PENDING`。後續仍不得以本卡 authority 執行 manual run、`kickstart`、模型重訓、其他 job activation、marker 清除或 runtime 切換。
