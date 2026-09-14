@@ -1,0 +1,36 @@
+{
+  "accepted_commit": "67f2d28c9825973eac1beb62d40b7d20c6304d47",
+  "canonical_commit": null,
+  "domain": "gui/501",
+  "events": [],
+  "failure": "RuntimeCheckoutError: runtime checkout 不得與開發 checkout 相同",
+  "finished_at": "2026-09-14T04:37:15+00:00",
+  "jobs": {},
+  "mask_restore_errors": [],
+  "new_denial_preserved": [],
+  "out_of_scope_plists_before": {},
+  "receipt_seal": {
+    "commit_point": "authoritative rename plus parent directory fsync",
+    "cutoff": "2026-09-14T04:37:15+00:00",
+    "fresh_invocation_path_required": true,
+    "post_seal_signal_policy": "signals are captured only in bounded in-memory state and are excluded from the sealed receipt"
+  },
+  "rollback_errors": [],
+  "runtime_root": "/Users/mattkuo/TOP10-runtime-automation-67f2d28",
+  "schema_version": "top10.automation-runtime-activation.v1",
+  "signal_state": {
+    "count": 0,
+    "first": null,
+    "last": null,
+    "saturated": false
+  },
+  "signal_teardown": {
+    "attestation": "REQUIRES_PROCESS_EXIT_STATUS",
+    "confirmed_in_receipt": false
+  },
+  "source_root": "/Users/mattkuo/TOP10-runtime-automation-67f2d28",
+  "status": "PRECHECK_FAILED",
+  "target_labels": [
+    "com.new-top10.fog-research-worker"
+  ]
+}
