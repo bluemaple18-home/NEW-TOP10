@@ -1,0 +1,4350 @@
+{
+  "acceptance_status": "NOT_APPLICABLE",
+  "accepted_natural_cycles": 0,
+  "artifact_run_date": null,
+  "child_exit_code": 0,
+  "child_pid": 97718,
+  "child_spawned": true,
+  "child_terminal_status": "OK",
+  "command": [
+    "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python",
+    "-I",
+    "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/scripts/storage_validation/fog_research_worker.py",
+    "--runner-sha256",
+    "502332eee03ef09fa9c4556da736702aabea295b01158281af729fc200cac738",
+    "--source-commit",
+    "fd93d1b4e2438fa3878b22e3c4f0facfed988aa2"
+  ],
+  "consecutive_natural_guard_cycles": 0,
+  "final_process_group_checked_at": "2026-09-12T12:29:21.021945+00:00",
+  "final_process_group_quiescent": true,
+  "invocation_id": "fog-research-worker-20260912T114252203645Z-97632",
+  "job": "fog-research-worker",
+  "last_progress_at": "2026-09-12T12:29:21.111421+00:00",
+  "launch_verified": true,
+  "limits": {
+    "expected_growth_bytes_per_hour": 16777216,
+    "max_bytes": 2147483648,
+    "max_file_count": 30000,
+    "max_process_tree_rss_bytes": 2147483648,
+    "max_swap_growth_bytes": 2147483648,
+    "reclaim_after_seconds": 86400,
+    "retention_days": 14,
+    "sample_interval_seconds": 60,
+    "spike_window_seconds": 14400,
+    "stabilize_after_seconds": 18000
+  },
+  "lock_owner_status": "HELD",
+  "max_runtime_seconds": 7200.0,
+  "natural_trigger_verified": false,
+  "process_group": {
+    "final_checked_at": "2026-09-12T12:29:21.021945+00:00",
+    "final_quiescent": true,
+    "verified_identity": {
+      "group_id": 97718,
+      "leader_pid": 97718,
+      "leader_start_token": "Sat Sep 12 19:42:54 2026",
+      "session_id": 97718
+    }
+  },
+  "process_group_identity": {
+    "group_id": 97718,
+    "leader_pid": 97718,
+    "leader_start_token": "Sat Sep 12 19:42:54 2026",
+    "session_id": 97718
+  },
+  "publish_or_provider_result": null,
+  "reasons": [],
+  "reclaim": {
+    "bytes_after": 6012840,
+    "bytes_before": 6012840,
+    "dry_run": false,
+    "file_count_after": 696,
+    "file_count_before": 696,
+    "removed_paths": []
+  },
+  "representative_workload": {
+    "run_artifact": "artifacts/autonomous_research/validation_fixture/fog_representative_validation_2026-08-31.json",
+    "topic_ids": [
+      "continuous-supply:813f07064b7782d46ac0ba94036b0a23aff2c925d89becd4e7e27668ec2fb3b6:development_screen"
+    ],
+    "topic_run_count": 1
+  },
+  "restart_denied": false,
+  "restart_denied_marker_persisted": null,
+  "restart_denied_reason": [],
+  "samples": [
+    {
+      "host_free_bytes": 131757826048,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "preflight",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2570000420091674,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2375006917864084e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.5840050764381886e-06,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.003972209000494331,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0023575410014018416,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.26336754200747237,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [],
+      "project_bytes": 1187975206,
+      "project_file_count": 9826,
+      "rss_bytes": 0,
+      "swap_bytes": 38349171589,
+      "timestamp": 1789213372.467484
+    },
+    {
+      "host_free_bytes": 131757203456,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2671105829649605,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.4749995898455381e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.022911167005077004,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0027430830523371696,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002370083995629102,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29520329198567197,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 2342912
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_top10_fog_map_handoff.py --run-date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-b1 --research-quota 5",
+          "pid": 97770,
+          "ppid": 97718,
+          "rss_bytes": 23953408
+        },
+        {
+          "command": "bash scripts/run_daily_research_quota.sh",
+          "pid": 97771,
+          "ppid": 97770,
+          "rss_bytes": 2195456
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/fog_runtime_time_authority.py --context logs/fog_runtime_run_context.IZoGtO --field market_run_date",
+          "pid": 97777,
+          "ppid": 97771,
+          "rss_bytes": 294912
+        }
+      ],
+      "project_bytes": 1187984919,
+      "project_file_count": 9828,
+      "rss_bytes": 28786688,
+      "swap_bytes": 38368444416,
+      "timestamp": 1789213374.536007
+    },
+    {
+      "host_free_bytes": 131654692864,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.25299304199870676,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.329201040789485e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020739083003718406,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0035321249742992222,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0022705000010319054,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.27957858401350677,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1425408
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_top10_fog_map_handoff.py --run-date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-b1 --research-quota 5",
+          "pid": 97770,
+          "ppid": 97718,
+          "rss_bytes": 15728640
+        },
+        {
+          "command": "bash scripts/run_daily_research_quota.sh",
+          "pid": 97771,
+          "ppid": 97770,
+          "rss_bytes": 2195456
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python -m app.research.observation_ingest --date 2026-09-12 --ledger data/research/research_ledger.duckdb --rebuild",
+          "pid": 98051,
+          "ppid": 97771,
+          "rss_bytes": 725614592
+        }
+      ],
+      "project_bytes": 1194737317,
+      "project_file_count": 9849,
+      "rss_bytes": 744964096,
+      "swap_bytes": 38368444416,
+      "timestamp": 1789213422.530617
+    },
+    {
+      "host_free_bytes": 131534479360,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.25717233400791883,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 2.5833025574684143e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.025881083973217756,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.004390291986055672,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0020643749739974737,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2895898330025375,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_top10_fog_map_handoff.py --run-date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-b1 --research-quota 5",
+          "pid": 97770,
+          "ppid": 97718,
+          "rss_bytes": 10092544
+        },
+        {
+          "command": "bash scripts/run_daily_research_quota.sh",
+          "pid": 97771,
+          "ppid": 97770,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python -m app.research.observation_ingest --date 2026-09-12 --ledger data/research/research_ledger.duckdb --rebuild",
+          "pid": 98051,
+          "ppid": 97771,
+          "rss_bytes": 654295040
+        }
+      ],
+      "project_bytes": 1230706479,
+      "project_file_count": 9849,
+      "rss_bytes": 666730496,
+      "swap_bytes": 38487331962,
+      "timestamp": 1789213470.54033
+    },
+    {
+      "host_free_bytes": 131516358656,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2622818750096485,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.4791032299399376e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020347999990917742,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.00240137503715232,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019009169773198664,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.28697708301478997,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_top10_fog_map_handoff.py --run-date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-b1 --research-quota 5",
+          "pid": 97770,
+          "ppid": 97718,
+          "rss_bytes": 10092544
+        },
+        {
+          "command": "bash scripts/run_daily_research_quota.sh",
+          "pid": 97771,
+          "ppid": 97770,
+          "rss_bytes": 1835008
+        },
+        {
+          "command": "bash scripts/refresh_research_map_from_history.sh",
+          "pid": 98679,
+          "ppid": 97771,
+          "rss_bytes": 2048000
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 98749,
+          "ppid": 98679,
+          "rss_bytes": 21610496
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_research_fog_map.py --date 2026-09-12",
+          "pid": 98757,
+          "ppid": 98749,
+          "rss_bytes": 695304192
+        }
+      ],
+      "project_bytes": 1191734852,
+      "project_file_count": 9854,
+      "rss_bytes": 732069888,
+      "swap_bytes": 38487331962,
+      "timestamp": 1789213518.529715
+    },
+    {
+      "host_free_bytes": 131516510208,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.25927525002043694,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2499978765845299e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.019362458027899265,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002356250013690442,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.001881083007901907,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.28291483398061246,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_top10_fog_map_handoff.py --run-date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-b1 --research-quota 5",
+          "pid": 97770,
+          "ppid": 97718,
+          "rss_bytes": 10092544
+        },
+        {
+          "command": "bash scripts/run_daily_research_quota.sh",
+          "pid": 97771,
+          "ppid": 97770,
+          "rss_bytes": 1851392
+        },
+        {
+          "command": "bash scripts/refresh_research_map_from_history.sh",
+          "pid": 98679,
+          "ppid": 97771,
+          "rss_bytes": 2048000
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 98749,
+          "ppid": 98679,
+          "rss_bytes": 21626880
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 98764,
+          "ppid": 98749,
+          "rss_bytes": 507576320
+        }
+      ],
+      "project_bytes": 1248724892,
+      "project_file_count": 9854,
+      "rss_bytes": 544374784,
+      "swap_bytes": 38487331962,
+      "timestamp": 1789213566.533171
+    },
+    {
+      "host_free_bytes": 131516510208,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.25732075003907084,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.487502595409751e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020429124997463077,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002374832984060049,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018998750019818544,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.28206525003770366,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_top10_fog_map_handoff.py --run-date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-b1 --research-quota 5",
+          "pid": 97770,
+          "ppid": 97718,
+          "rss_bytes": 10092544
+        },
+        {
+          "command": "bash scripts/run_daily_research_quota.sh",
+          "pid": 97771,
+          "ppid": 97770,
+          "rss_bytes": 1851392
+        },
+        {
+          "command": "bash scripts/refresh_research_map_from_history.sh",
+          "pid": 98679,
+          "ppid": 97771,
+          "rss_bytes": 2048000
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 98749,
+          "ppid": 98679,
+          "rss_bytes": 21626880
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 98764,
+          "ppid": 98749,
+          "rss_bytes": 657866752
+        }
+      ],
+      "project_bytes": 1248724892,
+      "project_file_count": 9854,
+      "rss_bytes": 694665216,
+      "swap_bytes": 38470554746,
+      "timestamp": 1789213614.5226061
+    },
+    {
+      "host_free_bytes": 131516510208,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26530949998414144,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.387501833960414e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021207124984357506,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0024339170195162296,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0017672090325504541,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2907614160212688,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_top10_fog_map_handoff.py --run-date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-b1 --research-quota 5",
+          "pid": 97770,
+          "ppid": 97718,
+          "rss_bytes": 10092544
+        },
+        {
+          "command": "bash scripts/run_daily_research_quota.sh",
+          "pid": 97771,
+          "ppid": 97770,
+          "rss_bytes": 1851392
+        },
+        {
+          "command": "bash scripts/refresh_research_map_from_history.sh",
+          "pid": 98679,
+          "ppid": 97771,
+          "rss_bytes": 2048000
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 98749,
+          "ppid": 98679,
+          "rss_bytes": 21610496
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 98764,
+          "ppid": 98749,
+          "rss_bytes": 673284096
+        }
+      ],
+      "project_bytes": 1248724892,
+      "project_file_count": 9854,
+      "rss_bytes": 710066176,
+      "swap_bytes": 38462166138,
+      "timestamp": 1789213662.53307
+    },
+    {
+      "host_free_bytes": 131516510208,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2585565419867635,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1707947123795748e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02001054200809449,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.003227250010240823,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0022626250283792615,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2840953749837354,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_top10_fog_map_handoff.py --run-date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-b1 --research-quota 5",
+          "pid": 97770,
+          "ppid": 97718,
+          "rss_bytes": 10092544
+        },
+        {
+          "command": "bash scripts/run_daily_research_quota.sh",
+          "pid": 97771,
+          "ppid": 97770,
+          "rss_bytes": 1851392
+        },
+        {
+          "command": "bash scripts/refresh_research_map_from_history.sh",
+          "pid": 98679,
+          "ppid": 97771,
+          "rss_bytes": 1851392
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 98749,
+          "ppid": 98679,
+          "rss_bytes": 11845632
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 98764,
+          "ppid": 98749,
+          "rss_bytes": 639631360
+        }
+      ],
+      "project_bytes": 1248724892,
+      "project_file_count": 9854,
+      "rss_bytes": 666451968,
+      "swap_bytes": 38462166138,
+      "timestamp": 1789213710.527052
+    },
+    {
+      "host_free_bytes": 131515695104,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2577362500014715,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1916039511561394e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020543916965834796,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002444207959342748,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018167920061387122,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.28257770894560963,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 2195456
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 28114944
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99085,
+          "ppid": 99075,
+          "rss_bytes": 21692416
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 99089,
+          "ppid": 99085,
+          "rss_bytes": 380420096
+        }
+      ],
+      "project_bytes": 1249194520,
+      "project_file_count": 9898,
+      "rss_bytes": 432422912,
+      "swap_bytes": 38462166138,
+      "timestamp": 1789213758.5261672
+    },
+    {
+      "host_free_bytes": 131517493248,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26553954096743837,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1749973054975271e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020016334019601345,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002317124977707863,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018277079798281193,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.28973650000989437,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 2195456
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 28114944
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99085,
+          "ppid": 99075,
+          "rss_bytes": 21692416
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 99089,
+          "ppid": 99085,
+          "rss_bytes": 545931264
+        }
+      ],
+      "project_bytes": 1249194520,
+      "project_file_count": 9898,
+      "rss_bytes": 597934080,
+      "swap_bytes": 38462166138,
+      "timestamp": 1789213806.5404642
+    },
+    {
+      "host_free_bytes": 131517493248,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2581267920322716,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2207950931042433e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.019917541998438537,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0023289170349016786,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018020000425167382,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.28221454098820686,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 2195456
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 28114944
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99085,
+          "ppid": 99075,
+          "rss_bytes": 21692416
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 99089,
+          "ppid": 99085,
+          "rss_bytes": 701284352
+        }
+      ],
+      "project_bytes": 1249194520,
+      "project_file_count": 9898,
+      "rss_bytes": 753287168,
+      "swap_bytes": 38462166138,
+      "timestamp": 1789213854.5335119
+    },
+    {
+      "host_free_bytes": 131517493248,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26483712502522394,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.3249984476715326e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.022078167006839067,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0026117090019397438,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0020144579466432333,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2915781670017168,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1982464
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 18055168
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99085,
+          "ppid": 99075,
+          "rss_bytes": 16039936
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 99089,
+          "ppid": 99085,
+          "rss_bytes": 472350720
+        }
+      ],
+      "project_bytes": 1249194520,
+      "project_file_count": 9898,
+      "rss_bytes": 508428288,
+      "swap_bytes": 38462166138,
+      "timestamp": 1789213902.53405
+    },
+    {
+      "host_free_bytes": 131517493248,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2663188329897821,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 2.600002335384488e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.023446875042282045,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002498875022865832,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002009208023082465,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29437220795080066,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 13352960
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99085,
+          "ppid": 99075,
+          "rss_bytes": 13123584
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 99089,
+          "ppid": 99085,
+          "rss_bytes": 523960320
+        }
+      ],
+      "project_bytes": 1249194520,
+      "project_file_count": 9898,
+      "rss_bytes": 551616512,
+      "swap_bytes": 38462166138,
+      "timestamp": 1789213950.546147
+    },
+    {
+      "host_free_bytes": 131513614336,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.265215499966871,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1999974958598614e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.022732208017259836,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002658458019141108,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019769580103456974,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29264929197961465,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19349504
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 99266,
+          "ppid": 99075,
+          "rss_bytes": 31014912
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/production --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.0 --high-choppy-gross 0.65 --neutral-gross 0.0 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/004_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_1beaab4d_long_horizon_horizon_3_stop_no_1015377699c4_baseline.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 99295,
+          "ppid": 99266,
+          "rss_bytes": 615612416
+        }
+      ],
+      "project_bytes": 1249251768,
+      "project_file_count": 9912,
+      "rss_bytes": 667156480,
+      "swap_bytes": 38537265152,
+      "timestamp": 1789213998.5394912
+    },
+    {
+      "host_free_bytes": 131513270272,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.25787400000263005,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1625001206994057e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020967750053387135,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0023494589840993285,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019961249781772494,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2832234999514185,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19349504
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 99266,
+          "ppid": 99075,
+          "rss_bytes": 31047680
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/percentile_gate --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.0 --high-choppy-gross 0.65 --neutral-gross 0.0 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/012_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_1beaab4d_risk_guard_horizon_3_stop_none_40841b21bd36_candidate.json --tp-pct 0.15 --min-holding-days 1",
+          "pid": 99345,
+          "ppid": 99266,
+          "rss_bytes": 223379456
+        }
+      ],
+      "project_bytes": 1249421597,
+      "project_file_count": 9946,
+      "rss_bytes": 274956288,
+      "swap_bytes": 38537265152,
+      "timestamp": 1789214046.530593
+    },
+    {
+      "host_free_bytes": 131513069568,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.25709920801455155,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1041993275284767e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020736208010930568,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0023569579934701324,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018945829942822456,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.282123374985531,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19349504
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 99266,
+          "ppid": 99075,
+          "rss_bytes": 31047680
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/production --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.0 --high-choppy-gross 0.65 --neutral-gross 0.0 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/021_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_1beaab4d_risk_guard_horizon_3_stop_none_21850c421d3d_baseline.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 99377,
+          "ppid": 99266,
+          "rss_bytes": 184008704
+        }
+      ],
+      "project_bytes": 1249558140,
+      "project_file_count": 9980,
+      "rss_bytes": 235585536,
+      "swap_bytes": 38551095869,
+      "timestamp": 1789214094.5297768
+    },
+    {
+      "host_free_bytes": 131360141312,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2687618749914691,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.129199517890811e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021446499973535538,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002225583011750132,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018147079972550273,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29429024999262765,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19005440
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99409,
+          "ppid": 99075,
+          "rss_bytes": 21757952
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 99415,
+          "ppid": 99409,
+          "rss_bytes": 435224576
+        }
+      ],
+      "project_bytes": 1249753325,
+      "project_file_count": 9994,
+      "rss_bytes": 477167616,
+      "swap_bytes": 38692328570,
+      "timestamp": 1789214142.537436
+    },
+    {
+      "host_free_bytes": 131355303936,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2786442079814151,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1625001206994057e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020667083037551492,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.00257875001989305,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019173339824192226,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.30384450004203245,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19005440
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99409,
+          "ppid": 99075,
+          "rss_bytes": 21757952
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 99415,
+          "ppid": 99409,
+          "rss_bytes": 627752960
+        }
+      ],
+      "project_bytes": 1249753325,
+      "project_file_count": 9994,
+      "rss_bytes": 669696000,
+      "swap_bytes": 38692328570,
+      "timestamp": 1789214190.552982
+    },
+    {
+      "host_free_bytes": 131355303936,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26386937499046326,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1458003427833319e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021135249990038574,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0026790830306708813,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018484999891370535,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.28957741701742634,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19005440
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99409,
+          "ppid": 99075,
+          "rss_bytes": 21757952
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 99415,
+          "ppid": 99409,
+          "rss_bytes": 714653696
+        }
+      ],
+      "project_bytes": 1249753325,
+      "project_file_count": 9994,
+      "rss_bytes": 756596736,
+      "swap_bytes": 38692328570,
+      "timestamp": 1789214238.53347
+    },
+    {
+      "host_free_bytes": 131355299840,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2729463329887949,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.3416982255876064e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020927082980051637,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002964792016427964,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0020366249955259264,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2989327499526553,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19005440
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99409,
+          "ppid": 99075,
+          "rss_bytes": 20905984
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 99415,
+          "ppid": 99409,
+          "rss_bytes": 586301440
+        }
+      ],
+      "project_bytes": 1249753325,
+      "project_file_count": 9994,
+      "rss_bytes": 627392512,
+      "swap_bytes": 38683939962,
+      "timestamp": 1789214286.5518441
+    },
+    {
+      "host_free_bytes": 131355283456,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.25913108297390863,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.3999990187585354e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021209124999586493,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002558999985922128,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.001875000016298145,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.28483437502291054,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 11403264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 99409,
+          "ppid": 99075,
+          "rss_bytes": 16384000
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_research_fog_map.py --date 2026-09-12",
+          "pid": 99653,
+          "ppid": 99409,
+          "rss_bytes": 270958592
+        }
+      ],
+      "project_bytes": 1249753666,
+      "project_file_count": 9994,
+      "rss_bytes": 299925504,
+      "swap_bytes": 38959316992,
+      "timestamp": 1789214334.538002
+    },
+    {
+      "host_free_bytes": 131354755072,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.25830720795784146,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.4207966160029173e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020339040958788246,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0022623749682679772,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.00196658301865682,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2829373750137165,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 18251776
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 99668,
+          "ppid": 99075,
+          "rss_bytes": 18661376
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/percentile_gate --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.65 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/007_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_1beaab4d_tight_exit_horizon_3_stop_none_738c0a221898_candidate.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 653,
+          "ppid": 99668,
+          "rss_bytes": 212533248
+        }
+      ],
+      "project_bytes": 1250110321,
+      "project_file_count": 10025,
+      "rss_bytes": 250626048,
+      "swap_bytes": 38959316992,
+      "timestamp": 1789214382.534872
+    },
+    {
+      "host_free_bytes": 131354497024,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26007158297579736,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.8833030480891466e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020674125000368804,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002513916988391429,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.001890457991976291,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2852620829944499,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 18251776
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 99668,
+          "ppid": 99075,
+          "rss_bytes": 18923520
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/production --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/016_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_7d46b6d7_long_horizon_horizon_3_stop_no_8f69bd852cee_baseline.json --tp-pct 0.15 --min-holding-days 1",
+          "pid": 1243,
+          "ppid": 99668,
+          "rss_bytes": 135413760
+        }
+      ],
+      "project_bytes": 1250257709,
+      "project_file_count": 10059,
+      "rss_bytes": 173768704,
+      "swap_bytes": 38959316992,
+      "timestamp": 1789214430.53869
+    },
+    {
+      "host_free_bytes": 131354226688,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2723393749911338,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.0749965440481901e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02008366701193154,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0024090000079013407,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.00196733302436769,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29683604097226635,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19349504
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_research_fog_map.py --date 2026-09-12",
+          "pid": 1356,
+          "ppid": 99075,
+          "rss_bytes": 24657920
+        }
+      ],
+      "project_bytes": 1250431070,
+      "project_file_count": 10091,
+      "rss_bytes": 45187072,
+      "swap_bytes": 38959316992,
+      "timestamp": 1789214478.540928
+    },
+    {
+      "host_free_bytes": 131354288128,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.27101333398604766,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.087499549612403e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0200502080260776,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002242749964352697,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019074170268140733,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2952478750376031,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19365888
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 1361,
+          "ppid": 99075,
+          "rss_bytes": 21774336
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 1365,
+          "ppid": 1361,
+          "rss_bytes": 472907776
+        }
+      ],
+      "project_bytes": 1250432091,
+      "project_file_count": 10091,
+      "rss_bytes": 515227648,
+      "swap_bytes": 38959316992,
+      "timestamp": 1789214526.542825
+    },
+    {
+      "host_free_bytes": 131354288128,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2703407920198515,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.0999967344105244e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020932874991558492,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0026460830122232437,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0021243749652057886,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29610804200638086,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19365888
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 1361,
+          "ppid": 99075,
+          "rss_bytes": 21774336
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 1365,
+          "ppid": 1361,
+          "rss_bytes": 673103872
+        }
+      ],
+      "project_bytes": 1250432091,
+      "project_file_count": 10091,
+      "rss_bytes": 715423744,
+      "swap_bytes": 38959316992,
+      "timestamp": 1789214574.548815
+    },
+    {
+      "host_free_bytes": 131354288128,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2693560830084607,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2959004379808903e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02065491594839841,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002540583023801446,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018669159617275,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2944549589883536,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19365888
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 1361,
+          "ppid": 99075,
+          "rss_bytes": 21774336
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 1365,
+          "ppid": 1361,
+          "rss_bytes": 711016448
+        }
+      ],
+      "project_bytes": 1250432091,
+      "project_file_count": 10091,
+      "rss_bytes": 753336320,
+      "swap_bytes": 38959316992,
+      "timestamp": 1789214622.546491
+    },
+    {
+      "host_free_bytes": 131354288128,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.27445712499320507,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2125005014240742e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02192216698313132,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0033844580175355077,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019689580076374114,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.3017683329526335,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 15384576
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 1361,
+          "ppid": 99075,
+          "rss_bytes": 17252352
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 1365,
+          "ppid": 1361,
+          "rss_bytes": 674611200
+        }
+      ],
+      "project_bytes": 1250432091,
+      "project_file_count": 10091,
+      "rss_bytes": 708427776,
+      "swap_bytes": 38959316992,
+      "timestamp": 1789214670.554826
+    },
+    {
+      "host_free_bytes": 131354001408,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26108475000364706,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.7250014934688807e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021755334048066288,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002424290985800326,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019224169664084911,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.287245791987516,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 20742144
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 1826,
+          "ppid": 99075,
+          "rss_bytes": 30932992
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/percentile_gate --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.3 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/002_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_7d46b6d7_long_horizon_horizon_3_stop_no_71683d381f50_candidate.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 2007,
+          "ppid": 1826,
+          "rss_bytes": 217464832
+        }
+      ],
+      "project_bytes": 1250617366,
+      "project_file_count": 10101,
+      "rss_bytes": 270319616,
+      "swap_bytes": 38977541242,
+      "timestamp": 1789214718.5404742
+    },
+    {
+      "host_free_bytes": 131353751552,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2696824579616077,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.4542019926011562e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020523082988802344,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0025486249942332506,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0021803330164402723,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29500566696515307,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 20742144
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 1826,
+          "ppid": 99075,
+          "rss_bytes": 30998528
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/production --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.3 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/011_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_7d46b6d7_risk_guard_horizon_3_stop_none_bb9dd2f5e3ec_baseline.json --tp-pct 0.15 --min-holding-days 1",
+          "pid": 2170,
+          "ppid": 1826,
+          "rss_bytes": 171016192
+        }
+      ],
+      "project_bytes": 1250781843,
+      "project_file_count": 10135,
+      "rss_bytes": 223936512,
+      "swap_bytes": 38977541242,
+      "timestamp": 1789214766.539666
+    },
+    {
+      "host_free_bytes": 131353567232,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26321208401350304,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.5625031664967537e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020683499984443188,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0026276250137016177,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.001970625016838312,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2885625410126522,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 20709376
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 1826,
+          "ppid": 99075,
+          "rss_bytes": 30998528
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/production --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.3 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/019_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_7d46b6d7_risk_guard_horizon_3_stop_none_23ca08f38d2d_candidate.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 2277,
+          "ppid": 1826,
+          "rss_bytes": 117620736
+        }
+      ],
+      "project_bytes": 1250924356,
+      "project_file_count": 10169,
+      "rss_bytes": 170508288,
+      "swap_bytes": 38977541242,
+      "timestamp": 1789214814.534998
+    },
+    {
+      "host_free_bytes": 131353399296,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26942470797803253,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1000025551766157e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.01967624999815598,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002248374978080392,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018160829786211252,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2932453329558484,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19152896
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 2386,
+          "ppid": 99075,
+          "rss_bytes": 21676032
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 2390,
+          "ppid": 2386,
+          "rss_bytes": 410648576
+        }
+      ],
+      "project_bytes": 1251031734,
+      "project_file_count": 10187,
+      "rss_bytes": 452657152,
+      "swap_bytes": 39154477957,
+      "timestamp": 1789214862.544724
+    },
+    {
+      "host_free_bytes": 131353415680,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2834417090052739,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2791017070412636e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02049954200629145,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002303082961589098,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019086669781245291,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.3082028339849785,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19152896
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 2386,
+          "ppid": 99075,
+          "rss_bytes": 21676032
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 2390,
+          "ppid": 2386,
+          "rss_bytes": 570900480
+        }
+      ],
+      "project_bytes": 1251031734,
+      "project_file_count": 10187,
+      "rss_bytes": 612909056,
+      "swap_bytes": 39154477957,
+      "timestamp": 1789214910.557548
+    },
+    {
+      "host_free_bytes": 131353415680,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2718800000147894,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 7.707974873483181e-06,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02048512501642108,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0026649589999578893,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002193916996475309,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29725762497400865,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19152896
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 2386,
+          "ppid": 99075,
+          "rss_bytes": 21676032
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 2390,
+          "ppid": 2386,
+          "rss_bytes": 711262208
+        }
+      ],
+      "project_bytes": 1251031734,
+      "project_file_count": 10187,
+      "rss_bytes": 753270784,
+      "swap_bytes": 39154477957,
+      "timestamp": 1789214958.551276
+    },
+    {
+      "host_free_bytes": 131353415680,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2699395000236109,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.3582990504801273e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020160499960184097,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002510500024072826,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018925420008599758,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.294540417031385,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 18087936
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 2386,
+          "ppid": 99075,
+          "rss_bytes": 15613952
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 2390,
+          "ppid": 2386,
+          "rss_bytes": 679100416
+        }
+      ],
+      "project_bytes": 1251031734,
+      "project_file_count": 10187,
+      "rss_bytes": 713981952,
+      "swap_bytes": 39154477957,
+      "timestamp": 1789215006.5457652
+    },
+    {
+      "host_free_bytes": 131353415680,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.279734208015725,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2791017070412636e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020394166000187397,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0027704579988494515,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002245625015348196,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.30518279096577317,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 18087936
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 2386,
+          "ppid": 99075,
+          "rss_bytes": 15613952
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 2390,
+          "ppid": 2386,
+          "rss_bytes": 662749184
+        }
+      ],
+      "project_bytes": 1251031734,
+      "project_file_count": 10187,
+      "rss_bytes": 697630720,
+      "swap_bytes": 39154477957,
+      "timestamp": 1789215054.552854
+    },
+    {
+      "host_free_bytes": 131353001984,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.27968279196647927,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.266703475266695e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02069487498374656,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.00240658299298957,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019034590222872794,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.3047252089600079,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 21495808
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 2727,
+          "ppid": 99075,
+          "rss_bytes": 30801920
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/production --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.65 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/006_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_7d46b6d7_tight_exit_horizon_3_stop_none_0b5c6d27ca1c_baseline.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 2793,
+          "ppid": 2727,
+          "rss_bytes": 154714112
+        }
+      ],
+      "project_bytes": 1251296315,
+      "project_file_count": 10211,
+      "rss_bytes": 208191488,
+      "swap_bytes": 39339887165,
+      "timestamp": 1789215102.559246
+    },
+    {
+      "host_free_bytes": 131352788992,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2661400000215508,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.283304300159216e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.019503582967445254,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0026960830437019467,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002143833029549569,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29052829201100394,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 20152320
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 2727,
+          "ppid": 99075,
+          "rss_bytes": 21037056
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/percentile_gate --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.65 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/014_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_f6931ad1_long_horizon_horizon_3_stop_no_5afc7a4acc1c_candidate.json --tp-pct 0.15 --min-holding-days 1",
+          "pid": 2829,
+          "ppid": 2727,
+          "rss_bytes": 108249088
+        }
+      ],
+      "project_bytes": 1251436057,
+      "project_file_count": 10245,
+      "rss_bytes": 150618112,
+      "swap_bytes": 39339887165,
+      "timestamp": 1789215150.5452218
+    },
+    {
+      "host_free_bytes": 131352473600,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26918654097244143,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.8708000425249338e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.01859683298971504,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0025031660334207118,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019142079981975257,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29224354203324765,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1179648
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 18808832
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 2727,
+          "ppid": 99075,
+          "rss_bytes": 20152320
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/percentile_gate --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.65 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/022_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_f6931ad1_long_horizon_horizon_3_stop_no_96a658318e63_candidate.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 2874,
+          "ppid": 2727,
+          "rss_bytes": 660979712
+        }
+      ],
+      "project_bytes": 1251592622,
+      "project_file_count": 10277,
+      "rss_bytes": 701120512,
+      "swap_bytes": 39339887165,
+      "timestamp": 1789215198.547107
+    },
+    {
+      "host_free_bytes": 131352461312,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2778701669885777,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.229101326316595e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.019128541985992342,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0044293750543147326,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0017958749667741358,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.3032888749730773,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19890176
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 2928,
+          "ppid": 99075,
+          "rss_bytes": 21610496
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 2936,
+          "ppid": 2928,
+          "rss_bytes": 454541312
+        }
+      ],
+      "project_bytes": 1251640198,
+      "project_file_count": 10283,
+      "rss_bytes": 497205248,
+      "swap_bytes": 39447030661,
+      "timestamp": 1789215246.558379
+    },
+    {
+      "host_free_bytes": 131352449024,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2710221249726601,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.8791004549711943e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020935292006470263,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0026049160514958203,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.001803999999538064,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2964119999669492,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 15335424
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 2928,
+          "ppid": 99075,
+          "rss_bytes": 14221312
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 2936,
+          "ppid": 2928,
+          "rss_bytes": 581828608
+        }
+      ],
+      "project_bytes": 1251640198,
+      "project_file_count": 10283,
+      "rss_bytes": 612548608,
+      "swap_bytes": 39502353530,
+      "timestamp": 1789215294.5516229
+    },
+    {
+      "host_free_bytes": 131352444928,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.27290087495930493,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.3958022464066744e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.019138332980219275,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0025657910155132413,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019254579674452543,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29657295800279826,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 15138816
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 2928,
+          "ppid": 99075,
+          "rss_bytes": 12484608
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 2936,
+          "ppid": 2928,
+          "rss_bytes": 644710400
+        }
+      ],
+      "project_bytes": 1251640198,
+      "project_file_count": 10283,
+      "rss_bytes": 673497088,
+      "swap_bytes": 39529480192,
+      "timestamp": 1789215342.551954
+    },
+    {
+      "host_free_bytes": 131352444928,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2682103340048343,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2042000889778137e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.019653207971714437,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002592707984149456,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019384580082260072,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29243079200387,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 15138816
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 2928,
+          "ppid": 99075,
+          "rss_bytes": 12484608
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 2936,
+          "ppid": 2928,
+          "rss_bytes": 644759552
+        }
+      ],
+      "project_bytes": 1251640198,
+      "project_file_count": 10283,
+      "rss_bytes": 673546240,
+      "swap_bytes": 39544223170,
+      "timestamp": 1789215390.54794
+    },
+    {
+      "host_free_bytes": 131352154112,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26840324996737763,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 2.2083986550569534e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02212199999485165,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.004157625022344291,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0022197500220499933,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29696325003169477,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 18710528
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 4027,
+          "ppid": 99075,
+          "rss_bytes": 30883840
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/production --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/001_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_f6931ad1_long_horizon_horizon_3_stop_no_1c7d89dfb233_baseline.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 4031,
+          "ppid": 4027,
+          "rss_bytes": 199819264
+        }
+      ],
+      "project_bytes": 1251801413,
+      "project_file_count": 10287,
+      "rss_bytes": 250576896,
+      "swap_bytes": 40261847613,
+      "timestamp": 1789215438.4710479
+    },
+    {
+      "host_free_bytes": 131351891968,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2714081250014715,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.5124969650059938e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02051666600164026,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002834999992046505,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.001980750006623566,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2967850409913808,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 15433728
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 4027,
+          "ppid": 99075,
+          "rss_bytes": 20987904
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/log_gate --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/009_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_f6931ad1_risk_guard_horizon_3_stop_none_d427562db232_candidate.json --tp-pct 0.15 --min-holding-days 1",
+          "pid": 4065,
+          "ppid": 4027,
+          "rss_bytes": 106790912
+        }
+      ],
+      "project_bytes": 1251956665,
+      "project_file_count": 10321,
+      "rss_bytes": 144375808,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215486.470314
+    },
+    {
+      "host_free_bytes": 131351707648,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2743854579748586,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.9083963707089424e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021695124974939972,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.003750332980416715,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002125667000655085,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.30201679200399667,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 15433728
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 4027,
+          "ppid": 99075,
+          "rss_bytes": 20987904
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/log_gate --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.65 --high-choppy-gross 0.65 --neutral-gross 0.65 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/017_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_f6931ad1_risk_guard_horizon_3_stop_none_8229865759d5_candidate.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 4137,
+          "ppid": 4027,
+          "rss_bytes": 594345984
+        }
+      ],
+      "project_bytes": 1252097456,
+      "project_file_count": 10353,
+      "rss_bytes": 631930880,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215534.465313
+    },
+    {
+      "host_free_bytes": 131351420928,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2712057080352679,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.3167038559913635e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02105870796367526,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002614750002976507,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0020418749772943556,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29696591704851016,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 13107200
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 4300,
+          "ppid": 99075,
+          "rss_bytes": 21839872
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 4306,
+          "ppid": 4300,
+          "rss_bytes": 374161408
+        }
+      ],
+      "project_bytes": 1252236601,
+      "project_file_count": 10379,
+      "rss_bytes": 410271744,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215582.460086
+    },
+    {
+      "host_free_bytes": 131351498752,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.27414762502303347,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2249976862221956e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021045333007350564,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0023240000009536743,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0017950829933397472,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29934670898364857,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 13107200
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 4300,
+          "ppid": 99075,
+          "rss_bytes": 21839872
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 4306,
+          "ppid": 4300,
+          "rss_bytes": 544456704
+        }
+      ],
+      "project_bytes": 1252236601,
+      "project_file_count": 10379,
+      "rss_bytes": 580567040,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215630.471327
+    },
+    {
+      "host_free_bytes": 131351498752,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2765781659982167,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.3375014532357454e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02112120803212747,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0025463749771006405,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.00186991598457098,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.30216591601492837,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 12173312
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 4300,
+          "ppid": 99075,
+          "rss_bytes": 15122432
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 4306,
+          "ppid": 4300,
+          "rss_bytes": 663175168
+        }
+      ],
+      "project_bytes": 1252236601,
+      "project_file_count": 10379,
+      "rss_bytes": 691634176,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215678.473668
+    },
+    {
+      "host_free_bytes": 131351498752,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.27195112500339746,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.4499993994832039e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020630375016480684,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002322582993656397,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018290410516783595,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2967787079978734,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 12173312
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 4300,
+          "ppid": 99075,
+          "rss_bytes": 15122432
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 4306,
+          "ppid": 4300,
+          "rss_bytes": 525189120
+        }
+      ],
+      "project_bytes": 1252236601,
+      "project_file_count": 10379,
+      "rss_bytes": 553648128,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215726.467755
+    },
+    {
+      "host_free_bytes": 131351498752,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26852583402069286,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.1958007235080004e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021362375002354383,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002366375003475696,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018398750107735395,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2941281670355238,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 12173312
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 4300,
+          "ppid": 99075,
+          "rss_bytes": 15122432
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 4306,
+          "ppid": 4300,
+          "rss_bytes": 566312960
+        }
+      ],
+      "project_bytes": 1252236601,
+      "project_file_count": 10379,
+      "rss_bytes": 594771968,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215774.464582
+    },
+    {
+      "host_free_bytes": 131351117824,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26937387499492615,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.6207981389015913e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02116233395645395,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002506790973711759,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0019791670492850244,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29507333296351135,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19398656
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 5138,
+          "ppid": 99075,
+          "rss_bytes": 30851072
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/percentile_gate --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.0 --high-choppy-gross 0.65 --neutral-gross 0.0 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/004_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_f6931ad1_tight_exit_horizon_3_stop_none_c9a04184f745_candidate.json --tp-pct 0.15 --min-holding-days 1",
+          "pid": 5199,
+          "ppid": 5138,
+          "rss_bytes": 195461120
+        }
+      ],
+      "project_bytes": 1252474419,
+      "project_file_count": 10397,
+      "rss_bytes": 246874112,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215822.457173
+    },
+    {
+      "host_free_bytes": 131350908928,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2675297910463996,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2375006917864084e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020758625003509223,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002295416023116559,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.001863415993284434,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2925072500365786,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19398656
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 5138,
+          "ppid": 99075,
+          "rss_bytes": 30916608
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_smoke_2026-06-03/production --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.0 --high-choppy-gross 0.65 --neutral-gross 0.0 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/013_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_smoke_20_f6931ad1_tight_exit_horizon_3_stop_none_06aa7a40daf5_baseline.json --tp-pct 0.25 --min-holding-days 1",
+          "pid": 5364,
+          "ppid": 5138,
+          "rss_bytes": 141754368
+        }
+      ],
+      "project_bytes": 1252611375,
+      "project_file_count": 10431,
+      "rss_bytes": 193232896,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215870.454303
+    },
+    {
+      "host_free_bytes": 131350552576,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.272844500024803,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 2.1042011212557554e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.02114216599147767,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002405625011306256,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002041333995293826,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29848704201867804,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 19365888
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_weekend_representative_replay.py --date 2026-09-12 --batch-size 24 --start-index 0 --append-run-history",
+          "pid": 5138,
+          "ppid": 99075,
+          "rss_bytes": 30916608
+        },
+        {
+          "command": ".venv/bin/python scripts/run_capital_aware_replay.py --rankings-dir artifacts/backtest/liquidity_quality_candidate_universe_shadow_rankings_stop_smoke_early_2026-06-03/production --scenario tp15_partial_runner --gross-policy regime --horizon 3 --entry-filter all --max-group-pct 0.3 --big-bull-gross 0.65 --risk-on-gross 0.0 --high-choppy-gross 0.65 --neutral-gross 0.0 --risk-off-gross 0.0 --output /Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/artifacts/weekend_training/replay_runs_2026-09-12/021_artifacts_backtest_liquidity_quality_candidate_universe_shadow_rankings_stop_smo_3e15d82b_long_horizon_horizon_3_stop_no_cc29e4292769_candidate.json --tp-pct 0.15 --min-holding-days 1",
+          "pid": 5583,
+          "ppid": 5138,
+          "rss_bytes": 103858176
+        }
+      ],
+      "project_bytes": 1252769822,
+      "project_file_count": 10465,
+      "rss_bytes": 155303936,
+      "swap_bytes": 40262497730,
+      "timestamp": 1789215918.46117
+    },
+    {
+      "host_free_bytes": 131350560768,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2737884160014801,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.2166972737759352e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021151832945179194,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002480458002537489,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018579590250737965,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.29931841703364626,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 16580608
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 5768,
+          "ppid": 99075,
+          "rss_bytes": 21839872
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 5772,
+          "ppid": 5768,
+          "rss_bytes": 439451648
+        }
+      ],
+      "project_bytes": 1252833829,
+      "project_file_count": 10475,
+      "rss_bytes": 479035392,
+      "swap_bytes": 40421818368,
+      "timestamp": 1789215966.461906
+    },
+    {
+      "host_free_bytes": 131350560768,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2769935000105761,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.49579718708992e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020379166991915554,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0023813339648768306,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018840000266209245,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.30170408403500915,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 16580608
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 5768,
+          "ppid": 99075,
+          "rss_bytes": 21839872
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 5772,
+          "ppid": 5768,
+          "rss_bytes": 632061952
+        }
+      ],
+      "project_bytes": 1252833829,
+      "project_file_count": 10475,
+      "rss_bytes": 671645696,
+      "swap_bytes": 40421818368,
+      "timestamp": 1789216014.46727
+    },
+    {
+      "host_free_bytes": 131350560768,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2744055420043878,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 2.5250017642974854e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.021370415983255953,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0023604999878443778,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018475829856470227,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.30004050000570714,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 15712256
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 5768,
+          "ppid": 99075,
+          "rss_bytes": 15466496
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 5772,
+          "ppid": 5768,
+          "rss_bytes": 688029696
+        }
+      ],
+      "project_bytes": 1252833829,
+      "project_file_count": 10475,
+      "rss_bytes": 720371712,
+      "swap_bytes": 40421818368,
+      "timestamp": 1789216062.459994
+    },
+    {
+      "host_free_bytes": 131350560768,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.2779124169610441,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.5542027540504932e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.020791874965652823,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002296124992426485,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018450829666107893,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.30288208404090255,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 7913472
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 5768,
+          "ppid": 99075,
+          "rss_bytes": 13565952
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/build_weekend_universe_inventory.py --date 2026-09-12 --write-bounded-frontier-queue",
+          "pid": 5772,
+          "ppid": 5768,
+          "rss_bytes": 612532224
+        }
+      ],
+      "project_bytes": 1252833829,
+      "project_file_count": 10475,
+      "rss_bytes": 635174912,
+      "swap_bytes": 40621110722,
+      "timestamp": 1789216110.460682
+    },
+    {
+      "host_free_bytes": 131350507520,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26781749998917803,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 1.591700129210949e-05,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.022581500001251698,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0025833749677985907,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0022015830036252737,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2952299579628743,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [
+        {
+          "command": "scripts/run_fog_research_worker.sh -s",
+          "pid": 97718,
+          "ppid": 97632,
+          "rss_bytes": 1163264
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_representative_replay_drain_worker.py --date 2026-09-12 --run-id fog-research-2026-09-12-20260912114254346332-replay-drain --batch-size 24 --max-batches 6 --max-seconds 7200",
+          "pid": 99075,
+          "ppid": 97718,
+          "rss_bytes": 7929856
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/run_controlled_grid_drain_host_runner.py --date 2026-09-12",
+          "pid": 5768,
+          "ppid": 99075,
+          "rss_bytes": 16400384
+        },
+        {
+          "command": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/.venv/bin/python scripts/verify_research_fog_map.py --date 2026-09-12",
+          "pid": 6031,
+          "ppid": 5768,
+          "rss_bytes": 412532736
+        }
+      ],
+      "project_bytes": 1252833831,
+      "project_file_count": 10475,
+      "rss_bytes": 438026240,
+      "swap_bytes": 40621110722,
+      "timestamp": 1789216158.452627
+    },
+    {
+      "host_free_bytes": 131350347776,
+      "host_total_bytes": 230000001024,
+      "memory_pressure_level": 2,
+      "phase": "final",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.26194287504768,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 9.917013812810183e-06,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 6.67001586407423e-07,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.002193666994571686,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0018000000272877514,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.2659682499943301,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [],
+      "project_bytes": 1252982855,
+      "project_file_count": 10471,
+      "rss_bytes": 0,
+      "swap_bytes": 40621110722,
+      "timestamp": 1789216159.339654
+    }
+  ],
+  "scheduled_at": "2026-09-12T11:42:52.203398+00:00",
+  "schema_version": "top10-storage-guard-receipt.v1",
+  "status": "OK",
+  "summary": {
+    "elapsed_seconds": 2786.872169971466,
+    "first_memory_pressure_level": 2,
+    "host_free_bytes_delta": -407478272,
+    "last_memory_pressure_level": 2,
+    "observed_growth_bytes_per_hour": 83974980.59711727,
+    "peak_live_memory_pressure_level": 2,
+    "peak_rss_bytes": 756596736,
+    "project_bytes_delta": 65007649,
+    "project_file_count_delta": 645,
+    "registered_unmetered_changed_paths": [],
+    "swap_bytes_delta": 2271939133,
+    "unknown_changed_paths": []
+  },
+  "supervisor_pid": 97632,
+  "trigger_type": "validation",
+  "validation_context": {
+    "marker": {
+      "jobs": [
+        "fog-research-worker"
+      ],
+      "manual_only": true,
+      "sandbox_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb",
+      "schema_version": "top10-storage-validation-root.v1",
+      "trusted_entrypoints": {
+        "fog-research-worker": {
+          "contract_path": "validation/fog-entrypoint-contract.json",
+          "contract_sha256": "9d8212c2af450fb1ea00b152c255e98c55d92695303ee4fc838a3c1ab2c35c3a"
+        }
+      }
+    },
+    "runtime_environment": {
+      "JOBLIB_TEMP_FOLDER": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/logs/storage_safety/runtime/fog-research-worker/tmp/joblib",
+      "MPLCONFIGDIR": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/logs/storage_safety/runtime/fog-research-worker/cache/matplotlib",
+      "TMPDIR": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/logs/storage_safety/runtime/fog-research-worker/tmp",
+      "UV_CACHE_DIR": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/logs/storage_safety/runtime/fog-research-worker/cache/uv",
+      "XDG_CACHE_HOME": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/logs/storage_safety/runtime/fog-research-worker/cache/xdg"
+    },
+    "sandbox_input_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb",
+    "sandbox_output_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb",
+    "source_input_root": "/Users/mattkuo/TOP10new",
+    "trusted_entrypoint": {
+      "argv": [
+        "--runner-sha256",
+        "502332eee03ef09fa9c4556da736702aabea295b01158281af729fc200cac738",
+        "--source-commit",
+        "fd93d1b4e2438fa3878b22e3c4f0facfed988aa2"
+      ],
+      "contract_path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/validation/fog-entrypoint-contract.json",
+      "contract_sha256": "9d8212c2af450fb1ea00b152c255e98c55d92695303ee4fc838a3c1ab2c35c3a",
+      "entrypoint_path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb/scripts/storage_validation/fog_research_worker.py",
+      "entrypoint_sha256": "accaf753a1469dcef1ba66428c8e3b6db091545d0d23d0412052b7f40f0eb967"
+    }
+  },
+  "validation_only": true,
+  "verification_basis": "2026-09-02 至 2026-09-03 R18 外接 clean-room 代表性兩輪均 OK，topic run count 各 1，peak process-tree RSS 799424512/758562816 bytes，memory pressure 全程 1，swap delta -50331648/-434561352 bytes，unknown writes 均為空，process groups quiescent；外層 lifecycle exit 0 且 clean-room 已清除。維持 max_bytes=2 GiB、max_file_count=30000、RSS=2 GiB 與 swap=2 GiB hard ceilings；只授權 fog-research-worker 進入另經 Owner 核准的 live activation。證據：docs/evidence/REVALIDATE-NEW-TOP10-AUTONOMOUS-RESEARCH-RUNTIME-R18。"
+}

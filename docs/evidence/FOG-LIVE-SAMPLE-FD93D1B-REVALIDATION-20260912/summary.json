@@ -1,0 +1,48 @@
+{
+  "cycles": [
+    {
+      "cycle": 1,
+      "guard_exit_code": 0,
+      "reasons": [],
+      "status": "OK",
+      "summary": {
+        "elapsed_seconds": 2786.872169971466,
+        "first_memory_pressure_level": 2,
+        "host_free_bytes_delta": -407478272,
+        "last_memory_pressure_level": 2,
+        "observed_growth_bytes_per_hour": 83974980.59711727,
+        "peak_live_memory_pressure_level": 2,
+        "peak_rss_bytes": 756596736,
+        "project_bytes_delta": 65007649,
+        "project_file_count_delta": 645,
+        "registered_unmetered_changed_paths": [],
+        "swap_bytes_delta": 2271939133,
+        "unknown_changed_paths": []
+      }
+    },
+    {
+      "cycle": 2,
+      "guard_exit_code": 0,
+      "reasons": [],
+      "status": "OK",
+      "summary": {
+        "elapsed_seconds": 1911.1867859363556,
+        "first_memory_pressure_level": 2,
+        "host_free_bytes_delta": 19734528,
+        "last_memory_pressure_level": 2,
+        "observed_growth_bytes_per_hour": 0.0,
+        "peak_live_memory_pressure_level": 2,
+        "peak_rss_bytes": 797327360,
+        "project_bytes_delta": -1193587,
+        "project_file_count_delta": 29,
+        "registered_unmetered_changed_paths": [],
+        "swap_bytes_delta": 1154282947,
+        "unknown_changed_paths": []
+      }
+    }
+  ],
+  "sandbox_root": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-fog-fd93d1b-20260912-4b28cdf293d7473f93c41ca9492169cb",
+  "schema_version": "top10-external-fog-revalidation.v1",
+  "source_commit": "fd93d1b4e2438fa3878b22e3c4f0facfed988aa2",
+  "verdict": "PASS_CANDIDATE"
+}
