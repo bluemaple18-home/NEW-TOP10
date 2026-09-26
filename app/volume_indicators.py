@@ -168,8 +168,25 @@ class VolumeIndicators:
         else:
             self.df["daily_vwap"] = pd.NA
 
-        for stock_id, group in self.df.groupby("stock_id"):
-            group = group.sort_values("date").reset_index(drop=True)
+        # 只攜帶計算欄位，既有指標（含 object 型別）留在底表。
+        # 單位檢查失敗、非數值輸入或 object 缺值保留原路徑，
+        # 維持 pandas 對 object 區塊的 NA／NaN／None 合併行為。
+        narrow = value_volume_unit_usable and all(
+            pd.api.types.is_numeric_dtype(self.df[column]) for column in ["close", "volume"]
+        )
+        if narrow:
+            # 逐欄檢查，避免 select_dtypes 複製整片 object 資料。
+            narrow = not any(
+                self.df[column].isna().any()
+                for column, dtype in self.df.dtypes.items()
+                if pd.api.types.is_object_dtype(dtype)
+            )
+        work_columns = required + ["daily_vwap"]
+        work = self.df[work_columns] if narrow else self.df
+        for stock_id, group in work.groupby("stock_id"):
+            group = group.sort_values("date")
+            source_index = group.index
+            group = group.reset_index(drop=True)
             close = pd.to_numeric(group["close"], errors="coerce")
             volume = pd.to_numeric(group["volume"], errors="coerce")
             close_volume = close * volume
@@ -191,9 +208,26 @@ class VolumeIndicators:
                 group["vwap_reclaim_20d"] = reclaim.where(valid_vwap20).astype(float)
                 group["vwap_loss_20d"] = loss.where(valid_vwap20).astype(float)
 
-            result_dfs.append(group)
+            if not narrow:
+                result_dfs.append(group)
+                continue
+            features = group.drop(columns=required)
+            features.index = source_index
+            result_dfs.append(features)
 
-        self.df = pd.concat(result_dfs, ignore_index=True)
+        if not narrow:
+            self.df = pd.concat(result_dfs, ignore_index=True)
+            logger.info("VWAP 成本線計算完成")
+            return self.df
+
+        features = pd.concat(result_dfs)
+        # 沿用原有分組／排序結果（含重複日期及缺少股票代碼的行為）。
+        # 一般已排序輸入可直接補欄，不必再複製整張寬表。
+        if not features.index.equals(self.df.index):
+            self.df = self.df.reindex(features.index)
+        for column in features.columns:
+            self.df[column] = features[column]
+        self.df.index = pd.RangeIndex(len(self.df))
         logger.info("VWAP 成本線計算完成")
         return self.df
 
