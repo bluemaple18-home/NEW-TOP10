@@ -533,6 +533,105 @@ path.write_text(text, encoding="utf-8")
 PY
 }
 
+run_probe_js() {
+  # 喚醒事件先返回，避免在同一 AppleEvent 內等待冷分頁恢復。
+  "$(python_bin)" - "$BROWSER_APP" "$URL_PART" "$JS_FILE" <<'PY'
+import json
+import re
+import subprocess
+import sys
+import time
+
+browser, target, js_file = sys.argv[1:]
+target = target if target.startswith("https://") else "https://" + target
+phase, window_id, tab_id = "activate", "", ""
+header = '''on run argv
+set browserName to item 1 of argv
+set targetURL to item 2 of argv
+using terms from application "Google Chrome"
+tell application browserName
+if not running then error "Gemini browser is not running"
+'''
+footer = '''end tell
+end using terms from
+end run
+'''
+activate = '''-- phase: activate
+set matches to 0
+repeat with w in windows
+repeat with t in tabs of w
+if URL of t is targetURL then
+set matches to matches + 1
+set selectedWindow to id of w
+set selectedTab to id of t
+end if
+end repeat
+end repeat
+if matches is not 1 then error "Gemini exact target missing or ambiguous"
+set w to window id selectedWindow
+repeat with tabIndex from 1 to count of tabs of w
+if id of tab tabIndex of w is selectedTab then set active tab index of w to tabIndex
+end repeat
+set index of w to 1
+activate
+return (selectedWindow as text) & tab & (selectedTab as text)
+'''
+selected = '''set w to window id (item 3 of argv as integer)
+set t to first tab of w whose id is (item 4 of argv as integer)
+if URL of t is not targetURL then error "Gemini target URL changed"
+'''
+ready = '-- phase: ready\n' + selected + 'return loading of t\n'
+execute = '''-- phase: execute
+''' + selected + '''if loading of t then error "Gemini target is still loading"
+set jsSource to (read (POSIX file (item 5 of argv)))
+return execute t javascript jsSource
+'''
+
+def event(source, timeout):
+    # 所有可變值經 argv 傳遞，不拼入 AppleScript 原始碼。
+    result = subprocess.run(
+        ["osascript", "-", browser, target, window_id, tab_id, js_file],
+        input=header + source + footer, text=True, capture_output=True,
+        timeout=timeout, check=False,
+    )
+    if result.returncode:
+        raise RuntimeError(result.stderr.strip() or "osascript failed")
+    return result.stdout.strip()
+
+try:
+    if not re.fullmatch(r"https://gemini\.google\.com/app/[^/?#]+(?:[?#].*)?", target):
+        raise ValueError("Gemini probe requires an exact conversation URL")
+    identity = event(activate, 10).split("\t")
+    if len(identity) != 2 or not all(value.isdecimal() for value in identity):
+        raise ValueError("Invalid Gemini window/tab identity")
+    window_id, tab_id = identity
+    phase = "ready"
+    deadline = time.monotonic() + 15
+    settled = 0
+    while settled < 2:
+        # 連續兩次未 loading，讓 activate 返回後的非同步喚醒有機會開始。
+        time.sleep(0.25)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Gemini loading deadline exceeded")
+        loading = event(ready, remaining)
+        if loading not in {"true", "false"}:
+            raise ValueError("Invalid Gemini loading state")
+        settled = settled + 1 if loading == "false" else 0
+    phase = "execute"
+    payload = json.loads(event(execute, 10))
+    if not isinstance(payload, dict):
+        raise ValueError("Invalid Gemini probe payload")
+except (RuntimeError, ValueError, OSError, subprocess.TimeoutExpired) as exc:
+    error = str(exc)
+    timed_out = isinstance(exc, (TimeoutError, subprocess.TimeoutExpired)) or "-1712" in error
+    payload = {"ok": False, "reason": "probe_timeout" if timed_out else "probe_command_failed", "error": error}
+    print(error, file=sys.stderr)
+payload.update(phase=phase, window_id=window_id or None, tab_id=tab_id or None)
+print(json.dumps(payload, ensure_ascii=False))
+PY
+}
+
 run_chrome_js() {
   osascript \
     -e 'set jsSource to read POSIX file "'"$JS_FILE"'"' \
@@ -747,7 +846,7 @@ case "$MODE" in
   probe)
     init_js_file
     write_probe_js
-    result="$(run_chrome_js)"
+    result="$(run_probe_js)"
     evidence_path="$(write_evidence probe "$result")"
     printf '%s\n' "$result"
     printf 'evidence=%s\n' "$evidence_path"

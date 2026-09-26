@@ -91,6 +91,10 @@ def normalize_provider_check(provider: str, result: dict[str, Any]) -> dict[str,
             "title": result.get("title"),
             "has_composer": result.get("has_composer"),
             "has_send_button": result.get("has_send_button"),
+            "phase": result.get("phase"),
+            "window_id": result.get("window_id"),
+            "tab_id": result.get("tab_id"),
+            "error": result.get("error"),
             "stderr_tail": str(result.get("stderr_tail") or "")[-1000:],
         },
     }
@@ -110,6 +114,8 @@ def classify_blocker(code: str, stderr_tail: str) -> str:
         return "provider_readiness"
     if code == "probe_payload_missing":
         return "probe_protocol"
+    if code == "probe_timeout":
+        return "provider_timeout"
     return "provider_runtime"
 
 

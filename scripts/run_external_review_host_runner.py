@@ -521,6 +521,10 @@ def run_provider_preflight(*, provider: str, command_template: str) -> dict[str,
         "title": payload.get("title"),
         "has_composer": payload.get("hasComposer"),
         "has_send_button": payload.get("hasSendButton"),
+        "phase": payload.get("phase"),
+        "window_id": payload.get("window_id"),
+        "tab_id": payload.get("tab_id"),
+        "error": payload.get("error"),
         "body_sample": str(payload.get("bodySample") or "")[-500:],
         "stderr_tail": result.stderr[-1000:],
     }
@@ -558,6 +562,8 @@ def parse_probe_payload(stdout: str) -> dict[str, Any]:
 
 def provider_preflight_reason(*, provider: str, result: CommandResult, payload: dict[str, Any]) -> str | None:
     if result.exit_code != 0:
+        if provider == "gemini" and (payload.get("reason") == "probe_timeout" or "-1712" in result.stderr):
+            return "probe_timeout"
         return "probe_command_failed"
     if not payload:
         return "probe_payload_missing"
