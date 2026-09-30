@@ -1,0 +1,50 @@
+{
+  "schema_version": "top10-gemini-new-candidate-probe.v1",
+  "recorded_at": "2026-09-30T11:35:52.186313+08:00",
+  "candidate_sha": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+  "candidate_path": "/private/tmp/TOP10-runtime-automation-1f3aa30",
+  "mode": "probe_only",
+  "packet_supplied": false,
+  "review_packet_sent": false,
+  "ui_input_performed": false,
+  "attempts": [
+    {
+      "name": "native2_direct",
+      "evidence_path": "gemini-new-candidate-probe-direct.json",
+      "result": {
+        "ok": false,
+        "reason": "probe_command_failed",
+        "error": "2026-09-30 11:33:55.097 osascript[82710:73522991] Error received in message reply handler: Connection invalid\n2026-09-30 11:33:55.097 osascript[82710:73522992] Connection Invalid error for service com.apple.hiservices-xpcservice.\n612:620: syntax error: 預期的是「then」等，但找到的是識別碼。 (-2741)",
+        "phase": "activate",
+        "window_id": null,
+        "tab_id": null
+      }
+    },
+    {
+      "name": "launchctl_asuser",
+      "evidence_path": "gemini-new-candidate-probe-asuser.json",
+      "result": {
+        "ok": false,
+        "reason": "probe_command_failed",
+        "error": "2026-09-30 11:34:30.323 osascript[82805:73523885] Error received in message reply handler: Connection invalid\n2026-09-30 11:34:30.323 osascript[82805:73523886] Connection Invalid error for service com.apple.hiservices-xpcservice.\n612:620: syntax error: 預期的是「then」等，但找到的是識別碼。 (-2741)",
+        "phase": "activate",
+        "window_id": null,
+        "tab_id": null
+      }
+    },
+    {
+      "name": "chrome_process_inventory",
+      "result": {
+        "ok": false,
+        "error": "sysmon request failed with error: sysmond service not found; pgrep: Cannot get process list"
+      }
+    }
+  ],
+  "classification": "BLOCKED_EXECUTION_ENVIRONMENT_GUI_XPC",
+  "product_probe_pass": false,
+  "notes": [
+    "兩次 probe 都在 activate phase、進入 composer 前失敗。",
+    "兩次均未帶 packet、未輸入、未送件。",
+    "Native2 command context 無法連接 com.apple.hiservices-xpcservice，且無法取得 Chrome process list。"
+  ]
+}

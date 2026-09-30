@@ -1,0 +1,40 @@
+{
+  "recorded_at": "2026-09-30T11:41:07.273991+08:00",
+  "candidate_sha": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+  "candidate_path": "/private/tmp/TOP10-runtime-automation-1f3aa30",
+  "execution_context": "Codex host exec require_escalated",
+  "argv": [
+    "bash",
+    "scripts/review_gemini_chrome.sh",
+    "probe"
+  ],
+  "exit_code": 0,
+  "raw_evidence": "/Users/mattkuo/TOP10new/docs/evidence/RECOVER-TOP10-AUTOMATION-BBD32B4-20260929/gemini_probe_20260930_114107.json",
+  "result": {
+    "ok": true,
+    "mode": "probe",
+    "phase": "execute",
+    "readiness": "input_ready",
+    "reason": null,
+    "guard_failures": [],
+    "hasComposer": true,
+    "hasSendButton": false,
+    "window_id": "1791887663",
+    "tab_id": "1791888483",
+    "error": null
+  },
+  "stderr": "",
+  "packet_supplied": false,
+  "review_packet_sent": false,
+  "ui_input_performed": false,
+  "production_before": {
+    "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/logs/storage_safety/restart_denied/daily.json": "4338bfbb298ee15eb6abd33c0de9302edd3f1d109d550cbcab67a2c1c1734255",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist": "17b9f9fb601ec7c58aa68e9b276515d1d5af907812f82900953cdf265d14176a"
+  },
+  "production_after": {
+    "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/logs/storage_safety/restart_denied/daily.json": "4338bfbb298ee15eb6abd33c0de9302edd3f1d109d550cbcab67a2c1c1734255",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist": "17b9f9fb601ec7c58aa68e9b276515d1d5af907812f82900953cdf265d14176a"
+  },
+  "production_unchanged": true,
+  "candidate_tracked_clean_after": true
+}

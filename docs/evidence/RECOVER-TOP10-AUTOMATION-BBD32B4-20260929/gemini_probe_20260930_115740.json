@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "mode": "probe",
+  "readiness": "input_ready",
+  "reason": null,
+  "guard_failures": [],
+  "expected_title": "",
+  "expected_account": "",
+  "expected_plan": "",
+  "title": "TOP10 External Review - Gemini PROD - Google Gemini",
+  "url": "https://gemini.google.com/app/ea58b54eef550ded",
+  "hasComposer": true,
+  "hasSendButton": false,
+  "bodySample": "mit-Up Breakout Alpha)\",\n      \"description\": \"測試在 market_regime 為 RISK_ON 時，當股價 > 1000 元之千金股（如創意、富世達）單日成交值 > 50 億台幣且以當日漲停板突破 20 日新高時，該標的在 T+1 至 T+10 交易日產生超額報酬（Alpha）與勝率的統計顯著性。\"\n    },\n    {\n      \"hypothesis_name\": \"超高價千金股突破時之 ATR 窄幅移動停損風控優化 (Mega-Cap ATR Trailing Stop Optimization)\",\n      \"description\": \"回測針對股價 > 2000 元且突破 20 日新高的標的（如創意、富世達），將原系統粗放的遠端月線停損（>16% 至 20%），改為進場價下方 1.5 倍 ATR 停損（控制在 5% 左右），統計其在維持 85% 以上期望報酬的前提下，將策略最大回撤（MDD）大幅降低 50% 以上的效果。\"\n    }\n  ]\n}\n\n\n\n\n\nFlash\n\nGemini 是 AI，有時可能會出錯。",
+  "phase": "execute",
+  "window_id": "1791887663",
+  "tab_id": "1791888483"
+}

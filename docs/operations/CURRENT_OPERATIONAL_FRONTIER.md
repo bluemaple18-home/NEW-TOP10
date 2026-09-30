@@ -1,6 +1,13 @@
 # NEW-TOP10 Current Operational Frontier
 
-更新：2026-09-14
+局部更新：2026-09-30（Daily／provider preflight）；其餘段落保留 2026-09-14 歷史基線，不代表本輪已重新驗證。
+
+## 2026-09-30 Daily／provider preflight 最新狀態
+
+- Owner 明確授權後，14:41 +08:00 以既有 transaction 完成兩個 job 的正式切換，exit 0；14:42 獨立回讀 PASS。Runtime 為 `/Users/mattkuo/TOP10-runtime-automation-bbd32b4`，**實際 HEAD 是 `1f3aa307b3a2e61f2220e6cc48809b7151ba0b77`**，目錄名稱為沿用歷史名稱。
+- 兩者 loaded／enabled／not running／runs=0，維持 Daily 平日 17:30、provider preflight 每日 17:40；未人工補跑。最新狀態 `ACTIVATED_PARTIAL_ACCEPTANCE_PENDING`，自然週期與正式報牌／外送尚待驗收。
+- 舊 `bb55fc4` Daily marker 原件保留，新 runtime marker absent；Fog、retrain monitor、正式 external-review 與所有非目標 plist 均未改動。本次不是 monitor／Fog 恢復，也不是正式 external-review 啟用。
+- 容量在切換前後均通過原 6 GiB 預留，切換後 margin 約 3.34 GB；不降低門檻。失敗回退基線、兩份原 plist、transaction receipt 與獨立回讀均保留於 [恢復報告](../evidence/RECOVER-TOP10-AUTOMATION-BBD32B4-20260929/report.md) 與 [本次任務卡](../tasks/2026-09-29_RECOVER-TOP10-AUTOMATION-BBD32B4-01.md)。此區段取代下方歷史基線對這兩個 job 的舊 runtime 描述。
 
 👉 [假設與目標確認] 目標：只以目前主線與可重跑證據界定唯一前線；邊界：不重啟歷史卡、不碰 TimesFM、push、額外 production mutation 或外部 write；驗收：已整合鏈、等待條件與未 admission 候選可被明確區分。
 

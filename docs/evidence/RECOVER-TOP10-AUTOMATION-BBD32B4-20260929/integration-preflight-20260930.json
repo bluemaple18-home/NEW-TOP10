@@ -1,0 +1,115 @@
+{
+  "recorded_at": "2026-09-30T11:56:55.483230+08:00",
+  "main_sha": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+  "canonical_candidate": "/Users/mattkuo/TOP10-runtime-automation-bbd32b4",
+  "accepted_commit": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+  "production_before": {
+    "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/logs/storage_safety/restart_denied/daily.json": "4338bfbb298ee15eb6abd33c0de9302edd3f1d109d550cbcab67a2c1c1734255",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.baseline-harness.plist": "028bad4857e71a36080b3b382724b4516d50c9d8f2a0e9fb669f703078cb30ed",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist": "17b9f9fb601ec7c58aa68e9b276515d1d5af907812f82900953cdf265d14176a",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review-preflight.plist": "6460bf33924aad1d2b74140c3ff58a17f2a17b358670ca859eb2445db10c4fc3",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review.plist": "ac9f7357fee7d11853c60d7081241f94cd5ced5dcf19ed643de87f6f2fe2d48e",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.fog-research-worker.plist": "b6d5646469aa09d89b8d0cc8d108878981bcd5c3cecc29894bf185120af62227",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.pm-research-harness.plist": "3a5473313bb6bfbcacc0f76cdde8b09a127e99a3d82dd7e507d618b384d25499",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.reference.plist": "6f1d7bf81db236e03a288467c10de45b515ad7bf3e0a7a5e027e1a6bd2b3527e",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.retrain.plist": "f924c257846a152783e4d6396d22baa23094e7acfadd6150b50fecc658f90871"
+  },
+  "capacity": {
+    "exit_code": 0,
+    "stdout": "{\"decision\": {\"reasons\": [], \"triggered\": false}, \"job\": \"daily\", \"sample\": {\"host_free_bytes\": 26594512896, \"host_total_bytes\": 245107195904, \"memory_pressure_level\": 2, \"phase\": \"live\", \"probe_timings\": [{\"available\": true, \"duration_seconds\": 0.14332025009207428, \"probe\": \"meter_paths\"}, {\"available\": true, \"duration_seconds\": 1.1124880984425545e-05, \"probe\": \"disk_usage\"}, {\"available\": true, \"duration_seconds\": 8.328352123498917e-07, \"probe\": \"process_tree_rss\"}, {\"available\": true, \"duration_seconds\": 0.0030076249968260527, \"probe\": \"swap\"}, {\"available\": true, \"duration_seconds\": 0.0018391660414636135, \"probe\": \"memory_pressure\"}, {\"available\": true, \"duration_seconds\": 0.14820154197514057, \"probe\": \"sample_total\"}], \"process_rss_attribution\": [], \"project_bytes\": 1245798092, \"project_file_count\": 1745, \"rss_bytes\": 0, \"swap_bytes\": 11540501626, \"timestamp\": 1790740615.6914701}, \"verdict\": \"PASS\"}",
+    "stderr": ""
+  },
+  "regression": {
+    "exit_code": 0,
+    "stdout": "....................                                          [100%]\n20 passed, 11 subtests passed in 41.98s",
+    "stderr": ""
+  },
+  "test_temp_removed": true,
+  "canonical_gui_probe": {
+    "exit_code": 0,
+    "stderr": "",
+    "raw_evidence": "/Users/mattkuo/TOP10new/docs/evidence/RECOVER-TOP10-AUTOMATION-BBD32B4-20260929/gemini_probe_20260930_115740.json",
+    "payload": {
+      "ok": true,
+      "phase": "execute",
+      "readiness": "input_ready",
+      "guard_failures": [],
+      "hasComposer": true,
+      "hasSendButton": false,
+      "window_id": "1791887663",
+      "tab_id": "1791888483"
+    },
+    "packet_supplied": false,
+    "review_packet_sent": false
+  },
+  "code_delta": [
+    "scripts/review_gemini_chrome.sh"
+  ],
+  "receipt_version_mapping": "Daily/storage/activation code unchanged from bbd32b4; Gemini script delta revalidated at exact canonical candidate",
+  "scheduled_jobs": {
+    "daily": {
+      "loaded": true,
+      "selected_state_lines": [
+        "path = /Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist",
+        "state = not running",
+        "stdout path = /dev/null",
+        "stderr path = /dev/null",
+        "last exit code = 75: EX_TEMPFAIL",
+        "state = active",
+        "state = active"
+      ]
+    },
+    "external-review-preflight": {
+      "loaded": true,
+      "selected_state_lines": [
+        "path = /Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review-preflight.plist",
+        "state = not running",
+        "stdout path = /dev/null",
+        "stderr path = /dev/null",
+        "last exit code = 0",
+        "state = active",
+        "state = active"
+      ]
+    }
+  },
+  "production_after": {
+    "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/logs/storage_safety/restart_denied/daily.json": "4338bfbb298ee15eb6abd33c0de9302edd3f1d109d550cbcab67a2c1c1734255",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.baseline-harness.plist": "028bad4857e71a36080b3b382724b4516d50c9d8f2a0e9fb669f703078cb30ed",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist": "17b9f9fb601ec7c58aa68e9b276515d1d5af907812f82900953cdf265d14176a",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review-preflight.plist": "6460bf33924aad1d2b74140c3ff58a17f2a17b358670ca859eb2445db10c4fc3",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review.plist": "ac9f7357fee7d11853c60d7081241f94cd5ced5dcf19ed643de87f6f2fe2d48e",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.fog-research-worker.plist": "b6d5646469aa09d89b8d0cc8d108878981bcd5c3cecc29894bf185120af62227",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.pm-research-harness.plist": "3a5473313bb6bfbcacc0f76cdde8b09a127e99a3d82dd7e507d618b384d25499",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.reference.plist": "6f1d7bf81db236e03a288467c10de45b515ad7bf3e0a7a5e027e1a6bd2b3527e",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.retrain.plist": "f924c257846a152783e4d6396d22baa23094e7acfadd6150b50fecc658f90871"
+  },
+  "production_unchanged": true,
+  "candidate_tracked_clean": true,
+  "foundation_capacity": {
+    "total_bytes": 245107195904,
+    "physical_available_bytes": 26587152384,
+    "admission_available_bytes": 30784927334,
+    "source": "macos_foundation_important_usage",
+    "measured_at": "2026-09-30T11:58:27.590228+08:00",
+    "reserve_bytes": 24510719590,
+    "existing_card_budget_bytes": 6442450944,
+    "margin_after_existing_6GiB_budget": -168243200,
+    "existing_budget_verdict": "NO_GO"
+  },
+  "exact_commit_object_preserved": true,
+  "main_head_after": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+  "tracked_product_paths_clean": true,
+  "planned_target_jobs": [
+    "daily",
+    "external-review-preflight"
+  ],
+  "activation_executed": false,
+  "activation_blockers": [
+    "existing_6GiB_capacity_budget_no_go",
+    "production_mutation_not_authorized"
+  ],
+  "temporary_candidate_cleanup": {
+    "executed": false,
+    "reason": "兩個 tmp 目錄總量約 146 MB，不足填補 168 MB 缺口；保留現存候選與 clone。"
+  }
+}

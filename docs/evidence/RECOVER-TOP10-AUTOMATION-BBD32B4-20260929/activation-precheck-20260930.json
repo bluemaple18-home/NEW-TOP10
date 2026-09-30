@@ -1,0 +1,157 @@
+{
+  "recorded_at": "2026-09-30T14:41:11.867174+08:00",
+  "authorized_jobs": [
+    "daily",
+    "external-review-preflight"
+  ],
+  "accepted_commit": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+  "candidate_root": "/Users/mattkuo/TOP10-runtime-automation-bbd32b4",
+  "production_mutation_started": false,
+  "capacity": {
+    "total_bytes": 245107195904,
+    "physical_available_bytes": 30087983104,
+    "admission_available_bytes": 34288936550,
+    "source": "macos_foundation_important_usage",
+    "reserve_bytes": 24510719590,
+    "requested_bytes": 6442450944,
+    "margin_bytes": 3335766016
+  },
+  "runtime_validation": {
+    "exit_code": 0,
+    "stdout": "RUNTIME_CHECKOUT_GO runtime_root=/Users/mattkuo/TOP10-runtime-automation-bbd32b4 commit=1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+    "stderr": ""
+  },
+  "production_hashes_before": {
+    "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/logs/storage_safety/restart_denied/daily.json": "4338bfbb298ee15eb6abd33c0de9302edd3f1d109d550cbcab67a2c1c1734255",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.baseline-harness.plist": "028bad4857e71a36080b3b382724b4516d50c9d8f2a0e9fb669f703078cb30ed",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist": "17b9f9fb601ec7c58aa68e9b276515d1d5af907812f82900953cdf265d14176a",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review-preflight.plist": "6460bf33924aad1d2b74140c3ff58a17f2a17b358670ca859eb2445db10c4fc3",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review.plist": "ac9f7357fee7d11853c60d7081241f94cd5ced5dcf19ed643de87f6f2fe2d48e",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.fog-research-worker.plist": "b6d5646469aa09d89b8d0cc8d108878981bcd5c3cecc29894bf185120af62227",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.pm-research-harness.plist": "3a5473313bb6bfbcacc0f76cdde8b09a127e99a3d82dd7e507d618b384d25499",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.reference.plist": "6f1d7bf81db236e03a288467c10de45b515ad7bf3e0a7a5e027e1a6bd2b3527e",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.retrain.plist": "f924c257846a152783e4d6396d22baa23094e7acfadd6150b50fecc658f90871"
+  },
+  "jobs": {
+    "daily": {
+      "loaded": true,
+      "running": false,
+      "disabled": false,
+      "old_root": "/Users/mattkuo/TOP10-runtime-automation-bb55fc4",
+      "only_runtime_path_changes": true,
+      "new_plist_sha256": "f412991ad943aef117878d49bf972e63769db0a59b58272efa5e12df153608de",
+      "schedule": [
+        {
+          "Weekday": 1,
+          "Hour": 17,
+          "Minute": 30
+        },
+        {
+          "Weekday": 2,
+          "Hour": 17,
+          "Minute": 30
+        },
+        {
+          "Weekday": 3,
+          "Hour": 17,
+          "Minute": 30
+        },
+        {
+          "Weekday": 4,
+          "Hour": 17,
+          "Minute": 30
+        },
+        {
+          "Weekday": 5,
+          "Hour": 17,
+          "Minute": 30
+        }
+      ]
+    },
+    "external-review-preflight": {
+      "loaded": true,
+      "running": false,
+      "disabled": false,
+      "old_root": "/Users/mattkuo/TOP10-runtime-automation-bb55fc4",
+      "only_runtime_path_changes": true,
+      "new_plist_sha256": "79bd601886853dbaac8875a56fd8e3a86027dc1e91a50f9afc391cda29fbbdff",
+      "schedule": {
+        "Hour": 17,
+        "Minute": 40
+      }
+    }
+  },
+  "launchd_channel_probe": {
+    "label": "com.new-top10.activation-channel-probe-51005",
+    "command": [
+      "/usr/bin/true"
+    ],
+    "bootstrap": {
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "loaded_after_bootstrap": true,
+    "true_exit_zero": true,
+    "bootout": {
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "absent_after_cleanup": true
+  },
+  "probe_temp_removed": true,
+  "status": "PREACTIVATION_CHECKS_PASS",
+  "production_hashes_after": {
+    "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/logs/storage_safety/restart_denied/daily.json": "4338bfbb298ee15eb6abd33c0de9302edd3f1d109d550cbcab67a2c1c1734255",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.baseline-harness.plist": "028bad4857e71a36080b3b382724b4516d50c9d8f2a0e9fb669f703078cb30ed",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist": "17b9f9fb601ec7c58aa68e9b276515d1d5af907812f82900953cdf265d14176a",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review-preflight.plist": "6460bf33924aad1d2b74140c3ff58a17f2a17b358670ca859eb2445db10c4fc3",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review.plist": "ac9f7357fee7d11853c60d7081241f94cd5ced5dcf19ed643de87f6f2fe2d48e",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.fog-research-worker.plist": "b6d5646469aa09d89b8d0cc8d108878981bcd5c3cecc29894bf185120af62227",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.pm-research-harness.plist": "3a5473313bb6bfbcacc0f76cdde8b09a127e99a3d82dd7e507d618b384d25499",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.reference.plist": "6f1d7bf81db236e03a288467c10de45b515ad7bf3e0a7a5e027e1a6bd2b3527e",
+    "/Users/mattkuo/Library/LaunchAgents/com.new-top10.retrain.plist": "f924c257846a152783e4d6396d22baa23094e7acfadd6150b50fecc658f90871"
+  },
+  "production_unchanged": true,
+  "post_activation": {
+    "recorded_at": "2026-09-30T14:42:58.345195+08:00",
+    "activation_process_exit_code": 0,
+    "activation_receipt_sha256": "30d8f75b7e751a950b4d0e56bb07dc0c6e2102b972cfbc68ab56f228ed550276",
+    "jobs": {
+      "daily": {
+        "loaded": true,
+        "disabled": false,
+        "state": "not running",
+        "runs_since_load": 0,
+        "installed_sha256": "f412991ad943aef117878d49bf972e63769db0a59b58272efa5e12df153608de",
+        "snapshot_matches_original": true,
+        "runtime_marker_absent": true,
+        "loaded_runtime_matches": true
+      },
+      "external-review-preflight": {
+        "loaded": true,
+        "disabled": false,
+        "state": "not running",
+        "runs_since_load": 0,
+        "installed_sha256": "79bd601886853dbaac8875a56fd8e3a86027dc1e91a50f9afc391cda29fbbdff",
+        "snapshot_matches_original": true,
+        "runtime_marker_absent": true,
+        "loaded_runtime_matches": true
+      }
+    },
+    "out_of_scope_plists_unchanged": true,
+    "old_daily_marker_sha256": "4338bfbb298ee15eb6abd33c0de9302edd3f1d109d550cbcab67a2c1c1734255",
+    "runtime_head": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+    "runtime_tracked_clean": true,
+    "capacity_after": {
+      "total_bytes": 245107195904,
+      "physical_available_bytes": 30093602816,
+      "admission_available_bytes": 34294556262,
+      "source": "macos_foundation_important_usage",
+      "margin_after_6GiB_bytes": 3341385728
+    },
+    "natural_cycle_acceptance": "PENDING",
+    "status": "ACTIVATION_READBACK_PASS"
+  }
+}

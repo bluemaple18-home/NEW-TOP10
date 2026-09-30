@@ -1,0 +1,43 @@
+{
+  "schema_version": "top10-gemini-repair-local-commit-candidate.v1",
+  "recorded_at": "2026-09-30T11:35:52.186313+08:00",
+  "base_sha": "bbd32b4f017498b413a32a1171aec76f426441a3",
+  "original_checkout": {
+    "path": "/Users/mattkuo/TOP10new",
+    "head": "bbd32b4f017498b413a32a1171aec76f426441a3",
+    "commit_attempted": true,
+    "commit_succeeded": false,
+    "error": "fatal: Unable to create '/Users/mattkuo/TOP10new/.git/index.lock': Operation not permitted",
+    "working_tree_changes_preserved": true
+  },
+  "isolated_local_clone": {
+    "path": "/private/tmp/TOP10new-gemini-repair-20260930",
+    "origin": "https://github.com/bluemaple18-home/NEW-TOP10.git",
+    "commit_sha": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+    "commit_subject": "fix: repair Gemini probe identity parsing",
+    "tracked_status": "",
+    "pushed": false
+  },
+  "exact_commit_bundle": {
+    "path": "/Users/mattkuo/TOP10new/docs/evidence/RECOVER-TOP10-AUTOMATION-BBD32B4-20260929/local-repair-1f3aa30.bundle",
+    "size_bytes": 20421,
+    "sha256": "bc39d187ce3af4fd7c2c1d73246fe218417925522b7cc3100db4916024d9774a",
+    "verify_exit_code": 0,
+    "verify_stdout": "The bundle contains this ref:\n1f3aa307b3a2e61f2220e6cc48809b7151ba0b77 refs/heads/main\nThe bundle requires this ref:\nbbd32b4f017498b413a32a1171aec76f426441a3 \nThe bundle uses this hash algorithm: sha1",
+    "verify_stderr": "/Users/mattkuo/TOP10new/docs/evidence/RECOVER-TOP10-AUTOMATION-BBD32B4-20260929/local-repair-1f3aa30.bundle is okay"
+  },
+  "detached_candidate": {
+    "path": "/private/tmp/TOP10-runtime-automation-1f3aa30",
+    "head": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+    "detached": true,
+    "tracked_status": "",
+    "runtime_checkout_validation": "RUNTIME_CHECKOUT_GO",
+    "candidate_marker_exists": false
+  },
+  "production_marker": {
+    "path": "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/logs/storage_safety/restart_denied/daily.json",
+    "sha256": "4338bfbb298ee15eb6abd33c0de9302edd3f1d109d550cbcab67a2c1c1734255",
+    "matches_precheck": true
+  },
+  "acceptance_pass": true
+}

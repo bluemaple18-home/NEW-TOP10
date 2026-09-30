@@ -1,6 +1,6 @@
 {
   "schema_version": "top10-bbd32b4-preactivation-failure-index.v1",
-  "recorded_at": "2026-09-29T18:44:49.150047+08:00",
+  "recorded_at": "2026-09-30T11:35:52.186313+08:00",
   "failures_preserved": [
     {
       "id": "daily-cycle-1-r1-window-mismatch",
@@ -48,6 +48,18 @@
       "id": "gemini-repair-native2-no-gui-session",
       "path": "gemini_probe_20260930_105501.json",
       "classification": "absolute Chrome dictionary path compiled, but the current Native2 command context did not share the user's GUI Chrome session; not accepted as a product probe result",
+      "overwritten": false
+    },
+    {
+      "id": "canonical-checkout-index-lock-permission",
+      "path": "local-commit-new-candidate.json",
+      "classification": "canonical checkout .git index is read-only in current Native2 permission profile; isolated local clone used without push",
+      "overwritten": false
+    },
+    {
+      "id": "new-candidate-probe-gui-xpc",
+      "path": "gemini-new-candidate-probe-result.json",
+      "classification": "new exact candidate probe blocked before browser access by unavailable macOS GUI/XPC session; direct and launchctl asuser attempts preserved",
       "overwritten": false
     }
   ]

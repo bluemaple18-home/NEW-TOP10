@@ -1,8 +1,9 @@
 {
   "schema_version": "top10-evidence-manifest.v1",
   "candidate_sha": "bbd32b4f017498b413a32a1171aec76f426441a3",
-  "generated_at": "2026-09-30T10:58:29.707734+08:00",
-  "verdict": "PREACTIVATION_PARTIAL_PASS_PRODUCTION_NO_GO",
+  "repair_candidate_sha": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
+  "generated_at": "2026-09-30T17:11:29.223645+08:00",
+  "verdict": "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING",
   "files": [
     {
       "path": "candidate-runtime-du-kib.raw.txt",
@@ -21,8 +22,8 @@
     },
     {
       "path": "failure-index.json",
-      "size_bytes": 2577,
-      "sha256": "859bb709e263937c1e28968098b2557308f3021dadee8b5dbdda794e1ff2045c"
+      "size_bytes": 3177,
+      "sha256": "aa3ce27a60e5a1e7d14d6936711382812b696440a4b45b6d9e6fbaa2aefaffba"
     },
     {
       "path": "failure-invalid-trigger-type.json",
@@ -60,6 +61,21 @@
       "sha256": "e436e4b168c23a5f7e6cb19742fe08c7b2404b6aec8273c926d46f0edad961ea"
     },
     {
+      "path": "gemini-new-candidate-probe-asuser.json",
+      "size_bytes": 449,
+      "sha256": "3f784c5f70e6494116c441528e67907a3c4be300cf9bdfbfe84eaf7f19f0d1d5"
+    },
+    {
+      "path": "gemini-new-candidate-probe-direct.json",
+      "size_bytes": 449,
+      "sha256": "d728ba24f6b99e2d365711626c2a5749e726d7c2cd35408465b33e832a54e6a4"
+    },
+    {
+      "path": "gemini-new-candidate-probe-result.json",
+      "size_bytes": 2186,
+      "sha256": "02a0e6f0b690a1c961a5c40af84709048f5538728b0d7b322639fd869f6bd302"
+    },
+    {
       "path": "gemini-real-chrome-probe.json",
       "size_bytes": 1084,
       "sha256": "79819a967b7b75c532f555d18362a70e78582fd512ed46c192fd208a69cd516e"
@@ -73,6 +89,16 @@
       "path": "gemini_probe_20260930_105501.json",
       "size_bytes": 676,
       "sha256": "6b5fea0dbbab1d1851e662b43db8296590ba9e5f1bd39b1c4e35731892e2f711"
+    },
+    {
+      "path": "local-commit-new-candidate.json",
+      "size_bytes": 2079,
+      "sha256": "0253587f69d799f0c1af5e666f619a1894707f04ad7d501599c095533d7a5765"
+    },
+    {
+      "path": "local-repair-1f3aa30.bundle",
+      "size_bytes": 20421,
+      "sha256": "bc39d187ce3af4fd7c2c1d73246fe218417925522b7cc3100db4916024d9774a"
     },
     {
       "path": "marker-rollback-independent-tests.json",
@@ -101,8 +127,8 @@
     },
     {
       "path": "report.md",
-      "size_bytes": 6575,
-      "sha256": "c3279c1b1153c99b4a126665205c1681224a07ec6fba6509c65a2d12a147a8bd"
+      "size_bytes": 16289,
+      "sha256": "8cedb075e3ca8713554ced6cdc3a2f62a9ba87506fb3e25083c21121e086b5bf"
     },
     {
       "path": "restart-denied-marker.fixture.json",
@@ -118,6 +144,52 @@
       "path": "safe-stop-marker-recovery.json",
       "size_bytes": 1908,
       "sha256": "ce2e9397667b730fa0af807ef175c98e7d86e07b3e182fe68ff1bfbeb716271c"
+    },
+    {
+      "path": "gemini-host-channel-probe-20260930.json",
+      "size_bytes": 1617,
+      "sha256": "14ed37cfbaf84970ad33a4038762e734962479047484030438a1d8a6334e25e5"
+    },
+    {
+      "path": "gemini_probe_20260930_114107.json",
+      "size_bytes": 1377,
+      "sha256": "8fb5971d932da1e89f8664bc0af68f559adac5805ca8d1f8a51d4f9b77436ba4"
+    },
+    {
+      "path": "integration-preflight-20260930.json",
+      "size_bytes": 6832,
+      "sha256": "b1beb7a7fa4e03a283a80001b3a1db0eb08cf1a2840f7838e787aff3e3c1b9ab"
+    },
+    {
+      "path": "gemini_probe_20260930_115740.json",
+      "size_bytes": 1377,
+      "sha256": "8fb5971d932da1e89f8664bc0af68f559adac5805ca8d1f8a51d4f9b77436ba4"
+    },
+    {
+      "path": "activation-precheck-20260930.json",
+      "size_bytes": 6811,
+      "sha256": "254aad1885a55eefa1888182dd5efb5236cbaba8a100b47cc027f2a3f170ea2a"
+    },
+    {
+      "path": "activation-1f3aa30.json",
+      "size_bytes": 6460,
+      "sha256": "30d8f75b7e751a950b4d0e56bb07dc0c6e2102b972cfbc68ab56f228ed550276"
+    },
+    {
+      "path": "activation-1f3aa30.prestate/com.new-top10.daily.plist",
+      "size_bytes": 1973,
+      "sha256": "17b9f9fb601ec7c58aa68e9b276515d1d5af907812f82900953cdf265d14176a"
+    },
+    {
+      "path": "activation-1f3aa30.prestate/com.new-top10.external-review-preflight.plist",
+      "size_bytes": 1017,
+      "sha256": "6460bf33924aad1d2b74140c3ff58a17f2a17b358670ca859eb2445db10c4fc3"
     }
-  ]
+  ],
+  "gui_probe_status": "EXACT_CANDIDATE_HOST_PROBE_PASS",
+  "canonical_candidate": "/Users/mattkuo/TOP10-runtime-automation-bbd32b4",
+  "integration_status": "LOCAL_EXACT_COMMIT_INTEGRATED",
+  "activation_status": "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING",
+  "natural_cycle_acceptance": "PENDING",
+  "deployed_commit": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77"
 }
