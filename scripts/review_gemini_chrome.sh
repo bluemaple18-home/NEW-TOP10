@@ -574,7 +574,8 @@ if id of tab tabIndex of w is selectedTab then set active tab index of w to tabI
 end repeat
 set index of w to 1
 activate
-return (selectedWindow as text) & tab & (selectedTab as text)
+-- Chrome 字典中的 tab 是分頁 class，不是字元分隔符。
+return (selectedWindow as text) & "|" & (selectedTab as text)
 '''
 selected = '''set w to window id (item 3 of argv as integer)
 set t to first tab of w whose id is (item 4 of argv as integer)
@@ -601,7 +602,7 @@ def event(source, timeout):
 try:
     if not re.fullmatch(r"https://gemini\.google\.com/app/[^/?#]+(?:[?#].*)?", target):
         raise ValueError("Gemini probe requires an exact conversation URL")
-    identity = event(activate, 10).split("\t")
+    identity = event(activate, 10).split("|")
     if len(identity) != 2 or not all(value.isdecimal() for value in identity):
         raise ValueError("Invalid Gemini window/tab identity")
     window_id, tab_id = identity

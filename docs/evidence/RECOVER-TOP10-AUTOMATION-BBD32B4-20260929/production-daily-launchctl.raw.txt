@@ -1,0 +1,132 @@
+gui/501/com.new-top10.daily = {
+	active count = 0
+	path = /Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist
+	type = LaunchAgent
+	state = not running
+
+	program = /bin/bash
+	arguments = {
+		/bin/bash
+		/Users/mattkuo/TOP10-runtime-automation-bb55fc4/scripts/run_with_storage_guard.sh
+		daily
+		/bin/bash
+		/Users/mattkuo/TOP10-runtime-automation-bb55fc4/scripts/run_daily_publish.sh
+	}
+
+	stdout path = /dev/null
+	stderr path = /dev/null
+	inherited environment = {
+		SSH_AUTH_SOCK => /var/run/com.apple.launchd.Ct0rwZRPf1/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		XPC_SERVICE_NAME => com.new-top10.daily
+	}
+
+	domain = gui/501 [100002]
+	asid = 100002
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 16
+	last exit code = 75: EX_TEMPFAIL
+
+	event triggers = {
+		com.new-top10.daily.268435516 => {
+			keepalive = 0
+			service = com.new-top10.daily
+			stream = com.apple.launchd.calendarinterval
+			monitor = com.apple.UserEventAgent-Aqua
+			descriptor = {
+				"Minute" => 30
+				"Hour" => 17
+				"Weekday" => 1
+			}
+		}
+		com.new-top10.daily.268435520 => {
+			keepalive = 0
+			service = com.new-top10.daily
+			stream = com.apple.launchd.calendarinterval
+			monitor = com.apple.UserEventAgent-Aqua
+			descriptor = {
+				"Minute" => 30
+				"Hour" => 17
+				"Weekday" => 5
+			}
+		}
+		com.new-top10.daily.268435519 => {
+			keepalive = 0
+			service = com.new-top10.daily
+			stream = com.apple.launchd.calendarinterval
+			monitor = com.apple.UserEventAgent-Aqua
+			descriptor = {
+				"Minute" => 30
+				"Hour" => 17
+				"Weekday" => 4
+			}
+		}
+		com.new-top10.daily.268435518 => {
+			keepalive = 0
+			service = com.new-top10.daily
+			stream = com.apple.launchd.calendarinterval
+			monitor = com.apple.UserEventAgent-Aqua
+			descriptor = {
+				"Minute" => 30
+				"Hour" => 17
+				"Weekday" => 3
+			}
+		}
+		com.new-top10.daily.268435517 => {
+			keepalive = 0
+			service = com.new-top10.daily
+			stream = com.apple.launchd.calendarinterval
+			monitor = com.apple.UserEventAgent-Aqua
+			descriptor = {
+				"Minute" => 30
+				"Hour" => 17
+				"Weekday" => 2
+			}
+		}
+	}
+
+	event channels = {
+		"com.apple.launchd.calendarinterval" = {
+			port = 0xdcc07
+			active = 0
+			managed = 1
+			reset = 0
+			hide = 0
+			watching = 1
+		}
+	}
+
+	resource coalition = {
+		ID = 52409
+		type = resource
+		state = active
+		active count = 1
+		name = com.new-top10.daily
+	}
+
+	jetsam coalition = {
+		ID = 52410
+		type = jetsam
+		state = active
+		active count = 1
+		name = com.new-top10.daily
+	}
+
+	spawn type = daemon (3)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+
+	properties = inferred program
+}

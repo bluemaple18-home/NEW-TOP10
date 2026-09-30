@@ -1,0 +1,8 @@
+{
+  "ok": false,
+  "reason": "probe_command_failed",
+  "error": "2026-09-30 10:55:01.441 osascript[71642:73446018] Connection Invalid error for service com.apple.hiservices-xpcservice.\n2026-09-30 10:55:01.441 osascript[71642:73446005] Error received in message reply handler: Connection invalid\n2026-09-30 10:55:01.459 osascript[71642:73446005] Failure on line 688 in function id scheduleApplicationNotification(LSNotificationCode, NSWorkspaceNotificationCenter *): noErr == _LSModifyNotification(notificationID, 1, &code, 0, NULL, NULL, NULL)\n196:227: execution error: Gemini browser is not running (-2700)",
+  "phase": "activate",
+  "window_id": null,
+  "tab_id": null
+}

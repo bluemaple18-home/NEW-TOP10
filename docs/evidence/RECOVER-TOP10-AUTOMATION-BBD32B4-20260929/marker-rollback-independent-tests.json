@@ -1,0 +1,43 @@
+{
+  "schema_version": "top10-bbd32b4-marker-rollback-tests.v1",
+  "candidate_sha": "bbd32b4f017498b413a32a1171aec76f426441a3",
+  "execution": "each test in an independent pytest process",
+  "all_pass": true,
+  "results": [
+    {
+      "node_id": "tests/test_automation_runtime_activation.py::test_denial_root_switch_is_explicitly_mirrored_then_cleared_before_bootout",
+      "exit_code": 0,
+      "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469\n  /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469: PytestCacheWarning: cache could not write path /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids: [Errno 1] Operation not permitted: '/Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids'\n    config.cache.set(\"cache/nodeids\", sorted(self.cached_nodeids))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n1 passed, 1 warning in 0.18s\n",
+      "stderr": "",
+      "pass": true
+    },
+    {
+      "node_id": "tests/test_automation_runtime_activation.py::test_denial_mirror_interruption_after_write_before_verify_removes_transaction_marker",
+      "exit_code": 0,
+      "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469\n  /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469: PytestCacheWarning: cache could not write path /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids: [Errno 1] Operation not permitted: '/Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids'\n    config.cache.set(\"cache/nodeids\", sorted(self.cached_nodeids))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n1 passed, 1 warning in 0.16s\n",
+      "stderr": "",
+      "pass": true
+    },
+    {
+      "node_id": "tests/test_automation_runtime_activation.py::test_second_signal_does_not_interrupt_transaction_marker_restore",
+      "exit_code": 0,
+      "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469\n  /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469: PytestCacheWarning: cache could not write path /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids: [Errno 1] Operation not permitted: '/Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids'\n    config.cache.set(\"cache/nodeids\", sorted(self.cached_nodeids))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n1 passed, 1 warning in 0.19s\n",
+      "stderr": "",
+      "pass": true
+    },
+    {
+      "node_id": "tests/test_automation_runtime_activation.py::test_new_denial_created_during_rollback_is_preserved",
+      "exit_code": 0,
+      "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469\n  /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469: PytestCacheWarning: cache could not write path /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids: [Errno 1] Operation not permitted: '/Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids'\n    config.cache.set(\"cache/nodeids\", sorted(self.cached_nodeids))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n1 passed, 1 warning in 0.19s\n",
+      "stderr": "",
+      "pass": true
+    },
+    {
+      "node_id": "tests/test_automation_runtime_activation.py::test_same_hash_external_replacement_after_mirror_is_preserved_on_rollback",
+      "exit_code": 0,
+      "stdout": ".                                                                        [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469\n  /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.venv/lib/python3.12/site-packages/_pytest/cacheprovider.py:469: PytestCacheWarning: cache could not write path /Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids: [Errno 1] Operation not permitted: '/Users/mattkuo/TOP10-runtime-automation-bbd32b4/.pytest_cache/v/cache/nodeids'\n    config.cache.set(\"cache/nodeids\", sorted(self.cached_nodeids))\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n1 passed, 1 warning in 0.16s\n",
+      "stderr": "",
+      "pass": true
+    }
+  ]
+}

@@ -39,11 +39,13 @@ if "-- phase: activate" in source:
     events.append("activate")
     assert "if matches is not 1 then error" in source
     assert "if URL of t is targetURL" in source
+    assert 'return (selectedWindow as text) & "|" & (selectedTab as text)' in source
+    assert " & tab & " not in source
     if scenario == "activate_timeout":
         fail("AppleEvent timed out (-1712)")
     if scenario == "ambiguous":
         fail("Gemini exact target missing or ambiguous")
-    print("41\t73")
+    print("41|73")
 elif "-- phase: ready" in source:
     assert events and events[0] == "activate"
     assert sys.argv[4:6] == ["41", "73"]

@@ -1,0 +1,19 @@
+{
+  "schema_version": "top10-gemini-candidate-script-probe-failure.v1",
+  "recorded_at": "2026-09-29T18:44:49.150047+08:00",
+  "candidate_sha": "bbd32b4f017498b413a32a1171aec76f426441a3",
+  "script": "scripts/review_gemini_chrome.sh",
+  "mode": "probe",
+  "packet_supplied": false,
+  "review_packet_sent": false,
+  "output_evidence_path": "/Users/mattkuo/TOP10-runtime-automation-bbd32b4/artifacts/preactivation_bbd32b4/evidence/gemini_probe_20260929_183718.json",
+  "result": {
+    "ok": false,
+    "reason": "probe_command_failed",
+    "error": "Invalid Gemini window/tab identity",
+    "phase": "activate",
+    "window_id": null,
+    "tab_id": null
+  },
+  "classification": "candidate probe script identity parsing defect; no message input or submit occurred"
+}

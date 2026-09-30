@@ -1,0 +1,123 @@
+{
+  "schema_version": "top10-evidence-manifest.v1",
+  "candidate_sha": "bbd32b4f017498b413a32a1171aec76f426441a3",
+  "generated_at": "2026-09-30T10:58:29.707734+08:00",
+  "verdict": "PREACTIVATION_PARTIAL_PASS_PRODUCTION_NO_GO",
+  "files": [
+    {
+      "path": "candidate-runtime-du-kib.raw.txt",
+      "size_bytes": 56,
+      "sha256": "49bc28a776a9b0894a005599ac46ab82cb2118bc7276c9a9071c216d222e0a72"
+    },
+    {
+      "path": "daily-guard-measure.raw.json",
+      "size_bytes": 914,
+      "sha256": "8d241f1ef78d32704130fd97a154f52c7d91814a2be04310cf1b8a3c01fcab67"
+    },
+    {
+      "path": "failure-final-recheck-synthesis.json",
+      "size_bytes": 485,
+      "sha256": "d5a15864b23e9de6d049dd2ab9574cfe8e7c95eea0fcc45c16f504960dfa28ea"
+    },
+    {
+      "path": "failure-index.json",
+      "size_bytes": 2577,
+      "sha256": "859bb709e263937c1e28968098b2557308f3021dadee8b5dbdda794e1ff2045c"
+    },
+    {
+      "path": "failure-invalid-trigger-type.json",
+      "size_bytes": 246,
+      "sha256": "b309032ac858c67f780b4179d4021b1fe3feddb41192cc356d79663971c239b4"
+    },
+    {
+      "path": "failure-sandbox-process-identity.json",
+      "size_bytes": 1678,
+      "sha256": "de0c380b379e3ad444ba5d649e39e54d02ca9344dab602163b506e9ae79d651e"
+    },
+    {
+      "path": "final-recheck.json",
+      "size_bytes": 3243,
+      "sha256": "fa9d1e3225153702af8bd00b1fc132e2f672d4b8ba9349ee362b2b97bff99224"
+    },
+    {
+      "path": "foundation-capacity.raw.json",
+      "size_bytes": 220,
+      "sha256": "98994a7fee38e54571dc04ae2549718512e51b954208bd04adda2ae542cd2231"
+    },
+    {
+      "path": "gemini-candidate-script-probe-failure.json",
+      "size_bytes": 765,
+      "sha256": "e5ca6192091d9eb7f1b2f6518ee051589575be6b7b096744a70153e6cc700c25"
+    },
+    {
+      "path": "gemini-identity-parser-repair-tests.txt",
+      "size_bytes": 439,
+      "sha256": "abc78b74badc86374310c7d8cc0c76c0637092103d4e1c24253547e9da4f4d0a"
+    },
+    {
+      "path": "gemini-identity-parser-repair.json",
+      "size_bytes": 2469,
+      "sha256": "e436e4b168c23a5f7e6cb19742fe08c7b2404b6aec8273c926d46f0edad961ea"
+    },
+    {
+      "path": "gemini-real-chrome-probe.json",
+      "size_bytes": 1084,
+      "sha256": "79819a967b7b75c532f555d18362a70e78582fd512ed46c192fd208a69cd516e"
+    },
+    {
+      "path": "gemini_probe_20260930_105258.json",
+      "size_bytes": 449,
+      "sha256": "c6839c30474d4c5c72af1a9cf82e8fdbbbaa650da9952e03772b5f7e1c723b4a"
+    },
+    {
+      "path": "gemini_probe_20260930_105501.json",
+      "size_bytes": 676,
+      "sha256": "6b5fea0dbbab1d1851e662b43db8296590ba9e5f1bd39b1c4e35731892e2f711"
+    },
+    {
+      "path": "marker-rollback-independent-tests.json",
+      "size_bytes": 5175,
+      "sha256": "ec6a16d25f90f5248bef79f7f564af916c8fb6d28e64ccf0e2f46a32e403edb8"
+    },
+    {
+      "path": "production-daily-launchctl.raw.txt",
+      "size_bytes": 2801,
+      "sha256": "0de77b2cb5e506002fed1e421d4212caa5a67b2cc14180c90a6055df1952195c"
+    },
+    {
+      "path": "production-daily-plist.raw.json",
+      "size_bytes": 551,
+      "sha256": "afe5cbdc175fbca0fb52baa65b9a26caac68cfd1a332c9e02b64dfbce5b0c9c8"
+    },
+    {
+      "path": "production-daily-plist.sha256.txt",
+      "size_bytes": 128,
+      "sha256": "2d9ca1ef74cd01a096bf4d5c34ea544fa0b9e9d14c54ab1b22eac42931d4bfc8"
+    },
+    {
+      "path": "recovered-daily-latest.fixture.json",
+      "size_bytes": 4209,
+      "sha256": "0cf9450cdb4b2890cd9359d038b65f7555136996327de60f5ed532a5f19dc14a"
+    },
+    {
+      "path": "report.md",
+      "size_bytes": 6575,
+      "sha256": "c3279c1b1153c99b4a126665205c1681224a07ec6fba6509c65a2d12a147a8bd"
+    },
+    {
+      "path": "restart-denied-marker.fixture.json",
+      "size_bytes": 5111,
+      "sha256": "69ac6c90a48b4d2723cc2b1538bb118e39bbb0aa2f7c8016bbcbec0b6a4b11e2"
+    },
+    {
+      "path": "root-stopped-receipt.fixture.json",
+      "size_bytes": 4209,
+      "sha256": "0cf9450cdb4b2890cd9359d038b65f7555136996327de60f5ed532a5f19dc14a"
+    },
+    {
+      "path": "safe-stop-marker-recovery.json",
+      "size_bytes": 1908,
+      "sha256": "ce2e9397667b730fa0af807ef175c98e7d86e07b3e182fe68ff1bfbeb716271c"
+    }
+  ]
+}

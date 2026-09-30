@@ -1,0 +1,8 @@
+{
+  "attempt": 1,
+  "child_started": false,
+  "error_type": "ValueError",
+  "error": "trigger_type 必須是 natural／manual／validation",
+  "supplied_trigger_type": "manual_validation",
+  "resolution": "retry with contract value validation"
+}

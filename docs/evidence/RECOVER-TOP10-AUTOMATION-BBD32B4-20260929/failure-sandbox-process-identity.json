@@ -1,0 +1,39 @@
+{
+  "schema_version": "top10-bbd32b4-safe-stop-marker-recovery.v1",
+  "candidate_sha": "bbd32b4f017498b413a32a1171aec76f426441a3",
+  "fixture_root": "/private/tmp/top10-bbd32b4-safety-stop-marker-recovery-20260929",
+  "first_invocation": {
+    "exit_code": 70,
+    "status": "STOPPED",
+    "reasons": [
+      "GUARD_INTERNAL_ERROR_PermissionError"
+    ],
+    "final_process_group_quiescent": null,
+    "process_group_identity": null,
+    "first_child_started": false
+  },
+  "marker": {
+    "path": "/private/tmp/top10-bbd32b4-safety-stop-marker-recovery-20260929/logs/storage_safety/restart_denied/daily.json",
+    "sha256": "26afd4b41711be76df44c67dd9c21c413e80580ddd12f71326c1cda0a4e2e007",
+    "root_invocation_id": "bbd32b4-safe-stop-fixture-1",
+    "root_receipt_path": "logs/storage_safety/receipts/daily/bbd32b4-safe-stop-fixture-1.json",
+    "root_receipt_sha256_declared": "818a0c0ad07c5fd7b3ad096cdfdace5e23351545d611b00c6232ea3538b0d89a",
+    "root_receipt_sha256_actual": "818a0c0ad07c5fd7b3ad096cdfdace5e23351545d611b00c6232ea3538b0d89a",
+    "hash_binding_matches": true,
+    "automatic_clear_allowed": false
+  },
+  "direct_restart_denial": {
+    "exit_code": 75,
+    "child_spawned": false,
+    "latest_preserved": true
+  },
+  "marker_recovery": {
+    "tampered_latest_sha256": "3b13176e5ac2ffbe399a0c39dfe26de52297f9bb28fb151d8a35d1da41de01f3",
+    "exit_code": 75,
+    "child_spawned": false,
+    "recovered_latest_sha256": "818a0c0ad07c5fd7b3ad096cdfdace5e23351545d611b00c6232ea3538b0d89a",
+    "root_receipt_sha256": "818a0c0ad07c5fd7b3ad096cdfdace5e23351545d611b00c6232ea3538b0d89a",
+    "restored_exact_root_receipt": true
+  },
+  "acceptance_pass": false
+}

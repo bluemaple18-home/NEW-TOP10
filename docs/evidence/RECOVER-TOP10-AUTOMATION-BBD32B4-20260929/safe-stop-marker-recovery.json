@@ -1,0 +1,45 @@
+{
+  "schema_version": "top10-bbd32b4-safe-stop-marker-recovery.v1",
+  "candidate_sha": "bbd32b4f017498b413a32a1171aec76f426441a3",
+  "execution": "unsandboxed isolated /private/tmp fixture",
+  "fixture_root": "/private/tmp/top10-bbd32b4-safety-stop-marker-recovery-unsandboxed-20260929",
+  "first_invocation": {
+    "exit_code": 70,
+    "status": "STOPPED",
+    "reasons": [
+      "UNREGISTERED_WRITE_PATH"
+    ],
+    "final_process_group_quiescent": true,
+    "process_group_identity": {
+      "group_id": 75611,
+      "leader_pid": 75611,
+      "leader_start_token": "Tue Sep 29 18:36:32 2026",
+      "session_id": 75611
+    },
+    "first_child_started": true
+  },
+  "marker": {
+    "path": "/private/tmp/top10-bbd32b4-safety-stop-marker-recovery-unsandboxed-20260929/logs/storage_safety/restart_denied/daily.json",
+    "sha256": "69ac6c90a48b4d2723cc2b1538bb118e39bbb0aa2f7c8016bbcbec0b6a4b11e2",
+    "root_invocation_id": "bbd32b4-safe-stop-fixture-unsandboxed-1",
+    "root_receipt_path": "logs/storage_safety/receipts/daily/bbd32b4-safe-stop-fixture-unsandboxed-1.json",
+    "root_receipt_sha256_declared": "0cf9450cdb4b2890cd9359d038b65f7555136996327de60f5ed532a5f19dc14a",
+    "root_receipt_sha256_actual": "0cf9450cdb4b2890cd9359d038b65f7555136996327de60f5ed532a5f19dc14a",
+    "hash_binding_matches": true,
+    "automatic_clear_allowed": false
+  },
+  "direct_restart_denial": {
+    "exit_code": 75,
+    "child_spawned": false,
+    "latest_preserved": true
+  },
+  "marker_recovery": {
+    "tampered_latest_sha256": "7fa5d694483a277abc7d62ff59b34d20e160dafe1821a4d74fe63bb841d08e00",
+    "exit_code": 75,
+    "child_spawned": false,
+    "recovered_latest_sha256": "0cf9450cdb4b2890cd9359d038b65f7555136996327de60f5ed532a5f19dc14a",
+    "root_receipt_sha256": "0cf9450cdb4b2890cd9359d038b65f7555136996327de60f5ed532a5f19dc14a",
+    "restored_exact_root_receipt": true
+  },
+  "acceptance_pass": true
+}

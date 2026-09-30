@@ -1,0 +1,97 @@
+{
+  "schema_version": "top10-bbd32b4-final-recheck.v1",
+  "observed_at": "2026-09-29T18:43:33.468989+08:00",
+  "candidate_sha_expected": "bbd32b4f017498b413a32a1171aec76f426441a3",
+  "source": {
+    "main_head": "bbd32b4f017498b413a32a1171aec76f426441a3",
+    "candidate_head": "bbd32b4f017498b413a32a1171aec76f426441a3",
+    "candidate_detached": true,
+    "candidate_symbolic_ref_return_code": 1,
+    "candidate_tracked_status": ""
+  },
+  "production_daily": {
+    "plist_path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist",
+    "plist_sha256": "17b9f9fb601ec7c58aa68e9b276515d1d5af907812f82900953cdf265d14176a",
+    "program_arguments": [
+      "/bin/bash",
+      "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/scripts/run_with_storage_guard.sh",
+      "daily",
+      "/bin/bash",
+      "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/scripts/run_daily_publish.sh"
+    ],
+    "plist_points_to_old_runtime": true,
+    "launchctl_contains_old_runtime": true,
+    "launchctl_state_not_running": true,
+    "launchctl_last_exit_75": true,
+    "production_marker_path": "/Users/mattkuo/TOP10-runtime-automation-bb55fc4/logs/storage_safety/restart_denied/daily.json",
+    "production_marker_sha256": "4338bfbb298ee15eb6abd33c0de9302edd3f1d109d550cbcab67a2c1c1734255",
+    "production_marker_sha_matches_precheck": true,
+    "candidate_marker_exists": false
+  },
+  "capacity": {
+    "host_total_bytes": 245107195904,
+    "raw_available_bytes": 31247360000,
+    "foundation_important_usage_available_bytes": 35437750153,
+    "requested_candidate_bytes": 6442450944,
+    "projected_available_bytes": 28995299209,
+    "hard_reserve_bytes": 24510719590,
+    "margin_over_reserve_bytes": 4484579619,
+    "admission_pass": true,
+    "candidate_runtime_kib": 1934032,
+    "candidate_runtime_bytes_estimate": 1980448768,
+    "candidate_under_6_gib": true
+  },
+  "daily_guard_measure": {
+    "decision": {
+      "reasons": [],
+      "triggered": false
+    },
+    "job": "daily",
+    "sample": {
+      "host_free_bytes": 31247208448,
+      "host_total_bytes": 245107195904,
+      "memory_pressure_level": 2,
+      "phase": "live",
+      "probe_timings": [
+        {
+          "available": true,
+          "duration_seconds": 0.14770462503656745,
+          "probe": "meter_paths"
+        },
+        {
+          "available": true,
+          "duration_seconds": 9.415904060006142e-06,
+          "probe": "disk_usage"
+        },
+        {
+          "available": true,
+          "duration_seconds": 6.66128471493721e-07,
+          "probe": "process_tree_rss"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.003662958974018693,
+          "probe": "swap"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.0027510421350598335,
+          "probe": "memory_pressure"
+        },
+        {
+          "available": true,
+          "duration_seconds": 0.1541549579706043,
+          "probe": "sample_total"
+        }
+      ],
+      "process_rss_attribution": [],
+      "project_bytes": 1245798092,
+      "project_file_count": 1745,
+      "rss_bytes": 0,
+      "swap_bytes": 10529674362,
+      "timestamp": 1790678498.1141272
+    },
+    "verdict": "PASS"
+  },
+  "invariance_pass": true
+}

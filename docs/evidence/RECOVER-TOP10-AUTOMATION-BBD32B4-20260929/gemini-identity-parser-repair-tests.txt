@@ -1,0 +1,13 @@
+$ bash -n scripts/review_gemini_chrome.sh
+PASS
+
+$ .venv/bin/python -m pytest -q tests/test_gemini_probe_wakeup.py
+.....                                                                    [100%]
+5 passed, 11 subtests passed in 43.80s
+
+$ .venv/bin/python -m pytest -q tests/test_external_review_provider_preflight.py
+...............                                                          [100%]
+15 passed in 6.99s
+
+$ git diff --check
+PASS

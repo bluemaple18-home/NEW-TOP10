@@ -1,0 +1,54 @@
+{
+  "schema_version": "top10-bbd32b4-preactivation-failure-index.v1",
+  "recorded_at": "2026-09-29T18:44:49.150047+08:00",
+  "failures_preserved": [
+    {
+      "id": "daily-cycle-1-r1-window-mismatch",
+      "path": "/Users/mattkuo/TOP10-runtime-automation-bbd32b4/logs/storage_safety/runtime/daily/preactivation-cycle-1-r1/daily_validation_cycle-1.json",
+      "classification": "requested validation window started 2025-06-06 while source snapshot started 2025-07-08",
+      "overwritten": false
+    },
+    {
+      "id": "daily-cycle-1-r2-missing-reference-input",
+      "path": "/Users/mattkuo/TOP10-runtime-automation-bbd32b4/logs/storage_safety/runtime/daily/preactivation-cycle-1-r2/daily_validation_cycle-1.json",
+      "classification": "detached candidate lacked ignored data/reference/tradable_universe.csv; expected_count became 0",
+      "overwritten": false
+    },
+    {
+      "id": "safe-stop-invalid-trigger-type",
+      "path": "failure-invalid-trigger-type.json",
+      "classification": "harness supplied unsupported manual_validation; child did not start",
+      "overwritten": false
+    },
+    {
+      "id": "safe-stop-sandbox-process-identity",
+      "path": "failure-sandbox-process-identity.json",
+      "classification": "sandbox blocked real process-group identity probe; fail-closed STOPPED but not accepted as quiescence proof",
+      "overwritten": false
+    },
+    {
+      "id": "gemini-candidate-script-identity",
+      "path": "gemini-candidate-script-probe-failure.json",
+      "classification": "candidate script failed activate-phase window/tab identity parsing",
+      "overwritten": false
+    },
+    {
+      "id": "final-recheck-detached-helper",
+      "path": "failure-final-recheck-synthesis.json",
+      "classification": "first synthesis helper treated detached symbolic-ref return code 1 as an exception",
+      "overwritten": false
+    },
+    {
+      "id": "gemini-repair-native2-dictionary-xpc",
+      "path": "gemini_probe_20260930_105258.json",
+      "classification": "current Native2 command context could not load the Google Chrome AppleScript dictionary because the macOS hiservices XPC connection was invalid; not accepted as a product probe result",
+      "overwritten": false
+    },
+    {
+      "id": "gemini-repair-native2-no-gui-session",
+      "path": "gemini_probe_20260930_105501.json",
+      "classification": "absolute Chrome dictionary path compiled, but the current Native2 command context did not share the user's GUI Chrome session; not accepted as a product probe result",
+      "overwritten": false
+    }
+  ]
+}

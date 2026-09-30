@@ -1,0 +1,17 @@
+{
+  "attempt": 1,
+  "error_type": "subprocess.CalledProcessError",
+  "failed_command": [
+    "git",
+    "-C",
+    "/Users/mattkuo/TOP10-runtime-automation-bbd32b4",
+    "symbolic-ref",
+    "-q",
+    "--short",
+    "HEAD"
+  ],
+  "return_code": 1,
+  "meaning": "detached HEAD 的正常回傳被第一版 synthesis helper 誤當成錯誤",
+  "side_effects": "none; raw evidence files remained intact",
+  "resolution": "use subprocess.run and interpret nonzero symbolic-ref as detached"
+}
