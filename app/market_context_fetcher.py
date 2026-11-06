@@ -726,6 +726,27 @@ def build_market_context(
     except Exception as exc:
         oi_payload = []
         taifex_warnings.append(f"TAIFEX futures OI fetch failed: {exc}")
+    # 每日API整份日期落後時，沿用既有官方指定日來源；錯值或損壞回應仍拒收。
+    dated_fallback_info: dict[str, dict[str, Any]] = {}
+    if not backfill:
+        for section, original in (("futures", futures_payload), ("oi", oi_payload)):
+            try:
+                latest_api_date = max(check_date(row.get("Date")) for row in normalize_list(original))
+            except ValueError:
+                continue  # 不以指定日備援掩蓋空清單、錯誤日期或來源格式損壞。
+            if latest_api_date >= trade_date:
+                continue
+            try:
+                official_rows, info = fetch_historical(section, trade_date, headers=REQUEST_HEADERS)
+                dated_fallback_info[section] = {**info, "api_data_date": latest_api_date}
+                if info.get("status") != "ok":
+                    raise ValueError("官方指定日來源無目標日資料")
+                if section == "futures":
+                    futures_payload = official_rows
+                else:
+                    oi_payload = official_rows
+            except Exception as exc:
+                taifex_warnings.append(f"TAIFEX {section} dated fallback failed: {exc}")
     unavailable = frozenset(
         name for name, info in historical_info.items()
         if info["status"] == "unavailable_historical"
@@ -764,6 +785,9 @@ def build_market_context(
     if backfill:
         taifex_status.update(source="taifex_historical", components=historical_info,
                              fallback_used=any(info["fallback_used"] for info in historical_info.values()))
+    if dated_fallback_info:
+        taifex_status.update(source="taifex_openapi_with_dated_fallback",
+                             dated_fallback=dated_fallback_info, fallback_used=True)
     if pcr_format == "html":
         taifex_status.update(pcr_source="taifex_pcRatioExcel", pcr_fallback_used=True, fallback_used=True)
     if unavailable and not taifex_warnings:

@@ -41,6 +41,21 @@ export TOP10_RUN_DATE="$RUN_DATE"
 
 send_ops_report() {
   if [ "${TOP10_BACKFILL:-0}" = "1" ]; then return 0; fi
+  # 沿既有旗標跳過已關閉的ops，避免無關入口錯誤改寫Daily送達結果。
+  OPS_EXIT_CODE=64
+  OPS_ENABLED="$("$PYTHON_BIN" -c '
+import sys
+from pathlib import Path
+import yaml
+config = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
+notify = config.get("notify") if isinstance(config.get("notify"), dict) else {}
+print("1" if notify.get("ops_clawd_enabled") is True else "0")
+' "$PROJECT_DIR/config/automation.yaml")" || return 64
+  case "$OPS_ENABLED" in
+    0) echo "ops progress report disabled; skip"; return 0 ;;
+    1) ;;
+    *) return 64 ;;
+  esac
   set +e
   OPS_ARGS=(scripts/send_top10_ops_report.py --run-date "$RUN_DATE" --send)
   if [ "$RUN_DATE" != "$(date +%F)" ]; then
