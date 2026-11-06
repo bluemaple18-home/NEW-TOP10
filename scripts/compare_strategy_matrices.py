@@ -17,11 +17,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "strategy-matrix-comparison.v1"
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="compare strategy matrix artifacts")
     parser.add_argument("--variant", action="append", required=True, help="格式 label=path/to/strategy_matrix.json")
     parser.add_argument("--output", required=True)
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def resolve_path(value: str | Path) -> Path:
@@ -223,8 +223,8 @@ def render_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     payload = compare([parse_variant(value) for value in args.variant])
     output_path = resolve_path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

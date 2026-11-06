@@ -3,6 +3,9 @@ from FinMind.data import DataLoader
 from datetime import datetime, timedelta
 from pathlib import Path
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FinMindFetcher:
     """FinMind 資料抓取器 - 負責獲取籌碼面與基本面資料"""
@@ -12,12 +15,11 @@ class FinMindFetcher:
         Args:
             token: FinMind API Token (若無則使用免費版限制)
         """
-        self.api = DataLoader()
+        self.api = DataLoader(token=token or "")
         if token:
-            self.api.login_token(token)
-            print("✅ FinMind Token 登入成功")
+            logger.info("FinMind 已提供 token；有效性以資料端點回應為準")
         else:
-            print("ℹ️ 使用 FinMind 免費版 (每小時 300 次請求限制)")
+            logger.warning("FinMind 未提供 token，使用未登入額度")
 
     def get_institutional_investors(self, stock_id: str, start_date: str, end_date: str = None):
         """
@@ -42,9 +44,9 @@ class FinMindFetcher:
             df['date'] = pd.to_datetime(df['date'])
             return df
             
-        except Exception as e:
-            print(f"❌ 抓取 {stock_id} 籌碼失敗: {e}")
-            return pd.DataFrame()
+        except Exception as exc:
+            logger.warning("FinMind 法人擷取失敗 stock_id=%s error_type=%s", stock_id, type(exc).__name__)
+            raise RuntimeError(f"FinMind 法人來源擷取失敗：{stock_id} {start_date}..{end_date}") from exc
 
     def get_margin_purchase_short_sale(self, stock_id: str, start_date: str, end_date: str = None):
         """
@@ -59,8 +61,9 @@ class FinMindFetcher:
                 end_date=end_date
             )
             return df
-        except Exception:
-            return pd.DataFrame()
+        except Exception as exc:
+            logger.warning("FinMind 融資融券擷取失敗 stock_id=%s error_type=%s", stock_id, type(exc).__name__)
+            raise RuntimeError(f"FinMind 融資融券來源擷取失敗：{stock_id} {start_date}..{end_date}") from exc
 
     def get_daily_short_sale_balances(self, stock_id: str, start_date: str, end_date: str = None):
         """
@@ -78,8 +81,9 @@ class FinMindFetcher:
                 end_date=end_date
             )
             return df
-        except Exception:
-            return pd.DataFrame()
+        except Exception as exc:
+            logger.warning("FinMind 借券餘額擷取失敗 stock_id=%s error_type=%s", stock_id, type(exc).__name__)
+            raise RuntimeError(f"FinMind 借券餘額來源擷取失敗：{stock_id} {start_date}..{end_date}") from exc
 
 if __name__ == "__main__":
     fetcher = FinMindFetcher()

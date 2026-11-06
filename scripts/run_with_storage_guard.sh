@@ -61,26 +61,43 @@ export TOP10_STORAGE_JOB="$JOB"
 export TOP10_STORAGE_SCHEDULED_AT="$SCHEDULED_AT"
 export TOP10_STORAGE_INVOCATION_ID="$INVOCATION_ID"
 
-# 將 child 的暫存與下載型 cache 收斂到可量測的專案路徑；不改寫 HOME，
-# 也不讓 uv、Matplotlib 或 joblib 把排程產物散落到其他專案／使用者 cache。
-TOP10_STORAGE_RUNTIME_ROOT="$PROJECT_DIR/logs/storage_safety/runtime/$JOB"
-mkdir -p \
-  "$TOP10_STORAGE_RUNTIME_ROOT/tmp/joblib" \
-  "$TOP10_STORAGE_RUNTIME_ROOT/cache/uv" \
-  "$TOP10_STORAGE_RUNTIME_ROOT/cache/xdg" \
-  "$TOP10_STORAGE_RUNTIME_ROOT/cache/matplotlib"
-export TMPDIR="$TOP10_STORAGE_RUNTIME_ROOT/tmp"
-export UV_CACHE_DIR="$TOP10_STORAGE_RUNTIME_ROOT/cache/uv"
-export XDG_CACHE_HOME="$TOP10_STORAGE_RUNTIME_ROOT/cache/xdg"
-export MPLCONFIGDIR="$TOP10_STORAGE_RUNTIME_ROOT/cache/matplotlib"
-export JOBLIB_TEMP_FOLDER="$TOP10_STORAGE_RUNTIME_ROOT/tmp/joblib"
-export PYTHONDONTWRITEBYTECODE=1
-
 PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"
 if [ ! -x "$PYTHON_BIN" ]; then
   echo "storage guard requires executable .venv/bin/python" >&2
   exit 69
 fi
+
+# EXIT 也涵蓋 source 內的 exit、nounset 與契約展開失敗；正常交接前移除。
+# 僅傳固定 failure flag，讓原 guard 在持鎖例外路徑產生 receipt／denial。
+storage_startup_failed() {
+  trap - EXIT
+  exec "$PYTHON_BIN" -B "$PROJECT_DIR/scripts/storage_safety.py" run \
+    --job "$JOB" --trigger-type "$TRIGGER_TYPE" \
+    --scheduled-at "$SCHEDULED_AT" --invocation-id "$INVOCATION_ID" \
+    --startup-failure -- "$@"
+}
+trap 'storage_startup_failed "$@"' EXIT
+
+# runtime 由 Python guard 在 lock、容量與外接身分准入後建立。
+# 不在 guard 前覆寫 caller 的外接設定，也不提前建立內建 cache。
+# 先讀無 mkdir 的環境層；缺完整映像契約時，不進入 toolchain 的 legacy mkdir 分支。
+TOP10_TOOLCHAIN_ROOT="${AI_CORE_DIR:-$HOME/ai-core}"
+source "$TOP10_TOOLCHAIN_ROOT/config/ai_core_env.sh"
+: "${AI_CORE_CACHE_VOLUME:?storage guard requires external cache volume}"
+if [ "${AI_CORE_CACHE_MODE:-image}" = "directory" ]; then
+  : "${AI_CORE_CACHE_ROOT:?storage guard requires managed cache root}"
+  : "${AI_CORE_CACHE_MAX_FILES:?storage guard requires aggregate file cap}"
+  : "${AI_CORE_CACHE_RESERVED_OTHER_BYTES:?storage guard requires shared SR budget}"
+else
+  : "${AI_CORE_CACHE_IMAGE:?storage guard requires external cache image}"
+  : "${AI_CORE_CACHE_BACKING_VOLUME:?storage guard requires external backing volume}"
+  : "${AI_CORE_CACHE_BACKING_UUID:?storage guard requires external backing identity}"
+fi
+: "${AI_CORE_CACHE_VOLUME_UUID:?storage guard requires external image identity}"
+: "${AI_CORE_CACHE_MAX_BYTES:?storage guard requires external image cap}"
+source "$TOP10_TOOLCHAIN_ROOT/config/toolchain_paths.sh"
+export PYTHONDONTWRITEBYTECODE=1
+trap - EXIT
 
 exec "$PYTHON_BIN" scripts/storage_safety.py run \
   --job "$JOB" \

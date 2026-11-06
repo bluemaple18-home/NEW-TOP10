@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -23,6 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.automation.status_contract import daily_status_snapshot_path  # noqa: E402
+from scripts.openclaw_gateway_sender import normalize_message_id, stable_idempotency_key  # noqa: E402
 
 try:
     import yaml
@@ -258,16 +260,90 @@ def check_publish_artifacts(
         if send_status.get("message_date") != run_date:
             errors.append(f"send_status.message_date mismatch: {send_status.get('message_date')} != {run_date}")
         if require_send:
+            is_v2 = send_status.get("schema_version") == "clawd-send-status.v2"
+            historical_v1 = (run_date < "2026-10-15"
+                             and send_status.get("schema_version") == "clawd-send-status.v1"
+                             and extract_send_status_message_id(send_status) is not None)
+            if not is_v2 and not historical_v1:
+                errors.append("send_status.schema_version must be clawd-send-status.v2 for current live verification")
+            if historical_v1:
+                warnings.append("historical v1 receipt: message ID verified; content hash was not recorded by that schema")
             if send_status.get("status") != "OK":
                 errors.append(f"send_status.status must be OK, got {send_status.get('status')}")
             if send_status.get("dry_run") is not False:
                 errors.append("send_status.dry_run must be false for live publish verification")
             if send_status.get("send_attempted") is not True:
                 errors.append("send_status.send_attempted must be true")
+            if extract_send_status_message_id(send_status) is None:
+                errors.append("send_status.receipt.message_id is required for live publish verification")
+            if is_v2 and message_path.is_file():
+                if run_date >= "2026-10-15" and send_status.get("run_id") != f"daily-{run_date}":
+                    errors.append("send_status.run_id must match the Daily publish run")
+                message_bytes = message_path.read_bytes()
+                if send_status.get("message_sha256") != hashlib.sha256(message_bytes).hexdigest():
+                    errors.append("send_status.message_sha256 must match current message")
+                if send_status.get("message_path") != str(message_path):
+                    errors.append("send_status.message_path must match current message")
+                expected_key = stable_idempotency_key(
+                    f"daily-publish:{run_date}",
+                    channel=str(delivery.get("channel") or ""),
+                    target=str(delivery.get("to") or ""),
+                    message=message_bytes.decode("utf-8"),
+                )
+                if send_status.get("idempotency_key") != expected_key:
+                    errors.append("send_status.idempotency_key must match current message and target")
+                receipt = send_status.get("receipt")
+                if not isinstance(receipt, dict) or receipt.get("idempotency_key") != expected_key:
+                    errors.append("send_status.receipt.idempotency_key must match current message and target")
+            if historical_v1 and send_status.get("message_path") not in {None, str(message_path)}:
+                errors.append("historical send_status.message_path mismatch")
+            if send_status.get("channel") != delivery.get("channel") or send_status.get("target") != delivery.get("to"):
+                errors.append("send_status channel/target must match payload delivery")
+            if is_v2 and run_date >= "2026-10-15":
+                try:
+                    from top10_agent_status import event_record_complete
+                except ModuleNotFoundError:
+                    from scripts.top10_agent_status import event_record_complete
+                if not event_record_complete(ARTIFACTS_DIR, run_date, f"daily-{run_date}", "daily_push"):
+                    errors.append("daily_push event and rollup must be complete for confirmed live publish")
     elif require_send:
         errors.append(f"send status missing: {send_path}")
     else:
         warnings.append(f"send status not checked because --require-send is false: {send_path}")
+
+
+def extract_send_status_message_id(send_status: dict[str, Any]) -> str | None:
+    """讀取新版 receipt；舊 v1 僅接受既知成功 stdout shape。"""
+    if "receipt" in send_status:
+        receipt = send_status.get("receipt")
+        if not isinstance(receipt, dict):
+            return None
+        return normalize_message_id(receipt.get("message_id"))
+
+    if (
+        send_status.get("schema_version") != "clawd-send-status.v1"
+        or send_status.get("status") != "OK"
+        or send_status.get("dry_run") is not False
+        or send_status.get("send_attempted") is not True
+    ):
+        return None
+
+    stdout = send_status.get("stdout")
+    if not isinstance(stdout, str) or not stdout.strip():
+        return None
+    try:
+        legacy = json.loads(stdout)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(legacy, dict) or legacy.get("dryRun") is not False:
+        return None
+    payload = legacy.get("payload")
+    if not isinstance(payload, dict):
+        return None
+    result = payload.get("result")
+    if not isinstance(result, dict):
+        return None
+    return normalize_message_id(result.get("messageId"))
 
 
 def load_daily_status(requested_date: str | None, errors: list[str]) -> tuple[dict[str, Any], Path]:

@@ -288,6 +288,8 @@ def pipeline_start_for(run_day: date, lookback_days: int) -> str:
 
 
 def command_env(output_root: Path, runtime: Path) -> dict[str, str]:
+    from app.external_cache import reject_external_isolation
+    reject_external_isolation()
     env = os.environ.copy()
     env.update(
         {
@@ -309,6 +311,8 @@ def command_env(output_root: Path, runtime: Path) -> dict[str, str]:
 
 
 def prepare_runtime(runtime: Path) -> None:
+    from app.external_cache import reject_external_isolation
+    reject_external_isolation()
     for path in [
         runtime / "tmp",
         runtime / "cache" / "uv",
@@ -632,6 +636,8 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def run_backfill(args: argparse.Namespace) -> dict[str, Any]:
+    from app.external_cache import reject_external_isolation
+    reject_external_isolation()
     source_root = args.source_root.resolve()
     output_root = resolve_output_root(source_root, args.output_root)
     evidence_dir = resolve_evidence_dir(output_root, args.evidence_dir)

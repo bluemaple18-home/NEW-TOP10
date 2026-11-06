@@ -7,14 +7,17 @@
 from __future__ import annotations
 
 import fcntl
+import ctypes
 import hashlib
 import hmac
 import json
 import math
 import os
+import plistlib
 import re
 import shutil
 import signal
+import stat as stat_module
 import subprocess
 import sys
 import tempfile
@@ -22,12 +25,15 @@ import threading
 import time
 import uuid
 from collections import defaultdict, deque
+from contextlib import ExitStack
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
 from app.fog_natural_acceptance import FOG_JOB, evaluate_natural_acceptance
+from app.lightgbm_temp_guard import LightGBMTempGuard, PREFIX, PRESERVED_PREFIX
+from app.external_cache import ExternalCache, ExternalCacheError, external_environment, runtime_environment
 
 
 POLICY_SCHEMA_VERSION = "top10-storage-policy.v1"
@@ -43,6 +49,10 @@ _LIVE_SAMPLE_SCHEDULE_NUMERATOR = 19
 _FOG_LIVE_SAMPLE_SCHEDULE_NUMERATOR = 14
 _LIVE_SAMPLE_SCHEDULE_DENOMINATOR = 20
 _HOST_PROBE_TIMEOUT_SECONDS = 5.0
+_MEMORY_PROBE_TIMEOUT_SECONDS = 5.0
+_FOG_OBSERVATION_DEADLINE_SECONDS = 15.0
+_BOOT_VOLUME_PATH = Path("/System/Volumes/Data") if sys.platform == "darwin" else Path("/")
+_SWAP_VOLUME_PATH = Path("/System/Volumes/VM") if sys.platform == "darwin" else Path("/")
 
 
 @dataclass(frozen=True)
@@ -54,6 +64,9 @@ class GlobalPolicy:
     require_swap_metric: bool
     log_max_bytes: int
     log_backups: int
+    boot_volume_min_free_bytes: int = 24 * 1024**3
+    boot_volume_warn_free_bytes: int = 34 * 1024**3
+    memory_sample_interval_seconds: int = 15
 
 
 @dataclass(frozen=True)
@@ -85,6 +98,8 @@ class JobPolicy:
     reclaim_after_seconds: int
     retention_days: int
     sample_interval_seconds: int
+    host_peak_budget_bytes: int = 0
+    boot_volume_swap_headroom_bytes: int = 0
 
 
 @dataclass(frozen=True)
@@ -99,6 +114,7 @@ class ProcessRssAttribution:
     ppid: int
     rss_bytes: int
     command: str
+    phys_footprint: int | None = None
 
 
 @dataclass(frozen=True)
@@ -121,6 +137,19 @@ class Sample:
     memory_pressure_level: int | None = None
     process_rss_attribution: tuple[ProcessRssAttribution, ...] = ()
     probe_timings: tuple[ProbeTiming, ...] = ()
+    external_cache: dict[str, Any] | None = None
+    # host_free_bytes 為准入／停損可用量；另留實體 raw，避免混淆兩種口徑。
+    host_raw_free_bytes: int | None = None
+    host_capacity_source: str | None = None
+    boot_volume_path: str | None = None
+    swap_volume_path: str | None = None
+    boot_volume_total_bytes: int | None = None
+    boot_volume_free_bytes: int | None = None
+    boot_volume_raw_free_bytes: int | None = None
+    boot_volume_capacity_source: str | None = None
+    capacity_sampled: bool = True
+    host_boot_shared_container: bool | None = None
+    monotonic_timestamp: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -130,6 +159,7 @@ class Sample:
 class StopDecision:
     triggered: bool
     reasons: tuple[str, ...]
+    warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -169,6 +199,14 @@ class GuardInterrupted(RuntimeError):
 
 class UntrustedValidationEntrypoint(RuntimeError):
     """validation command 未通過結構化 entrypoint trust contract。"""
+
+
+class StorageObservationError(RuntimeError):
+    """容量／寫入觀測失敗；receipt 只保存固定 reason code。"""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(reason)
 
 
 def _positive_int(value: Any, field: str) -> int:
@@ -242,7 +280,14 @@ def load_policy(path: Path, job: str) -> tuple[GlobalPolicy, JobPolicy, tuple[Re
         require_swap_metric=_strict_bool(host.get("require_swap_metric", True), "require_swap_metric"),
         log_max_bytes=_positive_int(logging["max_bytes"], "logging.max_bytes"),
         log_backups=_positive_int(logging["backups"], "logging.backups"),
+        boot_volume_min_free_bytes=_positive_int(host["boot_volume_min_free_bytes"], "boot_volume_min_free_bytes"),
+        boot_volume_warn_free_bytes=_positive_int(host["boot_volume_warn_free_bytes"], "boot_volume_warn_free_bytes"),
+        memory_sample_interval_seconds=_positive_int(host["memory_sample_interval_seconds"], "memory_sample_interval_seconds"),
     )
+    if (global_policy.boot_volume_min_free_bytes != 24 * 1024**3
+            or global_policy.boot_volume_warn_free_bytes != 34 * 1024**3
+            or global_policy.memory_sample_interval_seconds > 15):
+        raise ValueError("內建卷門檻須為 24／34 GiB，記憶體取樣間隔不得超過 15 秒")
     if (
         global_policy.start_min_free_bytes != 0
         or global_policy.start_min_free_percent != 0.10
@@ -288,7 +333,20 @@ def load_policy(path: Path, job: str) -> tuple[GlobalPolicy, JobPolicy, tuple[Re
         sample_interval_seconds=_positive_int(
             raw["sample_interval_seconds"], f"{job}.sample_interval_seconds"
         ),
+        host_peak_budget_bytes=(
+            _positive_int(raw["host_peak_budget_bytes"], f"{job}.host_peak_budget_bytes")
+            if job == "daily" else 0
+        ),
+        boot_volume_swap_headroom_bytes=(
+            _positive_int(raw["boot_volume_swap_headroom_bytes"], f"{job}.boot_volume_swap_headroom_bytes")
+            if job == "daily" else 0
+        ),
     )
+    if (job == "daily" and job_policy.host_peak_budget_bytes
+            < job_policy.max_bytes + job_policy.boot_volume_swap_headroom_bytes):
+        raise ValueError("daily.host_peak_budget_bytes 必須覆蓋專案峰值與獨立內建卷預留")
+    if job == "daily" and job_policy.boot_volume_swap_headroom_bytes < 2 * 1024**3:
+        raise ValueError("daily 內建卷預留不得低於既有 2 GiB")
     if job_policy.sample_interval_seconds > 300:
         raise ValueError(f"{job}.sample_interval_seconds 不得超過 300")
     if not job_policy.verification_basis.strip():
@@ -332,33 +390,102 @@ def _safe_root_path(root: Path, relative: str) -> Path:
     return candidate
 
 
-def _iter_regular_files(base: Path) -> Iterable[Path]:
-    if not base.exists():
+def _iter_regular_file_stats(
+    base: Path,
+    *,
+    deadline: float | None = None,
+    monotonic_clock: Callable[[], float] = time.monotonic,
+    permission_reason: str,
+    unavailable_reason: str,
+    deadline_reason: str,
+) -> Iterable[tuple[Path, os.stat_result]]:
+    """以單一 DirEntry metadata 遍歷；競態刪除可略過，其餘觀測失敗拒絕。"""
+
+    def check_deadline() -> None:
+        if deadline is not None and monotonic_clock() >= deadline:
+            raise StorageObservationError(deadline_reason)
+
+    def observation_error(error: OSError) -> StorageObservationError:
+        reason = permission_reason if isinstance(error, PermissionError) else unavailable_reason
+        return StorageObservationError(reason)
+
+    check_deadline()
+    try:
+        base_stat = base.lstat()
+    except FileNotFoundError:
         return
-    if base.is_symlink():
+    except OSError as error:
+        raise observation_error(error) from error
+    if stat_module.S_ISLNK(base_stat.st_mode):
         raise ValueError(f"meter path 不得是 symlink: {base}")
-    if base.is_file():
-        yield base
+    if stat_module.S_ISREG(base_stat.st_mode):
+        yield base, base_stat
         return
-    if not base.is_dir():
+    if not stat_module.S_ISDIR(base_stat.st_mode):
         return
-    for directory, dirnames, filenames in os.walk(base, followlinks=False):
-        dirnames[:] = sorted(
-            name
-            for name in dirnames
-            if name not in IGNORED_PROJECT_DIRS and not (Path(directory) / name).is_symlink()
-        )
-        for name in sorted(filenames):
-            path = Path(directory) / name
-            if path.is_symlink():
+
+    pending = [base]
+    while pending:
+        check_deadline()
+        directory = pending.pop()
+        try:
+            with os.scandir(directory) as iterator:
+                entries = sorted(iterator, key=lambda entry: entry.name)
+        except FileNotFoundError:
+            continue
+        except OSError as error:
+            raise observation_error(error) from error
+
+        child_directories: list[Path] = []
+        for entry in entries:
+            check_deadline()
+            try:
+                if entry.is_symlink():
+                    continue
+                if entry.is_dir(follow_symlinks=False):
+                    if entry.name not in IGNORED_PROJECT_DIRS:
+                        child_directories.append(Path(entry.path))
+                    continue
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                entry_stat = entry.stat(follow_symlinks=False)
+            except FileNotFoundError:
+                # child 正在原子 replace／回收；消失後已不再占用容量。
                 continue
-            if path.is_file():
-                yield path
+            except OSError as error:
+                raise observation_error(error) from error
+            yield Path(entry.path), entry_stat
+        pending.extend(reversed(child_directories))
 
 
-def measure_paths(root: Path, meter_paths: Sequence[str]) -> Inventory:
+def _iter_regular_files(base: Path) -> Iterable[Path]:
+    """保留既有內部接點；新量測直接使用同一次取得的 stat。"""
+
+    for path, _path_stat in _iter_regular_file_stats(
+        base,
+        permission_reason="STORAGE_OBSERVATION_PERMISSION_DENIED",
+        unavailable_reason="STORAGE_OBSERVATION_UNAVAILABLE",
+        deadline_reason="STORAGE_OBSERVATION_DEADLINE_EXCEEDED",
+    ):
+        yield path
+
+
+def measure_paths(
+    root: Path,
+    meter_paths: Sequence[str],
+    *,
+    deadline_seconds: float | None = None,
+    monotonic_clock: Callable[[], float] = time.monotonic,
+) -> Inventory:
     """量測登記 scope；重疊的 meter path 只計一次。"""
 
+    if deadline_seconds is not None and deadline_seconds <= 0:
+        raise ValueError("deadline_seconds 必須大於 0")
+    deadline = (
+        monotonic_clock() + deadline_seconds
+        if deadline_seconds is not None
+        else None
+    )
     canonical_root = root.resolve()
     bases: list[Path] = []
     for relative in meter_paths:
@@ -375,12 +502,19 @@ def measure_paths(root: Path, meter_paths: Sequence[str]) -> Inventory:
     seen: set[str] = set()
     total_bytes = 0
     for base in sorted(bases, key=lambda item: (len(item.parts), item.as_posix())):
-        for path in _iter_regular_files(base):
+        for path, path_stat in _iter_regular_file_stats(
+            base,
+            deadline=deadline,
+            monotonic_clock=monotonic_clock,
+            permission_reason="METER_PATHS_PERMISSION_DENIED",
+            unavailable_reason="METER_PATHS_PROBE_UNAVAILABLE",
+            deadline_reason="METER_PATHS_PROBE_DEADLINE_EXCEEDED",
+        ):
             identity = path.relative_to(canonical_root).as_posix()
             if identity in seen:
                 continue
             seen.add(identity)
-            total_bytes += path.stat().st_size
+            total_bytes += path_stat.st_size
     return Inventory(bytes=total_bytes, file_count=len(seen))
 
 
@@ -388,19 +522,34 @@ def project_write_snapshot(
     root: Path,
     *,
     max_files: int | None = None,
+    deadline_seconds: float | None = None,
+    monotonic_clock: Callable[[], float] = time.monotonic,
 ) -> dict[str, tuple[int, int]]:
     """建立 repo 內可觀察檔案快照，用於偵測未登記寫入。"""
 
+    if deadline_seconds is not None and deadline_seconds <= 0:
+        raise ValueError("deadline_seconds 必須大於 0")
+    deadline = (
+        monotonic_clock() + deadline_seconds
+        if deadline_seconds is not None
+        else None
+    )
     root = root.resolve()
     snapshot: dict[str, tuple[int, int]] = {}
-    for path in _iter_regular_files(root):
+    for path, path_stat in _iter_regular_file_stats(
+        root,
+        deadline=deadline,
+        monotonic_clock=monotonic_clock,
+        permission_reason="WRITE_SNAPSHOT_PERMISSION_DENIED",
+        unavailable_reason="WRITE_SNAPSHOT_UNAVAILABLE",
+        deadline_reason="WRITE_SNAPSHOT_DEADLINE_EXCEEDED",
+    ):
         relative = path.relative_to(root)
         if relative.parts and relative.parts[0] in IGNORED_PROJECT_DIRS:
             continue
         if max_files is not None and len(snapshot) >= max_files:
             raise RuntimeError("protected root snapshot 超過檔案上限")
-        stat = path.stat()
-        snapshot[relative.as_posix()] = (stat.st_size, stat.st_mtime_ns)
+        snapshot[relative.as_posix()] = (path_stat.st_size, path_stat.st_mtime_ns)
     return snapshot
 
 
@@ -447,7 +596,7 @@ def registered_changed_paths_outside_meter(
 _SWAP_PATTERN = re.compile(r"used\s*=\s*([0-9.]+)([KMGTP])", re.IGNORECASE)
 
 
-def read_swap_bytes() -> int | None:
+def read_swap_bytes(*, timeout_seconds: float = _HOST_PROBE_TIMEOUT_SECONDS) -> int | None:
     """讀取 macOS swap；不可讀時回傳 None，由 fail-closed policy 判定。"""
 
     try:
@@ -456,7 +605,7 @@ def read_swap_bytes() -> int | None:
             text=True,
             capture_output=True,
             check=False,
-            timeout=_HOST_PROBE_TIMEOUT_SECONDS,
+            timeout=timeout_seconds,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -471,6 +620,7 @@ def read_swap_bytes() -> int | None:
 
 def read_memory_pressure_level(
     command: Sequence[str] = ("/usr/sbin/sysctl", "-n", "kern.memorystatus_vm_pressure_level"),
+    *, timeout_seconds: float = _HOST_PROBE_TIMEOUT_SECONDS,
 ) -> int | None:
     """讀取 macOS XNU memory pressure level；不可讀或非 0..4 時回傳 None。"""
 
@@ -482,7 +632,7 @@ def read_memory_pressure_level(
             text=True,
             capture_output=True,
             check=False,
-            timeout=_HOST_PROBE_TIMEOUT_SECONDS,
+            timeout=timeout_seconds,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -494,8 +644,38 @@ def read_memory_pressure_level(
     return int(raw)
 
 
+class _RusageInfoV0(ctypes.Structure):
+    """macOS SDK sys/resource.h 的 RUSAGE_INFO_V0 固定 ABI。"""
+
+    _fields_ = [("ri_uuid", ctypes.c_uint8 * 16)] + [
+        (name, ctypes.c_uint64) for name in (
+            "ri_user_time", "ri_system_time", "ri_pkg_idle_wkups", "ri_interrupt_wkups",
+            "ri_pageins", "ri_wired_size", "ri_resident_size", "ri_phys_footprint",
+            "ri_proc_start_abstime", "ri_proc_exit_abstime",
+        )
+    ]
+
+
+def read_process_phys_footprint(pid: int) -> int | None:
+    """讀取指定 process 的實體足跡；權限不足／process 已退出時保留未知。"""
+
+    if sys.platform != "darwin":
+        return None
+    try:
+        probe = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True).proc_pid_rusage
+        probe.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
+        probe.restype = ctypes.c_int
+        info = _RusageInfoV0()
+        if probe(pid, 0, ctypes.byref(info)) != 0:
+            return None
+        return int(info.ri_phys_footprint)
+    except (OSError, AttributeError, ValueError):
+        return None
+
+
 def process_tree_rss_snapshot(
     root_pid: int | None,
+    *, timeout_seconds: float = _HOST_PROBE_TIMEOUT_SECONDS,
 ) -> tuple[int | None, tuple[ProcessRssAttribution, ...]]:
     if root_pid is None or root_pid <= 0:
         return 0, ()
@@ -505,7 +685,7 @@ def process_tree_rss_snapshot(
             text=True,
             capture_output=True,
             check=False,
-            timeout=_HOST_PROBE_TIMEOUT_SECONDS,
+            timeout=timeout_seconds,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None, ()
@@ -540,7 +720,7 @@ def process_tree_rss_snapshot(
         seen.add(pid)
         process = processes.get(pid)
         if process is not None:
-            attribution.append(process)
+            attribution.append(replace(process, phys_footprint=read_process_phys_footprint(pid)))
         queue.extend(parents.get(pid, []))
     return sum(process.rss_bytes for process in attribution), tuple(attribution)
 
@@ -550,7 +730,95 @@ def process_tree_rss_bytes(root_pid: int | None) -> int | None:
     return rss_bytes
 
 
-def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -> Sample:
+def _measure_host_capacity(path: Path) -> tuple[int, int, int, str]:
+    """薄接既有 ai-core sensor；macOS 失敗直接拒絕，不以 raw 降級。"""
+    if sys.platform != "darwin":
+        disk = shutil.disk_usage(path)
+        return disk.total, disk.free, disk.free, "shutil.disk_usage"
+    core = Path(os.environ.get("AI_CORE_DIR", str(Path.home() / "ai-core")))
+    if not core.is_absolute():
+        raise RuntimeError("HOST_CAPACITY_TOOLCHAIN_REQUIRED")
+    # 沿外接 gate 既有跨 repo CLI 方式；-B 禁止在共用 repo 產生 bytecode。
+    script = (
+        "import sys,json,dataclasses; from pathlib import Path; "
+        "sys.path.insert(0,sys.argv[1]); "
+        "from host_capacity_sensor import measure_host_capacity; "
+        "print(json.dumps(dataclasses.asdict(measure_host_capacity(Path(sys.argv[2])))))"
+    )
+    try:
+        result = subprocess.run(
+            [str(core / ".venv/bin/python"), "-B", "-c", script,
+             str(core / "scripts"), str(path)],
+            check=True, capture_output=True, text=True, timeout=15,
+        )
+        payload = json.loads(result.stdout)
+        total, raw, admission = (payload[key] for key in (
+            "total_bytes", "physical_available_bytes", "admission_available_bytes"
+        ))
+        source = payload["source"]
+        if (any(type(value) is not int for value in (total, raw, admission))
+                or not 0 < raw <= admission <= total
+                or source != "macos_foundation_important_usage"):
+            raise ValueError("共用 sensor 回傳無效容量或來源")
+        return total, raw, admission, source
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError) as error:
+        raise RuntimeError("HOST_CAPACITY_UNAVAILABLE") from error
+
+
+def _measure_boot_volume_capacity() -> tuple[int, int, int, str] | None:
+    """固定量 swapfile 所在內建卷；不沿 workload 的外接 root，也不回退 raw。"""
+
+    try:
+        if sys.platform == "darwin":
+            data = _volume_container(_BOOT_VOLUME_PATH)
+            vm = _volume_container(_SWAP_VOLUME_PATH)
+            # VM 專用卷不提供 Foundation admission；僅在原生證明共用內建
+            # APFS container 時，使用 Data 的同容量池准入量，否則保留未知。
+            if data is None or vm is None or data != vm or not data[1]:
+                return None
+        return _measure_host_capacity(_BOOT_VOLUME_PATH)
+    except (OSError, RuntimeError):
+        return None
+
+
+def _volume_container(path: Path) -> tuple[str, bool] | None:
+    """diskutil info 接受掛載點；先沿實際 mount 邊界解析，不能直接傳任意子目錄。"""
+
+    try:
+        mount = path.resolve()
+        while not os.path.ismount(mount):
+            if mount.parent == mount:
+                return None
+            mount = mount.parent
+        result = subprocess.run(["/usr/sbin/diskutil", "info", "-plist", str(mount)],
+                                capture_output=True, check=True, timeout=_HOST_PROBE_TIMEOUT_SECONDS)
+        info = plistlib.loads(result.stdout)
+        if not isinstance(info, dict):
+            return None
+        value = info.get("APFSContainerReference")
+        internal = info.get("Internal")
+        return (value, internal) if isinstance(value, str) and value and type(internal) is bool else None
+    except (OSError, subprocess.SubprocessError, ValueError, plistlib.InvalidFileException):
+        return None
+
+
+def _shares_boot_container(host_path: Path) -> bool | None:
+    """辨識是否共用容量池；未知時保守保留合併峰值，避免同卷重用餘量。"""
+
+    try:
+        if sys.platform != "darwin":
+            return host_path.stat().st_dev == _BOOT_VOLUME_PATH.stat().st_dev
+        host = _volume_container(host_path)
+        boot = _volume_container(_BOOT_VOLUME_PATH)
+        return host[0] == boot[0] if host is not None and boot is not None else None
+    except (OSError, subprocess.SubprocessError, ValueError, plistlib.InvalidFileException):
+        return None
+
+
+def take_sample(
+    root: Path, policy: JobPolicy, process_pid: int | None = None, *, host_root: Path | None = None,
+) -> Sample:
+    """meter 維持 output root；host_root 只選主機量測卷，准入沿原生口徑。"""
     sample_started_at = time.monotonic()
     timings: list[ProbeTiming] = []
 
@@ -573,14 +841,24 @@ def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -
 
     inventory = timed_probe(
         "meter_paths",
-        lambda: measure_paths(root, policy.meter_paths),
+        lambda: measure_paths(
+            root,
+            policy.meter_paths,
+            deadline_seconds=(
+                _FOG_OBSERVATION_DEADLINE_SECONDS
+                if policy.job == FOG_JOB
+                else None
+            ),
+        ),
         available=lambda _value: True,
     )
-    disk = timed_probe(
-        "disk_usage",
-        lambda: shutil.disk_usage(root),
+    host_total, host_raw, host_admission, host_source = timed_probe(
+        "host_capacity",
+        lambda: _measure_host_capacity(root if host_root is None else host_root),
         available=lambda _value: True,
     )
+    boot = timed_probe("boot_volume_capacity", _measure_boot_volume_capacity)
+    shared_container = timed_probe("volume_identity", lambda: _shares_boot_container(root if host_root is None else host_root))
     rss_bytes, process_rss_attribution = timed_probe(
         "process_tree_rss",
         lambda: process_tree_rss_snapshot(process_pid),
@@ -600,10 +878,20 @@ def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -
     )
     return Sample(
         timestamp=time.time(),
+        monotonic_timestamp=time.monotonic(),
         project_bytes=inventory.bytes,
         project_file_count=inventory.file_count,
-        host_total_bytes=disk.total,
-        host_free_bytes=disk.free,
+        host_total_bytes=host_total,
+        host_free_bytes=host_admission,
+        host_raw_free_bytes=host_raw,
+        host_capacity_source=host_source,
+        boot_volume_path=str(_BOOT_VOLUME_PATH),
+        swap_volume_path=str(_SWAP_VOLUME_PATH),
+        boot_volume_total_bytes=boot[0] if boot else None,
+        boot_volume_raw_free_bytes=boot[1] if boot else None,
+        boot_volume_free_bytes=boot[2] if boot else None,
+        boot_volume_capacity_source=boot[3] if boot else None,
+        host_boot_shared_container=shared_container,
         rss_bytes=rss_bytes,
         swap_bytes=swap_bytes,
         memory_pressure_level=memory_pressure_level,
@@ -614,6 +902,53 @@ def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -
 
 def _free_threshold(total: int, minimum_bytes: int, minimum_percent: float) -> int:
     return max(minimum_bytes, int(total * minimum_percent))
+
+
+def _take_memory_sample(capacity: Sample, process_pid: int) -> Sample:
+    """只更新記憶體訊號，明記未重掃容量，避免以舊容量計算增長率。"""
+
+    started = time.monotonic()
+    rss, attribution = process_tree_rss_snapshot(process_pid, timeout_seconds=_MEMORY_PROBE_TIMEOUT_SECONDS)
+    swap = read_swap_bytes(timeout_seconds=_MEMORY_PROBE_TIMEOUT_SECONDS)
+    pressure = read_memory_pressure_level(timeout_seconds=_MEMORY_PROBE_TIMEOUT_SECONDS)
+    return replace(
+        capacity, timestamp=time.time(), monotonic_timestamp=time.monotonic(), rss_bytes=rss, process_rss_attribution=attribution,
+        swap_bytes=swap, memory_pressure_level=pressure, capacity_sampled=False,
+        probe_timings=(ProbeTiming("memory_total", time.monotonic() - started,
+                                  rss is not None and swap is not None),),
+    )
+
+
+def _memory_cadence_decision(interval: float, gap: float, consecutive_overruns: int) -> tuple[int, StopDecision]:
+    """單次遲到警示；連續兩次或單次超過兩倍間隔才判定持續失明。"""
+
+    if gap <= interval:
+        return 0, StopDecision(False, ())
+    consecutive_overruns += 1
+    reasons = (("MEMORY_SAMPLE_CADENCE_EXCEEDED",)
+               if consecutive_overruns >= 2 or gap > 2 * interval else ())
+    return consecutive_overruns, StopDecision(bool(reasons), reasons, ("MEMORY_SAMPLE_CADENCE_LOW",))
+
+
+def _boot_volume_decision(global_policy: GlobalPolicy, sample: Sample, *, headroom: int = 0) -> StopDecision:
+    """內建卷使用 admission 餘量；觀測缺失不可被外接餘量替代。"""
+
+    values = (sample.boot_volume_total_bytes, sample.boot_volume_raw_free_bytes, sample.boot_volume_free_bytes)
+    if (any(type(value) is not int for value in values)
+            or not 0 <= values[1] <= values[2] <= values[0]
+            or values[0] <= 0
+            or sample.boot_volume_path != str(_BOOT_VOLUME_PATH)
+            or sample.boot_volume_capacity_source != (
+                "macos_foundation_important_usage" if sys.platform == "darwin" else "shutil.disk_usage")):
+        return StopDecision(True, ("BOOT_VOLUME_CAPACITY_UNAVAILABLE",))
+    reasons = []
+    if sample.boot_volume_free_bytes < global_policy.boot_volume_min_free_bytes:
+        reasons.append("BOOT_VOLUME_FREE_SPACE_BELOW_THRESHOLD")
+    if headroom and sample.boot_volume_free_bytes - headroom < global_policy.boot_volume_min_free_bytes:
+        reasons.append("BOOT_VOLUME_START_HEADROOM_INSUFFICIENT")
+    warnings = (("BOOT_VOLUME_FREE_SPACE_LOW",)
+                if sample.boot_volume_free_bytes < global_policy.boot_volume_warn_free_bytes else ())
+    return StopDecision(bool(reasons), tuple(reasons), warnings)
 
 
 def evaluate_preflight(
@@ -639,11 +974,26 @@ def evaluate_preflight(
     )
     if sample.host_free_bytes < threshold:
         reasons.append("HOST_START_FREE_SPACE_BELOW_THRESHOLD")
+    if policy.host_peak_budget_bytes:
+        reserve = max(threshold, _free_threshold(
+            sample.host_total_bytes,
+            global_policy.runtime_min_free_bytes,
+            global_policy.runtime_min_free_percent,
+        ))
+        # 使用實際寫入主機的 Foundation 口徑，預留整輪 bounded 峰值。
+        project_peak = policy.host_peak_budget_bytes - (
+            policy.boot_volume_swap_headroom_bytes if sample.host_boot_shared_container is False else 0)
+        if sample.host_free_bytes - project_peak < reserve:
+            reasons.append("HOST_PEAK_BUDGET_INSUFFICIENT")
+        if sys.platform == "darwin" and sample.host_capacity_source != "macos_foundation_important_usage":
+            reasons.append("HOST_CAPACITY_SOURCE_UNVERIFIED")
     if global_policy.require_swap_metric and sample.swap_bytes is None:
         reasons.append("SWAP_METRIC_UNAVAILABLE")
     if sample.memory_pressure_level is not None and sample.memory_pressure_level >= 3:
         reasons.append("HOST_MEMORY_PRESSURE_CRITICAL_OR_JETSAM")
-    return StopDecision(bool(reasons), tuple(reasons))
+    boot = _boot_volume_decision(global_policy, sample, headroom=policy.boot_volume_swap_headroom_bytes)
+    reasons.extend(boot.reasons)
+    return StopDecision(bool(reasons), tuple(reasons), boot.warnings)
 
 
 def _growth_rate(left: Sample, right: Sample) -> float:
@@ -663,7 +1013,10 @@ def evaluate_runtime(
 ) -> StopDecision:
     if not samples:
         return StopDecision(True, ("MISSING_RUNTIME_SAMPLE",))
-    latest = samples[-1]
+    capacity_samples = [sample for sample in samples if sample.capacity_sampled]
+    if not capacity_samples:
+        return StopDecision(True, ("MISSING_RUNTIME_CAPACITY_SAMPLE",))
+    latest = capacity_samples[-1]
     live_samples = [sample for sample in samples if sample.phase == "live"]
     reasons: list[str] = []
     if latest.project_bytes > policy.max_bytes:
@@ -699,14 +1052,17 @@ def evaluate_runtime(
     observed_swap = [
         sample.swap_bytes for sample in live_samples if sample.swap_bytes is not None
     ]
-    swap_growth_budget_exceeded = (
-        baseline_swap is not None
-        and observed_swap
-        and max(observed_swap) - baseline_swap > policy.max_swap_growth_bytes
+    swap_peak_growth_bytes = (
+        max(observed_swap) - baseline_swap
+        if baseline_swap is not None and observed_swap else None
+    )
+    swap_fallback_threshold_exceeded = (
+        swap_peak_growth_bytes is not None
+        and swap_peak_growth_bytes > policy.max_swap_growth_bytes
     )
     latest_live = live_samples[-1] if live_samples else None
     if (
-        swap_growth_budget_exceeded
+        swap_fallback_threshold_exceeded
         and latest_live is not None
         and latest_live.memory_pressure_level is None
     ):
@@ -721,16 +1077,46 @@ def evaluate_runtime(
     if registered_unmetered_paths:
         reasons.append("REGISTERED_WRITE_OUTSIDE_METER")
 
-    if len(samples) >= 3:
-        recent = samples[-3:]
+    if len(capacity_samples) >= 3:
+        recent = capacity_samples[-3:]
         rates = [_growth_rate(recent[0], recent[1]), _growth_rate(recent[1], recent[2])]
         over_rate = all(rate > policy.expected_growth_bytes_per_hour * 2 for rate in rates)
         elapsed = max(0.0, latest.timestamp - samples[0].timestamp)
         seconds_to_reclaim = max(0.0, policy.reclaim_after_seconds - elapsed)
         projected_growth = max(rates) * seconds_to_reclaim / 3600
-        if elapsed >= policy.spike_window_seconds and over_rate and (
-            latest.project_bytes + projected_growth > policy.max_bytes
-            or latest.host_free_bytes - projected_growth < reserve
+        # job 總量仍含外接；內建餘量投影只扣同卷的持久資料增長。
+        host_recent = list(recent)
+        if any(sample.external_cache is not None for sample in recent):
+            try:
+                identities = []
+                host_recent = []
+                for sample in recent:
+                    cache = sample.external_cache
+                    if not isinstance(cache, dict) or len(cache["roots"]) != 1:
+                        raise ValueError("缺少單一外接歸屬觀測")
+                    owned = cache["roots"][0]
+                    size = owned["bytes"]
+                    managed = cache.get("managed_contract")
+                    device = managed["device"] if managed is not None else cache["image_contract"]["image_device"]
+                    path = owned["path"]
+                    if (type(size) is not int or not 0 <= size <= sample.project_bytes
+                            or type(device) is not int or device <= 0
+                            or not isinstance(path, str) or not Path(path).is_absolute()):
+                        raise ValueError("外接計量資料無效")
+                    identities.append((path, device))
+                    host_recent.append(replace(sample, project_bytes=sample.project_bytes - size))
+                if len(set(identities)) != 1:
+                    raise ValueError("外接歸屬觀測改變")
+            except (KeyError, TypeError, ValueError, IndexError):
+                reasons.append("EXTERNAL_CACHE_ACCOUNTING_UNAVAILABLE")
+                host_recent = []
+        host_rates = ([_growth_rate(host_recent[0], host_recent[1]),
+                       _growth_rate(host_recent[1], host_recent[2])] if host_recent else [0.0, 0.0])
+        host_over_rate = all(rate > policy.expected_growth_bytes_per_hour * 2 for rate in host_rates)
+        host_projected_growth = max(host_rates) * seconds_to_reclaim / 3600
+        if elapsed >= policy.spike_window_seconds and (
+            (over_rate and latest.project_bytes + projected_growth > policy.max_bytes)
+            or (host_over_rate and latest.host_free_bytes - host_projected_growth < reserve)
         ):
             reasons.append("SUSTAINED_GROWTH_RATE_WILL_BREAK_BUDGET")
         if (
@@ -738,20 +1124,22 @@ def evaluate_runtime(
             and recent[0].project_bytes < recent[1].project_bytes < recent[2].project_bytes
         ):
             reasons.append("NO_STABILIZATION_OR_RECLAIM")
-        recent_live = live_samples[-3:]
-        swaps = [item.swap_bytes for item in recent_live]
-        rss_values = [item.rss_bytes for item in recent_live]
-        pressure_values = [item.memory_pressure_level for item in recent_live]
-        if (
-            len(recent_live) == 3
-            and all(value is None for value in pressure_values)
-            and all(value is not None for value in rss_values)
-            and int(rss_values[0]) < int(rss_values[1]) < int(rss_values[2])
-            and all(value is not None for value in swaps)
-            and int(swaps[0]) < int(swaps[1]) < int(swaps[2])
-        ):
-            reasons.append("RSS_AND_SWAP_RISING")
-    return StopDecision(bool(reasons), tuple(dict.fromkeys(reasons)))
+    recent_live = live_samples[-3:]
+    swaps = [item.swap_bytes for item in recent_live]
+    rss_values = [item.rss_bytes for item in recent_live]
+    pressure_values = [item.memory_pressure_level for item in recent_live]
+    if (
+        len(recent_live) == 3
+        and all(value is None for value in pressure_values)
+        and all(value is not None for value in rss_values)
+        and int(rss_values[0]) < int(rss_values[1]) < int(rss_values[2])
+        and all(value is not None for value in swaps)
+        and int(swaps[0]) < int(swaps[1]) < int(swaps[2])
+    ):
+        reasons.append("RSS_AND_SWAP_RISING")
+    boot = _boot_volume_decision(global_policy, latest)
+    reasons.extend(boot.reasons)
+    return StopDecision(bool(reasons), tuple(dict.fromkeys(reasons)), boot.warnings)
 
 
 def _rule_files(root: Path, rule: RetentionRule) -> list[Path]:
@@ -789,7 +1177,10 @@ def reclaim_allowlisted(
             all_files[path] = stat
             age = max(0.0, observed_at - stat.st_mtime)
             within_caps = kept_count < rule.max_files and kept_bytes + stat.st_size <= rule.max_bytes
-            protected = index < rule.protect_newest
+            # LightGBM 單層暫存清理由獨立明確旗標控制，不被通用 retention 偷刪。
+            lightgbm_owned_scope = (path.name.startswith((PREFIX, PRESERVED_PREFIX)) and path.parent.name == "tmp"
+                                   and path.parent.parent.parent == root / "logs/storage_safety/runtime")
+            protected = index < rule.protect_newest or lightgbm_owned_scope
             if protected or (age <= rule.retention_seconds and within_caps):
                 kept_count += 1
                 kept_bytes += stat.st_size
@@ -829,6 +1220,8 @@ def reclaim_allowlisted(
 def _materialize_active_runtime_workspace(root: Path, job: str) -> None:
     """reclaim 後重建本次 invocation 在 child spawn 前必須存在的 runtime 目錄。"""
 
+    if os.environ.get("TOP10_EXTERNAL_CACHE_ROOT"):
+        raise ExternalCacheError("EXTERNAL_CACHE_REQUIRES_VERIFIED_MATERIALIZATION")
     runtime_root = root / "logs" / "storage_safety" / "runtime" / job
     for path in (
         runtime_root / "tmp" / "joblib",
@@ -1049,6 +1442,69 @@ def _sandbox_profile(write_root: Path) -> str:
             f"(allow file-write* (subpath {quoted_root}))",
         )
     )
+
+
+def _external_cache_spawn_command(
+    root: Path, policy: JobPolicy, cache: ExternalCache, command: Sequence[str],
+) -> list[str]:
+    """沿既有原生隔離入口封住 /tmp、HOME 與 source 的隱性快取 fallback。"""
+    if not SANDBOX_EXECUTABLE.is_file() or not os.access(SANDBOX_EXECUTABLE, os.X_OK):
+        raise ExternalCacheError("EXTERNAL_CACHE_CONFINEMENT_UNAVAILABLE")
+    # 受控寫入入口不得關掉標準 Python 啟動接點；唯讀 identity helper 不走此入口。
+    if Path(command[0]).name.startswith("python") or Path(command[0]).resolve() == Path(sys.executable).resolve():
+        arguments = iter(command[1:])
+        for argument in arguments:
+            if argument in {"-c", "-m", "--"} or not argument.startswith("-"):
+                break
+            if argument in {"-W", "-X", "--check-hash-based-pycs"}:
+                next(arguments, None)
+                continue
+            if argument.startswith(("-W", "-X", "--")):
+                continue
+            if set(argument[1:]) & {"I", "E", "S"}:
+                raise ExternalCacheError("EXTERNAL_CACHE_PYTHON_ISOLATION_UNSUPPORTED")
+    outputs = [_safe_root_path(root, relative) for relative in policy.registered_write_paths]
+    # production child 原有非寫入行為不變；不挪用／放寬 validation-only profile。
+    profile = "\n".join([
+        "(version 1)", "(allow default)", "(deny file-write*)",
+        '(allow file-write* (literal "/dev/null"))',
+        *(f"(allow file-write* (subpath {json.dumps(str(path))}))"
+          for path in [*outputs, cache.root]),
+    ])
+    if cache.directory_mode:
+        # 即使缺碟後有工具 mkdir -p，也不能重建 mount/root 的任一 ancestor。
+        profile += "\n" + "\n".join(
+            f"(deny file-write-create (literal {json.dumps(str(path))}))"
+            for path in [cache._managed.root, *cache._managed.root.parents])
+    cache.sample()
+    # 小型單一 child：標準庫必須已固定外接，合法外接可寫；路徑失效時即使
+    # cwd 是合法輸出目錄也不得 fallback。不重設 tempdir 為 None 開回搜尋模式。
+    # context manager 只移除本次 exclusive 建立的測試檔，不掃描／清理 owned root。
+    probe = (
+        "import os,sys,tempfile\n"
+        "if tempfile.tempdir != sys.argv[1]: sys.exit(92)\n"
+        "with tempfile.TemporaryFile(dir=sys.argv[1]) as f: f.write(b'x'); f.flush()\n"
+        "tempfile.tempdir=sys.argv[2]\n"
+        "for directory in sys.argv[3:]:\n"
+        " if not os.path.isdir(directory): continue\n"
+        " os.chdir(directory)\n"
+        " try:\n"
+        "  with tempfile.TemporaryFile() as f: f.write(b'x'); f.flush()\n"
+        " except FileNotFoundError: continue\n"
+        " sys.exit(91)\n"
+    )
+    missing = str(cache.root / ("missing-probe-" + uuid.uuid4().hex))
+    probe_env = {**os.environ, **external_environment(cache.root)}
+    completed = subprocess.run(
+        [str(SANDBOX_EXECUTABLE), "-p", profile, sys.executable, "-B", "-c", probe,
+         str(cache.root / "tmp"), missing, str(root), *(str(path) for path in outputs)],
+        cwd=root, env=probe_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        timeout=5, check=False,
+    )
+    cache.sample()
+    if completed.returncode != 0:
+        raise ExternalCacheError("EXTERNAL_CACHE_CONFINEMENT_PROBE_FAILED")
+    return [str(SANDBOX_EXECUTABLE), "-p", profile, *command]
 
 
 def _validation_spawn_command(
@@ -1530,8 +1986,15 @@ def _receipt_payload(
     scheduled_at: str | None = None,
     invocation_id: str = "unknown",
 ) -> dict[str, Any]:
-    first = samples[0] if samples else None
-    last = samples[-1] if samples else None
+    capacity_samples = [sample for sample in samples if sample.capacity_sampled]
+    first = capacity_samples[0] if capacity_samples else None
+    last = capacity_samples[-1] if capacity_samples else None
+    live_swaps = [sample.swap_bytes for sample in samples if sample.phase == "live" and sample.swap_bytes is not None]
+    footprints = [
+        sum(row.phys_footprint for row in sample.process_rss_attribution)
+        for sample in samples if sample.phase == "live" and sample.process_rss_attribution
+        and all(row.phys_footprint is not None for row in sample.process_rss_attribution)
+    ]
     elapsed_seconds = max(0.0, last.timestamp - first.timestamp) if first and last else 0.0
     growth_rate = (
         max(0, last.project_bytes - first.project_bytes) * 3600 / elapsed_seconds
@@ -1594,13 +2057,17 @@ def _receipt_payload(
             "max_bytes": policy.max_bytes,
             "max_file_count": policy.max_file_count,
             "max_process_tree_rss_bytes": policy.max_process_tree_rss_bytes,
-            "max_swap_growth_bytes": policy.max_swap_growth_bytes,
             "expected_growth_bytes_per_hour": policy.expected_growth_bytes_per_hour,
             "spike_window_seconds": policy.spike_window_seconds,
             "stabilize_after_seconds": policy.stabilize_after_seconds,
             "reclaim_after_seconds": policy.reclaim_after_seconds,
             "retention_days": policy.retention_days,
             "sample_interval_seconds": policy.sample_interval_seconds,
+        },
+        "diagnostic_thresholds": {
+            "pressure_sensor_failure_swap_growth_bytes": policy.max_swap_growth_bytes,
+            "source_policy_key": "max_swap_growth_bytes",
+            "semantics": "pressure 感測器失效時的備援門檻",
         },
         "samples": [sample.to_dict() for sample in samples],
         "summary": {
@@ -1622,11 +2089,19 @@ def _receipt_payload(
                 ),
                 default=None,
             ),
-            "swap_bytes_delta": (
+            "swap_end_delta_bytes": (
                 last.swap_bytes - first.swap_bytes
                 if first and last and first.swap_bytes is not None and last.swap_bytes is not None
                 else None
             ),
+            "swap_peak_growth_bytes": (max(live_swaps) - first.swap_bytes
+                                       if live_swaps and first and first.swap_bytes is not None else None),
+            "swap_attributable_hint": max(footprints, default=None),
+            "phys_footprint_unavailable_live_samples": sum(
+                sample.phase == "live" and (not sample.process_rss_attribution or any(
+                    row.phys_footprint is None for row in sample.process_rss_attribution))
+                for sample in samples),
+            "swap_attributable_hint_semantics": "完整 process tree 的 phys_footprint 峰值（bytes），僅診斷，不等於可歸因 swap",
             "first_memory_pressure_level": first.memory_pressure_level if first else None,
             "last_memory_pressure_level": last.memory_pressure_level if last else None,
             "peak_live_memory_pressure_level": max(
@@ -1662,6 +2137,19 @@ def _receipt_payload(
     }
 
 
+def _wait_with_managed_cache(child, timeout: float, cache: ExternalCache):
+    """只加 cache cadence；專案大範圍量測與原生 PGID 停損沿原 guard。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        cache.sample()
+        remaining = deadline - time.monotonic()
+        try:
+            return child.wait(timeout=max(0.0, min(1.0, remaining)))
+        except subprocess.TimeoutExpired:
+            if time.monotonic() >= deadline:
+                raise
+
+
 def run_guarded_job(
     root: Path,
     global_policy: GlobalPolicy,
@@ -1679,6 +2167,9 @@ def run_guarded_job(
     trigger_type: str | None = None,
     scheduled_at: str | None = None,
     invocation_id: str | None = None,
+    external_cache_required: bool = False,
+    startup_failure: bool = False,
+    lightgbm_temp_cleanup: bool = False,
 ) -> int:
     """執行單一排程週期；停損時留下 marker，後續嘗試一律拒絕。"""
 
@@ -1689,6 +2180,11 @@ def run_guarded_job(
     ):
         raise ValueError("max_runtime_seconds 必須大於 0")
     root = root.resolve()
+    observation_deadline_seconds = (
+        _FOG_OBSERVATION_DEADLINE_SECONDS
+        if policy.job == FOG_JOB
+        else None
+    )
     runtime_dir = root / "logs" / "storage_safety"
     receipt_path = runtime_dir / f"{policy.job}_latest.json"
     denied_path = runtime_dir / "restart_denied" / f"{policy.job}.json"
@@ -1702,14 +2198,60 @@ def run_guarded_job(
         )
     )
     claim_token: str | None = None
+    temp_guard: LightGBMTempGuard | None = None
+    memory_samples: list[Sample] = []
+    memory_errors: list[str] = []
+    memory_warnings: list[str] = []
+    memory_lock = threading.Lock()
+    memory_stop = threading.Event()
+    memory_thread: threading.Thread | None = None
+
+    def observed_samples(capacity_samples: Sequence[Sample]) -> list[Sample]:
+        with memory_lock:
+            if not memory_samples:
+                return list(capacity_samples)
+            return sorted([*capacity_samples, *memory_samples], key=lambda sample: (
+                sample.monotonic_timestamp if sample.monotonic_timestamp is not None else sample.timestamp))
+
+    def runtime_decision(**kwargs: Any) -> StopDecision:
+        decision = evaluate_runtime(global_policy, policy, observed_samples(samples), **kwargs)
+        with memory_lock:
+            reasons = tuple(dict.fromkeys((*decision.reasons, *memory_errors)))
+        return StopDecision(bool(reasons), reasons, decision.warnings)
+
+    def stop_memory_monitor() -> None:
+        memory_stop.set()
+        if memory_thread is not None:
+            memory_thread.join(timeout=3 * _MEMORY_PROBE_TIMEOUT_SECONDS + 1)
+            if memory_thread.is_alive():
+                raise RuntimeError("MEMORY_MONITOR_NOT_QUIESCENT")
 
     def receipt_payload(**kwargs: Any) -> dict[str, Any]:
-        return _receipt_payload(
+        kwargs["samples"] = observed_samples(kwargs["samples"])
+        payload = _receipt_payload(
             **kwargs,
             trigger_type=resolved_trigger,
             scheduled_at=resolved_scheduled_at,
             invocation_id=resolved_invocation_id,
         )
+        payload["warnings"] = list(dict.fromkeys(
+            warning for sample in kwargs["samples"] if sample.capacity_sampled
+            for warning in _boot_volume_decision(global_policy, sample).warnings
+        ))
+        with memory_lock:
+            payload["warnings"] = list(dict.fromkeys((*payload["warnings"], *memory_warnings)))
+        payload["limits"].update({
+            "boot_volume_min_free_bytes": global_policy.boot_volume_min_free_bytes,
+            "boot_volume_warn_free_bytes": global_policy.boot_volume_warn_free_bytes,
+            "boot_volume_swap_headroom_bytes": policy.boot_volume_swap_headroom_bytes,
+            "project_peak_budget_bytes": policy.host_peak_budget_bytes - policy.boot_volume_swap_headroom_bytes,
+            "memory_sample_interval_seconds": global_policy.memory_sample_interval_seconds,
+        })
+        if temp_guard is not None:
+            payload["lightgbm_temp"] = temp_guard.finish()
+            if temp_guard.report["warnings"]:
+                payload["warnings"] = list(dict.fromkeys((*payload["warnings"], *temp_guard.report["warnings"])))
+        return payload
 
     def write_receipt(
         payload: dict[str, Any],
@@ -1729,10 +2271,26 @@ def run_guarded_job(
         )
 
     samples: list[Sample] = []
-    take = sampler or (lambda pid: take_sample(root, policy, pid))
+    base_take = sampler or (lambda pid: take_sample(root, policy, pid))
+    take = base_take
+    external: ExternalCache | None = None
+    saved_environment: dict[str, str | None] = {}
+
+    def take_external(pid: int | None, *, enforce_retention: bool = True) -> Sample:
+        sample = base_take(pid)
+        if external is None:
+            return sample
+        measured = external.sample(enforce_retention=enforce_retention)
+        owned = measured["roots"][0]
+        return replace(
+            sample, project_bytes=sample.project_bytes + owned["bytes"],
+            project_file_count=sample.project_file_count + owned["files"],
+            external_cache=measured,
+        )
     monotonic_now = monotonic_clock or time.monotonic
     wait_for_process = process_waiter or (
-        lambda child, timeout: child.wait(timeout=timeout)
+        lambda child, timeout: (_wait_with_managed_cache(child, timeout, external)
+            if external is not None and external.directory_mode else child.wait(timeout=timeout))
     )
     runtime_dir.mkdir(parents=True, exist_ok=True)
     process: subprocess.Popen[bytes] | None = None
@@ -1918,7 +2476,26 @@ def run_guarded_job(
             signal.signal(signum, interrupt_guard)
 
     try:
-        preflight = replace(take(None), phase="preflight")
+        if startup_failure:
+            raise ExternalCacheError("EXTERNAL_CACHE_STARTUP_FAILED")
+        if external_cache_required:
+            if validation_only:
+                raise ExternalCacheError("EXTERNAL_CACHE_ISOLATION_UNSUPPORTED")
+            runtime_rule = next((rule for rule in rules if rule.rule_id == "runtime_workspace"), None)
+            if runtime_rule is None:
+                raise ExternalCacheError("EXTERNAL_CACHE_RETENTION_CONTRACT_REQUIRED")
+            external = ExternalCache(
+                root, policy.job, min(policy.max_bytes, runtime_rule.max_bytes),
+                min(policy.max_file_count, runtime_rule.max_files), runtime_rule.retention_seconds,
+            )
+            take = take_external
+        elif os.environ.get("TOP10_EXTERNAL_CACHE_ROOT"):
+            raise ExternalCacheError("EXTERNAL_CACHE_ISOLATION_UNSUPPORTED")
+        # TTL 的准入修復必須在主機容量預檢通過後，且 child 尚未啟動時進行。
+        preflight = replace(
+            take_external(None, enforce_retention=False) if external is not None else take(None),
+            phase="preflight",
+        )
         samples.append(preflight)
         preflight_decision = evaluate_preflight(
             global_policy,
@@ -1944,10 +2521,25 @@ def run_guarded_job(
             )
             return 78
 
-        reclaimed = reclaim_allowlisted(root, rules, execute=True)
-        _materialize_active_runtime_workspace(root, policy.job)
-        before_writes = project_write_snapshot(root)
+        reclaimed = reclaim_allowlisted(root, rules, execute=os.environ.get("AI_CORE_CACHE_MODE") != "directory")
+        if external is not None:
+            external.reclaim_expired_before_child(exclusive_lock_fd=lock_handle.fileno())
+            environment = external.materialize()
+        else:
+            _materialize_active_runtime_workspace(root, policy.job)
+            environment = runtime_environment(root / "logs/storage_safety/runtime" / policy.job)
+        temp_guard = LightGBMTempGuard(Path(environment["TMPDIR"]))
+        temp_guard.start(execute=lightgbm_temp_cleanup)
+        for key, value in environment.items():
+            saved_environment[key] = os.environ.get(key)
+            os.environ[key] = value
+        before_writes = project_write_snapshot(
+            root,
+            deadline_seconds=observation_deadline_seconds,
+        )
         spawn_command = list(command)
+        if external is not None:
+            spawn_command = _external_cache_spawn_command(root, policy, external, command)
         if validation_only:
             trusted_validation_entrypoint = _verify_trusted_validation_entrypoint(
                 trusted_validation_entrypoint,
@@ -1967,6 +2559,7 @@ def run_guarded_job(
             protected_before = project_write_snapshot(
                 protected_root,
                 max_files=PROTECTED_SNAPSHOT_MAX_FILES,
+                deadline_seconds=observation_deadline_seconds,
             )
             spawn_command = _validation_spawn_command(root, protected_root, trusted_command)
         rotating_log = RotatingLog(
@@ -2073,7 +2666,7 @@ def run_guarded_job(
             immediate_gap, immediate_duration = immediate_observation
             deadline_reason = completed_sample_deadline_reason(immediate_gap)
             deadline_reasons = (deadline_reason,) if deadline_reason is not None else ()
-            immediate_decision = evaluate_runtime(global_policy, policy, samples)
+            immediate_decision = runtime_decision()
             stop_reasons = tuple(
                 dict.fromkeys((*deadline_reasons, *immediate_decision.reasons))
             )
@@ -2084,6 +2677,41 @@ def run_guarded_job(
             if scheduled_action == "SCHEDULE_OVERRUN":
                 stop_reasons = ("LIVE_SAMPLE_SCHEDULE_OVERRUN",)
                 terminate_process_group(process, identity=process_group)
+        def monitor_memory() -> None:
+            """獨立唯讀取樣；單次卡頓警示，持續失明才停損。"""
+
+            interval = min(global_policy.memory_sample_interval_seconds, policy.sample_interval_seconds)
+            last_completed = time.monotonic()
+            consecutive_overruns = 0
+            target = last_completed + interval * 0.8
+            while not memory_stop.wait(max(0.0, target - time.monotonic())):
+                if process is None or process.poll() is not None:
+                    return
+                template = samples[-1]
+                try:
+                    current = _take_memory_sample(template, process.pid)
+                except Exception:
+                    with memory_lock:
+                        memory_errors.append("MEMORY_SAMPLE_UNAVAILABLE")
+                    return
+                completed = time.monotonic()
+                consecutive_overruns, cadence = _memory_cadence_decision(
+                    interval, completed - last_completed, consecutive_overruns)
+                with memory_lock:
+                    memory_errors.extend(cadence.reasons)
+                    memory_warnings.extend(cadence.warnings)
+                    memory_samples.append(replace(current, phase=("live" if process.poll() is None else "final")))
+                last_completed = completed
+                target += interval * 0.8
+                if target <= completed:
+                    target = completed + interval * 0.8
+
+        # 密集完整取樣已涵蓋記憶體；較慢容量週期另取樣，也適用 shared-source sampler。
+        # 既有注入時鐘仍由呼叫端控制觀測與 waiter，不混入真實時間執行緒。
+        if (monotonic_clock is None and not stop_reasons
+                and policy.sample_interval_seconds > global_policy.memory_sample_interval_seconds):
+            memory_thread = threading.Thread(target=monitor_memory, name=f"storage-memory-{policy.job}", daemon=True)
+            memory_thread.start()
         first_write = threading.Event()
         first_write_lock = threading.Lock()
         first_write_seen = False
@@ -2122,6 +2750,12 @@ def run_guarded_job(
         pump_thread.start()
         defer_first_write_until_scheduled = False
         while process.poll() is None:
+            if memory_thread is not None:
+                memory_decision = runtime_decision()
+                if memory_decision.triggered:
+                    stop_reasons = memory_decision.reasons
+                    terminate_process_group(process, identity=process_group)
+                    break
             if pump_errors:
                 stop_reasons = ("LOG_CAPTURE_FAILED",)
                 terminate_process_group(process, identity=process_group)
@@ -2143,7 +2777,7 @@ def run_guarded_job(
                     )
                     terminate_process_group(process, identity=process_group)
                     break
-                output_decision = evaluate_runtime(global_policy, policy, samples)
+                output_decision = runtime_decision()
                 if output_decision.triggered:
                     stop_reasons = output_decision.reasons
                     terminate_process_group(process, identity=process_group)
@@ -2178,6 +2812,8 @@ def run_guarded_job(
                     else min(wake_deadline, runtime_deadline)
                 )
             wait_seconds = wake_deadline - now
+            if memory_thread is not None:
+                wait_seconds = min(wait_seconds, global_policy.memory_sample_interval_seconds)
             deadline_reached = wait_seconds <= 0
             if not deadline_reached:
                 try:
@@ -2186,6 +2822,8 @@ def run_guarded_job(
                     deadline_reached = True
             if deadline_reached:
                 now = monotonic_now()
+                if memory_thread is not None and now < wake_deadline:
+                    continue
                 if (
                     runtime_deadline is not None
                     and now >= runtime_deadline
@@ -2221,7 +2859,10 @@ def run_guarded_job(
                     stop_reasons = ("LIVE_SAMPLE_SCHEDULE_OVERRUN",)
                     terminate_process_group(process, identity=process_group)
                     break
-                after_writes = project_write_snapshot(root)
+                after_writes = project_write_snapshot(
+                    root,
+                    deadline_seconds=observation_deadline_seconds,
+                )
                 unknown = unknown_changed_paths(
                     before_writes,
                     after_writes,
@@ -2241,10 +2882,7 @@ def run_guarded_job(
                         (*observed_registered_unmetered_paths, *registered_unmetered)
                     )
                 )
-                decision = evaluate_runtime(
-                    global_policy,
-                    policy,
-                    samples,
+                decision = runtime_decision(
                     unknown_paths=unknown,
                     registered_unmetered_paths=registered_unmetered,
                 )
@@ -2272,6 +2910,7 @@ def run_guarded_job(
             )
             terminate_process_group(process, identity=process_group)
 
+        stop_memory_monitor()
         pump_thread.join(timeout=5)
         if pump_thread.is_alive():
             stop_reasons = tuple(dict.fromkeys((*stop_reasons, "OUTPUT_PIPE_NOT_CLOSED")))
@@ -2285,7 +2924,10 @@ def run_guarded_job(
             samples.append(
                 replace(take(process.pid if process.poll() is None else None), phase="final")
             )
-        after_writes = project_write_snapshot(root)
+        after_writes = project_write_snapshot(
+            root,
+            deadline_seconds=observation_deadline_seconds,
+        )
         final_unknown_paths = unknown_changed_paths(
             before_writes,
             after_writes,
@@ -2308,10 +2950,7 @@ def run_guarded_job(
                 )
             )
         )
-        final_decision = evaluate_runtime(
-            global_policy,
-            policy,
-            samples,
+        final_decision = runtime_decision(
             unknown_paths=observed_unknown_paths,
             registered_unmetered_paths=observed_registered_unmetered_paths,
         )
@@ -2320,6 +2959,7 @@ def run_guarded_job(
             protected_after = project_write_snapshot(
                 protected_root,
                 max_files=PROTECTED_SNAPSHOT_MAX_FILES,
+                deadline_seconds=observation_deadline_seconds,
             )
             if protected_after != protected_before:
                 protected_changed_paths = sorted(
@@ -2397,7 +3037,9 @@ def run_guarded_job(
             write_receipt(stopped_receipt)
             return 70
 
-        final_reclaim = reclaim_allowlisted(root, rules, execute=True)
+        if temp_guard is not None:
+            temp_guard.finish()
+        final_reclaim = reclaim_allowlisted(root, rules, execute=os.environ.get("AI_CORE_CACHE_MODE") != "directory")
         final_receipt = receipt_payload(
             policy=policy,
             command=command,
@@ -2436,6 +3078,8 @@ def run_guarded_job(
         internal_reasons = (
             ("UNTRUSTED_VALIDATION_ENTRYPOINT",)
             if isinstance(exc, UntrustedValidationEntrypoint)
+            else (exc.reason,)
+            if isinstance(exc, (ExternalCacheError, StorageObservationError))
             else (f"GUARD_INTERNAL_ERROR_{type(exc).__name__}",)
         )
         reasons = tuple(dict.fromkeys((*stop_reasons, *internal_reasons)))
@@ -2463,6 +3107,29 @@ def run_guarded_job(
             final_process_group_quiescent=final_process_group_quiescent,
             final_process_group_checked_at=final_process_group_checked_at,
         )
+        # 僅保留 guard 本檔最內側四個位置；不格式化例外或讀取原始碼、locals。
+        # 執行根目錄可能是隔離 fixture，因此用程式檔身分比對並輸出固定相對路徑。
+        error_frames: deque[dict[str, Any]] = deque(maxlen=4)
+        error_traceback = exc.__traceback__
+        while error_traceback is not None:
+            code = error_traceback.tb_frame.f_code
+            if code.co_filename == run_guarded_job.__code__.co_filename:
+                error_frames.append(
+                    {
+                        "filename": "app/storage_safety.py",
+                        "function": code.co_name,
+                        "line": error_traceback.tb_lineno,
+                    }
+                )
+            error_traceback = error_traceback.tb_next
+        internal_error: dict[str, Any] = {
+            "type": type(exc).__name__,
+            "frames": list(error_frames),
+        }
+        error_errno = getattr(exc, "errno", None)
+        if type(error_errno) is int:
+            internal_error["errno"] = error_errno
+        stopped_receipt["internal_error"] = internal_error
         base_archive_path = (
             runtime_dir
             / "receipts"
@@ -2537,20 +3204,31 @@ def run_guarded_job(
             return 70
         return 70
     finally:
-        if process is not None and process_group is not None:
-            try:
-                terminate_process_group(process, identity=process_group)
-            except (OSError, RuntimeError, subprocess.TimeoutExpired):
-                pass
-        if pump_thread is not None and pump_thread.is_alive():
-            pump_thread.join(timeout=5)
-        if process is not None and process.stdout is not None:
-            process.stdout.close()
-        if rotating_log is not None:
-            rotating_log.close()
-        if trusted_entrypoint_runtime is not None:
-            trusted_entrypoint_runtime.cleanup()
-        for signum, previous in previous_signal_handlers.items():
-            signal.signal(signum, previous)
-        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
-        lock_handle.close()
+        # 標準庫 ExitStack 各自執行清理；close 失敗仍須還原環境、handler 並解鎖。
+        # 清理例外保留向外傳播，不把未完成清理宣稱成功。
+        with ExitStack() as cleanup:
+            cleanup.callback(lock_handle.close)
+            cleanup.callback(stop_memory_monitor)
+            cleanup.callback(fcntl.flock, lock_handle.fileno(), fcntl.LOCK_UN)
+            for signum, previous in previous_signal_handlers.items():
+                cleanup.callback(signal.signal, signum, previous)
+            for key, value in saved_environment.items():
+                if value is None:
+                    cleanup.callback(os.environ.pop, key, None)
+                else:
+                    cleanup.callback(os.environ.__setitem__, key, value)
+            if external is not None:
+                cleanup.callback(external.close)
+            if trusted_entrypoint_runtime is not None:
+                cleanup.callback(trusted_entrypoint_runtime.cleanup)
+            if rotating_log is not None:
+                cleanup.callback(rotating_log.close)
+            if process is not None and process.stdout is not None:
+                cleanup.callback(process.stdout.close)
+            if pump_thread is not None and pump_thread.is_alive():
+                cleanup.callback(pump_thread.join, timeout=5)
+            if process is not None and process_group is not None:
+                try:
+                    terminate_process_group(process, identity=process_group)
+                except (OSError, RuntimeError, subprocess.TimeoutExpired):
+                    pass

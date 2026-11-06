@@ -3,7 +3,30 @@
 
 set -uo pipefail
 
+# 單一 opt-in 契約會傳給 runner 與所有子程序；不等同 dry-run。
+for arg in "$@"; do
+  case "$arg" in
+    --backfill) export TOP10_BACKFILL=1 ;;
+    *) echo "不支援參數: $arg" >&2; exit 64 ;;
+  esac
+done
+
+
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "${TOP10_PUBLISH_LOCK_HELD:-}" != "1" ]; then
+  mkdir -p "$PROJECT_DIR/logs"
+  PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"
+  if [ ! -x "$PYTHON_BIN" ]; then
+    PYTHON_BIN="python3"
+  fi
+  export TOP10_PUBLISH_LOCK_HELD=1
+  exec "$PYTHON_BIN" "$PROJECT_DIR/scripts/daily_publish_lock.py" "$PROJECT_DIR/scripts/run_daily_publish.sh" "$@"
+fi
+PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"
+if [ ! -x "$PYTHON_BIN" ]; then
+  PYTHON_BIN="python3"
+fi
+"$PYTHON_BIN" "$PROJECT_DIR/scripts/daily_publish_lock.py" --verify "$PROJECT_DIR/logs/daily_publish.lock" || exit 75
 LOG_DIR="$PROJECT_DIR/logs"
 LOG_FILE="$LOG_DIR/daily_publish_$(date +%Y%m%d).log"
 
@@ -17,6 +40,7 @@ RUN_DATE="${TOP10_RUN_DATE:-$(date +%F)}"
 export TOP10_RUN_DATE="$RUN_DATE"
 
 send_ops_report() {
+  if [ "${TOP10_BACKFILL:-0}" = "1" ]; then return 0; fi
   set +e
   OPS_ARGS=(scripts/send_top10_ops_report.py --run-date "$RUN_DATE" --send)
   if [ "$RUN_DATE" != "$(date +%F)" ]; then
@@ -33,15 +57,72 @@ send_ops_report() {
   return "$OPS_EXIT_CODE"
 }
 
+# 先讀同日送達狀態，再決定是否可重建 Daily 產物；成功收據僅可唯讀恢復事件。
+PREVIOUS_SEND_STATE="$("$PYTHON_BIN" -c '
+import json
+import sys
+from pathlib import Path
+from scripts.openclaw_gateway_sender import protected_delivery_receipt
+
+path = Path(sys.argv[1])
+try:
+    if not protected_delivery_receipt(path):
+        print("UNPROTECTED")
+    else:
+        status = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(status, dict):
+            raise ValueError("invalid send receipt")
+        if status.get("status") in {"DELIVERY_PENDING", "DELIVERY_UNKNOWN"}:
+            print("PENDING")
+        else:
+            print("CONFIRMED" if status.get("status") == "OK" and status.get("send_attempted") is True
+                  and status.get("dry_run") is False else "UNRESOLVED")
+except (OSError, ValueError, TypeError, RuntimeError):
+    print("UNRESOLVED")
+' "$PROJECT_DIR/artifacts/clawd_send_status_${RUN_DATE}.json")"
+if [ "${TOP10_BACKFILL:-0}" = "1" ] && [ "$PREVIOUS_SEND_STATE" != "UNPROTECTED" ]; then
+  echo "補跑保留既有送達收據，拒絕重建或恢復送達事件。" | tee -a "$LOG_FILE"
+  exit 2
+fi
+if [ "$PREVIOUS_SEND_STATE" = "CONFIRMED" ]; then
+  MESSAGE_FILE="$PROJECT_DIR/artifacts/clawd_publish_message_${RUN_DATE}.md"
+  set +e
+  "$PYTHON_BIN" scripts/record_top10_publish_event.py \
+    --run-date "$RUN_DATE" --status ok --message "$MESSAGE_FILE" \
+    --recover-confirmed-send >> "$LOG_FILE" 2>&1
+  RECOVERY_EXIT_CODE=$?
+  set -e
+  if [ "$RECOVERY_EXIT_CODE" -eq 0 ]; then
+    send_ops_report || true
+  fi
+  echo "同日既有送達收據；事件恢復結果=${RECOVERY_EXIT_CODE}，本次不重建 Daily。" | tee -a "$LOG_FILE"
+  exit 2
+fi
+if [ "$PREVIOUS_SEND_STATE" != "UNPROTECTED" ]; then
+  if [ "$PREVIOUS_SEND_STATE" = "PENDING" ]; then
+    "$PYTHON_BIN" scripts/record_top10_publish_event.py \
+      --run-date "$RUN_DATE" --status degraded --decision stop \
+      --reason "先前送達結果未決；禁止重送，待唯讀核對" >> "$LOG_FILE" 2>&1 || true
+  fi
+  echo "同日送達結果未決；保留原訊息，拒絕重新產生 Daily 產物。" | tee -a "$LOG_FILE"
+  exit 2
+fi
+
 echo "========================================" | tee -a "$LOG_FILE"
 echo "開始收盤後 daily publish - $(date)" | tee -a "$LOG_FILE"
 echo "publish run_date: $RUN_DATE" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 
 set +e
+DAILY_STARTED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 bash "$PROJECT_DIR/scripts/run_daily.sh" >> "$LOG_FILE" 2>&1
 DAILY_EXIT_CODE=$?
 set -e
+
+if [ "${TOP10_BACKFILL:-0}" = "1" ]; then
+  echo "補跑結束 exit_code=${DAILY_EXIT_CODE}；訊號與 ops 送達已禁用。" | tee -a "$LOG_FILE"
+  exit "$DAILY_EXIT_CODE"
+fi
 
 if [ "$DAILY_EXIT_CODE" -ne 0 ]; then
   echo "daily failed; skip Clawd send. exit_code=$DAILY_EXIT_CODE" | tee -a "$LOG_FILE"
@@ -50,6 +131,7 @@ if [ "$DAILY_EXIT_CODE" -ne 0 ]; then
     --run-date "$RUN_DATE" \
     --status skipped \
     --decision stop \
+    --started-at "$DAILY_STARTED_AT_UTC" \
     --reason "daily failed before publish; exit_code=$DAILY_EXIT_CODE" >> "$LOG_FILE" 2>&1
   set -e
   send_ops_report || true
@@ -58,7 +140,7 @@ fi
 
 set +e
 MESSAGE_FILE="$(
-  "$PYTHON_BIN" - "$PROJECT_DIR" "$RUN_DATE" 2>> "$LOG_FILE" <<'PY'
+  "$PYTHON_BIN" -c '
 import json
 import sys
 from pathlib import Path
@@ -90,7 +172,7 @@ if notify.get("clawd_enabled") is not True:
 if notify.get("clawd_dry_run") is not False:
     raise SystemExit("notify.clawd_dry_run is not false; skip Clawd send")
 print(message_path)
-PY
+  ' "$PROJECT_DIR" "$RUN_DATE" 2>> "$LOG_FILE"
 )"
 MESSAGE_STATUS=$?
 set -e
@@ -118,23 +200,63 @@ SEND_EXIT_CODE=$?
 set -e
 
 if [ "$SEND_EXIT_CODE" -eq 0 ]; then
+  set +e
   "$PYTHON_BIN" scripts/record_top10_publish_event.py \
     --run-date "$RUN_DATE" \
     --status ok \
     --message "$MESSAGE_FILE" \
+    --recover-confirmed-send \
     --send-exit-code "$SEND_EXIT_CODE" >> "$LOG_FILE" 2>&1
+  EVENT_EXIT_CODE=$?
+  set -e
+  if [ "$EVENT_EXIT_CODE" -ne 0 ]; then
+    echo "送達收據與訊息不一致，拒絕記錄成功事件。" | tee -a "$LOG_FILE"
+    exit "$EVENT_EXIT_CODE"
+  fi
   if ! send_ops_report; then
     exit "$OPS_EXIT_CODE"
   fi
   echo "daily publish finished - $(date)" | tee -a "$LOG_FILE"
 else
-  echo "Clawd send command failed; fail publish wrapper. exit_code=$SEND_EXIT_CODE" | tee -a "$LOG_FILE"
+  echo "Clawd send 未取得成功回執；檢查 send status 並唯讀核對遠端，結果不明時禁止重送。exit_code=$SEND_EXIT_CODE" | tee -a "$LOG_FILE"
+  if [ "$SEND_EXIT_CODE" -eq 2 ] && "$PYTHON_BIN" -c '
+import json
+import sys
+from pathlib import Path
+
+status = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if status.get("message_date") != sys.argv[2] or status.get("status") != "OK" or status.get("send_attempted") is not True or status.get("dry_run") is not False:
+    raise SystemExit(1)
+' "$PROJECT_DIR/artifacts/clawd_send_status_${RUN_DATE}.json" "$RUN_DATE" >/dev/null 2>&1
+  then
+    set +e
+    "$PYTHON_BIN" scripts/record_top10_publish_event.py \
+      --run-date "$RUN_DATE" --status ok --message "$MESSAGE_FILE" \
+      --recover-confirmed-send >> "$LOG_FILE" 2>&1
+    RECOVERY_EXIT_CODE=$?
+    set -e
+    echo "同日既有送達收據受保護；本次未送出，本地事件恢復結果=${RECOVERY_EXIT_CODE}。" | tee -a "$LOG_FILE"
+    exit "$SEND_EXIT_CODE"
+  fi
+  EVENT_STATUS="failed"
+  if "$PYTHON_BIN" -c '
+import json
+import sys
+from pathlib import Path
+
+status = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if status.get("message_date") != sys.argv[2] or status.get("status") not in {"DELIVERY_PENDING", "DELIVERY_UNKNOWN"}:
+    raise SystemExit(1)
+' "$PROJECT_DIR/artifacts/clawd_send_status_${RUN_DATE}.json" "$RUN_DATE" >/dev/null 2>&1
+  then
+    EVENT_STATUS="degraded"
+  fi
   set +e
   "$PYTHON_BIN" scripts/record_top10_publish_event.py \
     --run-date "$RUN_DATE" \
-    --status failed \
+    --status "$EVENT_STATUS" \
     --decision stop \
-    --reason "Clawd send command failed" \
+    --reason "Clawd send 未取得成功回執；送達結果待唯讀核對，禁止直接重送" \
     --message "$MESSAGE_FILE" \
     --send-exit-code "$SEND_EXIT_CODE" >> "$LOG_FILE" 2>&1
   set -e

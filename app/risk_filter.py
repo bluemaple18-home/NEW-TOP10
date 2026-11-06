@@ -127,8 +127,9 @@ class RiskFilter:
             logger.warning(f"找不到 {avg_value_col} 欄位，跳過流動性過濾")
             return self.df
         
+        # 僅排序判斷門檻所需欄位，避免複製全寬歷史特徵；保留原日期排序與取末筆語意。
         # 取得每檔股票最新的日均成交值
-        latest_data = self.df.sort_values('date').groupby('stock_id').tail(1)
+        latest_data = self.df[['date', 'stock_id', avg_value_col]].sort_values('date').groupby('stock_id').tail(1)
         valid_stocks = latest_data[latest_data[avg_value_col] >= min_avg_value]['stock_id'].tolist()
         
         # 過濾
@@ -160,8 +161,9 @@ class RiskFilter:
         
         initial_stocks = self.df['stock_id'].nunique()
         
+        # 僅縮窄排序工作集，完整特徵與原列順序仍由下方布林篩選保留。
         # 取得每檔股票最新的股價
-        latest_data = self.df.sort_values('date').groupby('stock_id').tail(1)
+        latest_data = self.df[['date', 'stock_id', 'close']].sort_values('date').groupby('stock_id').tail(1)
         valid_stocks = latest_data[latest_data['close'] >= min_price]['stock_id'].tolist()
         
         # 過濾

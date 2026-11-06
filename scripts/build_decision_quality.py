@@ -338,6 +338,9 @@ def portfolio_risk_flags(summary: dict[str, Any]) -> list[str]:
 def market_context_summary(payload: dict[str, Any], source_path: Path | None, target_date: str) -> dict[str, Any]:
     if not payload:
         return {"available": False, "reason": "missing_exact_market_context_artifact"}
+    if payload.get("status") != "ok":
+        return {"available": False, "reason": payload.get("status", "missing_market_context_status"),
+                "source": repo_path(source_path), "trade_date": payload.get("trade_date")}
     trade_date = payload.get("trade_date")
     alignment = "exact" if trade_date == target_date else "provided_mismatch"
     return {

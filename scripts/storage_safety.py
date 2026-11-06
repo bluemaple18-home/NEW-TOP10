@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import shutil
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 
@@ -24,6 +26,7 @@ from app.storage_safety import (  # noqa: E402
     run_guarded_job,
     take_sample,
 )
+from app.external_cache import reject_external_isolation  # noqa: E402
 
 
 DEFAULT_POLICY = PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"
@@ -57,6 +60,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     run = subparsers.add_parser("run", help="在 guard 內執行 child command")
     run.add_argument("--job", required=True)
+    run.add_argument("--lightgbm-temp-cleanup", action="store_true",
+                     help="實刪本 job 暫存目錄內超過24小時的 LightGBM 檔；預設只盤點")
+    run.add_argument("--startup-failure", action="store_true", help=argparse.SUPPRESS)
     run.add_argument(
         "--trigger-type",
         choices=("natural", "manual"),
@@ -77,6 +83,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="只在無 .git 的隔離 sandbox 內執行未 live 驗證的人工代表性週期",
     )
     validate_run.add_argument("--job", required=True)
+    validate_run.add_argument("--sandbox-root", type=Path)
     validate_run.add_argument("--marker", type=Path, required=True)
     validate_run.add_argument("--max-runtime-seconds", type=float, required=True)
     validate_run.add_argument("--source-input-root", type=Path, required=True)
@@ -141,10 +148,11 @@ def _path_under_root(
     return str(resolved)
 
 
-def configure_validation_runtime(job: str) -> dict[str, str]:
+def configure_validation_runtime(job: str, *, root: Path | None = None) -> dict[str, str]:
     """把 validation child 的暫存與 cache 全部收斂到 sandbox meter scope。"""
 
-    runtime_root = PROJECT_ROOT / "logs" / "storage_safety" / "runtime" / job
+    reject_external_isolation()
+    runtime_root = (PROJECT_ROOT if root is None else root) / "logs" / "storage_safety" / "runtime" / job
     paths = {
         "TMPDIR": runtime_root / "tmp",
         "UV_CACHE_DIR": runtime_root / "cache" / "uv",
@@ -162,7 +170,29 @@ def configure_validation_runtime(job: str) -> dict[str, str]:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    guard_root = PROJECT_ROOT
+    shared_source = args.action == "validate-run" and args.sandbox_root is not None
+    if shared_source:
+        if args.job != "fog-research-worker":
+            raise ValueError("shared-source 僅允許 Fog")
+        source = _existing_lexical_directory(args.source_input_root, "source_input_root")
+        guard_root = _existing_lexical_directory(args.sandbox_root, "sandbox_root")
+        if source != PROJECT_ROOT.resolve():
+            raise ValueError("shared source 必須是此 CLI 的 PROJECT_ROOT")
+        if source.is_relative_to(guard_root) or guard_root.is_relative_to(source):
+            raise ValueError("source 與 sandbox 不得重疊")
+        if resolve_policy(args.policy).resolve() != DEFAULT_POLICY.resolve():
+            raise ValueError("shared-source 不得覆寫 source policy")
     global_policy, job_policy, rules = load_policy(resolve_policy(args.policy), args.job)
+    if shared_source:
+        # 此手動驗證卡只可收緊既有 job；外層 lifecycle 的較小預算仍獨立生效。
+        # 把入口／manifest／匯出證據也計入，不能只計工作負載的 artifacts。
+        job_policy = replace(
+            job_policy,
+            max_bytes=min(job_policy.max_bytes, 256 * 1024**2),
+            meter_paths=tuple(dict.fromkeys((*job_policy.meter_paths,
+                                            "scripts", "validation", "validation_evidence"))),
+        )
     if args.action == "measure":
         sample = take_sample(PROJECT_ROOT, job_policy)
         decision = evaluate_preflight(global_policy, job_policy, sample)
@@ -188,28 +218,40 @@ def main(argv: list[str] | None = None) -> int:
     trusted_entrypoint = None
     max_runtime_seconds = None
     if validation_only:
-        marker = validate_isolated_root(args.marker, args.job)
-        runtime_environment = configure_validation_runtime(args.job)
+        reject_external_isolation(configured=True)
+        marker = validate_isolated_root(args.marker, args.job, root=guard_root)
+        sandbox_input = _path_under_root(args.sandbox_input_root, "sandbox_input_root", root=guard_root)
+        sandbox_output = _path_under_root(args.sandbox_output_root, "sandbox_output_root", root=guard_root)
         trusted_entrypoint = load_trusted_validation_entrypoint(
-            PROJECT_ROOT,
+            guard_root,
             args.job,
             marker,
             args.entrypoint_contract,
         )
+        if shared_source:
+            pinned = trusted_entrypoint.argv
+            expected_flags = ("--source-root", "--source-commit", "--validation-root",
+                              "--source-manifest", "--source-manifest-sha256",
+                              "--runner-sha256", "--representative-sha256")
+            if len(pinned) != 15 or pinned[0] != "--shared-source" or pinned[1::2] != expected_flags:
+                raise ValueError("shared-source pinned argv 不符")
+            values = dict(zip(pinned[1::2], pinned[2::2]))
+            if values["--source-root"] != str(source) or values["--validation-root"] != str(guard_root):
+                raise ValueError("shared-source pinned roots 不符")
+            _path_under_root(Path(values["--source-manifest"]), "source_manifest", root=guard_root)
+            helper = PROJECT_ROOT / "scripts/storage_validation/fog_research_worker.py"
+            if hashlib.sha256(helper.read_bytes()).hexdigest() != trusted_entrypoint.entrypoint_sha256:
+                raise ValueError("shared-source helper 必須與 source pinned helper 一致")
+        runtime_environment = configure_validation_runtime(args.job, root=guard_root)
         command = list(trusted_entrypoint.command)
         validation_context = {
             "marker": marker,
             "source_input_root": str(
                 _existing_lexical_directory(args.source_input_root, "source_input_root")
             ),
-            "sandbox_input_root": _path_under_root(
-                args.sandbox_input_root,
-                "sandbox_input_root",
-            ),
-            "sandbox_output_root": _path_under_root(
-                args.sandbox_output_root,
-                "sandbox_output_root",
-            ),
+            "sandbox_input_root": sandbox_input,
+            "sandbox_output_root": sandbox_output,
+            "shared_source": shared_source,
             "runtime_environment": runtime_environment,
             "trusted_entrypoint": {
                 "contract_path": str(trusted_entrypoint.contract_path),
@@ -226,12 +268,37 @@ def main(argv: list[str] | None = None) -> int:
             command = command[1:]
         if not command:
             raise SystemExit("run 需要 -- 後的 child command")
+    sampler = None
+    if shared_source:
+        def sample_shared(pid: int | None):
+            sample = take_sample(guard_root, job_policy, pid, host_root=PROJECT_ROOT)
+            # output 自身只承擔剩餘 job 預算；絕不借用另一卷 free 或套用 host reserve。
+            capacity = {
+                "root": str(guard_root), "host_root": str(PROJECT_ROOT),
+                "timestamp": sample.timestamp, "source": "shutil.disk_usage",
+                "required_additional_bytes": max(0, job_policy.max_bytes - sample.project_bytes),
+                "total_bytes": None, "free_bytes": None, "decision": "NO-GO",
+                "reason_code": "OUTPUT_VOLUME_CAPACITY_UNAVAILABLE",
+            }
+            validation_context.setdefault("output_capacity_samples", []).append(capacity)
+            disk = shutil.disk_usage(guard_root)
+            capacity.update(total_bytes=disk.total, free_bytes=disk.free)
+            if not 0 <= disk.free <= disk.total or disk.total <= 0:
+                raise RuntimeError("OUTPUT_VOLUME_CAPACITY_UNAVAILABLE")
+            if disk.free < capacity["required_additional_bytes"]:
+                capacity["reason_code"] = "OUTPUT_VOLUME_CAPACITY_INSUFFICIENT"
+                raise RuntimeError("OUTPUT_VOLUME_CAPACITY_INSUFFICIENT")
+            capacity.update(decision="PASS", reason_code=None)
+            return sample
+
+        sampler = sample_shared
     return run_guarded_job(
-        PROJECT_ROOT,
+        guard_root,
         global_policy,
         job_policy,
         rules,
         command,
+        sampler=sampler,
         validation_only=validation_only,
         max_runtime_seconds=max_runtime_seconds,
         validation_context=validation_context,
@@ -243,6 +310,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         scheduled_at=(None if validation_only else args.scheduled_at),
         invocation_id=(None if validation_only else args.invocation_id),
+        lightgbm_temp_cleanup=(False if validation_only else args.lightgbm_temp_cleanup),
+        external_cache_required=not validation_only,
+        startup_failure=(False if validation_only else args.startup_failure),
     )
 
 

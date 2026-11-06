@@ -156,6 +156,7 @@ def build_market_context_candidate(artifacts_dir: Path) -> dict[str, Any]:
     source_status = context.get("source_status", {})
     ready = (
         context.get("schema_version") == "market-context.tw.v1"
+        and context.get("status") == "ok"
         and ok_verification(verification)
         and any(status.get("status") in {"ok", "warn"} for status in source_status.values() if isinstance(status, dict))
     )
@@ -164,6 +165,8 @@ def build_market_context_candidate(artifacts_dir: Path) -> dict[str, Any]:
         blockers.append("market context fetcher verification is not OK")
     if context.get("schema_version") != "market-context.tw.v1":
         blockers.append("missing market_context artifact")
+    if context.get("status") != "ok":
+        blockers.append(f"market context incomplete: {context.get('status', 'missing_status')}")
     return {
         "id": "market_context",
         "label": "台灣市場背景 / breadth / 三大法人 / 期權 context",

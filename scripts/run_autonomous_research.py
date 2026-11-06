@@ -156,7 +156,7 @@ VALIDATION_PROFILES = validation_profiles_compatibility()
 AUTONOMOUS_CLI_DEFAULTS = entrypoint_cli_defaults("autonomous_research")
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="generate autonomous research topics and optionally run safe backtests")
     parser.add_argument("--date", default=date.today().isoformat())
     parser.add_argument("--output", default=None)
@@ -212,7 +212,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--market-regime-history", default=None, help="含 as_of_date/base_regime/family_tags 的盤勢歷史 artifact")
     parser.add_argument("--research-contract", default="config/regime_research_contract.json")
     parser.add_argument("--coverage-map", default=None, help="既有 exact-match coverage records JSON；未指定視為尚無研究紀錄")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def resolve_path(value: str | Path | None) -> Path | None:
@@ -1786,15 +1786,18 @@ def ranking_dirs(min_ranking_files: int) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda item: (-int(item["count"]), str(item["repo_path"])))
 
 
-def latest_external_review_summary() -> tuple[dict[str, Any], str | None]:
-    root = ARTIFACTS_DIR / "external_review"
-    if not root.exists():
-        return {}, None
-    matches = sorted(root.rglob("external_review_summary_*.json"))
-    if not matches:
-        return {}, None
-    path = matches[-1]
-    return load_json(path), repo_path(path)
+def latest_external_review_summary(as_of_date: str) -> tuple[dict[str, Any], str | None]:
+    # 研究輸入只認同日固定路徑及摘要內日期，不從檔名排序回退。
+    path = ARTIFACTS_DIR / "external_review" / as_of_date / f"external_review_summary_{as_of_date}.json"
+    if not path.is_file():
+        return {"status": "PARTIAL", "reason": "MISSING_SAME_DAY_SUMMARY"}, None
+    summary = load_json(path)
+    if summary.get("review_date") != as_of_date:
+        return {"status": "PARTIAL", "reason": "REVIEW_DATE_MISMATCH"}, repo_path(path)
+    count = summary.get("valid_provider_count")
+    if type(count) is not int or count < 2:
+        return {"status": "PARTIAL", "reason": "INSUFFICIENT_VALID_REVIEWERS"}, repo_path(path)
+    return {**summary, "status": "OK"}, repo_path(path)
 
 
 def ledger_signals() -> tuple[list[str], list[str]]:
@@ -1813,8 +1816,10 @@ def ledger_signals() -> tuple[list[str], list[str]]:
     return sorted(set(candidates)), sources
 
 
-def external_review_signals() -> tuple[list[str], list[str]]:
-    summary, source = latest_external_review_summary()
+def external_review_signals(as_of_date: str) -> tuple[list[str], list[str]]:
+    summary, source = latest_external_review_summary(as_of_date)
+    if summary.get("status") != "OK":
+        return [], []
     signals = []
     sources = [source] if source else []
     for item in summary.get("research_hypotheses", []):
@@ -1993,7 +1998,7 @@ def topic_for_dir(
 
 def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
     ledger_candidates, ledger_sources = ledger_signals()
-    external_signals, external_sources = external_review_signals()
+    external_signals, external_sources = external_review_signals(str(args.date))
     evidence_sources = ledger_sources + external_sources
     current_regime = None
     current_coverage = None
@@ -3631,6 +3636,7 @@ def execute_topic(
     *,
     on_execution_started: Callable[[], None] | None = None,
     receipt_attempt: Any | None = None,
+    step_runner: Callable[[str, list[str]], dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, str]]:
     if not topic.eligible:
         raise ValueError(f"topic 不符合執行資格：{topic.topic_id} ({topic.reason_code})")
@@ -3700,6 +3706,7 @@ def execute_topic(
     ]
     steps: list[dict[str, Any]] = []
     failed: str | None = None
+    execute_step = step_runner or run_step
     for name, command in commands:
         if failed:
             steps.append(
@@ -3718,7 +3725,7 @@ def execute_topic(
             continue
         if command_allowed(command) and on_execution_started is not None:
             on_execution_started()
-        step = run_step(name, command)
+        step = execute_step(name, command)
         steps.append(step)
         if step["status"] != "OK":
             failed = name
@@ -3906,9 +3913,17 @@ def render_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def main() -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    project_head: str | None = None,
+    step_runner: Callable[[str, list[str]], dict[str, Any]] | None = None,
+) -> int:
     global OUTPUT_DIR, RESEARCH_LEDGER_PATH, RESEARCH_SPINE_ROOT
-    args = parse_args()
+    # callable 與 CLI 使用同一份參數及 authority 輸入，不借用父程序的 argv。
+    explicit_argv = list(argv) if argv is not None else None
+    args = parse_args() if explicit_argv is None else parse_args(explicit_argv)
+    runtime_argv = sys.argv if explicit_argv is None else [str(Path(__file__).resolve()), *explicit_argv]
     output = resolve_path(args.output) or OUTPUT_DIR / f"autonomous_research_{args.date}.json"
     if args.execute:
         try:
@@ -3917,17 +3932,22 @@ def main() -> int:
             OUTPUT_DIR = write_set.manager_root
             RESEARCH_LEDGER_PATH = write_set.ledger_path
             RESEARCH_SPINE_ROOT = write_set.spine_root
+            authority_kwargs: dict[str, Any] = {
+                "project_root": PROJECT_ROOT,
+                "corpus_root": RESEARCH_SPINE_ROOT,
+                "batch_id": str(getattr(args, "research_batch_id", "UNSCOPED")),
+                "batch_intent_reference": getattr(args, "research_batch_intent", None),
+                "runtime_argv": runtime_argv,
+                "output_path": output,
+                "ledger_path": RESEARCH_LEDGER_PATH,
+                "manager_root": OUTPUT_DIR,
+                "requested_research_stage": batch_owner_requested_stage(args),
+                "execution_epoch": str(args.date),
+            }
+            if project_head is not None:
+                authority_kwargs["project_head"] = project_head
             verify_batch_owner_authority(
-                project_root=PROJECT_ROOT,
-                corpus_root=RESEARCH_SPINE_ROOT,
-                batch_id=str(args.research_batch_id),
-                batch_intent_reference=args.research_batch_intent,
-                runtime_argv=sys.argv,
-                output_path=output,
-                ledger_path=RESEARCH_LEDGER_PATH,
-                manager_root=OUTPUT_DIR,
-                requested_research_stage=batch_owner_requested_stage(args),
-                execution_epoch=str(args.date),
+                **authority_kwargs,
             )
         except BatchOwnerAuthorityError as error:
             print(
@@ -3935,7 +3955,7 @@ def main() -> int:
                     {
                         "status": "FAIL",
                         "reason_code": str(error).split(":", 1)[0],
-                        "research_batch_id": str(args.research_batch_id),
+                        "research_batch_id": str(getattr(args, "research_batch_id", "UNSCOPED")),
                     },
                     ensure_ascii=False,
                     sort_keys=True,
@@ -4080,12 +4100,17 @@ def main() -> int:
                 execution_started = True
 
             try:
+                execute_kwargs: dict[str, Any] = {
+                    "on_execution_started": mark_execution_started,
+                    "receipt_attempt": attempt,
+                }
+                if step_runner is not None:
+                    execute_kwargs["step_runner"] = step_runner
                 topic_steps, topic_outcome, step_outputs = execute_topic(
                     args,
                     topic,
                     run_dir / attempt.run_id,
-                    on_execution_started=mark_execution_started,
-                    receipt_attempt=attempt,
+                    **execute_kwargs,
                 )
             except KeyboardInterrupt:
                 cancelled_at = datetime.now(timezone.utc)
