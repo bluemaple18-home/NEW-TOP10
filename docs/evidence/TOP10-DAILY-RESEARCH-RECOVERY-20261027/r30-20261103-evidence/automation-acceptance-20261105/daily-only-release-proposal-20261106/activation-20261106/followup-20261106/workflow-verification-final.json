@@ -1,0 +1,59 @@
+{
+  "schema_version": "daily-publish-workflow-verification.v1",
+  "status": "OK",
+  "run_date": "2026-11-06",
+  "require_send": true,
+  "check_launchd": true,
+  "details": {
+    "static": {
+      "repo_plist": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/scripts/com.new-top10.daily.plist",
+      "run_daily_publish": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/scripts/run_daily_publish.sh",
+      "run_daily": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/scripts/run_daily.sh",
+      "sender": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/scripts/send_clawd_publish_message.py",
+      "wrapper_guard": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/scripts/verify_daily_publish_wrapper_guards.py"
+    },
+    "launchd": {
+      "command": [
+        "launchctl",
+        "list",
+        "com.new-top10.daily"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n\t\"StandardOutPath\" = \"/dev/null\";\n\t\"LimitLoadToSessionType\" = \"Aqua\";\n\t\"StandardErrorPath\" = \"/dev/null\";\n\t\"Label\" = \"com.new-top10.daily\";\n\t\"OnDemand\" = true;\n\t\"LastExitStatus\" = 256;\n\t\"Program\" = \"/bin/bash\";\n\t\"ProgramArguments\" = (\n\t\t\"/bin/bash\";\n\t\t\"/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/scripts/run_with_storage_guard.sh\";\n\t\t\"daily\";\n\t\t\"/bin/bash\";\n\t\t\"/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/scripts/run_daily_publish.sh\";\n\t);\n};\n",
+      "stderr": ""
+    },
+    "run_date": "2026-11-06",
+    "automation_status": {
+      "path": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/artifacts/automation_status_2026-11-06.json",
+      "status": "OK",
+      "run_date": "2026-11-06"
+    },
+    "metadata": {
+      "ranking_artifact": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/artifacts/ranking_2026-11-06.csv",
+      "daily_report_artifact": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/artifacts/daily_report_2026-11-06.json",
+      "clawd_publish_payload": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/artifacts/clawd_publish_payload_2026-11-06.json",
+      "clawd_publish_message": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/artifacts/clawd_publish_message_2026-11-06.md"
+    },
+    "payload": {
+      "path": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/artifacts/clawd_publish_payload_2026-11-06.json",
+      "ranking_date": "2026-11-06",
+      "delivery_status": "READY_FOR_CLAWD",
+      "channel": "discord",
+      "to": "channel:1507327845003825154"
+    },
+    "message": {
+      "path": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/artifacts/clawd_publish_message_2026-11-06.md",
+      "first_line": "Top10 每日選股｜2026-11-06"
+    },
+    "send_status": {
+      "path": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/artifacts/clawd_send_status_2026-11-06.json",
+      "status": "OK",
+      "message_date": "2026-11-06",
+      "dry_run": false,
+      "send_attempted": true,
+      "target": "channel:1507327845003825154"
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

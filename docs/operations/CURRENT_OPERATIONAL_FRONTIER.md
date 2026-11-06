@@ -1,5 +1,17 @@
 # NEW-TOP10 Current Operational Frontier
 
+最新核對：2026-11-06。Daily／停跑狀態以本節及卡30原收據最末結論為準；下方9月段落保留為歷史，不代表目前仍已放行Fog／retrain或仍使用舊Daily版本。
+
+## 2026-11-06 Daily→Discord與主線整合
+
+- 唯一已恢復的日常線為Daily→Discord，原平日17:30日程不變，runtime固定`99aa01f195f01913afcecac14f73edc0a4378f57`。研究GPT／Gemini、preflight、Fog及retrain等其他排程維持停跑，未bulk enable。
+- 11/06真實核心Daily與400次金融取數均成功；正常模式TAIFEX即時API仍11/05時，沿既有官方指定日來源取得11/06。Discord15段已讀回全文exact；RSS高水位3.495GiB<原4GiB，原guard／額度不變。
+- 真實實跑版為2882803；原wrapper於已停用ops收尾退出1如實保留。最終99aa僅追加停用ops早退，以雙獨立／分段及整支wrapper回歸驗證；沒有再取數／重送，也沒有宣稱99aa新自然週期已實跑。原實跑版本保存為已驗Git bundle。
+- 本次Owner另行授權整合與推送已接受版本、相關測試及同一原收據；不納入未接受的研究hook／Chrome修補，不改正式runtime、旗標或排程。
+- Canonical：[卡30](../tasks/2026-11-03_RECOVER-TOP10-PRODUCTION-DATA-BACKFILL-30.md)、[原收據](../evidence/TOP10-DAILY-RESEARCH-RECOVERY-20261027/ACCEPTANCE-RECOVER-TOP10-PRODUCTION-DATA-BACKFILL-30.md)。Git僅保存程式、可攜回歸與精簡驗收索引；完整Parquet／原始操作日誌仍留原證據目錄，未新增對外資料發布。
+
+## 以下為2026-09歷史基線
+
 局部更新：2026-09-30（Daily／provider preflight）；其餘段落保留 2026-09-14 歷史基線，不代表本輪已重新驗證。
 
 ## 2026-09-30 Daily／provider preflight 最新狀態

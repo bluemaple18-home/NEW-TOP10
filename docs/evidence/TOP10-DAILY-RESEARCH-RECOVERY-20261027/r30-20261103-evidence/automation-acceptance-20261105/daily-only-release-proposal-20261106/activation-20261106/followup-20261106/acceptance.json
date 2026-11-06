@@ -1,0 +1,162 @@
+{
+  "task_id": "RECOVER-TOP10-PRODUCTION-DATA-BACKFILL-30",
+  "at": "2026-11-06T11:41:00.746892+00:00",
+  "verdict": "PASS_DAILY_DISCORD_COMPOSED_ACCEPTANCE",
+  "mainline_decision": "ACCEPT Daily core execution + actual Discord delivery + independently verified disabled-ops tail fix; restore only original Daily calendar",
+  "final_runtime_commit": "99aa01f195f01913afcecac14f73edc0a4378f57",
+  "actual_full_run_commit": "2882803c19e001856a5bd159726c85474f14ef0c",
+  "actual_core_Daily_status": "OK",
+  "actual_outer_wrapper_exit": 1,
+  "actual_guard_result": "CHILD_FAILED due disabled ops import, no capacity reasons",
+  "last_native_exit_not_rewritten": true,
+  "final_wrapper_fix_validation": "bounded delta: mainline8 cases; independent A whole-wrapper4 +B wrapper16 /operator8, overlap not summed",
+  "final_full_native_cycle_rerun": false,
+  "acceptance_composition": "Core ETL/market/producer/sender unchanged after real run; only disabled-ops early skip changed and independently checked end0 in original wrapper offline branches. No new full cycle or resend.",
+  "RSS_peak_bytes": 3753066496,
+  "RSS_limit_bytes": 4294967296,
+  "guard_limits_unchanged": true,
+  "additional_FinMind_data_downloads": 400,
+  "finmind_failed_count": 0,
+  "rolling_hour_limit": 600,
+  "download_first": [
+    "2026-11-06 19:11:13.467",
+    "TaiwanStockInstitutionalInvestorsBuySell"
+  ],
+  "download_last": [
+    "2026-11-06 19:12:12.915",
+    "TaiwanStockMarginPurchaseShortSale"
+  ],
+  "taifex_live_fallback_verified": {
+    "status": "ok",
+    "data_date": "2026-11-06",
+    "fallback_used": true,
+    "warnings": [],
+    "pcr_format": "html",
+    "source": "taifex_openapi_with_dated_fallback",
+    "dated_fallback": {
+      "futures": {
+        "source": "taifex_historical",
+        "data_date": "2026-11-06",
+        "status": "ok",
+        "fallback_used": false,
+        "csv_endpoint": "futDataDown",
+        "content_type": "text/html;charset=MS950",
+        "http_status": 200,
+        "csv_confirmed": true,
+        "format": "csv_big5",
+        "api_data_date": "2026-11-05"
+      },
+      "oi": {
+        "source": "taifex_historical",
+        "data_date": "2026-11-06",
+        "status": "ok",
+        "fallback_used": false,
+        "csv_endpoint": "futContractsDateDown",
+        "content_type": "text/html;charset=MS950",
+        "http_status": 200,
+        "csv_confirmed": true,
+        "format": "csv_big5",
+        "api_data_date": "2026-11-05"
+      }
+    },
+    "pcr_source": "taifex_pcRatioExcel",
+    "pcr_fallback_used": true
+  },
+  "data": [
+    {
+      "name": "features",
+      "sha256": "2030d63be1c977465a9a9f8fa96750326f46ea20b89e08c5cbd580a3991547fe",
+      "rows": 533467,
+      "columns": 120,
+      "max_date": "2026-11-06 00:00:00"
+    },
+    {
+      "name": "events",
+      "sha256": "5d0977c4c86c19ab904288730deab1888c14380520a23dbdb68c6d8f3ab811eb",
+      "rows": 533467,
+      "columns": 15,
+      "max_date": "2026-11-06 00:00:00"
+    },
+    {
+      "name": "universe",
+      "sha256": "b1d053d0b60713e6dd1e67876f7908836fad4b2f5b5f5dc3b57c6129c1a2e562",
+      "rows": 283566,
+      "columns": 120,
+      "max_date": "2026-11-06 00:00:00"
+    }
+  ],
+  "Discord": {
+    "at": "2026-11-06T11:17:11.016929+00:00",
+    "exit_code": 0,
+    "target": "channel:1507327845003825154",
+    "messages_observed": 30,
+    "same_day_top10_headers": [],
+    "send_attempted": false,
+    "sender_id": "1466448215560949842",
+    "terminal_receipt_id": "1568221792424697887",
+    "correlation": "canonical exact header + terminal action receipt + same sender + full content equality",
+    "expected_message_sha256": "df5cf572bd6209d18868e99f92eb7e0e1a27285ef451b380a8b7bdeb8b59c93b",
+    "requested_ids": [
+      "1568221746736144425",
+      "1568221750209019957",
+      "1568221753547817001",
+      "1568221756622376991",
+      "1568221760216899595",
+      "1568221763614023681",
+      "1568221766952816733",
+      "1568221770182565962",
+      "1568221773701324852",
+      "1568221776888995921",
+      "1568221780022395031",
+      "1568221783478505493",
+      "1568221786108076165",
+      "1568221789425770608",
+      "1568221792424697887"
+    ],
+    "matched_ids": [
+      "1568221746736144425",
+      "1568221750209019957",
+      "1568221753547817001",
+      "1568221756622376991",
+      "1568221760216899595",
+      "1568221763614023681",
+      "1568221766952816733",
+      "1568221770182565962",
+      "1568221773701324852",
+      "1568221776888995921",
+      "1568221780022395031",
+      "1568221783478505493",
+      "1568221786108076165",
+      "1568221789425770608",
+      "1568221792424697887"
+    ],
+    "all_requested_found": true,
+    "full_content_equal": true
+  },
+  "original_workflow_verifier": "OK",
+  "schedule": "existing Mon-Fri17:30",
+  "next_native_cycle_not_claimed": true,
+  "Daily_held": false,
+  "research_held": true,
+  "other_controls_unchanged": true,
+  "main_heads_unchanged": true,
+  "push": false,
+  "extra_native_starts": 1,
+  "net_followup_commits": 1,
+  "tested288_preserved_bundle": "postsend-fix/actual-run-288.bundle",
+  "actual_full_run_proof": [
+    "actual-daily-status.json",
+    "actual-guard.json",
+    "actual-send-status.json",
+    "actual-market-context.json",
+    "actual-cycle-summary.json"
+  ],
+  "final_proof": [
+    "postsend-fix/final-pin.json",
+    "postsend-fix/review-a/report.json",
+    "postsend-fix/review-b/report.json",
+    "workflow-verification-final.json",
+    "controls-final.json",
+    "discord-after.json"
+  ]
+}

@@ -30,6 +30,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.rewrite_clawd_publish_message_llm import (  # noqa: E402
     DEFAULT_ENV_FILE,
+    DEFAULT_MODEL,
     build_attempts,
     load_env_file,
     normalize_markdown,
@@ -42,7 +43,7 @@ from scripts.rewrite_clawd_publish_message_llm import (  # noqa: E402
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 PROJECT_DOMAIN = "TOP10_STOCK"
 SCHEMA_VERSION = "top10-pm-clarification-review-cards.v1"
-DEFAULT_LLM_MODEL = "gemini-2.5-flash"
+DEFAULT_LLM_MODEL = DEFAULT_MODEL
 
 
 def parse_args() -> argparse.Namespace:
@@ -454,7 +455,7 @@ def rewrite_with_llm(
             status["selected_key_index"] = key_index
             return rewritten, status
         except Exception as exc:  # noqa: BLE001 - 單一模型失敗要嘗試 fallback。
-            status["errors"].append(f"{model} key#{key_index}: {exc}")
+            status["errors"].append(f"{model} key#{key_index}: {str(exc).replace(api_key, '<redacted>')}")
     raise RuntimeError("; ".join(status["errors"]) or "LLM 補說明重寫失敗")
 
 

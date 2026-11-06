@@ -11,10 +11,10 @@ from typing import Any
 
 try:
     from build_top10_agent_status_rollup import build_rollup
-    from top10_agent_status import DEFAULT_MANIFEST_PATH, build_event, read_manifest, write_agent_event
+    from top10_agent_status import DEFAULT_MANIFEST_PATH, build_event, owns_latest_run, read_manifest, rollup_lock, write_agent_event
 except ModuleNotFoundError:
     from scripts.build_top10_agent_status_rollup import build_rollup
-    from scripts.top10_agent_status import DEFAULT_MANIFEST_PATH, build_event, read_manifest, write_agent_event
+    from scripts.top10_agent_status import DEFAULT_MANIFEST_PATH, build_event, owns_latest_run, read_manifest, rollup_lock, write_agent_event
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -53,13 +53,14 @@ def main() -> int:
         run_date=run_date,
         run_id=run_id,
     )
-    for event in events:
-        write_agent_event(event, artifacts_dir=artifacts_dir, manifest_path=manifest_path)
+    with rollup_lock(artifacts_dir, run_date, run_id):
+        for event in events:
+            write_agent_event(event, artifacts_dir=artifacts_dir, manifest_path=manifest_path, lock_held=True)
 
-    if not args.skip_rollup:
-        manifest = read_manifest(manifest_path)
-        rollup = build_rollup(artifacts_dir, run_date, run_id, manifest)
-        write_rollup(artifacts_dir, run_date, run_id, rollup)
+        if not args.skip_rollup:
+            manifest = read_manifest(manifest_path)
+            rollup = build_rollup(artifacts_dir, run_date, run_id, manifest)
+            write_rollup(artifacts_dir, run_date, run_id, rollup)
 
     print(json.dumps({"status": "ok", "run_id": run_id, "event_count": len(events)}, ensure_ascii=False))
     return 0
@@ -548,7 +549,8 @@ def write_rollup(artifacts_dir: Path, run_date: str, run_id: str, rollup: dict[s
     output.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(rollup, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     output.write_text(payload, encoding="utf-8")
-    latest.write_text(payload, encoding="utf-8")
+    if owns_latest_run(artifacts_dir, run_date, run_id):
+        latest.write_text(payload, encoding="utf-8")
 
 
 def utc_now() -> str:

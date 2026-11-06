@@ -4,6 +4,8 @@ ETL 階段：資料擷取 (Fetch Stage)
 整合 DataFetcher 與 FinMind 資料
 """
 from datetime import datetime, timezone
+import logging
+import os
 
 import pandas as pd
 from pathlib import Path
@@ -17,15 +19,36 @@ from app.pipeline.validation_snapshot import (
     require_snapshot_window,
     validation_mode_enabled,
 )
-try:
-    from app.finmind_integrator import FinMindIntegrator
-except ImportError:
-    from app.finmind_integrator import FinMindIntegrator
+from app.finmind_integrator import (
+    FINMIND_TOP_N, FinMindIntegrator, FinMindQuotaError, preflight_finmind_quota,
+)
+
+FINMIND_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+logger = logging.getLogger(__name__)
+
+
+def _finmind_token() -> str | None:
+    """以環境變數為先；未設定時讀取專案的私有 .env。"""
+    value = os.environ.get("FINMIND_TOKEN")
+    if value is None:
+        try:
+            for line in FINMIND_ENV_FILE.read_text(encoding="utf-8").splitlines():
+                key, separator, candidate = line.strip().partition("=")
+                if separator and key.strip() == "FINMIND_TOKEN":
+                    value = candidate.strip()
+                    break
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            logger.warning("FinMind token 檔案不可讀 error_type=%s；回退未登入額度", type(exc).__name__)
+    return (value or "").strip().strip('"\'') or None
 
 class FetchStage(PipelineStage):
     def execute(self, data: pd.DataFrame, context: dict) -> pd.DataFrame:
         self.logger.info(f"擷取資料: {context['start_date']} ~ {context['end_date']}")
         validation_mode = validation_mode_enabled()
+        quota: dict[str, object] = {}
+        token = None
         if validation_mode:
             snapshot = load_validation_snapshot_from_environment()
             require_snapshot_window(
@@ -66,7 +89,7 @@ class FetchStage(PipelineStage):
                     'TPEX': {
                         'method': 'GET',
                         'url': 'https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php',
-                        'query_contract': {'d': 'ROC_YYY/MM/DD', 'l': 'zh-tw', 'se': 'AL'},
+                        'query_contract': {'d': 'ROC_YYY/MM/DD', 'l': 'zh-tw', 'se': 'EW'},
                     },
                 },
             }
@@ -97,22 +120,78 @@ class FetchStage(PipelineStage):
         if df.empty:
             raise ValueError("資料擷取失敗，產出為空")
 
+        if not validation_mode:
+            token = _finmind_token()
+            try:
+                # 價格快照已落檔；預留最多 200 檔 × 兩個資料集與 SDK 建構成本。
+                quota = preflight_finmind_quota(token, FINMIND_TOP_N * 2)
+            except FinMindQuotaError as exc:
+                status = (
+                    'quota_exhausted' if exc.reason_code == 'FINMIND_QUOTA_EXHAUSTED'
+                    else 'quota_insufficient' if exc.reason_code == 'FINMIND_QUOTA_INSUFFICIENT'
+                    else 'quota_preflight_failed'
+                )
+                context['stats']['finmind'] = {
+                    'status': status, 'provider_acquisition': 'FinMind',
+                    'reason_code': exc.reason_code, **exc.quota,
+                }
+                self.logger.warning("FinMind 額度預檢停止抓取 reason_code=%s", exc.reason_code)
+                raise
+
         df = self._filter_tradable_universe(df, context)
         df = self._dedupe_trade_keys(df, context)
             
-        # FinMind 同屬 FetchStage provider acquisition；validation 時不得觸發外連。
+        # 離線驗收使用獨立法人原始快照；正式路徑沿用 FinMind 並對缺口官方補回。
         if validation_mode:
-            context['stats']['finmind'] = {
-                'status': 'skipped',
-                'reason': 'storage validation snapshot provider is offline',
-            }
+            from app.pipeline.institutional_snapshot import (
+                INPUT_ENV, REQUIRED_ENV, load_institutional_snapshot_from_environment,
+            )
+            import os
+
+            if os.environ.get(INPUT_ENV) or os.environ.get(REQUIRED_ENV) == '1':
+                source, metadata = load_institutional_snapshot_from_environment()
+                finmind = FinMindIntegrator(offline=True)
+                df = finmind.integrate_chip_data(df, institutional_source=source, include_margin=False)
+                context['stats']['finmind'] = {'status': 'ok', 'provider_acquisition': 'digest-pinned-institutional-snapshot', **metadata}
+            else:
+                context['stats']['finmind'] = {
+                    'status': 'skipped',
+                    'reason': 'storage validation snapshot provider is offline',
+                }
         else:
+            finmind = None
             try:
-                finmind = FinMindIntegrator()
+                finmind = FinMindIntegrator(token=token)
                 df = finmind.integrate_chip_data(df)
             except Exception as exc:
-                self.logger.warning("FinMind 籌碼整合失敗，略過此資料源: %s", exc)
-                context['stats']['finmind'] = {'status': 'skipped', 'error': str(exc)}
+                coverage = finmind.coverage_stats() if finmind is not None else {}
+                failed_count = coverage.get('failed_stock_count', 0)
+                reason_code = exc.reason_code if isinstance(exc, FinMindQuotaError) else None
+                if isinstance(exc, FinMindQuotaError):
+                    quota = exc.quota or quota
+                self.logger.warning("FinMind 籌碼整合失敗 failed_stock_count=%s error_type=%s reason_code=%s", failed_count, type(exc).__name__, reason_code)
+                context['stats']['finmind'] = {
+                    'status': (
+                        'quota_exhausted' if reason_code == 'FINMIND_QUOTA_EXHAUSTED'
+                        else 'quota_insufficient' if reason_code == 'FINMIND_QUOTA_INSUFFICIENT'
+                        else 'quota_preflight_failed' if isinstance(exc, FinMindQuotaError)
+                        else 'failed'
+                    ),
+                    'provider_acquisition': 'FinMind',
+                    'error_type': type(exc).__name__, 'reason_code': reason_code,
+                    **quota, **coverage,
+                }
+                raise
+            coverage = finmind.coverage_stats()
+            failed_count = coverage['failed_stock_count']
+            if failed_count:
+                self.logger.warning("FinMind 籌碼擷取不完整 failed_stock_count=%s", failed_count)
+            context['stats']['finmind'] = {
+                'status': 'partial' if failed_count else 'ok',
+                'provider_acquisition': 'FinMind',
+                'official_fallbacks': finmind.official_fallbacks,
+                **quota, **coverage,
+            }
         
         context['stats']['data_fetching'] = {
             'total_records': len(df),

@@ -1,0 +1,454 @@
+{
+  "verdict": "PASS",
+  "manifest_sha256": "5ef5e5afd03b67c0929cbfb62cbaf2493d95344a4548bb4e56a800f4f5def9a0",
+  "operator_sha256": "8bf69177cad3f3caf3ea1d8642f0fabf49e83b1daa16e119956949e17771895d",
+  "reviewer": "B",
+  "spec_verdict": "PASS",
+  "standards_verdict": "PASS",
+  "at": "2026-11-06T11:36:59.604629+00:00",
+  "findings": [],
+  "scope": "停用ops前置return與同次未接受followup pin的amend/finalize；非新增資料輪次、研究修補或最終版全native週期重驗。",
+  "identity": {
+    "wrapper_before_sha256": "8002b8cfeb92657aa51e205039ccbe09bc013260f79a68c04dfb37ee864bbc1d",
+    "wrapper_candidate_sha256": "887f9d292900c4cc3211a40f8953c26ae3fa5ce6368852a98a96c958a5a7cc39",
+    "app_unchanged_sha256": "4f4ce25b3cc3ddecc9adf31316ce4127d7dba86d3add803b3cc8c239cdb35d95",
+    "config_unchanged_sha256": "9425ca82dea6b922bdbeb05e54ba63df1aa710b5de91958697926dd0e706fec1",
+    "bounded_helper_sha256": "5143ed1763bc70ba69085b091f5b6662f1868b6ee88fe069d3a1eccb0b7d6a50",
+    "current_wrapper_still_before": true,
+    "current_hold_exact": true
+  },
+  "wrapper_assessment": {
+    "delta": "來自T原8002 wrapper，僅send_ops_report內先讀notify.ops_clawd_enabled；false/missing/非boolTrue與既有disabled語意一致，提前return0。無R研究hook。",
+    "enabled": "原argv/flags/exit傳遞不變；helper失敗仍exit1，未吞enabled錯誤。",
+    "config_and_other_failure": "損壞YAML保留OPS_EXIT_CODE64；完整script送達後轉壞YAML仍64；Daily失敗9及sender失敗7保留。",
+    "backfill": "既有最前skip不變，無sender/ops執行。"
+  },
+  "amendment_assessment": {
+    "actual_run_commit": "2882803c19e001856a5bd159726c85474f14ef0c",
+    "final_parent": "b64c8b96822b9b8499c45a662e294f328a77602a",
+    "net_followup_commit_count": 1,
+    "bundle_sha256": "c265a4ee7e49fae209d95f3596b89bee79a6965a344eab826e36a23c0ddd99aa",
+    "bundle_bytes": 1157,
+    "native_bundle_readonly_verify_exit": 0,
+    "bundle_refs": "2882803c19e001856a5bd159726c85474f14ef0c HEAD，prerequisite b64c8b96822b9b8499c45a662e294f328a77602a",
+    "bundle_durable_before_amend": "file fsync及A/A.parent目錄fsync位於任何wrapper安裝/amend之前；native verify亦重核。",
+    "exact_path": "native amend --only scripts/run_daily_publish.sh；檢final parent=b64與parent diff僅app/market_context_fetcher.py及wrapper；app4f始終不動。",
+    "failure": "先restore_hold，再獨立HEAD probe；unknown不還原來源，僅確認base且own candidate SHA吻合才rollbackwrapper；source/cleanup/probe errors與原error分欄，index不覆寫。",
+    "signal_and_ownership": "沿已審bounded handler，原guard lock下驗M dev/inode/hash後清exacthold；finally關lock、還原handlers；foreign denial以原no-overwrite保留；final-pin durable seal後safe_point可回containment。",
+    "no_new_start": "無第二kickstart、Daily/ETL/API/Discord rerun或研究入口；原plists/schedules/guard/旗標不改。"
+  },
+  "closure": {
+    "B-POSTSEND-P1-001": "CLOSED：v1 HEAD probe spawn OSError在清hold後跳過復原的反例，v2先復原hold、probe錯誤只記unknown；原InterruptedError與所有診斷保留。",
+    "v1_preserved": "report.v1-fail.json、operator.v1.snapshot.txt及operator-fault-results.json中的獨立RED。"
+  },
+  "tests": {
+    "boundary_8": [
+      {
+        "case": "before_disabled",
+        "exit": 1,
+        "expected": 1,
+        "helper_called": true,
+        "expected_called": true,
+        "pass": true
+      },
+      {
+        "case": "disabled",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      },
+      {
+        "case": "enabled_failure",
+        "exit": 1,
+        "expected": 1,
+        "helper_called": true,
+        "expected_called": true,
+        "pass": true
+      },
+      {
+        "case": "enabled_success",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": true,
+        "expected_called": true,
+        "pass": true
+      },
+      {
+        "case": "bad_config",
+        "exit": 64,
+        "expected": 64,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      },
+      {
+        "case": "backfill",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      },
+      {
+        "case": "missing",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      },
+      {
+        "case": "string_false",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      }
+    ],
+    "full_script_8": [
+      {
+        "case": "before_disabled",
+        "exit": 1,
+        "ops_called": true,
+        "research_called": false,
+        "stub_delivery_status": "OK",
+        "expected_exit": 1,
+        "pass": true,
+        "real_actions": 0
+      },
+      {
+        "case": "candidate_disabled",
+        "exit": 0,
+        "ops_called": false,
+        "research_called": false,
+        "stub_delivery_status": "OK",
+        "expected_exit": 0,
+        "pass": true,
+        "real_actions": 0
+      },
+      {
+        "case": "enabled_failure",
+        "exit": 1,
+        "ops_called": true,
+        "research_called": false,
+        "stub_delivery_status": "OK",
+        "expected_exit": 1,
+        "pass": true,
+        "real_actions": 0
+      },
+      {
+        "case": "enabled_success",
+        "exit": 0,
+        "ops_called": true,
+        "research_called": false,
+        "stub_delivery_status": "OK",
+        "expected_exit": 0,
+        "pass": true,
+        "real_actions": 0
+      },
+      {
+        "case": "malformed_postsend",
+        "exit": 64,
+        "ops_called": false,
+        "research_called": false,
+        "stub_delivery_status": "OK",
+        "expected_exit": 64,
+        "pass": true,
+        "real_actions": 0
+      },
+      {
+        "case": "backfill",
+        "exit": 0,
+        "ops_called": false,
+        "research_called": false,
+        "stub_delivery_status": null,
+        "expected_exit": 0,
+        "pass": true,
+        "real_actions": 0
+      },
+      {
+        "case": "daily_failure",
+        "exit": 9,
+        "ops_called": false,
+        "research_called": false,
+        "stub_delivery_status": null,
+        "expected_exit": 9,
+        "pass": true,
+        "real_actions": 0
+      },
+      {
+        "case": "send_failure",
+        "exit": 7,
+        "ops_called": false,
+        "research_called": false,
+        "stub_delivery_status": "FAILED",
+        "expected_exit": 7,
+        "pass": true,
+        "real_actions": 0
+      }
+    ],
+    "operator_v1_RED": {
+      "version": "v1",
+      "case": "head_probe_spawn_error",
+      "error": "OSError",
+      "head": "amended-final",
+      "amend_calls": 1,
+      "hold_exists": false,
+      "hold_is_original": false,
+      "foreign_preserved": false,
+      "wrapper_is_before": false,
+      "app_unchanged": true,
+      "handlers_restored": true,
+      "failure": null,
+      "formal_actions": 0
+    },
+    "operator_v2_8": [
+      {
+        "version": "v2",
+        "case": "success",
+        "error": null,
+        "head": "amended-final",
+        "amend_calls": 1,
+        "hold_exists": false,
+        "hold_is_original": false,
+        "foreign_preserved": false,
+        "wrapper_is_before": false,
+        "app_unchanged": true,
+        "handlers_restored": true,
+        "failure": null,
+        "formal_actions": 0
+      },
+      {
+        "version": "v2",
+        "case": "amend_failure",
+        "error": "RuntimeError",
+        "head": "actual-288",
+        "amend_calls": 1,
+        "hold_exists": true,
+        "hold_is_original": true,
+        "foreign_preserved": false,
+        "wrapper_is_before": true,
+        "app_unchanged": true,
+        "handlers_restored": true,
+        "failure": {
+          "error_type": "RuntimeError",
+          "detail": "original amend failure",
+          "HEAD": "actual-288",
+          "HEAD_probe_error": null,
+          "containment": "preserved_existing_denial",
+          "cleanup_error": null,
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        },
+        "formal_actions": 0
+      },
+      {
+        "version": "v2",
+        "case": "signal_after_amend",
+        "error": "InterruptedError",
+        "head": "amended-final",
+        "amend_calls": 1,
+        "hold_exists": true,
+        "hold_is_original": true,
+        "foreign_preserved": false,
+        "wrapper_is_before": false,
+        "app_unchanged": true,
+        "handlers_restored": true,
+        "failure": {
+          "error_type": "InterruptedError",
+          "detail": "signal 15",
+          "HEAD": "amended-final",
+          "HEAD_probe_error": null,
+          "containment": "preserved_existing_denial",
+          "cleanup_error": null,
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        },
+        "formal_actions": 0
+      },
+      {
+        "version": "v2",
+        "case": "head_probe_spawn_error",
+        "error": "InterruptedError",
+        "head": "amended-final",
+        "amend_calls": 1,
+        "hold_exists": true,
+        "hold_is_original": true,
+        "foreign_preserved": false,
+        "wrapper_is_before": false,
+        "app_unchanged": true,
+        "handlers_restored": true,
+        "failure": {
+          "error_type": "InterruptedError",
+          "detail": "signal 2",
+          "HEAD": "unknown",
+          "HEAD_probe_error": "OSError: fixture HEAD spawn failure",
+          "containment": "restored_exact_original_hold",
+          "cleanup_error": null,
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        },
+        "formal_actions": 0
+      },
+      {
+        "version": "v2",
+        "case": "head_probe_nonzero",
+        "error": "InterruptedError",
+        "head": "amended-final",
+        "amend_calls": 1,
+        "hold_exists": true,
+        "hold_is_original": true,
+        "foreign_preserved": false,
+        "wrapper_is_before": false,
+        "app_unchanged": true,
+        "handlers_restored": true,
+        "failure": {
+          "error_type": "InterruptedError",
+          "detail": "signal 2",
+          "HEAD": "unknown",
+          "HEAD_probe_error": "HEAD probe exit 128",
+          "containment": "restored_exact_original_hold",
+          "cleanup_error": null,
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        },
+        "formal_actions": 0
+      },
+      {
+        "version": "v2",
+        "case": "source_rollback_error",
+        "error": "RuntimeError",
+        "head": "actual-288",
+        "amend_calls": 1,
+        "hold_exists": true,
+        "hold_is_original": true,
+        "foreign_preserved": false,
+        "wrapper_is_before": false,
+        "app_unchanged": true,
+        "handlers_restored": true,
+        "failure": {
+          "error_type": "RuntimeError",
+          "detail": "original amend failure",
+          "HEAD": "actual-288",
+          "HEAD_probe_error": null,
+          "containment": "preserved_existing_denial",
+          "cleanup_error": null,
+          "source_restore_error": "OSError: fixture source rollback failure",
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        },
+        "formal_actions": 0
+      },
+      {
+        "version": "v2",
+        "case": "foreign_denial",
+        "error": "InterruptedError",
+        "head": "amended-final",
+        "amend_calls": 1,
+        "hold_exists": true,
+        "hold_is_original": false,
+        "foreign_preserved": true,
+        "wrapper_is_before": false,
+        "app_unchanged": true,
+        "handlers_restored": true,
+        "failure": {
+          "error_type": "InterruptedError",
+          "detail": "signal 2",
+          "HEAD": "amended-final",
+          "HEAD_probe_error": null,
+          "containment": "preserved_existing_denial",
+          "cleanup_error": null,
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        },
+        "formal_actions": 0
+      },
+      {
+        "version": "v2",
+        "case": "signal_final_seal",
+        "error": "InterruptedError",
+        "head": "amended-final",
+        "amend_calls": 1,
+        "hold_exists": true,
+        "hold_is_original": true,
+        "foreign_preserved": false,
+        "wrapper_is_before": false,
+        "app_unchanged": true,
+        "handlers_restored": true,
+        "failure": {
+          "error_type": "InterruptedError",
+          "detail": "signal 15",
+          "HEAD": "amended-final",
+          "HEAD_probe_error": null,
+          "containment": "restored_exact_original_hold",
+          "cleanup_error": null,
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        },
+        "formal_actions": 0
+      }
+    ],
+    "scripts": [
+      "boundary_replay.py",
+      "full_wrapper_review.py",
+      "operator_fault_review.py"
+    ],
+    "results": [
+      "boundary-results.json",
+      "full-wrapper-results.json",
+      "operator-fault-results.json"
+    ],
+    "execution": "uv run --offline --no-sync python <A>/review-b/<script>；PYTHONDONTWRITEBYTECODE=1／PYTEST_DISABLE_PLUGIN_AUTOLOAD=1；所有可變路徑在本review tmp、Git/native/量測皆fake。",
+    "read_only_provenance_check": [
+      "git",
+      "-C",
+      "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4",
+      "-c",
+      "gc.auto=0",
+      "bundle",
+      "verify",
+      "/Volumes/VibeCode/Projects/TOP10new/docs/evidence/TOP10-DAILY-RESEARCH-RECOVERY-20261027/r30-20261103-evidence/automation-acceptance-20261105/daily-only-release-proposal-20261106/activation-20261106/followup-20261106/postsend-fix/actual-run-288.bundle"
+    ]
+  },
+  "actual_evidence_split": {
+    "actual_daily_core": "OK",
+    "actual_market_context": "ok",
+    "actual_remote": "15 requested/matched IDs，full_content_equal=true，target channel:1507327845003825154",
+    "workflow_verification": "OK",
+    "original_outer_guard_exit": 1,
+    "original_guard_acceptance_status": "NO-GO",
+    "real_run_version": "2882803c19e001856a5bd159726c85474f14ef0c",
+    "final_native_cycle_rerun": false,
+    "evidence_sha256": {
+      "actual-guard.json": "10a6a9512b28ecd66f968c0a2a8d09b58880fb76aab4cfa40ca57f4ab762abba",
+      "actual-daily-status.json": "ebf342d613db67e697157e3f98fbcb9a150f3ae9bd24b51d8c9984001bf03a52",
+      "actual-market-context.json": "2c2aee194b0008f43337a5073d9385030ab531d60afbd6a66d82e29895bbcb07",
+      "actual-send-status.json": "dc013f888b6a5c6cc54c4164756809c671c4562a7e1b0650492604498e32556f",
+      "discord-after.json": "1d5c3251afb304df9334803a421d1b1ad61eaf4d7d4e7777b8dd663384a0cbfd",
+      "workflow-verification.json": "f98e7784ea9d1c2d8d28f37039e2840b23d2607e698bd165f616dfea3501ef94"
+    }
+  },
+  "limitations": [
+    "本PASS為實跑核心/送達證據加獨立changed-boundary與release-op delta；不能把原outer/native exit1改述為0，也不能稱最終amended版完整native週期已重跑。",
+    "final-pin PASS檔仍須配合同次operator exit0及目前hold/control讀回；若有final-pin-failure或非零退出，以失敗/containment實態為準，不單信先寫出的成功seal。",
+    "未做正式patch、amend、marker/secret寫、launchctl mutation、API/FinMind/Discord呼叫；僅一次允許的native Git bundle唯讀verify。",
+    "未重跑市場源203或full signal suite；不讀/傳閱其他Reviewer verdict。"
+  ],
+  "handoff": "獨立Reviewer B完成即停止回交。"
+}

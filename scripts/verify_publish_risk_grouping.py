@@ -191,6 +191,38 @@ def parse_message_item_blocks(message: str) -> list[dict[str, Any]]:
                 "block": message[start:next_start],
             }
         )
+    if items or label_matches:
+        return items
+
+    # 不分組版式仍須逐檔標出角色；總覽的排名行不屬於逐檔區塊。
+    detail_start = re.search(r"(?m)^逐檔重點\s*$", message)
+    if detail_start is None:
+        return []
+    detail_ranks = [match for match in rank_matches if match.start() > detail_start.end()]
+    inline_label = re.compile(rf"(?m)^分組標籤：(?P<label>{labels})\s*$")
+    slash_label = re.compile(rf"(?m)^(?P<label>{labels})\s*/\s*跟今天盤勢的關係：")
+    for index, match in enumerate(detail_ranks):
+        start = match.start()
+        end = detail_ranks[index + 1].start() if index + 1 < len(detail_ranks) else len(message)
+        if index == len(detail_ranks) - 1:
+            # 最後一檔只屬於逐檔重點；空行後的純文字段落標題是下一節。
+            next_section = re.search(r"(?m)^\n[一-龥]{2,12}[ \t]*$", message[start:end])
+            if next_section:
+                end = start + next_section.start()
+        block = message[start:end]
+        role_labels = list(inline_label.finditer(block)) + list(slash_label.finditer(block))
+        if len(role_labels) != 1:
+            continue
+        items.append(
+            {
+                "rank": int(match.group("rank")),
+                "stock_id": str(match.group("stock_id")).zfill(4),
+                "role_label": role_labels[0].group("label"),
+                "start": start,
+                "end": end,
+                "block": block,
+            }
+        )
     return items
 
 

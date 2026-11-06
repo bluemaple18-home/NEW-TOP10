@@ -1,0 +1,13 @@
+{
+  "verdict": "PASS_DELTA_FINAL_PIN",
+  "final_commit": "99aa01f195f01913afcecac14f73edc0a4378f57",
+  "actual_full_run_commit": "2882803c19e001856a5bd159726c85474f14ef0c",
+  "actual_original_wrapper_exit": 1,
+  "original_version_preserved_bundle": "/Volumes/VibeCode/Projects/TOP10new/docs/evidence/TOP10-DAILY-RESEARCH-RECOVERY-20261027/r30-20261103-evidence/automation-acceptance-20261105/daily-only-release-proposal-20261106/activation-20261106/followup-20261106/postsend-fix/actual-run-288.bundle",
+  "parent": "b64c8b96822b9b8499c45a662e294f328a77602a",
+  "net_followup_commits": 1,
+  "validator": "RUNTIME_CHECKOUT_GO runtime_root=/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4 commit=99aa01f195f01913afcecac14f73edc0a4378f57",
+  "Daily_held": false,
+  "data_or_send_rerun": false,
+  "acceptance": "real Daily and15remote chunks plus independently verified changed disabled-ops boundary; no claim full native rerun after pin correction"
+}

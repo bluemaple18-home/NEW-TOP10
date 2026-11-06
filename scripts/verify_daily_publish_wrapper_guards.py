@@ -49,6 +49,8 @@ exec "{python_target if python_target.exists() else Path(sys.executable)}" "$@"
         executable=True,
     )
     shutil.copy2(WRAPPER_SOURCE, root / "scripts" / "run_daily_publish.sh")
+    shutil.copy2(PROJECT_ROOT / "scripts" / "daily_publish_lock.py", root / "scripts" / "daily_publish_lock.py")
+    shutil.copy2(PROJECT_ROOT / "scripts" / "openclaw_gateway_sender.py", root / "scripts" / "openclaw_gateway_sender.py")
 
     write_text(
         root / "config" / "automation.yaml",
@@ -64,6 +66,10 @@ notify:
         f"""#!/usr/bin/env bash
 set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "${{FAKE_DAILY_SLEEP:-0}}" != "0" ]; then
+  printf '%s' "$$" > "$PROJECT_DIR/artifacts/fake_daily_sleeping"
+  sleep "${{FAKE_DAILY_SLEEP}}"
+fi
 if [ "${{TOP10_RUN_DATE:-}}" != "{CATCH_UP_DATE}" ]; then
   echo "unexpected TOP10_RUN_DATE=${{TOP10_RUN_DATE:-}}" >&2
   exit 42
@@ -109,7 +115,7 @@ date = os.environ.get("TOP10_RUN_DATE", "{CATCH_UP_DATE}")
 exit_code = int(os.environ.get("FAKE_SEND_EXIT", "0"))
 args_path = project / "artifacts" / "fake_send_args.json"
 args_path.write_text(json.dumps({{"args": sys.argv[1:]}}, ensure_ascii=False, indent=2), encoding="utf-8")
-status = "OK" if exit_code == 0 else "FAILED"
+status = os.environ.get("FAKE_SEND_STATUS") or ("OK" if exit_code == 0 else "FAILED")
 (project / "artifacts" / f"clawd_send_status_{{date}}.json").write_text(
     json.dumps(
         {{
@@ -142,6 +148,8 @@ from pathlib import Path
 
 project = Path(__file__).resolve().parents[1]
 exit_code = int(os.environ.get("FAKE_EVENT_EXIT", "0"))
+if "--recover-confirmed-send" in sys.argv and os.environ.get("FAKE_SEND_EXIT") == "2":
+    raise SystemExit(exit_code)
 (project / "artifacts" / "fake_event_args.json").write_text(
     json.dumps({"args": sys.argv[1:], "exit_code": exit_code}, ensure_ascii=False, indent=2),
     encoding="utf-8",
@@ -172,13 +180,15 @@ raise SystemExit(exit_code)
     )
 
 
-def run_wrapper_case(name: str, send_exit: int) -> dict[str, Any]:
+def run_wrapper_case(name: str, send_exit: int, send_status: str | None = None) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix=f"top10_publish_guard_{name}_") as temp:
         project = Path(temp)
         build_fake_project(project)
         env = os.environ.copy()
         env["TOP10_RUN_DATE"] = CATCH_UP_DATE
         env["FAKE_SEND_EXIT"] = str(send_exit)
+        if send_status is not None:
+            env["FAKE_SEND_STATUS"] = send_status
         completed = subprocess.run(
             ["bash", str(project / "scripts" / "run_daily_publish.sh")],
             cwd=project,
@@ -203,13 +213,21 @@ def run_wrapper_case(name: str, send_exit: int) -> dict[str, Any]:
             {"name": "stale_send_requires_flag", "ok": "--allow-stale-send" in send_args, "value": send_args},
             {
                 "name": "event_receives_run_date",
-                "ok": event.get("exit_code") == 0 and event.get("args", [])[:2] == ["--run-date", CATCH_UP_DATE],
+                "ok": (not event if send_exit == 2 and send_status == "OK" else
+                       event.get("exit_code") == 0 and event.get("args", [])[:2] == ["--run-date", CATCH_UP_DATE]),
                 "value": event,
             },
             {
+                "name": "unknown_send_marks_degraded",
+                "ok": send_status != "DELIVERY_UNKNOWN" or ["--status", "degraded"]
+                == event.get("args", [])[2:4],
+                "value": event.get("args", []),
+            },
+            {
                 "name": "ops_receives_stale_send_contract",
-                "ok": ops.get("exit_code") == 0
-                and ops.get("args") == ["--run-date", CATCH_UP_DATE, "--send", "--allow-stale-send"],
+                "ok": (not ops if send_exit == 2 and send_status == "OK" else
+                       ops.get("exit_code") == 0 and
+                       ops.get("args") == ["--run-date", CATCH_UP_DATE, "--send", "--allow-stale-send"]),
                 "value": ops,
             },
         ]
@@ -229,7 +247,9 @@ def main() -> int:
     args = parse_args()
     cases = [
         run_wrapper_case("send_failure_fails_publish", send_exit=7),
+        run_wrapper_case("delivery_unknown_marks_degraded", send_exit=7, send_status="DELIVERY_UNKNOWN"),
         run_wrapper_case("catch_up_date_reaches_sender", send_exit=0),
+        run_wrapper_case("existing_success_preserves_event", send_exit=2, send_status="OK"),
     ]
     failed = [case for case in cases if case["status"] != "OK"]
     payload = {

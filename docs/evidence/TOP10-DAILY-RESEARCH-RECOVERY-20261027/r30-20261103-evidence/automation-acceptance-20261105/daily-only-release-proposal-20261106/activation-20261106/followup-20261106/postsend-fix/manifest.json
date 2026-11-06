@@ -1,0 +1,29 @@
+{
+  "base_commit": "2882803c19e001856a5bd159726c85474f14ef0c",
+  "base_wrapper_sha256": "8002b8cfeb92657aa51e205039ccbe09bc013260f79a68c04dfb37ee864bbc1d",
+  "candidate_wrapper_sha256": "887f9d292900c4cc3211a40f8953c26ae3fa5ce6368852a98a96c958a5a7cc39",
+  "scope": "existing false ops flag now skips disabled posthook before invoking script; enabled path unchanged; no config/guard/Daily core/sender/research hook changes",
+  "API_calls": 0,
+  "resends": 0,
+  "pin_strategy": "correct the same unpublished followup pin via one native amend; final parent remains b64c8b9; preserve original288 as verified native git bundle before correction; no third net commit/push/main change",
+  "acceptance": "real Daily core+15 actual Discord chunks complete on288; only changed disabled-ops boundary verified independently; preserve original outer exit1, never claim it was0",
+  "bundle": "/Volumes/VibeCode/Projects/TOP10new/docs/evidence/TOP10-DAILY-RESEARCH-RECOVERY-20261027/r30-20261103-evidence/automation-acceptance-20261105/daily-only-release-proposal-20261106/activation-20261106/followup-20261106/postsend-fix/actual-run-288.bundle",
+  "bundle_sha256": "c265a4ee7e49fae209d95f3596b89bee79a6965a344eab826e36a23c0ddd99aa",
+  "bundle_verified": true,
+  "bundle_bytes": 1157,
+  "marker_dev_inode": [
+    16777241,
+    2757814
+  ],
+  "marker_sha256": "d234297d08d1d7852514c15956619fcf8bbeeac97e6e06b2a421a91dee0b21e8",
+  "config_sha256": "9425ca82dea6b922bdbeb05e54ba63df1aa710b5de91958697926dd0e706fec1",
+  "app_sha256": "4f4ce25b3cc3ddecc9adf31316ce4127d7dba86d3add803b3cc8c239cdb35d95",
+  "final_parent": "b64c8b96822b9b8499c45a662e294f328a77602a",
+  "real_daily_status": "OK",
+  "real_Discord_readback": "15 chunks exact full content match",
+  "real_outer_exit": 1,
+  "additional_runs": 0,
+  "native_entry_attempts_remain": 1,
+  "release_condition": "two independent delta verdicts + original workflow verification + source identity/runtime validator/capacity; no new Daily start",
+  "operator_sha256": "8bf69177cad3f3caf3ea1d8642f0fabf49e83b1daa16e119956949e17771895d"
+}

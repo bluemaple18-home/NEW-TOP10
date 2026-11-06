@@ -1,0 +1,282 @@
+{
+  "reviewer": "A",
+  "blind": true,
+  "other_reviewer_verdict_seen": false,
+  "verdict": "PASS",
+  "Spec": "PASS_BOUNDED_POSTSEND_DELTA",
+  "Standards": "PASS_BOUNDED_POSTSEND_DELTA",
+  "manifest_sha256": "5ef5e5afd03b67c0929cbfb62cbaf2493d95344a4548bb4e56a800f4f5def9a0",
+  "operator_sha256": "8bf69177cad3f3caf3ea1d8642f0fabf49e83b1daa16e119956949e17771895d",
+  "findings": [],
+  "resolved_findings": [
+    {
+      "id": "A-POSTSEND-P1-01",
+      "severity": "P1",
+      "path": "finalize_pin.py",
+      "line": 50,
+      "title": "post-clear錯誤處理依賴未保護HEAD probe，spawn失敗跳過hold還原",
+      "trigger": "amend後已清exact hold，後置safe_point/identity/save任一進except；此時subprocess.run(git rev-parse HEAD)拋OSError。",
+      "repro": {
+        "case": "postclear_HEAD_spawn_error",
+        "hold_restored": false,
+        "restore_hold_calls": 0,
+        "failure_receipt_written": false,
+        "propagated_error": "OSError: synthetic HEAD probe spawn failure"
+      },
+      "risk": "Daily留下unheld，restore_hold未呼叫且failure receipt未寫。HEAD查詢是診斷，不能阻擋必需的containment；新seal後safe_point也會進同一路徑。",
+      "suggested_fix": "把hold containment放在獨立不可跳過的finally/exception boundary；HEAD probe失敗只記unknown/probe_error，不得先冒出覆蓋原錯誤。保留原error與cleanup error，原反例重驗。",
+      "status": "RESOLVED",
+      "resolution": "v2 except先獨立restore_hold，HEAD診斷spawn/nonzero轉unknown/probe_error；source rollback錯誤獨立記錄。5個原反例及相鄰error-case通過，bare raise保留原例外。"
+    }
+  ],
+  "tests": {
+    "new_operator_fault_cases": [
+      {
+        "case": "head_advanced",
+        "result": "PASS",
+        "hold_exists": true,
+        "events": [
+          "restore_hold",
+          "HEAD_probe"
+        ],
+        "receipt": {
+          "error_type": "ValueError",
+          "detail": "original-post-clear-error",
+          "HEAD": "synthetic-amended-HEAD",
+          "HEAD_probe_error": null,
+          "containment": "restored_exact_original_hold",
+          "cleanup_error": null,
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        }
+      },
+      {
+        "case": "HEAD_spawn_error",
+        "result": "PASS",
+        "hold_exists": true,
+        "events": [
+          "restore_hold",
+          "HEAD_probe"
+        ],
+        "receipt": {
+          "error_type": "ValueError",
+          "detail": "original-post-clear-error",
+          "HEAD": "unknown",
+          "HEAD_probe_error": "OSError: synthetic HEAD spawn failure",
+          "containment": "restored_exact_original_hold",
+          "cleanup_error": null,
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        }
+      },
+      {
+        "case": "HEAD_nonzero",
+        "result": "PASS",
+        "hold_exists": true,
+        "events": [
+          "restore_hold",
+          "HEAD_probe"
+        ],
+        "receipt": {
+          "error_type": "ValueError",
+          "detail": "original-post-clear-error",
+          "HEAD": "unknown",
+          "HEAD_probe_error": "HEAD probe exit 1",
+          "containment": "restored_exact_original_hold",
+          "cleanup_error": null,
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        }
+      },
+      {
+        "case": "source_restore_error",
+        "result": "PASS",
+        "hold_exists": true,
+        "events": [
+          "restore_hold",
+          "HEAD_probe",
+          "source_restore"
+        ],
+        "receipt": {
+          "error_type": "ValueError",
+          "detail": "original-post-clear-error",
+          "HEAD": "2882803c19e001856a5bd159726c85474f14ef0c",
+          "HEAD_probe_error": null,
+          "containment": "restored_exact_original_hold",
+          "cleanup_error": null,
+          "source_restore_error": "OSError: synthetic source restore failure",
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        }
+      },
+      {
+        "case": "cleanup_and_probe_error",
+        "result": "PASS",
+        "hold_exists": false,
+        "events": [
+          "restore_hold",
+          "HEAD_probe"
+        ],
+        "receipt": {
+          "error_type": "ValueError",
+          "detail": "original-post-clear-error",
+          "HEAD": "unknown",
+          "HEAD_probe_error": "OSError: synthetic HEAD spawn failure",
+          "containment": "restore_failed",
+          "cleanup_error": "OSError: synthetic hold I/O failure",
+          "source_restore_error": null,
+          "Daily_rerun": false,
+          "resend": false,
+          "index_preserved": true
+        }
+      }
+    ],
+    "unchanged_wrapper_boundary_cases": [
+      {
+        "case": "before_disabled",
+        "exit": 1,
+        "expected": 1,
+        "helper_called": true,
+        "expected_called": true,
+        "pass": true
+      },
+      {
+        "case": "disabled",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      },
+      {
+        "case": "enabled_failure",
+        "exit": 1,
+        "expected": 1,
+        "helper_called": true,
+        "expected_called": true,
+        "pass": true
+      },
+      {
+        "case": "enabled_success",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": true,
+        "expected_called": true,
+        "pass": true
+      },
+      {
+        "case": "bad_config",
+        "exit": 64,
+        "expected": 64,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      },
+      {
+        "case": "backfill",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      },
+      {
+        "case": "missing",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      },
+      {
+        "case": "string_false",
+        "exit": 0,
+        "expected": 0,
+        "helper_called": false,
+        "expected_called": false,
+        "pass": true
+      }
+    ],
+    "unchanged_full_script_cases": [
+      {
+        "case": "before_disabled",
+        "returncode": 1,
+        "ops_called": true,
+        "sender_stub_calls": 1,
+        "event_ok": true,
+        "daily_status": "OK",
+        "send_status": "OK",
+        "finished_tail": false
+      },
+      {
+        "case": "candidate_disabled",
+        "returncode": 0,
+        "ops_called": false,
+        "sender_stub_calls": 1,
+        "event_ok": true,
+        "daily_status": "OK",
+        "send_status": "OK",
+        "finished_tail": true
+      },
+      {
+        "case": "candidate_enabled_failure",
+        "returncode": 1,
+        "ops_called": true,
+        "sender_stub_calls": 1,
+        "event_ok": true,
+        "daily_status": "OK",
+        "send_status": "OK",
+        "finished_tail": false
+      },
+      {
+        "case": "candidate_enabled_success",
+        "returncode": 0,
+        "ops_called": true,
+        "sender_stub_calls": 1,
+        "event_ok": true,
+        "daily_status": "OK",
+        "send_status": "OK",
+        "finished_tail": true
+      }
+    ],
+    "bundle_provenance_carried_forward": {
+      "verified_by_native_readonly_git": true,
+      "heads": "2882803c19e001856a5bd159726c85474f14ef0c HEAD\n",
+      "SHA": "c265a4ee7e49fae209d95f3596b89bee79a6965a344eab826e36a23c0ddd99aa",
+      "bytes": 1157,
+      "base288_wrapper_matches": true,
+      "base288_app_matches": true,
+      "original_parent": "b64c8b96822b9b8499c45a662e294f328a77602a"
+    },
+    "wrapper_candidate_sha256": "887f9d292900c4cc3211a40f8953c26ae3fa5ce6368852a98a96c958a5a7cc39",
+    "formal_wrapper_unchanged": true,
+    "formal_exact_hold_preserved": true
+  },
+  "limitations": [
+    "只重驗唯一P1及5個相鄰exception分支；8個wrapper邊界/4個整script stub與bundle原生唯讀驗證沿用同SHA舊證據，沒有重跑整套。",
+    "合成hold/source I/O failure僅驗原error、cleanup/probe/source errors分別保存；不可宣稱物理I/O故障必能自動恢復。",
+    "原actual guard child_exit1事實保留；最終修正版沒有full native週期重跑，不冒稱原outer成功。",
+    "Reviewer未做formal patch/amend/release、API、網路、FinMind/Discord、launchctl mutation、真marker/secret寫入。",
+    "v1 FAIL保留於review-a/report.v1.json；同次amend接受仍依主線與Owner原授權，不是新增取數或研究repair。"
+  ],
+  "prior_FAIL": {
+    "path": "review-a/report.v1.json",
+    "sha256": "c61e3b1b70899b6f626d7f9b4f1e402ab01c04d4524ed97b4347371dfc86f930",
+    "manifest_sha256": "58a242e068ffbbbb3963df24816645a435682d7d31c0f74f149cd2b6fafe1afa",
+    "operator_sha256": "bea00ce4d636ec8c349cb91769c37b367c2abb28643fb269081e853d108cca52"
+  },
+  "repro": {
+    "evidence": "review-a/v2-fault-checks.json",
+    "evidence_sha256": "c5b2f50ec6f60f39b5e6df578ae18558828e5ebe063a069a79f0eba4ce9b4d2e",
+    "method": "原AST except去除最後bare raise於合成檔執行，注入HEAD spawn OSError/nonzero、source rollback I/O、hold I/O；另靜態確認末尾bare raise。",
+    "real_Git_API_launchctl_mutations": 0
+  },
+  "handoff": "完成停止回交；兩審現SHA PASS後由主線執行同次未接受pin校正，不重跑取數或送達。"
+}

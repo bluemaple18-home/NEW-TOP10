@@ -114,3 +114,6 @@ tools/yuanta_windows/*.msi
 tools/yuanta_windows/*.zip
 tools/yuanta_windows/*.png
 tools/yuanta_windows/*.log
+
+# 私有資料來源憑證，禁止進入版本控制。
+.env

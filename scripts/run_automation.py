@@ -13,6 +13,7 @@ import os
 import pickle
 import shutil
 import sys
+import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -40,6 +41,8 @@ from app.automation.status_contract import (
     status_output_path,
 )
 from app.tskg.twse_t86 import load_t86_snapshot
+from app.external_cache import reject_external_isolation
+from scripts.daily_market_reference import expected_market_counts
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -127,7 +130,16 @@ class _DailyActions:
         self.runner._daily_preflight()
 
     def run_etl(self) -> None:
-        self.runner._run_command("etl", self.runner._pipeline_run_command())
+        artifacts_dir = self.runner.runtime_paths.artifacts_dir
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="finmind-stats-", dir=artifacts_dir) as temp_dir:
+            stats_path = Path(temp_dir) / "stats.json"
+            command = self.runner._pipeline_run_command() + ["--finmind-stats-output", str(stats_path)]
+            try:
+                self.runner._run_command("etl", command)
+            finally:
+                if not self.runner.dry_run:
+                    self.runner._record_finmind_stats(stats_path)
 
     def validate_data(self) -> None:
         command = ["python", "-m", "app.pipeline_cli", "validate"]
@@ -140,7 +152,10 @@ class _DailyActions:
         self.runner._guard_strict_run_date()
 
     def run_ranking(self) -> None:
-        command = ["python", "-m", "app.agent_b_ranking"]
+        command = ["python", "-m", "app.agent_b_ranking", "--date", self.runner.run_date]
+        if self.runner.backfill:
+            # 共用 analysis_report 沒有日期鍵；補跑只產生同日 daily report。
+            command.append("--no-report")
         if not self.runner.runtime_paths.uses_production_defaults:
             command.extend(
                 [
@@ -234,6 +249,7 @@ class AutomationRunner:
         runtime_root: Path | str | None = None,
         validation_mode: bool = False,
         strict_run_date: bool = False,
+        backfill: bool = False,
     ):
         self.mode = mode
         self.dry_run = dry_run
@@ -244,7 +260,12 @@ class AutomationRunner:
             runtime_root=runtime_root,
         )
         self.validation_mode = validation_mode
+        if validation_mode or not self.runtime_paths.uses_production_defaults:
+            reject_external_isolation()
         self.strict_run_date = strict_run_date
+        self.backfill = backfill or os.environ.get("TOP10_BACKFILL") == "1"
+        if self.backfill and mode != "daily":
+            raise ValueError("補跑模式只允許 daily，不得觸發訓練或其他模式")
         self.config = self._load_config()
         if self.validation_mode:
             self._apply_validation_mode_config()
@@ -267,6 +288,8 @@ class AutomationRunner:
                 "runtime_root": str(self.runtime_paths.runtime_root),
                 "validation_mode": self.validation_mode,
                 "strict_run_date": self.strict_run_date,
+                "backfill": self.backfill,
+                "as_of_date": self.run_date,
                 "trigger": trigger,
                 "resource_profile": self.resource_profile,
                 "run_date_source": run_date_source,
@@ -426,6 +449,32 @@ class AutomationRunner:
             )
         return command
 
+    def _record_finmind_stats(self, stats_path: Path) -> None:
+        """將 ETL 子程序的安全統計併入同日 Daily status。"""
+        if self.validation_mode:
+            return
+        required = {
+            "expected_fetch_count", "received_fetch_count", "failed_fetch_count",
+            "failed_stock_count", "by_dataset", "limit", "used", "remaining",
+            "required_fetch_count", "next_available_time",
+        }
+        try:
+            raw = json.loads(stats_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raw = None
+        if not isinstance(raw, dict) or not required.issubset(raw):
+            self.status.metadata["finmind"] = {
+                "status": "incomplete", "reason_code": "FINMIND_COVERAGE_MISSING",
+            }
+            if self.status.status == "RUNNING":
+                self.status.status = "INCOMPLETE"
+            self._record_step("finmind.coverage", "INCOMPLETE", message="FinMind 覆蓋率或額度欄位缺漏")
+            return
+        self.status.metadata["finmind"] = {key: raw[key] for key in sorted(required)}
+        self.status.metadata["finmind"]["status"] = raw.get("status", "ok")
+        step_status = "PARTIAL" if raw["failed_fetch_count"] > 0 else "OK"
+        self._record_step("finmind.coverage", step_status, message=f"failed_fetch_count={raw['failed_fetch_count']}")
+
     def _pipeline_window(self) -> dict[str, str]:
         window = self._pipeline_window_override()
         if self.mode == "daily":
@@ -553,18 +602,20 @@ class AutomationRunner:
         if not daily_config.get("candidate_persistence_enabled", True):
             self._record_step("candidate.persistence", "SKIPPED", message="config daily.candidate_persistence_enabled=false")
             return
-        command = ["python", "scripts/build_candidate_persistence.py", "--ranking", str(ranking_path)]
+        command = ["python", "scripts/build_candidate_persistence.py", "--ranking", str(ranking_path),
+                   "--rankings-dir", str(self.runtime_paths.artifacts_dir),
+                   "--output", str(self.runtime_paths.artifacts_dir / f"candidate_persistence_{self.run_date}.json")]
         self._run_command("candidate.persistence", command)
 
     def _run_daily_report(self, daily_config: dict[str, Any], ranking_path: Path) -> Path | None:
-        report_path = self.runtime_paths.artifacts_dir / f"daily_report_{self._latest_feature_date()}.json"
+        report_path = self.runtime_paths.artifacts_dir / f"daily_report_{self.run_date}.json"
         self.status.metadata["expected_daily_report_artifact"] = str(report_path)
         if not daily_config.get("daily_report_enabled", True):
             self._record_step("daily.report", "SKIPPED", message="config daily.daily_report_enabled=false")
             return None
 
         command = ["python", "scripts/generate_daily_report.py", "--ranking", str(ranking_path)]
-        if not self.runtime_paths.uses_production_defaults:
+        if not self.runtime_paths.uses_production_defaults or self.backfill:
             command.extend(
                 [
                     "--status",
@@ -583,7 +634,7 @@ class AutomationRunner:
         return report_path
 
     def _run_tskg_t86(self, daily_config: dict[str, Any]) -> Path | None:
-        trade_date = self._latest_feature_date()
+        trade_date = self.run_date
         output_path = self.runtime_paths.artifacts_dir / "tskg" / "t86" / f"twse_t86_{trade_date}.json"
         self.status.metadata["expected_tskg_t86_artifact"] = str(output_path)
         if not daily_config.get("tskg_t86_enabled", True):
@@ -638,13 +689,15 @@ class AutomationRunner:
         daily_config: dict[str, Any],
         t86_path: Path | None = None,
     ) -> Path | None:
-        output_path = self.runtime_paths.artifacts_dir / f"market_context_{self._latest_feature_date()}.json"
+        output_path = self.runtime_paths.artifacts_dir / f"market_context_{self.run_date}.json"
         self.status.metadata["expected_market_context_artifact"] = str(output_path)
         if not daily_config.get("market_context_enabled", True):
             self._record_step("market.context", "SKIPPED", message="config daily.market_context_enabled=false")
             return None
 
-        command = ["python", "-m", "app.market_context_fetcher", "--date", self._latest_feature_date()]
+        command = ["python", "-m", "app.market_context_fetcher", "--date", self.run_date]
+        if self.backfill:
+            command.append("--backfill")
         if t86_path is not None and (self.dry_run or t86_path.exists()):
             command.extend(["--twse-t86-input", str(t86_path)])
         self._run_command("market.context", command)
@@ -652,12 +705,19 @@ class AutomationRunner:
             if not output_path.exists():
                 self._record_step("market.context.artifact", "FAILED", message=f"missing expected market context: {output_path}")
                 raise RuntimeError(f"market context completed but expected artifact is missing: {output_path}")
+            context_payload = json.loads(output_path.read_text(encoding="utf-8"))
+            context_status = context_payload.get("status")
+            if context_status not in {"ok", "unavailable_via_openapi"}:
+                self._record_step("market.context.artifact", "FAILED", message=f"invalid market context status: {context_status}")
+                raise RuntimeError(f"market context status invalid: {context_status}")
             self.status.metadata["market_context_artifact"] = str(output_path)
-            self._record_step("market.context.artifact", "OK", message=str(output_path))
+            self.status.metadata["market_context_status"] = context_status
+            self._record_step("market.context.artifact", "OK" if context_status == "ok" else "UNAVAILABLE",
+                              message=str(output_path))
         return output_path
 
     def _run_daily_recommendation_performance(self, daily_config: dict[str, Any]) -> Path | None:
-        date_text = self._latest_feature_date()
+        date_text = self.run_date
         output_path = self.runtime_paths.artifacts_dir / f"daily_recommendation_performance_{date_text}.json"
         self.status.metadata["expected_daily_recommendation_performance_artifact"] = str(output_path)
         if not daily_config.get("daily_recommendation_performance_enabled", True):
@@ -705,13 +765,13 @@ class AutomationRunner:
         return output_path
 
     def _run_decision_quality(self, daily_config: dict[str, Any], ranking_path: Path) -> Path | None:
-        output_path = self.runtime_paths.artifacts_dir / f"decision_quality_{self._latest_feature_date()}.json"
+        output_path = self.runtime_paths.artifacts_dir / f"decision_quality_{self.run_date}.json"
         self.status.metadata["expected_decision_quality_artifact"] = str(output_path)
         if not daily_config.get("decision_quality_enabled", True):
             self._record_step("decision.quality", "SKIPPED", message="config daily.decision_quality_enabled=false")
             return None
 
-        performance_path = self.runtime_paths.artifacts_dir / f"daily_recommendation_performance_{self._latest_feature_date()}.json"
+        performance_path = self.runtime_paths.artifacts_dir / f"daily_recommendation_performance_{self.run_date}.json"
         command = ["python", "scripts/build_decision_quality.py", "--ranking", str(ranking_path)]
         if performance_path.exists():
             command.extend(["--performance", str(performance_path)])
@@ -725,7 +785,7 @@ class AutomationRunner:
         return output_path
 
     def _run_daily_performance_review(self, daily_config: dict[str, Any]) -> Path | None:
-        date_text = self._latest_feature_date()
+        date_text = self.run_date
         output_path = self.runtime_paths.artifacts_dir / f"daily_performance_review_{date_text}.json"
         self.status.metadata["expected_daily_performance_review_artifact"] = str(output_path)
         if not daily_config.get("daily_performance_review_enabled", True):
@@ -773,7 +833,7 @@ class AutomationRunner:
         return output_path
 
     def _run_gross55_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
-        date_text = self._latest_feature_date()
+        date_text = self.run_date
         monitor_path = self.runtime_paths.artifacts_dir / "model_experiments" / f"gross55_daily_shadow_monitor_{date_text}.json"
         batch_path = self.runtime_paths.artifacts_dir / "model_experiments" / f"gross55_daily_shadow_monitor_batch_{date_text}.json"
         self.status.metadata["expected_gross55_shadow_monitor"] = str(monitor_path)
@@ -820,7 +880,7 @@ class AutomationRunner:
             self._record_step("gross55.shadow_monitor_batch.artifact", "OK", message=str(batch_path))
 
     def _run_capital_entry_quality_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
-        date_text = self._latest_feature_date()
+        date_text = self.run_date
         monitor_path = (
             self.runtime_paths.artifacts_dir
             / "model_experiments"
@@ -875,7 +935,7 @@ class AutomationRunner:
             self._record_step("capital_entry_quality.shadow_monitor_batch.artifact", "OK", message=str(batch_path))
 
     def _run_candidate_trail10_shadow_monitor(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
-        date_text = self._latest_feature_date()
+        date_text = self.run_date
         monitor_path = (
             self.runtime_paths.artifacts_dir
             / "model_experiments"
@@ -905,7 +965,7 @@ class AutomationRunner:
             self._record_step("candidate_trail10.shadow_monitor.artifact", "OK", message=str(monitor_path))
 
     def _run_overlap_first_recommendation_shadow(self, daily_config: dict[str, Any], ranking_path: Path) -> None:
-        date_text = self._latest_feature_date()
+        date_text = self.run_date
         output_path = (
             self.runtime_paths.artifacts_dir
             / "model_experiments"
@@ -942,7 +1002,7 @@ class AutomationRunner:
             self._record_step("overlap_first.recommendation_shadow.artifact", "OK", message=str(output_path))
 
     def _run_daily_shadow_status_report(self, daily_config: dict[str, Any]) -> None:
-        date_text = self._latest_feature_date()
+        date_text = self.run_date
         output_path = self.runtime_paths.artifacts_dir / "model_experiments" / f"daily_shadow_status_{date_text}.json"
         self.status.metadata["expected_daily_shadow_status_report"] = str(output_path)
         if not daily_config.get("daily_shadow_status_report_enabled", False):
@@ -1000,7 +1060,7 @@ class AutomationRunner:
             )
 
     def _run_shadow_historical_evidence_report(self, daily_config: dict[str, Any]) -> None:
-        date_text = self._latest_feature_date()
+        date_text = self.run_date
         output_path = self.runtime_paths.artifacts_dir / "model_experiments" / f"shadow_historical_evidence_{date_text}.json"
         self.status.metadata["expected_shadow_historical_evidence_report"] = str(output_path)
         if not daily_config.get("shadow_historical_evidence_report_enabled", False):
@@ -1023,8 +1083,8 @@ class AutomationRunner:
             self._record_step("shadow_historical.evidence_report.artifact", "OK", message=str(output_path))
 
     def _run_clawd_payload(self, daily_config: dict[str, Any], report_path: Path | None) -> None:
-        payload_path = self.runtime_paths.artifacts_dir / f"clawd_publish_payload_{self._latest_feature_date()}.json"
-        message_path = self.runtime_paths.artifacts_dir / f"clawd_publish_message_{self._latest_feature_date()}.md"
+        payload_path = self.runtime_paths.artifacts_dir / f"clawd_publish_payload_{self.run_date}.json"
+        message_path = self.runtime_paths.artifacts_dir / f"clawd_publish_message_{self.run_date}.md"
         self.status.metadata["expected_clawd_publish_payload"] = str(payload_path)
         self.status.metadata["expected_clawd_publish_message"] = str(message_path)
         if not daily_config.get("clawd_payload_enabled", True):
@@ -1089,9 +1149,21 @@ class AutomationRunner:
         timeout_seconds = notify_config.get("llm_rewrite_timeout_seconds")
         if timeout_seconds:
             command.extend(["--timeout-seconds", str(timeout_seconds)])
+        receipt_path = self.runtime_paths.artifacts_dir / f"clawd_publish_llm_rewrite_{self.run_date}.json"
+        command.extend(["--output", str(receipt_path)])
         self._run_command("clawd.payload.llm_rewrite", command)
+        if not self.dry_run and receipt_path.is_file():
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            if receipt.get("ranking_date") == self.run_date:
+                self.status.metadata["clawd_llm_rewrite_status"] = receipt.get("status")
+                self.status.metadata["clawd_llm_rewrite_degraded"] = receipt.get("degraded") is True
+                self.status.metadata["clawd_llm_rewrite_consecutive_fallback_days"] = receipt.get(
+                    "consecutive_fallback_days", 0
+                )
 
     def _preflight(self) -> None:
+        if self.validation_mode or not self.runtime_paths.uses_production_defaults:
+            reject_external_isolation()
         self._record_step("preflight.project_root", "OK", message=str(PROJECT_ROOT))
         self._record_step("preflight.source_root", "OK", message=str(self.runtime_paths.source_root))
         self._record_step("preflight.output_root", "OK", message=str(self.runtime_paths.output_root))
@@ -1118,6 +1190,18 @@ class AutomationRunner:
         self._record_step("daily.schema", "OK", message=STATUS_SCHEMA_VERSION)
         self._record_step("daily.run_date", "OK", message=self.run_date)
         self._record_model_existence()
+        if self._market_coverage_enabled():
+            import pandas as pd
+
+            required_markets = [
+                str(market).strip().lower()
+                for market in self.config.get("daily", {}).get("required_market_types", ["twse", "tpex"])
+                if str(market).strip()
+            ]
+            expected = self._expected_market_counts(pd, required_markets)
+            if not required_markets or any(expected.get(market, 0) <= 0 for market in required_markets):
+                raise RuntimeError("Daily 市場參考檔缺失或必要市場無有效股票；ETL 前停止")
+            self._record_step("daily.market_reference", "OK", message=str(expected))
         self._record_data_freshness(
             "data.freshness.preflight",
             fail_on_error=False if self.validation_mode else not self._has_pipeline_window(),
@@ -1309,19 +1393,8 @@ class AutomationRunner:
         }
 
     def _expected_market_counts(self, pd: Any, required_markets: list[str]) -> dict[str, int]:
-        universe_path = self.runtime_paths.source_root / "data" / "reference" / "tradable_universe.csv"
-        if not universe_path.exists():
-            return {market: 0 for market in required_markets}
-        universe = pd.read_csv(universe_path, dtype={"stock_id": str})
-        if universe.empty or "market_type" not in universe.columns:
-            return {market: 0 for market in required_markets}
-        if "is_active" in universe.columns:
-            universe = universe[universe["is_active"].map(self._truthy_value).fillna(True)]
-        if "is_etf" in universe.columns:
-            universe = universe[~universe["is_etf"].map(self._truthy_value).fillna(False)]
-        universe["market_type"] = universe["market_type"].astype(str).str.strip().str.lower()
-        counts = universe.groupby("market_type")["stock_id"].nunique().to_dict()
-        return {market: int(counts.get(market, 0)) for market in required_markets}
+        del pd
+        return expected_market_counts(self.runtime_paths.source_root, required_markets)
 
     def _stock_market_map(self, pd: Any) -> dict[str, str]:
         universe_path = self.runtime_paths.source_root / "data" / "reference" / "tradable_universe.csv"
@@ -1565,7 +1638,8 @@ class AutomationRunner:
         return payload
 
     def _expected_ranking_path(self) -> Path:
-        return self.runtime_paths.artifacts_dir / f"ranking_{self._latest_feature_date()}.csv"
+        date_text = self.run_date if self.mode == "daily" else self._latest_feature_date()
+        return self.runtime_paths.artifacts_dir / f"ranking_{date_text}.csv"
 
     def _latest_feature_date(self) -> str:
         freshness = self.status.metadata.get("data_freshness", {})
@@ -1754,7 +1828,18 @@ class AutomationRunner:
                 dry_run=self.dry_run,
             )
             self._write_text_atomic(snapshot_path, serialized_payload)
-            self._write_text_atomic(status_path, serialized_payload)
+            # 歷史補跑不得倒退共用最新狀態；報告仍讀同日 snapshot。
+            latest_path = status_output_path(self.runtime_paths.status_path, mode=self.mode, dry_run=self.dry_run)
+            promote = True
+            if self.backfill and latest_path.exists():
+                try:
+                    previous = json.loads(latest_path.read_text(encoding="utf-8"))
+                    previous_date = self._normalize_run_date(previous["run_date"])
+                    promote = previous_date is not None and previous_date <= self.run_date
+                except (OSError, ValueError, KeyError, TypeError):
+                    promote = False
+            if promote:
+                self._write_text_atomic(latest_path, serialized_payload)
         else:
             status_path.write_text(serialized_payload, encoding="utf-8")
         if self.mode == "daily":
@@ -1783,6 +1868,8 @@ class AutomationRunner:
 
     def _status_output_path(self) -> Path:
         """daily 狀態是下游 publish / external-review 的契約；其他模式不能覆蓋。"""
+        if self.backfill and self.mode == "daily":
+            return daily_status_snapshot_path(self.runtime_paths.status_path, run_date=self.run_date, dry_run=self.dry_run)
         return status_output_path(self.runtime_paths.status_path, mode=self.mode, dry_run=self.dry_run)
 
     def _daily_summary_payload(self, status_payload: dict[str, Any]) -> dict[str, Any]:
@@ -1825,8 +1912,13 @@ class AutomationRunner:
         return yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
 
     def _subprocess_env(self) -> dict[str, str]:
+        if not self.runtime_paths.uses_production_defaults:
+            reject_external_isolation()
         env = os.environ.copy()
         env["TOP10_RESOURCE_PROFILE"] = self.resource_profile
+        env["TOP10_RUN_DATE"] = self.run_date
+        if self.backfill:
+            env["TOP10_BACKFILL"] = "1"
         env["TOP10_SOURCE_ROOT"] = str(self.runtime_paths.source_root)
         env["TOP10_OUTPUT_ROOT"] = str(self.runtime_paths.output_root)
         env["TOP10_RUNTIME_ROOT"] = str(self.runtime_paths.runtime_root)
@@ -1880,6 +1972,7 @@ def main() -> int:
         help="資源模式：local_safe 會阻擋本機高成本流程；host_full 用於主機正式流程",
     )
     parser.add_argument("--run-date", default=None, help="明確指定本次流程日期，格式 YYYY-MM-DD；優先於 TOP10_RUN_DATE")
+    parser.add_argument("--backfill", action="store_true", help="實際補跑但禁止訊號與 ops 送達")
     args = parser.parse_args()
     return AutomationRunner(
         mode=args.mode,
@@ -1887,6 +1980,7 @@ def main() -> int:
         trigger=args.trigger,
         resource_profile=args.resource_profile,
         run_date=args.run_date,
+        backfill=args.backfill,
     ).run()
 
 

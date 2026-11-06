@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -12,14 +13,31 @@ import tempfile
 import time
 import unittest
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from unittest import mock
+import pytest
+from app.external_cache import FIELDS
 
 import app.storage_safety as storage_safety
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+REAL_BOOT_VOLUME_PROBE = storage_safety._measure_boot_volume_capacity
+
+
+@pytest.fixture(autouse=True)
+def isolated_storage_cache_environment(monkeypatch):
+    """舊隔離 fixture 明確移除 host 外接設定；產品仍拒絕 configured 外接。"""
+    for key in (*FIELDS, "TOP10_EXTERNAL_CACHE_ROOT"):
+        monkeypatch.delenv(key, raising=False)
+    # 舊案例只描述 workload 卷；新增內建卷探針使用獨立、健康的固定 fixture。
+    monkeypatch.setattr(storage_safety, "_measure_boot_volume_capacity", lambda: (
+        256 * 1024**3, 60 * 1024**3, 64 * 1024**3,
+        "macos_foundation_important_usage" if sys.platform == "darwin" else "shutil.disk_usage",
+    ))
+
+
 SCHEDULED_JOBS = {
     "daily": ("daily", "run_daily_publish.sh"),
     "retrain": ("retrain-monitor", "daily_retrain.sh"),
@@ -41,7 +59,7 @@ from app.storage_safety import (  # noqa: E402
     ProcessGroupIdentity,
     RetentionRule,
     RotatingLog,
-    Sample,
+    Sample as StorageSample,
     TrustedValidationEntrypoint,
     UntrustedValidationEntrypoint,
     VALIDATION_ENTRYPOINT_SCHEMA_VERSION,
@@ -67,6 +85,20 @@ from scripts.storage_safety import (  # noqa: E402
     parse_args as parse_storage_args,
     validate_isolated_root,
 )
+
+
+@dataclass(frozen=True)
+class Sample(StorageSample):
+    """既有小數值案例的內建卷固定基線；未知案例需明確傳 None。"""
+
+    boot_volume_path: str | None = str(storage_safety._BOOT_VOLUME_PATH)
+    boot_volume_total_bytes: int | None = 256 * 1024**3
+    boot_volume_free_bytes: int | None = 64 * 1024**3
+    boot_volume_raw_free_bytes: int | None = 60 * 1024**3
+    boot_volume_capacity_source: str | None = (
+        "macos_foundation_important_usage" if sys.platform == "darwin" else "shutil.disk_usage"
+    )
+    host_boot_shared_container: bool | None = False
 
 
 def fixture_global_policy() -> GlobalPolicy:
@@ -172,6 +204,128 @@ def write_fog_plist_fixture(root: Path, start_interval: int = 3600) -> None:
     path.write_bytes(plistlib.dumps({"StartInterval": start_interval}))
 
 
+def test_host_capacity_alignment_uses_admission_not_raw() -> None:
+    """同一主機 raw 未達線、important 已達線時，應依既有准入口徑通過。"""
+    total = 100 * 1024**3
+    raw = 9 * 1024**3
+    admission = 25 * 1024**3
+    global_policy, job_policy, _ = load_policy(
+        PROJECT_ROOT / "docs/operations/top10-storage-policy.json", "fog-research-worker"
+    )
+    with (
+        mock.patch.object(storage_safety, "_measure_host_capacity",
+                          return_value=(total, raw, admission, "macos_foundation_important_usage")),
+        mock.patch.object(storage_safety, "measure_paths", return_value=storage_safety.Inventory(7, 1)),
+        mock.patch.object(storage_safety.shutil, "disk_usage",
+                          return_value=shutil._ntuple_diskusage(total, total - raw, raw)),
+        mock.patch.object(storage_safety, "process_tree_rss_snapshot", return_value=(0, ())),
+        mock.patch.object(storage_safety, "read_swap_bytes", return_value=0),
+        mock.patch.object(storage_safety, "read_memory_pressure_level", return_value=1),
+    ):
+        sample = take_sample(PROJECT_ROOT, job_policy)
+    assert evaluate_preflight(global_policy, job_policy, sample).triggered is False
+    assert sample.host_free_bytes == admission
+    assert sample.host_raw_free_bytes == raw
+    assert sample.host_capacity_source == "macos_foundation_important_usage"
+    assert sample.project_bytes == 7
+
+
+@pytest.mark.parametrize("admission_gib,preflight_stops,runtime_stops", [
+    (9, True, True), (15, False, True), (25, False, False),
+])
+def test_host_capacity_alignment_preserves_thresholds_and_meter(
+    admission_gib, preflight_stops, runtime_stops,
+) -> None:
+    """同一重要用途容量餵給既有兩道門檻；meter 與 host_root 不互換。"""
+    gp, jp, _ = load_policy(PROJECT_ROOT / "docs/operations/top10-storage-policy.json", "fog-research-worker")
+    output = Path("/fixture/output")
+    host = Path("/fixture/host")
+    with (
+        mock.patch.object(storage_safety, "_measure_host_capacity",
+                          return_value=(100 * 1024**3, 8 * 1024**3, admission_gib * 1024**3,
+                                        "macos_foundation_important_usage")) as sensor,
+        mock.patch.object(storage_safety, "measure_paths", return_value=storage_safety.Inventory(7, 1)) as meter,
+        mock.patch.object(storage_safety, "process_tree_rss_snapshot", return_value=(1, ())),
+        mock.patch.object(storage_safety, "read_swap_bytes", return_value=0),
+        mock.patch.object(storage_safety, "read_memory_pressure_level", return_value=1),
+    ):
+        sample = take_sample(output, jp, host_root=host)
+    sensor.assert_called_once_with(host)
+    meter.assert_called_once_with(
+        output,
+        jp.meter_paths,
+        deadline_seconds=15.0,
+    )
+    assert evaluate_preflight(gp, jp, sample).triggered is preflight_stops
+    assert evaluate_runtime(gp, jp, [sample]).triggered is runtime_stops
+    assert sample.to_dict()["host_raw_free_bytes"] == 8 * 1024**3
+    assert sample.to_dict()["host_capacity_source"] == "macos_foundation_important_usage"
+
+
+def test_host_capacity_alignment_darwin_reuses_shared_sensor() -> None:
+    """只接現有共用感測器，不複製 Foundation 程式碼或啟動業務負載。"""
+    payload = {"total_bytes": 1000, "physical_available_bytes": 90,
+               "admission_available_bytes": 250, "source": "macos_foundation_important_usage"}
+    with (
+        mock.patch.object(storage_safety.sys, "platform", "darwin"),
+        mock.patch.dict(os.environ, {"AI_CORE_DIR": "/fixture/ai-core"}),
+        mock.patch.object(storage_safety.subprocess, "run",
+                          return_value=subprocess.CompletedProcess([], 0, json.dumps(payload))) as run,
+        mock.patch.object(storage_safety.shutil, "disk_usage") as raw,
+    ):
+        assert storage_safety._measure_host_capacity(Path("/fixture/host")) == (
+            1000, 90, 250, "macos_foundation_important_usage"
+        )
+    argv = run.call_args.args[0]
+    assert argv[:3] == ["/fixture/ai-core/.venv/bin/python", "-B", "-c"]
+    assert "from host_capacity_sensor import measure_host_capacity" in argv[3]
+    assert argv[-2:] == ["/fixture/ai-core/scripts", "/fixture/host"]
+    assert run.call_args.kwargs["check"] is True
+    assert run.call_args.kwargs["timeout"] == 15
+    raw.assert_not_called()
+
+
+@pytest.mark.parametrize("response", [
+    "null", "{}", "not-json",
+    {"total_bytes": 1000, "physical_available_bytes": 90, "admission_available_bytes": None,
+     "source": "macos_foundation_important_usage"},
+    {"total_bytes": 1000, "physical_available_bytes": 90, "admission_available_bytes": 80,
+     "source": "macos_foundation_important_usage"},
+    {"total_bytes": 1000, "physical_available_bytes": 90, "admission_available_bytes": 250,
+     "source": "shutil.disk_usage"},
+    subprocess.TimeoutExpired("sensor", 15),
+    subprocess.CalledProcessError(1, "sensor"),
+    FileNotFoundError("sensor"),
+])
+def test_host_capacity_alignment_unknown_fails_closed(response) -> None:
+    """必要觀測失敗必須穿出 sampler，不能偽造空間或默默 fallback。"""
+    kwargs = ({"side_effect": response} if isinstance(response, Exception) else
+              {"return_value": subprocess.CompletedProcess(
+                  [], 0, response if isinstance(response, str) else json.dumps(response))})
+    with (
+        mock.patch.object(storage_safety.sys, "platform", "darwin"),
+        mock.patch.dict(os.environ, {"AI_CORE_DIR": "/fixture/ai-core"}),
+        mock.patch.object(storage_safety.subprocess, "run", **kwargs),
+        mock.patch.object(storage_safety.shutil, "disk_usage") as raw,
+        mock.patch.object(storage_safety, "measure_paths", return_value=storage_safety.Inventory(0, 0)),
+    ):
+        with pytest.raises(RuntimeError, match="HOST_CAPACITY_UNAVAILABLE"):
+            take_sample(PROJECT_ROOT, fixture_job_policy())
+    raw.assert_not_called()
+
+
+def test_host_capacity_alignment_nonmac_preserves_raw() -> None:
+    with (
+        mock.patch.object(storage_safety.sys, "platform", "linux"),
+        mock.patch.object(storage_safety.shutil, "disk_usage",
+                          return_value=shutil._ntuple_diskusage(1000, 910, 90)) as raw,
+        mock.patch.object(storage_safety.subprocess, "run") as run,
+    ):
+        assert storage_safety._measure_host_capacity(PROJECT_ROOT) == (1000, 90, 90, "shutil.disk_usage")
+    raw.assert_called_once_with(PROJECT_ROOT)
+    run.assert_not_called()
+
+
 def test_take_sample_attributes_process_tree_rss_by_pid_and_command() -> None:
     ps_output = "\n".join(
         (
@@ -187,9 +341,12 @@ def test_take_sample_attributes_process_tree_rss_by_pid_and_command() -> None:
     with (
         mock.patch("app.storage_safety.subprocess.run", return_value=completed),
         mock.patch("app.storage_safety.measure_paths", return_value=type("I", (), {"bytes": 0, "file_count": 0})()),
-        mock.patch("app.storage_safety.shutil.disk_usage", return_value=disk_usage),
+        mock.patch("app.storage_safety._measure_host_capacity",
+                   return_value=(disk_usage.total, disk_usage.free, disk_usage.free, "shutil.disk_usage")),
         mock.patch("app.storage_safety.read_swap_bytes", return_value=0),
         mock.patch("app.storage_safety.read_memory_pressure_level", return_value=1),
+        mock.patch("app.storage_safety.read_process_phys_footprint", return_value=None),
+        mock.patch("app.storage_safety._shares_boot_container", return_value=False),
     ):
         sample = take_sample(PROJECT_ROOT, fixture_job_policy(), process_pid=100)
 
@@ -206,10 +363,13 @@ def test_take_sample_attributes_process_tree_rss_by_pid_and_command() -> None:
         "ppid": 100,
         "rss_bytes": 64 * 1024,
         "command": "python strategy_matrix.py --scenario baseline",
+        "phys_footprint": None,
     }
     assert [row["probe"] for row in sample.to_dict()["probe_timings"]] == [
         "meter_paths",
-        "disk_usage",
+        "host_capacity",
+        "boot_volume_capacity",
+        "volume_identity",
         "process_tree_rss",
         "swap",
         "memory_pressure",
@@ -260,6 +420,26 @@ def test_manual_cli_cannot_self_attest_natural_origin() -> None:
     assert _effective_trigger_type("manual", parent_pid=1) == "manual"
 
 
+def wrapper_toolchain_fixture(root: Path) -> dict[str, str]:
+    """wrapper fixture 不碰真實主機 toolchain 或外接掛載。"""
+    core = root / "ai-core"
+    (core / "config").mkdir(parents=True)
+    (core / "config/ai_core_env.sh").write_text("\n".join(
+        f"export {key}=fixture" for key in (
+            "AI_CORE_CACHE_VOLUME", "AI_CORE_CACHE_IMAGE", "AI_CORE_CACHE_BACKING_VOLUME",
+            "AI_CORE_CACHE_BACKING_UUID", "AI_CORE_CACHE_VOLUME_UUID", "AI_CORE_CACHE_MAX_BYTES",
+        )
+    ) + "\n")
+    (core / "config/toolchain_paths.sh").write_text(":\n")
+    # 固定 image fixture，不繼承主機正在使用的 directory cache 設定。
+    environment = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("AI_CORE_CACHE_") and key != "TOP10_EXTERNAL_CACHE_ROOT"
+    }
+    environment.update({"AI_CORE_DIR": str(core), "AI_CORE_CACHE_MODE": "image"})
+    return environment
+
+
 def test_wrapper_preserves_non_fog_overrides_but_fog_self_generates_metadata() -> None:
     """共同 wrapper 只對 Fog 封鎖 caller metadata；其他 job 保留既有 override。"""
 
@@ -284,7 +464,7 @@ printf 'arg=%s\n' "$@"
         supplied_scheduled = "2026-09-05T09:30:00Z"
         supplied_invocation = "daily-20260905T093000Z-supplied"
         environment = {
-            **os.environ,
+            **wrapper_toolchain_fixture(root),
             "TOP10_STORAGE_SCHEDULED_AT": supplied_scheduled,
             "TOP10_STORAGE_INVOCATION_ID": supplied_invocation,
         }
@@ -420,6 +600,7 @@ def test_wrapper_other_jobs_keep_arbitrary_child_contract() -> None:
         python_bin.chmod(0o755)
         wrapper = scripts / "run_with_storage_guard.sh"
 
+        environment = wrapper_toolchain_fixture(root)
         for job in (
             "daily",
             "retrain",
@@ -433,6 +614,7 @@ def test_wrapper_other_jobs_keep_arbitrary_child_contract() -> None:
             result = subprocess.run(
                 [str(wrapper), job, "/usr/bin/true"],
                 cwd=root,
+                env=environment,
                 check=False,
                 capture_output=True,
                 text=True,
@@ -734,6 +916,21 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             "HOST_START_FREE_SPACE_BELOW_THRESHOLD",
             evaluate_preflight(global_policy, policy, below_ten).reasons,
         )
+
+    def test_daily_peak_budget_deducted_before_child(self) -> None:
+        gp, policy, _ = load_policy(PROJECT_ROOT / "docs/operations/top10-storage-policy.json", "daily")
+        total = 245_107_195_904
+        assert policy.host_peak_budget_bytes - policy.boot_volume_swap_headroom_bytes >= policy.max_bytes
+        project_peak = policy.host_peak_budget_bytes - policy.boot_volume_swap_headroom_bytes
+        reserve = max(gp.runtime_min_free_bytes, int(total * gp.runtime_min_free_percent))
+        denied = Sample(0, 0, 0, total, reserve + project_peak - 1,
+                        0, 0, host_capacity_source="macos_foundation_important_usage")
+        allowed = replace(denied, host_free_bytes=reserve + project_peak)
+        assert "HOST_PEAK_BUDGET_INSUFFICIENT" in evaluate_preflight(gp, policy, denied).reasons
+        assert "HOST_PEAK_BUDGET_INSUFFICIENT" not in evaluate_preflight(gp, policy, allowed).reasons
+        if sys.platform == "darwin":
+            assert "HOST_CAPACITY_SOURCE_UNVERIFIED" in evaluate_preflight(
+                gp, policy, replace(allowed, host_capacity_source=None)).reasons
 
     def test_unknown_write_detection_includes_deletions(self) -> None:
         before = {"registered/ok.txt": (1, 1), "source.py": (2, 2)}
@@ -1582,6 +1779,28 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 if self.suffix == ".bin":
                     resolved_regular_files.append(self)
                 return original_resolve(self, *args, **kwargs)
+
+            if os.environ.get("TOP10_MANAGED_PYTEST_ROOT"):
+                managed = Path(os.environ["TOP10_MANAGED_PYTEST_ROOT"]).resolve(strict=True)
+                resolved_root = root.resolve(strict=True)
+                self.assertTrue(resolved_root.is_relative_to(managed / "tmp"))
+                device = int(os.environ["TOP10_MANAGED_BACKING_DEVICE"])
+                self.assertEqual(resolved_root.stat().st_dev, device)
+                files = []
+                for index in range(50):
+                    for path in (root / "artifacts" / "metered" / f"root-{index}.bin",
+                                 nested / f"child-{index}.bin"):
+                        resolved = path.resolve(strict=True)
+                        with path.open("rb") as stream:
+                            info = os.fstat(stream.fileno())
+                        self.assertTrue(resolved.is_relative_to(resolved_root))
+                        self.assertEqual(info.st_dev, device)
+                        files.append({"resolved": str(resolved), "device": info.st_dev,
+                                      "size": info.st_size})
+                self.assertEqual(len(files), 100)
+                self.assertEqual(sum(item["size"] for item in files), expected_bytes)
+                print(json.dumps({"root": str(resolved_root), "device": device,
+                                  "file_count": len(files), "files": files}), flush=True)
 
             with mock.patch.object(Path, "resolve", counted_resolve):
                 inventory = measure_paths(
@@ -4544,6 +4763,8 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             global_policy = fixture_global_policy()
             sample_count = 0
             child_pid: int | None = None
+            sensitive_message = "secret-monitor-token"
+            sensitive_filename = "/Users/private-owner/secret-monitor-file"
             protected = subprocess.Popen(["/bin/sleep", "30"], start_new_session=True)
 
             def sampler(pid: int | None) -> Sample:
@@ -4551,7 +4772,7 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 sample_count += 1
                 if sample_count == 2:
                     child_pid = pid
-                    raise RuntimeError("fixture monitor failure")
+                    raise PermissionError(errno.EACCES, sensitive_message, sensitive_filename)
                 return Sample(time.time(), 0, 0, 100_000, 50_000, 0, 0)
 
             try:
@@ -4564,6 +4785,8 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                     command,
                     sampler=sampler,
                 )
+                receipt_path = root / "logs" / "storage_safety" / "daily_latest.json"
+                receipt_before_restart = receipt_path.read_bytes()
                 denied = run_guarded_job(
                     root,
                     global_policy,
@@ -4574,6 +4797,29 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 )
 
                 self.assertEqual((stopped, denied), (70, 75))
+                self.assertEqual(receipt_path.read_bytes(), receipt_before_restart)
+                self.assertEqual(sample_count, 2)
+                receipt = json.loads(receipt_before_restart)
+                self.assertEqual(receipt["status"], "STOPPED")
+                self.assertIn("GUARD_INTERNAL_ERROR_PermissionError", receipt["reasons"])
+                diagnostic = receipt["internal_error"]
+                self.assertEqual(set(diagnostic), {"type", "errno", "frames"})
+                self.assertEqual(diagnostic["type"], "PermissionError")
+                self.assertEqual(diagnostic["errno"], errno.EACCES)
+                self.assertGreater(len(diagnostic["frames"]), 0)
+                self.assertLessEqual(len(diagnostic["frames"]), 4)
+                for frame in diagnostic["frames"]:
+                    self.assertEqual(set(frame), {"filename", "function", "line"})
+                    self.assertEqual(frame["filename"], "app/storage_safety.py")
+                    self.assertIsInstance(frame["function"], str)
+                    self.assertIsInstance(frame["line"], int)
+                    self.assertGreater(frame["line"], 0)
+                self.assertIn("run_guarded_job", [f["function"] for f in diagnostic["frames"]])
+                for persisted in (root / "logs" / "storage_safety").rglob("*.json"):
+                    raw = persisted.read_text()
+                    self.assertNotIn(sensitive_message, raw)
+                    self.assertNotIn(sensitive_filename, raw)
+                    self.assertNotIn(str(PROJECT_ROOT), raw)
                 self.assertIsNotNone(child_pid)
                 with self.assertRaises(ProcessLookupError):
                     os.kill(int(child_pid), 0)
@@ -4583,6 +4829,31 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                     protected.terminate()
                     protected.wait(timeout=2)
 
+    def test_guard_internal_error_omits_non_integer_errno_and_external_frames(self) -> None:
+        for error in (RuntimeError("private-message"), OSError("private-errno", "private-message")):
+            with self.subTest(error_type=type(error).__name__), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                sampler = mock.Mock(side_effect=error)
+                result = run_guarded_job(
+                    root, fixture_global_policy(), fixture_job_policy(), (),
+                    ["/bin/true"], sampler=sampler,
+                )
+                self.assertEqual(result, 70)
+                payload = json.loads(
+                    (root / "logs/storage_safety/daily_latest.json").read_text()
+                )
+                diagnostic = payload["internal_error"]
+                self.assertEqual(set(diagnostic), {"type", "frames"})
+                self.assertEqual(diagnostic["type"], type(error).__name__)
+                self.assertEqual(len(diagnostic["frames"]), 1)
+                frame = diagnostic["frames"][0]
+                self.assertEqual(frame["filename"], "app/storage_safety.py")
+                self.assertEqual(frame["function"], "run_guarded_job")
+                source_line = (PROJECT_ROOT / frame["filename"]).read_text().splitlines()[frame["line"] - 1]
+                self.assertIn("take(None)", source_line)
+                self.assertNotIn("private-", json.dumps(payload))
+                self.assertNotIn(str(PROJECT_ROOT), json.dumps(diagnostic))
+
     def test_sigterm_is_converted_to_isolated_stop_and_restart_denial(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-signal-") as tmp:
             root = Path(tmp)
@@ -4590,8 +4861,8 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             runner = """
 import sys
 from pathlib import Path
-from tests.test_storage_safety import fixture_global_policy, fixture_job_policy
-from app.storage_safety import Sample, run_guarded_job
+from tests.test_storage_safety import fixture_global_policy, fixture_job_policy, Sample
+from app.storage_safety import run_guarded_job
 
 root = Path(sys.argv[1])
 command = [\"/bin/sh\", \"-c\", \"echo $$ > output/child.pid; exec /bin/sleep 30\"]
@@ -4655,6 +4926,7 @@ raise SystemExit(
             self.assertFalse(denied.exists())
             self.assertEqual((root / "output" / "result.log").read_text(encoding="utf-8"), "xx")
             payload = json.loads(receipt.read_text(encoding="utf-8"))
+            self.assertNotIn("internal_error", payload)
             self.assertGreaterEqual(len(payload["samples"]), 3)
             self.assertTrue(
                 all("memory_pressure_level" in sample for sample in payload["samples"])
@@ -5276,7 +5548,7 @@ raise SystemExit(
             "MPLCONFIGDIR",
             "JOBLIB_TEMP_FOLDER",
         ):
-            self.assertIn(f"export {variable}=", wrapper)
+            self.assertNotIn(f"export {variable}=", wrapper)
         self.assertIn('"$PPID" -eq 1', wrapper)
         self.assertIn("--trigger-type", wrapper)
         self.assertIn("--scheduled-at", wrapper)
@@ -5362,6 +5634,155 @@ exit 0
             2,
             "兩個週期留下四份重複封存，證明現行 wrapper 沒有 max_file_count／輪替回收。",
         )
+
+
+@pytest.mark.parametrize("free_gib,stops,warns", [(23, True, True), (24, False, True), (30, False, True), (34, False, False)])
+def test_boot_volume_24_stop_34_warn_contract(free_gib, stops, warns):
+    sample = Sample(0, 0, 0, 100_000, 50_000, 1000, 0,
+                    boot_volume_free_bytes=free_gib * 1024**3,
+                    boot_volume_raw_free_bytes=(free_gib - 1) * 1024**3)
+    for decision in (evaluate_preflight(fixture_global_policy(), fixture_job_policy(), sample),
+                     evaluate_runtime(fixture_global_policy(), fixture_job_policy(), [sample])):
+        assert decision.triggered is stops
+        assert ("BOOT_VOLUME_FREE_SPACE_LOW" in decision.warnings) is warns
+        assert ("BOOT_VOLUME_FREE_SPACE_BELOW_THRESHOLD" in decision.reasons) is stops
+
+
+@pytest.mark.parametrize("missing", ["boot_volume_free_bytes", "boot_volume_raw_free_bytes", "boot_volume_total_bytes", "boot_volume_capacity_source", "boot_volume_path"])
+def test_boot_volume_unknown_fails_closed(missing):
+    sample = replace(Sample(0, 0, 0, 100_000, 50_000, 1000, 0), **{missing: None})
+    for decision in (evaluate_preflight(fixture_global_policy(), fixture_job_policy(), sample),
+                     evaluate_runtime(fixture_global_policy(), fixture_job_policy(), [sample])):
+        assert "BOOT_VOLUME_CAPACITY_UNAVAILABLE" in decision.reasons
+
+
+def test_boot_volume_probe_failure_cannot_use_external_free(monkeypatch):
+    monkeypatch.setattr(storage_safety, "_measure_boot_volume_capacity", lambda: None)
+    monkeypatch.setattr(storage_safety, "_measure_host_capacity", lambda path: (100 * 1024**3, 70 * 1024**3, 80 * 1024**3, "macos_foundation_important_usage"))
+    monkeypatch.setattr(storage_safety, "measure_paths", lambda *args, **kwargs: storage_safety.Inventory(0, 0))
+    monkeypatch.setattr(storage_safety, "read_swap_bytes", lambda: 0)
+    sample = take_sample(PROJECT_ROOT, fixture_job_policy())
+    assert sample.host_free_bytes == 80 * 1024**3
+    assert sample.boot_volume_free_bytes is None
+    assert "BOOT_VOLUME_CAPACITY_UNAVAILABLE" in evaluate_preflight(fixture_global_policy(), fixture_job_policy(), sample).reasons
+
+
+def test_daily_headroom_is_deducted_from_boot_volume_only():
+    gp, policy, _ = load_policy(PROJECT_ROOT / "docs/operations/top10-storage-policy.json", "daily")
+    reserve = max(gp.runtime_min_free_bytes, int(100 * 1024**3 * gp.runtime_min_free_percent))
+    sample = Sample(0, 0, 0, 100 * 1024**3, int(reserve) + policy.max_bytes, 0, 0,
+                    host_capacity_source="macos_foundation_important_usage",
+                    boot_volume_free_bytes=26 * 1024**3, boot_volume_raw_free_bytes=25 * 1024**3)
+    assert not evaluate_preflight(gp, policy, sample, validation_only=True).triggered
+    below = replace(sample, boot_volume_free_bytes=26 * 1024**3 - 1)
+    assert "BOOT_VOLUME_START_HEADROOM_INSUFFICIENT" in evaluate_preflight(gp, policy, below, validation_only=True).reasons
+    assert "HOST_PEAK_BUDGET_INSUFFICIENT" not in evaluate_preflight(gp, policy, below, validation_only=True).reasons
+    for shared in (True, None):
+        assert "HOST_PEAK_BUDGET_INSUFFICIENT" in evaluate_preflight(
+            gp, policy, replace(sample, host_boot_shared_container=shared), validation_only=True).reasons
+
+
+def test_missing_footprint_does_not_disable_existing_memory_stops():
+    sample = Sample(0, 0, 0, 100_000, 50_000, 10_000_000, 100,
+                    process_rss_attribution=(storage_safety.ProcessRssAttribution(1, 0, 10_000_000, "fixture", None),))
+    assert "PROCESS_TREE_RSS_BUDGET_EXCEEDED" in evaluate_runtime(fixture_global_policy(), fixture_job_policy(), [sample]).reasons
+    missing_swap = replace(sample, rss_bytes=1, swap_bytes=None)
+    assert "SWAP_METRIC_UNAVAILABLE" in evaluate_runtime(fixture_global_policy(), fixture_job_policy(), [missing_swap]).reasons
+    missing_pressure = [replace(sample, timestamp=i, rss_bytes=i + 1, swap_bytes=i + 1, memory_pressure_level=None) for i in range(3)]
+    assert "RSS_AND_SWAP_RISING" in evaluate_runtime(fixture_global_policy(), fixture_job_policy(), missing_pressure).reasons
+
+
+def test_swap_receipt_separates_peak_from_end_and_footprint_hint():
+    samples = [Sample(0, 0, 0, 100_000, 50_000, 0, 100, phase="preflight"),
+               Sample(1, 0, 0, 100_000, 50_000, 10, 300,
+                      process_rss_attribution=(storage_safety.ProcessRssAttribution(1, 0, 10, "fixture", 500),)),
+               Sample(2, 0, 0, 100_000, 50_000, 0, 150, phase="final")]
+    payload = storage_safety._receipt_payload(policy=fixture_job_policy(), command=[], status="OK", samples=samples,
+        reasons=[], child_exit_code=0, reclaimed=None, validation_only=False, max_runtime_seconds=None,
+        unknown_paths=[], validation_context=None)
+    assert payload["summary"]["swap_end_delta_bytes"] == 50
+    assert payload["summary"]["swap_peak_growth_bytes"] == 200
+    assert payload["summary"]["swap_attributable_hint"] == 500
+    assert "swap_bytes_delta" not in payload["summary"]
+
+
+def test_proc_pid_rusage_uses_sdk_v0_phys_footprint(monkeypatch):
+    class Probe:
+        def __call__(self, pid, flavor, pointer):
+            assert (pid, flavor) == (123, 0)
+            storage_safety.ctypes.cast(pointer, storage_safety.ctypes.POINTER(storage_safety._RusageInfoV0)).contents.ri_phys_footprint = 987654
+            return 0
+    monkeypatch.setattr(storage_safety.sys, "platform", "darwin")
+    monkeypatch.setattr(storage_safety.ctypes, "CDLL", lambda *args, **kwargs: type("Lib", (), {"proc_pid_rusage": Probe()})())
+    assert storage_safety.read_process_phys_footprint(123) == 987654
+
+
+@pytest.mark.parametrize("vm_identity", [None, ("disk9", True), ("disk3", False)])
+def test_boot_probe_requires_vm_and_data_same_internal_container(vm_identity, monkeypatch):
+    monkeypatch.setattr(storage_safety.sys, "platform", "darwin")
+    monkeypatch.setattr(storage_safety, "_volume_container", lambda path: ("disk3", True) if path == storage_safety._BOOT_VOLUME_PATH else vm_identity)
+    with mock.patch.object(storage_safety, "_measure_host_capacity") as admission:
+        assert REAL_BOOT_VOLUME_PROBE() is None
+        admission.assert_not_called()
+
+
+def test_boot_probe_reads_data_admission_after_native_identity_check(monkeypatch):
+    monkeypatch.setattr(storage_safety.sys, "platform", "darwin")
+    monkeypatch.setattr(storage_safety, "_volume_container", lambda path: ("disk3", True))
+    expected = (100, 40, 50, "macos_foundation_important_usage")
+    with mock.patch.object(storage_safety, "_measure_host_capacity", return_value=expected) as admission:
+        assert REAL_BOOT_VOLUME_PROBE() == expected
+        admission.assert_called_once_with(storage_safety._BOOT_VOLUME_PATH)
+
+
+def test_memory_monitor_keeps_capacity_cadence_and_persists_warning(tmp_path, monkeypatch):
+    calls = []
+    def capacity(root, policy, pid=None):
+        calls.append(time.monotonic())
+        return Sample(time.time(), 0, 0, 100_000, 50_000, 1000, 0,
+                      boot_volume_free_bytes=30 * 1024**3, boot_volume_raw_free_bytes=29 * 1024**3)
+    monkeypatch.setattr(storage_safety, "take_sample", capacity)
+    monkeypatch.setattr(storage_safety, "_take_memory_sample", lambda sample, pid: replace(
+        sample, timestamp=time.time(), capacity_sampled=False))
+    gp = replace(fixture_global_policy(), memory_sample_interval_seconds=0.1)
+    code = run_guarded_job(tmp_path, gp, fixture_job_policy(sample_interval_seconds=1), (),
+                           [sys.executable, "-c", "import time; time.sleep(0.45)"], invocation_id="memory-cadence")
+    receipt = json.loads((tmp_path / "logs/storage_safety/daily_latest.json").read_text())
+    assert code == 0, receipt["reasons"]
+    assert len(calls) == 3  # preflight、啟動、final；沒有跟著記憶體加密掃描。
+    memory = [sample for sample in receipt["samples"] if not sample["capacity_sampled"]]
+    assert len(memory) >= 3
+    assert max(b["timestamp"] - a["timestamp"] for a, b in zip(memory, memory[1:])) <= 0.15
+    assert "BOOT_VOLUME_FREE_SPACE_LOW" in receipt["warnings"]
+
+
+@pytest.mark.parametrize("failure", ["unavailable", "cadence"])
+def test_memory_monitor_failure_remains_fail_closed(tmp_path, monkeypatch, failure):
+    monkeypatch.setattr(storage_safety, "take_sample", lambda *args, **kwargs: Sample(time.time(), 0, 0, 100_000, 50_000, 1000, 0))
+    def memory(sample, pid):
+        if failure == "unavailable":
+            raise OSError("fixture probe unavailable")
+        time.sleep(0.15)
+        return replace(sample, timestamp=time.time(), capacity_sampled=False)
+    monkeypatch.setattr(storage_safety, "_take_memory_sample", memory)
+    gp = replace(fixture_global_policy(), memory_sample_interval_seconds=0.1)
+    code = run_guarded_job(tmp_path, gp, fixture_job_policy(sample_interval_seconds=1), (),
+                          [sys.executable, "-c", "import time; time.sleep(2)"], invocation_id=f"memory-{failure}")
+    receipt = json.loads((tmp_path / "logs/storage_safety/daily_latest.json").read_text())
+    assert code == 70
+    assert ("MEMORY_SAMPLE_UNAVAILABLE" if failure == "unavailable" else "MEMORY_SAMPLE_CADENCE_EXCEEDED") in receipt["reasons"]
+    assert (tmp_path / "logs/storage_safety/restart_denied/daily.json").exists()
+
+
+def test_shared_source_sampler_also_receives_memory_monitor(tmp_path):
+    gp = replace(fixture_global_policy(), memory_sample_interval_seconds=0.1)
+    with mock.patch.object(storage_safety, "_take_memory_sample", side_effect=lambda sample, pid: replace(
+            sample, timestamp=time.time(), capacity_sampled=False)) as memory:
+        code = run_guarded_job(tmp_path, gp, fixture_job_policy(sample_interval_seconds=1), (),
+            [sys.executable, "-c", "import time; time.sleep(0.3)"],
+            sampler=lambda pid: Sample(time.time(), 0, 0, 100_000, 50_000, 1000, 0), invocation_id="shared-memory")
+    assert code == 0
+    assert memory.call_count >= 2
 
 
 if __name__ == "__main__":

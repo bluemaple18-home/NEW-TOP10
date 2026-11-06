@@ -1,0 +1,91 @@
+{
+  "verdict": "PASS",
+  "spec_verdict": "PASS",
+  "standards_verdict": "PASS",
+  "reviewer": "B",
+  "language": "繁體中文",
+  "scope": "僅審查已接受99aa到25348435的原樣來源整合；不重新驗收正式排程或研究功能。",
+  "reviewed_at": "2026-11-06T12:47:58.825290+00:00",
+  "integration_root": "/Volumes/VibeCode/Development/Codex-Worktrees/top10-daily-mainline/TOP10new",
+  "base_commit": "25348435c5049c5d2ac486fe504c8c0abd4d19fd",
+  "accepted_commit": "99aa01f195f01913afcecac14f73edc0a4378f57",
+  "index_snapshot_sha256": "0d481160ad1da126ccd64307d8bff9663ffde9582d40453d1808a5b2e21eba15",
+  "index_files": 121,
+  "product_config_paths": 62,
+  "evidence_sha256": {
+    "accepted-code-paths.json": "bedd1522d968d7c696d3d5c87dd37664f9aadacdfab166825cd3cc9d27d05b73",
+    "batch-results.json": "a944f01ee2860a7748ec16276f134d3be014e96b7eedd6a66dc87512d1782ea2",
+    "evidence-export.json": "f5d7dfd579e5b53873ccf7cac8474bd09b552383ed8e3ab33b0decfd8830dd28",
+    "lightgbm-diag/0.log": "a53f3c5540ff1d11cfdcd54747062d17081c31c55405cb282274615785235df2",
+    "integration-verification.json": "61c1cca20c919ea4ebfb5115189abb593a31f08ea52d86665fa0df23ddbb697b",
+    "public-export-scan.json": "aa9a1a81bf71d44c646272c5afb03e25ff1b95726b9fecb866fea7784ee81e9e",
+    "history-secret-scan.json": "0ef7e8d9cbcd2f61b419a3727747627912ea8b3c2db6f49eda803ddd8af5d3f4",
+    "test-selection.json": "4ee7e18d7c60940e1a843df491d8fd1152ff168601a401d217452864b7c513c1"
+  },
+  "findings": [],
+  "checks": [
+    {
+      "項目": "產品身份與隔離",
+      "結果": "62檔工作目錄及index逐bytes等於99aa，無衝突、未暫存或未追蹤檔。wrapper SHA887f9d292900c4cc3211a40f8953c26ae3fa5ce6368852a98a96c958a5a7cc39；未納R未接受研究hook。"
+    },
+    {
+      "項目": "收據與版本邊界",
+      "結果": "frontier、卡片、原收據及機讀acceptance/final-pin明示288完整核心Daily/15段Discord實跑，原外層exit1保留；99aa只驗停用ops早退差異，沒有聲稱最終版完整native週期或自然週期重跑。"
+    },
+    {
+      "項目": "實跑版本保全",
+      "結果": "bundle為1157B，SHA c265a4ee7e49fae209d95f3596b89bee79a6965a344eab826e36a23c0ddd99aa；唯讀Git比對b64→288僅app/market_context_fetcher.py。既有bundle verify成功證據保留；本輪未匯入或修改Git物件。"
+    },
+    {
+      "項目": "公開範圍",
+      "結果": "目前121檔逐檔封存SHA；無.env、正式Parquet/raw/clean資料、私鑰或新browser collector。新增可達歷史為b64與99aa兩commit，64個異動blob，最大180481B；主線另將bundle288納入共65blob既有憑證比對，零命中。本審獨立常見秘密模式掃描零命中，未讀secret值。"
+    },
+    {
+      "項目": "可攜性與斷言",
+      "結果": "24個新增/修改Python測試均AST解析成功；兩項可攜改動僅將開發機絕對root改__file__、舊私有payload改tests/fixtures同bytes副本。官方6份gzip fixture逐SHA符合manifest。gateway絕對路徑是mock參數；無新增skip/xfail。容量健康fixture補足舊案例必要觀測，另有缺值/低容量拒絕反例；未放寬產品guard。"
+    },
+    {
+      "項目": "整合額外索引",
+      "結果": "六個精簡整合JSON與121檔index一同納入本審快照；較早public-export-scan的115檔統計是其原掃描時點，不冒稱為最終檔數。"
+    }
+  ],
+  "tests": [
+    {
+      "command": "GIT_OPTIONAL_LOCKS=0 git -C I rev-parse HEAD MERGE_HEAD；git diff --name-only --diff-filter=U；git show 99aa01f:<62 paths>；git show :<paths>",
+      "result": "62/62產品與已接受版一致；121/121 index與工作檔一致；衝突0。"
+    },
+    {
+      "command": "GIT_OPTIONAL_LOCKS=0 git -C I diff HEAD --check",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "Python ast.parse：本次tests/*.py；hashlib.sha256：官方fixture及可攜payload；未import測試或產品",
+      "result": "24個AST PASS、6份fixture SHA PASS、數值payload與原已驗副本exact。"
+    },
+    {
+      "command": "讀取G/batch-results.json、module-logs/17.log與lightgbm-diag/0.log；不重跑pytest或sandbox",
+      "result": "31批464 passed/2 failed，其餘30批全通過。兩失敗皆外接隔離probe失敗，診斷sandbox-exec rc71、sandbox_apply Operation not permitted，workload尚未spawn。產品正確拒絕；未改skip或繞過。"
+    },
+    {
+      "command": "GIT_OPTIONAL_LOCKS=0 git log 25348435..99aa01f；git rev-list --objects；git cat-file --batch-check；git diff --name-only b64 288",
+      "result": "兩個新增可達commit；64個產品歷史blob；288僅市場來源單檔差異；不寫Git。"
+    }
+  ],
+  "environment_failure_disposition": {
+    "blocks_this_integration": false,
+    "reason": "本次只原樣整合已接受99aa，62路徑無任何產品漂移。兩真sandboxcase仍FAIL，證據顯示在執行其工作負載前被主機拒絕，未形成此次整合造成的產品反例，故不阻塞此界線。不能據此宣稱兩案通過。",
+    "failed_cases": [
+      "tests/test_lightgbm_temp_guard.py::test_guard_receipt_records_leftover_and_default_dry_run",
+      "tests/test_lightgbm_temp_guard.py::test_interrupted_lightgbm_child_then_next_start_cleanup"
+    ]
+  },
+  "limitations": [
+    "本輪未執行正式Daily、Git mutation、launchctl、網路、FinMind或Discord，亦未重跑31批。",
+    "既有288真Daily與送達證據僅支援已記錄的組合驗收，不替代兩項未啟動工作負載的sandboxcase，也不證明99aa完整native或下一自然週期已跑。",
+    "安全檢查為有界匯出/新增歷史與既有憑證比對證據，未宣稱通用秘密偵測完備；其他Reviewer報告僅比對匯出bytes身份，未開啟其verdict參與判斷。",
+    "本PASS綁定snapshot及上述base/accepted SHA，不涵蓋其後新增產品或控制改動；未驗證尚未執行的commit/push。",
+    "CodeGraph依既有unindexed限制未重試；bootstrap指定config/devflow_context_map.tsv在目前cwd不存在，本次按Owner明示有界範圍審查。"
+  ],
+  "writes": "僅本G/integration-review-b內報告與SHA快照。"
+}

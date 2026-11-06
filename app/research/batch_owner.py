@@ -142,6 +142,21 @@ def _git_head(project_root: Path) -> str:
     return completed.stdout.strip()
 
 
+def _project_head(project_root: Path, supplied_head: str | None = None) -> str:
+    """trusted validation 可使用上游已釘定 commit；其他路徑維持 Git authority。"""
+
+    if supplied_head is None:
+        return _git_head(project_root)
+    pinned_head = os.environ.get("TOP10_VALIDATION_SOURCE_COMMIT", "")
+    if (
+        os.environ.get("TOP10_STORAGE_VALIDATION_MODE") != "1"
+        or not re.fullmatch(r"[0-9a-f]{40,64}", supplied_head)
+        or supplied_head != pinned_head
+    ):
+        raise BatchOwnerAuthorityError("VALIDATION_PROJECT_HEAD_MISMATCH")
+    return supplied_head
+
+
 def _json_file_digest(path: Path) -> tuple[str, str]:
     payload = _load_json(path)
     return str(payload.get("catalog_version") or payload.get("policy_version") or path.name), content_hash(payload)
@@ -187,6 +202,7 @@ def build_batch_intent(
     execution_epoch: str,
     manager_root: Path | None = None,
     created_at: str | None = None,
+    project_head: str | None = None,
 ) -> dict[str, Any]:
     project_root = project_root.resolve(strict=True)
     manager_root = manager_root or output_path.parent
@@ -196,6 +212,7 @@ def build_batch_intent(
     authorized_argv = normalize_runner_argv(runner_argv)
     policy_version, policy_hash = _json_file_digest(policy_path)
     catalog_version, catalog_hash = _json_file_digest(catalog_path)
+    resolved_head = _project_head(project_root, project_head)
     payload: dict[str, Any] = {
         "schema_version": BATCH_INTENT_SCHEMA_VERSION,
         "canonicalization_version": CANONICALIZATION_VERSION,
@@ -211,9 +228,11 @@ def build_batch_intent(
             "argv_hash": runner_argv_hash(authorized_argv),
         },
         "project": {
-            "repo_identity": content_hash({"repo_root": project_root.name, "head": _git_head(project_root)}),
+            "repo_identity": content_hash(
+                {"repo_root": project_root.name, "head": resolved_head}
+            ),
             "repo_root": str(project_root),
-            "head": _git_head(project_root),
+            "head": resolved_head,
         },
         "research": {
             "requested_stage": requested_research_stage,
@@ -403,6 +422,7 @@ def verify_batch_owner_authority(
     manager_root: Path,
     requested_research_stage: str,
     execution_epoch: str,
+    project_head: str | None = None,
 ) -> BatchAuthorityResult:
     write_paths = write_set_paths(
         output_path=output_path,
@@ -431,7 +451,9 @@ def verify_batch_owner_authority(
         raise BatchOwnerAuthorityError("BATCH_ID_MISMATCH")
     if payload.get("execution_epoch") != execution_epoch:
         raise BatchOwnerAuthorityError("EXECUTION_EPOCH_MISMATCH")
-    if payload.get("project", {}).get("head") != _git_head(project_root):
+    if payload.get("project", {}).get("head") != _project_head(
+        project_root, project_head
+    ):
         raise BatchOwnerAuthorityError("REPO_IDENTITY_MISMATCH")
     runner = payload.get("runner") or {}
     authorized_argv = normalize_runner_argv(runtime_argv)

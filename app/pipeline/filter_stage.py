@@ -9,6 +9,10 @@ from app.risk_filter import RiskFilter
 
 class FilterStage(PipelineStage):
     def execute(self, data: pd.DataFrame, context: dict) -> pd.DataFrame:
+        # 指標數值與缺值統計已交給後續階段；報告僅使用 universe_df。
+        # 在建立風險工作表前釋放計算器，避免其特徵副本與 pivots 留到 parquet 寫入。
+        context.pop('tech_ind', None)
+        context.pop('vol_ind', None)
         risk_filter = RiskFilter(data)
         
         suspended_list = context.get('suspended_list', [])

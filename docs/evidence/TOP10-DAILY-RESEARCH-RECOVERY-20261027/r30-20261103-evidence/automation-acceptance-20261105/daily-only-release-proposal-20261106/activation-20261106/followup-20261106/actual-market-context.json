@@ -1,0 +1,159 @@
+{
+  "schema_version": "market-context.tw.v1",
+  "trade_date": "2026-11-06",
+  "generated_at": "2026-11-06T11:13:06.574359+00:00",
+  "scope": "taiwan_only",
+  "unavailable_fields": {
+    "taiex.trade_value_change_pct": {
+      "reason": "source_not_provided",
+      "detail": "當日來源未提供成交金額日變動率"
+    },
+    "futures_oi.foreign_change": {
+      "reason": "source_not_provided",
+      "detail": "當日來源未提供未平倉淨口數日差"
+    },
+    "futures_oi.trust_change": {
+      "reason": "source_not_provided",
+      "detail": "當日來源未提供未平倉淨口數日差"
+    },
+    "futures_oi.dealer_change": {
+      "reason": "source_not_provided",
+      "detail": "當日來源未提供未平倉淨口數日差"
+    }
+  },
+  "units": {
+    "taiex.close": "index_points",
+    "taiex.change": "index_points",
+    "taiex.change_pct": "percent",
+    "taiex.trade_value": "TWD",
+    "institutional": "shares",
+    "futures.tx_close": "index_points",
+    "futures.tx_change": "index_points",
+    "futures.tx_change_pct": "percent",
+    "futures.tx_volume": "contracts",
+    "futures.basis": "index_points",
+    "futures_oi": "contracts",
+    "options.pcr": "percent",
+    "options.put_oi": "contracts",
+    "options.call_oi": "contracts"
+  },
+  "source_status": {
+    "twse": {
+      "status": "ok",
+      "data_date": "2026-11-06",
+      "fallback_used": false,
+      "warnings": []
+    },
+    "tpex": {
+      "status": "ok",
+      "data_date": "2026-11-06",
+      "fallback_used": false,
+      "warnings": []
+    },
+    "taifex": {
+      "status": "ok",
+      "data_date": "2026-11-06",
+      "fallback_used": true,
+      "warnings": [],
+      "pcr_format": "html",
+      "source": "taifex_openapi_with_dated_fallback",
+      "dated_fallback": {
+        "futures": {
+          "source": "taifex_historical",
+          "data_date": "2026-11-06",
+          "status": "ok",
+          "fallback_used": false,
+          "csv_endpoint": "futDataDown",
+          "content_type": "text/html;charset=MS950",
+          "http_status": 200,
+          "csv_confirmed": true,
+          "format": "csv_big5",
+          "api_data_date": "2026-11-05"
+        },
+        "oi": {
+          "source": "taifex_historical",
+          "data_date": "2026-11-06",
+          "status": "ok",
+          "fallback_used": false,
+          "csv_endpoint": "futContractsDateDown",
+          "content_type": "text/html;charset=MS950",
+          "http_status": 200,
+          "csv_confirmed": true,
+          "format": "csv_big5",
+          "api_data_date": "2026-11-05"
+        }
+      },
+      "pcr_source": "taifex_pcRatioExcel",
+      "pcr_fallback_used": true
+    }
+  },
+  "taiex": {
+    "close": 39701.64,
+    "change": -1873.08,
+    "change_pct": -4.51,
+    "trade_value": 1319417635357.0,
+    "trade_value_change_pct": null
+  },
+  "breadth": {
+    "twse_up": 132,
+    "twse_down": 1210,
+    "twse_flat": 31,
+    "tpex_up": 530,
+    "tpex_down": 4590,
+    "tpex_flat": 129,
+    "advance_ratio": 0.09997,
+    "twse_metadata": {
+      "scope": "ALLBUT0999 回傳證券（含 ETF／ETN 等，非純股票）",
+      "source_rows": 1389,
+      "excluded_counts": {
+        "no_trade": 8,
+        "no_closing_price": 3,
+        "X": 5
+      }
+    },
+    "tpex_metadata": {
+      "scope": "全部回傳上櫃證券（含權證等，非純股票）",
+      "source_rows": 13618,
+      "excluded_counts": {
+        "---": 8369,
+        "除息": 0,
+        "除權": 0,
+        "除權息": 0
+      }
+    }
+  },
+  "institutional": {
+    "foreign_net": -205605557,
+    "trust_net": 80966206,
+    "dealer_net": -2447934813
+  },
+  "futures": {
+    "tx_close": 39786.0,
+    "tx_change": -2096.0,
+    "tx_change_pct": -5.0,
+    "tx_volume": 143277,
+    "basis": 84.36,
+    "contract_month": "202611",
+    "trading_session": "一般",
+    "selection_basis": "source-listed"
+  },
+  "futures_oi": {
+    "foreign_oi": -99930,
+    "foreign_change": null,
+    "trust_oi": 90437,
+    "trust_change": null,
+    "dealer_oi": 1680,
+    "dealer_change": null
+  },
+  "options": {
+    "pcr": 39.73,
+    "put_oi": 42414,
+    "call_oi": 106751
+  },
+  "summary": {
+    "domestic_context_label": "RISK_OFF",
+    "notes": []
+  },
+  "errors": {},
+  "status": "ok"
+}

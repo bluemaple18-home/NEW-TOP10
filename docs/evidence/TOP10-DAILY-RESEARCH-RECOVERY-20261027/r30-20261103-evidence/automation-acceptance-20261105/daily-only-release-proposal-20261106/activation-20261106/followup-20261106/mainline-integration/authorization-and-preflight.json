@@ -1,0 +1,12 @@
+{
+  "owner": "那就先整合推上去吧",
+  "scope": "整合已接受Daily→Discord程式、相關回歸與原收據並推送既有origin/main；不合入退件研究hook/修補，不修改正式runtime或旗標/排程",
+  "remote": "https://github.com/bluemaple18-home/NEW-TOP10.git",
+  "remote_base": "25348435c5049c5d2ac486fe504c8c0abd4d19fd",
+  "accepted_runtime": "99aa01f195f01913afcecac14f73edc0a4378f57",
+  "tracked_base_bytes": 48737420,
+  "tracked_base_files": 2534,
+  "private_credentials_or_datasets_publish": false,
+  "existing_dirty_roots_preserved": true,
+  "worktree_strategy": "managed isolated integration worktree because existing main checkouts dirty and runtime serving production; attached artifacts none"
+}

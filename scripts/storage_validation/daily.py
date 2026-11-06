@@ -191,9 +191,13 @@ def _prepare_validation_snapshot(
     }
 
 
-def _temporary_environment(values: dict[str, str]) -> dict[str, str | None]:
+def _temporary_environment(values: dict[str, str | None]) -> dict[str, str | None]:
     previous = {key: os.environ.get(key) for key in values}
-    os.environ.update(values)
+    for key, value in values.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
     return previous
 
 
@@ -234,26 +238,33 @@ def run_validation_cycle(
         cycle_id=cycle_id,
         snapshot_input=snapshot_input,
     )
-    automation = _load_source_runner(source)
-    runner = automation.AutomationRunner(
-        mode="daily",
-        dry_run=dry_run,
-        trigger="manual",
-        resource_profile="standard",
-        run_date=run_date,
-        source_root=source,
-        output_root=output,
-        runtime_root=runtime,
-        validation_mode=True,
-    )
-    previous_environment = _temporary_environment(
+    # no-send 隔離週期不得繼承主機共用 cache 的掛載／身分契約。
+    # 僅在本週期內清除；結束時還原 caller 的原始環境。
+    validation_environment: dict[str, str | None] = {
+        key: None for key in os.environ
+        if key.startswith("AI_CORE_CACHE_") or key == "TOP10_EXTERNAL_CACHE_ROOT"
+    }
+    validation_environment.update(
         {
             "TOP10_STORAGE_VALIDATION_MODE": "1",
             "TOP10_VALIDATION_SNAPSHOT_INPUT": validation_input["materialized"]["path"],
             "TOP10_VALIDATION_SNAPSHOT_SHA256": validation_input["materialized"]["sha256"],
         }
     )
+    previous_environment = _temporary_environment(validation_environment)
     try:
+        automation = _load_source_runner(source)
+        runner = automation.AutomationRunner(
+            mode="daily",
+            dry_run=dry_run,
+            trigger="manual",
+            resource_profile="standard",
+            run_date=run_date,
+            source_root=source,
+            output_root=output,
+            runtime_root=runtime,
+            validation_mode=True,
+        )
         exit_code = runner.run()
     finally:
         _restore_environment(previous_environment)
@@ -266,7 +277,7 @@ def run_validation_cycle(
     if not source_unchanged:
         runner.status.errors.append("source identity changed during validation cycle")
 
-    latest_date = runner._latest_feature_date()
+    latest_date = runner.run_date
     artifacts = {
         "ranking": _artifact_identity(output / "artifacts" / f"ranking_{latest_date}.csv"),
         "daily_report": _artifact_identity(output / "artifacts" / f"daily_report_{latest_date}.json"),

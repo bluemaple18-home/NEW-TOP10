@@ -90,7 +90,11 @@ def load_latest_ledger_stats(artifacts_dir: Path, ranking_date: str) -> dict[str
     preferred = model_dir / f"model_experiment_ledger_stats_{ranking_date}.json"
     if preferred.exists():
         return load_json(preferred)
-    matches = sorted(model_dir.glob("model_experiment_ledger_stats_????-??-??.json"))
+    # 歷史報告只讀當日以前的 ledger，缺資料時不得借用未來統計。
+    matches = sorted(
+        path for path in model_dir.glob("model_experiment_ledger_stats_????-??-??.json")
+        if path.stem[-10:] <= ranking_date
+    )
     return load_json(matches[-1]) if matches else {}
 
 
