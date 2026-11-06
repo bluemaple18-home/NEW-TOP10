@@ -1,0 +1,8 @@
+{
+  "commit": "637be1693c69bfd529eb1ea544ea774264c6e861",
+  "parents": "25348435c5049c5d2ac486fe504c8c0abd4d19fd 99aa01f195f01913afcecac14f73edc0a4378f57",
+  "verdict": "INTEGRATION_ACCEPTED",
+  "review": "PASS",
+  "tests_passed": 464,
+  "tests_host_failed": 2
+}

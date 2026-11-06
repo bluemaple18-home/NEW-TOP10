@@ -947,3 +947,8 @@ Owner 明示「那就先整合推上去吧」，範圍為已接受 Daily→Disco
 證據：`followup-20261106/mainline-integration/{integration-verification,public-export-scan,history-secret-scan,accepted-code-paths,test-selection}.json`。真實288輪的外層exit1及最終99aa僅wrapper修補的分段驗收界線完全保留；本次FinMind=0、Discord送件=0。獨立整合複核與實際推送結果接續寫在本節後方。
 
 主線裁決：**INTEGRATION_ACCEPTED / PASS（保留2項主機測試限制）**。獨立Reviewer B之Spec與Standards均PASS、零阻塞finding，綁定121檔index快照`0d481160ad1da126ccd64307d8bff9663ffde9582d40453d1808a5b2e21eba15`及62檔99aa身份；主線同意兩項sandbox啟動前拒絕不構成本次原樣整合的產品反例。報告位於`mainline-integration/integration-review-b/report.json`。後續只補主線裁決及推送證據，產品內容不再更動；本裁決不新增自然週期或研究功能的接受結論。
+
+
+主線整合與推送結果：**MAINLINE_INTEGRATED_AND_PUSHED**。合併commit `637be1693c69bfd529eb1ea544ea774264c6e861`已正常推至既有`origin/main`，parents為原主線25348435與已接受99aa01f；`git ls-remote`及GitHub connector逐SHA確認。初次預設帳號mattclickforce因403遭拒，改沿本機既有bluemaple18-home授權只供本次git程序後成功，未切全域帳號、不force、不改其他工作目錄。GitHub目前沒有回傳status checks，未宣稱CI全綠。
+
+本次主線正式接受為**已驗99aa產品原樣整合＋必要回歸／同一收據**；464案PASS、2項主機sandbox限制保留，沒有把分段驗收膨脹成99aa新原生週期PASS。正式runtime仍detached99aa且乾淨，Daily既有狀態、其他研究／Fog／retrain停跑設定均未改。FinMind=0、Discord=0，兩份原dirty開發目錄保留。`mainline-integration/push-completion.json`保存查核時點與整合SHA；其後只提交本推送收據，不新增產品異動。
