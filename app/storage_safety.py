@@ -209,6 +209,88 @@ class StorageObservationError(RuntimeError):
         super().__init__(reason)
 
 
+def _sanitize_sampling_observation(value: Any) -> dict[str, Any] | None:
+    """只重建固定 primitive schema；未知值整份捨棄，不讀例外文字。"""
+    if type(value) is not dict or len(value) != 6 or set(value) != {
+        "schema_version", "clock", "resource_scope", "children", "phases", "rusage"
+    }:
+        return None
+    for key, expected in (("schema_version", "managed-cache-sampling-observation.v1"),
+                          ("clock", "monotonic_ns"), ("resource_scope", "RUSAGE_SELF"),
+                          ("children", "excluded")):
+        if type(value[key]) is not str or value[key] != expected:
+            return None
+    def bounded(number: Any) -> bool:
+        return type(number) is int and 0 <= number <= 2**63 - 1
+    phases = value["phases"]
+    names = ("identity_foundation", "volume_info", "container_info", "scan", "admission_finalize")
+    if type(phases) is not dict or len(phases) != 5 or set(phases) != set(names):
+        return None
+    clean_phases = {}
+    for name in names:
+        item = phases[name]
+        if type(item) is not dict or len(item) != 2 or set(item) != {"status", "elapsed_ns"}:
+            return None
+        status, elapsed = item["status"], item["elapsed_ns"]
+        if type(status) is not str or status not in ("complete", "partial", "skipped", "not_started"):
+            return None
+        if status in ("skipped", "not_started"):
+            if elapsed is not None or (status == "skipped" and name != "scan"):
+                return None
+        elif elapsed is not None and not bounded(elapsed):
+            return None
+        clean_phases[name] = {"status": status, "elapsed_ns": elapsed}
+    usage = value["rusage"]
+    counters = ("user_cpu_ns", "system_cpu_ns", "voluntary_context_switches",
+                "involuntary_context_switches", "block_input_operations")
+    if type(usage) is not dict or len(usage) != 6 or set(usage) != {"status", *counters}:
+        return None
+    status = usage["status"]
+    if type(status) is not str or status not in ("complete", "unavailable"):
+        return None
+    if any((not bounded(usage[key])) if status == "complete" else usage[key] is not None for key in counters):
+        return None
+    return {"schema_version": "managed-cache-sampling-observation.v1", "clock": "monotonic_ns",
+            "resource_scope": "RUSAGE_SELF", "children": "excluded", "phases": clean_phases,
+            "rusage": {"status": status, **{key: usage[key] for key in counters}}}
+
+def _sanitize_sampling_attempts(value: Any) -> dict[str, Any] | None:
+    """固定兩次上限與十／五秒政策；不接受 message、路徑或任意延伸欄位。"""
+    if type(value) is not dict or len(value) != 4 or set(value) != {
+        "schema_version", "operation_budget_ns", "attempt_budget_ns", "attempts"
+    }:
+        return None
+    if (type(value["schema_version"]) is not str
+            or value["schema_version"] != "managed-cache-sampling-attempts.v1"
+            or type(value["operation_budget_ns"]) is not int or value["operation_budget_ns"] != 10_000_000_000
+            or type(value["attempt_budget_ns"]) is not int or value["attempt_budget_ns"] != 5_000_000_000):
+        return None
+    items = value["attempts"]
+    if type(items) is not list or not 1 <= len(items) <= 2:
+        return None
+    clean = []
+    for index, item in enumerate(items, 1):
+        if type(item) is not dict or len(item) != 5 or set(item) != {
+            "index", "status", "code", "elapsed_ns", "sampling_observation"
+        }:
+            return None
+        if (type(item["index"]) is not int or item["index"] != index
+                or type(item["status"]) is not str or item["status"] not in ("PASS", "TIMEOUT", "FAIL")
+                or type(item["code"]) is not int
+                or item["code"] not in ({"PASS": (0,), "TIMEOUT": (23,), "FAIL": (20, 21, 22)}[item["status"]])
+                or type(item["elapsed_ns"]) is not int or not 0 <= item["elapsed_ns"] <= 2**63 - 1
+                or (index < len(items) and item["status"] != "TIMEOUT")):
+            return None
+        observed = _sanitize_sampling_observation(item["sampling_observation"])
+        if item["sampling_observation"] is not None and observed is None:
+            return None
+        clean.append({"index": index, "status": item["status"], "code": item["code"],
+                      "elapsed_ns": item["elapsed_ns"], "sampling_observation": observed})
+    return {"schema_version": "managed-cache-sampling-attempts.v1",
+            "operation_budget_ns": 10_000_000_000, "attempt_budget_ns": 5_000_000_000, "attempts": clean}
+
+
+
 def _positive_int(value: Any, field: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise ValueError(f"{field} 必須大於 0")
@@ -3129,6 +3211,92 @@ def run_guarded_job(
         error_errno = getattr(exc, "errno", None)
         if type(error_errno) is int:
             internal_error["errno"] = error_errno
+        if (
+            isinstance(exc, ExternalCacheError)
+            and exc.reason == "EXTERNAL_CACHE_MANAGED_ADMISSION_DENIED"
+        ):
+            # 診斷失敗不得攔阻原停損；只接受已載入的固定來源，不輸出例外文字。
+            try:
+                cause_sources: dict[str, str] = {}
+                managed_error_types: list[type] = []
+                core_source = os.environ.get("AI_CORE_DIR", "")
+                for module_name, relative in (
+                    ("app.external_cache", "app/external_cache.py"),
+                    ("runtime_cache_capacity_gate", "scripts/runtime_cache_capacity_gate.py"),
+                    ("scripts.runtime_cache_capacity_gate", "scripts/runtime_cache_capacity_gate.py"),
+                    ("host_capacity_sensor", "scripts/host_capacity_sensor.py"),
+                    ("scripts.host_capacity_sensor", "scripts/host_capacity_sensor.py"),
+                ):
+                    expected = (
+                        str(Path(__file__).with_name("external_cache.py"))
+                        if relative == "app/external_cache.py"
+                        else str(Path(core_source) / relative) if os.path.isabs(core_source) else None
+                    )
+                    module = sys.modules.get(module_name)
+                    loaded = getattr(module, "__file__", None)
+                    if expected is not None and loaded == expected:
+                        cause_sources[expected] = relative
+                        if relative == "scripts/runtime_cache_capacity_gate.py" and type(module) is type(sys):
+                            cls = vars(module).get("ManagedCacheError")
+                            if (type(cls) is type and cls.__module__ in (
+                                    "runtime_cache_capacity_gate", "scripts.runtime_cache_capacity_gate")
+                                    and getattr(getattr(cls.__init__, "__code__", None), "co_filename", None) == expected):
+                                managed_error_types.append(cls)
+                                timeout_cls = vars(module).get("ManagedCacheTimeoutError")
+                                if (type(timeout_cls) is type and timeout_cls.__bases__ == (cls,)
+                                        and timeout_cls.__module__ == cls.__module__
+                                        and getattr(getattr(timeout_cls.__init__, "__code__", None), "co_filename", None) == expected):
+                                    managed_error_types.append(timeout_cls)
+                causes: list[dict[str, Any]] = []
+                seen_causes = {id(exc)}
+                current_cause: BaseException = exc
+                for _ in range(4):
+                    cause = current_cause.__cause__
+                    if cause is None and not current_cause.__suppress_context__:
+                        cause = current_cause.__context__
+                    if cause is None or id(cause) in seen_causes:
+                        break
+                    seen_causes.add(id(cause))
+                    detail: dict[str, Any] = {"type": type(cause).__name__[:96]}
+                    for attribute in ("errno", "code"):
+                        value = getattr(cause, attribute, None)
+                        if type(value) is int and -(2**31) <= value < 2**31:
+                            detail[attribute] = value
+                    cause_frames: deque[dict[str, Any]] = deque(maxlen=4)
+                    cause_traceback = cause.__traceback__
+                    for _ in range(64):
+                        if cause_traceback is None:
+                            break
+                        cause_code = cause_traceback.tb_frame.f_code
+                        relative = cause_sources.get(cause_code.co_filename)
+                        if relative is not None:
+                            cause_frames.append({
+                                "filename": relative,
+                                "function": cause_code.co_name[:96],
+                                "line": cause_traceback.tb_lineno,
+                            })
+                        cause_traceback = cause_traceback.tb_next
+                    if cause_frames:
+                        detail["frames"] = list(cause_frames)
+                    causes.append(detail)
+                    if type(cause) in managed_error_types and "sampling_observation" not in internal_error:
+                        try:
+                            observed = _sanitize_sampling_observation(vars(cause).get("sampling_observation"))
+                            if observed is not None:
+                                internal_error["sampling_observation"] = observed
+                        except Exception:
+                            pass
+                    if type(cause) in managed_error_types and "sampling_attempts" not in internal_error:
+                        try:
+                            attempts = _sanitize_sampling_attempts(vars(cause).get("sampling_attempts"))
+                            if attempts is not None:
+                                internal_error["sampling_attempts"] = attempts
+                        except Exception:
+                            pass
+                    current_cause = cause
+                internal_error["causes"] = causes
+            except Exception:
+                pass
         stopped_receipt["internal_error"] = internal_error
         base_archive_path = (
             runtime_dir

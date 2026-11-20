@@ -1,0 +1,21 @@
+{
+  "base": "ff35bb0a3176972bf5885841fa51acf7521939a0",
+  "integrated_guard_sha256": "bf61113ab06f165fa719dfcebd9407d6293e1ca0b1d0843a2b25234b4bc8fe82",
+  "source_guard_sha256": "9f0fc6174b606ab58172f53aa00189d3f6bda7bd8e7e75d833fbe0dbf0d232f3",
+  "only_added_helpers": [
+    "_sanitize_sampling_observation",
+    "_sanitize_sampling_attempts"
+  ],
+  "added_exception_cause_blocks": 1,
+  "remove_only_our_additions_restores_exact_upstream_ast": true,
+  "upstream_boot_memory_lightgbm_policy_code_unchanged": true,
+  "working_trees_not_modified": true,
+  "core_exact_cc_five_files": true,
+  "core_base": "eda34dd000cd18292b0e31f4a2a31ad2dbd650e6",
+  "tested_core_sha256": "d39a3c47bd4efc75b3b86e948b19ba5bc5a0b3b722aad2b14349eb250ec637ff",
+  "integration_tests_passed": 207,
+  "integration_subtests_passed": 6,
+  "formal_runtime_changed_by_git_integration": false,
+  "new_version_natural_acceptance": "PENDING",
+  "local_raw_evidence_source": "FOG-LIVE-REPAIR-20261119/post-reboot/gate-relax-20261120/integration-push-20261120"
+}
