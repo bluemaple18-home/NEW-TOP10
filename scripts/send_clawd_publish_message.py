@@ -7,22 +7,41 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
-import subprocess
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import yaml
 
+try:
+    from openclaw_gateway_sender import DeliveryOutcomeUnknownError, GatewayPreflightError, adapter_command, claim_send_attempt, finalize_send_status, gateway_health, gateway_send, stable_idempotency_key, write_non_send_status
+    from daily_publish_lock import exclusive_publish_access
+except ModuleNotFoundError:
+    from scripts.openclaw_gateway_sender import DeliveryOutcomeUnknownError, GatewayPreflightError, adapter_command, claim_send_attempt, finalize_send_status, gateway_health, gateway_send, stable_idempotency_key, write_non_send_status
+    from scripts.daily_publish_lock import exclusive_publish_access
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-STATUS_SCHEMA_VERSION = "clawd-send-status.v1"
+STATUS_SCHEMA_VERSION = "clawd-send-status.v2"
 
 
 def main() -> int:
+    if os.environ.get("TOP10_BACKFILL") == "1":
+        print("BACKFILL_SEND_BLOCKED: 補跑禁止訊號與 ops 送達，保留既有收據")
+        return 2
+    with exclusive_publish_access(PROJECT_ROOT):
+        return _main_locked()
+
+
+def _main_locked() -> int:
+    if os.environ.get("TOP10_BACKFILL") == "1":
+        print("BACKFILL_SEND_BLOCKED: 補跑禁止訊號與 ops 送達，保留既有收據")
+        return 2
     parser = argparse.ArgumentParser(description="send or dry-run Clawd Top10 publish message")
     parser.add_argument("--date", default=None, help="訊息日期，格式 YYYY-MM-DD；未指定時使用最新 clawd_publish_message")
     parser.add_argument("--message", default=None, help="指定 message Markdown 路徑")
@@ -42,6 +61,7 @@ def main() -> int:
     output_path = Path(args.output) if args.output else PROJECT_ROOT / "artifacts" / f"clawd_send_status_{message_date}.json"
     if not output_path.is_absolute():
         output_path = PROJECT_ROOT / output_path
+    canonical_output = PROJECT_ROOT / "artifacts" / f"clawd_send_status_{message_date}.json"
 
     send_allowed = bool(args.send and notify.get("clawd_enabled") is True and notify.get("clawd_dry_run") is False)
     dry_run = not send_allowed
@@ -54,6 +74,7 @@ def main() -> int:
         "schema_version": STATUS_SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "message_date": message_date,
+        "run_id": f"daily-{message_date}",
         "message_path": str(message_path),
         "payload_path": str(payload_path),
         "payload_delivery_status": payload.get("delivery", {}).get("status"),
@@ -61,7 +82,7 @@ def main() -> int:
         "channel": channel,
         "target": target,
         "dry_run": dry_run,
-        "send_attempted": send_allowed,
+        "send_attempted": False,
         "preflight": {
             "clawd_enabled": bool(notify.get("clawd_enabled")),
             "clawd_dry_run": bool(notify.get("clawd_dry_run", True)),
@@ -71,12 +92,18 @@ def main() -> int:
         },
         "status": "RUNNING",
         "command": None,
+        "transport_method": None,
+        "receipt": None,
         "exit_code": None,
         "stdout": "",
         "stderr": "",
         "errors": [],
     }
 
+    if send_allowed and (output_path != canonical_output or output_path.is_symlink() or output_path.parent.is_symlink()):
+        print(f"CLAWD_SEND_BLOCKED live send requires canonical receipt={canonical_output}")
+        return 2
+    claimed = False
     try:
         validate_preflight(
             node_bin=node_bin,
@@ -90,36 +117,68 @@ def main() -> int:
             send_allowed=send_allowed,
             allow_stale_send=args.allow_stale_send,
             timezone_name=str(config.get("timezone") or "Asia/Taipei"),
+            artifacts_dir=PROJECT_ROOT / "artifacts",
         )
-        command = [
-            node_bin,
-            cli_entry,
-            "message",
-            "send",
-            "--channel",
-            channel,
-            "--target",
-            target,
-            "--message",
-            message_path.read_text(encoding="utf-8"),
-            "--json",
-        ]
+        status["command"] = adapter_command(node_bin)
         if dry_run:
-            command.append("--dry-run")
-        status["command"] = mask_command(command)
-        completed = subprocess.run(command, cwd=Path(cli_entry).resolve().parent.parent, text=True, capture_output=True)
-        status["exit_code"] = completed.returncode
-        status["stdout"] = redact_output(completed.stdout.strip())
-        status["stderr"] = redact_output(completed.stderr.strip())
-        status["status"] = "OK" if completed.returncode == 0 else "FAILED"
-    except Exception as exc:
+            gateway_health(node_bin=node_bin, cli_entry=cli_entry)
+            status["transport_method"] = "health"
+        else:
+            message_text = message_path.read_text(encoding="utf-8")
+            status["message_sha256"] = hashlib.sha256(message_text.encode("utf-8")).hexdigest()
+            status["idempotency_key"] = stable_idempotency_key(
+                f"daily-publish:{message_date}", channel=channel, target=target, message=message_text
+            )
+            status["status"] = "DELIVERY_PENDING"
+            status["delivery_outcome"] = "UNKNOWN"
+            status["retry_allowed"] = False
+            status["send_attempted"] = True
+            if not claim_send_attempt(output_path, status):
+                print(f"CLAWD_SEND_BLOCKED protected delivery receipt={output_path}")
+                return 2
+            claimed = True
+            receipt = gateway_send(
+                node_bin=node_bin,
+                cli_entry=cli_entry,
+                channel=channel,
+                target=target,
+                message=message_text,
+                namespace=f"daily-publish:{message_date}",
+            )
+            status["transport_method"] = receipt["method"]
+            status["receipt"] = receipt
+        status["exit_code"] = 0
+        status["status"] = "OK" if not dry_run else "DRY_RUN"
+        if not dry_run:
+            status["delivery_outcome"] = "CONFIRMED"
+    except DeliveryOutcomeUnknownError as exc:
+        status["status"] = "DELIVERY_UNKNOWN"
+        status["delivery_outcome"] = "UNKNOWN"
+        status["retry_allowed"] = False
+        status["idempotency_key"] = exc.idempotency_key
+        status["exit_code"] = 1
+        status["errors"].append(redact_output(str(exc)))
+    except GatewayPreflightError as exc:
         status["status"] = "FAILED"
-        status["errors"].append(str(exc))
+        status["delivery_outcome"] = "NOT_SENT"
+        status["preflight_failed"] = True
+        status["send_attempted"] = False
+        status["exit_code"] = 1
+        status["errors"].append(redact_output(str(exc)))
+    except Exception as exc:
+        status["status"] = "DELIVERY_UNKNOWN" if status["status"] == "DELIVERY_PENDING" else "FAILED"
+        if not claimed:
+            status["preflight_failed"] = True
+        status["exit_code"] = 1
+        status["errors"].append(redact_output(str(exc)))
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+    if claimed:
+        finalize_send_status(output_path, status)
+    elif not write_non_send_status(output_path, status):
+        print(f"CLAWD_SEND_BLOCKED protected delivery receipt={output_path}")
+        return 2
     print(f"CLAWD_SEND_STATUS status={status['status']} dry_run={dry_run} output={output_path}")
-    return 0 if status["status"] == "OK" else 1
+    return 0 if status["status"] == "OK" or (status["status"] == "DRY_RUN" and not args.send) else 1
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -182,6 +241,7 @@ def validate_preflight(
     send_allowed: bool,
     allow_stale_send: bool,
     timezone_name: str,
+    artifacts_dir: Path | None = None,
 ) -> None:
     missing = []
     if not Path(node_bin).exists():
@@ -196,6 +256,14 @@ def validate_preflight(
         missing.append(f"message_path={message_path}")
     if missing:
         raise RuntimeError("Clawd send preflight failed: " + ", ".join(missing))
+    if send_allowed:
+        root = artifacts_dir or PROJECT_ROOT / "artifacts"
+        if (os.path.abspath(message_path) != os.path.abspath(root / f"clawd_publish_message_{message_date}.md")
+            or message_path.is_symlink()):
+            raise RuntimeError("Clawd live message must use canonical artifacts path for receipt recovery")
+        if (os.path.abspath(payload_path) != os.path.abspath(root / f"clawd_publish_payload_{message_date}.json")
+            or payload_path.is_symlink()):
+            raise RuntimeError("Clawd live payload must use canonical artifacts path for receipt recovery")
     delivery = payload.get("delivery", {})
     if delivery.get("status") != "READY_FOR_CLAWD":
         raise RuntimeError(f"Clawd payload is not ready: delivery.status={delivery.get('status')}")
@@ -233,15 +301,6 @@ def top_item_label(payload: dict[str, Any]) -> str | None:
         return None
     first = top10[0]
     return f"{first.get('stock_id')} {first.get('stock_name')}".strip()
-
-
-def mask_command(command: list[str]) -> list[str]:
-    masked = list(command)
-    if "--message" in masked:
-        index = masked.index("--message")
-        if index + 1 < len(masked):
-            masked[index + 1] = f"<message chars={len(masked[index + 1])}>"
-    return masked
 
 
 def redact_output(text: str) -> str:

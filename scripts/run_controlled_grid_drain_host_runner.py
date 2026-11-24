@@ -152,7 +152,7 @@ def pre_inventory_refresh_commands(py: str, date: str) -> list[tuple[str, list[s
     return [
         ("build_research_progress_before_inventory", [py, "scripts/build_research_campaign_progress.py", "--date", date]),
         ("build_fog_map_before_inventory", [py, "scripts/build_research_fog_map.py", "--date", date]),
-        ("verify_fog_map_before_inventory", [py, "scripts/verify_research_fog_map.py", "--date", date]),
+        ("verify_fog_map_before_inventory", [py, "scripts/verify_research_fog_map.py", "--date", date, "--source-only", "--output", str(PROJECT_ROOT / "artifacts/research_map/research_fog_map_source_verification_latest.json")]),
     ]
 
 

@@ -57,7 +57,7 @@ LOG_DIR="$PROJECT_DIR/logs"
 OUTPUT="artifacts/autonomous_research/autonomous_research_daily_quota_${RUN_DATE}.json"
 MANAGER_ROOT="artifacts/autonomous_research"
 VALIDATION_MANAGER_ROOT="artifacts/autonomous_research/validation_manager"
-if [ "${TOP10_STORAGE_VALIDATION_MODE:-0}" = "1" ]; then
+if [ "${TOP10_STORAGE_VALIDATION_MODE:-0}" = "1" ] && [ "${TOP10_FOG_VALIDATION_WORKLOAD_ROOT:-}" != "$PROJECT_DIR" ]; then
   MANAGER_ROOT="$VALIDATION_MANAGER_ROOT"
 fi
 RUNTIME_RECEIPT="artifacts/autonomous_research/closed_regime_runtime_receipt_${RUN_DATE}.json"
@@ -255,12 +255,17 @@ if [ "$REFRESH_RESEARCH_MAP" = "1" ] || [ "$REFRESH_RESEARCH_MAP" = "true" ] || 
   fi
 
   set +e
-  "${RUNNER_CMD[@]}" scripts/verify_research_map_run_history_backfill.py >> "$LOG_FILE" 2>&1
+  "${RUNNER_CMD[@]}" -m app.research.history_compatibility_projection \
+    --verify \
+    --ledger "$RESEARCH_LEDGER" \
+    --output artifacts/autonomous_research/run_history.jsonl \
+    --manifest-output artifacts/autonomous_research/run_history_projection_manifest.json \
+    --verification-output artifacts/research_map/research_history_projection_verification_latest.json >> "$LOG_FILE" 2>&1
   BACKFILL_VERIFY_EXIT_CODE=$?
   set -e
 
   if [ "$BACKFILL_VERIFY_EXIT_CODE" -ne 0 ]; then
-    echo "❌ research map backfill verification failed exit_code=$BACKFILL_VERIFY_EXIT_CODE" | tee -a "$LOG_FILE"
+    echo "❌ research ledger history projection verification failed exit_code=$BACKFILL_VERIFY_EXIT_CODE" | tee -a "$LOG_FILE"
     exit "$BACKFILL_VERIFY_EXIT_CODE"
   fi
 
@@ -276,7 +281,7 @@ if [ "$REFRESH_RESEARCH_MAP" = "1" ] || [ "$REFRESH_RESEARCH_MAP" = "true" ] || 
   fi
 fi
 
-if [ "${TOP10_STORAGE_VALIDATION_MODE:-0}" = "1" ]; then
+if [ "${TOP10_STORAGE_VALIDATION_MODE:-0}" = "1" ] && [ "${TOP10_FOG_VALIDATION_WORKLOAD_ROOT:-}" != "$PROJECT_DIR" ]; then
   set +e
   "${RUNNER_CMD[@]}" scripts/run_fog_representative_validation.py >> "$LOG_FILE" 2>&1
   REPRESENTATIVE_EXIT_CODE=$?

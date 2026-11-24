@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from research_map_contract import completed_v2_expansion_count, read_jsonl
+from app.research.fog_map_domain import STATUS_LEGEND
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +52,7 @@ MISLEADING_PATTERNS = [
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="verify autonomous research fog map")
     parser.add_argument("--date", required=True)
+    parser.add_argument("--source-only", action="store_true", help="只驗rollup前source/schema；不可當完整map驗證")
     parser.add_argument("--payload", default=None)
     parser.add_argument("--html", default=None)
     parser.add_argument("--output", default=str(OUTPUT_DIR / "research_fog_map_verification_latest.json"))
@@ -148,6 +150,14 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
     history_records = read_jsonl(SOURCE_DIR / "run_history.jsonl")
     v2_completed = completed_v2_expansion_count(history_records)
     expected_expanded_processed = int(summary.get("base_processed") or 0) + v2_completed
+    source_has_completed_history = any(
+        isinstance(row, dict) and row.get("status") == "OK" and row.get("artifact_path")
+        for row in history_records
+    )
+    base_total = int(summary.get("base_universe_total") or 0)
+    base_processed = int(summary.get("base_processed") or 0)
+    expanded_total = int(summary.get("expanded_universe_total") or 0)
+    expanded_processed = int(summary.get("expanded_processed") or 0)
     fog = payload.get("full_universe_fog") if isinstance(payload.get("full_universe_fog"), dict) else {}
     burn_down = payload.get("burn_down_progress") if isinstance(payload.get("burn_down_progress"), dict) else {}
     burn_counts = burn_down.get("counts") if isinstance(burn_down.get("counts"), dict) else {}
@@ -257,7 +267,11 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
             and int(summary.get("expanded_universe_total") or 0) > int(summary.get("base_universe_total") or 0)
             and int(summary.get("expanded_processed") or 0) == expected_expanded_processed
             and int(summary.get("expanded_processed") or 0) <= int(summary.get("expanded_universe_total") or 0)
-            and float(summary.get("expanded_progress_pct") or 0) < float(summary.get("base_progress_pct") or summary.get("progress_pct") or 0),
+            and 0 <= base_processed <= base_total
+            and 0 <= expanded_processed <= expanded_total
+            and summary.get("base_progress_pct") == (round(base_processed / base_total, 4) if base_total else 0.0)
+            and summary.get("progress_pct") == summary.get("base_progress_pct")
+            and summary.get("expanded_progress_pct") == (round(expanded_processed / expanded_total, 6) if expanded_total else 0.0),
             "value": {
                 "base_universe_total": summary.get("base_universe_total"),
                 "base_processed": summary.get("base_processed"),
@@ -377,7 +391,15 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
             "name": "required_first_version_states_present_or_supported",
             "ok": "pending" in status_ids
             and ("pending" in scenario_statuses or summary.get("processed_combos") == summary.get("total_combos"))
-            and bool(scenario_statuses - {"pending"})
+            and (
+                bool(scenario_statuses - {"pending"})
+                or (
+                    scenario_statuses == {"pending"}
+                    and base_processed == expanded_processed == expected_expanded_processed == 0
+                    and not source_has_completed_history
+                    and {item["id"] for item in STATUS_LEGEND}.issubset(status_ids)
+                )
+            )
             and "low_information" in status_ids,
             "value": {"node_statuses": sorted(node_statuses), "scenario_statuses": sorted(scenario_statuses), "legend": sorted(status_ids)},
         },
@@ -448,8 +470,8 @@ def build_payload(date: str, payload_path: Path, html_path: Path) -> dict[str, A
         },
         {
             "name": "full_universe_not_dom_points",
-            "ok": int(fog.get("sample_count") or 0) < int(summary.get("expanded_universe_total") or 0)
-            and int(fog.get("sample_count") or 0) >= 60000
+            "ok": int(fog.get("sample_count") or 0) == min(60000, max(0, int(summary.get("expanded_universe_total") or 0) - 1))
+            and int(fog.get("executed_sample_count") or 0) <= int(fog.get("sample_count") or 0)
             and "document.createElement('button')" not in html_text,
             "value": {
                 "sample_count": fog.get("sample_count"),
@@ -508,12 +530,26 @@ def main() -> int:
     if not html_path.exists():
         raise FileNotFoundError(f"找不到 fog map HTML：{repo_path(html_path) or html_path}")
     report = build_payload(args.date, payload_path, html_path)
+    report["validation_phase"] = "source" if args.source_only else "full"
+    if args.source_only:
+        # 這四項確實依賴後續inventory/rollup；原完整checks仍於final全部執行。
+        dependent = {"burn_down_progress_present", "burn_down_counts_classify_full_universe",
+                     "executed_progress_not_replaced_by_burn_down",
+                     "artifact_blocker_visible_or_cleared_by_controlled_drain"}
+        report["deferred_checks"] = [check for check in report["checks"] if check["name"] in dependent]
+        report["checks"] = [check for check in report["checks"] if check["name"] not in dependent]
+        failed = [check for check in report["checks"] if check["ok"] is not True]
+        report["summary"].update(check_count=len(report["checks"]), failed_count=len(failed))
+        report["status"] = "FAILED" if failed else "OK"
+    report["full_map_verified"] = not args.source_only and report["status"] == "OK"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     print(
         json.dumps(
             {
                 "status": report["status"],
+                "validation_phase": report["validation_phase"],
+                "full_map_verified": report["full_map_verified"],
                 "output": repo_path(output_path),
                 "failed_count": report["summary"]["failed_count"],
                 "total_topics": report["summary"]["total_topics"],

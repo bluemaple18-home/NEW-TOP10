@@ -224,6 +224,16 @@ def activation_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
     python_bin.parent.mkdir(parents=True)
     python_bin.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
     python_bin.chmod(0o755)
+    universe_path = runtime_root / "data" / "reference" / "tradable_universe.csv"
+    universe_path.parent.mkdir(parents=True)
+    universe_path.write_text("stock_id,market_type\n2330,twse\n6488,tpex\n", encoding="utf-8")
+    config_path = runtime_root / "config" / "automation.yaml"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        "daily:\n  market_coverage_enabled: true\n  required_market_types: [twse, tpex]\n",
+        encoding="utf-8",
+    )
+    shutil.copy2(PROJECT_ROOT / "scripts" / "daily_market_reference.py", scripts_dir)
 
     for guard_name, label, template_name in activation.TARGET_JOBS:
         shutil.copy2(PROJECT_ROOT / "scripts" / template_name, scripts_dir / template_name)
@@ -258,6 +268,7 @@ def activation_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
         hook: activation.FaultHook = activation.noop_fault_hook,
         target_jobs: tuple[str, ...] | None = None,
         allow_dormant_target_activation: bool = False,
+        allow_enabled_unloaded_target_activation: bool = False,
     ) -> activation.ActivationTransaction:
         return activation.ActivationTransaction(
             source_root=PROJECT_ROOT,
@@ -273,6 +284,9 @@ def activation_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str,
             fault_hook=hook,
             target_jobs=target_jobs,
             allow_dormant_target_activation=allow_dormant_target_activation,
+            allow_enabled_unloaded_target_activation=(
+                allow_enabled_unloaded_target_activation
+            ),
         )
 
     return {
@@ -397,6 +411,80 @@ def test_existing_receipt_path_is_rejected_before_any_mutation(
     assert not any(operation == "bootout" for operation, _ in runner.calls)
     assert _target_bytes(activation_env) == before
     _assert_old_topology(activation_env)
+
+
+@pytest.mark.parametrize("invalid", ["missing", "empty", "header_only", "missing_tpex", "blank_ids", "invalid_ids"])
+def test_daily_activation_rejects_invalid_market_reference_before_mutation(
+    activation_env: dict[str, object], invalid: str,
+) -> None:
+    """Daily 的忽略檔未備妥時，正式切換必須在任何 launchd 副作用前停止。"""
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    assert isinstance(runtime_root, Path)
+    reference = runtime_root / "data" / "reference" / "tradable_universe.csv"
+    if invalid == "missing":
+        reference.unlink()
+    elif invalid == "empty":
+        reference.write_bytes(b"")
+    elif invalid == "header_only":
+        reference.write_text("stock_id,market_type\n", encoding="utf-8")
+    elif invalid == "blank_ids":
+        reference.write_text("stock_id,market_type\n ,twse\n ,tpex\n", encoding="utf-8")
+    elif invalid == "invalid_ids":
+        reference.write_text("stock_id,market_type\nx,twse\ny,tpex\n", encoding="utf-8")
+    else:
+        reference.write_text("stock_id,market_type\n2330,twse\n", encoding="utf-8")
+    before = _target_bytes(activation_env)
+
+    transaction = build(target_jobs=("daily",))
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "缺必要市場參考檔" in (transaction.failure or "")
+    assert not any(
+        operation in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+    assert _target_bytes(activation_env) == before
+    _assert_old_topology(activation_env)
+
+
+def test_daily_activation_respects_disabled_market_coverage(
+    activation_env: dict[str, object],
+) -> None:
+    """市場覆蓋 gate 明確關閉時，activation 與 Daily 使用相同設定。"""
+    build = activation_env["build"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(runtime_root, Path)
+    (runtime_root / "data" / "reference" / "tradable_universe.csv").unlink()
+    (runtime_root / "config" / "automation.yaml").write_text(
+        "daily:\n  market_coverage_enabled: false\n", encoding="utf-8"
+    )
+    assert build(target_jobs=("daily",)).run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+
+
+def test_daily_activation_requires_candidate_market_validator(
+    activation_env: dict[str, object],
+) -> None:
+    """activation 必須使用 candidate 自己的市場驗證器，缺少時安全停止。"""
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    assert isinstance(runtime_root, Path)
+    (runtime_root / "scripts" / "daily_market_reference.py").unlink()
+    before = _target_bytes(activation_env)
+    transaction = build(target_jobs=("daily",))
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "缺市場參考驗證器" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert not any(
+        operation in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
 
 
 @pytest.mark.parametrize("when", ["before", "after"])
@@ -1142,9 +1230,11 @@ def test_signal_pending_at_arm_mask_restore_aborts_before_first_mutation(
     def restore_mask_with_pending_signal(how: int, mask: set[signal.Signals]) -> set[signal.Signals]:
         nonlocal injected, restore_calls
         previous = original_pthread_sigmask(how, mask)
-        if how == signal.SIG_SETMASK:
+        # 排除 prepare helper 的短 mask scope；只計 arm 完成後及注入後的 outer disarm。
+        if how == signal.SIG_SETMASK and (injected or transaction.armed):
             restore_calls += 1
             if not injected:
+                assert transaction.armed
                 injected = True
                 transaction._signal_abort(signal.SIGTERM, None)
             elif restore_calls == 2:
@@ -1220,6 +1310,8 @@ def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
     delivered: list[tuple[int, bool, bool, bool, bool]] = []
     commit_masks: list[set[signal.Signals]] = []
     parent_fsync_completed = False
+    initial_pending = signal.sigpending()
+    initial_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
     previous_handler = signal.getsignal(signum)
     original_fsync = activation.os.fsync
 
@@ -1254,7 +1346,12 @@ def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
             original_commit(staged)
 
         transaction._commit_receipt = queue_during_release_to_commit  # type: ignore[method-assign]
-        assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+        status = transaction.run()
+        assert status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING", (
+            f"initial_pending={initial_pending}; initial_mask={initial_mask}\n"
+            f"failure={transaction.failure}\n"
+            f"receipt={receipt.read_text(encoding='utf-8') if receipt.exists() else None}"
+        )
     finally:
         signal.signal(signum, previous_handler)
 
@@ -1269,6 +1366,153 @@ def test_release_to_commit_window_keeps_signal_blocked_until_durable_receipt(
         and runner.states[label]["root"] == runtime_root.resolve()
         for label in LEGACY_DEFAULT_LABELS
     )
+
+
+@pytest.mark.parametrize("seal_fails", [False, True])
+def test_prearm_failure_restores_signal_mask(activation_env, monkeypatch, seal_fails):
+    """prepare 早退的失敗收據也須歸還 mask，不得污染下一筆 transaction。"""
+    transaction = activation_env["build"]()
+    initial = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+
+    def reject_prepare():
+        raise activation.ActivationError("injected prearm failure")
+
+    def reject_seal(_staged):
+        raise OSError("injected failure receipt commit")
+
+    monkeypatch.setattr(transaction, "_prepare", reject_prepare)
+    if seal_fails:
+        monkeypatch.setattr(transaction, "_commit_receipt", reject_seal)
+    try:
+        assert transaction.run() == "PRECHECK_FAILED"
+        assert signal.pthread_sigmask(signal.SIG_BLOCK, set()) == initial, transaction.failure
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, initial)
+
+
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
+@pytest.mark.parametrize("durability_failure", [False, True])
+def test_fresh_cli_daily_import_and_process_signal(tmp_path, signum, durability_failure, record_testsuite_property):
+    """fresh CLI 真載 pandas；核對建立期 mask，並以 process kill 驗成功及 durability NO-GO。"""
+    import subprocess
+    import sys
+
+    script = r'''
+import ctypes, importlib.util, json, os, signal, stat, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+tempfile.tempdir = os.environ['TMPDIR']
+import pytest
+from scripts import activate_automation_runtime as activation
+from tests.test_automation_runtime_activation import activation_env
+
+root = Path(sys.argv[2])
+signum = int(sys.argv[3])
+durability_failure = sys.argv[4] == '1'
+watch = {signal.SIGINT, signal.SIGTERM}
+initial = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+observed, delivered = {}, []
+
+class TaskInfo(ctypes.Structure):
+    _fields_ = [('u' + str(i), ctypes.c_uint64) for i in range(6)] + [('i' + str(i), ctypes.c_int32) for i in range(12)]
+
+def threads():
+    info = TaskInfo()
+    lib = ctypes.CDLL('/usr/lib/libproc.dylib', use_errno=True)
+    assert lib.proc_pidinfo(os.getpid(), 4, 0, ctypes.byref(info), ctypes.sizeof(info)) == ctypes.sizeof(info)
+    return info.i9
+
+mp = pytest.MonkeyPatch()
+env = activation_env.__wrapped__(root, mp)
+runner, receipt = env['runner'], env['receipt']
+original_spec = activation.importlib.util.spec_from_file_location
+
+def helper_spec(name, path, *args, **kwargs):
+    spec = original_spec(name, path, *args, **kwargs)
+    if name == 'candidate_daily_market_reference':
+        execute = spec.loader.exec_module
+        def observed_import(module):
+            mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+            assert watch <= mask
+            observed['import_mask'] = sorted(mask)
+            observed['threads_before_import'] = threads()
+            execute(module)
+            observed['threads_after_import'] = threads()
+            assert watch <= signal.pthread_sigmask(signal.SIG_BLOCK, set())
+            count = module.expected_market_counts
+            def observed_count(*a, **k):
+                mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+                assert watch <= mask
+                observed['count_mask'] = sorted(mask)
+                value = count(*a, **k)
+                assert value == {'twse': 1, 'tpex': 1}
+                observed['threads_after_count'] = threads()
+                return value
+            module.expected_market_counts = observed_count
+        spec.loader.exec_module = observed_import
+    return spec
+
+mp.setattr(activation.importlib.util, 'spec_from_file_location', helper_spec)
+factory = activation.ActivationTransaction
+transaction = None
+
+def original_handler(received, _frame):
+    delivered.append([received, receipt.exists(), bool(transaction._denial_lock_handles),
+                      all(not path.exists() for path in transaction.staging_paths)])
+
+previous_handler = signal.signal(signum, original_handler)
+
+def build(**kwargs):
+    global transaction
+    transaction = factory(**kwargs, command_runner=runner)
+    arm, commit = transaction._arm, transaction._commit_receipt
+    def observed_arm():
+        assert signal.pthread_sigmask(signal.SIG_BLOCK, set()) == initial
+        arm()
+    def process_signal(staged):
+        assert watch <= signal.pthread_sigmask(signal.SIG_BLOCK, set())
+        assert signal.getsignal(signum) == original_handler
+        os.kill(os.getpid(), signum)
+        assert delivered == [], 'native thread 在主線解除 mask 前交付了 original handler'
+        commit(staged)
+    transaction._arm, transaction._commit_receipt = observed_arm, process_signal
+    return transaction
+
+mp.setattr(activation, 'ActivationTransaction', build)
+original_fsync = activation.os.fsync
+def fsync(fd):
+    if durability_failure and stat.S_ISDIR(os.fstat(fd).st_mode):
+        raw = activation.fcntl.fcntl(fd, 50, b'\0' * 1024)
+        path = Path(os.fsdecode(raw.split(b'\0', 1)[0])).resolve()
+        if path == receipt.parent and receipt.exists():
+            raise OSError('injected parent directory fsync failure')
+    original_fsync(fd)
+mp.setattr(activation.os, 'fsync', fsync)
+sys.argv = ['activate', '--activate', '--runtime-root', str(env['runtime_root']),
+            '--accepted-commit', 'a' * 40, '--expected-old-root', str(env['old_root']),
+            '--launch-agents-dir', str(env['launch_agents']), '--receipt', str(receipt), '--job', 'daily']
+try:
+    cli_exit = activation.main()
+    assert cli_exit == (75 if durability_failure else 0), transaction.failure
+    assert signal.pthread_sigmask(signal.SIG_BLOCK, set()) == initial
+    assert observed['threads_before_import'] == 1
+    assert delivered == ([] if durability_failure else [[signum, True, False, True]])
+    observed.update(cli_exit=cli_exit, delivered=delivered, status=transaction.status)
+    print(json.dumps(observed))
+finally:
+    signal.signal(signum, previous_handler)
+    mp.undo()
+'''
+    completed = subprocess.run(
+        [sys.executable, "-I", "-B", "-c", script, str(PROJECT_ROOT), str(tmp_path),
+         str(int(signum)), "1" if durability_failure else "0"],
+        capture_output=True, text=True, check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    observed = json.loads(completed.stdout.splitlines()[-1])
+    record_testsuite_property(f"fresh_cli_signum_{int(signum)}_durability_{durability_failure}", json.dumps(observed))
+    assert observed["threads_after_import"] >= observed["threads_before_import"]
+    assert observed["threads_after_count"] >= observed["threads_before_import"]
 
 
 def test_precommit_handoff_retries_before_unmasking_pending_success_signal(
@@ -1547,7 +1791,8 @@ def test_disarm_mask_restore_error_preserves_transaction_failure(
     def fail_disarm_mask_restore(how: int, mask: set[signal.Signals]) -> set[signal.Signals]:
         nonlocal restore_calls
         previous = original_pthread_sigmask(how, mask)
-        if how == signal.SIG_SETMASK:
+        # 排除 prepare scope；arm 開始計數後，outer disarm 與 bounded retry 仍納入。
+        if how == signal.SIG_SETMASK and (transaction.armed or restore_calls > 0):
             restore_calls += 1
             if restore_calls == 2:
                 raise OSError("injected disarm mask restore failure")
@@ -2495,6 +2740,223 @@ def test_parse_args_accepts_repeatable_bounded_job_selector(
     args = activation.parse_args()
     assert args.target_jobs == ["retrain-monitor"]
     assert args.allow_dormant_target_activation is True
+
+
+def test_parse_args_accepts_enabled_unloaded_target_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """enabled/unloaded 模式必須由 CLI 明確旗標啟用。"""
+
+    monkeypatch.setattr(
+        activation.sys,
+        "argv",
+        [
+            "activate_automation_runtime.py",
+            "--runtime-root",
+            "/tmp/runtime",
+            "--accepted-commit",
+            ACCEPTED_SHA,
+            "--expected-old-root",
+            "/tmp/old",
+            "--receipt",
+            "/tmp/receipt.json",
+            "--job",
+            "fog-research-worker",
+            "--allow-enabled-unloaded-target-activation",
+            "--activate",
+        ],
+    )
+
+    args = activation.parse_args()
+    assert args.target_jobs == ["fog-research-worker"]
+    assert args.allow_enabled_unloaded_target_activation is True
+
+
+def test_enabled_unloaded_mode_requires_explicit_job_selector(
+    activation_env: dict[str, object],
+) -> None:
+    """不得用 enabled/unloaded 旗標隱式擴大到 legacy 三條預設 job。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+
+    with pytest.raises(activation.ActivationError, match="必須明確指定 --job"):
+        build(allow_enabled_unloaded_target_activation=True)
+    assert runner.calls == []
+
+
+def test_enabled_unloaded_fog_requires_explicit_flag_before_mutation(
+    activation_env: dict[str, object],
+) -> None:
+    """一般 target 意外 unloaded 時，未帶旗標仍維持原 fail-closed 契約。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    runner.states["com.new-top10.fog-research-worker"]["loaded"] = False
+
+    transaction = build(target_jobs=FOG_ONLY)
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "目前未載入" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
+def test_enabled_unloaded_fog_happy_path_bootstraps_without_bootout(
+    activation_env: dict[str, object],
+) -> None:
+    """已證明 enabled+unloaded 的 Fog 只 replace/bootstrap，receipt 保留真實 prestate。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    receipt = activation_env["receipt"]
+    runtime_root = activation_env["runtime_root"]
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    assert isinstance(receipt, Path)
+    assert isinstance(runtime_root, Path)
+    label = "com.new-top10.fog-research-worker"
+    runner.states[label]["loaded"] = False
+
+    transaction = build(
+        target_jobs=FOG_ONLY,
+        allow_enabled_unloaded_target_activation=True,
+    )
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    assert runner.states[label]["loaded"] is True
+    assert runner.states[label]["root"] == runtime_root.resolve()
+    mutation_calls = [
+        (operation, target)
+        for operation, target in runner.calls
+        if operation in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+    ]
+    assert mutation_calls == [("bootstrap", label)]
+
+    durable = json.loads(receipt.read_text(encoding="utf-8"))
+    assert durable["jobs"]["fog-research-worker"]["pre_loaded"] is False
+    assert durable["jobs"]["fog-research-worker"]["pre_disabled"] is False
+
+
+def test_enabled_unloaded_fog_rejects_disabled_prestate_before_mutation(
+    activation_env: dict[str, object],
+) -> None:
+    """unloaded 但 disabled 的 target 不得冒充 enabled+unloaded。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    label = "com.new-top10.fog-research-worker"
+    runner.states[label]["loaded"] = False
+    runner.print_disabled_style = "bool"
+    runner.print_disabled_overrides[label] = "disabled"
+
+    transaction = build(
+        target_jobs=FOG_ONLY,
+        allow_enabled_unloaded_target_activation=True,
+    )
+    assert transaction.run() == "PRECHECK_FAILED"
+    assert "實際為 disabled" in (transaction.failure or "")
+    assert _target_bytes(activation_env) == before
+    assert all(
+        operation not in {"bootout", "bootstrap", "enable", "disable", "kickstart"}
+        for operation, _ in runner.calls
+    )
+
+
+def test_enabled_unloaded_fog_bootstrap_failure_restores_unloaded_prestate(
+    activation_env: dict[str, object],
+) -> None:
+    """bootstrap 已 mutation 後失敗時，rollback 必須回復 old plist 與 enabled+unloaded。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    label = "com.new-top10.fog-research-worker"
+    runner.states[label]["loaded"] = False
+    runner.fail("bootstrap", label, when="after")
+
+    transaction = build(
+        target_jobs=FOG_ONLY,
+        allow_enabled_unloaded_target_activation=True,
+    )
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert _target_bytes(activation_env) == before
+    assert runner.states[label]["loaded"] is False
+    assert runner.states[label]["disabled"] is False
+
+
+def test_enabled_unloaded_fog_replace_failure_restores_unloaded_prestate(
+    activation_env: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """plist replace mutation 失敗時，rollback 必須保留 enabled+unloaded prestate。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    label = "com.new-top10.fog-research-worker"
+    runner.states[label]["loaded"] = False
+
+    real_replace = activation.os.replace
+    calls = 0
+
+    def fail_first_replace(src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OSError("injected replace failure")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(activation.os, "replace", fail_first_replace)
+    transaction = build(
+        target_jobs=FOG_ONLY,
+        allow_enabled_unloaded_target_activation=True,
+    )
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert _target_bytes(activation_env) == before
+    assert runner.states[label]["loaded"] is False
+    assert runner.states[label]["disabled"] is False
+
+
+def test_enabled_unloaded_fog_verify_failure_restores_unloaded_prestate(
+    activation_env: dict[str, object],
+) -> None:
+    """bootstrap 成功後 verify 失敗時，rollback 必須回到 enabled+unloaded。"""
+
+    build = activation_env["build"]
+    runner = activation_env["runner"]
+    before = _target_bytes(activation_env)
+    assert callable(build)
+    assert isinstance(runner, FakeCommandRunner)
+    label = "com.new-top10.fog-research-worker"
+    runner.states[label]["loaded"] = False
+
+    def fail_verify(event: str, job: str | None) -> None:
+        if event == "after_bootstrap" and job == "fog-research-worker":
+            runner.states[label]["root"] = Path("/private/tmp/injected-wrong-root")
+
+    transaction = build(
+        target_jobs=FOG_ONLY,
+        allow_enabled_unloaded_target_activation=True,
+        hook=fail_verify,
+    )
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert _target_bytes(activation_env) == before
+    assert runner.states[label]["loaded"] is False
+    assert runner.states[label]["disabled"] is False
 
 
 def test_cli_duplicate_job_selector_uses_uniform_no_go_boundary(

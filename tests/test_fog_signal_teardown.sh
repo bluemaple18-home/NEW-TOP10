@@ -47,7 +47,16 @@ printf '%s\n' \
   '  scripts/run_top10_fog_map_handoff.py)' \
   '    printf "%s\\n" "$$" > "$TOP10_SIGNAL_CHILD_PID_FILE"' \
   '    touch "$TOP10_SIGNAL_CHILD_STARTED_FILE"' \
-  '    while :; do /bin/sleep 1; done' \
+  '    SLEEP_PID=""' \
+  '    stop_sleep() {' \
+  '      if [ -n "$SLEEP_PID" ]; then' \
+  '        kill "$SLEEP_PID" 2>/dev/null || true' \
+  '        wait "$SLEEP_PID" 2>/dev/null || true' \
+  '      fi' \
+  '      exit 0' \
+  '    }' \
+  '    trap stop_sleep TERM INT' \
+  '    while :; do /bin/sleep 1 & SLEEP_PID=$!; wait "$SLEEP_PID" || true; done' \
   '    ;;' \
   '  scripts/build_top10_agent_status_rollup.py)' \
   '    touch "$TOP10_SIGNAL_CONTINUED_FILE"' \
@@ -61,6 +70,7 @@ CHILD_STARTED_FILE="$TEST_ROOT/child.started"
 CONTINUED_FILE="$TEST_ROOT/continued-after-term"
 
 TOP10_DAILY_PYTHON="$FAKE_PYTHON" \
+TOP10_PROCESS_IDENTITY_MODE=ps \
 TOP10_PROCESS_IDENTITY_PS_BIN="$FAKE_PS" \
 TOP10_RESEARCH_QUEUE_OWNER=fog_worker \
 TOP10_FOG_RESEARCH_MAX_BATCHES=1 \
@@ -94,6 +104,8 @@ if kill -0 "$WORKER_PID" 2>/dev/null; then
   echo "Fog worker 收到 TERM 後仍存活" >&2
   exit 1
 fi
+# 明確 reap 本測試建立的 worker，避免斷言完成但 lifecycle group 尚有殘留。
+wait "$WORKER_PID" 2>/dev/null || true
 if [ -e "$CONTINUED_FILE" ]; then
   echo "Fog worker 在 TERM cleanup 後仍執行 rollup" >&2
   exit 1

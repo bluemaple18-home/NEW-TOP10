@@ -12,6 +12,15 @@ from pathlib import Path
 from unittest import mock
 
 import pandas as pd
+import pytest
+from app.external_cache import FIELDS
+
+
+@pytest.fixture(autouse=True)
+def isolated_daily_cache_environment(monkeypatch):
+    """此組測試刻意採原 sandbox 契約，不沿用 host 外接配置。"""
+    for key in (*FIELDS, "TOP10_EXTERNAL_CACHE_ROOT"):
+        monkeypatch.delenv(key, raising=False)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

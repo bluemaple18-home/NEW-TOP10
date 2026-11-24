@@ -40,6 +40,8 @@ from app.automation.status_contract import (
     status_output_path,
 )
 from app.tskg.twse_t86 import load_t86_snapshot
+from app.external_cache import reject_external_isolation
+from scripts.daily_market_reference import expected_market_counts
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -244,6 +246,8 @@ class AutomationRunner:
             runtime_root=runtime_root,
         )
         self.validation_mode = validation_mode
+        if validation_mode or not self.runtime_paths.uses_production_defaults:
+            reject_external_isolation()
         self.strict_run_date = strict_run_date
         self.config = self._load_config()
         if self.validation_mode:
@@ -1092,6 +1096,8 @@ class AutomationRunner:
         self._run_command("clawd.payload.llm_rewrite", command)
 
     def _preflight(self) -> None:
+        if self.validation_mode or not self.runtime_paths.uses_production_defaults:
+            reject_external_isolation()
         self._record_step("preflight.project_root", "OK", message=str(PROJECT_ROOT))
         self._record_step("preflight.source_root", "OK", message=str(self.runtime_paths.source_root))
         self._record_step("preflight.output_root", "OK", message=str(self.runtime_paths.output_root))
@@ -1118,6 +1124,18 @@ class AutomationRunner:
         self._record_step("daily.schema", "OK", message=STATUS_SCHEMA_VERSION)
         self._record_step("daily.run_date", "OK", message=self.run_date)
         self._record_model_existence()
+        if self._market_coverage_enabled():
+            import pandas as pd
+
+            required_markets = [
+                str(market).strip().lower()
+                for market in self.config.get("daily", {}).get("required_market_types", ["twse", "tpex"])
+                if str(market).strip()
+            ]
+            expected = self._expected_market_counts(pd, required_markets)
+            if not required_markets or any(expected.get(market, 0) <= 0 for market in required_markets):
+                raise RuntimeError("Daily 市場參考檔缺失或必要市場無有效股票；ETL 前停止")
+            self._record_step("daily.market_reference", "OK", message=str(expected))
         self._record_data_freshness(
             "data.freshness.preflight",
             fail_on_error=False if self.validation_mode else not self._has_pipeline_window(),
@@ -1309,19 +1327,8 @@ class AutomationRunner:
         }
 
     def _expected_market_counts(self, pd: Any, required_markets: list[str]) -> dict[str, int]:
-        universe_path = self.runtime_paths.source_root / "data" / "reference" / "tradable_universe.csv"
-        if not universe_path.exists():
-            return {market: 0 for market in required_markets}
-        universe = pd.read_csv(universe_path, dtype={"stock_id": str})
-        if universe.empty or "market_type" not in universe.columns:
-            return {market: 0 for market in required_markets}
-        if "is_active" in universe.columns:
-            universe = universe[universe["is_active"].map(self._truthy_value).fillna(True)]
-        if "is_etf" in universe.columns:
-            universe = universe[~universe["is_etf"].map(self._truthy_value).fillna(False)]
-        universe["market_type"] = universe["market_type"].astype(str).str.strip().str.lower()
-        counts = universe.groupby("market_type")["stock_id"].nunique().to_dict()
-        return {market: int(counts.get(market, 0)) for market in required_markets}
+        del pd
+        return expected_market_counts(self.runtime_paths.source_root, required_markets)
 
     def _stock_market_map(self, pd: Any) -> dict[str, str]:
         universe_path = self.runtime_paths.source_root / "data" / "reference" / "tradable_universe.csv"
@@ -1825,6 +1832,8 @@ class AutomationRunner:
         return yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
 
     def _subprocess_env(self) -> dict[str, str]:
+        if not self.runtime_paths.uses_production_defaults:
+            reject_external_isolation()
         env = os.environ.copy()
         env["TOP10_RESOURCE_PROFILE"] = self.resource_profile
         env["TOP10_SOURCE_ROOT"] = str(self.runtime_paths.source_root)

@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "uid=4_0 RootWebArea \"TOP10 External Review - Gemini PROD - Google Gemini\" url=\"https://gemini.google.com/app/ea58b54eef550ded\"\n      uid=4_36 link \"Google 帳戶：風17 一年 (bluemaple17@gmail.com)\" url=\"https://accounts.google.com/SignOutOptions?continue=https://gemini.google.com\"\n    uid=8_0 heading \"你說了 這是 TOP10 的瀏覽器連線測試。請只回覆這一行：TOP10_CDP_GEMINI_20261124_OK\" level=\"5\"\n      uid=8_5 heading \"Gemini 說了\" level=\"6\"\n      uid=8_7 \"TOP10_CDP_GEMINI_20261124_OK\"\n"
+    }
+  ]
+}

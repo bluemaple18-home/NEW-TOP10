@@ -46,6 +46,8 @@ def validate_runtime_checkout(
     source_root: Path,
     runtime_root: Path,
     accepted_commit: str,
+    *,
+    environment_root: Path | None = None,
 ) -> str:
     """回傳 canonical commit；不符合隔離或 pinning 契約時 fail closed。"""
 
@@ -56,7 +58,7 @@ def validate_runtime_checkout(
     if not FULL_SHA_PATTERN.fullmatch(accepted_commit):
         raise RuntimeCheckoutError("TOP10_RUNTIME_COMMIT 必須是完整 40 字元 commit SHA")
     if not runtime_root.is_dir():
-        raise RuntimeCheckoutError("runtime checkout 不存在；請先以 git worktree add --detach 建立")
+        raise RuntimeCheckoutError("runtime checkout 不存在；請先使用 scripts/prepare_runtime_checkout.py")
 
     try:
         if _repo_root(source_root) != source_root:
@@ -98,6 +100,11 @@ def validate_runtime_checkout(
         ).stdout.splitlines()
         if item
     }
+    # prepare 專用窄例外：Git 的 .venv/ ignore 不一定涵蓋 symlink。
+    # 不放行 tracked 修改，也不放行一般未知環境目錄。
+    link = runtime_root / ".venv"
+    if environment_root is not None and link.is_symlink() and link.resolve(strict=True) == environment_root:
+        untracked.discard(".venv")
     unexpected = sorted(
         item for item in changed | untracked if not _is_runtime_mutable(item)
     )
@@ -113,14 +120,23 @@ def main() -> int:
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--runtime-root", type=Path, required=True)
     parser.add_argument("--accepted-commit", required=True)
+    parser.add_argument("--environment-root", type=Path, required=True,
+                        help="prepare 入口已核對的既有外接 .venv")
     args = parser.parse_args()
     try:
-        canonical_commit = validate_runtime_checkout(
+        project = Path(__file__).resolve().parents[1]
+        if str(project) not in sys.path:
+            sys.path.insert(0, str(project))
+        from scripts.prepare_runtime_checkout import validate_prepared_runtime
+
+        result = validate_prepared_runtime(
             args.source_root,
             args.runtime_root,
             args.accepted_commit,
+            args.environment_root,
         )
-    except RuntimeCheckoutError as exc:
+        canonical_commit = result["commit"]
+    except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as exc:
         print(f"RUNTIME_CHECKOUT_NO_GO: {exc}", file=sys.stderr)
         return 64
     print(

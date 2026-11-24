@@ -4,31 +4,63 @@
 set -euo pipefail
 
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+# 原 browser CLI 現只呼叫原生 MCP adapter；不保留 transport fallback。
 
 cd "$(dirname "$0")/.."
 PROJECT_DIR=$(pwd)
 
 PYTHON_BIN="${TOP10_DAILY_PYTHON:-$PROJECT_DIR/.venv/bin/python}"
-RUNNER_CMD=()
-if [ -x "$PYTHON_BIN" ]; then
-  RUNNER_CMD=("$PYTHON_BIN")
-  RUNTIME_LABEL="$PYTHON_BIN"
-else
-  UV_BIN="${UV_BIN:-$(command -v uv 2>/dev/null || true)}"
-  if [ -z "$UV_BIN" ]; then
-    echo "python runtime not found; expected $PYTHON_BIN or set UV_BIN"
-    exit 127
-  fi
-  RUNNER_CMD=("$UV_BIN" run --with-requirements requirements.txt python)
-  RUNTIME_LABEL="$UV_BIN run --with-requirements requirements.txt python"
+# 只使用既有環境；缺 Python 時不可由 uv 建立或同步環境。
+if [ ! -x "$PYTHON_BIN" ]; then
+  echo "python runtime not found; expected existing executable $PYTHON_BIN" >&2
+  exit 127
 fi
+RUNNER_CMD=("$PYTHON_BIN")
+RUNTIME_LABEL="$PYTHON_BIN"
 
-LOG_DIR="$PROJECT_DIR/logs"
-mkdir -p "$LOG_DIR"
+ARTIFACTS_DIR="${TOP10_EXTERNAL_REVIEW_ARTIFACTS_DIR:-$PROJECT_DIR/artifacts}"
+LOG_DIR="${TOP10_EXTERNAL_REVIEW_LOG_DIR:-$PROJECT_DIR/logs}"
+if [ -n "${TOP10_EXTERNAL_REVIEW_ARTIFACTS_DIR:-}" ]; then
+  LOG_DIR="${TOP10_EXTERNAL_REVIEW_LOG_DIR:-$ARTIFACTS_DIR/logs}"
+fi
+LOCK_DIR="${TOP10_EXTERNAL_REVIEW_LOCK_DIR:-$LOG_DIR/external_review_host_runner.lock}"
 RUN_DATE="${TOP10_RUN_DATE:-$(date +%F)}"
 LOG_FILE="$LOG_DIR/external_review_host_runner_$(date +%Y%m%d).log"
-LOCK_DIR="$LOG_DIR/external_review_host_runner.lock"
 LOCK_PID_FILE="$LOCK_DIR/pid"
+
+if [ -n "${TOP10_EXTERNAL_REVIEW_ARTIFACTS_DIR:-}${TOP10_EXTERNAL_REVIEW_LOG_DIR:-}${TOP10_EXTERNAL_REVIEW_LOCK_DIR:-}${TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT:-}" ]; then
+  # 全部路徑驗完才建立子目錄；owner admission 仍由既有 lifecycle 負責。
+  if [ -z "${TOP10_EXTERNAL_REVIEW_ARTIFACTS_DIR:-}" ]; then
+    echo "external review output/log/lock override requires TOP10_EXTERNAL_REVIEW_ARTIFACTS_DIR" >&2
+    exit 64
+  fi
+  OUTPUT_ROOT="${TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT:-$ARTIFACTS_DIR/external_review}"
+  "$PYTHON_BIN" -c '
+import sys
+from pathlib import Path
+root, log, lock, output, logfile, pidfile = map(Path, sys.argv[1:])
+try:
+    for raw, path in zip(sys.argv[1:], (root, log, lock, output, logfile, pidfile)):
+        if not path.is_absolute() or raw == "/" or str(path.resolve()) != raw:
+            raise ValueError("paths must be absolute canonical paths without symlinks or traversal")
+    if not root.is_dir():
+        raise ValueError("artifacts root must already exist")
+    if output != root / "external_review":
+        raise ValueError("adapter output must equal artifacts root / external_review")
+    for path in (log, lock, output, logfile, pidfile):
+        if not path.is_relative_to(root) or path == root:
+            raise ValueError("output/log/lock must stay inside artifacts root")
+    for path in (log, lock, output):
+        if path.exists() and not path.is_dir():
+            raise ValueError("output/log/lock must be directories")
+except (OSError, RuntimeError, ValueError) as exc:
+    print("external review root rejected: " + str(exc), file=sys.stderr)
+    raise SystemExit(64)
+' "$ARTIFACTS_DIR" "$LOG_DIR" "$LOCK_DIR" "$OUTPUT_ROOT" "$LOG_FILE" "$LOCK_PID_FILE"
+  mkdir -p "$OUTPUT_ROOT" "$(dirname "$LOCK_DIR")"
+  export TOP10_EXTERNAL_REVIEW_OUTPUT_ROOT="$OUTPUT_ROOT"
+fi
+mkdir -p "$LOG_DIR"
 
 acquire_lock() {
   if mkdir "$LOCK_DIR" 2>/dev/null; then
@@ -62,8 +94,10 @@ acquire_lock
 ARGS=(
   scripts/run_external_review_host_runner.py
   --date "$RUN_DATE"
+  --artifacts-dir "$ARTIFACTS_DIR"
   --wait-daily-ok-seconds "${TOP10_EXTERNAL_REVIEW_WAIT_DAILY_OK_SECONDS:-3600}"
   --poll-seconds "${TOP10_EXTERNAL_REVIEW_POLL_SECONDS:-60}"
+  --skip-ops-report
 )
 
 PROVIDER_MODE="${TOP10_EXTERNAL_REVIEW_PROVIDER_MODE:-browser}"
@@ -73,7 +107,7 @@ if [ "${TOP10_EXTERNAL_REVIEW_DRY_RUN_PROVIDER_API:-0}" = "1" ]; then
   ARGS+=(--dry-run-provider-api)
 fi
 
-CHATGPT_URL_PART="${TOP10_CHATGPT_URL_PART:-chatgpt.com/g/g-p-6a27bb719e708191bd6eefae64c7c08c/c/6a27bb97-8f80-8324-ab52-3f861a006ee3}"
+CHATGPT_URL_PART="${TOP10_CHATGPT_URL_PART:-chatgpt.com/g/g-p-6a27bb719e708191bd6eefae64c7c08c-gu-piao/c/6a27bb97-8f80-8324-ab52-3f861a006ee3}"
 GEMINI_URL_PART="${TOP10_GEMINI_URL_PART:-gemini.google.com/app/ea58b54eef550ded}"
 export TOP10_CHATGPT_URL_PART="$CHATGPT_URL_PART"
 export TOP10_GEMINI_URL_PART="$GEMINI_URL_PART"

@@ -54,8 +54,8 @@ FOG_LOCK_IDENTITY_ESTABLISHED=0
 QUEUE_OWNER_LOCK_IDENTITY_ESTABLISHED=0
 RUN_CONTEXT_FILE=""
 PS_BIN="${TOP10_PROCESS_IDENTITY_PS_BIN:-/bin/ps}"
-PROCESS_IDENTITY_MODE="${TOP10_PROCESS_IDENTITY_MODE:-ps}"
-PROCESS_IDENTITY_HELPER="${TOP10_PROCESS_IDENTITY_HELPER:-}"
+PROCESS_IDENTITY_MODE="${TOP10_PROCESS_IDENTITY_MODE:-libproc}"
+PROCESS_IDENTITY_HELPER="${TOP10_PROCESS_IDENTITY_HELPER:-$PROJECT_DIR/scripts/storage_validation/fog_research_worker.py}"
 PROCESS_IDENTITY_PYTHON_BIN="${TOP10_PROCESS_IDENTITY_PYTHON_BIN:-$PYTHON_BIN}"
 
 process_start_token() {
@@ -67,11 +67,11 @@ process_start_token() {
     ps)
       "$PS_BIN" -o lstart= -p "$pid" 2>/dev/null || true
       ;;
-    validation-libproc)
-      # Seatbelt 會拒絕 /bin/ps；只允許 trusted validation entrypoint
-      # 透過 macOS libproc 查詢同一 sandbox 內的 process start time。
+    libproc|validation-libproc)
+      # 正式與驗證 child 的 Seatbelt 皆可能拒絕 /bin/ps；沿既有 helper
+      # 以 macOS libproc 查詢 process start time，失敗仍不建立 lock。
       [ -n "$PROCESS_IDENTITY_HELPER" ] || return 1
-      "$PROCESS_IDENTITY_PYTHON_BIN" -I "$PROCESS_IDENTITY_HELPER" \
+      "$PROCESS_IDENTITY_PYTHON_BIN" -I -B "$PROCESS_IDENTITY_HELPER" \
         --process-start-token "$pid" 2>/dev/null || true
       ;;
     *)
@@ -119,6 +119,16 @@ lock_owner_state() {
     return 0
   fi
   stored_start_token="$(cat "$start_token_file" 2>/dev/null || true)"
+  case "$PROCESS_IDENTITY_MODE" in
+    libproc|validation-libproc)
+      # 舊 ps token 與 libproc 格式無法直接比對；活 PID 的未知身分必須保留。
+      # dead PID 已於上方判 STALE，不因升級而回收仍存活的 legacy lock。
+      if [[ ! "$stored_start_token" =~ ^[0-9]+\.[0-9]{6}$ ]]; then
+        printf '%s\n' "UNKNOWN"
+        return 0
+      fi
+      ;;
+  esac
   actual_start_token="$(process_start_token "$existing_pid")"
   if [ -z "$stored_start_token" ] || [ -z "$actual_start_token" ]; then
     printf '%s\n' "UNKNOWN"
@@ -475,7 +485,6 @@ while [ "$BATCH" -le "$MAX_BATCHES" ]; do
       sed -i '' 's/^circuit_open=.*/circuit_open=1/' "$RETRY_STATE_FILE"
       echo "fog research retry circuit opened; retries exhausted fingerprint_state=$RETRY_STATE_FILE context=$RETRY_CONTEXT_FILE" | tee -a "$LOG_FILE"
       CIRCUIT_OPEN=1
-      EXIT_CODE=0
       break
     fi
     BATCH=$((BATCH + 1))
@@ -493,7 +502,7 @@ while [ "$BATCH" -le "$MAX_BATCHES" ]; do
 
   echo "fog research batch finished batch=$BATCH run_id=$RUN_ID" | tee -a "$LOG_FILE"
 
-  NO_MORE_WORK="$("$PYTHON_BIN" - "$RUN_DATE" <<'PY'
+  NO_MORE_WORK="$("$PYTHON_BIN" -c '
 import json
 import sys
 from pathlib import Path
@@ -513,9 +522,8 @@ budget_incomplete = (
 )
 terminal = decision in {"NO_EXECUTABLE_TOPIC", "TOPIC_SUPPLY_EXHAUSTED"} and not budget_incomplete
 print("1" if terminal and not topic_runs else "0")
-PY
-)"
-  RESEARCH_STATE="$("$PYTHON_BIN" - "$RUN_DATE" <<'PY'
+' "$RUN_DATE")"
+  RESEARCH_STATE="$("$PYTHON_BIN" -c '
 import json
 import sys
 from pathlib import Path
@@ -526,8 +534,7 @@ if not path.exists():
     raise SystemExit
 payload = json.loads(path.read_text(encoding="utf-8"))
 print(payload.get("status") or "UNKNOWN")
-PY
-)"
+' "$RUN_DATE")"
   if [ "$RESEARCH_STATE" = "PARTIAL_RETRYABLE_TOPIC_SUPPLY" ]; then
     echo "fog research worker continue; retryable_topic_supply state=$RESEARCH_STATE no_more_work=$NO_MORE_WORK after batch=$BATCH" | tee -a "$LOG_FILE"
   elif [ "$NO_MORE_WORK" = "1" ] || [ "$RESEARCH_STATE" = "PARTIAL_NO_MORE_WORK" ]; then

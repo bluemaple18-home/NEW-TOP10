@@ -224,7 +224,7 @@ def build_dry_run_review(provider: str, review_date: str, packet: dict[str, Any]
     symbols = [symbol for symbol in symbols if symbol][:10]
     first_symbol = symbols[0] if symbols else ""
     provider_bias = "API dry-run fixture" if provider == "chatgpt" else "Gemini API dry-run fixture"
-    return {
+    review = {
         "schema_version": SCHEMA_VERSION,
         "provider": provider,
         "review_date": review_date,
@@ -286,6 +286,27 @@ def build_dry_run_review(provider: str, review_date: str, packet: dict[str, Any]
             "needs_human_review": False,
         },
     }
+    rows = [item for item in recommendations[:10] if isinstance(item, dict)]
+    if len(rows) < 10:
+        raise ValueError("dry-run packet requires ten recommendations")
+    review["grounding_proof"] = {
+        "cited_stock_ids": [str(item["stock_id"]) for item in rows[:3]],
+        "cited_rank": [{"stock_id": str(item["stock_id"]), "rank": item["rank"]} for item in rows[:2]],
+        "cited_close": {"stock_id": str(rows[0]["stock_id"]), "close": rows[0]["close"]},
+    }
+    review["per_stock_commentary"] = {
+        str(item["stock_id"]): {
+            "assessment": f"本地 dry-run 僅核對第 {item['rank']} 名的公開封包欄位與收件契約，研究判斷仍須由真實 reviewer 獨立提供。",
+            "cites_input_attr": f"rank={item['rank']}",
+        }
+        for item in rows[:7]
+    }
+    review["structured_opinion"] = {
+        "agreement_with_top3": True,
+        "concerns": [],
+        "divergent_picks": [],
+    }
+    return review
 
 
 def external_review_json_schema() -> dict[str, Any]:

@@ -7,9 +7,10 @@ set -e
 SOURCE_PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 RUNTIME_PROJECT_DIR="${TOP10_RUNTIME_CHECKOUT:-}"
 RUNTIME_COMMIT="${TOP10_RUNTIME_COMMIT:-}"
+RUNTIME_ENV="${TOP10_RUNTIME_ENV:-}"
 
-if [ -z "$RUNTIME_PROJECT_DIR" ] || [ -z "$RUNTIME_COMMIT" ]; then
-    echo "❌ 需要明確提供 TOP10_RUNTIME_CHECKOUT 與 TOP10_RUNTIME_COMMIT" >&2
+if [ -z "$RUNTIME_PROJECT_DIR" ] || [ -z "$RUNTIME_COMMIT" ] || [ -z "$RUNTIME_ENV" ]; then
+    echo "❌ 請先使用 scripts/prepare_runtime_checkout.py；提供 TOP10_RUNTIME_CHECKOUT、TOP10_RUNTIME_COMMIT、TOP10_RUNTIME_ENV" >&2
     exit 64
 fi
 
@@ -24,15 +25,16 @@ if [ ! -x "$SOURCE_PYTHON_BIN" ]; then
     exit 69
 fi
 
-"$SOURCE_PYTHON_BIN" "$SOURCE_PROJECT_DIR/scripts/validate_runtime_checkout.py" \
+"$SOURCE_PYTHON_BIN" -B "$SOURCE_PROJECT_DIR/scripts/validate_runtime_checkout.py" \
     --source-root "$SOURCE_PROJECT_DIR" \
     --runtime-root "$RUNTIME_PROJECT_DIR" \
-    --accepted-commit "$RUNTIME_COMMIT"
+    --accepted-commit "$RUNTIME_COMMIT" \
+    --environment-root "$RUNTIME_ENV"
 
 PROJECT_DIR="$(cd "$RUNTIME_PROJECT_DIR" && pwd -P)"
 RUNTIME_PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"
 if [ ! -x "$RUNTIME_PYTHON_BIN" ]; then
-    echo "❌ runtime checkout 尚未建立 .venv；請先在 runtime checkout 執行 uv sync --frozen" >&2
+    echo "❌ runtime 環境契約缺失；請回 scripts/prepare_runtime_checkout.py 核對既有外接環境" >&2
     exit 69
 fi
 

@@ -17,16 +17,16 @@ from scripts.run_external_review_host_runner import run_provider
 class ExternalReviewApiProviderTest(unittest.TestCase):
     def test_dry_run_review_matches_external_review_contract(self) -> None:
         packet = sample_packet()
-        payload = build_dry_run_review("chatgpt", "2026-06-24", packet)
+        payload = build_dry_run_review("chatgpt", "2026-11-23", packet)
 
         self.assertEqual(validate(payload), [])
 
     def test_dry_run_raw_normalizes_and_verifies(self) -> None:
         packet = sample_packet()
-        raw_payload = build_dry_run_review("gemini", "2026-06-24", packet)
+        raw_payload = build_dry_run_review("gemini", "2026-11-23", packet)
         normalized = normalize_payload(
             provider="gemini",
-            review_date="2026-06-24",
+            review_date="2026-11-23",
             raw_payload=raw_payload,
             raw_text=json.dumps(raw_payload, ensure_ascii=False),
             packet=packet,
@@ -34,7 +34,7 @@ class ExternalReviewApiProviderTest(unittest.TestCase):
 
         self.assertEqual(validate(normalized), [])
 
-    def test_generic_reviewer_json_score_normalizes(self) -> None:
+    def test_generic_aliases_are_rejected_without_inventing_missing_fields(self) -> None:
         packet = sample_packet()
         raw_payload = {
             "overall": {
@@ -56,18 +56,18 @@ class ExternalReviewApiProviderTest(unittest.TestCase):
         }
         normalized = normalize_payload(
             provider="chatgpt",
-            review_date="2026-06-24",
+            review_date="2026-11-23",
             raw_payload=raw_payload,
             raw_text=json.dumps(raw_payload, ensure_ascii=False),
             packet=packet,
         )
 
-        self.assertEqual(validate(normalized), [])
-        self.assertEqual(normalized["overall"]["score"], 66)
-        self.assertEqual(normalized["overall"]["verdict"], "good")
+        self.assertEqual(normalized["status"], "REJECTED")
+        self.assertNotIn("overall", normalized)
         self.assertTrue(normalized["safety"]["needs_human_review"])
 
-    def test_chatgpt_overall_assessment_score_normalizes(self) -> None:
+
+    def test_overall_assessment_alias_is_rejected_without_schema_conversion(self) -> None:
         packet = sample_packet()
         raw_payload = {
             "status": "review_complete",
@@ -92,21 +92,21 @@ class ExternalReviewApiProviderTest(unittest.TestCase):
             packet=packet,
         )
 
-        self.assertEqual(validate(normalized), [])
-        self.assertEqual(normalized["overall"]["score"], 71)
-        self.assertEqual(normalized["overall"]["verdict"], "good")
-        self.assertEqual(normalized["overall"]["confidence"], 0.55)
+        self.assertEqual(normalized["status"], "REJECTED")
+        self.assertNotIn("overall", normalized)
+        self.assertTrue(normalized["safety"]["needs_human_review"])
+
 
     def test_host_runner_api_dry_run_provider_writes_response(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             artifacts = Path(tmp) / "artifacts"
-            packet_path = artifacts / "external_review" / "2026-06-24" / "review_packet_2026-06-24.json"
+            packet_path = artifacts / "external_review" / "2026-11-23" / "review_packet_2026-11-23.json"
             packet_path.parent.mkdir(parents=True, exist_ok=True)
             packet_path.write_text(json.dumps(sample_packet(), ensure_ascii=False), encoding="utf-8")
 
             state = run_provider(
                 provider="chatgpt",
-                run_date="2026-06-24",
+                run_date="2026-11-23",
                 packet_path=packet_path,
                 artifacts_dir=artifacts,
                 skip_submit=False,
@@ -117,25 +117,17 @@ class ExternalReviewApiProviderTest(unittest.TestCase):
 
             self.assertEqual(state["status"], "OK")
             self.assertEqual(state["provider_mode"], "api")
-            response_path = artifacts / "external_review" / "2026-06-24" / "chatgpt_response_2026-06-24.json"
+            response_path = artifacts / "external_review" / "2026-11-23" / "chatgpt_response_2026-11-23.json"
             self.assertTrue(response_path.exists())
             response = json.loads(response_path.read_text(encoding="utf-8"))
             self.assertEqual(validate(response), [])
 
 
 def sample_packet() -> dict:
-    return {
-        "schema_version": "external-review-packet.v1",
-        "sendable": True,
-        "packet_date": "2026-06-24",
-        "market": "TW",
-        "market_overview": {"market_regime": "trend", "top_count": 10},
-        "outcome_status": {"same_day_ohlc_available": True},
-        "recommendations": [
-            {"rank": 1, "stock_id": "2330", "stock_name": "台積電"},
-            {"rank": 2, "stock_id": "2317", "stock_name": "鴻海"},
-        ],
-    }
+    # 使用已通過現場驗收的公開十檔 packet，避免兩檔 stub 偽裝成 Top10。
+    path = Path(__file__).parent / "fixtures/external_review_mcp/review_packet_2026-11-23.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
 
 
 if __name__ == "__main__":

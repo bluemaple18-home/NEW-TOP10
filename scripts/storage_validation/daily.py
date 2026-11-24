@@ -13,10 +13,18 @@ import importlib.util
 import json
 import os
 import sys
+import tempfile
+import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from scripts.storage_validation.boundary import owned_validation_paths, external_paths, readonly_source
 
 
 ENTRYPOINT_SCHEMA_VERSION = "top10-daily-storage-validation-cycle.v1"
@@ -191,9 +199,13 @@ def _prepare_validation_snapshot(
     }
 
 
-def _temporary_environment(values: dict[str, str]) -> dict[str, str | None]:
+def _temporary_environment(values: dict[str, str | None]) -> dict[str, str | None]:
     previous = {key: os.environ.get(key) for key in values}
-    os.environ.update(values)
+    for key, value in values.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
     return previous
 
 
@@ -215,45 +227,68 @@ def run_validation_cycle(
     snapshot_input: Path | str | None = None,
     dry_run: bool = False,
 ) -> Path:
-    source = Path(source_root).resolve()
-    output = Path(output_root).resolve()
-    runtime = Path(runtime_root).resolve() if runtime_root is not None else output / "logs" / "storage_safety" / "runtime" / "daily"
+    source = readonly_source(Path(source_root))
+    output = Path(output_root)
+    runtime = Path(runtime_root) if runtime_root is not None else output / "logs" / "storage_safety" / "runtime" / "daily"
     if not source.is_dir():
         raise FileNotFoundError(f"source_root missing: {source}")
+    owner = owned_validation_paths(output, runtime)
+    if source.is_relative_to(output) or output.is_relative_to(source):
+        raise ValueError("source 與 output 不得重疊")
+    evidence = owner / "evidence"
+    if source.is_relative_to(evidence) or evidence.is_relative_to(source):
+        raise ValueError("source 與 evidence 不得重疊")
+    if not runtime.is_relative_to(output):
+        raise ValueError("runtime_root 必須位於本輪 output_root")
+    if not cycle_id or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in cycle_id):
+        raise ValueError("cycle_id 必須為安全檔名")
+    _reject_git_scope(output)
     output.mkdir(parents=True, exist_ok=True)
     runtime.mkdir(parents=True, exist_ok=True)
-    _reject_git_scope(output)
     if snapshot_input is None:
         raise ValueError("validation cycle 必須提供 explicit snapshot_input")
 
     started_at = datetime.now(timezone.utc).isoformat()
     before = source_identity(source)
+    owned_validation_paths(evidence)
+    evidence.mkdir(exist_ok=True)
+    fingerprints = evidence / f"daily-input-{cycle_id}-{uuid.uuid4().hex}.json"
+    with fingerprints.open("x", encoding="utf-8") as handle:
+        json.dump({"source_identity": before, "snapshot": _artifact_identity(
+            _resolve_source_snapshot(source, snapshot_input))}, handle, ensure_ascii=False)
     validation_input = _prepare_validation_snapshot(
         source_root=source,
         output_root=output,
         cycle_id=cycle_id,
         snapshot_input=snapshot_input,
     )
-    automation = _load_source_runner(source)
-    runner = automation.AutomationRunner(
-        mode="daily",
-        dry_run=dry_run,
-        trigger="manual",
-        resource_profile="standard",
-        run_date=run_date,
-        source_root=source,
-        output_root=output,
-        runtime_root=runtime,
-        validation_mode=True,
-    )
-    previous_environment = _temporary_environment(
+    # no-send 隔離週期不得繼承主機共用 cache 的掛載／身分契約。
+    # 僅在本週期內清除；結束時還原 caller 的原始環境。
+    validation_environment: dict[str, str | None] = {
+        key: None for key in os.environ
+        if key.startswith("AI_CORE_CACHE_") or key == "TOP10_EXTERNAL_CACHE_ROOT"
+    }
+    validation_environment.update(
         {
             "TOP10_STORAGE_VALIDATION_MODE": "1",
             "TOP10_VALIDATION_SNAPSHOT_INPUT": validation_input["materialized"]["path"],
             "TOP10_VALIDATION_SNAPSHOT_SHA256": validation_input["materialized"]["sha256"],
         }
     )
+    previous_environment = _temporary_environment(validation_environment)
     try:
+        automation = _load_source_runner(source)
+        runner = automation.AutomationRunner(
+            mode="daily",
+            dry_run=dry_run,
+            trigger="manual",
+            resource_profile="standard",
+            run_date=run_date,
+            source_root=source,
+            output_root=output,
+            runtime_root=runtime,
+            validation_mode=True,
+        )
         exit_code = runner.run()
     finally:
         _restore_environment(previous_environment)
@@ -339,10 +374,78 @@ def as_status_payload(status: Any) -> dict[str, Any]:
     }
 
 
+def _delegate_lifecycle(argv: list[str], owner: Path, evidence: Path) -> int:
+    """以 exec 保留訊號語意；所有清理與有限資源監控交既有 helper。"""
+    core = Path(os.environ.get("AI_CORE_DIR", str(Path.home() / "ai-core")))
+    with external_paths(owner, evidence):
+        if not owner.is_dir() or evidence.exists() or evidence.is_symlink():
+            raise ValueError("需既有外接 lifecycle owner 與全新證據目錄")
+    command = [str(core / ".venv/bin/python"), "-B", str(core / "scripts/tmp_artifact_lifecycle.py"),
+               "run", "--external-only", "--repo-root", str(owner),
+               "--policy", str(core / "config/project_sandbox_policy.json"),
+               "--purpose", "top10-daily-validation", "--max-bytes", "838860800",
+               "--max-file-count", "50000", "--ttl-seconds", "300",
+               "--evidence-dir", str(evidence), "--preserve", "evidence", "--",
+               sys.executable, "-B", str(Path(__file__).resolve()), *argv]
+    os.environ["TOP10_DAILY_EXPORT_DESTINATION"] = str(evidence)
+    os.execv(command[0], command)
+    return 70
+
+
+@contextmanager
+def _manual_validation_output(output_root: Path | None = None, *, source_root: Path):
+    root = owned_validation_paths()
+    output = output_root or root / "daily-output"
+    owned_validation_paths(output)
+    source = readonly_source(source_root)
+    for destination in (output, root / "evidence"):
+        if source.is_relative_to(destination) or destination.is_relative_to(source):
+            raise ValueError("source 與 output/evidence 不得重疊")
+    # 外層 lifecycle 負責成功、失敗、訊號的 exact-owned cleanup。
+    # 本層不猜刪 caller output；證據只保留限量 receipt 與雜湊。
+    evidence = root / "evidence" / ("daily-" + uuid.uuid4().hex)
+    owned_validation_paths(evidence)
+    evidence.mkdir(parents=True)
+    summary = {"output_root": str(output), "status": "STARTED"}
+    summary_path = evidence / "summary.json"
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
+    try:
+        yield output, evidence
+        summary["status"] = "OK"
+    except BaseException as error:
+        summary.update(status="FAILED", error=type(error).__name__)
+        raise
+    finally:
+        owned_validation_paths(evidence)
+        try:
+            receipts = list(output.glob("logs/storage_safety/runtime/**/daily_validation_*.json"))
+            if len(receipts) > 8:
+                raise ValueError("receipt 匯出數量超限，禁止回報 OK")
+            for receipt in receipts:
+                owned_validation_paths(receipt)
+                if not receipt.is_file() or receipt.stat().st_size > 1024 * 1024:
+                    raise ValueError("receipt 匯出大小或類型不符，禁止回報 OK")
+                with (evidence / receipt.name).open("xb") as handle:
+                    handle.write(receipt.read_bytes())
+            for index, log in enumerate(list(output.glob("logs/**/*.log"))[:4]):
+                owned_validation_paths(log)
+                if log.is_file():
+                    with log.open("rb") as handle:
+                        handle.seek(max(0, log.stat().st_size - 65536))
+                        (evidence / f"log-tail-{index}.log").write_bytes(handle.read(65536))
+        except BaseException:
+            summary["status"] = "EXPORT_FAILED"
+            raise
+        finally:
+            summary_path.write_text(json.dumps(summary), encoding="utf-8")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="TOP10 daily storage validation trusted entrypoint")
     parser.add_argument("--source-root", type=Path, required=True)
-    parser.add_argument("--output-root", type=Path, default=Path.cwd())
+    parser.add_argument("--output-root", type=Path, help="只接受目前 lifecycle owned root 內的輸出。")
+    parser.add_argument("--lifecycle-owner", type=Path, help="既有外接 Git owner；source 可唯讀位於內建。")
+    parser.add_argument("--evidence-dir", type=Path, help="owner 內全新外接證據目錄。")
     parser.add_argument("--runtime-root", type=Path, default=None)
     parser.add_argument("--run-date", required=True)
     parser.add_argument("--cycle-id", required=True)
@@ -352,24 +455,39 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
     args = parse_args(argv)
     try:
-        receipt_path = run_validation_cycle(
-            source_root=args.source_root,
-            output_root=args.output_root,
-            runtime_root=args.runtime_root,
-            run_date=args.run_date,
-            cycle_id=args.cycle_id,
-            snapshot_input=args.snapshot_input,
-            dry_run=args.dry_run,
-        )
+        if os.environ.get("AI_CORE_TMP_ARTIFACT_ACTIVE") != "1":
+            if args.output_root is not None or args.runtime_root is not None:
+                raise ValueError("明示 output/runtime 需由既有 external-only lifecycle 呼叫")
+            if args.lifecycle_owner is None or args.evidence_dir is None:
+                raise ValueError("請提供 --lifecycle-owner 與 --evidence-dir；禁止內建 fallback")
+            return _delegate_lifecycle(argv, args.lifecycle_owner, args.evidence_dir)
+        request = dict(source_root=args.source_root, runtime_root=args.runtime_root,
+                       run_date=args.run_date, cycle_id=args.cycle_id,
+                       snapshot_input=args.snapshot_input, dry_run=args.dry_run)
+        with _manual_validation_output(args.output_root, source_root=args.source_root) as (output, evidence):
+            receipt_path = run_validation_cycle(output_root=output, **request)
+        retained = evidence / receipt_path.name
+        digest = _sha256(retained)
+        if digest != _sha256(receipt_path):
+            raise ValueError("receipt 匯出 hash 不符")
+        if args.evidence_dir is not None:
+            if os.environ.get("TOP10_DAILY_EXPORT_DESTINATION") != str(args.evidence_dir):
+                raise ValueError("evidence-dir 必須由 delegated lifecycle 綁定")
+            receipt_path = args.evidence_dir / retained.relative_to(Path(os.environ["TMP_ARTIFACT_ROOT"]))
+        else:
+            receipt_path = retained
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    print(json.dumps({"status": "OK", "cycle_id": args.cycle_id, "receipt_path": str(receipt_path)}, ensure_ascii=False))
+    print(json.dumps({"status": "OK", "cycle_id": args.cycle_id, "receipt_path": str(receipt_path),
+                      "receipt_sha256": digest}, ensure_ascii=False))
     return 0
 
 
 if __name__ == "__main__":
+    sys.dont_write_bytecode = True
     os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
     raise SystemExit(main())

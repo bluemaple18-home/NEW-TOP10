@@ -1,0 +1,643 @@
+{
+  "schema_version": "external-review-packet.v1",
+  "sendable": true,
+  "packet_date": "2026-11-23",
+  "generated_at": "2026-11-24T05:53:48.638976+00:00",
+  "market": "TW",
+  "purpose": "post_daily_external_review",
+  "safety_boundary": {
+    "allowed": [
+      "公開推薦名單",
+      "公開交易計畫摘要",
+      "公開產業/概念標籤",
+      "公開 OHLC/成交量摘要",
+      "daily report 市場摘要"
+    ],
+    "prohibited": [
+      "演算法",
+      "權重",
+      "feature engineering",
+      "訓練資料結構",
+      "模型程式碼",
+      "內部 scoring formula",
+      "promotion gate internals"
+    ]
+  },
+  "market_overview": {
+    "market_regime": "RISK_OFF",
+    "top_count": 10,
+    "gross_exposure": 0.35,
+    "allocated_exposure": 0.35,
+    "cash_weight": 0.65,
+    "risk_notes": [
+      "Top10 內有風險扣分，需看停損與部位上限。"
+    ]
+  },
+  "outcome_status": {
+    "same_day_ohlc_available": true,
+    "next_session_outcome_available": false,
+    "note": "本 packet 僅包含本地已存在的同日公開行情；若尚未有下一交易日資料，不產生事後漲跌結論。"
+  },
+  "recommendations": [
+    {
+      "rank": 1,
+      "stock_id": "1303",
+      "stock_name": "南亞",
+      "close": 226.5,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "塑膠",
+        "sector_name": "原物料",
+        "market_type": "twse",
+        "theme_tags": [
+          "塑膠",
+          "上市類股"
+        ],
+        "concept_tags": [
+          "台塑",
+          "S＆P亞洲50指數台灣成分股",
+          "台商越南",
+          "傳產原物料股",
+          "一帶一路",
+          "世足",
+          "傳產內需股",
+          "蘋果200大供應商"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 226.5,
+        "stop_loss": 215.2,
+        "target_price": 249.2,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": 3,
+        "rank_delta": 2
+      },
+      "public_reasons": [
+        "進場：226.5",
+        "止損：215.2 (回檔5%)",
+        "目標：249.2 (+10%)",
+        "RSI 40 反彈",
+        "多方吞噬"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 196.0,
+        "high": 226.5,
+        "low": 196.0,
+        "close": 226.5,
+        "volume": 128627770.0,
+        "value": 27300850167.0,
+        "transactions": 82350.0,
+        "intraday_change_pct": 0.1556
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    },
+    {
+      "rank": 2,
+      "stock_id": "3017",
+      "stock_name": "奇鋐",
+      "close": 2365.0,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "電腦週邊配件",
+        "sector_name": "科技",
+        "market_type": "twse",
+        "theme_tags": [
+          "電腦週邊配件",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "低軌衛星",
+          "人工智慧AI",
+          "AI伺服器",
+          "儲能",
+          "AI PC",
+          "折疊式手機",
+          "雲伺服器",
+          "5G"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 2365.0,
+        "stop_loss": 2246.8,
+        "target_price": 2601.5,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "public_reasons": [
+        "進場：2365.0",
+        "止損：2246.8 (回檔5%)",
+        "目標：2601.5 (+10%)",
+        "RSI 40 反彈",
+        "多方吞噬"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 2005.0,
+        "high": 2425.0,
+        "low": 2005.0,
+        "close": 2365.0,
+        "volume": 6995270.0,
+        "value": 15467428020.0,
+        "transactions": 14347.0,
+        "intraday_change_pct": 0.1796
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    },
+    {
+      "rank": 3,
+      "stock_id": "3665",
+      "stock_name": "貿聯-KY",
+      "close": 1430.0,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "其他電子或零件",
+        "sector_name": "科技",
+        "market_type": "twse",
+        "theme_tags": [
+          "其他電子或零件",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "特斯拉",
+          "AI人工智慧",
+          "Amazon",
+          "Tesla",
+          "智慧汽車",
+          "油電車",
+          "台商墨西哥",
+          "輝達AI"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 1430.0,
+        "stop_loss": 1358.5,
+        "target_price": 1573.0,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "public_reasons": [
+        "進場：1430.0",
+        "止損：1358.5 (回檔5%)",
+        "目標：1573.0 (+10%)",
+        "RSI 40 反彈",
+        "多方吞噬"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 1240.0,
+        "high": 1430.0,
+        "low": 1240.0,
+        "close": 1430.0,
+        "volume": 4327818.0,
+        "value": 5908512465.0,
+        "transactions": 5573.0,
+        "intraday_change_pct": 0.1532
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    },
+    {
+      "rank": 4,
+      "stock_id": "6196",
+      "stock_name": "帆宣",
+      "close": 307.0,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "設備或廠務工程",
+        "sector_name": "科技",
+        "market_type": "twse",
+        "theme_tags": [
+          "設備或廠務工程",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "人工智慧AI",
+          "台積電",
+          "AMOLED",
+          "工業4.0",
+          "CoPoS",
+          "氫能",
+          "智慧機械",
+          "半導體設備"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 307.0,
+        "stop_loss": 291.6,
+        "target_price": 337.7,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "public_reasons": [
+        "進場：307.0",
+        "止損：291.6 (回檔5%)",
+        "目標：337.7 (+10%)",
+        "多方吞噬",
+        "TD買九"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 275.5,
+        "high": 311.0,
+        "low": 275.5,
+        "close": 307.0,
+        "volume": 2090491.0,
+        "value": 619784880.0,
+        "transactions": 2860.0,
+        "intraday_change_pct": 0.1143
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    },
+    {
+      "rank": 5,
+      "stock_id": "6188",
+      "stock_name": "廣明",
+      "close": 40.8,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "電腦週邊配件",
+        "sector_name": "科技",
+        "market_type": "tpex",
+        "theme_tags": [
+          "電腦週邊配件",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "機器人",
+          "台商泰國",
+          "工業4.0",
+          "智慧機械",
+          "廣達"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 40.8,
+        "stop_loss": 38.8,
+        "target_price": 44.9,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "public_reasons": [
+        "進場：40.8",
+        "止損：38.8 (回檔5%)",
+        "目標：44.9 (+10%)",
+        "TD買九"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 38.25,
+        "high": 41.2,
+        "low": 38.25,
+        "close": 40.8,
+        "volume": 1591000.0,
+        "value": 63490300.0,
+        "transactions": null,
+        "intraday_change_pct": 0.0667
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    },
+    {
+      "rank": 6,
+      "stock_id": "6933",
+      "stock_name": "AMAX-KY",
+      "close": 234.0,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "工業電腦",
+        "sector_name": "科技",
+        "market_type": "twse",
+        "theme_tags": [
+          "工業電腦",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "人工智慧AI",
+          "AI伺服器",
+          "AI人工智慧",
+          "鴻海"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 234.0,
+        "stop_loss": 222.3,
+        "target_price": 257.4,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "public_reasons": [
+        "進場：234.0",
+        "止損：222.3 (回檔5%)",
+        "目標：257.4 (+10%)",
+        "跳空強勢收紅",
+        "錘子線"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 230.0,
+        "high": 234.0,
+        "low": 215.0,
+        "close": 234.0,
+        "volume": 1529181.0,
+        "value": 346269490.0,
+        "transactions": 1599.0,
+        "intraday_change_pct": 0.0174
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    },
+    {
+      "rank": 7,
+      "stock_id": "6834",
+      "stock_name": "天二科技",
+      "close": 79.3,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "被動元件",
+        "sector_name": "其他",
+        "market_type": "twse",
+        "theme_tags": [
+          "被動元件",
+          "電子產業"
+        ],
+        "concept_tags": [],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 79.3,
+        "stop_loss": 75.3,
+        "target_price": 87.2,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "public_reasons": [
+        "進場：79.3",
+        "止損：75.3 (回檔5%)",
+        "目標：87.2 (+10%)",
+        "多方吞噬"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 70.1,
+        "high": 79.3,
+        "low": 69.6,
+        "close": 79.3,
+        "volume": 3628364.0,
+        "value": 273109977.0,
+        "transactions": 2933.0,
+        "intraday_change_pct": 0.1312
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    },
+    {
+      "rank": 8,
+      "stock_id": "6643",
+      "stock_name": "M31",
+      "close": 323.0,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "IC設計服務",
+        "sector_name": "科技",
+        "market_type": "tpex",
+        "theme_tags": [
+          "IC設計服務",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "台積電",
+          "人工智慧AI",
+          "AI伺服器",
+          "矽智財(IP)",
+          "高速傳輸介面",
+          "鴻海MIH電動車平台",
+          "邊緣運算",
+          "車用電子"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 323.0,
+        "stop_loss": 306.8,
+        "target_price": 355.3,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "public_reasons": [
+        "進場：323.0",
+        "止損：306.8 (回檔5%)",
+        "目標：355.3 (+10%)",
+        "多方吞噬"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 285.5,
+        "high": 327.5,
+        "low": 285.5,
+        "close": 323.0,
+        "volume": 428000.0,
+        "value": 132769000.0,
+        "transactions": null,
+        "intraday_change_pct": 0.1313
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    },
+    {
+      "rank": 9,
+      "stock_id": "2375",
+      "stock_name": "凱美",
+      "close": 75.2,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "被動元件",
+        "sector_name": "其他",
+        "market_type": "twse",
+        "theme_tags": [
+          "被動元件",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "國巨",
+          "醫療呼吸器",
+          "超級電容"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 75.2,
+        "stop_loss": 71.4,
+        "target_price": 82.7,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "public_reasons": [
+        "進場：75.2",
+        "止損：71.4 (回檔5%)",
+        "目標：82.7 (+10%)",
+        "多方吞噬"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 66.3,
+        "high": 75.6,
+        "low": 66.3,
+        "close": 75.2,
+        "volume": 2513262.0,
+        "value": 178855913.0,
+        "transactions": 2437.0,
+        "intraday_change_pct": 0.1342
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    },
+    {
+      "rank": 10,
+      "stock_id": "8299",
+      "stock_name": "群聯",
+      "close": 1450.0,
+      "market_regime": "RISK_OFF",
+      "reference": {
+        "industry_name": "IC設計服務",
+        "sector_name": "科技",
+        "market_type": "tpex",
+        "theme_tags": [
+          "IC設計服務",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "低軌衛星",
+          "AMD",
+          "高速傳輸介面",
+          "鴻海MIH電動車平台",
+          "邊緣運算",
+          "車用電子",
+          "行動支付",
+          "日圓貶值"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 1450.0,
+        "stop_loss": 1377.5,
+        "target_price": 1595.0,
+        "risk_reward": null
+      },
+      "persistence": {
+        "available": true,
+        "consecutive_ranked_days": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "public_reasons": [
+        "進場：1450.0",
+        "止損：1377.5 (回檔5%)",
+        "目標：1595.0 (+10%)",
+        "多方吞噬"
+      ],
+      "same_day_market": {
+        "date": "2026-11-23",
+        "open": 1280.0,
+        "high": 1450.0,
+        "low": 1260.0,
+        "close": 1450.0,
+        "volume": 5853000.0,
+        "value": 8215505000.0,
+        "transactions": null,
+        "intraday_change_pct": 0.1328
+      },
+      "observed_outcome": {
+        "available": false,
+        "horizon": "next_session",
+        "note": "下一交易日結果尚未由本 slice 推導。"
+      }
+    }
+  ],
+  "reviewer_instructions": {
+    "role": "專業台股操盤手",
+    "task": "只根據 packet 內容檢討今日推薦品質、風險、族群資金流與可驗證研究假設。",
+    "response_contract": "external-review.v1",
+    "must_not_request_algorithm": true
+  }
+}

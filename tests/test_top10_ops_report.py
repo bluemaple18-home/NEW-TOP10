@@ -225,6 +225,30 @@ class Top10OpsReportTest(unittest.TestCase):
             latest = artifacts / "harness_status" / "2026-06-24" / "latest_rollup.json"
             self.assertTrue(latest.exists())
 
+    def test_unknown_delivery_is_degraded_in_ops_event(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            event_dir = artifacts / "harness_status" / "2026-06-24" / "daily-2026-06-24" / "events"
+            event_dir.mkdir(parents=True, exist_ok=True)
+            status = {
+                "generated_at": "2026-06-24T12:00:00+00:00",
+                "run_date": "2026-06-24",
+                "run_id": "daily-2026-06-24",
+                "status": "DELIVERY_UNKNOWN",
+                "message_path": "ops_progress_message_2026-06-24.md",
+                "rollup_path": "harness_status/2026-06-24/daily-2026-06-24/rollup.json",
+                "output_path": "ops_progress_send_status_2026-06-24.json",
+                "dry_run": False,
+                "send_attempted": True,
+                "exit_code": 1,
+                "errors": ["送達結果不明"],
+            }
+            write_ops_event(status, artifacts_dir=artifacts, manifest_path=Path("docs/architecture/top10_harness_team.dashboard.json"))
+            event = json.loads((event_dir / "ops_reporter.json").read_text(encoding="utf-8"))
+            self.assertEqual(event["status"], "degraded")
+            self.assertEqual(event["decision"], "stop")
+            self.assertIn("禁止重送", event["next_action"])
+
     def test_ops_message_includes_pm_research_harness_status(self):
         with tempfile.TemporaryDirectory() as tmp:
             artifacts = Path(tmp)

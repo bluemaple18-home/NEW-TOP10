@@ -39,7 +39,8 @@ uv sync --all-groups
 ```
 
 `pyproject.toml` 與 `uv.lock` 是唯一相依來源。日常執行只需 runtime 時可使用
-`uv sync`；訓練、報表或測試請使用 `uv sync --all-groups`。
+`uv sync`；訓練、報表所需選用依賴可用 `uv sync --all-groups`。
+驗證／測試重用既有環境，請走[外接受管檢查命令](docs/operations/top10-storage-safety.md)，不為每輪檢查建立環境。
 
 ### 2. 設定環境變數
 
@@ -107,8 +108,10 @@ cat artifacts/ranking_$(date +%Y-%m-%d).csv
 
 ```bash
 # 正式排程使用獨立 detached runtime checkout；安裝會修改 LaunchAgents，需先取得 live activation 授權
-git worktree add --detach <runtime-checkout> <accepted-commit>
-cd <runtime-checkout> && uv sync --frozen && cd <repo-root>
+.venv/bin/python -B scripts/prepare_runtime_checkout.py \
+  --runtime-root <外接-runtime-checkout> --accepted-commit <accepted-40-char-commit-sha> \
+  --environment-root <既有外接-checkout>/.venv
+TOP10_RUNTIME_ENV=<既有外接-checkout>/.venv \
 TOP10_RUNTIME_CHECKOUT=<runtime-checkout> \
 TOP10_RUNTIME_COMMIT=<accepted-40-char-commit-sha> \
 bash scripts/setup_launchd.sh
@@ -243,3 +246,7 @@ bash scripts/setup_webui_launchd.sh
 
 > [!WARNING]
 > 本系統產生的選股結果僅供參考，不構成投資建議。投資有風險，請謹慎評估。
+
+### 每日報牌與 review 收尾
+
+[2026-11-24 每日報牌、外部 review、研究接收操作與結案](docs/operations/top10-daily-review-research-closeout-20261124.md)。

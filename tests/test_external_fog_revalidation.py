@@ -10,40 +10,55 @@ from unittest import mock
 from scripts import run_external_fog_revalidation as revalidation
 
 
+def tiny_source(root: Path) -> Path:
+    """只建立數 KB 的 synthetic source；禁止測試複製真實 checkout。"""
+    paths = [
+        "scripts/storage_validation/fog_research_worker.py", "scripts/run_fog_research_worker.sh",
+        "scripts/run_fog_representative_validation.py", ".venv/bin/python", ".venv/lib/libpython3.12.dylib",
+        "scripts/run_autonomous_research.py", "scripts/publish_research_batch_intent.py",
+        "scripts/verify_research_spine_batch.py", "scripts/run_backtest_strategy_matrix.py",
+        "config/regime_research_contract.json",
+        "app/example.py", "config/example.json", "data/clean/features.parquet",
+        "data/reference/stock_industry_map.csv", "models/example.txt",
+        "artifacts/market_regime_history.json",
+        *[f"docs/{p}" for p in revalidation.REQUIRED_DOC_AUTHORITIES],
+        *map(str, revalidation.REQUIRED_ARTIFACT_AUTHORITIES),
+    ]
+    from scripts.run_fog_representative_validation import CANDIDATE_DIR, BASELINE_DIR
+    paths.extend([f"{CANDIDATE_DIR}/ranking.csv", f"{BASELINE_DIR}/ranking.csv"])
+    for relative in paths:
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("fixture\n")
+    return root
+
+
 class ExternalFogRevalidationTest(unittest.TestCase):
     def test_copy_project_includes_only_required_doc_authorities(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            sandbox = Path(tmp) / "sandbox"
+            sandbox = Path(tmp).resolve() / "sandbox"
             sandbox.mkdir()
-            revalidation.copy_project(revalidation.PROJECT_ROOT, sandbox)
-
-            assert (
-                sandbox / "docs/architecture/fog_runtime_receipt_v3.schema.json"
-            ).is_file()
-            assert (sandbox / "docs/operations/top10-storage-policy.json").is_file()
-            assert not (sandbox / "docs/tasks").exists()
+            source = tiny_source(Path(tmp).resolve() / "source")
+            revalidation.copy_project(source, sandbox)
+            assert not (sandbox / ".venv").exists()
+            assert not (sandbox / "app").exists()
+            assert (sandbox / "validation/source-manifest.json").is_file()
+            assert (sandbox / "scripts/storage_validation/fog_research_worker.py").is_file()
 
     def test_copy_project_excludes_generated_outputs_and_keeps_explicit_regime_authorities(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            sandbox = Path(tmp) / "sandbox"
+            sandbox = Path(tmp).resolve() / "sandbox"
             sandbox.mkdir()
 
-            revalidation.copy_project(revalidation.PROJECT_ROOT, sandbox)
-
-            model_root = sandbox / "artifacts/model_experiments"
-            self.assertEqual(
-                {path.relative_to(sandbox).as_posix() for path in model_root.rglob("*") if path.is_file()},
-                {
-                    "artifacts/model_experiments/market_regime_history_2023-11-21_2026-05-15.json",
-                    "artifacts/model_experiments/market_regime_history_append_only_2026-07-22.json",
-                },
-            )
-            weekend_root = sandbox / "artifacts/weekend_training"
-            self.assertFalse((weekend_root / "staging").exists())
-            self.assertEqual(list(weekend_root.glob("replay_runs_*")), [])
+            source = tiny_source(Path(tmp).resolve() / "source")
+            revalidation.copy_project(source, sandbox)
+            manifest = json.loads((sandbox / "validation/source-manifest.json").read_text())
+            paths = {row["path"] for row in manifest["files"]}
+            self.assertTrue(set(map(str, revalidation.REQUIRED_ARTIFACT_AUTHORITIES)) <= paths)
+            self.assertFalse((sandbox / "artifacts").exists())
             copied_files = [path for path in sandbox.rglob("*") if path.is_file()]
-            self.assertLess(len(copied_files), 50_000)
-            self.assertLess(sum(path.stat().st_size for path in copied_files), 5 * 1024**3)
+            self.assertLess(len(copied_files), 10)
+            self.assertLess(sum(path.stat().st_size for path in copied_files), 65536)
 
     def test_run_cycle_rejects_guard_ok_when_topic_runs_are_empty(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-external-fog-empty-") as tmp:
@@ -62,7 +77,8 @@ class ExternalFogRevalidationTest(unittest.TestCase):
             (sandbox / revalidation.EVIDENCE_DIR).mkdir(parents=True)
 
             completed = subprocess.CompletedProcess([], 0, stdout="", stderr="")
-            with mock.patch.object(revalidation.subprocess, "run", return_value=completed):
+            with (mock.patch.object(revalidation, "owned_validation_paths", return_value=sandbox),
+                  mock.patch.object(revalidation.subprocess, "run", return_value=completed)):
                 code, receipt = revalidation.run_cycle(
                     sandbox,
                     sandbox / "marker.json",
@@ -112,7 +128,8 @@ class ExternalFogRevalidationTest(unittest.TestCase):
             (sandbox / revalidation.EVIDENCE_DIR).mkdir(parents=True)
 
             completed = subprocess.CompletedProcess([], 0, stdout="", stderr="")
-            with mock.patch.object(revalidation.subprocess, "run", return_value=completed):
+            with (mock.patch.object(revalidation, "owned_validation_paths", return_value=sandbox),
+                  mock.patch.object(revalidation.subprocess, "run", return_value=completed)):
                 code, receipt = revalidation.run_cycle(
                     sandbox,
                     sandbox / "marker.json",
@@ -168,7 +185,7 @@ class ExternalFogRevalidationTest(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 revalidation.publish_evidence(source, destination)
 
-    def test_project_policy_fits_measured_full_sandbox(self) -> None:
+    def test_source_policy_unchanged_not_outer_256mib_acceptance(self) -> None:
         policy = json.loads(
             (revalidation.PROJECT_ROOT / "config" / "project_sandbox_policy.json").read_text(
                 encoding="utf-8"

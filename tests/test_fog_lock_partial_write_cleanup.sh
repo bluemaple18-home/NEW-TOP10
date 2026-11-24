@@ -33,6 +33,7 @@ printf '%s\n' \
   '}' > "$BASH_ENV_FILE"
 
 BASH_ENV="$BASH_ENV_FILE" \
+TOP10_PROCESS_IDENTITY_MODE=ps \
 TOP10_PROCESS_IDENTITY_PS_BIN="$FAKE_PS" \
 TOP10_RESEARCH_QUEUE_OWNER=fog_worker \
 bash "$TEST_ROOT/scripts/run_fog_research_worker.sh"

@@ -554,6 +554,7 @@ class FogStorageValidationEntrypointTest(unittest.TestCase):
             environment = {
                 **os.environ,
                 "TOP10_DAILY_PYTHON": str(fake_python),
+                "TOP10_PROCESS_IDENTITY_MODE": "ps",
                 "TOP10_PROCESS_IDENTITY_PS_BIN": str(fake_identity),
                 "TOP10_FOG_RESEARCH_MAX_BATCHES": "1",
                 "TOP10_FOG_RESEARCH_BATCH_SLEEP_SECONDS": "0",

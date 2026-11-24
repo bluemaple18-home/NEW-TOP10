@@ -148,6 +148,7 @@ def long_raw(provider: str) -> str:
 
 def sample_response(provider: str, review_date: str) -> dict:
     return {
+        "status": "ACCEPTED",
         "schema_version": "external-review.v1",
         "provider": provider,
         "review_date": review_date,

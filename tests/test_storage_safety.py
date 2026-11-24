@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -15,11 +16,22 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from unittest import mock
+import pytest
+from app.external_cache import FIELDS
 
 import app.storage_safety as storage_safety
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def isolated_storage_cache_environment(monkeypatch):
+    """舊隔離 fixture 明確移除 host 外接設定；產品仍拒絕 configured 外接。"""
+    for key in (*FIELDS, "TOP10_EXTERNAL_CACHE_ROOT"):
+        monkeypatch.delenv(key, raising=False)
+
+
 SCHEDULED_JOBS = {
     "daily": ("daily", "run_daily_publish.sh"),
     "retrain": ("retrain-monitor", "daily_retrain.sh"),
@@ -103,6 +115,43 @@ def fixture_job_policy(**overrides: object) -> JobPolicy:
     return replace(policy, **overrides)
 
 
+def owned_native_validation_fixture() -> tuple[Path, Path]:
+    """六個單例沿既有 exact-owner 親權；來源種子只讀且位於真正寫入邊界外。"""
+    from scripts.storage_validation.boundary import owned_validation_paths, owned_write_contract
+
+    root = Path(os.environ.get("TMP_ARTIFACT_ROOT", ""))
+    if not root.is_absolute() or root.resolve(strict=True) != root:
+        raise ValueError("需明示 canonical TMP_ARTIFACT_ROOT")
+    contract = owned_write_contract(root)
+    if contract is None or owned_validation_paths(root) != root:
+        raise ValueError("需 existing active exact-owner lifecycle；不得以 wide parent 替代")
+    source = PROJECT_ROOT / "tests/fixtures/storage_native"
+    if source.resolve(strict=True) != source or source.is_relative_to(root):
+        raise ValueError("唯讀 fixture 必須位於真正 owned root 外")
+    for name, content in (("source.txt", b"original\n"), ("outside.txt", b"original\n"),
+                          ("input.txt", b"readable\n")):
+        path = source / name
+        if path.is_symlink() or path.read_bytes() != content:
+            raise ValueError(f"唯讀 fixture 內容不符：{name}")
+    evidence = root / "validation_evidence"
+    evidence.mkdir(exist_ok=True)
+    (evidence / "storage-native-owner-contract.json").write_text(
+        json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
+    )
+    return root, source
+
+
+def native_validation_fixture_policy(**overrides: object) -> JobPolicy:
+    """只登記並計量三個測試基建路徑；不擴大產品 policy 或涵蓋 unmetered artifacts。"""
+    policy = fixture_job_policy(**overrides)
+    infrastructure = ("pytest", "tmp", "validation_evidence")
+    return replace(
+        policy,
+        meter_paths=tuple(dict.fromkeys((*policy.meter_paths, *infrastructure))),
+        registered_write_paths=tuple(dict.fromkeys((*policy.registered_write_paths, *infrastructure))),
+    )
+
+
 def write_fog_terminal_fixture(
     root: Path,
     *,
@@ -172,6 +221,128 @@ def write_fog_plist_fixture(root: Path, start_interval: int = 3600) -> None:
     path.write_bytes(plistlib.dumps({"StartInterval": start_interval}))
 
 
+def test_host_capacity_alignment_uses_admission_not_raw() -> None:
+    """同一主機 raw 未達線、important 已達線時，應依既有准入口徑通過。"""
+    total = 100 * 1024**3
+    raw = 9 * 1024**3
+    admission = 25 * 1024**3
+    global_policy, job_policy, _ = load_policy(
+        PROJECT_ROOT / "docs/operations/top10-storage-policy.json", "fog-research-worker"
+    )
+    with (
+        mock.patch.object(storage_safety, "_measure_host_capacity",
+                          return_value=(total, raw, admission, "macos_foundation_important_usage")),
+        mock.patch.object(storage_safety, "measure_paths", return_value=storage_safety.Inventory(7, 1)),
+        mock.patch.object(storage_safety.shutil, "disk_usage",
+                          return_value=shutil._ntuple_diskusage(total, total - raw, raw)),
+        mock.patch.object(storage_safety, "process_tree_rss_snapshot", return_value=(0, ())),
+        mock.patch.object(storage_safety, "read_swap_bytes", return_value=0),
+        mock.patch.object(storage_safety, "read_memory_pressure_level", return_value=1),
+    ):
+        sample = take_sample(PROJECT_ROOT, job_policy)
+    assert evaluate_preflight(global_policy, job_policy, sample).triggered is False
+    assert sample.host_free_bytes == admission
+    assert sample.host_raw_free_bytes == raw
+    assert sample.host_capacity_source == "macos_foundation_important_usage"
+    assert sample.project_bytes == 7
+
+
+@pytest.mark.parametrize("admission_gib,preflight_stops,runtime_stops", [
+    (9, True, True), (15, False, True), (25, False, False),
+])
+def test_host_capacity_alignment_preserves_thresholds_and_meter(
+    admission_gib, preflight_stops, runtime_stops,
+) -> None:
+    """同一重要用途容量餵給既有兩道門檻；meter 與 host_root 不互換。"""
+    gp, jp, _ = load_policy(PROJECT_ROOT / "docs/operations/top10-storage-policy.json", "fog-research-worker")
+    output = Path("/fixture/output")
+    host = Path("/fixture/host")
+    with (
+        mock.patch.object(storage_safety, "_measure_host_capacity",
+                          return_value=(100 * 1024**3, 8 * 1024**3, admission_gib * 1024**3,
+                                        "macos_foundation_important_usage")) as sensor,
+        mock.patch.object(storage_safety, "measure_paths", return_value=storage_safety.Inventory(7, 1)) as meter,
+        mock.patch.object(storage_safety, "process_tree_rss_snapshot", return_value=(1, ())),
+        mock.patch.object(storage_safety, "read_swap_bytes", return_value=0),
+        mock.patch.object(storage_safety, "read_memory_pressure_level", return_value=1),
+    ):
+        sample = take_sample(output, jp, host_root=host)
+    sensor.assert_called_once_with(host)
+    meter.assert_called_once_with(
+        output,
+        jp.meter_paths,
+        deadline_seconds=15.0,
+    )
+    assert evaluate_preflight(gp, jp, sample).triggered is preflight_stops
+    assert evaluate_runtime(gp, jp, [sample]).triggered is runtime_stops
+    assert sample.to_dict()["host_raw_free_bytes"] == 8 * 1024**3
+    assert sample.to_dict()["host_capacity_source"] == "macos_foundation_important_usage"
+
+
+def test_host_capacity_alignment_darwin_reuses_shared_sensor() -> None:
+    """只接現有共用感測器，不複製 Foundation 程式碼或啟動業務負載。"""
+    payload = {"total_bytes": 1000, "physical_available_bytes": 90,
+               "admission_available_bytes": 250, "source": "macos_foundation_important_usage"}
+    with (
+        mock.patch.object(storage_safety.sys, "platform", "darwin"),
+        mock.patch.dict(os.environ, {"AI_CORE_DIR": "/fixture/ai-core"}),
+        mock.patch.object(storage_safety.subprocess, "run",
+                          return_value=subprocess.CompletedProcess([], 0, json.dumps(payload))) as run,
+        mock.patch.object(storage_safety.shutil, "disk_usage") as raw,
+    ):
+        assert storage_safety._measure_host_capacity(Path("/fixture/host")) == (
+            1000, 90, 250, "macos_foundation_important_usage"
+        )
+    argv = run.call_args.args[0]
+    assert argv[:4] == ["/fixture/ai-core/.venv/bin/python", "-I", "-B", "-c"]
+    assert "from host_capacity_sensor import measure_host_capacity" in argv[4]
+    assert argv[-2:] == ["/fixture/ai-core/scripts", "/fixture/host"]
+    assert run.call_args.kwargs["check"] is True
+    assert run.call_args.kwargs["timeout"] == 15
+    raw.assert_not_called()
+
+
+@pytest.mark.parametrize("response", [
+    "null", "{}", "not-json",
+    {"total_bytes": 1000, "physical_available_bytes": 90, "admission_available_bytes": None,
+     "source": "macos_foundation_important_usage"},
+    {"total_bytes": 1000, "physical_available_bytes": 90, "admission_available_bytes": 80,
+     "source": "macos_foundation_important_usage"},
+    {"total_bytes": 1000, "physical_available_bytes": 90, "admission_available_bytes": 250,
+     "source": "shutil.disk_usage"},
+    subprocess.TimeoutExpired("sensor", 15),
+    subprocess.CalledProcessError(1, "sensor"),
+    FileNotFoundError("sensor"),
+])
+def test_host_capacity_alignment_unknown_fails_closed(response) -> None:
+    """必要觀測失敗必須穿出 sampler，不能偽造空間或默默 fallback。"""
+    kwargs = ({"side_effect": response} if isinstance(response, Exception) else
+              {"return_value": subprocess.CompletedProcess(
+                  [], 0, response if isinstance(response, str) else json.dumps(response))})
+    with (
+        mock.patch.object(storage_safety.sys, "platform", "darwin"),
+        mock.patch.dict(os.environ, {"AI_CORE_DIR": "/fixture/ai-core"}),
+        mock.patch.object(storage_safety.subprocess, "run", **kwargs),
+        mock.patch.object(storage_safety.shutil, "disk_usage") as raw,
+        mock.patch.object(storage_safety, "measure_paths", return_value=storage_safety.Inventory(0, 0)),
+    ):
+        with pytest.raises(RuntimeError, match="HOST_CAPACITY_UNAVAILABLE"):
+            take_sample(PROJECT_ROOT, fixture_job_policy())
+    raw.assert_not_called()
+
+
+def test_host_capacity_alignment_nonmac_preserves_raw() -> None:
+    with (
+        mock.patch.object(storage_safety.sys, "platform", "linux"),
+        mock.patch.object(storage_safety.shutil, "disk_usage",
+                          return_value=shutil._ntuple_diskusage(1000, 910, 90)) as raw,
+        mock.patch.object(storage_safety.subprocess, "run") as run,
+    ):
+        assert storage_safety._measure_host_capacity(PROJECT_ROOT) == (1000, 90, 90, "shutil.disk_usage")
+    raw.assert_called_once_with(PROJECT_ROOT)
+    run.assert_not_called()
+
+
 def test_take_sample_attributes_process_tree_rss_by_pid_and_command() -> None:
     ps_output = "\n".join(
         (
@@ -187,7 +358,8 @@ def test_take_sample_attributes_process_tree_rss_by_pid_and_command() -> None:
     with (
         mock.patch("app.storage_safety.subprocess.run", return_value=completed),
         mock.patch("app.storage_safety.measure_paths", return_value=type("I", (), {"bytes": 0, "file_count": 0})()),
-        mock.patch("app.storage_safety.shutil.disk_usage", return_value=disk_usage),
+        mock.patch("app.storage_safety._measure_host_capacity",
+                   return_value=(disk_usage.total, disk_usage.free, disk_usage.free, "shutil.disk_usage")),
         mock.patch("app.storage_safety.read_swap_bytes", return_value=0),
         mock.patch("app.storage_safety.read_memory_pressure_level", return_value=1),
     ):
@@ -209,7 +381,7 @@ def test_take_sample_attributes_process_tree_rss_by_pid_and_command() -> None:
     }
     assert [row["probe"] for row in sample.to_dict()["probe_timings"]] == [
         "meter_paths",
-        "disk_usage",
+        "host_capacity",
         "process_tree_rss",
         "swap",
         "memory_pressure",
@@ -260,6 +432,26 @@ def test_manual_cli_cannot_self_attest_natural_origin() -> None:
     assert _effective_trigger_type("manual", parent_pid=1) == "manual"
 
 
+def wrapper_toolchain_fixture(root: Path) -> dict[str, str]:
+    """wrapper fixture 不碰真實主機 toolchain 或外接掛載。"""
+    core = root / "ai-core"
+    (core / "config").mkdir(parents=True)
+    (core / "config/ai_core_env.sh").write_text("\n".join(
+        f"export {key}=fixture" for key in (
+            "AI_CORE_CACHE_VOLUME", "AI_CORE_CACHE_IMAGE", "AI_CORE_CACHE_BACKING_VOLUME",
+            "AI_CORE_CACHE_BACKING_UUID", "AI_CORE_CACHE_VOLUME_UUID", "AI_CORE_CACHE_MAX_BYTES",
+        )
+    ) + "\n")
+    (core / "config/toolchain_paths.sh").write_text(":\n")
+    # 固定 image fixture，不繼承主機正在使用的 directory cache 設定。
+    environment = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("AI_CORE_CACHE_") and key != "TOP10_EXTERNAL_CACHE_ROOT"
+    }
+    environment.update({"AI_CORE_DIR": str(core), "AI_CORE_CACHE_MODE": "image"})
+    return environment
+
+
 def test_wrapper_preserves_non_fog_overrides_but_fog_self_generates_metadata() -> None:
     """共同 wrapper 只對 Fog 封鎖 caller metadata；其他 job 保留既有 override。"""
 
@@ -284,7 +476,7 @@ printf 'arg=%s\n' "$@"
         supplied_scheduled = "2026-09-05T09:30:00Z"
         supplied_invocation = "daily-20260905T093000Z-supplied"
         environment = {
-            **os.environ,
+            **wrapper_toolchain_fixture(root),
             "TOP10_STORAGE_SCHEDULED_AT": supplied_scheduled,
             "TOP10_STORAGE_INVOCATION_ID": supplied_invocation,
         }
@@ -420,6 +612,7 @@ def test_wrapper_other_jobs_keep_arbitrary_child_contract() -> None:
         python_bin.chmod(0o755)
         wrapper = scripts / "run_with_storage_guard.sh"
 
+        environment = wrapper_toolchain_fixture(root)
         for job in (
             "daily",
             "retrain",
@@ -433,6 +626,7 @@ def test_wrapper_other_jobs_keep_arbitrary_child_contract() -> None:
             result = subprocess.run(
                 [str(wrapper), job, "/usr/bin/true"],
                 cwd=root,
+                env=environment,
                 check=False,
                 capture_output=True,
                 text=True,
@@ -734,6 +928,20 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             "HOST_START_FREE_SPACE_BELOW_THRESHOLD",
             evaluate_preflight(global_policy, policy, below_ten).reasons,
         )
+
+    def test_daily_peak_budget_deducted_before_child(self) -> None:
+        gp, policy, _ = load_policy(PROJECT_ROOT / "docs/operations/top10-storage-policy.json", "daily")
+        total = 245_107_195_904
+        assert policy.host_peak_budget_bytes >= policy.max_bytes + policy.max_swap_growth_bytes
+        reserve = max(gp.runtime_min_free_bytes, int(total * gp.runtime_min_free_percent))
+        denied = Sample(0, 0, 0, total, reserve + policy.host_peak_budget_bytes - 1,
+                        0, 0, host_capacity_source="macos_foundation_important_usage")
+        allowed = replace(denied, host_free_bytes=reserve + policy.host_peak_budget_bytes)
+        assert "HOST_PEAK_BUDGET_INSUFFICIENT" in evaluate_preflight(gp, policy, denied).reasons
+        assert "HOST_PEAK_BUDGET_INSUFFICIENT" not in evaluate_preflight(gp, policy, allowed).reasons
+        if sys.platform == "darwin":
+            assert "HOST_CAPACITY_SOURCE_UNVERIFIED" in evaluate_preflight(
+                gp, policy, replace(allowed, host_capacity_source=None)).reasons
 
     def test_unknown_write_detection_includes_deletions(self) -> None:
         before = {"registered/ok.txt": (1, 1), "source.py": (2, 2)}
@@ -1437,64 +1645,60 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             )
 
     def test_guard_stops_registered_new_and_modified_files_outside_meter(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="top10-storage-unmetered-") as tmp:
-            fixture_root = Path(tmp).resolve()
-            sandbox = fixture_root / "sandbox"
-            source = fixture_root / "source"
-            existing = sandbox / "artifacts" / "unmetered" / "existing.txt"
-            existing.parent.mkdir(parents=True)
-            existing.write_text("before\n", encoding="utf-8")
-            (sandbox / "output").mkdir()
-            source.mkdir()
-            trusted = trusted_validation_fixture(
-                sandbox,
-                "from pathlib import Path\n"
-                "import time\n"
-                "Path('artifacts/unmetered/existing.txt').write_text('after')\n"
-                "nested = Path('artifacts/unmetered/nested/new.txt')\n"
-                "nested.parent.mkdir(parents=True)\n"
-                "nested.write_text('new')\n"
-                "time.sleep(0.1)\n",
-            )
-            policy = fixture_job_policy(
-                launch_verified=False,
-                meter_paths=(
-                    "output",
-                    "logs",
-                    "artifacts/metered",
-                    "artifacts/metered/nested",
-                ),
-                registered_write_paths=("output", "logs", "artifacts"),
-            )
-            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+        sandbox, source = owned_native_validation_fixture()
+        existing = sandbox / "artifacts" / "unmetered" / "existing.txt"
+        existing.parent.mkdir(parents=True)
+        existing.write_text("before\n", encoding="utf-8")
+        (sandbox / "output").mkdir()
+        trusted = trusted_validation_fixture(
+            sandbox,
+            "from pathlib import Path\n"
+            "import time\n"
+            "Path('artifacts/unmetered/existing.txt').write_text('after')\n"
+            "nested = Path('artifacts/unmetered/nested/new.txt')\n"
+            "nested.parent.mkdir(parents=True)\n"
+            "nested.write_text('new')\n"
+            "time.sleep(0.1)\n",
+        )
+        policy = native_validation_fixture_policy(
+            launch_verified=False,
+            meter_paths=(
+                "output",
+                "logs",
+                "artifacts/metered",
+                "artifacts/metered/nested",
+            ),
+            registered_write_paths=("output", "logs", "artifacts"),
+        )
+        sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
 
-            result = run_guarded_job(
-                sandbox,
-                fixture_global_policy(),
-                policy,
-                (),
-                trusted.command,
-                sampler=lambda _pid: replace(sample, timestamp=time.time()),
-                validation_only=True,
-                max_runtime_seconds=2,
-                validation_context={"source_input_root": str(source)},
-                trusted_validation_entrypoint=trusted,
+        result = run_guarded_job(
+            sandbox,
+            fixture_global_policy(),
+            policy,
+            (),
+            trusted.command,
+            sampler=lambda _pid: replace(sample, timestamp=time.time()),
+            validation_only=True,
+            max_runtime_seconds=2,
+            validation_context={"source_input_root": str(source)},
+            trusted_validation_entrypoint=trusted,
+        )
+        receipt = json.loads(
+            (sandbox / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                encoding="utf-8"
             )
-            receipt = json.loads(
-                (sandbox / "logs" / "storage_safety" / "daily_latest.json").read_text(
-                    encoding="utf-8"
-                )
-            )
+        )
 
-            self.assertEqual(result, 70)
-            self.assertIn("REGISTERED_WRITE_OUTSIDE_METER", receipt["reasons"])
-            self.assertEqual(
-                receipt["summary"]["registered_unmetered_changed_paths"],
-                [
-                    "artifacts/unmetered/existing.txt",
-                    "artifacts/unmetered/nested/new.txt",
-                ],
-            )
+        self.assertEqual(result, 70)
+        self.assertIn("REGISTERED_WRITE_OUTSIDE_METER", receipt["reasons"])
+        self.assertEqual(
+            receipt["summary"]["registered_unmetered_changed_paths"],
+            [
+                "artifacts/unmetered/existing.txt",
+                "artifacts/unmetered/nested/new.txt",
+            ],
+        )
 
     def test_overlapping_meter_paths_count_each_file_once(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-overlap-meter-") as tmp:
@@ -1582,6 +1786,28 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 if self.suffix == ".bin":
                     resolved_regular_files.append(self)
                 return original_resolve(self, *args, **kwargs)
+
+            if os.environ.get("TOP10_MANAGED_PYTEST_ROOT"):
+                managed = Path(os.environ["TOP10_MANAGED_PYTEST_ROOT"]).resolve(strict=True)
+                resolved_root = root.resolve(strict=True)
+                self.assertTrue(resolved_root.is_relative_to(managed / "tmp"))
+                device = int(os.environ["TOP10_MANAGED_BACKING_DEVICE"])
+                self.assertEqual(resolved_root.stat().st_dev, device)
+                files = []
+                for index in range(50):
+                    for path in (root / "artifacts" / "metered" / f"root-{index}.bin",
+                                 nested / f"child-{index}.bin"):
+                        resolved = path.resolve(strict=True)
+                        with path.open("rb") as stream:
+                            info = os.fstat(stream.fileno())
+                        self.assertTrue(resolved.is_relative_to(resolved_root))
+                        self.assertEqual(info.st_dev, device)
+                        files.append({"resolved": str(resolved), "device": info.st_dev,
+                                      "size": info.st_size})
+                self.assertEqual(len(files), 100)
+                self.assertEqual(sum(item["size"] for item in files), expected_bytes)
+                print(json.dumps({"root": str(resolved_root), "device": device,
+                                  "file_count": len(files), "files": files}), flush=True)
 
             with mock.patch.object(Path, "resolve", counted_resolve):
                 inventory = measure_paths(
@@ -4544,6 +4770,8 @@ class StorageSafetyRegressionTest(unittest.TestCase):
             global_policy = fixture_global_policy()
             sample_count = 0
             child_pid: int | None = None
+            sensitive_message = "secret-monitor-token"
+            sensitive_filename = "/Users/private-owner/secret-monitor-file"
             protected = subprocess.Popen(["/bin/sleep", "30"], start_new_session=True)
 
             def sampler(pid: int | None) -> Sample:
@@ -4551,7 +4779,7 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 sample_count += 1
                 if sample_count == 2:
                     child_pid = pid
-                    raise RuntimeError("fixture monitor failure")
+                    raise PermissionError(errno.EACCES, sensitive_message, sensitive_filename)
                 return Sample(time.time(), 0, 0, 100_000, 50_000, 0, 0)
 
             try:
@@ -4564,6 +4792,8 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                     command,
                     sampler=sampler,
                 )
+                receipt_path = root / "logs" / "storage_safety" / "daily_latest.json"
+                receipt_before_restart = receipt_path.read_bytes()
                 denied = run_guarded_job(
                     root,
                     global_policy,
@@ -4574,6 +4804,29 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 )
 
                 self.assertEqual((stopped, denied), (70, 75))
+                self.assertEqual(receipt_path.read_bytes(), receipt_before_restart)
+                self.assertEqual(sample_count, 2)
+                receipt = json.loads(receipt_before_restart)
+                self.assertEqual(receipt["status"], "STOPPED")
+                self.assertIn("GUARD_INTERNAL_ERROR_PermissionError", receipt["reasons"])
+                diagnostic = receipt["internal_error"]
+                self.assertEqual(set(diagnostic), {"type", "errno", "frames"})
+                self.assertEqual(diagnostic["type"], "PermissionError")
+                self.assertEqual(diagnostic["errno"], errno.EACCES)
+                self.assertGreater(len(diagnostic["frames"]), 0)
+                self.assertLessEqual(len(diagnostic["frames"]), 4)
+                for frame in diagnostic["frames"]:
+                    self.assertEqual(set(frame), {"filename", "function", "line"})
+                    self.assertEqual(frame["filename"], "app/storage_safety.py")
+                    self.assertIsInstance(frame["function"], str)
+                    self.assertIsInstance(frame["line"], int)
+                    self.assertGreater(frame["line"], 0)
+                self.assertIn("run_guarded_job", [f["function"] for f in diagnostic["frames"]])
+                for persisted in (root / "logs" / "storage_safety").rglob("*.json"):
+                    raw = persisted.read_text()
+                    self.assertNotIn(sensitive_message, raw)
+                    self.assertNotIn(sensitive_filename, raw)
+                    self.assertNotIn(str(PROJECT_ROOT), raw)
                 self.assertIsNotNone(child_pid)
                 with self.assertRaises(ProcessLookupError):
                     os.kill(int(child_pid), 0)
@@ -4582,6 +4835,31 @@ class StorageSafetyRegressionTest(unittest.TestCase):
                 if protected.poll() is None:
                     protected.terminate()
                     protected.wait(timeout=2)
+
+    def test_guard_internal_error_omits_non_integer_errno_and_external_frames(self) -> None:
+        for error in (RuntimeError("private-message"), OSError("private-errno", "private-message")):
+            with self.subTest(error_type=type(error).__name__), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                sampler = mock.Mock(side_effect=error)
+                result = run_guarded_job(
+                    root, fixture_global_policy(), fixture_job_policy(), (),
+                    ["/bin/true"], sampler=sampler,
+                )
+                self.assertEqual(result, 70)
+                payload = json.loads(
+                    (root / "logs/storage_safety/daily_latest.json").read_text()
+                )
+                diagnostic = payload["internal_error"]
+                self.assertEqual(set(diagnostic), {"type", "frames"})
+                self.assertEqual(diagnostic["type"], type(error).__name__)
+                self.assertEqual(len(diagnostic["frames"]), 1)
+                frame = diagnostic["frames"][0]
+                self.assertEqual(frame["filename"], "app/storage_safety.py")
+                self.assertEqual(frame["function"], "run_guarded_job")
+                source_line = (PROJECT_ROOT / frame["filename"]).read_text().splitlines()[frame["line"] - 1]
+                self.assertIn("take(None)", source_line)
+                self.assertNotIn("private-", json.dumps(payload))
+                self.assertNotIn(str(PROJECT_ROOT), json.dumps(diagnostic))
 
     def test_sigterm_is_converted_to_isolated_stop_and_restart_denial(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-signal-") as tmp:
@@ -4655,6 +4933,7 @@ raise SystemExit(
             self.assertFalse(denied.exists())
             self.assertEqual((root / "output" / "result.log").read_text(encoding="utf-8"), "xx")
             payload = json.loads(receipt.read_text(encoding="utf-8"))
+            self.assertNotIn("internal_error", payload)
             self.assertGreaterEqual(len(payload["samples"]), 3)
             self.assertTrue(
                 all("memory_pressure_level" in sample for sample in payload["samples"])
@@ -4662,38 +4941,34 @@ raise SystemExit(
             self.assertEqual(payload["summary"]["peak_live_memory_pressure_level"], 1)
 
     def test_validation_only_cycle_records_mode_and_keeps_production_policy_unverified(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="top10-storage-validation-") as tmp:
-            fixture_root = Path(tmp).resolve()
-            root = fixture_root / "sandbox"
-            source = fixture_root / "source"
-            (root / "output").mkdir(parents=True)
-            source.mkdir()
-            trusted = trusted_validation_fixture(
-                root,
-                "import time\ntime.sleep(0.1)\n",
+        root, source = owned_native_validation_fixture()
+        (root / "output").mkdir(parents=True)
+        trusted = trusted_validation_fixture(
+            root,
+            "import time\ntime.sleep(0.1)\n",
+        )
+        policy = native_validation_fixture_policy(launch_verified=False)
+        sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+        result = run_guarded_job(
+            root,
+            fixture_global_policy(),
+            policy,
+            (),
+            trusted.command,
+            sampler=lambda _pid: replace(sample, timestamp=time.time()),
+            validation_only=True,
+            max_runtime_seconds=2,
+            validation_context={
+                "manual_only": True,
+                "source_input_root": str(source),
+            },
+            trusted_validation_entrypoint=trusted,
+        )
+        receipt = json.loads(
+            (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                encoding="utf-8"
             )
-            policy = fixture_job_policy(launch_verified=False)
-            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
-            result = run_guarded_job(
-                root,
-                fixture_global_policy(),
-                policy,
-                (),
-                trusted.command,
-                sampler=lambda _pid: replace(sample, timestamp=time.time()),
-                validation_only=True,
-                max_runtime_seconds=2,
-                validation_context={
-                    "manual_only": True,
-                    "source_input_root": str(source),
-                },
-                trusted_validation_entrypoint=trusted,
-            )
-            receipt = json.loads(
-                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
-                    encoding="utf-8"
-                )
-            )
+        )
 
         self.assertEqual(result, 0)
         self.assertTrue(receipt["validation_only"])
@@ -4709,43 +4984,38 @@ raise SystemExit(
         )
 
     def test_validation_child_cannot_write_outside_sandbox(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="top10-storage-confinement-") as tmp:
-            fixture_root = Path(tmp).resolve()
-            sandbox = fixture_root / "sandbox"
-            protected = fixture_root / "protected"
-            (sandbox / "output").mkdir(parents=True)
-            protected.mkdir()
-            protected_file = protected / "source.txt"
-            protected_file.write_text("original\n", encoding="utf-8")
-            original = protected_file.read_bytes()
-            trusted = trusted_validation_fixture(
-                sandbox,
-                "from pathlib import Path\nimport sys\nPath(sys.argv[1]).write_text('changed')\n",
-                argv=(str(protected_file),),
-            )
-            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+        sandbox, protected = owned_native_validation_fixture()
+        (sandbox / "output").mkdir(parents=True)
+        protected_file = protected / "source.txt"
+        original = protected_file.read_bytes()
+        trusted = trusted_validation_fixture(
+            sandbox,
+            "from pathlib import Path\nimport sys\nPath(sys.argv[1]).write_text('changed')\n",
+            argv=(str(protected_file),),
+        )
+        sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
 
-            result = run_guarded_job(
-                sandbox,
-                fixture_global_policy(),
-                fixture_job_policy(launch_verified=False),
-                (),
-                trusted.command,
-                sampler=lambda _pid: replace(sample, timestamp=time.time()),
-                validation_only=True,
-                max_runtime_seconds=2,
-                validation_context={"source_input_root": str(protected)},
-                trusted_validation_entrypoint=trusted,
+        result = run_guarded_job(
+            sandbox,
+            fixture_global_policy(),
+            native_validation_fixture_policy(launch_verified=False),
+            (),
+            trusted.command,
+            sampler=lambda _pid: replace(sample, timestamp=time.time()),
+            validation_only=True,
+            max_runtime_seconds=2,
+            validation_context={"source_input_root": str(protected)},
+            trusted_validation_entrypoint=trusted,
+        )
+        receipt = json.loads(
+            (sandbox / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                encoding="utf-8"
             )
-            receipt = json.loads(
-                (sandbox / "logs" / "storage_safety" / "daily_latest.json").read_text(
-                    encoding="utf-8"
-                )
-            )
+        )
 
-            self.assertNotEqual(result, 0)
-            self.assertEqual(protected_file.read_bytes(), original)
-            self.assertNotEqual(receipt["status"], "OK")
+        self.assertNotEqual(result, 0)
+        self.assertEqual(protected_file.read_bytes(), original)
+        self.assertNotEqual(receipt["status"], "OK")
 
     def test_validation_rejects_swallowed_outside_write_before_spawn(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-swallowed-denial-") as tmp:
@@ -4791,87 +5061,77 @@ raise SystemExit(
             )
 
     def test_validation_child_can_read_source_and_write_only_sandbox(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="top10-storage-confinement-ok-") as tmp:
-            fixture_root = Path(tmp).resolve()
-            sandbox = fixture_root / "sandbox"
-            source = fixture_root / "source"
-            (sandbox / "output").mkdir(parents=True)
-            source.mkdir()
-            (source / "input.txt").write_text("readable\n", encoding="utf-8")
-            trusted = trusted_validation_fixture(
-                sandbox,
-                "from pathlib import Path\nimport sys\nimport time\nPath('output/copied.txt').write_text((Path(sys.argv[1]) / 'input.txt').read_text())\ntime.sleep(0.1)\n",
-                argv=(str(source),),
-            )
-            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+        sandbox, source = owned_native_validation_fixture()
+        (sandbox / "output").mkdir(parents=True)
+        trusted = trusted_validation_fixture(
+            sandbox,
+            "from pathlib import Path\nimport sys\nimport time\nPath('output/copied.txt').write_text((Path(sys.argv[1]) / 'input.txt').read_text())\ntime.sleep(0.1)\n",
+            argv=(str(source),),
+        )
+        sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
 
-            result = run_guarded_job(
-                sandbox,
-                fixture_global_policy(),
-                fixture_job_policy(launch_verified=False),
-                (),
-                trusted.command,
-                sampler=lambda _pid: replace(sample, timestamp=time.time()),
-                validation_only=True,
-                max_runtime_seconds=2,
-                validation_context={"source_input_root": str(source)},
-                trusted_validation_entrypoint=trusted,
-            )
+        result = run_guarded_job(
+            sandbox,
+            fixture_global_policy(),
+            native_validation_fixture_policy(launch_verified=False),
+            (),
+            trusted.command,
+            sampler=lambda _pid: replace(sample, timestamp=time.time()),
+            validation_only=True,
+            max_runtime_seconds=2,
+            validation_context={"source_input_root": str(source)},
+            trusted_validation_entrypoint=trusted,
+        )
 
-            self.assertEqual(result, 0)
-            self.assertEqual(
-                (sandbox / "output" / "copied.txt").read_text(encoding="utf-8"),
-                "readable\n",
-            )
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            (sandbox / "output" / "copied.txt").read_text(encoding="utf-8"),
+            "readable\n",
+        )
 
     def test_validation_confinement_allows_only_exact_dev_null_and_sandbox_write(
         self,
     ) -> None:
-        with tempfile.TemporaryDirectory(prefix="top10-storage-dev-null-") as tmp:
-            fixture_root = Path(tmp).resolve()
-            sandbox = fixture_root / "sandbox"
-            protected = fixture_root / "protected"
-            (sandbox / "output").mkdir(parents=True)
-            protected.mkdir()
-            protected_file = protected / "outside.txt"
-            protected_file.write_text("original\n", encoding="utf-8")
-            trusted = trusted_validation_fixture(
-                sandbox,
-                "from pathlib import Path\n"
-                "import sys\n"
-                "import time\n"
-                "Path('/dev/null').write_text('discarded', encoding='utf-8')\n"
-                "Path('output/inside.txt').write_text('inside', encoding='utf-8')\n"
-                "try:\n"
-                "    Path(sys.argv[1]).write_text('outside', encoding='utf-8')\n"
-                "except OSError:\n"
-                "    pass\n"
-                "else:\n"
-                "    raise SystemExit(93)\n"
-                "time.sleep(0.1)\n",
-                argv=(str(protected_file),),
-            )
-            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+        sandbox, protected = owned_native_validation_fixture()
+        (sandbox / "output").mkdir(parents=True)
+        protected_file = protected / "outside.txt"
+        trusted = trusted_validation_fixture(
+            sandbox,
+            "from pathlib import Path\n"
+            "import sys\n"
+            "import time\n"
+            "Path('/dev/null').write_text('discarded', encoding='utf-8')\n"
+            "Path('output/inside.txt').write_text('inside', encoding='utf-8')\n"
+            "try:\n"
+            "    Path(sys.argv[1]).write_text('outside', encoding='utf-8')\n"
+            "except OSError:\n"
+            "    pass\n"
+            "else:\n"
+            "    raise SystemExit(93)\n"
+            "time.sleep(0.1)\n",
+            argv=(str(protected_file),),
+        )
+        sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
 
-            result = run_guarded_job(
-                sandbox,
-                fixture_global_policy(),
-                fixture_job_policy(launch_verified=False),
-                (),
-                trusted.command,
-                sampler=lambda _pid: replace(sample, timestamp=time.time()),
-                validation_only=True,
-                max_runtime_seconds=2,
-                validation_context={"source_input_root": str(protected)},
-                trusted_validation_entrypoint=trusted,
-            )
+        result = run_guarded_job(
+            sandbox,
+            fixture_global_policy(),
+            native_validation_fixture_policy(launch_verified=False),
+            (),
+            trusted.command,
+            sampler=lambda _pid: replace(sample, timestamp=time.time()),
+            validation_only=True,
+            max_runtime_seconds=2,
+            validation_context={"source_input_root": str(protected)},
+            trusted_validation_entrypoint=trusted,
+        )
 
-            self.assertEqual(result, 0)
-            self.assertEqual(
-                (sandbox / "output" / "inside.txt").read_text(encoding="utf-8"),
-                "inside",
-            )
-            self.assertEqual(protected_file.read_text(encoding="utf-8"), "original\n")
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            (sandbox / "output" / "inside.txt").read_text(encoding="utf-8"),
+            "inside",
+        )
+        self.assertEqual(protected_file.read_text(encoding="utf-8"), "original\n")
 
     def test_validation_confinement_forbidden_probe_stays_outside_redirected_tmpdir(
         self,
@@ -4883,10 +5143,23 @@ raise SystemExit(
             redirected_tmp = sandbox / "logs" / "storage_safety" / "runtime" / "tmp"
             redirected_tmp.mkdir(parents=True)
             source.mkdir()
+            real_run = subprocess.run
+
+            def check_probe_paths(argv: list[str], **_: object) -> subprocess.CompletedProcess:
+                if argv[0] != str(storage_safety.SANDBOX_EXECUTABLE):
+                    return real_run(argv, **_)
+                # 本例驗路徑生成；真正 kernel 拒寫由六個 exact-owner 單例實跑。
+                allowed, forbidden = (Path(value) for value in argv[-2:])
+                self.assertTrue(allowed.is_relative_to(sandbox))
+                self.assertFalse(forbidden.is_relative_to(sandbox))
+                self.assertTrue(forbidden.is_relative_to(fixture_root))
+                allowed.write_text("allowed", encoding="utf-8")
+                return subprocess.CompletedProcess(argv, 0)
 
             with (
                 mock.patch.dict(os.environ, {"TMPDIR": str(redirected_tmp)}),
                 mock.patch.object(tempfile, "tempdir", None),
+                mock.patch.object(storage_safety.subprocess, "run", side_effect=check_probe_paths) as probe,
             ):
                 command = storage_safety._validation_spawn_command(
                     sandbox,
@@ -4896,6 +5169,10 @@ raise SystemExit(
 
             self.assertEqual(command[0], "/usr/bin/sandbox-exec")
             self.assertEqual(command[-1], "/usr/bin/true")
+            self.assertEqual(
+                sum(call.args[0][0] == str(storage_safety.SANDBOX_EXECUTABLE) for call in probe.call_args_list),
+                1,
+            )
 
     def test_validation_source_root_must_be_real_directory_without_symlinks(self) -> None:
         with tempfile.TemporaryDirectory(prefix="top10-storage-source-root-") as tmp:
@@ -5186,59 +5463,55 @@ raise SystemExit(
                 )
 
     def test_validation_hard_runtime_stops_only_target_and_denies_restart(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="top10-storage-runtime-limit-") as tmp:
-            fixture_root = Path(tmp).resolve()
-            root = fixture_root / "sandbox"
-            source = fixture_root / "source"
-            (root / "output").mkdir(parents=True)
-            source.mkdir()
-            trusted = trusted_validation_fixture(
+        root, source = owned_native_validation_fixture()
+        (root / "output").mkdir(parents=True)
+        trusted = trusted_validation_fixture(
+            root,
+            "import time\ntime.sleep(30)\n",
+        )
+        policy = native_validation_fixture_policy(launch_verified=False, sample_interval_seconds=1)
+        protected = subprocess.Popen(["/bin/sleep", "30"], start_new_session=True)
+        sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
+        try:
+            result = run_guarded_job(
                 root,
-                "import time\ntime.sleep(30)\n",
+                fixture_global_policy(),
+                policy,
+                (),
+                trusted.command,
+                sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                validation_only=True,
+                max_runtime_seconds=0.2,
+                validation_context={"source_input_root": str(source)},
+                trusted_validation_entrypoint=trusted,
             )
-            policy = fixture_job_policy(launch_verified=False, sample_interval_seconds=1)
-            protected = subprocess.Popen(["/bin/sleep", "30"], start_new_session=True)
-            sample = Sample(time.time(), 0, 0, 100_000, 50_000, 1024, 0)
-            try:
-                result = run_guarded_job(
-                    root,
-                    fixture_global_policy(),
-                    policy,
-                    (),
-                    trusted.command,
-                    sampler=lambda _pid: replace(sample, timestamp=time.time()),
-                    validation_only=True,
-                    max_runtime_seconds=0.2,
-                    validation_context={"source_input_root": str(source)},
-                    trusted_validation_entrypoint=trusted,
+            receipt = json.loads(
+                (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
+                    encoding="utf-8"
                 )
-                receipt = json.loads(
-                    (root / "logs" / "storage_safety" / "daily_latest.json").read_text(
-                        encoding="utf-8"
-                    )
-                )
-                marker = root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
-                denied = run_guarded_job(
-                    root,
-                    fixture_global_policy(),
-                    policy,
-                    (),
-                    trusted.command,
-                    sampler=lambda _pid: replace(sample, timestamp=time.time()),
-                    validation_only=True,
-                    max_runtime_seconds=1,
-                    validation_context={"source_input_root": str(source)},
-                    trusted_validation_entrypoint=trusted,
-                )
+            )
+            marker = root / "logs" / "storage_safety" / "restart_denied" / "daily.json"
+            denied = run_guarded_job(
+                root,
+                fixture_global_policy(),
+                policy,
+                (),
+                trusted.command,
+                sampler=lambda _pid: replace(sample, timestamp=time.time()),
+                validation_only=True,
+                max_runtime_seconds=1,
+                validation_context={"source_input_root": str(source)},
+                trusted_validation_entrypoint=trusted,
+            )
 
-                self.assertEqual((result, denied), (70, 75))
-                self.assertIn("HARD_RUNTIME_EXCEEDED", receipt["reasons"])
-                self.assertTrue(marker.exists())
-                self.assertIsNone(protected.poll())
-            finally:
-                if protected.poll() is None:
-                    protected.terminate()
-                    protected.wait(timeout=2)
+            self.assertEqual((result, denied), (70, 75))
+            self.assertIn("HARD_RUNTIME_EXCEEDED", receipt["reasons"])
+            self.assertTrue(marker.exists())
+            self.assertIsNone(protected.poll())
+        finally:
+            if protected.poll() is None:
+                protected.terminate()
+                protected.wait(timeout=2)
 
     def test_all_scheduled_jobs_enter_through_fail_closed_storage_guard(self) -> None:
         for job, (storage_job, original_entrypoint) in SCHEDULED_JOBS.items():
@@ -5276,7 +5549,7 @@ raise SystemExit(
             "MPLCONFIGDIR",
             "JOBLIB_TEMP_FOLDER",
         ):
-            self.assertIn(f"export {variable}=", wrapper)
+            self.assertNotIn(f"export {variable}=", wrapper)
         self.assertIn('"$PPID" -eq 1', wrapper)
         self.assertIn("--trigger-type", wrapper)
         self.assertIn("--scheduled-at", wrapper)

@@ -15,6 +15,7 @@ import os
 import re
 import shutil
 import signal
+import stat as stat_module
 import subprocess
 import sys
 import tempfile
@@ -22,12 +23,14 @@ import threading
 import time
 import uuid
 from collections import defaultdict, deque
+from contextlib import ExitStack
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
 from app.fog_natural_acceptance import FOG_JOB, evaluate_natural_acceptance
+from app.external_cache import ExternalCache, ExternalCacheError, external_environment, runtime_environment
 
 
 POLICY_SCHEMA_VERSION = "top10-storage-policy.v1"
@@ -43,6 +46,7 @@ _LIVE_SAMPLE_SCHEDULE_NUMERATOR = 19
 _FOG_LIVE_SAMPLE_SCHEDULE_NUMERATOR = 14
 _LIVE_SAMPLE_SCHEDULE_DENOMINATOR = 20
 _HOST_PROBE_TIMEOUT_SECONDS = 5.0
+_FOG_OBSERVATION_DEADLINE_SECONDS = 15.0
 
 
 @dataclass(frozen=True)
@@ -85,6 +89,7 @@ class JobPolicy:
     reclaim_after_seconds: int
     retention_days: int
     sample_interval_seconds: int
+    host_peak_budget_bytes: int = 0
 
 
 @dataclass(frozen=True)
@@ -121,6 +126,10 @@ class Sample:
     memory_pressure_level: int | None = None
     process_rss_attribution: tuple[ProcessRssAttribution, ...] = ()
     probe_timings: tuple[ProbeTiming, ...] = ()
+    external_cache: dict[str, Any] | None = None
+    # host_free_bytes 為准入／停損可用量；另留實體 raw，避免混淆兩種口徑。
+    host_raw_free_bytes: int | None = None
+    host_capacity_source: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -169,6 +178,96 @@ class GuardInterrupted(RuntimeError):
 
 class UntrustedValidationEntrypoint(RuntimeError):
     """validation command 未通過結構化 entrypoint trust contract。"""
+
+
+class StorageObservationError(RuntimeError):
+    """容量／寫入觀測失敗；receipt 只保存固定 reason code。"""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(reason)
+
+
+def _sanitize_sampling_observation(value: Any) -> dict[str, Any] | None:
+    """只重建固定 primitive schema；未知值整份捨棄，不讀例外文字。"""
+    if type(value) is not dict or len(value) != 6 or set(value) != {
+        "schema_version", "clock", "resource_scope", "children", "phases", "rusage"
+    }:
+        return None
+    for key, expected in (("schema_version", "managed-cache-sampling-observation.v1"),
+                          ("clock", "monotonic_ns"), ("resource_scope", "RUSAGE_SELF"),
+                          ("children", "excluded")):
+        if type(value[key]) is not str or value[key] != expected:
+            return None
+    def bounded(number: Any) -> bool:
+        return type(number) is int and 0 <= number <= 2**63 - 1
+    phases = value["phases"]
+    names = ("identity_foundation", "volume_info", "container_info", "scan", "admission_finalize")
+    if type(phases) is not dict or len(phases) != 5 or set(phases) != set(names):
+        return None
+    clean_phases = {}
+    for name in names:
+        item = phases[name]
+        if type(item) is not dict or len(item) != 2 or set(item) != {"status", "elapsed_ns"}:
+            return None
+        status, elapsed = item["status"], item["elapsed_ns"]
+        if type(status) is not str or status not in ("complete", "partial", "skipped", "not_started"):
+            return None
+        if status in ("skipped", "not_started"):
+            if elapsed is not None or (status == "skipped" and name != "scan"):
+                return None
+        elif elapsed is not None and not bounded(elapsed):
+            return None
+        clean_phases[name] = {"status": status, "elapsed_ns": elapsed}
+    usage = value["rusage"]
+    counters = ("user_cpu_ns", "system_cpu_ns", "voluntary_context_switches",
+                "involuntary_context_switches", "block_input_operations")
+    if type(usage) is not dict or len(usage) != 6 or set(usage) != {"status", *counters}:
+        return None
+    status = usage["status"]
+    if type(status) is not str or status not in ("complete", "unavailable"):
+        return None
+    if any((not bounded(usage[key])) if status == "complete" else usage[key] is not None for key in counters):
+        return None
+    return {"schema_version": "managed-cache-sampling-observation.v1", "clock": "monotonic_ns",
+            "resource_scope": "RUSAGE_SELF", "children": "excluded", "phases": clean_phases,
+            "rusage": {"status": status, **{key: usage[key] for key in counters}}}
+
+
+def _sanitize_sampling_attempts(value: Any) -> dict[str, Any] | None:
+    """固定兩次上限與十／五秒政策；不接受 message、路徑或任意延伸欄位。"""
+    if type(value) is not dict or len(value) != 4 or set(value) != {
+        "schema_version", "operation_budget_ns", "attempt_budget_ns", "attempts"
+    }:
+        return None
+    if (type(value["schema_version"]) is not str
+            or value["schema_version"] != "managed-cache-sampling-attempts.v1"
+            or type(value["operation_budget_ns"]) is not int or value["operation_budget_ns"] != 10_000_000_000
+            or type(value["attempt_budget_ns"]) is not int or value["attempt_budget_ns"] != 5_000_000_000):
+        return None
+    items = value["attempts"]
+    if type(items) is not list or not 1 <= len(items) <= 2:
+        return None
+    clean = []
+    for index, item in enumerate(items, 1):
+        if type(item) is not dict or len(item) != 5 or set(item) != {
+            "index", "status", "code", "elapsed_ns", "sampling_observation"
+        }:
+            return None
+        if (type(item["index"]) is not int or item["index"] != index
+                or type(item["status"]) is not str or item["status"] not in ("PASS", "TIMEOUT", "FAIL")
+                or type(item["code"]) is not int
+                or item["code"] not in ({"PASS": (0,), "TIMEOUT": (23,), "FAIL": (20, 21, 22)}[item["status"]])
+                or type(item["elapsed_ns"]) is not int or not 0 <= item["elapsed_ns"] <= 2**63 - 1
+                or (index < len(items) and item["status"] != "TIMEOUT")):
+            return None
+        observed = _sanitize_sampling_observation(item["sampling_observation"])
+        if item["sampling_observation"] is not None and observed is None:
+            return None
+        clean.append({"index": index, "status": item["status"], "code": item["code"],
+                      "elapsed_ns": item["elapsed_ns"], "sampling_observation": observed})
+    return {"schema_version": "managed-cache-sampling-attempts.v1",
+            "operation_budget_ns": 10_000_000_000, "attempt_budget_ns": 5_000_000_000, "attempts": clean}
 
 
 def _positive_int(value: Any, field: str) -> int:
@@ -288,7 +387,14 @@ def load_policy(path: Path, job: str) -> tuple[GlobalPolicy, JobPolicy, tuple[Re
         sample_interval_seconds=_positive_int(
             raw["sample_interval_seconds"], f"{job}.sample_interval_seconds"
         ),
+        host_peak_budget_bytes=(
+            _positive_int(raw["host_peak_budget_bytes"], f"{job}.host_peak_budget_bytes")
+            if job == "daily" else 0
+        ),
     )
+    if (job == "daily" and job_policy.host_peak_budget_bytes
+            < job_policy.max_bytes + job_policy.max_swap_growth_bytes):
+        raise ValueError("daily.host_peak_budget_bytes 必須覆蓋已登記的工作量與 swap 峰值上界")
     if job_policy.sample_interval_seconds > 300:
         raise ValueError(f"{job}.sample_interval_seconds 不得超過 300")
     if not job_policy.verification_basis.strip():
@@ -332,33 +438,102 @@ def _safe_root_path(root: Path, relative: str) -> Path:
     return candidate
 
 
-def _iter_regular_files(base: Path) -> Iterable[Path]:
-    if not base.exists():
+def _iter_regular_file_stats(
+    base: Path,
+    *,
+    deadline: float | None = None,
+    monotonic_clock: Callable[[], float] = time.monotonic,
+    permission_reason: str,
+    unavailable_reason: str,
+    deadline_reason: str,
+) -> Iterable[tuple[Path, os.stat_result]]:
+    """以單一 DirEntry metadata 遍歷；競態刪除可略過，其餘觀測失敗拒絕。"""
+
+    def check_deadline() -> None:
+        if deadline is not None and monotonic_clock() >= deadline:
+            raise StorageObservationError(deadline_reason)
+
+    def observation_error(error: OSError) -> StorageObservationError:
+        reason = permission_reason if isinstance(error, PermissionError) else unavailable_reason
+        return StorageObservationError(reason)
+
+    check_deadline()
+    try:
+        base_stat = base.lstat()
+    except FileNotFoundError:
         return
-    if base.is_symlink():
+    except OSError as error:
+        raise observation_error(error) from error
+    if stat_module.S_ISLNK(base_stat.st_mode):
         raise ValueError(f"meter path 不得是 symlink: {base}")
-    if base.is_file():
-        yield base
+    if stat_module.S_ISREG(base_stat.st_mode):
+        yield base, base_stat
         return
-    if not base.is_dir():
+    if not stat_module.S_ISDIR(base_stat.st_mode):
         return
-    for directory, dirnames, filenames in os.walk(base, followlinks=False):
-        dirnames[:] = sorted(
-            name
-            for name in dirnames
-            if name not in IGNORED_PROJECT_DIRS and not (Path(directory) / name).is_symlink()
-        )
-        for name in sorted(filenames):
-            path = Path(directory) / name
-            if path.is_symlink():
+
+    pending = [base]
+    while pending:
+        check_deadline()
+        directory = pending.pop()
+        try:
+            with os.scandir(directory) as iterator:
+                entries = sorted(iterator, key=lambda entry: entry.name)
+        except FileNotFoundError:
+            continue
+        except OSError as error:
+            raise observation_error(error) from error
+
+        child_directories: list[Path] = []
+        for entry in entries:
+            check_deadline()
+            try:
+                if entry.is_symlink():
+                    continue
+                if entry.is_dir(follow_symlinks=False):
+                    if entry.name not in IGNORED_PROJECT_DIRS:
+                        child_directories.append(Path(entry.path))
+                    continue
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                entry_stat = entry.stat(follow_symlinks=False)
+            except FileNotFoundError:
+                # child 正在原子 replace／回收；消失後已不再占用容量。
                 continue
-            if path.is_file():
-                yield path
+            except OSError as error:
+                raise observation_error(error) from error
+            yield Path(entry.path), entry_stat
+        pending.extend(reversed(child_directories))
 
 
-def measure_paths(root: Path, meter_paths: Sequence[str]) -> Inventory:
+def _iter_regular_files(base: Path) -> Iterable[Path]:
+    """保留既有內部接點；新量測直接使用同一次取得的 stat。"""
+
+    for path, _path_stat in _iter_regular_file_stats(
+        base,
+        permission_reason="STORAGE_OBSERVATION_PERMISSION_DENIED",
+        unavailable_reason="STORAGE_OBSERVATION_UNAVAILABLE",
+        deadline_reason="STORAGE_OBSERVATION_DEADLINE_EXCEEDED",
+    ):
+        yield path
+
+
+def measure_paths(
+    root: Path,
+    meter_paths: Sequence[str],
+    *,
+    deadline_seconds: float | None = None,
+    monotonic_clock: Callable[[], float] = time.monotonic,
+) -> Inventory:
     """量測登記 scope；重疊的 meter path 只計一次。"""
 
+    if deadline_seconds is not None and deadline_seconds <= 0:
+        raise ValueError("deadline_seconds 必須大於 0")
+    deadline = (
+        monotonic_clock() + deadline_seconds
+        if deadline_seconds is not None
+        else None
+    )
     canonical_root = root.resolve()
     bases: list[Path] = []
     for relative in meter_paths:
@@ -375,12 +550,19 @@ def measure_paths(root: Path, meter_paths: Sequence[str]) -> Inventory:
     seen: set[str] = set()
     total_bytes = 0
     for base in sorted(bases, key=lambda item: (len(item.parts), item.as_posix())):
-        for path in _iter_regular_files(base):
+        for path, path_stat in _iter_regular_file_stats(
+            base,
+            deadline=deadline,
+            monotonic_clock=monotonic_clock,
+            permission_reason="METER_PATHS_PERMISSION_DENIED",
+            unavailable_reason="METER_PATHS_PROBE_UNAVAILABLE",
+            deadline_reason="METER_PATHS_PROBE_DEADLINE_EXCEEDED",
+        ):
             identity = path.relative_to(canonical_root).as_posix()
             if identity in seen:
                 continue
             seen.add(identity)
-            total_bytes += path.stat().st_size
+            total_bytes += path_stat.st_size
     return Inventory(bytes=total_bytes, file_count=len(seen))
 
 
@@ -388,19 +570,34 @@ def project_write_snapshot(
     root: Path,
     *,
     max_files: int | None = None,
+    deadline_seconds: float | None = None,
+    monotonic_clock: Callable[[], float] = time.monotonic,
 ) -> dict[str, tuple[int, int]]:
     """建立 repo 內可觀察檔案快照，用於偵測未登記寫入。"""
 
+    if deadline_seconds is not None and deadline_seconds <= 0:
+        raise ValueError("deadline_seconds 必須大於 0")
+    deadline = (
+        monotonic_clock() + deadline_seconds
+        if deadline_seconds is not None
+        else None
+    )
     root = root.resolve()
     snapshot: dict[str, tuple[int, int]] = {}
-    for path in _iter_regular_files(root):
+    for path, path_stat in _iter_regular_file_stats(
+        root,
+        deadline=deadline,
+        monotonic_clock=monotonic_clock,
+        permission_reason="WRITE_SNAPSHOT_PERMISSION_DENIED",
+        unavailable_reason="WRITE_SNAPSHOT_UNAVAILABLE",
+        deadline_reason="WRITE_SNAPSHOT_DEADLINE_EXCEEDED",
+    ):
         relative = path.relative_to(root)
         if relative.parts and relative.parts[0] in IGNORED_PROJECT_DIRS:
             continue
         if max_files is not None and len(snapshot) >= max_files:
             raise RuntimeError("protected root snapshot 超過檔案上限")
-        stat = path.stat()
-        snapshot[relative.as_posix()] = (stat.st_size, stat.st_mtime_ns)
+        snapshot[relative.as_posix()] = (path_stat.st_size, path_stat.st_mtime_ns)
     return snapshot
 
 
@@ -499,6 +696,8 @@ def process_tree_rss_snapshot(
 ) -> tuple[int | None, tuple[ProcessRssAttribution, ...]]:
     if root_pid is None or root_pid <= 0:
         return 0, ()
+    if os.environ.get("TOP10_PROCESS_IDENTITY_MODE") == "validation-libproc":
+        return _native_process_tree_rss(root_pid)
     try:
         completed = subprocess.run(
             ["/bin/ps", "-axo", "pid=,ppid=,rss=,command="],
@@ -550,7 +749,45 @@ def process_tree_rss_bytes(root_pid: int | None) -> int | None:
     return rss_bytes
 
 
-def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -> Sample:
+def _measure_host_capacity(path: Path) -> tuple[int, int, int, str]:
+    """薄接既有 ai-core sensor；macOS 失敗直接拒絕，不以 raw 降級。"""
+    if sys.platform != "darwin":
+        disk = shutil.disk_usage(path)
+        return disk.total, disk.free, disk.free, "shutil.disk_usage"
+    core = Path(os.environ.get("AI_CORE_DIR", str(Path.home() / "ai-core")))
+    if not core.is_absolute():
+        raise RuntimeError("HOST_CAPACITY_TOOLCHAIN_REQUIRED")
+    # 沿外接 gate 既有跨 repo CLI 方式；-B 禁止在共用 repo 產生 bytecode。
+    script = (
+        "import sys,json,dataclasses; from pathlib import Path; "
+        "sys.path.insert(0,sys.argv[1]); "
+        "from host_capacity_sensor import measure_host_capacity; "
+        "print(json.dumps(dataclasses.asdict(measure_host_capacity(Path(sys.argv[2])))))"
+    )
+    try:
+        result = subprocess.run(
+            [str(core / ".venv/bin/python"), "-I", "-B", "-c", script,
+             str(core / "scripts"), str(path)],
+            check=True, capture_output=True, text=True, timeout=15,
+        )
+        payload = json.loads(result.stdout)
+        total, raw, admission = (payload[key] for key in (
+            "total_bytes", "physical_available_bytes", "admission_available_bytes"
+        ))
+        source = payload["source"]
+        if (any(type(value) is not int for value in (total, raw, admission))
+                or not 0 < raw <= admission <= total
+                or source != "macos_foundation_important_usage"):
+            raise ValueError("共用 sensor 回傳無效容量或來源")
+        return total, raw, admission, source
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError) as error:
+        raise RuntimeError("HOST_CAPACITY_UNAVAILABLE") from error
+
+
+def take_sample(
+    root: Path, policy: JobPolicy, process_pid: int | None = None, *, host_root: Path | None = None,
+) -> Sample:
+    """meter 維持 output root；host_root 只選主機量測卷，准入沿原生口徑。"""
     sample_started_at = time.monotonic()
     timings: list[ProbeTiming] = []
 
@@ -573,12 +810,20 @@ def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -
 
     inventory = timed_probe(
         "meter_paths",
-        lambda: measure_paths(root, policy.meter_paths),
+        lambda: measure_paths(
+            root,
+            policy.meter_paths,
+            deadline_seconds=(
+                _FOG_OBSERVATION_DEADLINE_SECONDS
+                if policy.job == FOG_JOB
+                else None
+            ),
+        ),
         available=lambda _value: True,
     )
-    disk = timed_probe(
-        "disk_usage",
-        lambda: shutil.disk_usage(root),
+    host_total, host_raw, host_admission, host_source = timed_probe(
+        "host_capacity",
+        lambda: _measure_host_capacity(root if host_root is None else host_root),
         available=lambda _value: True,
     )
     rss_bytes, process_rss_attribution = timed_probe(
@@ -602,8 +847,10 @@ def take_sample(root: Path, policy: JobPolicy, process_pid: int | None = None) -
         timestamp=time.time(),
         project_bytes=inventory.bytes,
         project_file_count=inventory.file_count,
-        host_total_bytes=disk.total,
-        host_free_bytes=disk.free,
+        host_total_bytes=host_total,
+        host_free_bytes=host_admission,
+        host_raw_free_bytes=host_raw,
+        host_capacity_source=host_source,
         rss_bytes=rss_bytes,
         swap_bytes=swap_bytes,
         memory_pressure_level=memory_pressure_level,
@@ -639,6 +886,17 @@ def evaluate_preflight(
     )
     if sample.host_free_bytes < threshold:
         reasons.append("HOST_START_FREE_SPACE_BELOW_THRESHOLD")
+    if policy.host_peak_budget_bytes:
+        reserve = max(threshold, _free_threshold(
+            sample.host_total_bytes,
+            global_policy.runtime_min_free_bytes,
+            global_policy.runtime_min_free_percent,
+        ))
+        # 使用實際寫入主機的 Foundation 口徑，預留整輪 bounded 峰值。
+        if (sample.host_free_bytes - policy.host_peak_budget_bytes < reserve):
+            reasons.append("HOST_PEAK_BUDGET_INSUFFICIENT")
+        if sys.platform == "darwin" and sample.host_capacity_source != "macos_foundation_important_usage":
+            reasons.append("HOST_CAPACITY_SOURCE_UNVERIFIED")
     if global_policy.require_swap_metric and sample.swap_bytes is None:
         reasons.append("SWAP_METRIC_UNAVAILABLE")
     if sample.memory_pressure_level is not None and sample.memory_pressure_level >= 3:
@@ -728,9 +986,39 @@ def evaluate_runtime(
         elapsed = max(0.0, latest.timestamp - samples[0].timestamp)
         seconds_to_reclaim = max(0.0, policy.reclaim_after_seconds - elapsed)
         projected_growth = max(rates) * seconds_to_reclaim / 3600
-        if elapsed >= policy.spike_window_seconds and over_rate and (
-            latest.project_bytes + projected_growth > policy.max_bytes
-            or latest.host_free_bytes - projected_growth < reserve
+        # job 總量仍含外接；內建餘量投影只扣同卷的持久資料增長。
+        host_recent = list(recent)
+        if any(sample.external_cache is not None for sample in recent):
+            try:
+                identities = []
+                host_recent = []
+                for sample in recent:
+                    cache = sample.external_cache
+                    if not isinstance(cache, dict) or len(cache["roots"]) != 1:
+                        raise ValueError("缺少單一外接歸屬觀測")
+                    owned = cache["roots"][0]
+                    size = owned["bytes"]
+                    managed = cache.get("managed_contract")
+                    device = managed["device"] if managed is not None else cache["image_contract"]["image_device"]
+                    path = owned["path"]
+                    if (type(size) is not int or not 0 <= size <= sample.project_bytes
+                            or type(device) is not int or device <= 0
+                            or not isinstance(path, str) or not Path(path).is_absolute()):
+                        raise ValueError("外接計量資料無效")
+                    identities.append((path, device))
+                    host_recent.append(replace(sample, project_bytes=sample.project_bytes - size))
+                if len(set(identities)) != 1:
+                    raise ValueError("外接歸屬觀測改變")
+            except (KeyError, TypeError, ValueError, IndexError):
+                reasons.append("EXTERNAL_CACHE_ACCOUNTING_UNAVAILABLE")
+                host_recent = []
+        host_rates = ([_growth_rate(host_recent[0], host_recent[1]),
+                       _growth_rate(host_recent[1], host_recent[2])] if host_recent else [0.0, 0.0])
+        host_over_rate = all(rate > policy.expected_growth_bytes_per_hour * 2 for rate in host_rates)
+        host_projected_growth = max(host_rates) * seconds_to_reclaim / 3600
+        if elapsed >= policy.spike_window_seconds and (
+            (over_rate and latest.project_bytes + projected_growth > policy.max_bytes)
+            or (host_over_rate and latest.host_free_bytes - host_projected_growth < reserve)
         ):
             reasons.append("SUSTAINED_GROWTH_RATE_WILL_BREAK_BUDGET")
         if (
@@ -829,6 +1117,8 @@ def reclaim_allowlisted(
 def _materialize_active_runtime_workspace(root: Path, job: str) -> None:
     """reclaim 後重建本次 invocation 在 child spawn 前必須存在的 runtime 目錄。"""
 
+    if os.environ.get("TOP10_EXTERNAL_CACHE_ROOT"):
+        raise ExternalCacheError("EXTERNAL_CACHE_REQUIRES_VERIFIED_MATERIALIZATION")
     runtime_root = root / "logs" / "storage_safety" / "runtime" / job
     for path in (
         runtime_root / "tmp" / "joblib",
@@ -1032,6 +1322,87 @@ def _materialize_trusted_validation_entrypoint(
     return runtime, command
 
 
+IMMUTABLE_ENTRYPOINT_MAX_BYTES = 65536
+IMMUTABLE_COMMAND_MAX_BYTES = 131072
+_IMMUTABLE_BOOTSTRAP = (
+    "import base64,hashlib,hmac,sys; "
+    "p,d,b=sys.argv[1:4]; s=base64.b64decode(b,validate=True); "
+    "assert len(s)<=65536 and hmac.compare_digest(hashlib.sha256(s).hexdigest(),d); "
+    "sys.argv=[p,*sys.argv[4:]]; "
+    "g=globals(); g.update(__name__='__main__',__file__=p,"
+    "__package__=None,__spec__=None,__cached__=None); exec(compile(s,p,'exec'),g)"
+)
+
+
+def _immutable_validation_command(trusted: TrustedValidationEntrypoint) -> list[str]:
+    """核對有界 bytes 後直接封入 argv，避免可寫 root 中的 execution copy 被換掉。"""
+    import base64
+    with trusted.entrypoint_path.open("rb") as handle:
+        source = handle.read(IMMUTABLE_ENTRYPOINT_MAX_BYTES + 1)
+    if len(source) > IMMUTABLE_ENTRYPOINT_MAX_BYTES:
+        raise UntrustedValidationEntrypoint("immutable entrypoint 大小超限")
+    if not hmac.compare_digest(hashlib.sha256(source).hexdigest(), trusted.entrypoint_sha256):
+        raise UntrustedValidationEntrypoint("immutable entrypoint digest 改變")
+    command = [sys.executable, "-I", "-B", "-c", _IMMUTABLE_BOOTSTRAP,
+               str(trusted.entrypoint_path), trusted.entrypoint_sha256,
+               base64.b64encode(source).decode("ascii"), *trusted.argv]
+    if sum(len(part.encode()) + 1 for part in command) > IMMUTABLE_COMMAND_MAX_BYTES:
+        raise UntrustedValidationEntrypoint("immutable entrypoint argv 大小超限")
+    return command
+
+
+def _inherited_validation_probe(sandbox: Path, source: Path) -> None:
+    """在同一父程序 fork/exec 下實測；不重新 apply，也不把一般 I/O 失敗算拒寫。"""
+    import uuid
+    from scripts.storage_validation.boundary import core_module
+    lifecycle = core_module("tmp_artifact_lifecycle")
+    owner = Path(os.environ["AI_CORE_EXTERNAL_DEV_REPO"])
+    marker = Path(lifecycle.repo_identity(owner)["git_common_dir"]) / lifecycle.ISOLATION_MARKER_NAME
+    source_file = next((p for p in (source / "scripts/storage_safety.py", source / "app/storage_safety.py")
+                        if p.is_file() and not p.is_symlink()), None)
+    if source_file is None:
+        source_file = next((p for p in source.iterdir() if p.is_file() and not p.is_symlink()), None)
+    if source_file is None:
+        raise ValueError("inherited probe 缺少 source regular file")
+    token = ".top10-probe-" + uuid.uuid4().hex
+    allowed = sandbox / token
+    forbidden = [source / token, sandbox.parent / token]
+    probe = '''import errno,json,os,sys
+from pathlib import Path
+allowed=Path(sys.argv[1]); allowed.write_text('allowed')
+denied=[]
+for i,name in enumerate(sys.argv[2:]):
+    try:
+        fd=os.open(name, os.O_WRONLY | (os.O_CREAT|os.O_EXCL if i<2 else 0), 0o600)
+    except OSError as e:
+        denied.append(e.errno in (errno.EPERM,errno.EACCES))
+    else:
+        os.close(fd)
+        if i<2: Path(name).unlink()
+        denied.append(False)
+print(json.dumps({'owned_write':True,'source_create_denied':denied[0],
+ 'sibling_create_denied':denied[1],'source_open_denied':denied[2],'marker_open_denied':denied[3]}))
+sys.exit(0 if all(denied) else 93)
+'''
+    try:
+        result = subprocess.run([sys.executable, "-I", "-B", "-c", probe, str(allowed),
+                                 *(str(p) for p in forbidden), str(source_file), str(marker)],
+                                capture_output=True, timeout=5, check=False)
+        diagnostics = json.loads(result.stdout[:4096])
+        ok = result.returncode == 0 and all(diagnostics.values()) and allowed.read_text() == "allowed"
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        raise RuntimeError("VALIDATION_INHERITED_PROBE_FAILED") from exc
+    finally:
+        allowed.unlink(missing_ok=True)
+    if not ok:
+        failure = RuntimeError("VALIDATION_INHERITED_PROBE_FAILED")
+        failure.validation_probe = diagnostics
+        raise failure
+    evidence = sandbox / "logs/storage_safety/inherited-confinement.json"
+    evidence.parent.mkdir(parents=True, exist_ok=True)
+    evidence.write_text(json.dumps(diagnostics, sort_keys=True))
+
+
 def _sandbox_profile(write_root: Path) -> str:
     quoted_root = json.dumps(str(write_root), ensure_ascii=False)
     quoted_dev_null = json.dumps("/dev/null")
@@ -1049,6 +1420,83 @@ def _sandbox_profile(write_root: Path) -> str:
             f"(allow file-write* (subpath {quoted_root}))",
         )
     )
+
+
+def _external_cache_spawn_command(
+    root: Path, policy: JobPolicy, cache: ExternalCache, command: Sequence[str],
+) -> list[str]:
+    """沿既有原生隔離入口封住 /tmp、HOME 與 source 的隱性快取 fallback。"""
+    if not SANDBOX_EXECUTABLE.is_file() or not os.access(SANDBOX_EXECUTABLE, os.X_OK):
+        raise ExternalCacheError("EXTERNAL_CACHE_CONFINEMENT_UNAVAILABLE")
+    # 受控寫入入口不得關掉標準 Python 啟動接點；唯讀 identity helper 不走此入口。
+    if Path(command[0]).name.startswith("python") or Path(command[0]).resolve() == Path(sys.executable).resolve():
+        arguments = iter(command[1:])
+        for argument in arguments:
+            if argument in {"-c", "-m", "--"} or not argument.startswith("-"):
+                break
+            if argument in {"-W", "-X", "--check-hash-based-pycs"}:
+                next(arguments, None)
+                continue
+            if argument.startswith(("-W", "-X", "--")):
+                continue
+            if set(argument[1:]) & {"I", "E", "S"}:
+                raise ExternalCacheError("EXTERNAL_CACHE_PYTHON_ISOLATION_UNSUPPORTED")
+    outputs = [_safe_root_path(root, relative) for relative in policy.registered_write_paths]
+    # FOG ledger精確檔案准寫不包含父目錄mkdir；只允許必要parent本身create。
+    ledger_roots = {
+        "data/research/research_ledger.duckdb",
+        "data/research/research_ledger.duckdb.wal",
+        "data/research/.research-ledger-rebuild",
+    }
+    ledger_parent = (
+        _safe_root_path(root, "data/research")
+        if policy.job == "fog-research-worker"
+        and ledger_roots.issubset(policy.registered_write_paths)
+        else None
+    )
+    # production child 原有非寫入行為不變；不挪用／放寬 validation-only profile。
+    profile = "\n".join([
+        "(version 1)", "(allow default)", "(deny file-write*)",
+        '(allow file-write* (literal "/dev/null"))',
+        *([f"(allow file-write-create (literal {json.dumps(str(ledger_parent))}))"]
+          if ledger_parent is not None else []),
+        *(f"(allow file-write* (subpath {json.dumps(str(path))}))"
+          for path in [*outputs, cache.root]),
+    ])
+    if cache.directory_mode:
+        # 即使缺碟後有工具 mkdir -p，也不能重建 mount/root 的任一 ancestor。
+        profile += "\n" + "\n".join(
+            f"(deny file-write-create (literal {json.dumps(str(path))}))"
+            for path in [cache._managed.root, *cache._managed.root.parents])
+    cache.sample()
+    # 小型單一 child：標準庫必須已固定外接，合法外接可寫；路徑失效時即使
+    # cwd 是合法輸出目錄也不得 fallback。不重設 tempdir 為 None 開回搜尋模式。
+    # context manager 只移除本次 exclusive 建立的測試檔，不掃描／清理 owned root。
+    probe = (
+        "import os,sys,tempfile\n"
+        "if tempfile.tempdir != sys.argv[1]: sys.exit(92)\n"
+        "with tempfile.TemporaryFile(dir=sys.argv[1]) as f: f.write(b'x'); f.flush()\n"
+        "tempfile.tempdir=sys.argv[2]\n"
+        "for directory in sys.argv[3:]:\n"
+        " if not os.path.isdir(directory): continue\n"
+        " os.chdir(directory)\n"
+        " try:\n"
+        "  with tempfile.TemporaryFile() as f: f.write(b'x'); f.flush()\n"
+        " except FileNotFoundError: continue\n"
+        " sys.exit(91)\n"
+    )
+    missing = str(cache.root / ("missing-probe-" + uuid.uuid4().hex))
+    probe_env = {**os.environ, **external_environment(cache.root)}
+    completed = subprocess.run(
+        [str(SANDBOX_EXECUTABLE), "-p", profile, sys.executable, "-B", "-c", probe,
+         str(cache.root / "tmp"), missing, str(root), *(str(path) for path in outputs)],
+        cwd=root, env=probe_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        timeout=5, check=False,
+    )
+    cache.sample()
+    if completed.returncode != 0:
+        raise ExternalCacheError("EXTERNAL_CACHE_CONFINEMENT_PROBE_FAILED")
+    return [str(SANDBOX_EXECUTABLE), "-p", profile, *command]
 
 
 def _validation_spawn_command(
@@ -1069,6 +1517,11 @@ def _validation_spawn_command(
     if not SANDBOX_EXECUTABLE.is_file() or not os.access(SANDBOX_EXECUTABLE, os.X_OK):
         raise RuntimeError("VALIDATION_CONFINEMENT_UNAVAILABLE")
 
+    from scripts.storage_validation.boundary import owned_write_contract
+    if owned_write_contract(sandbox_root) is not None:
+        _inherited_validation_probe(sandbox_root, source_root)
+        return list(command)
+
     profile = _sandbox_profile(sandbox_root)
     probe_root = sandbox_root / "logs" / "storage_safety" / "confinement_probe"
     probe_root.mkdir(parents=True, exist_ok=True)
@@ -1081,34 +1534,113 @@ def _validation_spawn_command(
         dir=sandbox_root.parent,
     ) as tmp:
         forbidden_probe = Path(tmp) / "forbidden"
-        completed = subprocess.run(
-            [
-                str(SANDBOX_EXECUTABLE),
-                "-p",
-                profile,
-                "/bin/sh",
-                "-c",
-                'printf discarded > /dev/null || exit 91; printf allowed > "$1" || exit 92; if printf forbidden > "$2" 2>/dev/null; then exit 93; fi',
-                "confinement-probe",
-                str(allowed_probe),
-                str(forbidden_probe),
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        )
+        # 僅保存原生 probe 的有限尾端，不把 EPERM、timeout 與 scope 寫入失敗混為一談。
+        # 暫存仍由本輪 sandbox 擁有；不啟動另一條隔離或 fallback 流程。
+        with tempfile.TemporaryFile(dir=probe_root) as stdout, tempfile.TemporaryFile(dir=probe_root) as stderr:
+            timed_out = False
+            try:
+                completed = subprocess.run(
+                    [
+                        str(SANDBOX_EXECUTABLE), "-p", profile, "/bin/sh", "-c",
+                        'printf discarded > /dev/null || exit 91; printf allowed > "$1" || exit 92; if printf forbidden > "$2" 2>/dev/null; then exit 93; fi',
+                        "confinement-probe", str(allowed_probe), str(forbidden_probe),
+                    ],
+                    stdout=stdout, stderr=stderr, timeout=5, check=False,
+                )
+                exit_code = completed.returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                exit_code = None
+            tails = {}
+            for name, handle in (("stdout_tail", stdout), ("stderr_tail", stderr)):
+                handle.seek(0, os.SEEK_END)
+                handle.seek(max(0, handle.tell() - 4096))
+                tails[name] = handle.read(4096).decode("utf-8", errors="replace")
+        probe_diagnostics = {
+            "exit_code": exit_code, "timed_out": timed_out, "output_limit_bytes": 4096,
+            "allowed_write": allowed_probe.is_file(), "forbidden_write": forbidden_probe.exists(),
+            **tails,
+        }
         probe_ok = (
-            completed.returncode == 0
+            exit_code == 0
+            and probe_diagnostics["allowed_write"]
             and allowed_probe.read_text(encoding="utf-8") == "allowed"
             and not forbidden_probe.exists()
         )
     allowed_probe.unlink(missing_ok=True)
     if not probe_ok:
-        raise RuntimeError("VALIDATION_CONFINEMENT_PROBE_FAILED")
+        failure = RuntimeError("VALIDATION_CONFINEMENT_PROBE_FAILED")
+        failure.validation_probe = probe_diagnostics
+        raise failure
     return [str(SANDBOX_EXECUTABLE), "-p", profile, *command]
 
 
+def _native_process_info(pid: int):
+    from scripts.storage_validation.boundary import core_module
+    return core_module("tmp_artifact_lifecycle").darwin_process_info(pid)
+
+
+def _native_process_ids(kind: int, value: int) -> tuple[int, ...]:
+    """沿既有 libproc，只列指定 group/parent；短讀、容量與權限失敗均拒絕。"""
+    import ctypes
+    from scripts.storage_validation.boundary import core_module
+    library = core_module("tmp_artifact_lifecycle").darwin_libproc()
+    ctypes.set_errno(0)
+    required = library.proc_listpids(kind, value, None, 0)
+    if required < 0 or required > 65536 or (required == 0 and ctypes.get_errno()):
+        raise RuntimeError("libproc pid list 大小無效")
+    buffer = (ctypes.c_int * ((required + 4096) // 4))()
+    ctypes.set_errno(0)
+    count = library.proc_listpids(kind, value, buffer, ctypes.sizeof(buffer))
+    if count < 0 or count % 4 or count >= ctypes.sizeof(buffer) or (count == 0 and ctypes.get_errno()):
+        raise RuntimeError("libproc pid list 不完整")
+    pids = tuple(pid for pid in buffer[:count // 4] if pid > 0)
+    if len(set(pids)) != len(pids):
+        raise RuntimeError("libproc pid list 重複")
+    return pids
+
+
+def _native_process_tree_rss(root_pid: int) -> tuple[int | None, tuple[ProcessRssAttribution, ...]]:
+    """PROC_PIDTASKINFO 原生 RSS；不以缺權／短讀當零，不呼叫 setuid ps。"""
+    import ctypes
+    from scripts.storage_validation.boundary import core_module
+    library = core_module("tmp_artifact_lifecycle").darwin_libproc()
+    pending = deque([root_pid])
+    seen: set[int] = set()
+    rows = []
+    deadline = time.monotonic() + _HOST_PROBE_TIMEOUT_SECONDS
+    while pending:
+        pid = pending.popleft()
+        if pid in seen:
+            continue
+        if len(seen) >= 1024 or time.monotonic() > deadline:
+            return None, ()
+        seen.add(pid)
+        info = _native_process_info(pid)
+        if info is None:
+            if pid == root_pid:
+                return None, ()
+            continue
+        # Apple proc_taskinfo：6 個 uint64 + 12 個 int32，共 96 bytes，RSS 在第二欄。
+        task = (ctypes.c_uint64 * 12)()
+        size = library.proc_pidinfo(pid, 4, 0, ctypes.byref(task), ctypes.sizeof(task))
+        if size != 96:
+            return None, ()
+        after = _native_process_info(pid)
+        if after is None or (after.start_seconds, after.start_microseconds) != (info.start_seconds, info.start_microseconds):
+            return None, ()
+        rows.append(ProcessRssAttribution(pid=pid, ppid=info.ppid, rss_bytes=int(task[1]),
+                    command=bytes(info.name or info.command).decode(errors="replace")))
+        pending.extend(_native_process_ids(6, pid))
+    return sum(row.rss_bytes for row in rows), tuple(rows)
+
+
 def _process_start_token(pid: int) -> str:
+    if os.environ.get("TOP10_PROCESS_IDENTITY_MODE") == "validation-libproc":
+        info = _native_process_info(pid)
+        if info is None or info.pid != pid or info.start_seconds <= 0:
+            raise RuntimeError("libproc 無法確認 process identity")
+        return f"libproc:{info.start_seconds}.{info.start_microseconds:06d}"
     completed = subprocess.run(
         ["/bin/ps", "-o", "lstart=", "-p", str(pid)],
         text=True,
@@ -1139,6 +1671,18 @@ def capture_process_group_identity(process: subprocess.Popen[bytes]) -> ProcessG
 
 
 def _verified_process_group_members(identity: ProcessGroupIdentity) -> tuple[int, ...]:
+    if identity.leader_start_token.startswith("libproc:"):
+        members = []
+        for pid in _native_process_ids(2, identity.group_id):
+            info = _native_process_info(pid)
+            if info is None or info.status == 5:
+                continue
+            if info.process_group != identity.group_id or os.getsid(pid) != identity.session_id:
+                raise RuntimeError("libproc process group/session identity 不符")
+            if pid == identity.leader_pid and f"libproc:{info.start_seconds}.{info.start_microseconds:06d}" != identity.leader_start_token:
+                raise RuntimeError("libproc leader PID 已重用")
+            members.append(pid)
+        return tuple(sorted(members))
     completed = subprocess.run(
         ["/bin/ps", "-axo", "pid=,pgid=,stat="],
         text=True,
@@ -1662,6 +2206,93 @@ def _receipt_payload(
     }
 
 
+def _timeout_external_usage(cache: ExternalCache, expected: tuple[int, int] | None = None,
+                            *, allow_absent: bool = False) -> tuple[int, int]:
+    """收尾唯讀盤點：materialize 的 root 身分、可讀性與期限均須成立。"""
+    expected = getattr(cache, "root_identity", None) or expected
+    if allow_absent and expected is None:
+        if cache.root.resolve(strict=False) != cache.root:
+            raise RuntimeError("外接 root 路徑漂移")
+        try:
+            cache.root.lstat()
+        except FileNotFoundError:
+            return 0, 0
+    if not isinstance(expected, tuple) or len(expected) != 2:
+        raise RuntimeError("外接 root 缺少 materialize 身分")
+    descriptor = os.open(cache.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        def verify_root() -> None:
+            opened, current = os.fstat(descriptor), cache.root.lstat()
+            if (not stat_module.S_ISDIR(current.st_mode)
+                    or (opened.st_dev, opened.st_ino) != expected
+                    or (current.st_dev, current.st_ino) != expected):
+                raise RuntimeError("外接 root 身分漂移")
+
+        def unreadable(error: OSError) -> None:
+            raise error
+
+        verify_root()
+        size = count = 0
+        deadline = time.monotonic() + _FOG_OBSERVATION_DEADLINE_SECONDS
+        for directory, directories, files in os.walk(cache.root, followlinks=False, onerror=unreadable):
+            if time.monotonic() >= deadline:
+                raise RuntimeError("逾時收尾盤點超時")
+            for name in (*directories, *files):
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("逾時收尾盤點超時")
+                info = (Path(directory) / name).lstat()
+                if info.st_dev != expected[0]:
+                    raise RuntimeError("外接盤點跨卷")
+                size += info.st_size
+                count += 1
+                if size > cache.max_bytes or count > cache.max_files:
+                    raise RuntimeError("外接工作目錄超額")
+        verify_root()
+        return size, count
+    finally:
+        os.close(descriptor)
+
+
+def _pure_managed_timeout(exc: BaseException, trusted_timeout_types: Sequence[type]) -> bool:
+    """有界遍歷 cause 與未抑制 context；僅接受固定可信逾時型別且不得有環。"""
+    pending = [(exc, frozenset())]
+    seen_timeout = False
+    for _ in range(16):
+        if not pending:
+            return seen_timeout
+        current, ancestors = pending.pop()
+        if id(current) in ancestors:
+            return False
+        if current is exc:
+            if type(current) is not ExternalCacheError:
+                return False
+        elif type(current) in trusted_timeout_types:
+            if type(current.code) is not int or current.code != 23:
+                return False
+            seen_timeout = True
+        elif type(current) is not subprocess.TimeoutExpired:
+            return False
+        ancestors = ancestors | {id(current)}
+        if current.__cause__ is not None:
+            pending.append((current.__cause__, ancestors))
+        if not current.__suppress_context__ and current.__context__ is not None:
+            pending.append((current.__context__, ancestors))
+    return not pending and seen_timeout
+
+
+def _wait_with_managed_cache(child, timeout: float, cache: ExternalCache):
+    """只加 cache cadence；專案大範圍量測與原生 PGID 停損沿原 guard。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        cache.sample()
+        remaining = deadline - time.monotonic()
+        try:
+            return child.wait(timeout=max(0.0, min(1.0, remaining)))
+        except subprocess.TimeoutExpired:
+            if time.monotonic() >= deadline:
+                raise
+
+
 def run_guarded_job(
     root: Path,
     global_policy: GlobalPolicy,
@@ -1679,6 +2310,8 @@ def run_guarded_job(
     trigger_type: str | None = None,
     scheduled_at: str | None = None,
     invocation_id: str | None = None,
+    external_cache_required: bool = False,
+    startup_failure: bool = False,
 ) -> int:
     """執行單一排程週期；停損時留下 marker，後續嘗試一律拒絕。"""
 
@@ -1689,6 +2322,11 @@ def run_guarded_job(
     ):
         raise ValueError("max_runtime_seconds 必須大於 0")
     root = root.resolve()
+    observation_deadline_seconds = (
+        _FOG_OBSERVATION_DEADLINE_SECONDS
+        if policy.job == FOG_JOB
+        else None
+    )
     runtime_dir = root / "logs" / "storage_safety"
     receipt_path = runtime_dir / f"{policy.job}_latest.json"
     denied_path = runtime_dir / "restart_denied" / f"{policy.job}.json"
@@ -1729,10 +2367,26 @@ def run_guarded_job(
         )
 
     samples: list[Sample] = []
-    take = sampler or (lambda pid: take_sample(root, policy, pid))
+    base_take = sampler or (lambda pid: take_sample(root, policy, pid))
+    take = base_take
+    external: ExternalCache | None = None
+    saved_environment: dict[str, str | None] = {}
+
+    def take_external(pid: int | None, *, enforce_retention: bool = True) -> Sample:
+        sample = base_take(pid)
+        if external is None:
+            return sample
+        measured = external.sample(enforce_retention=enforce_retention)
+        owned = measured["roots"][0]
+        return replace(
+            sample, project_bytes=sample.project_bytes + owned["bytes"],
+            project_file_count=sample.project_file_count + owned["files"],
+            external_cache=measured,
+        )
     monotonic_now = monotonic_clock or time.monotonic
     wait_for_process = process_waiter or (
-        lambda child, timeout: child.wait(timeout=timeout)
+        lambda child, timeout: (_wait_with_managed_cache(child, timeout, external)
+            if external is not None and external.directory_mode else child.wait(timeout=timeout))
     )
     runtime_dir.mkdir(parents=True, exist_ok=True)
     process: subprocess.Popen[bytes] | None = None
@@ -1740,6 +2394,10 @@ def run_guarded_job(
     pump_thread: threading.Thread | None = None
     rotating_log: RotatingLog | None = None
     reclaimed: ReclaimResult | None = None
+    write_audit_started = False
+    before_writes = None
+    external_root_before = None
+    spawn_attempted = False
     protected_before: dict[str, tuple[int, int]] | None = None
     protected_root: Path | None = None
     trusted_entrypoint_runtime: tempfile.TemporaryDirectory[str] | None = None
@@ -1918,7 +2576,26 @@ def run_guarded_job(
             signal.signal(signum, interrupt_guard)
 
     try:
-        preflight = replace(take(None), phase="preflight")
+        if startup_failure:
+            raise ExternalCacheError("EXTERNAL_CACHE_STARTUP_FAILED")
+        if external_cache_required:
+            if validation_only:
+                raise ExternalCacheError("EXTERNAL_CACHE_ISOLATION_UNSUPPORTED")
+            runtime_rule = next((rule for rule in rules if rule.rule_id == "runtime_workspace"), None)
+            if runtime_rule is None:
+                raise ExternalCacheError("EXTERNAL_CACHE_RETENTION_CONTRACT_REQUIRED")
+            external = ExternalCache(
+                root, policy.job, min(policy.max_bytes, runtime_rule.max_bytes),
+                min(policy.max_file_count, runtime_rule.max_files), runtime_rule.retention_seconds,
+            )
+            take = take_external
+        elif os.environ.get("TOP10_EXTERNAL_CACHE_ROOT"):
+            raise ExternalCacheError("EXTERNAL_CACHE_ISOLATION_UNSUPPORTED")
+        # TTL 的准入修復必須在主機容量預檢通過後，且 child 尚未啟動時進行。
+        preflight = replace(
+            take_external(None, enforce_retention=False) if external is not None else take(None),
+            phase="preflight",
+        )
         samples.append(preflight)
         preflight_decision = evaluate_preflight(
             global_policy,
@@ -1944,10 +2621,34 @@ def run_guarded_job(
             )
             return 78
 
-        reclaimed = reclaim_allowlisted(root, rules, execute=True)
-        _materialize_active_runtime_workspace(root, policy.job)
-        before_writes = project_write_snapshot(root)
+        # 保留單一寫入基線，覆蓋首次 materialize 與 dry-run reclaim。
+        write_audit_started = True
+        before_writes = project_write_snapshot(
+            root,
+            deadline_seconds=observation_deadline_seconds,
+        )
+        if external is not None:
+            try:
+                info = external.root.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if not stat_module.S_ISDIR(info.st_mode):
+                    raise RuntimeError("materialize 前外接 root 非目錄")
+                external_root_before = (info.st_dev, info.st_ino)
+        reclaimed = reclaim_allowlisted(root, rules, execute=os.environ.get("AI_CORE_CACHE_MODE") != "directory")
+        if external is not None:
+            external.reclaim_expired_before_child(exclusive_lock_fd=lock_handle.fileno())
+            environment = external.materialize()
+        else:
+            _materialize_active_runtime_workspace(root, policy.job)
+            environment = runtime_environment(root / "logs/storage_safety/runtime" / policy.job)
+        for key, value in environment.items():
+            saved_environment[key] = os.environ.get(key)
+            os.environ[key] = value
         spawn_command = list(command)
+        if external is not None:
+            spawn_command = _external_cache_spawn_command(root, policy, external, command)
         if validation_only:
             trusted_validation_entrypoint = _verify_trusted_validation_entrypoint(
                 trusted_validation_entrypoint,
@@ -1955,9 +2656,15 @@ def run_guarded_job(
                 job=policy.job,
                 command=command,
             )
-            trusted_entrypoint_runtime, trusted_command = (
-                _materialize_trusted_validation_entrypoint(trusted_validation_entrypoint)
-            )
+            from scripts.storage_validation.boundary import owned_write_contract
+            if owned_write_contract(root) is not None:
+                trusted_command = _immutable_validation_command(trusted_validation_entrypoint)
+                saved_environment["TOP10_PROCESS_IDENTITY_MODE"] = os.environ.get("TOP10_PROCESS_IDENTITY_MODE")
+                os.environ["TOP10_PROCESS_IDENTITY_MODE"] = "validation-libproc"
+            else:
+                trusted_entrypoint_runtime, trusted_command = (
+                    _materialize_trusted_validation_entrypoint(trusted_validation_entrypoint)
+                )
             if not isinstance(validation_context, dict):
                 raise ValueError("validation_context 必須包含 source_input_root")
             source_value = validation_context.get("source_input_root")
@@ -1967,6 +2674,7 @@ def run_guarded_job(
             protected_before = project_write_snapshot(
                 protected_root,
                 max_files=PROTECTED_SNAPSHOT_MAX_FILES,
+                deadline_seconds=observation_deadline_seconds,
             )
             spawn_command = _validation_spawn_command(root, protected_root, trusted_command)
         rotating_log = RotatingLog(
@@ -1974,6 +2682,7 @@ def run_guarded_job(
             global_policy.log_max_bytes,
             global_policy.log_backups,
         )
+        spawn_attempted = True
         process, process_group = _spawn_verified_process_group(spawn_command, cwd=root)
         started_at = monotonic_now()
         # Fog 目標使用 hard maximum 的 70%，其餘 job 維持 95%。
@@ -2221,7 +2930,10 @@ def run_guarded_job(
                     stop_reasons = ("LIVE_SAMPLE_SCHEDULE_OVERRUN",)
                     terminate_process_group(process, identity=process_group)
                     break
-                after_writes = project_write_snapshot(root)
+                after_writes = project_write_snapshot(
+                    root,
+                    deadline_seconds=observation_deadline_seconds,
+                )
                 unknown = unknown_changed_paths(
                     before_writes,
                     after_writes,
@@ -2285,7 +2997,10 @@ def run_guarded_job(
             samples.append(
                 replace(take(process.pid if process.poll() is None else None), phase="final")
             )
-        after_writes = project_write_snapshot(root)
+        after_writes = project_write_snapshot(
+            root,
+            deadline_seconds=observation_deadline_seconds,
+        )
         final_unknown_paths = unknown_changed_paths(
             before_writes,
             after_writes,
@@ -2320,6 +3035,7 @@ def run_guarded_job(
             protected_after = project_write_snapshot(
                 protected_root,
                 max_files=PROTECTED_SNAPSHOT_MAX_FILES,
+                deadline_seconds=observation_deadline_seconds,
             )
             if protected_after != protected_before:
                 protected_changed_paths = sorted(
@@ -2397,7 +3113,7 @@ def run_guarded_job(
             write_receipt(stopped_receipt)
             return 70
 
-        final_reclaim = reclaim_allowlisted(root, rules, execute=True)
+        final_reclaim = reclaim_allowlisted(root, rules, execute=os.environ.get("AI_CORE_CACHE_MODE") != "directory")
         final_receipt = receipt_payload(
             policy=policy,
             command=command,
@@ -2436,6 +3152,8 @@ def run_guarded_job(
         internal_reasons = (
             ("UNTRUSTED_VALIDATION_ENTRYPOINT",)
             if isinstance(exc, UntrustedValidationEntrypoint)
+            else (exc.reason,)
+            if isinstance(exc, (ExternalCacheError, StorageObservationError))
             else (f"GUARD_INTERNAL_ERROR_{type(exc).__name__}",)
         )
         reasons = tuple(dict.fromkeys((*stop_reasons, *internal_reasons)))
@@ -2463,6 +3181,208 @@ def run_guarded_job(
             final_process_group_quiescent=final_process_group_quiescent,
             final_process_group_checked_at=final_process_group_checked_at,
         )
+        # 僅保留 guard 本檔最內側四個位置；不格式化例外或讀取原始碼、locals。
+        # 執行根目錄可能是隔離 fixture，因此用程式檔身分比對並輸出固定相對路徑。
+        error_frames: deque[dict[str, Any]] = deque(maxlen=4)
+        error_traceback = exc.__traceback__
+        while error_traceback is not None:
+            code = error_traceback.tb_frame.f_code
+            if code.co_filename == run_guarded_job.__code__.co_filename:
+                error_frames.append(
+                    {
+                        "filename": "app/storage_safety.py",
+                        "function": code.co_name,
+                        "line": error_traceback.tb_lineno,
+                    }
+                )
+            error_traceback = error_traceback.tb_next
+        internal_error: dict[str, Any] = {
+            "type": type(exc).__name__,
+            "frames": list(error_frames),
+        }
+        error_errno = getattr(exc, "errno", None)
+        if type(error_errno) is int:
+            internal_error["errno"] = error_errno
+        if exc.args in (("VALIDATION_CONFINEMENT_PROBE_FAILED",), ("VALIDATION_INHERITED_PROBE_FAILED",)) and hasattr(exc, "validation_probe"):
+            internal_error["validation_probe"] = exc.validation_probe
+        trusted_timeout_types: list[type] = []
+        if (
+            isinstance(exc, ExternalCacheError)
+            and exc.reason == "EXTERNAL_CACHE_MANAGED_ADMISSION_DENIED"
+        ):
+            # 診斷失敗不得攔阻原停損；只接受已載入的固定來源，不輸出例外文字。
+            try:
+                cause_sources: dict[str, str] = {}
+                managed_error_types: list[type] = []
+                core_source = os.environ.get("AI_CORE_DIR", "")
+                for module_name, relative in (
+                    ("app.external_cache", "app/external_cache.py"),
+                    ("runtime_cache_capacity_gate", "scripts/runtime_cache_capacity_gate.py"),
+                    ("scripts.runtime_cache_capacity_gate", "scripts/runtime_cache_capacity_gate.py"),
+                    ("host_capacity_sensor", "scripts/host_capacity_sensor.py"),
+                    ("scripts.host_capacity_sensor", "scripts/host_capacity_sensor.py"),
+                ):
+                    expected = (
+                        str(Path(__file__).with_name("external_cache.py"))
+                        if relative == "app/external_cache.py"
+                        else str(Path(core_source) / relative) if os.path.isabs(core_source) else None
+                    )
+                    module = sys.modules.get(module_name)
+                    loaded = getattr(module, "__file__", None)
+                    if expected is not None and loaded == expected:
+                        cause_sources[expected] = relative
+                        if relative == "scripts/runtime_cache_capacity_gate.py" and type(module) is type(sys):
+                            cls = vars(module).get("ManagedCacheError")
+                            if (type(cls) is type and cls.__module__ in (
+                                    "runtime_cache_capacity_gate", "scripts.runtime_cache_capacity_gate")
+                                    and getattr(getattr(cls.__init__, "__code__", None), "co_filename", None) == expected):
+                                managed_error_types.append(cls)
+                                timeout_cls = vars(module).get("ManagedCacheTimeoutError")
+                                if (type(timeout_cls) is type and timeout_cls.__bases__ == (cls,)
+                                        and timeout_cls.__module__ == cls.__module__
+                                        and getattr(getattr(timeout_cls.__init__, "__code__", None), "co_filename", None) == expected):
+                                    managed_error_types.append(timeout_cls)
+                                    trusted_timeout_types.append(timeout_cls)
+                causes: list[dict[str, Any]] = []
+                seen_causes = {id(exc)}
+                current_cause: BaseException = exc
+                for _ in range(4):
+                    cause = current_cause.__cause__
+                    if cause is None and not current_cause.__suppress_context__:
+                        cause = current_cause.__context__
+                    if cause is None or id(cause) in seen_causes:
+                        break
+                    seen_causes.add(id(cause))
+                    detail: dict[str, Any] = {"type": type(cause).__name__[:96]}
+                    for attribute in ("errno", "code"):
+                        value = getattr(cause, attribute, None)
+                        if type(value) is int and -(2**31) <= value < 2**31:
+                            detail[attribute] = value
+                    cause_frames: deque[dict[str, Any]] = deque(maxlen=4)
+                    cause_traceback = cause.__traceback__
+                    for _ in range(64):
+                        if cause_traceback is None:
+                            break
+                        cause_code = cause_traceback.tb_frame.f_code
+                        relative = cause_sources.get(cause_code.co_filename)
+                        if relative is not None:
+                            cause_frames.append({
+                                "filename": relative,
+                                "function": cause_code.co_name[:96],
+                                "line": cause_traceback.tb_lineno,
+                            })
+                        cause_traceback = cause_traceback.tb_next
+                    if cause_frames:
+                        detail["frames"] = list(cause_frames)
+                    causes.append(detail)
+                    if type(cause) in managed_error_types and "sampling_observation" not in internal_error:
+                        try:
+                            observed = _sanitize_sampling_observation(vars(cause).get("sampling_observation"))
+                            if observed is not None:
+                                internal_error["sampling_observation"] = observed
+                        except Exception:
+                            pass
+                    if type(cause) in managed_error_types and "sampling_attempts" not in internal_error:
+                        try:
+                            attempts = _sanitize_sampling_attempts(vars(cause).get("sampling_attempts"))
+                            if attempts is not None:
+                                internal_error["sampling_attempts"] = attempts
+                        except Exception:
+                            pass
+                    current_cause = cause
+                internal_error["causes"] = causes
+            except Exception:
+                pass
+        stopped_receipt["internal_error"] = internal_error
+        # 純量測逾時可結束本輪；完整收尾與收據成功後才允許下輪重新准入。
+        pure_timeout = (
+            external_cache_required
+            and os.environ.get("AI_CORE_CACHE_MODE") == "directory"
+            and type(exc) is ExternalCacheError
+            and reasons == ("EXTERNAL_CACHE_MANAGED_ADMISSION_DENIED",)
+            and _pure_managed_timeout(exc, trusted_timeout_types)
+            and not observed_unknown_paths
+            and not observed_registered_unmetered_paths
+        )
+        if pure_timeout:
+            try:
+                if process is None and spawn_attempted:
+                    raise RuntimeError("spawn 已嘗試但程序身分未知")
+                if write_audit_started and before_writes is None:
+                    raise RuntimeError("寫入基線觀測未完成")
+                if process is not None:
+                    if process_group is None or final_process_group_quiescent is not True:
+                        raise RuntimeError("逾時後程序組尚未停止")
+                    if pump_thread is not None:
+                        pump_thread.join(timeout=5)
+                        if pump_thread.is_alive() or pump_errors:
+                            raise RuntimeError("逾時後輸出尚未完成")
+                if before_writes is not None:
+                    after = project_write_snapshot(root, deadline_seconds=observation_deadline_seconds)
+                    unknown = unknown_changed_paths(before_writes, after, policy.registered_write_paths)
+                    unmetered = registered_changed_paths_outside_meter(
+                        before_writes, after, policy.registered_write_paths, policy.meter_paths)
+                    final_sample = replace(base_take(None), phase="final")
+                    if external is not None:
+                        size, count = _timeout_external_usage(external, external_root_before,
+                            allow_absent=process is None)
+                        final_sample = replace(final_sample,
+                            project_bytes=final_sample.project_bytes + size,
+                            project_file_count=final_sample.project_file_count + count)
+                    if (final_sample.rss_bytes is None
+                            or final_sample.rss_bytes > policy.max_process_tree_rss_bytes
+                            or (global_policy.require_swap_metric and final_sample.swap_bytes is None)
+                            or (samples and samples[0].swap_bytes is not None
+                                and final_sample.swap_bytes is not None
+                                and final_sample.swap_bytes - samples[0].swap_bytes > policy.max_swap_growth_bytes)):
+                        raise RuntimeError("逾時收尾資源觀測未知或超額")
+                    if process is not None:
+                        # 合計量沿既有停損；同卷投影保守計入外接資料。
+                        final_samples = [replace(sample, external_cache=None) for sample in samples]
+                        final_samples.append(final_sample)
+                        decision = evaluate_runtime(global_policy, policy, final_samples,
+                            unknown_paths=unknown, registered_unmetered_paths=unmetered)
+                    else:
+                        decision = evaluate_preflight(global_policy, policy, final_sample,
+                            validation_only=validation_only)
+                    if decision.triggered or unknown or unmetered:
+                        raise RuntimeError("逾時收尾仍有容量或寫入停損")
+                if policy.job == FOG_JOB and any(
+                    path.exists() or path.is_symlink() for path in
+                    (root / "logs/fog_research_worker.lock", root / "logs/research_queue_owner.lock")
+                ):
+                    raise RuntimeError("逾時後仍有工作鎖")
+                # 先完成可能失敗的清理，原 job lock 保持至收據提交。
+                with ExitStack() as resources:
+                    for signum, previous in previous_signal_handlers.items():
+                        resources.callback(signal.signal, signum, previous)
+                    for key, value in saved_environment.items():
+                        if value is None:
+                            resources.callback(os.environ.pop, key, None)
+                        else:
+                            resources.callback(os.environ.__setitem__, key, value)
+                    if external is not None:
+                        resources.callback(external.close)
+                    if trusted_entrypoint_runtime is not None:
+                        resources.callback(trusted_entrypoint_runtime.cleanup)
+                    if rotating_log is not None:
+                        resources.callback(rotating_log.close)
+                    if process is not None and process.stdout is not None:
+                        resources.callback(process.stdout.close)
+                previous_signal_handlers.clear()
+                saved_environment.clear()
+                external = trusted_entrypoint_runtime = rotating_log = None
+                skipped = {**stopped_receipt, "status": "TIMEOUT_SKIPPED",
+                    "restart_denied": False, "restart_denied_reason": [],
+                    "restart_denied_marker_persisted": None,
+                    "timeout_cleanup_verified": True,
+                    "next_cycle_requires_fresh_admission": True}
+                write_receipt(skipped)
+                return 75
+            except Exception:
+                reasons = (*reasons, "TIMEOUT_SKIP_FINALIZATION_FAILED")
+                stopped_receipt["reasons"] = list(reasons)
+                stopped_receipt["restart_denied_reason"] = list(reasons)
         base_archive_path = (
             runtime_dir
             / "receipts"
@@ -2537,20 +3457,30 @@ def run_guarded_job(
             return 70
         return 70
     finally:
-        if process is not None and process_group is not None:
-            try:
-                terminate_process_group(process, identity=process_group)
-            except (OSError, RuntimeError, subprocess.TimeoutExpired):
-                pass
-        if pump_thread is not None and pump_thread.is_alive():
-            pump_thread.join(timeout=5)
-        if process is not None and process.stdout is not None:
-            process.stdout.close()
-        if rotating_log is not None:
-            rotating_log.close()
-        if trusted_entrypoint_runtime is not None:
-            trusted_entrypoint_runtime.cleanup()
-        for signum, previous in previous_signal_handlers.items():
-            signal.signal(signum, previous)
-        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
-        lock_handle.close()
+        # 標準庫 ExitStack 各自執行清理；close 失敗仍須還原環境、handler 並解鎖。
+        # 清理例外保留向外傳播，不把未完成清理宣稱成功。
+        with ExitStack() as cleanup:
+            cleanup.callback(lock_handle.close)
+            cleanup.callback(fcntl.flock, lock_handle.fileno(), fcntl.LOCK_UN)
+            for signum, previous in previous_signal_handlers.items():
+                cleanup.callback(signal.signal, signum, previous)
+            for key, value in saved_environment.items():
+                if value is None:
+                    cleanup.callback(os.environ.pop, key, None)
+                else:
+                    cleanup.callback(os.environ.__setitem__, key, value)
+            if external is not None:
+                cleanup.callback(external.close)
+            if trusted_entrypoint_runtime is not None:
+                cleanup.callback(trusted_entrypoint_runtime.cleanup)
+            if rotating_log is not None:
+                cleanup.callback(rotating_log.close)
+            if process is not None and process.stdout is not None:
+                cleanup.callback(process.stdout.close)
+            if pump_thread is not None and pump_thread.is_alive():
+                cleanup.callback(pump_thread.join, timeout=5)
+            if process is not None and process_group is not None:
+                try:
+                    terminate_process_group(process, identity=process_group)
+                except (OSError, RuntimeError, subprocess.TimeoutExpired):
+                    pass

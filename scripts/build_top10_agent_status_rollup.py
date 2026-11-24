@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from top10_agent_status import DEFAULT_MANIFEST_PATH, load_events, read_manifest, validate_event
+    from top10_agent_status import DEFAULT_MANIFEST_PATH, load_events, owns_latest_run, read_manifest, rollup_lock, validate_event
 except ModuleNotFoundError:
-    from scripts.top10_agent_status import DEFAULT_MANIFEST_PATH, load_events, read_manifest, validate_event
+    from scripts.top10_agent_status import DEFAULT_MANIFEST_PATH, load_events, owns_latest_run, read_manifest, rollup_lock, validate_event
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -41,14 +41,15 @@ def main() -> int:
     run_id = args.run_id or latest_run_id(artifacts_dir, args.run_date)
     if not run_id:
         raise SystemExit(f"missing run_id and latest_run_id for {args.run_date}")
-    manifest = read_manifest(resolve(args.manifest))
-    rollup = build_rollup(artifacts_dir, args.run_date, run_id, manifest)
-    output = resolve(args.output) if args.output else artifacts_dir / "harness_status" / args.run_date / run_id / "rollup.json"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(rollup, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    if not args.no_latest:
-        latest = artifacts_dir / "harness_status" / args.run_date / "latest_rollup.json"
-        latest.write_text(json.dumps(rollup, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with rollup_lock(artifacts_dir, args.run_date, run_id):
+        manifest = read_manifest(resolve(args.manifest))
+        rollup = build_rollup(artifacts_dir, args.run_date, run_id, manifest)
+        output = resolve(args.output) if args.output else artifacts_dir / "harness_status" / args.run_date / run_id / "rollup.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(rollup, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if not args.no_latest and owns_latest_run(artifacts_dir, args.run_date, run_id):
+            latest = artifacts_dir / "harness_status" / args.run_date / "latest_rollup.json"
+            latest.write_text(json.dumps(rollup, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"status": rollup["status"], "output": repo_path(output), "failed_count": rollup["summary"]["failed_count"]}, ensure_ascii=False))
     return 0 if rollup["status"] not in {"failed", "blocked"} else 1
 

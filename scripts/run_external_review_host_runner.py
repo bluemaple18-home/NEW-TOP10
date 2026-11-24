@@ -8,6 +8,8 @@ provider adapter 只負責把 verified packet 送到外部 LLM/browser session �
 from __future__ import annotations
 
 import argparse
+import csv
+import hashlib
 import json
 import os
 import re
@@ -22,6 +24,9 @@ from typing import Any
 
 from external_review_provider_contract import provider_artifact_errors
 from top10_agent_status import build_event, write_agent_event
+from openclaw_gateway_sender import stable_idempotency_key
+from send_clawd_publish_message import load_config
+from verify_daily_publish_workflow import extract_send_status_message_id
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +47,7 @@ class CommandResult:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run post-daily external review host harness.")
     parser.add_argument("--date", default=None, help="執行日期 YYYY-MM-DD；預設讀 automation_status.run_date")
+    parser.add_argument("--features", default=Path("data/clean/features.parquet"), type=Path, help="沿用 packet builder 的 features 輸入；不複製資料")
     parser.add_argument("--run-id", default=None, help="harness status run_id；預設 daily-YYYY-MM-DD")
     parser.add_argument("--artifacts-dir", default="artifacts", type=Path)
     parser.add_argument("--wait-daily-ok-seconds", default=0, type=int, help="等待同日 daily OK 的秒數")
@@ -74,7 +80,7 @@ def parse_args() -> argparse.Namespace:
         help="provider-mode=api 時不外送，產生合法 fixture raw 以驗證整段 harness",
     )
     parser.add_argument("--skip-fog-map-handoff", action="store_true", help="不執行 harness 迷霧地圖交接節點")
-    parser.add_argument("--skip-research-quota", action="store_true", help="Fog Map handoff 只刷新地圖，不跑研究 quota")
+    parser.add_argument("--skip-research-quota", action="store_true", default=True, help="本入口固定跳過研究 quota，只交接既有 summary")
     parser.add_argument(
         "--chatgpt-command",
         default="bash scripts/review_chatgpt_chrome.sh --date {date} --packet {packet}",
@@ -101,6 +107,18 @@ def main() -> int:
     status_path = host_dir / f"host_runner_status_{run_date}.json"
     host_summary_path = host_dir / f"host_runner_summary_{run_date}.json"
     run_id = args.run_id or f"daily-{run_date}"
+    # 同日已有 runner 紀錄時，可能曾送出但收件未知；拒絕整輪重啟。
+    if status_path.exists() and not args.skip_provider_submit:
+        print(f"EXTERNAL_REVIEW_RESTART_DENIED existing_status={status_path}", file=sys.stderr)
+        return 1
+    previous_status = read_json_if_exists(status_path)
+    if args.skip_provider_submit:
+        # 在覆寫本輪 status 前先保全／核對既有精確 pin；不把無來源 raw 採認成舊證據。
+        pinned_packet = artifacts_dir / "external_review" / run_date / f"review_packet_{run_date}.json"
+        expected = previous_status.get("packet_identity")
+        if not expected or not pinned_packet.is_file() or packet_identity(pinned_packet) != expected:
+            print("EXTERNAL_REVIEW_PACKET_PIN_REQUIRED existing exact-byte status required", file=sys.stderr)
+            return 1
     started_at = datetime.now(timezone.utc).isoformat()
 
     status = initial_status(run_date, artifacts_dir, status_path, host_summary_path, providers)
@@ -129,7 +147,7 @@ def main() -> int:
         status["daily_status_ok"] = daily_ok
         if not daily_ok:
             status["status"] = "SKIPPED"
-            status["notes"].append("same-date automation_status.json is not OK; external review skipped")
+            status["notes"].append("same-date Daily OK and confirmed Discord delivery are not ready; external review skipped")
             write_json(status_path, status)
             write_host_summary(host_summary_path, status, None)
             write_status_event(
@@ -142,8 +160,8 @@ def main() -> int:
                 started_at=started_at,
                 input_refs=[artifacts_dir / "automation_status.json"],
                 artifact_paths=[status_path, host_summary_path],
-                failure_reason="same-date automation_status.json is not OK",
-                next_action="wait for daily OK before external review",
+                failure_reason="same-date Daily OK and confirmed Discord delivery are not ready",
+                next_action="wait for same-date Daily OK and confirmed Discord delivery before external review",
                 metrics={"daily_status_snapshot": status.get("daily_status_snapshot")},
             )
             if not args.skip_fog_map_handoff:
@@ -152,28 +170,32 @@ def main() -> int:
                     run_id=run_id,
                     artifacts_dir=artifacts_dir,
                     skip_refresh=True,
-                    skip_reason="same-date automation_status.json is not OK",
-                    skip_research_quota=args.skip_research_quota,
+                    skip_reason="same-date Daily OK and confirmed Discord delivery are not ready",
+                    skip_research_quota=True,
                 )
             return 0
 
         packet_path = artifacts_dir / "external_review" / run_date / f"review_packet_{run_date}.json"
         manifest_path = artifacts_dir / "external_review" / run_date / f"review_packet_manifest_{run_date}.json"
-        run_checked(
-            [
-                python_bin(),
-                "scripts/build_external_review_packet.py",
-                "--date",
-                run_date,
-                "--artifacts-dir",
-                str(artifacts_dir),
-            ]
-        )
+        if not args.skip_provider_submit and not packet_path.exists():
+            run_checked(
+                [
+                    python_bin(),
+                    "scripts/build_external_review_packet.py",
+                    "--date",
+                    run_date,
+                    "--artifacts-dir",
+                    str(artifacts_dir),
+                    "--features",
+                    str(resolve_project_path(args.features)),
+                ]
+            )
         run_checked([python_bin(), "scripts/verify_external_review_packet.py", "--packet", str(packet_path)])
         if "manifest" in packet_path.name:
             raise RuntimeError(f"refuse to send manifest-like packet path: {packet_path}")
         status["packet_path"] = repo_relative(packet_path)
         status["packet_verified"] = True
+        status["packet_identity"] = packet_identity(packet_path)
         status["manifest_path"] = repo_relative(manifest_path) if manifest_path.exists() else None
         status["manifest_refused"] = True
         write_json(status_path, status)
@@ -191,6 +213,8 @@ def main() -> int:
         )
 
         for provider in providers:
+            if not wait_for_daily_ok(artifacts_dir, run_date, 0, args.poll_seconds, status_path, status, allow_existing_daily_artifacts=False):
+                raise RuntimeError("Daily or confirmed Discord identity changed before provider submit")
             provider_status = run_provider(
                 provider=provider,
                 run_date=run_date,
@@ -200,9 +224,28 @@ def main() -> int:
                 provider_mode=args.provider_mode,
                 dry_run_provider_api=args.dry_run_provider_api,
                 command_template=args.chatgpt_command if provider == "chatgpt" else args.gemini_command,
+                existing_provider_state=previous_status.get(provider),
             )
             status[provider] = provider_status
             write_json(status_path, status)
+            if provider_status.get("status") != "OK":
+                # 送件狀態可能未知；本輪停止後續 provider，禁止以另一送件掩蓋失敗。
+                break
+
+        current_ok = [name for name in providers if status[name]["status"] == "OK"]
+        if set(current_ok) != set(PROVIDERS):
+            # 不重讀舊成功摘要；失敗只寫本次 host 狀態，保留舊外部證據。
+            status["status"] = "PARTIAL" if current_ok else "FAILED"
+            status["notes"].append("summary withheld: both providers must verify the current packet")
+            write_json(status_path, status)
+            write_host_summary(host_summary_path, status, None)
+            write_provider_events(artifacts_dir=artifacts_dir, run_id=run_id, run_date=run_date,
+                                  status=status, providers=providers, started_at=started_at)
+            if not args.skip_fog_map_handoff:
+                run_fog_map_handoff(run_date=run_date, run_id=run_id, artifacts_dir=artifacts_dir,
+                                    skip_refresh=True, skip_reason="current dual-provider summary unavailable",
+                                    skip_research_quota=True)
+            return 1
 
         external_summary_path = artifacts_dir / "external_review" / run_date / f"external_review_summary_{run_date}.json"
         run_checked(
@@ -218,6 +261,7 @@ def main() -> int:
         run_checked([python_bin(), "scripts/verify_external_review_summary.py", "--summary", str(external_summary_path)])
         status["summary_path"] = repo_relative(external_summary_path)
         status["summary_verified"] = True
+        status["summary_sha256"] = file_sha256(external_summary_path)
 
         provider_values = [status[name]["status"] for name in providers]
         if provider_values and all(value == "OK" for value in provider_values):
@@ -253,7 +297,7 @@ def main() -> int:
                 run_date=run_date,
                 run_id=run_id,
                 artifacts_dir=artifacts_dir,
-                skip_research_quota=args.skip_research_quota,
+                skip_research_quota=True,
             )
             if fog_exit_code != 0:
                 status["notes"].append("fog map handoff failed")
@@ -285,7 +329,7 @@ def main() -> int:
                 artifacts_dir=artifacts_dir,
                 skip_refresh=True,
                 skip_reason=f"external review host runner failed before fog handoff: {exc}",
-                skip_research_quota=args.skip_research_quota,
+                skip_research_quota=True,
             )
         print(f"EXTERNAL_REVIEW_HOST_RUNNER_FAILED output={status_path}", file=sys.stderr)
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -373,19 +417,17 @@ def wait_for_daily_ok(
             "mode": automation_status.get("mode"),
         }
         if ok:
-            validate_daily_artifacts(artifacts_dir, run_date)
-            status["daily_status_source"] = "automation_status"
-            return True
-        if allow_existing_daily_artifacts:
             try:
                 validate_daily_artifacts(artifacts_dir, run_date)
-            except RuntimeError as exc:
+                delivery = validate_confirmed_delivery(artifacts_dir, run_date)
+            except (RuntimeError, ValueError, OSError) as exc:
                 status["daily_artifact_gate"] = {"status": "FAILED", "message": str(exc)}
             else:
-                status["daily_artifact_gate"] = {"status": "OK", "message": "same-date daily artifacts exist"}
-                status["daily_status_source"] = "existing_daily_artifacts"
-                status["notes"].append("catch-up mode used existing same-date daily artifacts")
+                status["daily_artifact_gate"] = {"status": "OK"}
+                status["daily_status_source"] = "automation_status"
+                status["discord_delivery"] = delivery
                 return True
+        # allow_existing_daily_artifacts 保留 CLI 相容性，但不能繞過 Daily／送達契約。
         if time.monotonic() >= deadline:
             return False
         write_json(status_path, status)
@@ -402,6 +444,84 @@ def validate_daily_artifacts(artifacts_dir: Path, run_date: str) -> None:
     if missing:
         raise RuntimeError("same-date daily artifacts missing: " + ", ".join(missing))
 
+    report = read_json_if_exists(required[1])
+    context = read_json_if_exists(required[2])
+    if report.get("ranking_date") != run_date or context.get("trade_date") != run_date:
+        raise RuntimeError("daily report or market context content date mismatch")
+    with required[0].open(encoding="utf-8-sig", newline="") as stream:
+        reader = csv.DictReader(stream)
+        date_columns = set(reader.fieldnames or ()) & {"date", "trade_date", "ranking_date"}
+        rows = list(reader)
+    if not rows:
+        raise RuntimeError("ranking is empty")
+    if date_columns:
+        for row in rows:
+            for key in date_columns:
+                if datetime.fromisoformat(str(row.get(key) or "")).date().isoformat() != run_date:
+                    raise RuntimeError("ranking content date mismatch")
+    # 舊 ranking 無日期欄；只能驗同日日報綁定的原始內容，不虛構內嵌日期。
+    source = Path(str(report.get("ranking_artifact") or ""))
+    if not source.is_absolute():
+        source = PROJECT_ROOT / source
+    if source.name != required[0].name or not source.is_file() or file_sha256(source) != file_sha256(required[0]):
+        raise RuntimeError("ranking identity does not match same-date report source")
+
+
+def file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def packet_identity(path: Path) -> str:
+    # marker 綁實際 bytes；舊的忽略 generated_at 身份不可當本次精確 pin。
+    return file_sha256(path)
+
+
+def provider_artifact_identity(artifacts_dir: Path, run_date: str, provider: str) -> dict[str, str]:
+    directory = artifacts_dir / "external_review" / run_date
+    return {kind: file_sha256(directory / f"{provider}_{kind}_{run_date}.{suffix}")
+            for kind, suffix in (("raw", "txt"), ("response", "json"), ("collect_status", "json"))}
+
+
+def validate_confirmed_delivery(artifacts_dir: Path, run_date: str) -> dict[str, Any]:
+    """沿用送件收據、message ID 與 idempotency 身份，不重新送 Discord。"""
+    receipt_path = artifacts_dir / f"clawd_send_status_{run_date}.json"
+    sent = read_json_if_exists(receipt_path)
+    notify = load_config(PROJECT_ROOT / "config/automation.yaml").get("notify", {})
+    target = notify.get("clawd_to")
+    if (sent.get("schema_version") != "clawd-send-status.v2"
+            or sent.get("message_date") != run_date or sent.get("run_id") != f"daily-{run_date}"
+            or sent.get("status") != "OK" or sent.get("dry_run") is not False
+            or sent.get("send_attempted") is not True or sent.get("delivery_outcome") != "CONFIRMED"
+            or sent.get("channel") != "discord" or notify.get("clawd_channel") != "discord"
+            or not target or sent.get("target") != target or extract_send_status_message_id(sent) is None):
+        raise RuntimeError("same-date confirmed live Discord receipt missing or invalid")
+    message = artifacts_dir / f"clawd_publish_message_{run_date}.md"
+    payload_path = artifacts_dir / f"clawd_publish_payload_{run_date}.json"
+    payload = read_json_if_exists(payload_path)
+    delivery = payload.get("delivery") or {}
+    if (payload.get("ranking_date") != run_date or delivery.get("status") != "READY_FOR_CLAWD"
+            or delivery.get("channel") != "discord" or delivery.get("to") != target):
+        raise RuntimeError("Discord payload date or target mismatch")
+    # 驗收可重用不可變副本；收據內原始路徑不必等於 staging 路徑，但內容必須相同。
+    for key, staged in (("message_path", message), ("payload_path", payload_path)):
+        original = Path(str(sent.get(key) or ""))
+        if (not original.is_absolute() or original.name != staged.name or original.is_symlink()
+                or not original.is_file() or file_sha256(original) != file_sha256(staged)):
+            raise RuntimeError(f"Discord receipt {key} identity mismatch")
+    if (payload.get("artifacts") or {}).get("message") != sent["message_path"]:
+        raise RuntimeError("Discord payload message identity mismatch")
+    text = message.read_text(encoding="utf-8")
+    if not text.splitlines() or run_date not in text.splitlines()[0]:
+        raise RuntimeError("Discord message date mismatch")
+    key = stable_idempotency_key(f"daily-publish:{run_date}", channel="discord", target=target, message=text)
+    receipt = sent.get("receipt") or {}
+    if (sent.get("message_sha256") != hashlib.sha256(text.encode("utf-8")).hexdigest()
+            or sent.get("idempotency_key") != key or receipt.get("idempotency_key") != key):
+        raise RuntimeError("Discord message hash or idempotency identity mismatch")
+    return {"status": "CONFIRMED", "message_date": run_date, "target": target,
+            "message_id": extract_send_status_message_id(sent), "message_sha256": sent["message_sha256"],
+            "receipt_path": repo_relative(receipt_path)}
+
 
 def run_provider(
     provider: str,
@@ -412,14 +532,20 @@ def run_provider(
     provider_mode: str,
     dry_run_provider_api: bool,
     command_template: str,
+    existing_provider_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     state = provider_defaults(provider, run_date, artifacts_dir, enabled=True)
     review_dir = artifacts_dir / "external_review" / run_date
     raw_path = review_dir / f"{provider}_raw_{run_date}.txt"
     response_path = review_dir / f"{provider}_response_{run_date}.json"
     state["provider_mode"] = provider_mode
+    native_same_session = False
 
     try:
+        state["packet_identity"] = packet_identity(packet_path)
+        collect_status_path = review_dir / f"{provider}_collect_status_{run_date}.json"
+        before = {path: (path.stat().st_mtime_ns, file_sha256(path)) if path.is_file() else None
+                  for path in (raw_path, collect_status_path)}
         if not skip_submit:
             if provider_mode == "api":
                 command = [
@@ -443,27 +569,40 @@ def run_provider(
                     "dry_run": dry_run_provider_api,
                 }
             else:
-                preflight = run_provider_preflight(provider=provider, command_template=command_template)
-                state["preflight"] = preflight
-                if preflight.get("status") != "OK":
-                    state["status"] = "FAILED"
-                    state["notes"].append(f"provider_preflight_failed: {preflight.get('reason')}")
-                    return state
                 command = render_command(command_template, run_date, packet_path)
+                # 原生 adapter 在同一 session 先驗帳號、分頁與 composer，避免 probe 關閉後再授權。
+                # 自訂 command 仍走原 preflight，不能把這個例外擴到其他 transport。
+                native_same_session = (
+                    len(command) == 6
+                    and command[:2] == ["bash", f"scripts/review_{provider}_chrome.sh"]
+                    and command[2] == "--date" and command[4] == "--packet"
+                )
+                if native_same_session:
+                    state["preflight"] = {"status": "PENDING", "reason": None,
+                                          "mode": "native_adapter_same_session"}
+                else:
+                    preflight = run_provider_preflight(provider=provider, command_template=command_template)
+                    state["preflight"] = preflight
+                    if preflight.get("status") != "OK":
+                        state["status"] = "FAILED"
+                        state["notes"].append(f"provider_preflight_failed: {preflight.get('reason')}")
+                        return state
             if any("manifest" in part for part in command):
                 raise RuntimeError(f"{provider}: refuse to run adapter command containing manifest")
             state["command"] = mask_command(command)
             result = run_command(command)
             state["exit_code"] = result.exit_code
             if result.exit_code != 0:
+                if native_same_session:
+                    state["preflight"].update(status="FAILED", reason="native_adapter_did_not_complete")
                 state["notes"].append(f"adapter_failed exit_code={result.exit_code}")
                 state["adapter_stdout"] = result.stdout[-2000:]
                 state["adapter_stderr"] = result.stderr[-2000:]
-                collect_status_path = review_dir / f"{provider}_collect_status_{run_date}.json"
-                if read_json_if_exists(collect_status_path).get("ok") is not True:
-                    state["status"] = "FAILED"
-                    state["notes"].append("collect_status_not_ok_after_adapter_failed")
-                    return state
+                state["status"] = "FAILED"
+                return state
+            if any(not path.is_file() or (path.stat().st_mtime_ns, file_sha256(path)) == before[path]
+                   for path in before):
+                raise RuntimeError("adapter did not produce fresh raw and collect status")
 
         if not raw_path.exists():
             state["status"] = "SKIPPED" if skip_submit else "FAILED"
@@ -482,6 +621,13 @@ def run_provider(
             state["notes"].extend(artifact_errors)
             return state
 
+        if skip_submit:
+            previous = existing_provider_state or {}
+            if (previous.get("status") != "OK" or previous.get("packet_identity") != state["packet_identity"]
+                    or previous.get("artifact_identity") != provider_artifact_identity(artifacts_dir, run_date, provider)):
+                raise RuntimeError("existing provider evidence is not verified for current packet")
+            state["notes"].append("reused verified evidence for identical packet; no new submit")
+
         normalize = [
             python_bin(),
             "scripts/normalize_external_review_response.py",
@@ -498,7 +644,10 @@ def run_provider(
         ]
         run_checked(normalize)
         run_checked([python_bin(), "scripts/verify_external_review_contract.py", str(response_path)])
+        if native_same_session:
+            state["preflight"].update(status="OK", reason=None)
         state["status"] = "OK"
+        state["artifact_identity"] = provider_artifact_identity(artifacts_dir, run_date, provider)
         state["notes"].append("normalized_contract_ok")
         return state
     except Exception as exc:
@@ -583,8 +732,7 @@ def provider_preflight_reason(*, provider: str, result: CommandResult, payload: 
 
 
 def render_command(template: str, run_date: str, packet_path: Path) -> list[str]:
-    rendered = template.format(date=run_date, packet=str(packet_path))
-    return shlex.split(rendered)
+    return [token.format(date=run_date, packet=str(packet_path)) for token in shlex.split(template)]
 
 
 def run_checked(command: list[str]) -> CommandResult:
@@ -823,7 +971,7 @@ def run_fog_map_handoff(
     artifacts_dir: Path,
     skip_refresh: bool = False,
     skip_reason: str | None = None,
-    skip_research_quota: bool = False,
+    skip_research_quota: bool = True,
 ) -> int:
     command = [
         python_bin(),

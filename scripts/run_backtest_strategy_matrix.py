@@ -61,7 +61,7 @@ def _execution_settings(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="run backtest strategy matrix")
     parser.add_argument("--rankings-dir", default="artifacts")
     parser.add_argument("--features", default="data/clean/features.parquet")
@@ -101,7 +101,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--research-intent-id", default=None)
     parser.add_argument("--research-variant-role", choices=["baseline", "candidate"], default=None)
     parser.add_argument("--requested-trial-spec-ids", default=None)
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def replay_args(base: argparse.Namespace, scenario: dict[str, Any]) -> argparse.Namespace:
@@ -863,8 +863,8 @@ def pct(value: Any) -> str:
     return f"{float(value):.2%}"
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     payload = build_payload(args)
     run_date = datetime.now().strftime("%Y-%m-%d")
     output_path = Path(args.output).expanduser() if args.output else PROJECT_ROOT / "artifacts" / "backtest" / f"strategy_matrix_{run_date}.json"

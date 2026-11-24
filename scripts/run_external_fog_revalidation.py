@@ -15,21 +15,13 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from app.storage_safety import _existing_lexical_directory
+from scripts.storage_validation.boundary import external_paths, owned_validation_paths, owned_write_contract
+
 JOB = "fog-research-worker"
 EVIDENCE_DIR = "validation_evidence"
-SKIP_TOP_LEVEL = {
-    ".ai",
-    ".codegraph",
-    ".git",
-    ".pnpm-store",
-    ".pytest_cache",
-    ".work",
-    "docs",
-    "logs",
-    "mlruns",
-    "tests",
-    "web",
-}
 SKIP_NAMES = {"__pycache__", ".DS_Store"}
 REQUIRED_DOC_AUTHORITIES = (
     Path("architecture/fog_runtime_receipt_v3.schema.json"),
@@ -57,49 +49,74 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     )
 
 
-def copy_ignore(directory: str, names: list[str]) -> set[str]:
-    ignored = {name for name in names if name in SKIP_NAMES or name.endswith(".pyc")}
-    path = Path(directory)
-    if path.name == "artifacts":
-        ignored.update(name for name in names if name in {"archive", "model_experiments"})
-    if path.name == "weekend_training" and path.parent.name == "artifacts":
-        ignored.update(
-            name
-            for name in names
-            if name == "staging" or name.startswith("replay_runs_")
-        )
-    return ignored
+def copy_project(source: Path, sandbox: Path, *, source_commit: str | None = None) -> None:
+    """保留舊呼叫點，只複製 pinned helper；其餘 source 只做大小／雜湊清單。"""
+    from scripts.run_fog_representative_validation import CANDIDATE_DIR, BASELINE_DIR
+    from scripts.storage_validation.fog_research_worker import (
+        scan_source_tree, optional_source_file, external_review_selection,
+    )
+
+    source = _existing_lexical_directory(source, "source")
+    sandbox = _existing_lexical_directory(sandbox, "sandbox")
+    if source.is_relative_to(sandbox) or sandbox.is_relative_to(source):
+        raise ValueError("source 與 sandbox 不得重疊")
+    if (sandbox / ".git").exists() or (sandbox / ".git").is_symlink():
+        raise ValueError("sandbox 不得含 .git")
+    files = {source / relative for relative in (
+        "artifacts/market_regime_history.json", "data/clean/features.parquet",
+        "data/reference/stock_industry_map.csv", "config/regime_research_contract.json",
+        "scripts/run_autonomous_research.py", "scripts/publish_research_batch_intent.py",
+        "scripts/verify_research_spine_batch.py", "scripts/run_backtest_strategy_matrix.py",
+    )}
+    files.update(source / "docs" / p for p in REQUIRED_DOC_AUTHORITIES)
+    files.update(source / p for p in REQUIRED_ARTIFACT_AUTHORITIES)
+    scanned_trees = []
+    for relative in ("app", "scripts", "config", CANDIDATE_DIR, BASELINE_DIR):
+        tree = scan_source_tree(source, str(relative), sorted(SKIP_NAMES), [".pyc"])
+        if not tree["exists"]:
+            raise ValueError("必要 source tree 缺席")
+        scanned_trees.append(tree)
+        files.update(source / path for path, kind in tree["entries"].items() if kind == "file")
+    rows = []
+    for path in sorted(files):
+        if path.is_symlink() or not path.is_file() or path.resolve() != path:
+            raise ValueError("source manifest 必須是 lexical regular file")
+        rows.append({"path": path.relative_to(source).as_posix(), "size": path.stat().st_size,
+                     "sha256": sha256_file(path)})
+    interpreter = source / ".venv/bin/python"
+    resolved = interpreter.resolve(strict=True)
+    manifest = {"source_root": str(source), "source_commit": source_commit, "files": rows,
+                "scanned_trees": scanned_trees,
+                "optional_ledger": optional_source_file(source, "artifacts/model_experiments/model_experiment_ledger.json"),
+                "external_review": external_review_selection(source),
+                "interpreter": {"path": str(interpreter), "resolved": str(resolved),
+                                "size": resolved.stat().st_size, "sha256": sha256_file(resolved)},
+                "inputs_closed": False,
+                "unresolved_inputs": ["下游動態讀取與環境相依輸入尚未以 live trace 閉合",
+                                      "模型路徑尚未證實為本代表性分支必要輸入，未掃描整個 models",
+                                      "第三方套件／native library 完整身分尚未閉合"]}
+    if len(json.dumps(manifest).encode()) > 4 * 1024**2:
+        raise ValueError("source manifest 超過 4 MiB 上限")
+    relative = Path("scripts/storage_validation/fog_research_worker.py")
+    target = sandbox / relative
+    for directory in (target.parent, sandbox / "validation"):
+        if directory.resolve() != directory:
+            raise ValueError("owned output 不得包含 symlink")
+        directory.mkdir(parents=True, exist_ok=True)
+        _existing_lexical_directory(directory, "owned output")
+    manifest_target = sandbox / "validation/source-manifest.json"
+    if target.exists() or target.is_symlink() or manifest_target.exists() or manifest_target.is_symlink():
+        raise ValueError("shared fixture 必須是新建目標")
+    shutil.copy2(source / relative, target)
+    write_json(sandbox / "validation/source-manifest.json", manifest)
 
 
-def copy_project(source: Path, sandbox: Path) -> None:
-    for child in source.iterdir():
-        if child.name in SKIP_TOP_LEVEL:
-            continue
-        target = sandbox / child.name
-        if child.is_dir():
-            shutil.copytree(child, target, symlinks=False, ignore=copy_ignore)
-        elif child.is_file():
-            shutil.copy2(child, target)
-    for relative in REQUIRED_DOC_AUTHORITIES:
-        authority_source = source / "docs" / relative
-        authority_target = sandbox / "docs" / relative
-        authority_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(authority_source, authority_target)
-    for relative in REQUIRED_ARTIFACT_AUTHORITIES:
-        authority_source = source / relative
-        authority_target = sandbox / relative
-        authority_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(authority_source, authority_target)
-    python_source = (source / ".venv" / "bin" / "python").resolve(strict=True)
-    runtime_library = python_source.parents[1] / "lib" / "libpython3.12.dylib"
-    shutil.copy2(runtime_library, sandbox / ".venv" / "lib" / runtime_library.name)
-    links = [path for path in sandbox.rglob("*") if path.is_symlink()]
-    if links:
-        raise RuntimeError(f"sandbox 仍含 symlink：{links[0]}")
-
-
-def build_validation_contract(sandbox: Path, source_commit: str) -> tuple[Path, Path]:
-    runner = sandbox / "scripts" / "run_fog_research_worker.sh"
+def build_validation_contract(sandbox: Path, source_commit: str, *, source_root: Path | None = None) -> tuple[Path, Path]:
+    if source_root is not None:
+        sandbox = _existing_lexical_directory(sandbox, "sandbox")
+        source_root = _existing_lexical_directory(source_root, "source")
+        _existing_lexical_directory(sandbox / "validation", "validation")
+    runner = (source_root or sandbox) / "scripts" / "run_fog_research_worker.sh"
     entrypoint = sandbox / "scripts" / "storage_validation" / "fog_research_worker.py"
     contract = sandbox / "validation" / "fog-entrypoint-contract.json"
     marker = sandbox / "validation" / "validation-root.json"
@@ -116,6 +133,15 @@ def build_validation_contract(sandbox: Path, source_commit: str) -> tuple[Path, 
             source_commit,
         ],
     }
+    if source_root is not None:
+        manifest = sandbox / "validation/source-manifest.json"
+        contract_payload["argv"] = [
+            "--shared-source", "--source-root", str(source_root.resolve()),
+            "--source-commit", source_commit, "--validation-root", str(sandbox.resolve()),
+            "--source-manifest", str(manifest.resolve()), "--source-manifest-sha256", sha256_file(manifest),
+            "--runner-sha256", sha256_file(runner),
+            "--representative-sha256", sha256_file(source_root / "scripts/run_fog_representative_validation.py"),
+        ]
     write_json(contract, contract_payload)
     marker_payload = {
         "schema_version": "top10-storage-validation-root.v1",
@@ -137,31 +163,57 @@ def resolve_evidence_destination(value: str) -> Path:
     destination = Path(value)
     if not destination.is_absolute():
         raise RuntimeError("evidence destination 必須是絕對路徑")
-    resolved_parent = destination.parent.resolve(strict=True)
-    evidence_root = (PROJECT_ROOT / "docs" / "evidence").resolve(strict=True)
-    if resolved_parent != evidence_root or destination.exists() or destination.is_symlink():
-        raise RuntimeError("evidence destination 必須是 docs/evidence 下的新目錄")
+    with external_paths(destination):
+        if not destination.parent.is_dir() or destination.exists() or destination.is_symlink():
+            raise RuntimeError("evidence destination 必須是既有外接父目錄下的新目錄")
     return destination
 
 
 def publish_evidence(source: Path, destination: Path) -> None:
     """在目的磁碟建立 staging 後原子發布，支援 external sandbox 跨 volume。"""
 
+    root_text = os.environ.get("TMP_ARTIFACT_ROOT")
+    contract = owned_write_contract(Path(root_text)) if root_text else None
+    if contract is not None:
+        root = owned_validation_paths(source)
+        if (source != root / EVIDENCE_DIR or str(destination) != contract["evidence_destination"]
+                or EVIDENCE_DIR not in contract["preserve"]):
+            raise ValueError("exact-root evidence 與 lifecycle export 契約不符")
+        # child 只保留有界 root-relative evidence；原 lifecycle 在 child 退出後發布。
+        total = 0
+        count = 0
+        for path in source.rglob("*"):
+            if path.is_symlink() or (not path.is_file() and not path.is_dir()):
+                raise ValueError("exact-root evidence 不接受 symlink/special file")
+            count += 1
+            total += path.stat().st_size if path.is_file() else 0
+            if count > 512 or total > 8 * 1024**2:
+                raise ValueError("exact-root evidence 超過 512 entries/8 MiB")
+        return
+
     if destination.exists() or destination.is_symlink():
         raise FileExistsError(f"evidence destination 已存在：{destination}")
+    resolve_evidence_destination(str(destination))
     staging = destination.parent / f".{destination.name}.staging-{uuid.uuid4().hex}"
+    created = None
     try:
-        shutil.copytree(source, staging)
+        staging.mkdir()
+        info = staging.stat()
+        created = (info.st_dev, info.st_ino)
+        shutil.copytree(source, staging, dirs_exist_ok=True)
         if destination.exists() or destination.is_symlink():
             raise FileExistsError(f"evidence destination 已存在：{destination}")
         os.rename(staging, destination)
     except BaseException:
-        if staging.exists():
-            shutil.rmtree(staging)
+        if created is not None and staging.is_dir() and not staging.is_symlink():
+            info = staging.stat()
+            if created == (info.st_dev, info.st_ino):
+                shutil.rmtree(staging)
         raise
 
 
 def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[int, dict[str, Any]]:
+    owned_validation_paths(sandbox)
     artifact_root = sandbox / "artifacts" / "autonomous_research"
     artifact_patterns = (
         "autonomous_research_daily_quota_????-??-??.json",
@@ -177,11 +229,15 @@ def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[
         for path in initial_artifacts
     }
     command = [
-        str(sandbox / ".venv" / "bin" / "python"),
-        str(sandbox / "scripts" / "storage_safety.py"),
+        str(PROJECT_ROOT / ".venv" / "bin" / "python"),
+        "-I",
+        "-B",
+        str(PROJECT_ROOT / "scripts" / "storage_safety.py"),
         "--policy",
-        str(sandbox / "docs" / "operations" / "top10-storage-policy.json"),
+        str(PROJECT_ROOT / "docs" / "operations" / "top10-storage-policy.json"),
         "validate-run",
+        "--sandbox-root",
+        str(sandbox),
         "--job",
         JOB,
         "--marker",
@@ -197,7 +253,11 @@ def run_cycle(sandbox: Path, marker: Path, contract: Path, cycle: int) -> tuple[
         "--entrypoint-contract",
         str(contract),
     ]
-    completed = subprocess.run(command, cwd=sandbox, text=True, capture_output=True, check=False)
+    # Seatbelt child 使用 sandbox tmp/cache；保留 lifecycle owner，移除共享 cache 寫入配置。
+    child_environment = {key: value for key, value in os.environ.items()
+                         if not key.startswith("AI_CORE_CACHE_") and key != "TOP10_EXTERNAL_CACHE_ROOT"}
+    completed = subprocess.run(command, cwd=sandbox, env=child_environment,
+                               text=True, capture_output=True, check=False)
     receipt_path = sandbox / "logs" / "storage_safety" / f"{JOB}_latest.json"
     if not receipt_path.is_file():
         raise RuntimeError(f"cycle {cycle} 缺 guard receipt：{completed.stderr[-1000:]}")
@@ -275,17 +335,26 @@ def main() -> int:
     external_root_text = os.environ.get("TOP10_EXTERNAL_VOLUME_ROOT", "")
     if os.environ.get("AI_CORE_TMP_ARTIFACT_ACTIVE") != "1" or not sandbox_text:
         raise SystemExit("NO_GO: 必須由 tmp_artifact_lifecycle 啟動")
-    sandbox = Path(sandbox_text).resolve(strict=True)
-    external_root = Path(external_root_text).resolve(strict=True)
-    destination = resolve_evidence_destination(
-        os.environ.get("TOP10_EVIDENCE_DESTINATION", "")
-    )
+    sandbox = owned_validation_paths(Path(sandbox_text))
+    # 先確認既有 owner 才留最小失敗證據；wide 入口不得寫 fixture 或啟動 workload。
+    evidence = sandbox / EVIDENCE_DIR
+    evidence.mkdir(exist_ok=True)
+    try:
+        contract = owned_write_contract(sandbox)
+        if contract is None:
+            raise ValueError("FOG 要求 tmp_artifact_lifecycle --external-only --owned-root-writes-only")
+        external_root = Path(external_root_text).resolve(strict=True)
+        destination = resolve_evidence_destination(os.environ.get("TOP10_EVIDENCE_DESTINATION", ""))
+        if str(destination) != contract["evidence_destination"] or EVIDENCE_DIR not in contract["preserve"]:
+            raise ValueError("exact-root evidence 與 lifecycle export 契約不符")
+    except (ValueError, RuntimeError, OSError) as error:
+        write_json(evidence / "summary.json", {"verdict": "NO-GO", "phase": "admission",
+                   "orchestrator_error": str(error)[:2000]})
+        return 78
     sandbox.relative_to(external_root)
     if (sandbox / ".git").exists():
         raise SystemExit("NO_GO: lifecycle root 不得是 git checkout")
 
-    evidence = sandbox / EVIDENCE_DIR
-    evidence.mkdir()
     source_commit = subprocess.check_output(
         ["git", "-C", str(PROJECT_ROOT), "rev-parse", "HEAD"], text=True
     ).strip()
@@ -297,8 +366,8 @@ def main() -> int:
     }
     result = 70
     try:
-        copy_project(PROJECT_ROOT, sandbox)
-        marker, contract = build_validation_contract(sandbox, source_commit)
+        copy_project(PROJECT_ROOT, sandbox, source_commit=source_commit)
+        marker, contract = build_validation_contract(sandbox, source_commit, source_root=PROJECT_ROOT)
         for cycle in (1, 2):
             code, receipt = run_cycle(sandbox, marker, contract, cycle)
             summary["cycles"].append(

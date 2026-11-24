@@ -25,6 +25,10 @@ from tests.test_research_ledger import corpus_with_receipt
 from tests.test_research_legacy_migration import write_matrix as write_legacy_matrix
 
 
+A6_BASE_REF = "bb617e98aabefcc52bbf7cb1834fb5fba715d60a"
+A6_CANDIDATE_REF = "6f6796c5da549b3c62698b336cacdda63ced6c6d"
+
+
 def _failed_corpus(root: Path) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     context = begin(root)
@@ -99,7 +103,8 @@ def test_a6_closure_rebuilds_a1_to_a5_and_history_projection_deterministically(
     tmp_path: Path,
 ) -> None:
     corpus, _ = corpus_with_receipt(tmp_path / "source")
-    result = verify_a6_closure(corpus_root=corpus, output_root=tmp_path / "closure")
+    result = verify_a6_closure(corpus_root=corpus, output_root=tmp_path / "closure",
+                              base_ref=A6_BASE_REF, candidate_ref=A6_CANDIDATE_REF)
 
     assert result["status"] == "PASS"
     assert result["scope_guards"] == {
@@ -132,7 +137,8 @@ def test_a6_closure_fixture_includes_a3_migration_rebuild(tmp_path: Path) -> Non
     write_legacy_matrix(legacy_source)
     build_migration(corpus_root=corpus, sources=[LegacySource(legacy_source, "STRATEGY_MATRIX")])
 
-    result = verify_a6_closure(corpus_root=corpus, output_root=tmp_path / "closure")
+    result = verify_a6_closure(corpus_root=corpus, output_root=tmp_path / "closure",
+                              base_ref=A6_BASE_REF, candidate_ref=A6_CANDIDATE_REF)
     assert result["status"] == "PASS"
     assert result["rebuild"]["first"]["counts"]["migration_manifests"] == 1
     assert result["rebuild"]["first"]["counts"]["migrated_records"] == 1
@@ -161,7 +167,8 @@ def test_new_run_truth_success_failure_and_orphan_do_not_use_history_or_backfill
 
 def test_closure_fails_closed_when_first_party_receipt_is_missing(tmp_path: Path) -> None:
     corpus = _orphan_corpus(tmp_path / "orphan-only")
-    result = verify_a6_closure(corpus_root=corpus, output_root=tmp_path / "closure")
+    result = verify_a6_closure(corpus_root=corpus, output_root=tmp_path / "closure",
+                              base_ref=A6_BASE_REF, candidate_ref=A6_CANDIDATE_REF)
     assert result["status"] == "FAIL"
     assert "NEW_RUN_TRUTH_FAIL_CLOSED" in result["error_codes"]
 
@@ -169,7 +176,8 @@ def test_closure_fails_closed_when_first_party_receipt_is_missing(tmp_path: Path
 def test_closure_rejects_output_root_that_contains_corpus(tmp_path: Path) -> None:
     corpus, _ = corpus_with_receipt(tmp_path / "source")
     with pytest.raises(ValueError, match="A6_OUTPUT_ROOT"):
-        verify_a6_closure(corpus_root=corpus, output_root=corpus)
+        verify_a6_closure(corpus_root=corpus, output_root=corpus,
+                          base_ref=A6_BASE_REF, candidate_ref=A6_CANDIDATE_REF)
 
 
 def test_closure_rejects_repository_child_as_destructive_output_root(tmp_path: Path) -> None:
@@ -177,26 +185,35 @@ def test_closure_rejects_repository_child_as_destructive_output_root(tmp_path: P
     repository = tmp_path / "repository"
     (repository / ".git").mkdir(parents=True)
     with pytest.raises(ValueError, match="A6_OUTPUT_ROOT"):
-        verify_a6_closure(corpus_root=corpus, output_root=repository / "app")
+        verify_a6_closure(corpus_root=corpus, output_root=repository / "app",
+                          base_ref=A6_BASE_REF, candidate_ref=A6_CANDIDATE_REF)
 
 
 def test_scope_guards_are_derived_from_the_candidate_diff() -> None:
     guards = scope_guards(
-        base_ref="bb617e98aabefcc52bbf7cb1834fb5fba715d60a",
-        candidate_ref="HEAD",
+        base_ref=A6_BASE_REF,
+        candidate_ref=A6_CANDIDATE_REF,
     )
     assert set(guards) == {
         "card_b_started", "card_c_started", "production_changed", "scheduler_changed",
         "ranking_or_backtest_math_changed",
     }
     assert not any(guards.values())
+    # 固定較晚的真實 candidate 必須攔出 scheduler 差異，其餘 guard 仍維持 false。
+    scheduler_change = scope_guards(
+        base_ref=A6_BASE_REF,
+        candidate_ref="25348435c5049c5d2ac486fe504c8c0abd4d19fd",
+    )
+    assert scheduler_change == {**guards, "scheduler_changed": True}
 
 
 def test_checked_in_closure_receipt_canonically_matches_fixed_fixture_recompute(tmp_path: Path) -> None:
-    expected = Path("docs/evidence/CARD-NEW-TOP10-RESEARCH-A6-DEPRECATION-REBUILD-AND-BRIDGE-REMOVAL-GATES/closure_receipt.json")
+    # 歷史原件保留；本 fixture 僅補兩個已映射 reader，其他驗收值完全相同。
+    expected = Path(__file__).parent / "fixtures/research_spine_a6/closure_receipt.json"
     actual = tmp_path / "closure_receipt.json"
     completed = subprocess.run(
-        [sys.executable, "scripts/verify_research_spine_a6_fixed_fixture.py", "--output", str(actual)],
+        [sys.executable, "scripts/verify_research_spine_a6_fixed_fixture.py", "--output", str(actual),
+         "--base-ref", A6_BASE_REF, "--candidate-ref", A6_CANDIDATE_REF],
         check=False, capture_output=True, text=True,
     )
     assert completed.returncode == 0, completed.stderr

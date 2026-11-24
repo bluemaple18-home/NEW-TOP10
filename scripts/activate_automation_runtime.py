@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 import plistlib
@@ -18,6 +19,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable, Sequence, TextIO
+
+import yaml
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -145,6 +148,7 @@ class ActivationTransaction:
         launch_agents_dir: Path,
         expected_old_root: Path,
         receipt_path: Path,
+        environment_root: Path | None = None,
         launchctl_bin: str = "/bin/launchctl",
         plutil_bin: str = "/usr/bin/plutil",
         domain: str | None = None,
@@ -152,6 +156,7 @@ class ActivationTransaction:
         fault_hook: FaultHook = noop_fault_hook,
         target_jobs: Sequence[str] | None = None,
         allow_dormant_target_activation: bool = False,
+        allow_enabled_unloaded_target_activation: bool = False,
     ) -> None:
         requested_jobs = (
             LEGACY_DEFAULT_TARGET_JOBS
@@ -174,13 +179,25 @@ class ActivationTransaction:
             )
         if allow_dormant_target_activation and requested_set != DORMANT_TARGET_JOBS:
             raise ActivationError("dormant target activation 只允許單選 retrain-monitor")
+        if allow_enabled_unloaded_target_activation and target_jobs is None:
+            raise ActivationError(
+                "enabled/unloaded target activation 必須明確指定 --job"
+            )
+        if allow_enabled_unloaded_target_activation and dormant_requested:
+            raise ActivationError(
+                "enabled/unloaded target activation 不接受 dormant retrain-monitor"
+            )
         self.target_jobs = tuple(
             job for job in TARGET_JOBS if job[0] in requested_set
         )
         self.allow_dormant_target_activation = allow_dormant_target_activation
+        self.allow_enabled_unloaded_target_activation = (
+            allow_enabled_unloaded_target_activation
+        )
         self.source_root = source_root.resolve()
         self.runtime_root = runtime_root.resolve()
         self.accepted_commit = accepted_commit
+        self.environment_root = environment_root
         self.launch_agents_dir = launch_agents_dir.resolve()
         self.expected_old_root = expected_old_root.resolve()
         self.receipt_path = receipt_path.resolve()
@@ -420,14 +437,54 @@ class ActivationTransaction:
         if self.receipt_path.exists():
             self._receipt_path_conflict = True
             raise ActivationError(f"receipt path 必須為 fresh invocation path: {self.receipt_path}")
-        self.canonical_commit = validate_runtime_checkout(
-            self.source_root,
-            self.runtime_root,
-            self.accepted_commit,
-        )
+        if self.environment_root is not None:
+            from prepare_runtime_checkout import validate_runtime_environment
+
+            prepared = validate_runtime_environment(
+                self.source_root, self.runtime_root, self.accepted_commit,
+                self.environment_root,
+            )
+            self.canonical_commit = prepared["commit"]
+        else:
+            if (self.runtime_root / ".venv").is_symlink():
+                raise ActivationError("重用 .venv 連結須明示 environment_root 並核對依賴")
+            self.canonical_commit = validate_runtime_checkout(
+                self.source_root, self.runtime_root, self.accepted_commit,
+            )
         runtime_python = self.runtime_root / ".venv" / "bin" / "python"
         if not runtime_python.is_file() or not os.access(runtime_python, os.X_OK):
             raise ActivationError("runtime checkout 缺可執行 .venv/bin/python")
+        if any(guard_name == "daily" for guard_name, _, _ in self.target_jobs):
+            config_path = self.runtime_root / "config" / "automation.yaml"
+            if not config_path.is_file():
+                raise ActivationError(f"Daily runtime 缺設定檔: {config_path}")
+            config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+            daily = config.get("daily", {})
+            if daily.get("market_coverage_enabled", True):
+                helper_path = self.runtime_root / "scripts" / "daily_market_reference.py"
+                if not helper_path.is_file():
+                    raise ActivationError(f"Daily runtime 缺市場參考驗證器: {helper_path}")
+                spec = importlib.util.spec_from_file_location(
+                    "candidate_daily_market_reference", helper_path
+                )
+                if spec is None or spec.loader is None:
+                    raise ActivationError(f"Daily runtime 無法載入市場參考驗證器: {helper_path}")
+                helper = importlib.util.module_from_spec(spec)
+                # 本輪由 helper 新建的 native threads 須繼承 blocked mask；
+                # arm 前還原主線原 mask，不改市場計數或已有 threads 的責任邊界。
+                helper_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM})
+                try:
+                    spec.loader.exec_module(helper)
+                    required = [
+                        str(market).strip().lower()
+                        for market in daily.get("required_market_types", ["twse", "tpex"])
+                        if str(market).strip()
+                    ]
+                    expected = helper.expected_market_counts(self.runtime_root, required)
+                finally:
+                    signal.pthread_sigmask(signal.SIG_SETMASK, helper_mask)
+                if not required or any(expected.get(market, 0) <= 0 for market in required):
+                    raise ActivationError("Daily runtime 缺必要市場參考檔或必要市場無有效股票")
         if not self.launch_agents_dir.is_dir():
             raise ActivationError(f"LaunchAgents 目錄不存在: {self.launch_agents_dir}")
 
@@ -459,7 +516,13 @@ class ActivationTransaction:
                 if not pre_disabled:
                     raise ActivationError(f"dormant target 並非 disabled: {label}")
             elif not loaded:
-                raise ActivationError(f"A4 前置拓樸不符：{label} 目前未載入")
+                if not self.allow_enabled_unloaded_target_activation:
+                    raise ActivationError(f"A4 前置拓樸不符：{label} 目前未載入")
+                pre_disabled, _ = self._probe_disabled(label)
+                if pre_disabled:
+                    raise ActivationError(
+                        f"enabled/unloaded target 實際為 disabled: {label}"
+                    )
             if running:
                 raise ActivationError(f"A4 拒絕中斷正在執行的 job: {label}")
 
@@ -1280,6 +1343,11 @@ class ActivationTransaction:
         try:
             if callable(pthread_sigmask):
                 old_mask = pthread_sigmask(signal.SIG_BLOCK, set(watched))
+                # prepare 在 arm 前失敗時仍會寫 terminal receipt；這次 block
+                # 也須登記給 outer teardown，避免把 pending signal 留到下一筆。
+                if self._original_signal_mask is None:
+                    self._original_signal_mask = old_mask
+                    self._old_signal_mask = old_mask
                 self._pending_signal_mask_restore = (
                     self._old_signal_mask
                     if self._old_signal_mask is not None
@@ -1415,6 +1483,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--runtime-root", type=Path, required=True)
     parser.add_argument("--accepted-commit", required=True)
+    parser.add_argument("--environment-root", type=Path,
+                        help="prepare 入口重用的既有外接 .venv；啟用前重驗依賴契約")
     parser.add_argument("--expected-old-root", type=Path, required=True)
     parser.add_argument("--receipt", type=Path, required=True)
     parser.add_argument(
@@ -1434,6 +1504,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="明確允許單選 disabled/unloaded retrain-monitor 並由 transaction enable/bootstrap。",
     )
+    parser.add_argument(
+        "--allow-enabled-unloaded-target-activation",
+        action="store_true",
+        help="明確允許已指定且經 print-disabled 證明為 enabled 的 unloaded target 由 transaction bootstrap。",
+    )
     parser.add_argument("--activate", action="store_true")
     return parser.parse_args()
 
@@ -1449,12 +1524,16 @@ def main() -> int:
             source_root=source_root,
             runtime_root=args.runtime_root,
             accepted_commit=args.accepted_commit,
+            environment_root=getattr(args, "environment_root", None),
             launch_agents_dir=args.launch_agents_dir,
             expected_old_root=args.expected_old_root,
             receipt_path=args.receipt,
             target_jobs=getattr(args, "target_jobs", None),
             allow_dormant_target_activation=getattr(
                 args, "allow_dormant_target_activation", False
+            ),
+            allow_enabled_unloaded_target_activation=getattr(
+                args, "allow_enabled_unloaded_target_activation", False
             ),
         )
         status = transaction.run()

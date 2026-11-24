@@ -95,6 +95,8 @@ def load_reviews(review_dir: Path, review_date: str) -> list[dict[str, Any]]:
 
 def review_errors(payload: dict[str, Any], provider: str, review_date: str) -> list[str]:
     errors: list[str] = []
+    if payload.get("status") != "ACCEPTED":
+        errors.append(f"status_not_accepted:{payload.get('status')}")
     if payload.get("schema_version") != REVIEW_SCHEMA_VERSION:
         errors.append("schema_version_mismatch")
     if payload.get("provider") != provider:

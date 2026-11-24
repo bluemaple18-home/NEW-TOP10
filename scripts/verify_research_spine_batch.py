@@ -265,7 +265,7 @@ def verify_batch(
     return result
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch-id", required=True)
     parser.add_argument(
@@ -275,7 +275,7 @@ def main() -> int:
     parser.add_argument("--run-artifact", type=Path)
     parser.add_argument("--verify-a4-rebuild", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     result = verify_batch(
         corpus_root=args.corpus_root,
         batch_id=args.batch_id,

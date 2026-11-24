@@ -7,7 +7,10 @@
 from __future__ import annotations
 
 import json
+import fcntl
+import os
 import re
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -186,19 +189,132 @@ def event_paths(artifacts_dir: Path, run_date: str, run_id: str, agent_id: str) 
     }
 
 
-def write_agent_event(event: dict[str, Any], *, artifacts_dir: str | Path = "artifacts", manifest_path: str | Path = DEFAULT_MANIFEST_PATH) -> Path:
+def owns_latest_run(artifacts_dir: Path, run_date: str, run_id: str) -> bool:
+    """同日既有 latest owner 不得由舊 run 的回讀／重建暗中取代。"""
+    latest = artifacts_dir / "harness_status" / run_date / "latest_run_id.txt"
+    try:
+        owner = latest.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return True
+    return not owner or owner == run_id
+
+
+def is_early_daily_failure(event: dict[str, Any]) -> bool:
+    """辨識 Daily 在 publish 前失敗的正式阻塞事件。"""
+    return (
+        event["agent_id"] == "daily_push"
+        and event["run_id"] == f"daily-{event['run_date']}"
+        and event["status"] == "skipped" and event["decision"] == "stop"
+        and str(event.get("failure_reason") or "").startswith("daily failed before publish;")
+    )
+
+
+def newer_harness_run(artifacts_dir: Path, run_date: str, run_id: str, event: dict[str, Any]) -> bool:
+    """只允許有較晚、可驗證開始時間的新 Daily 接管 owner。"""
+    if event.get("agent_id") != "harness_runner" and not is_early_daily_failure(event):
+        return False
+    owner_path = artifacts_dir / "harness_status" / run_date / "latest_run_id.txt"
+    try:
+        owner = owner_path.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeError):
+        return False
+    if owner == run_id:
+        return False
+    try:
+        prior = json.loads(event_paths(artifacts_dir, run_date, owner, "harness_runner")["event"].read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        # 舊版可由送達事件建立 latest；仍須比較其最早可驗證時間。
+        prior = None
+        for agent_id in ("research_worker", "daily_push", "ops_reporter"):
+            try:
+                prior = json.loads(event_paths(artifacts_dir, run_date, owner, agent_id)["event"].read_text(encoding="utf-8"))
+                break
+            except FileNotFoundError:
+                continue
+            except (OSError, UnicodeError, ValueError, TypeError):
+                return False
+        if prior is None:
+            # 無可核對的前任開始時間時，禁止舊 run 搶回 owner。
+            return False
+    except (OSError, UnicodeError, ValueError, TypeError):
+        return False
+    try:
+        current_start = datetime.fromisoformat(str(event["started_at"]))
+        prior_start = datetime.fromisoformat(str(prior["started_at"]))
+    except (ValueError, TypeError, KeyError):
+        return False
+    return (owner != run_id and prior.get("run_id") == owner
+            and current_start.tzinfo is not None and prior_start.tzinfo is not None
+            and current_start > prior_start)
+
+
+@contextmanager
+def rollup_lock(artifacts_dir: Path, run_date: str, run_id: str):
+    """同日期所有 run 共用鎖，避免 latest 指標被舊快照覆蓋。"""
+    root = artifacts_dir / "harness_status" / run_date
+    root.mkdir(parents=True, exist_ok=True)
+    if root.is_symlink():
+        raise RuntimeError("rollup date root symlink rejected")
+    # 鎖目錄 inode；單純替換 rollup.lock 檔名不能產生第二把鎖。
+    descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+
+
+def event_record_complete(artifacts_dir: Path, run_date: str, run_id: str, agent_id: str) -> bool:
+    """歷史送達以該 run 的事件、JSONL 與 rollup 驗證，latest 可指向新 run。"""
+    paths = event_paths(artifacts_dir, run_date, run_id, agent_id)
+    rollup = paths["root"] / "rollup.json"
+    try:
+        event = json.loads(paths["event"].read_text(encoding="utf-8"))
+        if (event.get("run_date") != run_date or event.get("run_id") != run_id
+            or event.get("agent_id") != agent_id or event.get("status") != "ok"
+            or event.get("decision") != "pass"):
+            return False
+        history = [json.loads(line) for line in paths["jsonl"].read_text(encoding="utf-8").splitlines() if line]
+        if not any(item.get("agent_id") == agent_id and item.get("run_id") == run_id
+                   and item.get("status") == "ok" for item in history):
+            return False
+        for path in (rollup,):
+            state = json.loads(path.read_text(encoding="utf-8"))
+            if state.get("run_date") != run_date or state.get("run_id") != run_id:
+                return False
+            if not any(item.get("agent_id") == agent_id and item.get("status") == "ok"
+                       for item in state.get("agents", []) if isinstance(item, dict)):
+                return False
+    except (OSError, UnicodeError, ValueError, TypeError, AttributeError):
+        return False
+    return True
+
+
+def write_agent_event(
+    event: dict[str, Any], *, artifacts_dir: str | Path = "artifacts",
+    manifest_path: str | Path = DEFAULT_MANIFEST_PATH, lock_held: bool = False,
+) -> Path:
     manifest = read_manifest(manifest_path)
     errors = validate_event(event, manifest)
     if errors:
         raise ValueError("; ".join(errors))
     artifacts = Path(artifacts_dir)
-    paths = event_paths(artifacts, event["run_date"], event["run_id"], event["agent_id"])
-    paths["event"].parent.mkdir(parents=True, exist_ok=True)
-    paths["event"].write_text(json.dumps(event, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    with paths["jsonl"].open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
-    paths["latest_run"].write_text(event["run_id"] + "\n", encoding="utf-8")
-    return paths["event"]
+    lock = nullcontext() if lock_held else rollup_lock(artifacts, event["run_date"], event["run_id"])
+    with lock:
+        paths = event_paths(artifacts, event["run_date"], event["run_id"], event["agent_id"])
+        paths["event"].parent.mkdir(parents=True, exist_ok=True)
+        paths["event"].write_text(json.dumps(event, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        with paths["jsonl"].open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+        has_owner = paths["latest_run"].exists()
+        daily_pre_publish_failure = is_early_daily_failure(event)
+        delivery_without_owner = (not has_owner and event["agent_id"] in {"daily_push", "ops_reporter"}
+                                  and not daily_pre_publish_failure)
+        if (not delivery_without_owner and owns_latest_run(artifacts, event["run_date"], event["run_id"])
+            or newer_harness_run(artifacts, event["run_date"], event["run_id"], event)):
+            paths["latest_run"].write_text(event["run_id"] + "\n", encoding="utf-8")
+        return paths["event"]
 
 
 def load_events(events_dir: Path) -> list[dict[str, Any]]:

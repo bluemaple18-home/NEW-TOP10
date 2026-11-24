@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 from scripts.build_top10_agent_status_rollup import build_rollup
-from scripts.top10_agent_status import build_event, read_manifest, validate_event, write_agent_event
+from scripts.top10_agent_status import build_event, read_manifest, rollup_lock, validate_event, write_agent_event
 
 
 class Top10AgentStatusTest(unittest.TestCase):
@@ -81,6 +84,165 @@ class Top10AgentStatusTest(unittest.TestCase):
 
             payload = json.loads(event_path.read_text(encoding="utf-8"))
             self.assertEqual(payload["agent_id"], "external_review_harness")
+
+    def test_newer_harness_run_promotes_latest_without_old_run_reclaim(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+
+            def record(run_id: str, started_at: str) -> None:
+                event = build_event(
+                    run_id=run_id, run_date="2026-10-15", agent_id="harness_runner",
+                    status="ok", decision="pass", started_at=started_at,
+                    finished_at="2026-10-15T09:00:00+00:00",
+                )
+                write_agent_event(event, artifacts_dir=artifacts)
+
+            record("daily-old", "2026-10-15T07:00:00+00:00")
+            record("daily-new", "2026-10-15T08:00:00+00:00")
+            latest = artifacts / "harness_status" / "2026-10-15" / "latest_run_id.txt"
+            self.assertEqual(latest.read_text().strip(), "daily-new")
+            record("daily-old", "2026-10-15T07:00:00+00:00")
+            self.assertEqual(latest.read_text().strip(), "daily-new")
+
+    def test_daily_harness_replaces_research_only_latest_owner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            date = "2026-10-15"
+            research = build_event(
+                run_id="fog-research-first", run_date=date, agent_id="research_worker",
+                status="ok", decision="pass", started_at="2026-10-15T07:00:00+00:00",
+            )
+            write_agent_event(research, artifacts_dir=artifacts)
+            latest = artifacts / "harness_status" / date / "latest_run_id.txt"
+            self.assertEqual(latest.read_text().strip(), "fog-research-first")
+            daily = build_event(
+                run_id="daily-after-fog", run_date=date, agent_id="harness_runner",
+                status="ok", decision="pass", started_at="2026-10-15T08:00:00+00:00",
+            )
+            write_agent_event(daily, artifacts_dir=artifacts)
+            self.assertEqual(latest.read_text().strip(), "daily-after-fog")
+
+    def test_daily_harness_replaces_research_owner_with_later_ops_event(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            date = "2026-10-15"
+            for agent_id, started in (("research_worker", "2026-10-15T07:00:00+00:00"),
+                                      ("ops_reporter", "2026-10-15T09:00:00+00:00")):
+                write_agent_event(build_event(
+                    run_id="fog-research-first", run_date=date, agent_id=agent_id,
+                    status="ok", decision="pass", started_at=started,
+                ), artifacts_dir=artifacts)
+            latest = artifacts / "harness_status" / date / "latest_run_id.txt"
+            write_agent_event(build_event(
+                run_id="daily-after-fog", run_date=date, agent_id="harness_runner",
+                status="ok", decision="pass", started_at="2026-10-15T08:00:00+00:00",
+            ), artifacts_dir=artifacts)
+            self.assertEqual(latest.read_text().strip(), "daily-after-fog")
+
+    def test_early_daily_failure_can_own_latest_for_ops_blocker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            date = "2026-10-15"
+            write_agent_event(build_event(
+                run_id=f"daily-{date}", run_date=date, agent_id="daily_push",
+                status="skipped", decision="stop",
+                failure_reason="daily failed before publish; exit_code=1",
+            ), artifacts_dir=artifacts)
+            latest = artifacts / "harness_status" / date / "latest_run_id.txt"
+            self.assertEqual(latest.read_text().strip(), f"daily-{date}")
+
+    def test_early_daily_failure_replaces_earlier_fog_owner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            date = "2026-10-15"
+            write_agent_event(build_event(
+                run_id="fog-first", run_date=date, agent_id="research_worker",
+                status="ok", decision="pass", started_at="2026-10-15T07:00:00+00:00",
+            ), artifacts_dir=artifacts)
+            write_agent_event(build_event(
+                run_id=f"daily-{date}", run_date=date, agent_id="daily_push",
+                status="skipped", decision="stop", started_at="2026-10-15T08:00:00+00:00",
+                failure_reason="daily failed before publish; exit_code=1",
+            ), artifacts_dir=artifacts)
+            latest = artifacts / "harness_status" / date / "latest_run_id.txt"
+            self.assertEqual(latest.read_text().strip(), f"daily-{date}")
+
+    def test_missing_owner_event_cannot_be_replaced_by_unknown_older_harness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            date = "2026-10-15"
+            latest = artifacts / "harness_status" / date / "latest_run_id.txt"
+            latest.parent.mkdir(parents=True)
+            latest.write_text("daily-new\n")
+            write_agent_event(build_event(
+                run_id="daily-old", run_date=date, agent_id="harness_runner",
+                status="ok", decision="pass", started_at="2026-10-15T07:00:00+00:00",
+            ), artifacts_dir=artifacts)
+            self.assertEqual(latest.read_text().strip(), "daily-new")
+
+    def test_independent_owner_writer_waits_for_date_rollup_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            date = "2026-10-15"
+            event = build_event(run_id="fog-first", run_date=date, agent_id="research_worker",
+                                status="ok", decision="pass")
+            ready = artifacts / "child-ready"
+            command = (
+                "import json,sys\nfrom pathlib import Path\n"
+                "from scripts.top10_agent_status import write_agent_event\n"
+                "Path(sys.argv[2]).touch()\n"
+                "write_agent_event(json.loads(sys.argv[3]), artifacts_dir=Path(sys.argv[1]))\n"
+            )
+            with rollup_lock(artifacts, date, "daily-owner"):
+                child = subprocess.Popen([sys.executable, "-c", command, str(artifacts),
+                                          str(ready), json.dumps(event)],
+                                         cwd=Path(__file__).resolve().parents[1])
+                deadline = time.monotonic() + 5
+                while not ready.exists() and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                self.assertTrue(ready.exists())
+                time.sleep(0.1)
+                self.assertIsNone(child.poll())
+            self.assertEqual(child.wait(timeout=5), 0)
+
+    def test_harness_replaces_legacy_delivery_only_latest_owner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            date = "2026-10-15"
+            old_event = build_event(
+                run_id="daily-old", run_date=date, agent_id="daily_push",
+                status="degraded", decision="stop",
+                started_at="2026-10-15T07:00:00+00:00",
+            )
+            write_agent_event(old_event, artifacts_dir=artifacts)
+            latest = artifacts / "harness_status" / date / "latest_run_id.txt"
+            self.assertFalse(latest.exists())
+            latest.write_text("daily-old\n", encoding="utf-8")
+            new_event = build_event(
+                run_id="daily-new", run_date=date, agent_id="harness_runner",
+                status="ok", decision="pass", started_at="2026-10-15T08:00:00+00:00",
+            )
+            write_agent_event(new_event, artifacts_dir=artifacts)
+            self.assertEqual(latest.read_text().strip(), "daily-new")
+
+    def test_older_harness_cannot_displace_delivery_only_latest_owner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts = Path(tmp)
+            date = "2026-10-15"
+            delivery = build_event(
+                run_id="daily-new", run_date=date, agent_id="daily_push",
+                status="degraded", decision="stop",
+                started_at="2026-10-15T08:00:00+00:00",
+            )
+            write_agent_event(delivery, artifacts_dir=artifacts)
+            latest = artifacts / "harness_status" / date / "latest_run_id.txt"
+            latest.write_text("daily-new\n", encoding="utf-8")
+            older = build_event(
+                run_id="daily-old", run_date=date, agent_id="harness_runner",
+                status="ok", decision="pass", started_at="2026-10-15T07:00:00+00:00",
+            )
+            write_agent_event(older, artifacts_dir=artifacts)
+            self.assertEqual(latest.read_text().strip(), "daily-new")
 
     def test_fog_map_is_a_formal_agent(self):
         event = build_event(

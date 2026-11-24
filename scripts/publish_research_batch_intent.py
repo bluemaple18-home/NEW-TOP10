@@ -17,7 +17,11 @@ from app.research.batch_owner import build_batch_intent, publish_batch_intent  #
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def main() -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    project_head: str | None = None,
+) -> int:
     parser = argparse.ArgumentParser(description="publish immutable research Batch Intent")
     parser.add_argument("--batch-id", required=True)
     parser.add_argument("--execution-epoch", required=True)
@@ -51,7 +55,7 @@ def main() -> int:
         default=PROJECT_ROOT / "config/research_parameter_catalog.json",
     )
     parser.add_argument("runner_argv", nargs=argparse.REMAINDER)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.manager_root is not None:
         manager_root = args.manager_root.resolve(strict=False)
         default_manager_root = args.output.parent.resolve(strict=False)
@@ -80,6 +84,7 @@ def main() -> int:
         policy_path=args.policy,
         catalog_path=args.catalog,
         execution_epoch=args.execution_epoch,
+        project_head=project_head,
     )
     publish_batch_intent(corpus_root=args.corpus_root, payload=payload)
     print(str(payload["batch_intent_id"]))

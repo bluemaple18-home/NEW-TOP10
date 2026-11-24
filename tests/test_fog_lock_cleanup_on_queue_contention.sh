@@ -27,6 +27,7 @@ printf '%s\n' "$$" > "$TEST_ROOT/logs/research_queue_owner.lock/pid"
 printf '%s\n' "pm_research_harness" > "$TEST_ROOT/logs/research_queue_owner.lock/owner"
 printf 'token-%s\n' "$$" > "$TEST_ROOT/logs/research_queue_owner.lock/start_token"
 
+TOP10_PROCESS_IDENTITY_MODE=ps \
 TOP10_PROCESS_IDENTITY_PS_BIN="$FAKE_PS" \
 TOP10_RESEARCH_QUEUE_OWNER=fog_worker \
 bash "$TEST_ROOT/scripts/run_fog_research_worker.sh"

@@ -773,8 +773,9 @@ def build_payload(
     summary["active_expansion_unexecuted"] = active_unexecuted_count
     summary["unlit_representative_count"] = len(unlit_representative_queue)
     summary["active_expansion_stage"] = "LIQUIDITY-REPLAY-02" if active_expansion_queue else None
-    fog_sample_count = 60000
-    executed_fog_sample_count = min(18000, max(1200, int(expanded_processed / 3))) if expanded_processed else 0
+    # Canvas只畫真universe內的有限視覺sample；sample不是已完成研究進度。
+    fog_sample_count = min(60000, max(0, expanded_total - 1))
+    executed_fog_sample_count = min(fog_sample_count, 18000, max(1200, int(expanded_processed / 3))) if expanded_processed else 0
     unexplored_count = max(0, expanded_total - expanded_processed)
     selected = next((node for node in nodes if node["status"] == "follow_up_signal"), nodes[0] if nodes else None)
     return {

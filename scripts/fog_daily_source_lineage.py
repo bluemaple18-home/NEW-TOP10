@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,34 @@ class DailySourceLineageError(RuntimeError):
         self.reason_code = reason_code
 
 
+
+# production 維持 None；驗證 snapshot 的 literal 由 pinned helper/code manifest 驗證。
+VALIDATION_FEATURE_AUTHORITY_SHA256 = None
+
+
+def _validation_shared_feature(root: Path, candidate: Path) -> tuple[Path, str] | None:
+    """僅放行 pinned validation code 綁定的單一 canonical feature，無 env bypass。"""
+    if VALIDATION_FEATURE_AUTHORITY_SHA256 is None or candidate.as_posix() != "data/clean/features.parquet":
+        return None
+    authority = root / "validation/trusted-feature.json"
+    try:
+        raw = authority.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != VALIDATION_FEATURE_AUTHORITY_SHA256:
+            raise ValueError("feature authority digest 改變")
+        payload = json.loads(raw)
+        target = Path(payload["target"])
+        link = root / candidate
+        if (payload.get("schema_version") != "top10-fog-validation-feature.v1"
+                or payload.get("workload_root") != str(root)
+                or payload.get("relative_path") != candidate.as_posix()
+                or not link.is_symlink() or link.resolve(strict=True) != target
+                or target.resolve(strict=True) != target or not target.is_file()
+                or _sha256(target) != payload["sha256"]):
+            raise ValueError("feature target/hash 不符")
+        return target, candidate.as_posix()
+    except (OSError, KeyError, ValueError, TypeError) as error:
+        raise DailySourceLineageError("DAILY_SOURCE_PATH_REJECT", str(error)) from error
+
 def _resolve_features(root: str | Path, relative_path: object) -> tuple[Path, str]:
     root_path = Path(root).resolve()
     if not isinstance(relative_path, str) or not relative_path:
@@ -34,6 +63,9 @@ def _resolve_features(root: str | Path, relative_path: object) -> tuple[Path, st
     candidate = Path(relative_path)
     if candidate.is_absolute():
         raise DailySourceLineageError("DAILY_SOURCE_PATH_REJECT", "只接受 repo-relative path")
+    shared = _validation_shared_feature(root_path, candidate)
+    if shared is not None:
+        return shared
     resolved = (root_path / candidate).resolve()
     try:
         canonical_relative = resolved.relative_to(root_path).as_posix()

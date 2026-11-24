@@ -2,7 +2,7 @@
   "schema_version": "top10-evidence-manifest.v1",
   "candidate_sha": "bbd32b4f017498b413a32a1171aec76f426441a3",
   "repair_candidate_sha": "1f3aa307b3a2e61f2220e6cc48809b7151ba0b77",
-  "generated_at": "2026-09-30T17:11:29.223645+08:00",
+  "generated_at": "2026-09-30T19:15:19.811964+08:00",
   "verdict": "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING",
   "files": [
     {
@@ -184,6 +184,11 @@
       "path": "activation-1f3aa30.prestate/com.new-top10.external-review-preflight.plist",
       "size_bytes": 1017,
       "sha256": "6460bf33924aad1d2b74140c3ff58a17f2a17b358670ca859eb2445db10c4fc3"
+    },
+    {
+      "path": "natural-acceptance-20260930.json",
+      "size_bytes": 35491,
+      "sha256": "00ea14322875fb843a4faf0746fcf1bc7623ef07f9bac52bfc618e5bc2cea58e"
     }
   ],
   "gui_probe_status": "EXACT_CANDIDATE_HOST_PROBE_PASS",
