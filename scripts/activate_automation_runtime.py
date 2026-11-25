@@ -291,7 +291,7 @@ class ActivationTransaction:
         for line in services[1].splitlines():
             if not line.strip():
                 continue
-            row = re.fullmatch(r"\s*(?:-|\d+)\s+(?:-|-?\d+)\s+(\S+)\s*", line)
+            row = re.fullmatch(r"\s*(?:-|\d+)\s+(?:-|-?\d+|\(pe\))\s+(\S+)\s*", line)
             if row is None:
                 raise ActivationError("live services inventory 不完整，拒絕猜 label")
             labels.add(row[1])

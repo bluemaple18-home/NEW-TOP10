@@ -3615,6 +3615,32 @@ def _assert_source_old(env: dict) -> None:
     assert env["hold"].read_bytes() == env["hold_bytes"]
 
 
+@pytest.mark.parametrize("native_status", ["(pe)", "(unknown)"])
+def test_source_inventory_native_pe_preserves_fail_closed(source_transition_env: dict, native_status: str) -> None:
+    """真 host 的原生 pe 欄位仍須盤點服務；未知欄位不可放行。"""
+    env = source_transition_env
+    transaction = env["build"]()
+    original = transaction.command_runner
+
+    def run(command):
+        result = original(command)
+        if command[1:] == ["print", "gui/999"]:
+            return activation.CommandResult(0, result.stdout.replace("0 - ", f"0 {native_status} "))
+        return result
+
+    transaction.command_runner = run
+    result = transaction.run()
+    if native_status == "(pe)":
+        assert result == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING", transaction.failure
+        assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == env["accepted"]
+    else:
+        assert result == "ROLLED_BACK_NO_GO", transaction.failure
+        assert "inventory" in transaction.failure
+        _assert_source_old(env)
+    assert env["runner"].states == env["before"]
+    assert env["hold"].read_bytes() == env["hold_bytes"]
+
+
 def _source_no_child_hold(env: dict) -> Path:
     """重現真 host 的 legacy owner hold；不虛構 process group。"""
     env["hold"].write_text(json.dumps({
