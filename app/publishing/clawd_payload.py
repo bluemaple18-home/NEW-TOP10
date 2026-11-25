@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -147,7 +148,7 @@ def render_message(
         "",
         f"狀態：{automation.get('status') or 'UNKNOWN'}｜大盤：{market_label(summary.get('market_regime'))}",
         f"來源：{ranking_source.get('message')}",
-        "讀法：這是今天的觀察名單，不是叫你一次買滿。盤勢不夠強時，後段名單只當候補。",
+        "讀法：這是今天的觀察名單，不是叫你一次買滿。請按個股條件區分主攻、候補、等待與風險警示。",
         "",
         "今日大盤與資金",
         f"- 大盤情況：{market_overview.get('market_text')}",
@@ -160,7 +161,7 @@ def render_message(
     ]
 
     ranked_items = assign_publish_roles(top_items, primary_watch_count(summary, len(top_items)))
-    lines.extend(["", "今日 10 檔總覽"])
+    lines.extend(["", f"今日 {len(top_items)} 檔總覽"])
     for item in ranked_items:
         lines.append(f"- {item.get('rank')}. {item.get('stock_id')} {item.get('stock_name')}｜{role_label(item.get('list_role'))}")
 
@@ -202,16 +203,15 @@ def primary_watch_count(summary: dict[str, Any], total_count: int) -> int:
 def list_reading_text(summary: dict[str, Any], total_count: int) -> str:
     regime = str(summary.get("market_regime") or "UNKNOWN")
     primary_count = primary_watch_count(summary, total_count)
-    backup_count = max(0, total_count - primary_count)
     cash_weight = number_value(summary.get("cash_weight"))
-    cash_text = f"、保留現金 {pct(cash_weight)}" if cash_weight is not None and cash_weight > 0 else ""
+    cash_text = f"、模型配置預留現金 {pct(cash_weight)}" if cash_weight is not None and cash_weight > 0 else ""
     if regime == "RISK_ON":
-        return f"大盤偏多，{total_count} 檔都可納入觀察，但仍要分批看價位{cash_text}。"
+        return f"大盤偏多，仍要逐檔看買點與風險；有警示的股票只作風險觀察{cash_text}。"
     if regime == "NEUTRAL":
-        return f"大盤中性，主看前 {primary_count} 檔，後面 {backup_count} 檔先放候補{cash_text}。"
+        return f"大盤中性，主攻觀察最多 {primary_count} 檔；其餘按條件列候補、等待或風險警示{cash_text}。"
     if regime == "RISK_OFF":
-        return f"大盤偏弱，最多先看前 {primary_count} 檔，其餘 {backup_count} 檔只當候補{cash_text}。"
-    return f"大盤狀態不明，先保守看前 {primary_count} 檔，其餘 {backup_count} 檔不要急著動{cash_text}。"
+        return f"大盤偏弱，主攻觀察最多 {primary_count} 檔；其餘按條件列候補、等待或風險警示{cash_text}。"
+    return f"大盤狀態不明，主攻觀察最多 {primary_count} 檔；其餘按條件列候補、等待或風險警示{cash_text}。"
 
 
 def classified_publish_sections(
@@ -391,11 +391,11 @@ def build_market_overview(
     if market == "中性":
         market_text = "今天不是全面大多頭，也不是全面避開；比較像挑個股的盤，適合分散觀察。"
     elif market == "偏多":
-        market_text = "今天大盤氣氛偏多，資金願意往強勢股靠，但還是不能追到忘記停損。"
+        market_text = "今天大盤氣氛偏多，仍要逐檔確認價格與停損。"
     elif market == "偏弱":
         market_text = "今天大盤偏弱，先保守看待，名單有出現也要降低追價衝動。"
     else:
-        market_text = f"今天大盤狀態是 {market}，先看個股有沒有真的被資金點火。"
+        market_text = f"今天大盤狀態是 {market}，先看個股有沒有明確訊號。"
 
     group_rows = group_summary(top_items)
     bucket_rows = capital_bucket_summary(top_items, industry_bucket_map, bucket_rules)
@@ -494,7 +494,19 @@ def capital_bucket_label(
         concept_hit = any(keyword in concept_text for keyword in rule["concept_keywords"])
         if industry_hit or concept_hit:
             return str(rule["bucket"])
-    return sector or theme or "其他"
+    return sector if sector in canonical_capital_bucket_names(industry_bucket_map, rules) else "未分類"
+
+
+def canonical_capital_bucket_names(
+    industry_bucket_map: dict[str, str],
+    rules: list[dict[str, Any]],
+) -> set[str]:
+    """只接受既有分類表中的名稱；未知來源一律歸入未分類。"""
+    return {
+        "未分類",
+        *(str(bucket) for bucket in industry_bucket_map.values() if bucket),
+        *(str(rule["bucket"]) for rule in rules if rule.get("bucket")),
+    }
 
 
 def capital_flow_rows(bucket_rows: list[dict[str, Any]], summary: dict[str, Any]) -> list[dict[str, Any]]:
@@ -519,11 +531,11 @@ def capital_flow_text(bucket_rows: list[dict[str, Any]], summary: dict[str, Any]
     stock_rows = [row for row in capital_flow_rows(bucket_rows, summary) if row.get("sector") != "現金"]
     cash_weight = number_value(summary.get("cash_weight")) or 0.0
     if not stock_rows:
-        return "目前沒有足夠資料判斷資金分布，先看個股強弱。"
+        return "名單沒有足夠的建議配置資料，先看個股條件。"
     stock_text = "、".join(f"{row['name']} {pct(row['weight'])}" for row in stock_rows[:8])
     if cash_weight > 0:
-        return f"{stock_text}；另外保留現金 {pct(cash_weight)}，代表今天沒有把資金全壓進名單。"
-    return stock_text + "。"
+        return f"模型配置參考：{stock_text}；模型預留現金 {pct(cash_weight)}。分類後未重新分配權重；不可據此直接下單，也不是市場實際資金流向。"
+    return "模型配置參考：" + stock_text + "。分類後未重新分配權重；不可據此直接下單，也不是市場實際資金流向。"
 
 
 def capital_focus_text(bucket_rows: list[dict[str, Any]], group_rows: list[dict[str, Any]]) -> str:
@@ -531,7 +543,7 @@ def capital_focus_text(bucket_rows: list[dict[str, Any]], group_rows: list[dict[
     if not stock_rows:
         return hot_groups_text(group_rows, 0)
     lead = stock_rows[0]
-    parts = [f"今天不是亂分散，主軸先看 {lead['name']}"]
+    parts = [f"按模型配置參考比重，配置主軸先看 {lead['name']}"]
     if len(stock_rows) > 1:
         parts.append("其次是 " + "、".join(row["name"] for row in stock_rows[1:4]))
     electronic = next((row for row in group_rows if row.get("sector") == "電子相關"), None)
@@ -600,9 +612,9 @@ def market_context_text(item: dict[str, Any]) -> str:
             item,
             "market_context_lead",
             [
-                f"{stock_name}落在今天資金最集中的 {bucket}{weight_text}，所以它不是孤立強，是跟著今日主軸被挑出來。",
-                f"今天資金最明顯往 {bucket}{weight_text} 集中，{stock_name}剛好在這條主線上。",
-                f"大盤中性時要挑主軸股，{stock_name}屬於今天資金第一順位的 {bucket}{weight_text}。",
+                f"模型配置參考以 {bucket}{weight_text} 為主軸；{stock_name}位於該族群，仍須看個股條件。",
+                f"依模型配置參考，{bucket}{weight_text} 比重最高；{stock_name}屬於這個族群。",
+                f"模型配置參考主軸是 {bucket}{weight_text}；{stock_name}位於該族群，仍須觀察個股價格與風險。",
             ],
         )
     elif bucket and lead_bucket:
@@ -611,10 +623,10 @@ def market_context_text(item: dict[str, Any]) -> str:
             item,
             "market_context_side",
             [
-                f"{stock_name}不在第一主軸 {lead_bucket}，但屬於今天有分到資金的 {bucket}{weight_text}，所以要看它能不能比主軸股更有續航。",
-                f"今天盤面主軸是 {lead_bucket}，{stock_name}則是在支線 {bucket}{weight_text}裡轉強。",
-                f"{bucket}{weight_text}不是今天最大資金池，但{stock_name}在這條支線裡有自己的強度。",
-                f"資金最大方向先看 {lead_bucket}；{stock_name}屬於次主線 {bucket}{weight_text}，要更重視後續確認。",
+                f"{stock_name}不在配置主軸 {lead_bucket}，但位於 {bucket}{weight_text}；仍須看個股訊號。",
+                f"名單配置主軸是 {lead_bucket}；{stock_name}位於 {bucket}{weight_text}，買點仍要確認。",
+                f"{bucket}{weight_text}在名單配置中不是最高比重；{stock_name}仍須看自身風險與買點。",
+                f"名單配置主軸先看 {lead_bucket}；{stock_name}位於 {bucket}{weight_text}，要更重視後續確認。",
             ],
         )
     else:
@@ -880,18 +892,18 @@ def market_signal_bridge(item: dict[str, Any], raw_signals: list[str]) -> str | 
     if not bucket:
         return None
     if context.get("is_lead_bucket") and has_signal(raw_signals, "成交量暴增"):
-        return f"{bucket}是今天資金主軸，{stock_name}又同步放量，代表族群和個股都有熱度。"
+        return f"{bucket}是名單配置主軸，{stock_name}又同步放量；族群配置與個股量能都可供觀察。"
     if context.get("is_lead_bucket") and has_signal(raw_signals, "跳空強勢收紅"):
-        return f"{bucket}今天資金集中，{stock_name}開高後還能守住，表示它有跟上主軸節奏。"
+        return f"{bucket}是名單配置主軸，{stock_name}開高後仍守住；這是個股價格訊號。"
     if not context.get("is_lead_bucket") and has_signal(raw_signals, "突破20日"):
         lead = str(context.get("lead_bucket") or "主軸族群")
         return pick_variant(
             item,
             "market_signal_side",
             [
-                f"雖然今天第一主軸是 {lead}，但{stock_name}自己也突破壓力，屬於支線裡較強的一檔。",
-                f"在 {lead} 吸走最多目光時，{stock_name}還能靠自己的走勢擠進名單。",
-                f"它不是靠大盤全面上漲被抬進來，而是{stock_name}本身有突破動作。",
+                f"名單配置主軸是 {lead}，但{stock_name}自己也突破壓力；先看後續能否守住。",
+                f"名單配置主軸是 {lead}；{stock_name}另有自身突破訊號。",
+                f"不論名單配置主軸，{stock_name}本身有突破訊號，仍須看買點與風險。",
             ],
         )
     return None
@@ -914,11 +926,11 @@ def plain_translation(item: dict[str, Any], raw_signals: list[str], bullets: lis
     role = str(item.get("list_role") or "")
     prefix = ""
     if context.get("is_lead_bucket"):
-        prefix = f"它在今天資金主軸 {context.get('bucket')} 裡，"
+        prefix = f"它在名單配置主軸 {context.get('bucket')} 裡，"
     elif context.get("lead_bucket") and role == "backup":
-        prefix = f"它不是今天第一主軸 {context.get('lead_bucket')}，所以先當候補看，"
+        prefix = f"它不在名單配置主軸 {context.get('lead_bucket')}，所以先當候補看，"
     elif context.get("lead_bucket"):
-        prefix = f"它不是今天第一主軸 {context.get('lead_bucket')}，但個股訊號夠強，"
+        prefix = f"它不在名單配置主軸 {context.get('lead_bucket')}，但個股訊號夠強，"
     if number_value(item.get("close")) and number_value(item.get("close")) >= 300:
         return pick_variant(
             item,
@@ -1163,18 +1175,23 @@ def professional_signal_label(signal: str) -> str:
 def action_summary_lines(item: dict[str, Any]) -> list[str]:
     trade = item.get("trade_plan", {})
     entry_low, entry_high = entry_zone_values(trade)
+    pressure = number_value(trade.get("pressure_price"))
+    # 上方第一壓力只取交易計畫的壓力位；缺值時略過，不回退目標價。
+    pressure_lines = [f"- 上方第一壓力先看 {pressure:.2f} 元。"] if pressure is not None and math.isfinite(pressure) else []
     guard = tape_guard_from_mapping(item)
     rr_guard = rr_guard_from_item(item)
     if guard.get("tape_guard_action") == "EXCLUDE":
         return [
             "- 今天不列主攻觀察，先等跌停打開或重新站回觀察區間。",
             f"- 原本跌破 {num(trade.get('stop_loss'))} 元才算趨勢轉弱，但一字跌停屬於更早的風控警訊。",
+            *pressure_lines,
             "- 未進場者先不要追；已持有者要回到自己的停損規則檢查。",
         ]
     if guard.get("tape_guard_action") == "DOWNGRADE":
         return [
             f"- 先等價格重新站回 {num(entry_low)} ~ {num(entry_high)} 元，再看是否有承接。",
             f"- 跌破 {num(trade.get('stop_loss'))} 元代表趨勢轉弱，但短線賣壓已經先亮警訊。",
+            *pressure_lines,
             "- 今天只適合追蹤風險，不適合當主攻。",
         ]
     if rr_guard.get("action") in {"WAIT_PULLBACK", "WAIT_CONFIRM"}:
@@ -1183,12 +1200,13 @@ def action_summary_lines(item: dict[str, Any]) -> list[str]:
             f"- 觀察區間：{num(entry_low)} ~ {num(entry_high)} 元，但現在空間不夠漂亮{rr_text}。",
             f"- 短線執行停損先看 {num(trade.get('execution_stop_loss') or trade.get('stop_loss'))} 元。",
             f"- 趨勢失效價另看 {num(trade.get('trend_invalidation_price') or trade.get('stop_loss'))} 元，不要把它當成追高停損。",
+            *pressure_lines,
             "- 等拉回後仍有承接，或重新站穩再看。",
         ]
     lines = [
         f"- 觀察區間：{num(entry_low)} ~ {num(entry_high)} 元",
         f"- 跌破 {num(trade.get('stop_loss'))} 元，代表走勢轉弱，先不要硬接。",
-        f"- 上方第一壓力先看 {num(trade.get('target_price'))} 元。",
+        *pressure_lines,
     ]
     role = str(item.get("list_role") or "")
     context = item.get("market_context") if isinstance(item.get("market_context"), dict) else {}
@@ -1213,9 +1231,9 @@ def action_summary_lines(item: dict[str, Any]) -> list[str]:
                 item,
                 "action_lead",
                 [
-                    "它在今日資金主軸裡，強勢時可以看，但追高更要守區間。",
+                    "它在名單配置主軸裡，強勢時可以看，但追高更要守區間。",
                     "主軸股容易被追價，最好等價格落在區間內再判斷。",
-                    "族群有資金加持，但若跌破區間，代表熱度沒有延續。",
+                    "配置比重較高也要看個股價格；跌破區間先重新檢查風險。",
                 ],
             )
         )
@@ -1228,7 +1246,7 @@ def action_summary_lines(item: dict[str, Any]) -> list[str]:
                 [
                     "它不是今日最大主軸，重點看個股強度能不能延續。",
                     "支線股要更挑價格，站不穩觀察區間就先退一步。",
-                    "如果主軸資金沒有外溢到它身上，就不要硬追。",
+                    "如果個股沒有守住觀察區間，先不要追。",
                 ],
             )
         )

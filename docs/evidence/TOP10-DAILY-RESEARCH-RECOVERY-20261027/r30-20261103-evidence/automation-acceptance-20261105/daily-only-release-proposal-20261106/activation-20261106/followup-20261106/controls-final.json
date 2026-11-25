@@ -1,0 +1,140 @@
+{
+  "verdict": "PASS",
+  "formal_commit": "99aa01f195f01913afcecac14f73edc0a4378f57",
+  "main_heads_unchanged": true,
+  "rows": [
+    {
+      "path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.baseline-harness.plist",
+      "canonical": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.baseline-harness.plist",
+      "sha256": "028bad4857e71a36080b3b382724b4516d50c9d8f2a0e9fb669f703078cb30ed",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist",
+      "canonical": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.daily.plist",
+      "sha256": "bea94748be84d9a968063bf1248d4a3a5cb4381052f82c78449768cc49c03dab",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review-preflight.plist",
+      "canonical": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review-preflight.plist",
+      "sha256": "79bd601886853dbaac8875a56fd8e3a86027dc1e91a50f9afc391cda29fbbdff",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review.plist",
+      "canonical": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.external-review.plist",
+      "sha256": "ac9f7357fee7d11853c60d7081241f94cd5ced5dcf19ed643de87f6f2fe2d48e",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.fog-research-worker.plist",
+      "canonical": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.fog-research-worker.plist",
+      "sha256": "54f345cafbdb326e9b93f43cd57a631a89c04781bd2457aabf0bb1400dbb7d6d",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.pm-research-harness.plist",
+      "canonical": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.pm-research-harness.plist",
+      "sha256": "3a5473313bb6bfbcacc0f76cdde8b09a127e99a3d82dd7e507d618b384d25499",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.reference.plist",
+      "canonical": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.reference.plist",
+      "sha256": "6f1d7bf81db236e03a288467c10de45b515ad7bf3e0a7a5e027e1a6bd2b3527e",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.retrain.plist",
+      "canonical": "/Users/mattkuo/Library/LaunchAgents/com.new-top10.retrain.plist",
+      "sha256": "f924c257846a152783e4d6396d22baa23094e7acfadd6150b50fecc658f90871",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Volumes/VibeCode/Projects/TOP10new/config/automation.yaml",
+      "canonical": "/Volumes/VibeCode/Projects/TOP10new/config/automation.yaml",
+      "sha256": "e783148027ca64dde5dff2434aa3e706c12831b162e159430a9a5de8e133e468",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Volumes/VibeCode/Projects/TOP10new/logs/storage_safety/restart_denied/daily.json",
+      "canonical": "/Volumes/VibeCode/Projects/TOP10new/logs/storage_safety/restart_denied/daily.json",
+      "sha256": "8d6a022f2a8daf3731f899c0b3df616f9bd34f806a39d8ac9254df25cc098f4f",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/config/automation.yaml",
+      "canonical": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/config/automation.yaml",
+      "sha256": "9425ca82dea6b922bdbeb05e54ba63df1aa710b5de91958697926dd0e706fec1",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/logs/storage_safety/restart_denied/daily.json",
+      "canonical": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/logs/storage_safety/restart_denied/daily.json",
+      "sha256": null,
+      "unchanged": false,
+      "authorized_daily_hold_release": true
+    },
+    {
+      "path": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/logs/storage_safety/restart_denied/external-review-preflight.json",
+      "canonical": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/logs/storage_safety/restart_denied/external-review-preflight.json",
+      "sha256": "c0a6151192a09b5633b87f5d04953dcc85fef74932e3b9e43910673d1b91f9f1",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/TOP10-runtime-automation-8fe9366/logs/storage_safety/restart_denied/retrain-monitor.json",
+      "canonical": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-8fe9366/logs/storage_safety/restart_denied/retrain-monitor.json",
+      "sha256": "d1a8336b23ec200f2effb4a4ab416a6128982cad3d05bba821d4706a8ea9d916",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/TOP10-runtime-automation-ec08e84/logs/storage_safety/restart_denied/fog-research-worker.json",
+      "canonical": "/Users/mattkuo/TOP10-runtime-automation-ec08e84/logs/storage_safety/restart_denied/fog-research-worker.json",
+      "sha256": "d49aae7de17520eb96a8e6ba4aa909dd5671ac134adf87363f84e9cbba463a1f",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/TOP10new/logs/storage_safety/restart_denied/daily.json",
+      "canonical": "/Users/mattkuo/TOP10new/logs/storage_safety/restart_denied/daily.json",
+      "sha256": "fc32f0cbb5e687a4263903340087cbfce7b0bc9066aae38c37e7d11b25291939",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/TOP10new/logs/storage_safety/restart_denied/fog-research-worker.json",
+      "canonical": "/Users/mattkuo/TOP10new/logs/storage_safety/restart_denied/fog-research-worker.json",
+      "sha256": "ae1b23791e20a67965b80b5532831ae67018525df92165437a620b7e85d363d3",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    },
+    {
+      "path": "/Users/mattkuo/TOP10-runtime-automation-bbd32b4/logs/storage_safety/restart_denied/daily.json",
+      "canonical": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/logs/storage_safety/restart_denied/daily.json",
+      "sha256": null,
+      "unchanged": false,
+      "authorized_daily_hold_release": true
+    },
+    {
+      "path": "/Users/mattkuo/TOP10-runtime-automation-bbd32b4/logs/storage_safety/restart_denied/external-review-preflight.json",
+      "canonical": "/Volumes/VibeCode/Development/TOP10-Runtimes/TOP10-runtime-automation-bbd32b4/logs/storage_safety/restart_denied/external-review-preflight.json",
+      "sha256": "c0a6151192a09b5633b87f5d04953dcc85fef74932e3b9e43910673d1b91f9f1",
+      "unchanged": true,
+      "authorized_daily_hold_release": false
+    }
+  ]
+}

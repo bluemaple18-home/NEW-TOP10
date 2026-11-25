@@ -605,12 +605,16 @@ def test_take_sample_host_root_preserves_output_meter(tmp_path, monkeypatch, sep
     assert calls == [
         ("meter", output, {"deadline_seconds": None}),
         ("capacity", host if separate else output),
+        ("capacity", guard._BOOT_VOLUME_PATH),
     ]
     assert (sample.project_bytes, sample.project_file_count) == (321, 7)
     assert sample.host_total_bytes == 250 * 1024**3
     assert sample.host_free_bytes == 30 * 1024**3
     assert sample.host_raw_free_bytes == 13 * 1024**3
     assert sample.host_capacity_source == "macos_foundation_important_usage"
+    assert sample.boot_volume_path == str(guard._BOOT_VOLUME_PATH)
+    assert (sample.boot_volume_total_bytes, sample.boot_volume_raw_free_bytes, sample.boot_volume_free_bytes) == (
+        250 * 1024**3, 13 * 1024**3, 30 * 1024**3)
 
 
 @pytest.mark.parametrize("case", ["insufficient", "unavailable", "invalid"])

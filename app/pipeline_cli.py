@@ -35,6 +35,7 @@ def main() -> int:
     parser.add_argument("--data-dir", default="data")
     parser.add_argument("--artifacts-dir", default=None)
     parser.add_argument("--json", action="store_true", help="以 JSON 輸出驗證報告")
+    parser.add_argument("--finmind-stats-output", type=Path, default=None)
     args = parser.parse_args()
 
     if args.command == "validate":
@@ -57,7 +58,31 @@ def main() -> int:
     artifacts_dir = args.artifacts_dir
     if artifacts_dir is None:
         artifacts_dir = "artifacts" if args.data_dir == "data" else str(Path(args.data_dir) / "artifacts")
-    build_pipeline(data_dir=args.data_dir, artifacts_dir=artifacts_dir).run(start_date=args.start_date, end_date=args.end_date)
+    pipeline = build_pipeline(data_dir=args.data_dir, artifacts_dir=artifacts_dir)
+    try:
+        pipeline.run(start_date=args.start_date, end_date=args.end_date)
+    finally:
+        if args.finmind_stats_output is not None:
+            # 子程序只交出 FinMind 統計，不輸出 token 或其他 context 物件。
+            stats = pipeline.context.get("stats", {}).get("finmind")
+            if isinstance(stats, dict):
+                allowed = {
+                    "status", "expected_fetch_count", "received_fetch_count",
+                    "failed_fetch_count", "failed_stock_count", "by_dataset",
+                    "limit", "used", "remaining", "required_fetch_count",
+                    "next_available_time",
+                }
+                stats = {key: value for key, value in stats.items() if key in allowed}
+                datasets = stats.get("by_dataset")
+                if isinstance(datasets, dict):
+                    count_keys = {"expected_stock_count", "received_stock_count", "failed_stock_count"}
+                    stats["by_dataset"] = {
+                        name: {key: value for key, value in counts.items() if key in count_keys}
+                        for name, counts in datasets.items() if isinstance(counts, dict)
+                    }
+            args.finmind_stats_output.write_text(
+                json.dumps(stats, ensure_ascii=False, allow_nan=False), encoding="utf-8"
+            )
     return 0
 
 

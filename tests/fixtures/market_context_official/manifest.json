@@ -1,0 +1,35 @@
+{
+  "說明": "官方 2026-10-22 回應；僅刪除解析無關欄位／表格，保留對帳全部證券列及原始數值。",
+  "sources": {
+    "taifex-futures.json.gz": {
+      "source": "taifex-futures.response",
+      "source_sha256": "2111c225d2ff3daf6e0918940bcc1b20a75f2906f183c5f4cc9f2f51c20d6139",
+      "fixture_sha256": "b251946b29ac513f1d015860f9771d56f698ccf4e054e7508e9bda3736edb3fc"
+    },
+    "taifex-oi.json.gz": {
+      "source": "taifex-oi.response",
+      "source_sha256": "837b6cdd4d9c14808a16e2d87ba778a761697db41f441f24cda7e3318296724e",
+      "fixture_sha256": "6a95eaeadba02f2816e0ca3b053cf0ef9edb2479681b12effbe8ac2a00d03fcd"
+    },
+    "taifex-pcr.json.gz": {
+      "source": "taifex-pcr.response",
+      "source_sha256": "0eed421122eae2a7aa6ff3b693c57364ba964470d03a09c80815d2f68dec4d2e",
+      "fixture_sha256": "312b8b187f74cb41a0d860e136946bf22f98d033e01674d9011937efe809ecbc"
+    },
+    "tpex-quotes.json.gz": {
+      "source": "tpex-quotes.response",
+      "source_sha256": "cf405fbfcbf498585e4d7a277506cb73cb68ddbc2320ad63d45daab8325b3459",
+      "fixture_sha256": "e6c27fbbf8b6ddf19f3b792119fba0537ff672c42b25418df526602f4d4cc778"
+    },
+    "twse-mi-index.json.gz": {
+      "source": "twse-mi-index.response",
+      "source_sha256": "3348a0574662d856c1d2948862641c65fadfb7568576a10298dce5ab71f299b6",
+      "fixture_sha256": "71f2864ad2b6313346e01b7ca4bef34b3100aa9fd12b9be1c5fe7c0b6a310455"
+    },
+    "twse-t86.json.gz": {
+      "source": "twse-t86.response",
+      "source_sha256": "73f6535c73925ae03e87f27cb7a7339b19f8ccb5a7e8990117028687e34dafc8",
+      "fixture_sha256": "32c87b71f877cb7f763e7ebf2ae554862fdd023a022cd4f8e462ad86557da57b"
+    }
+  }
+}

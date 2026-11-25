@@ -1,0 +1,348 @@
+{
+  "accepted_code_sha": "99aa01f195f01913afcecac14f73edc0a4378f57",
+  "remote_base": "25348435c5049c5d2ac486fe504c8c0abd4d19fd",
+  "exact_product_paths": 62,
+  "source_drift": [],
+  "tests": {
+    "selected_cases": 466,
+    "passed": 464,
+    "failed": 2,
+    "batch_count": 31,
+    "failure_class": "HOST_SANDBOX_APPLY_DENIED_BEFORE_WORKLOAD",
+    "failed_nodes": [
+      "tests/test_lightgbm_temp_guard.py::test_guard_receipt_records_leftover_and_default_dry_run",
+      "tests/test_lightgbm_temp_guard.py::test_interrupted_lightgbm_child_then_next_start_cleanup"
+    ],
+    "native_stderr": "sandbox-exec: sandbox_apply: Operation not permitted",
+    "probe_exit_code": 71,
+    "product_guard_not_changed": true,
+    "failure_not_converted_to_skip": true,
+    "no_more_same_blocker_retries": true,
+    "batches": [
+      {
+        "batch": 0,
+        "tests": [
+          "tests/test_taifex_daily_dated_fallback.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/0.log",
+        "summary": "..........                                                               [100%]\n10 passed in 0.52s"
+      },
+      {
+        "batch": 1,
+        "tests": [
+          "tests/test_taifex_pcr_dated_fallback.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/1.log",
+        "summary": ".........                                                                [100%]\n9 passed in 1.69s"
+      },
+      {
+        "batch": 2,
+        "tests": [
+          "tests/test_market_context_fetcher.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/2.log",
+        "summary": "........................................................................ [ 63%]\n..........................................                               [100%]\n114 passed in 4.38s"
+      },
+      {
+        "batch": 3,
+        "tests": [
+          "tests/test_taifex_historical_20.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/3.log",
+        "summary": ".........................                                                [100%]\n25 passed in 0.39s"
+      },
+      {
+        "batch": 4,
+        "tests": [
+          "tests/test_market_context_taifex_backfill_18.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/4.log",
+        "summary": ".....                                                                    [100%]\n5 passed in 0.97s"
+      },
+      {
+        "batch": 5,
+        "tests": [
+          "tests/test_taifex_pcr_source_contract_22.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/5.log",
+        "summary": "...........................                                              [100%]\n27 passed in 1.59s"
+      },
+      {
+        "batch": 6,
+        "tests": [
+          "tests/test_market_context_resilience_18r1.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/6.log",
+        "summary": ".......                                                                  [100%]\n7 passed in 0.75s"
+      },
+      {
+        "batch": 7,
+        "tests": [
+          "tests/test_finmind_coverage_persist_19.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/7.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.70s"
+      },
+      {
+        "batch": 8,
+        "tests": [
+          "tests/test_finmind_silent_loss_15.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/8.log",
+        "summary": "    working[\"margin_available\"] = working[\"margin_available\"].fillna(False).astype(bool)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n3 passed, 1 warning in 1.03s"
+      },
+      {
+        "batch": 9,
+        "tests": [
+          "tests/test_finmind_token_wiring_16.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/9.log",
+        "summary": "...............                                                          [100%]\n15 passed in 0.86s"
+      },
+      {
+        "batch": 10,
+        "tests": [
+          "tests/test_quote_transport_recovery_30.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/10.log",
+        "summary": "...........................                                              [100%]\n27 passed in 0.80s"
+      },
+      {
+        "batch": 11,
+        "tests": [
+          "tests/test_tpex_quote_body_timeout_27.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/11.log",
+        "summary": "....................                                                     [100%]\n20 passed in 0.96s"
+      },
+      {
+        "batch": 12,
+        "tests": [
+          "tests/test_event_detector_memory_30.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/12.log",
+        "summary": "    for _, group in self.df.groupby('stock_id'):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n18 passed, 52 warnings in 1.13s"
+      },
+      {
+        "batch": 13,
+        "tests": [
+          "tests/test_indicator_lifetime_memory_30.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/13.log",
+        "summary": ".                                                                        [100%]\n1 passed in 0.89s"
+      },
+      {
+        "batch": 14,
+        "tests": [
+          "tests/test_pipeline_memory_30.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/14.log",
+        "summary": "    first_trading_date = self.df.groupby('stock_id')['date'].min()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n27 passed, 10 warnings in 1.05s"
+      },
+      {
+        "batch": 15,
+        "tests": [
+          "tests/test_rewrite_structured_numeric_contract.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/15.log",
+        "summary": ".......................................................                  [100%]\n55 passed in 0.72s"
+      },
+      {
+        "batch": 16,
+        "tests": [
+          "tests/test_institutional_snapshot.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/16.log",
+        "summary": "....                                                                     [100%]\n4 passed in 1.23s"
+      },
+      {
+        "batch": 17,
+        "tests": [
+          "tests/test_lightgbm_temp_guard.py"
+        ],
+        "exit_code": 1,
+        "log": "module-logs/17.log",
+        "summary": "=========================== short test summary info ============================\nFAILED tests/test_lightgbm_temp_guard.py::test_guard_receipt_records_leftover_and_default_dry_run\nFAILED tests/test_lightgbm_temp_guard.py::test_interrupted_lightgbm_child_then_next_start_cleanup\n2 failed, 15 passed in 0.21s"
+      },
+      {
+        "batch": 18,
+        "tests": [
+          "tests/test_openclaw_gateway_sender.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/18.log",
+        "summary": "...........................                                              [100%]\n27 passed in 0.10s"
+      },
+      {
+        "batch": 19,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_top10_timeout_writes_unknown_receipt_without_retry",
+          "tests/test_delivery_outcome_unknown.py::test_ops_timeout_writes_unknown_receipt_without_retry",
+          "tests/test_delivery_outcome_unknown.py::test_unknown_delivery_cannot_pass_publish_verification_or_recommend_retry",
+          "tests/test_delivery_outcome_unknown.py::test_live_verifier_binds_receipt_to_current_message_and_target"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/19.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.10s"
+      },
+      {
+        "batch": 20,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_process_crash_after_send_started_keeps_pending_receipt",
+          "tests/test_delivery_outcome_unknown.py::test_concurrent_claim_and_dry_run_cannot_replace_pending",
+          "tests/test_delivery_outcome_unknown.py::test_semantically_incomplete_receipt_blocks_claim",
+          "tests/test_delivery_outcome_unknown.py::test_dry_run_and_proven_not_sent_are_replaceable"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/20.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.08s"
+      },
+      {
+        "batch": 21,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_confirmed_top10_receipt_can_recover_only_same_message_event",
+          "tests/test_delivery_outcome_unknown.py::test_late_degraded_event_cannot_replace_confirmed_delivery",
+          "tests/test_delivery_outcome_unknown.py::test_later_skip_cannot_hide_unresolved_delivery[DELIVERY_PENDING]",
+          "tests/test_delivery_outcome_unknown.py::test_later_skip_cannot_hide_unresolved_delivery[DELIVERY_UNKNOWN]"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/21.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.08s"
+      },
+      {
+        "batch": 22,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_pending_receipt_can_restore_degraded_publish_event",
+          "tests/test_delivery_outcome_unknown.py::test_event_recovery_requires_consistent_event_history_and_rollups",
+          "tests/test_delivery_outcome_unknown.py::test_daily_and_ops_rollup_writers_serialize",
+          "tests/test_delivery_outcome_unknown.py::test_distinct_run_ids_share_date_rollup_lock"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/22.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.19s"
+      },
+      {
+        "batch": 23,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_independent_sender_cannot_enter_while_daily_publish_lock_is_held",
+          "tests/test_delivery_outcome_unknown.py::test_old_run_rebuild_cannot_replace_latest_rollup",
+          "tests/test_delivery_outcome_unknown.py::test_ops_event_recovery_uses_confirmed_same_run_receipt",
+          "tests/test_delivery_outcome_unknown.py::test_ops_live_alternate_artifacts_directory_is_blocked"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/23.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.24s"
+      },
+      {
+        "batch": 24,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_ops_pending_receipt_restores_degraded_event_without_resend",
+          "tests/test_delivery_outcome_unknown.py::test_ops_confirmed_receipt_recovers_event_after_send_disabled",
+          "tests/test_delivery_outcome_unknown.py::test_old_ops_confirmed_receipt_recovers_without_latest_or_current_target",
+          "tests/test_delivery_outcome_unknown.py::test_ops_run_id_without_date_is_rejected_before_latest_selection"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/24.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.09s"
+      },
+      {
+        "batch": 25,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_no_date_ops_recovers_historical_pending_event_once[False]",
+          "tests/test_delivery_outcome_unknown.py::test_no_date_ops_recovers_historical_pending_event_once[True]",
+          "tests/test_delivery_outcome_unknown.py::test_ops_rollup_identity_and_symlink_must_match_live_owner",
+          "tests/test_delivery_outcome_unknown.py::test_historical_ops_scan_above_500_never_blocks_live_date"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/25.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.13s"
+      },
+      {
+        "batch": 26,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_concurrent_pending_ops_recovery_writes_one_event",
+          "tests/test_delivery_outcome_unknown.py::test_inherited_unlocked_fd_cannot_borrow_other_process_lock",
+          "tests/test_delivery_outcome_unknown.py::test_lock_path_replacement_during_acquisition_is_rejected",
+          "tests/test_delivery_outcome_unknown.py::test_replacing_lock_filename_cannot_start_second_sender"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/26.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.29s"
+      },
+      {
+        "batch": 27,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_symlinked_logs_directory_is_rejected",
+          "tests/test_delivery_outcome_unknown.py::test_ops_owner_change_during_message_build_blocks_before_claim",
+          "tests/test_delivery_outcome_unknown.py::test_ops_owner_change_at_claim_blocks_gateway",
+          "tests/test_delivery_outcome_unknown.py::test_ops_owner_writer_waits_until_gateway_dispatch_returns"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/27.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.15s"
+      },
+      {
+        "batch": 28,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_non_discord_presentation_rejected_before_send_claim",
+          "tests/test_delivery_outcome_unknown.py::test_live_ops_rejects_unrecoverable_external_artifact_before_claim[message]",
+          "tests/test_delivery_outcome_unknown.py::test_live_ops_rejects_unrecoverable_external_artifact_before_claim[presentation]",
+          "tests/test_delivery_outcome_unknown.py::test_live_top10_rejects_unrecoverable_external_artifact_before_claim[message]"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/28.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.08s"
+      },
+      {
+        "batch": 29,
+        "tests": [
+          "tests/test_delivery_outcome_unknown.py::test_live_top10_rejects_unrecoverable_external_artifact_before_claim[payload]",
+          "tests/test_delivery_outcome_unknown.py::test_live_top10_rejects_symlink_alias_before_claim",
+          "tests/test_delivery_outcome_unknown.py::test_ops_dry_run_cannot_claim_delivery_success",
+          "tests/test_delivery_outcome_unknown.py::test_top10_send_flag_with_dry_run_config_fails_closed"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/29.log",
+        "summary": "....                                                                     [100%]\n4 passed in 0.09s"
+      },
+      {
+        "batch": 30,
+        "tests": [
+          "tests/test_daily_publish_ops_disabled_30.py"
+        ],
+        "exit_code": 0,
+        "log": "module-logs/30.log",
+        "summary": ".......                                                                  [100%]\n7 passed in 1.82s"
+      }
+    ]
+  },
+  "syntax": {
+    "python_files": 53,
+    "shell_files": 4,
+    "status": "PASS"
+  },
+  "diff_check": "PASS",
+  "finmind_calls": 0,
+  "discord_sends": 0,
+  "runtime_changed": false,
+  "flags_schedules_changed": false,
+  "test_harness": "既有tmp_artifact_lifecycle受管生命週期，128MiB/4096files/600s；既有8 symlink fixture政策；只抑制pytest便利current別名，真實負向symlink案例仍驗；分檔避免累積超限",
+  "full_final_99aa_native_daily_cycle_repeated": false
+}

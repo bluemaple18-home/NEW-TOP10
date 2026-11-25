@@ -1,0 +1,1997 @@
+{
+  "schema_version": "clawd-publish-payload.v1",
+  "generated_at": "2026-10-25T09:09:54.367515+00:00",
+  "ranking_date": "2026-10-22",
+  "source": {
+    "daily_report": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/artifacts/daily_report_2026-10-22.json",
+    "ranking_artifact": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/artifacts/ranking_2026-10-22.csv",
+    "ranking_source": {
+      "source_type": "production",
+      "delivery_safe": true,
+      "allow_research_ranking": false,
+      "message": "正式 ranking artifact，可用於日報與推播 payload。"
+    },
+    "automation_status": {
+      "status": "OK",
+      "run_date": "2026-10-22",
+      "skip_reason": null,
+      "data_freshness": {
+        "datasets": {
+          "features.parquet": {
+            "path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/data/clean/features.parquet",
+            "rows": 535350,
+            "date_column": "date",
+            "latest_date": "2026-10-22",
+            "lag_days": 0,
+            "latest_market_coverage": {
+              "latest_date": "2026-10-22",
+              "min_coverage_ratio": 0.5,
+              "markets": [
+                {
+                  "market_type": "TWSE",
+                  "expected_count": 1080,
+                  "actual_count": 1070,
+                  "coverage_ratio": 0.9907,
+                  "status": "OK"
+                },
+                {
+                  "market_type": "TPEX",
+                  "expected_count": 887,
+                  "actual_count": 854,
+                  "coverage_ratio": 0.9628,
+                  "status": "OK"
+                }
+              ]
+            }
+          },
+          "events.parquet": {
+            "path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/data/clean/events.parquet",
+            "rows": 535350,
+            "date_column": "date",
+            "latest_date": "2026-10-22",
+            "lag_days": 0
+          },
+          "universe.parquet": {
+            "path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/data/clean/universe.parquet",
+            "rows": 280953,
+            "date_column": "date",
+            "latest_date": "2026-10-22",
+            "lag_days": 0
+          }
+        },
+        "max_lag_days": 7
+      }
+    }
+  },
+  "delivery": {
+    "status": "READY_FOR_CLAWD",
+    "mode": "artifact_only",
+    "channel": "discord",
+    "to": "channel:1507327845003825154",
+    "missing": [],
+    "send_attempted": false,
+    "note": "payload 已可交給 Clawd；本腳本不負責實際發送。"
+  },
+  "summary": {
+    "top_count": 10,
+    "market_regime": "RISK_OFF",
+    "gross_exposure": 0.35,
+    "allocated_exposure": 0.3498,
+    "cash_weight": 0.6502,
+    "missing_score_columns": []
+  },
+  "market_overview": {
+    "market": "偏弱",
+    "market_text": "今天大盤偏弱，先保守看待，名單有出現也要降低追價衝動。",
+    "capital_flow": [
+      {
+        "name": "保留現金",
+        "sector": "現金",
+        "weight": 0.6502,
+        "count": 0
+      },
+      {
+        "name": "原物料",
+        "sector": "原物料",
+        "weight": 0.0695,
+        "count": 2,
+        "themes": [
+          "水泥",
+          "鋼鐵"
+        ]
+      },
+      {
+        "name": "軟體雲端",
+        "sector": "電子相關",
+        "weight": 0.0675,
+        "count": 2,
+        "themes": [
+          "系統整合"
+        ]
+      },
+      {
+        "name": "半導體/IC",
+        "sector": "電子相關",
+        "weight": 0.0382,
+        "count": 1,
+        "themes": [
+          "IC生產製造"
+        ]
+      },
+      {
+        "name": "電腦與AI硬體",
+        "sector": "電子相關",
+        "weight": 0.0369,
+        "count": 1,
+        "themes": [
+          "電腦週邊配件"
+        ]
+      },
+      {
+        "name": "金融",
+        "sector": "金融",
+        "weight": 0.0358,
+        "count": 1,
+        "themes": [
+          "金融業"
+        ]
+      },
+      {
+        "name": "電機機械",
+        "sector": "工業",
+        "weight": 0.0358,
+        "count": 1,
+        "themes": [
+          "電機機械"
+        ]
+      },
+      {
+        "name": "汽車橡膠",
+        "sector": "民生消費",
+        "weight": 0.0344,
+        "count": 1,
+        "themes": [
+          "汽車"
+        ]
+      },
+      {
+        "name": "電子零組件",
+        "sector": "電子相關",
+        "weight": 0.0317,
+        "count": 1,
+        "themes": [
+          "其他電子"
+        ]
+      }
+    ],
+    "capital_flow_text": "原物料 7.0%、軟體雲端 6.8%、半導體/IC 3.8%、電腦與AI硬體 3.7%、金融 3.6%、電機機械 3.6%、汽車橡膠 3.4%、電子零組件 3.2%；另外保留現金 65.0%，代表今天沒有把資金全壓進名單。",
+    "hot_groups": [
+      {
+        "sector": "電子相關",
+        "count": 5,
+        "capital_weight": 0.1743,
+        "suggested_weight": 0.1743,
+        "themes": [
+          "系統整合",
+          "IC生產製造",
+          "其他電子",
+          "電腦週邊配件"
+        ]
+      },
+      {
+        "sector": "原物料",
+        "count": 2,
+        "capital_weight": 0.0695,
+        "suggested_weight": 0.0695,
+        "themes": [
+          "水泥",
+          "鋼鐵"
+        ]
+      },
+      {
+        "sector": "工業",
+        "count": 1,
+        "capital_weight": 0.0358,
+        "suggested_weight": 0.0358,
+        "themes": [
+          "電機機械"
+        ]
+      },
+      {
+        "sector": "金融",
+        "count": 1,
+        "capital_weight": 0.0358,
+        "suggested_weight": 0.0358,
+        "themes": [
+          "金融業"
+        ]
+      },
+      {
+        "sector": "民生消費",
+        "count": 1,
+        "capital_weight": 0.0344,
+        "suggested_weight": 0.0344,
+        "themes": [
+          "汽車"
+        ]
+      }
+    ],
+    "hot_groups_text": "今天不是亂分散，主軸先看 原物料；其次是 軟體雲端、半導體/IC、電腦與AI硬體；電子相關合計 17.4%，但已拆成不同題材看。",
+    "hot_concepts": [
+      {
+        "concept": "機器人",
+        "count": 3,
+        "examples": [
+          "2465 麗臺",
+          "4526 東台",
+          "2236 百達-KY"
+        ]
+      },
+      {
+        "concept": "一帶一路",
+        "count": 2,
+        "examples": [
+          "2892 第一金",
+          "1101 台泥"
+        ]
+      },
+      {
+        "concept": "傳產內需股",
+        "count": 2,
+        "examples": [
+          "2892 第一金",
+          "1101 台泥"
+        ]
+      },
+      {
+        "concept": "工業4.0",
+        "count": 2,
+        "examples": [
+          "4526 東台",
+          "4953 緯致"
+        ]
+      },
+      {
+        "concept": "資安",
+        "count": 2,
+        "examples": [
+          "6690 安碁資訊",
+          "4953 緯致"
+        ]
+      },
+      {
+        "concept": "電動車",
+        "count": 2,
+        "examples": [
+          "1101 台泥",
+          "2236 百達-KY"
+        ]
+      }
+    ],
+    "hot_concepts_text": "機器人（3 檔）、一帶一路（2 檔）、傳產內需股（2 檔）、工業4.0（2 檔）。"
+  },
+  "risk": {
+    "market_regime": "RISK_OFF",
+    "max_risk_penalty": 0.48,
+    "low_risk_reward_count": 0,
+    "data_freshness": {
+      "datasets": {
+        "features.parquet": {
+          "path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/data/clean/features.parquet",
+          "rows": 535350,
+          "date_column": "date",
+          "latest_date": "2026-10-22",
+          "lag_days": 0,
+          "latest_market_coverage": {
+            "latest_date": "2026-10-22",
+            "min_coverage_ratio": 0.5,
+            "markets": [
+              {
+                "market_type": "TWSE",
+                "expected_count": 1080,
+                "actual_count": 1070,
+                "coverage_ratio": 0.9907,
+                "status": "OK"
+              },
+              {
+                "market_type": "TPEX",
+                "expected_count": 887,
+                "actual_count": 854,
+                "coverage_ratio": 0.9628,
+                "status": "OK"
+              }
+            ]
+          }
+        },
+        "events.parquet": {
+          "path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/data/clean/events.parquet",
+          "rows": 535350,
+          "date_column": "date",
+          "latest_date": "2026-10-22",
+          "lag_days": 0
+        },
+        "universe.parquet": {
+          "path": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/data/clean/universe.parquet",
+          "rows": 280953,
+          "date_column": "date",
+          "latest_date": "2026-10-22",
+          "lag_days": 0
+        }
+      },
+      "max_lag_days": 7
+    },
+    "notes": [
+      "Top10 內有風險扣分，需看停損與部位上限。"
+    ]
+  },
+  "top10": [
+    {
+      "rank": 1,
+      "stock_id": "7730",
+      "stock_name": "暉盛-創",
+      "close": 242.5,
+      "scores": {
+        "risk_adjusted_score": 1.998,
+        "final_score": 0.8058,
+        "model_prob": 0.383,
+        "rule_score": 7.0,
+        "prediction_score": 0.383,
+        "setup_score": 0.8951,
+        "quality_score": 1.0,
+        "risk_penalty": 0.28
+      },
+      "position": {
+        "suggested_weight": 0.0382,
+        "max_position_weight": 0.0568,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 229.5,
+        "high": 242.5,
+        "low": 229.5,
+        "close": 242.5,
+        "prev_close": 220.5,
+        "return_pct": 9.9773,
+        "intraday_position": 1.0,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_1128198",
+        "industry_name": "IC生產製造",
+        "sector_name": "科技",
+        "market_type": "twse",
+        "theme_tags": [
+          "IC生產製造",
+          "電子產業"
+        ],
+        "concept_tags": [],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 242.5,
+        "stop_loss": 190.7,
+        "target_price": 266.8,
+        "risk_reward": 2.0,
+        "execution_stop_loss": 235.22,
+        "trend_invalidation_price": 190.71,
+        "pressure_price": 266.75,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 0.47,
+        "rr_guard_action": "WAIT_PULLBACK",
+        "rr_guard_reason": "上方空間小於下方風險，只能等拉回或重新確認",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-21",
+        "consecutive_ranked_days": 2,
+        "ranked_history_count": 2,
+        "previous_rank": 6,
+        "rank_delta": 5
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：242.5",
+        "止損：190.7 (月線支撐)",
+        "目標：266.8 (+10%)",
+        "突破20日新高 (壓力220.5)",
+        "跳空強勢收紅",
+        "成交量暴增",
+        "AI: bias_5(+0.43) bb_width(+0.31) ma_squeeze(+0.21)"
+      ],
+      "audience_group": {
+        "sector": "電子相關",
+        "theme": "IC生產製造",
+        "concepts": [],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "⚠️ 空間不漂亮，只能等拉回",
+        "why_bullets": [
+          "上方空間小於下方風險，只能等拉回或重新確認，所以今天只能列為等待名單。",
+          "暉盛-創需要等價格回到合理區間，或看到承接確認後再評估。"
+        ],
+        "translation": "IC生產製造這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。",
+        "risk": "上方空間小於下方風險，現在不適合追，等拉回或重新站穩。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高 (壓力220.5)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "跳空強勢收紅",
+          "plain": "一開盤買盤就比較積極，收盤也沒有被打下來",
+          "raw": "跳空強勢收紅"
+        },
+        {
+          "type": "technical_signal",
+          "label": "成交量暴增",
+          "plain": "今天交易明顯變熱，市場注意力提高",
+          "raw": "成交量暴增"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_5",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_5"
+        },
+        {
+          "type": "ai_factor",
+          "label": "布林帶寬度擴張",
+          "plain": "股價波動開始放大，可能要走出一段行情",
+          "raw": "bb_width"
+        },
+        {
+          "type": "ai_factor",
+          "label": "ma_squeeze",
+          "plain": "模型認為這個數據有加分",
+          "raw": "ma_squeeze"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高 (壓力220.5)",
+        "跳空強勢收紅",
+        "成交量暴增",
+        "AI:bias_5",
+        "AI:bb_width",
+        "AI:ma_squeeze"
+      ],
+      "market_context": {
+        "bucket": "半導體/IC",
+        "bucket_weight": 0.0382,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": []
+      },
+      "list_role": "pullback"
+    },
+    {
+      "rank": 2,
+      "stock_id": "2465",
+      "stock_name": "麗臺",
+      "close": 96.2,
+      "scores": {
+        "risk_adjusted_score": 1.9306,
+        "final_score": 0.7178,
+        "model_prob": 0.2106,
+        "rule_score": 8.7,
+        "prediction_score": 0.2106,
+        "setup_score": 1.0,
+        "quality_score": 1.0,
+        "risk_penalty": 0.28
+      },
+      "position": {
+        "suggested_weight": 0.0369,
+        "max_position_weight": 0.0568,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 89.0,
+        "high": 96.2,
+        "low": 89.0,
+        "close": 96.2,
+        "prev_close": 87.5,
+        "return_pct": 9.9429,
+        "intraday_position": 1.0,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_9381072",
+        "industry_name": "電腦週邊配件",
+        "sector_name": "科技",
+        "market_type": "twse",
+        "theme_tags": [
+          "電腦週邊配件",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "人工智慧AI",
+          "機器人",
+          "穿戴裝置",
+          "區塊鏈",
+          "元宇宙",
+          "防疫",
+          "穿戴式裝置",
+          "虛擬貨幣"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 96.2,
+        "stop_loss": 86.8,
+        "target_price": 105.8,
+        "risk_reward": 2.0,
+        "execution_stop_loss": 93.31,
+        "trend_invalidation_price": 86.85,
+        "pressure_price": 105.82,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 1.03,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": "",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-22",
+        "consecutive_ranked_days": 1,
+        "ranked_history_count": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：96.2",
+        "止損：86.8 (月線支撐)",
+        "目標：105.8 (+10%)",
+        "突破20日新高 (壓力94.2)",
+        "站上布林中軌",
+        "MACD黃金交叉 (10/22)",
+        "AI: bias_5(+0.26) pct_from_low_60d(-0.16) volume_ratio_5d(-0.10)"
+      ],
+      "audience_group": {
+        "sector": "電子相關",
+        "theme": "電腦週邊配件",
+        "concepts": [
+          "人工智慧AI",
+          "機器人",
+          "穿戴裝置",
+          "區塊鏈",
+          "元宇宙",
+          "防疫",
+          "穿戴式裝置",
+          "虛擬貨幣"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "🛡 整理後轉強，先觀察能不能站穩",
+        "why_bullets": [
+          "麗臺今天買方願意用更高價格接貨，短線氣勢比前幾天更明顯。",
+          "在 原物料 吸走最多目光時，麗臺還能靠自己的走勢擠進名單。",
+          "麗臺價格和動能開始同方向，這比單純突破更有參考性。",
+          "這檔入選不是單靠突破，短線買氣升溫、已從低位墊高也有幫忙加分。"
+        ],
+        "translation": "它不是今天第一主軸 原物料，但個股訊號夠強，電腦週邊配件這檔比較像整理後重新轉強，先看買盤能不能連續幾天守住。",
+        "risk": "這檔有風險扣分，買之前要先想好停損，不能越跌越加。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高 (壓力94.2)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "站上布林中軌",
+          "plain": "股價和成交狀況比前幾天更強",
+          "raw": "站上布林中軌"
+        },
+        {
+          "type": "technical_signal",
+          "label": "MACD 黃金交叉",
+          "plain": "短線動能開始轉強",
+          "raw": "MACD黃金交叉 (10/22)"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_5",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_5"
+        },
+        {
+          "type": "ai_factor",
+          "label": "pct_from_low_60d",
+          "plain": "模型認為這個數據有加分",
+          "raw": "pct_from_low_60d"
+        },
+        {
+          "type": "ai_factor",
+          "label": "volume_ratio_5d",
+          "plain": "模型認為這個數據有加分",
+          "raw": "volume_ratio_5d"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高 (壓力94.2)",
+        "站上布林中軌",
+        "MACD黃金交叉 (10/22)",
+        "AI:bias_5",
+        "AI:pct_from_low_60d",
+        "AI:volume_ratio_5d"
+      ],
+      "market_context": {
+        "bucket": "電腦與AI硬體",
+        "bucket_weight": 0.0369,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "機器人"
+        ]
+      },
+      "list_role": "primary"
+    },
+    {
+      "rank": 3,
+      "stock_id": "4526",
+      "stock_name": "東台",
+      "close": 41.05,
+      "scores": {
+        "risk_adjusted_score": 1.8721,
+        "final_score": 0.7392,
+        "model_prob": 0.4114,
+        "rule_score": 4.5,
+        "prediction_score": 0.4114,
+        "setup_score": 0.7407,
+        "quality_score": 1.0,
+        "risk_penalty": 0.28
+      },
+      "position": {
+        "suggested_weight": 0.0358,
+        "max_position_weight": 0.0568,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 39.25,
+        "high": 41.85,
+        "low": 38.8,
+        "close": 41.05,
+        "prev_close": 38.05,
+        "return_pct": 7.8844,
+        "intraday_position": 0.7377,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_3267448",
+        "industry_name": "電機機械",
+        "sector_name": "工業",
+        "market_type": "twse",
+        "theme_tags": [
+          "電機機械",
+          "上市類股"
+        ],
+        "concept_tags": [
+          "機器人",
+          "3D列印",
+          "台商泰國",
+          "輝達AI",
+          "日圓升值",
+          "工業4.0",
+          "智慧機械"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 41.0,
+        "stop_loss": 33.3,
+        "target_price": 45.2,
+        "risk_reward": 2.0,
+        "execution_stop_loss": 39.82,
+        "trend_invalidation_price": 33.3,
+        "pressure_price": 45.15,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 0.53,
+        "rr_guard_action": "WAIT_PULLBACK",
+        "rr_guard_reason": "上方空間小於下方風險，只能等拉回或重新確認",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-19",
+        "consecutive_ranked_days": 1,
+        "ranked_history_count": 2,
+        "previous_rank": 9,
+        "rank_delta": 6
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：41.0",
+        "止損：33.3 (月線支撐)",
+        "目標：45.2 (+10%)",
+        "突破20日新高 (壓力38.0)",
+        "跳空強勢收紅",
+        "成交量暴增",
+        "AI: bias_5(+0.27) obv(+0.20) relative_position_60d(-0.11)"
+      ],
+      "audience_group": {
+        "sector": "工業",
+        "theme": "電機機械",
+        "concepts": [
+          "機器人",
+          "3D列印",
+          "台商泰國",
+          "輝達AI",
+          "日圓升值",
+          "工業4.0",
+          "智慧機械"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "⚠️ 空間不漂亮，只能等拉回",
+        "why_bullets": [
+          "上方空間小於下方風險，只能等拉回或重新確認，所以今天只能列為等待名單。",
+          "東台需要等價格回到合理區間，或看到承接確認後再評估。"
+        ],
+        "translation": "電機機械這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。",
+        "risk": "上方空間小於下方風險，現在不適合追，等拉回或重新站穩。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高 (壓力38.0)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "跳空強勢收紅",
+          "plain": "一開盤買盤就比較積極，收盤也沒有被打下來",
+          "raw": "跳空強勢收紅"
+        },
+        {
+          "type": "technical_signal",
+          "label": "成交量暴增",
+          "plain": "今天交易明顯變熱，市場注意力提高",
+          "raw": "成交量暴增"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_5",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_5"
+        },
+        {
+          "type": "ai_factor",
+          "label": "OBV 量價累積",
+          "plain": "買盤有累積進來的跡象",
+          "raw": "obv"
+        },
+        {
+          "type": "ai_factor",
+          "label": "relative_position_60d",
+          "plain": "模型認為這個數據有加分",
+          "raw": "relative_position_60d"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高 (壓力38.0)",
+        "跳空強勢收紅",
+        "成交量暴增",
+        "AI:bias_5",
+        "AI:obv",
+        "AI:relative_position_60d"
+      ],
+      "market_context": {
+        "bucket": "電機機械",
+        "bucket_weight": 0.0358,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "機器人",
+          "工業4.0"
+        ]
+      },
+      "list_role": "pullback"
+    },
+    {
+      "rank": 4,
+      "stock_id": "2892",
+      "stock_name": "第一金",
+      "close": 42.35,
+      "scores": {
+        "risk_adjusted_score": 1.8721,
+        "final_score": 0.7363,
+        "model_prob": 0.4114,
+        "rule_score": 4.5,
+        "prediction_score": 0.4114,
+        "setup_score": 0.7407,
+        "quality_score": 1.0,
+        "risk_penalty": 0.28
+      },
+      "position": {
+        "suggested_weight": 0.0358,
+        "max_position_weight": 0.0568,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 41.0,
+        "high": 42.4,
+        "low": 41.0,
+        "close": 42.35,
+        "prev_close": 41.3,
+        "return_pct": 2.5424,
+        "intraday_position": 0.9643,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_4545633",
+        "industry_name": "金融業",
+        "sector_name": "金融",
+        "market_type": "twse",
+        "theme_tags": [
+          "金融業",
+          "上市類股"
+        ],
+        "concept_tags": [
+          "雙十一",
+          "一帶一路",
+          "FinTech",
+          "傳產內需股",
+          "光棍節(雙11)受惠",
+          "電子商務(電商)"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 42.3,
+        "stop_loss": 39.1,
+        "target_price": 46.6,
+        "risk_reward": 2.0,
+        "execution_stop_loss": 41.08,
+        "trend_invalidation_price": 39.07,
+        "pressure_price": 46.58,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 1.29,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": "",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-22",
+        "consecutive_ranked_days": 1,
+        "ranked_history_count": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：42.3",
+        "止損：39.1 (月線支撐)",
+        "目標：46.6 (+10%)",
+        "突破20日新高 (壓力42.1)",
+        "candle_bull_marubozu",
+        "紅三兵",
+        "AI: obv(+0.49) avg_volume_10d(+0.13) rsi(-0.12)"
+      ],
+      "audience_group": {
+        "sector": "金融",
+        "theme": "金融業",
+        "concepts": [
+          "雙十一",
+          "一帶一路",
+          "FinTech",
+          "傳產內需股",
+          "光棍節(雙11)受惠",
+          "電子商務(電商)"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "🚀 多方延續，短線仍有氣勢",
+        "why_bullets": [
+          "金融業這檔股價剛越過近期壓力，代表上方賣壓被買盤吃掉一部分。",
+          "雖然今天第一主軸是 原物料，但第一金自己也突破壓力，屬於支線裡較強的一檔。",
+          "第一金股價連續幾天墊高，多方還沒有明顯退場。",
+          "模型加分不只看價格，也看到買盤有累積、近期量能升溫。"
+        ],
+        "translation": "它不是今天第一主軸 原物料，但個股訊號夠強，金融業這檔短線氣勢還在，不過已經不是剛起漲，觀察重點是拉回有沒有人接。",
+        "risk": "這檔有風險扣分，買之前要先想好停損，不能越跌越加。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高 (壓力42.1)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "強勢長紅 K 棒",
+          "plain": "當天買方力道很強",
+          "raw": "candle_bull_marubozu"
+        },
+        {
+          "type": "technical_signal",
+          "label": "紅三兵",
+          "plain": "股價連續幾天走強",
+          "raw": "紅三兵"
+        },
+        {
+          "type": "ai_factor",
+          "label": "OBV 量價累積",
+          "plain": "買盤有累積進來的跡象",
+          "raw": "obv"
+        },
+        {
+          "type": "ai_factor",
+          "label": "10日均量",
+          "plain": "最近成交量比平常熱",
+          "raw": "avg_volume_10d"
+        },
+        {
+          "type": "ai_factor",
+          "label": "RSI 強弱",
+          "plain": "短線強弱偏正面",
+          "raw": "rsi"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高 (壓力42.1)",
+        "candle_bull_marubozu",
+        "紅三兵",
+        "AI:obv",
+        "AI:avg_volume_10d",
+        "AI:rsi"
+      ],
+      "market_context": {
+        "bucket": "金融",
+        "bucket_weight": 0.0358,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "一帶一路",
+          "傳產內需股"
+        ]
+      },
+      "list_role": "primary"
+    },
+    {
+      "rank": 5,
+      "stock_id": "1101",
+      "stock_name": "台泥",
+      "close": 27.95,
+      "scores": {
+        "risk_adjusted_score": 1.8536,
+        "final_score": 0.7392,
+        "model_prob": 0.4114,
+        "rule_score": 4.2,
+        "prediction_score": 0.4114,
+        "setup_score": 0.7222,
+        "quality_score": 1.0,
+        "risk_penalty": 0.28
+      },
+      "position": {
+        "suggested_weight": 0.0355,
+        "max_position_weight": 0.0568,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 27.15,
+        "high": 28.2,
+        "low": 27.05,
+        "close": 27.95,
+        "prev_close": 26.8,
+        "return_pct": 4.291,
+        "intraday_position": 0.7826,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_8451427",
+        "industry_name": "水泥",
+        "sector_name": "原物料",
+        "market_type": "twse",
+        "theme_tags": [
+          "水泥",
+          "上市類股"
+        ],
+        "concept_tags": [
+          "電動車",
+          "儲能系統",
+          "儲能",
+          "台泥",
+          "傳產內需股",
+          "海外掛牌",
+          "飛天車(eVTOL)",
+          "一帶一路"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 28.0,
+        "stop_loss": 25.6,
+        "target_price": 30.7,
+        "risk_reward": 2.0,
+        "execution_stop_loss": 27.11,
+        "trend_invalidation_price": 25.6,
+        "pressure_price": 30.75,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 1.19,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": "",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-22",
+        "consecutive_ranked_days": 1,
+        "ranked_history_count": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：28.0",
+        "止損：25.6 (月線支撐)",
+        "目標：30.7 (+10%)",
+        "突破20日新高 (壓力27.7)",
+        "成交量暴增",
+        "晨星反轉",
+        "AI: obv(+0.59) avg_volume_20d(+0.18) bias_5(+0.15)"
+      ],
+      "audience_group": {
+        "sector": "原物料",
+        "theme": "水泥",
+        "concepts": [
+          "電動車",
+          "儲能系統",
+          "儲能",
+          "台泥",
+          "傳產內需股",
+          "海外掛牌",
+          "飛天車(eVTOL)",
+          "一帶一路"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "🔥 交易轉熱，可列入觀察",
+        "why_bullets": [
+          "台泥不是只在原地整理，而是往上推過最近容易卡關的位置。",
+          "原物料是今天資金主軸，台泥又同步放量，代表族群和個股都有熱度。",
+          "台泥成交突然放大，代表今天有更多資金開始盯這檔。",
+          "除了型態，數據面還有買盤有累積、短線買氣升溫在加分。"
+        ],
+        "translation": "它在今天資金主軸 原物料 裡，水泥這檔不是冷門股自己飄上去，而是成交跟著放大；可以觀察，但不要追太急。",
+        "risk": "這檔有風險扣分，買之前要先想好停損，不能越跌越加。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高 (壓力27.7)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "成交量暴增",
+          "plain": "今天交易明顯變熱，市場注意力提高",
+          "raw": "成交量暴增"
+        },
+        {
+          "type": "technical_signal",
+          "label": "晨星反轉",
+          "plain": "股價和成交狀況比前幾天更強",
+          "raw": "晨星反轉"
+        },
+        {
+          "type": "ai_factor",
+          "label": "OBV 量價累積",
+          "plain": "買盤有累積進來的跡象",
+          "raw": "obv"
+        },
+        {
+          "type": "ai_factor",
+          "label": "avg_volume_20d",
+          "plain": "模型認為這個數據有加分",
+          "raw": "avg_volume_20d"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_5",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_5"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高 (壓力27.7)",
+        "成交量暴增",
+        "晨星反轉",
+        "AI:obv",
+        "AI:avg_volume_20d",
+        "AI:bias_5"
+      ],
+      "market_context": {
+        "bucket": "原物料",
+        "bucket_weight": 0.0695,
+        "bucket_count": 2,
+        "is_lead_bucket": true,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "電動車",
+          "傳產內需股"
+        ]
+      },
+      "list_role": "primary"
+    },
+    {
+      "rank": 6,
+      "stock_id": "2236",
+      "stock_name": "百達-KY",
+      "close": 96.3,
+      "scores": {
+        "risk_adjusted_score": 1.8004,
+        "final_score": 0.7024,
+        "model_prob": 0.3397,
+        "rule_score": 4.5,
+        "prediction_score": 0.3397,
+        "setup_score": 0.7407,
+        "quality_score": 1.0,
+        "risk_penalty": 0.28
+      },
+      "position": {
+        "suggested_weight": 0.0344,
+        "max_position_weight": 0.0568,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 90.9,
+        "high": 97.0,
+        "low": 90.9,
+        "close": 96.3,
+        "prev_close": 90.1,
+        "return_pct": 6.8812,
+        "intraday_position": 0.8852,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_9349518",
+        "industry_name": "汽車",
+        "sector_name": "民生消費",
+        "market_type": "twse",
+        "theme_tags": [
+          "汽車",
+          "上市類股"
+        ],
+        "concept_tags": [
+          "電動車",
+          "機器人",
+          "油電車"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 96.3,
+        "stop_loss": 91.6,
+        "target_price": 105.9,
+        "risk_reward": 3.3,
+        "execution_stop_loss": 93.41,
+        "trend_invalidation_price": 91.63,
+        "pressure_price": 105.93,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 2.06,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": "",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-22",
+        "consecutive_ranked_days": 1,
+        "ranked_history_count": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：96.3",
+        "止損：91.6 (月線支撐)",
+        "目標：105.9 (+10%)",
+        "站上布林中軌",
+        "RSI 40 反彈",
+        "candle_bull_marubozu",
+        "AI: macd(+0.38) bb_width(+0.35) bias_5(+0.31)"
+      ],
+      "audience_group": {
+        "sector": "民生消費",
+        "theme": "汽車",
+        "concepts": [
+          "電動車",
+          "機器人",
+          "油電車"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "💤 觀察中，等下一步確認",
+        "why_bullets": [
+          "這檔入選不是單靠突破，短線動能偏正面、波動開始打開也有幫忙加分。",
+          "產業標籤偏 電動車、機器人，不是完全沒有題材支撐。"
+        ],
+        "translation": "它不是今天第一主軸 原物料，所以先當候補看，汽車這檔今天被資金往上推，短線偏強；可以觀察，但不要看到上榜就追高。",
+        "risk": "這檔有風險扣分，買之前要先想好停損，不能越跌越加。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "站上布林中軌",
+          "plain": "股價和成交狀況比前幾天更強",
+          "raw": "站上布林中軌"
+        },
+        {
+          "type": "technical_signal",
+          "label": "RSI 40 反彈",
+          "plain": "股價和成交狀況比前幾天更強",
+          "raw": "RSI 40 反彈"
+        },
+        {
+          "type": "technical_signal",
+          "label": "強勢長紅 K 棒",
+          "plain": "當天買方力道很強",
+          "raw": "candle_bull_marubozu"
+        },
+        {
+          "type": "ai_factor",
+          "label": "MACD 動能",
+          "plain": "短線動能偏正面",
+          "raw": "macd"
+        },
+        {
+          "type": "ai_factor",
+          "label": "布林帶寬度擴張",
+          "plain": "股價波動開始放大，可能要走出一段行情",
+          "raw": "bb_width"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_5",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_5"
+        }
+      ],
+      "raw_signals": [
+        "站上布林中軌",
+        "RSI 40 反彈",
+        "candle_bull_marubozu",
+        "AI:macd",
+        "AI:bb_width",
+        "AI:bias_5"
+      ],
+      "market_context": {
+        "bucket": "汽車橡膠",
+        "bucket_weight": 0.0344,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "電動車",
+          "機器人"
+        ]
+      },
+      "list_role": "backup"
+    },
+    {
+      "rank": 7,
+      "stock_id": "6690",
+      "stock_name": "安碁資訊",
+      "close": 189.0,
+      "scores": {
+        "risk_adjusted_score": 1.787,
+        "final_score": 0.6636,
+        "model_prob": 0.2106,
+        "rule_score": 7.0,
+        "prediction_score": 0.2106,
+        "setup_score": 0.8951,
+        "quality_score": 0.9807,
+        "risk_penalty": 0.2993
+      },
+      "position": {
+        "suggested_weight": 0.034,
+        "max_position_weight": 0.0564,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 184.0,
+        "high": 192.5,
+        "low": 183.5,
+        "close": 189.0,
+        "prev_close": 183.0,
+        "return_pct": 3.2787,
+        "intraday_position": 0.6111,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_7499678",
+        "industry_name": "系統整合",
+        "sector_name": "科技",
+        "market_type": "tpex",
+        "theme_tags": [
+          "系統整合",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "雲端運算",
+          "鴻海MIH電動車平台",
+          "資安",
+          "宏碁"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 189.0,
+        "stop_loss": 175.4,
+        "target_price": 207.9,
+        "risk_reward": 2.0,
+        "execution_stop_loss": 183.33,
+        "trend_invalidation_price": 175.42,
+        "pressure_price": 207.9,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 1.39,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": "",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-22",
+        "consecutive_ranked_days": 1,
+        "ranked_history_count": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：189.0",
+        "止損：175.4 (月線支撐)",
+        "目標：207.9 (+10%)",
+        "突破20日新高 (壓力187.0)",
+        "MACD黃金交叉 (10/22)",
+        "成交量暴增",
+        "AI: bb_width(-0.29) bias_5(+0.17) pattern_stop_loss(-0.17)"
+      ],
+      "audience_group": {
+        "sector": "電子相關",
+        "theme": "系統整合",
+        "concepts": [
+          "雲端運算",
+          "鴻海MIH電動車平台",
+          "資安",
+          "宏碁"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "🔥 交易轉熱，可列入觀察",
+        "why_bullets": [
+          "安碁資訊近期壓力區被往上突破，市場接受價格正在墊高。",
+          "雖然今天第一主軸是 原物料，但安碁資訊自己也突破壓力，屬於支線裡較強的一檔。",
+          "安碁資訊短線動能剛轉強，接下來重點看買盤能不能延續。",
+          "系統整合這檔買賣變得更活躍，市場注意力正在靠過來。"
+        ],
+        "translation": "它不是今天第一主軸 原物料，所以先當候補看，系統整合這檔不是單純衝高，短線動能也有跟上；重點是後面能不能站穩。",
+        "risk": "這檔有風險扣分，買之前要先想好停損，不能越跌越加。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高 (壓力187.0)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "MACD 黃金交叉",
+          "plain": "短線動能開始轉強",
+          "raw": "MACD黃金交叉 (10/22)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "成交量暴增",
+          "plain": "今天交易明顯變熱，市場注意力提高",
+          "raw": "成交量暴增"
+        },
+        {
+          "type": "ai_factor",
+          "label": "布林帶寬度擴張",
+          "plain": "股價波動開始放大，可能要走出一段行情",
+          "raw": "bb_width"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_5",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_5"
+        },
+        {
+          "type": "ai_factor",
+          "label": "型態停損距離",
+          "plain": "停損距離還算可控",
+          "raw": "pattern_stop_loss"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高 (壓力187.0)",
+        "MACD黃金交叉 (10/22)",
+        "成交量暴增",
+        "AI:bb_width",
+        "AI:bias_5",
+        "AI:pattern_stop_loss"
+      ],
+      "market_context": {
+        "bucket": "軟體雲端",
+        "bucket_weight": 0.0675,
+        "bucket_count": 2,
+        "is_lead_bucket": false,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "資安"
+        ]
+      },
+      "list_role": "backup"
+    },
+    {
+      "rank": 8,
+      "stock_id": "2069",
+      "stock_name": "運錩",
+      "close": 28.95,
+      "scores": {
+        "risk_adjusted_score": 1.7764,
+        "final_score": 0.6749,
+        "model_prob": 0.2539,
+        "rule_score": 5.5,
+        "prediction_score": 0.2539,
+        "setup_score": 0.8025,
+        "quality_score": 1.0,
+        "risk_penalty": 0.28
+      },
+      "position": {
+        "suggested_weight": 0.034,
+        "max_position_weight": 0.0568,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 30.05,
+        "high": 30.05,
+        "low": 28.0,
+        "close": 28.95,
+        "prev_close": 27.35,
+        "return_pct": 5.8501,
+        "intraday_position": 0.4634,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_2512495",
+        "industry_name": "鋼鐵",
+        "sector_name": "原物料",
+        "market_type": "twse",
+        "theme_tags": [
+          "鋼鐵",
+          "上市類股"
+        ],
+        "concept_tags": [
+          "都市更新",
+          "傳產原物料股"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 29.0,
+        "stop_loss": 24.9,
+        "target_price": 31.8,
+        "risk_reward": 2.0,
+        "execution_stop_loss": 28.08,
+        "trend_invalidation_price": 24.86,
+        "pressure_price": 31.85,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 0.71,
+        "rr_guard_action": "WAIT_PULLBACK",
+        "rr_guard_reason": "上方空間小於下方風險，只能等拉回或重新確認",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-22",
+        "consecutive_ranked_days": 1,
+        "ranked_history_count": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：29.0",
+        "止損：24.9 (月線支撐)",
+        "目標：31.8 (+10%)",
+        "突破20日新高 (壓力27.5)",
+        "5日線突破月線",
+        "MACD黃金交叉 (10/22)",
+        "AI: bias_5(+0.30) ma_squeeze(+0.12) bias_60(+0.11)"
+      ],
+      "audience_group": {
+        "sector": "原物料",
+        "theme": "鋼鐵",
+        "concepts": [
+          "都市更新",
+          "傳產原物料股"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "⚠️ 空間不漂亮，只能等拉回",
+        "why_bullets": [
+          "上方空間小於下方風險，只能等拉回或重新確認，所以今天只能列為等待名單。",
+          "運錩需要等價格回到合理區間，或看到承接確認後再評估。"
+        ],
+        "translation": "鋼鐵這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。",
+        "risk": "上方空間小於下方風險，現在不適合追，等拉回或重新站穩。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高 (壓力27.5)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "5日線突破月線",
+          "plain": "股價和成交狀況比前幾天更強",
+          "raw": "5日線突破月線"
+        },
+        {
+          "type": "technical_signal",
+          "label": "MACD 黃金交叉",
+          "plain": "短線動能開始轉強",
+          "raw": "MACD黃金交叉 (10/22)"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_5",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_5"
+        },
+        {
+          "type": "ai_factor",
+          "label": "ma_squeeze",
+          "plain": "模型認為這個數據有加分",
+          "raw": "ma_squeeze"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_60",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_60"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高 (壓力27.5)",
+        "5日線突破月線",
+        "MACD黃金交叉 (10/22)",
+        "AI:bias_5",
+        "AI:ma_squeeze",
+        "AI:bias_60"
+      ],
+      "market_context": {
+        "bucket": "原物料",
+        "bucket_weight": 0.0695,
+        "bucket_count": 2,
+        "is_lead_bucket": true,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": []
+      },
+      "list_role": "pullback"
+    },
+    {
+      "rank": 9,
+      "stock_id": "4953",
+      "stock_name": "緯致",
+      "close": 125.5,
+      "scores": {
+        "risk_adjusted_score": 1.7534,
+        "final_score": 0.6073,
+        "model_prob": 0.2001,
+        "rule_score": 6.0,
+        "prediction_score": 0.2001,
+        "setup_score": 0.8333,
+        "quality_score": 1.0,
+        "risk_penalty": 0.28
+      },
+      "position": {
+        "suggested_weight": 0.0335,
+        "max_position_weight": 0.0568,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 123.0,
+        "high": 127.5,
+        "low": 122.5,
+        "close": 125.5,
+        "prev_close": 123.0,
+        "return_pct": 2.0325,
+        "intraday_position": 0.6,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_7499678",
+        "industry_name": "系統整合",
+        "sector_name": "科技",
+        "market_type": "tpex",
+        "theme_tags": [
+          "系統整合",
+          "電子產業"
+        ],
+        "concept_tags": [
+          "碳權",
+          "資安",
+          "緯創",
+          "工業4.0"
+        ],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 125.5,
+        "stop_loss": 115.5,
+        "target_price": 138.1,
+        "risk_reward": 2.0,
+        "execution_stop_loss": 121.74,
+        "trend_invalidation_price": 115.47,
+        "pressure_price": 138.05,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 1.25,
+        "rr_guard_action": "ALLOW",
+        "rr_guard_reason": "",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-22",
+        "consecutive_ranked_days": 1,
+        "ranked_history_count": 1,
+        "previous_rank": null,
+        "rank_delta": null
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：125.5",
+        "止損：115.5 (月線支撐)",
+        "目標：138.1 (+10%)",
+        "突破20日新高 (壓力124.0)",
+        "成交量暴增",
+        "紅三兵",
+        "AI: pattern_stop_loss(-0.37) pattern_neckline(-0.19) bias_5(+0.17)"
+      ],
+      "audience_group": {
+        "sector": "電子相關",
+        "theme": "系統整合",
+        "concepts": [
+          "碳權",
+          "資安",
+          "緯創",
+          "工業4.0"
+        ],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "🚀 多方延續，短線仍有氣勢",
+        "why_bullets": [
+          "緯致不是只在原地整理，而是往上推過最近容易卡關的位置。",
+          "它不是靠大盤全面上漲被抬進來，而是緯致本身有突破動作。",
+          "緯致成交突然放大，代表今天有更多資金開始盯這檔。",
+          "緯致短線走勢一階一階往上，買方節奏還算完整。"
+        ],
+        "translation": "它不是今天第一主軸 原物料，所以先當候補看，系統整合這檔目前是多方連續推進的狀態，但連漲後更要避免追在太急的位置。",
+        "risk": "這檔有風險扣分，買之前要先想好停損，不能越跌越加。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高 (壓力124.0)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "成交量暴增",
+          "plain": "今天交易明顯變熱，市場注意力提高",
+          "raw": "成交量暴增"
+        },
+        {
+          "type": "technical_signal",
+          "label": "紅三兵",
+          "plain": "股價連續幾天走強",
+          "raw": "紅三兵"
+        },
+        {
+          "type": "ai_factor",
+          "label": "型態停損距離",
+          "plain": "停損距離還算可控",
+          "raw": "pattern_stop_loss"
+        },
+        {
+          "type": "ai_factor",
+          "label": "pattern_neckline",
+          "plain": "模型認為這個數據有加分",
+          "raw": "pattern_neckline"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_5",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_5"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高 (壓力124.0)",
+        "成交量暴增",
+        "紅三兵",
+        "AI:pattern_stop_loss",
+        "AI:pattern_neckline",
+        "AI:bias_5"
+      ],
+      "market_context": {
+        "bucket": "軟體雲端",
+        "bucket_weight": 0.0675,
+        "bucket_count": 2,
+        "is_lead_bucket": false,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": [
+          "資安",
+          "工業4.0"
+        ]
+      },
+      "list_role": "backup"
+    },
+    {
+      "rank": 10,
+      "stock_id": "4577",
+      "stock_name": "達航科技",
+      "close": 127.0,
+      "scores": {
+        "risk_adjusted_score": 1.7524,
+        "final_score": 0.7979,
+        "model_prob": 0.4114,
+        "rule_score": 5.8,
+        "prediction_score": 0.4114,
+        "setup_score": 0.821,
+        "quality_score": 1.0,
+        "risk_penalty": 0.48
+      },
+      "position": {
+        "suggested_weight": 0.0317,
+        "max_position_weight": 0.0524,
+        "gross_exposure": 0.35,
+        "allocated_exposure": 0.3498,
+        "cash_weight": 0.6502,
+        "exposure_note": "市場偏弱，降低總曝險；目標總曝險 35%，目前配置 35%"
+      },
+      "tape": {
+        "open": 126.5,
+        "high": 127.0,
+        "low": 125.0,
+        "close": 127.0,
+        "prev_close": 115.5,
+        "return_pct": 9.9567,
+        "intraday_position": 1.0,
+        "one_price_locked": false,
+        "limit_state": "NORMAL",
+        "tape_guard_action": "ALLOW",
+        "tape_guard_reason": ""
+      },
+      "reference": {
+        "industry_code": "concept_9425065",
+        "industry_name": "其他電子",
+        "sector_name": "科技",
+        "market_type": "tpex",
+        "theme_tags": [
+          "其他電子",
+          "上櫃類股"
+        ],
+        "concept_tags": [],
+        "major_etfs": []
+      },
+      "trade_plan": {
+        "entry": 127.0,
+        "stop_loss": 91.8,
+        "target_price": 139.7,
+        "risk_reward": 2.0,
+        "execution_stop_loss": 123.19,
+        "trend_invalidation_price": 91.81,
+        "pressure_price": 139.7,
+        "execution_risk_reward": 3.33,
+        "risk_reward_score": 0.36,
+        "rr_guard_action": "WAIT_PULLBACK",
+        "rr_guard_reason": "上方空間小於下方風險，只能等拉回或重新確認",
+        "source": "ranking_reasons"
+      },
+      "persistence": {
+        "available": true,
+        "first_seen_date": "2026-10-19",
+        "consecutive_ranked_days": 2,
+        "ranked_history_count": 3,
+        "previous_rank": 5,
+        "rank_delta": -5
+      },
+      "market_regime": "RISK_OFF",
+      "reasons": [
+        "進場：127.0",
+        "止損：91.8 (月線支撐)",
+        "目標：139.7 (+10%)",
+        "突破20日新高 (壓力115.5)",
+        "跳空強勢收紅",
+        "錘子線",
+        "AI: bias_5(+0.37) bb_width(+0.33) macd_hist(+0.28)"
+      ],
+      "audience_group": {
+        "sector": "電子相關",
+        "theme": "其他電子",
+        "concepts": [],
+        "source": "daily_report_reference"
+      },
+      "notification_summary": {
+        "conclusion": "⚠️ 空間不漂亮，只能等拉回",
+        "why_bullets": [
+          "上方空間小於下方風險，只能等拉回或重新確認，所以今天只能列為等待名單。",
+          "達航科技需要等價格回到合理區間，或看到承接確認後再評估。"
+        ],
+        "translation": "其他電子這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。",
+        "risk": "上方空間小於下方風險，現在不適合追，等拉回或重新站穩。"
+      },
+      "detail_reasons": [
+        {
+          "type": "technical_signal",
+          "label": "突破20日新高",
+          "plain": "股價突破最近一段時間大家賣壓比較重的位置",
+          "raw": "突破20日新高 (壓力115.5)"
+        },
+        {
+          "type": "technical_signal",
+          "label": "跳空強勢收紅",
+          "plain": "一開盤買盤就比較積極，收盤也沒有被打下來",
+          "raw": "跳空強勢收紅"
+        },
+        {
+          "type": "technical_signal",
+          "label": "錘子線",
+          "plain": "盤中被賣下去後又有人接回來",
+          "raw": "錘子線"
+        },
+        {
+          "type": "ai_factor",
+          "label": "bias_5",
+          "plain": "模型認為這個數據有加分",
+          "raw": "bias_5"
+        },
+        {
+          "type": "ai_factor",
+          "label": "布林帶寬度擴張",
+          "plain": "股價波動開始放大，可能要走出一段行情",
+          "raw": "bb_width"
+        },
+        {
+          "type": "ai_factor",
+          "label": "macd_hist",
+          "plain": "模型認為這個數據有加分",
+          "raw": "macd_hist"
+        }
+      ],
+      "raw_signals": [
+        "突破20日新高 (壓力115.5)",
+        "跳空強勢收紅",
+        "錘子線",
+        "AI:bias_5",
+        "AI:bb_width",
+        "AI:macd_hist"
+      ],
+      "market_context": {
+        "bucket": "電子零組件",
+        "bucket_weight": 0.0317,
+        "bucket_count": 1,
+        "is_lead_bucket": false,
+        "lead_bucket": "原物料",
+        "lead_weight": 0.0695,
+        "market": "偏弱",
+        "matched_hot_concepts": []
+      },
+      "list_role": "pullback"
+    }
+  ],
+  "message_markdown": "Top10 每日選股｜2026-10-22\n\n狀態：OK｜大盤：偏弱\n來源：正式 ranking artifact，可用於日報與推播 payload。\n讀法：這是今天的觀察名單，不是叫你一次買滿。盤勢不夠強時，後段名單只當候補。\n\n今日大盤與資金\n- 大盤情況：今天大盤偏弱，先保守看待，名單有出現也要降低追價衝動。\n- 資金分布：原物料 7.0%、軟體雲端 6.8%、半導體/IC 3.8%、電腦與AI硬體 3.7%、金融 3.6%、電機機械 3.6%、汽車橡膠 3.4%、電子零組件 3.2%；另外保留現金 65.0%，代表今天沒有把資金全壓進名單。\n- 資金重心：今天不是亂分散，主軸先看 原物料；其次是 軟體雲端、半導體/IC、電腦與AI硬體；電子相關合計 17.4%，但已拆成不同題材看。\n- 熱門概念：機器人（3 檔）、一帶一路（2 檔）、傳產內需股（2 檔）、工業4.0（2 檔）。\n\n今日名單怎麼讀？\n- 大盤偏弱，最多先看前 3 檔，其餘 7 檔只當候補、保留現金 65.0%。\n\n今日 10 檔總覽\n- 1. 7730 暉盛-創｜只等拉回\n- 2. 2465 麗臺｜主攻觀察\n- 3. 4526 東台｜只等拉回\n- 4. 2892 第一金｜主攻觀察\n- 5. 1101 台泥｜主攻觀察\n- 6. 2236 百達-KY｜候補觀察\n- 7. 6690 安碁資訊｜候補觀察\n- 8. 2069 運錩｜只等拉回\n- 9. 4953 緯致｜候補觀察\n- 10. 4577 達航科技｜只等拉回\n\n逐檔重點\n\n只等拉回\n1. 7730 暉盛-創｜IC生產製造\n⚠️ 空間不漂亮，只能等拉回\n\n跟今天盤勢的關係：\n暉盛-創有族群脈絡可追蹤，落在 半導體/IC（約 3.8%）；但目前買點條件還沒到位，先等價格確認。\n\n為什麼入選：\n- 上方空間小於下方風險，只能等拉回或重新確認，所以今天只能列為等待名單。\n- 暉盛-創需要等價格回到合理區間，或看到承接確認後再評估。\n\n怎麼看：\n- 觀察區間：242.50 ~ 246.14 元，但現在空間不夠漂亮（RR 約 0.47）。\n- 短線執行停損先看 235.22 元。\n- 趨勢失效價另看 190.71 元，不要把它當成追高停損。\n- 等拉回後仍有承接，或重新站穩再看。\n\n白話翻譯：\nIC生產製造這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。\n提醒：上方空間小於下方風險，現在不適合追，等拉回或重新站穩。\n\n主攻觀察\n2. 2465 麗臺｜電腦週邊配件｜人工智慧AI、機器人、穿戴裝置\n🛡 整理後轉強，先觀察能不能站穩\n\n跟今天盤勢的關係：\n今天盤面主軸是 原物料，麗臺則是在支線 電腦與AI硬體（約 3.7%）裡轉強。 同時也連到熱門概念 機器人。\n\n為什麼入選：\n- 麗臺今天買方願意用更高價格接貨，短線氣勢比前幾天更明顯。\n- 在 原物料 吸走最多目光時，麗臺還能靠自己的走勢擠進名單。\n- 麗臺價格和動能開始同方向，這比單純突破更有參考性。\n- 這檔入選不是單靠突破，短線買氣升溫、已從低位墊高也有幫忙加分。\n\n怎麼看：\n- 觀察區間：96.20 ~ 97.64 元\n- 跌破 86.80 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 105.80 元。\n- 支線股要更挑價格，站不穩觀察區間就先退一步。\n\n白話翻譯：\n它不是今天第一主軸 原物料，但個股訊號夠強，電腦週邊配件這檔比較像整理後重新轉強，先看買盤能不能連續幾天守住。\n提醒：這檔有風險扣分，買之前要先想好停損，不能越跌越加。\n\n只等拉回\n3. 4526 東台｜電機機械｜機器人、3D列印、台商泰國\n⚠️ 空間不漂亮，只能等拉回\n\n跟今天盤勢的關係：\n東台有族群脈絡可追蹤，落在 電機機械（約 3.6%）；但目前買點條件還沒到位，先等價格確認。\n\n為什麼入選：\n- 上方空間小於下方風險，只能等拉回或重新確認，所以今天只能列為等待名單。\n- 東台需要等價格回到合理區間，或看到承接確認後再評估。\n\n怎麼看：\n- 觀察區間：41.00 ~ 41.61 元，但現在空間不夠漂亮（RR 約 0.53）。\n- 短線執行停損先看 39.82 元。\n- 趨勢失效價另看 33.30 元，不要把它當成追高停損。\n- 等拉回後仍有承接，或重新站穩再看。\n\n白話翻譯：\n電機機械這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。\n提醒：上方空間小於下方風險，現在不適合追，等拉回或重新站穩。\n\n主攻觀察\n4. 2892 第一金｜金融業｜雙十一、一帶一路、FinTech\n🚀 多方延續，短線仍有氣勢\n\n跟今天盤勢的關係：\n資金最大方向先看 原物料；第一金屬於次主線 金融（約 3.6%），要更重視後續確認。 同時也連到熱門概念 一帶一路、傳產內需股。\n\n為什麼入選：\n- 金融業這檔股價剛越過近期壓力，代表上方賣壓被買盤吃掉一部分。\n- 雖然今天第一主軸是 原物料，但第一金自己也突破壓力，屬於支線裡較強的一檔。\n- 第一金股價連續幾天墊高，多方還沒有明顯退場。\n- 模型加分不只看價格，也看到買盤有累積、近期量能升溫。\n\n怎麼看：\n- 觀察區間：42.30 ~ 42.93 元\n- 跌破 39.10 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 46.60 元。\n- 它不是今日最大主軸，重點看個股強度能不能延續。\n\n白話翻譯：\n它不是今天第一主軸 原物料，但個股訊號夠強，金融業這檔短線氣勢還在，不過已經不是剛起漲，觀察重點是拉回有沒有人接。\n提醒：這檔有風險扣分，買之前要先想好停損，不能越跌越加。\n\n主攻觀察\n5. 1101 台泥｜水泥｜電動車、儲能系統、儲能\n🔥 交易轉熱，可列入觀察\n\n跟今天盤勢的關係：\n今天資金最明顯往 原物料（約 7.0%） 集中，台泥剛好在這條主線上。 同時也連到熱門概念 電動車、傳產內需股。\n\n為什麼入選：\n- 台泥不是只在原地整理，而是往上推過最近容易卡關的位置。\n- 原物料是今天資金主軸，台泥又同步放量，代表族群和個股都有熱度。\n- 台泥成交突然放大，代表今天有更多資金開始盯這檔。\n- 除了型態，數據面還有買盤有累積、短線買氣升溫在加分。\n\n怎麼看：\n- 觀察區間：28.00 ~ 28.42 元\n- 跌破 25.60 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 30.70 元。\n- 它在今日資金主軸裡，強勢時可以看，但追高更要守區間。\n\n白話翻譯：\n它在今天資金主軸 原物料 裡，水泥這檔不是冷門股自己飄上去，而是成交跟著放大；可以觀察，但不要追太急。\n提醒：這檔有風險扣分，買之前要先想好停損，不能越跌越加。\n\n候補觀察\n6. 2236 百達-KY｜汽車｜電動車、機器人、油電車\n💤 觀察中，等下一步確認\n\n跟今天盤勢的關係：\n今天盤面主軸是 原物料，百達-KY則是在支線 汽車橡膠（約 3.4%）裡轉強。 同時也連到熱門概念 電動車、機器人。\n\n為什麼入選：\n- 這檔入選不是單靠突破，短線動能偏正面、波動開始打開也有幫忙加分。\n- 產業標籤偏 電動車、機器人，不是完全沒有題材支撐。\n\n怎麼看：\n- 觀察區間：96.30 ~ 97.74 元\n- 跌破 91.60 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 105.90 元。\n- 因為今天不是主觀察名單，除非回到觀察區間還有買盤承接，否則先等。\n\n白話翻譯：\n它不是今天第一主軸 原物料，所以先當候補看，汽車這檔今天被資金往上推，短線偏強；可以觀察，但不要看到上榜就追高。\n提醒：這檔有風險扣分，買之前要先想好停損，不能越跌越加。\n\n候補觀察\n7. 6690 安碁資訊｜系統整合｜雲端運算、鴻海MIH電動車平台、資安\n🔥 交易轉熱，可列入觀察\n\n跟今天盤勢的關係：\n軟體雲端（約 6.8%）不是今天最大資金池，但安碁資訊在這條支線裡有自己的強度。 同時也連到熱門概念 資安。\n\n為什麼入選：\n- 安碁資訊近期壓力區被往上突破，市場接受價格正在墊高。\n- 雖然今天第一主軸是 原物料，但安碁資訊自己也突破壓力，屬於支線裡較強的一檔。\n- 安碁資訊短線動能剛轉強，接下來重點看買盤能不能延續。\n- 系統整合這檔買賣變得更活躍，市場注意力正在靠過來。\n\n怎麼看：\n- 觀察區間：189.00 ~ 191.83 元\n- 跌破 175.40 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 207.90 元。\n- 候補股不要急著追，先看它回到區間時量能有沒有續熱。\n\n白話翻譯：\n它不是今天第一主軸 原物料，所以先當候補看，系統整合這檔不是單純衝高，短線動能也有跟上；重點是後面能不能站穩。\n提醒：這檔有風險扣分，買之前要先想好停損，不能越跌越加。\n\n只等拉回\n8. 2069 運錩｜鋼鐵｜都市更新、傳產原物料股\n⚠️ 空間不漂亮，只能等拉回\n\n跟今天盤勢的關係：\n運錩有族群脈絡可追蹤，落在 原物料（約 7.0%）；但目前買點條件還沒到位，先等價格確認。\n\n為什麼入選：\n- 上方空間小於下方風險，只能等拉回或重新確認，所以今天只能列為等待名單。\n- 運錩需要等價格回到合理區間，或看到承接確認後再評估。\n\n怎麼看：\n- 觀察區間：29.00 ~ 29.43 元，但現在空間不夠漂亮（RR 約 0.71）。\n- 短線執行停損先看 28.08 元。\n- 趨勢失效價另看 24.86 元，不要把它當成追高停損。\n- 等拉回後仍有承接，或重新站穩再看。\n\n白話翻譯：\n鋼鐵這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。\n提醒：上方空間小於下方風險，現在不適合追，等拉回或重新站穩。\n\n候補觀察\n9. 4953 緯致｜系統整合｜碳權、資安、緯創\n🚀 多方延續，短線仍有氣勢\n\n跟今天盤勢的關係：\n緯致不在第一主軸 原物料，但屬於今天有分到資金的 軟體雲端（約 6.8%），所以要看它能不能比主軸股更有續航。 同時也連到熱門概念 資安、工業4.0。\n\n為什麼入選：\n- 緯致不是只在原地整理，而是往上推過最近容易卡關的位置。\n- 它不是靠大盤全面上漲被抬進來，而是緯致本身有突破動作。\n- 緯致成交突然放大，代表今天有更多資金開始盯這檔。\n- 緯致短線走勢一階一階往上，買方節奏還算完整。\n\n怎麼看：\n- 觀察區間：125.50 ~ 127.38 元\n- 跌破 115.50 元，代表走勢轉弱，先不要硬接。\n- 上方第一壓力先看 138.10 元。\n- 除非主軸續強、它也守在觀察區間內，否則先放觀察就好。\n\n白話翻譯：\n它不是今天第一主軸 原物料，所以先當候補看，系統整合這檔目前是多方連續推進的狀態，但連漲後更要避免追在太急的位置。\n提醒：這檔有風險扣分，買之前要先想好停損，不能越跌越加。\n\n只等拉回\n10. 4577 達航科技｜其他電子\n⚠️ 空間不漂亮，只能等拉回\n\n跟今天盤勢的關係：\n達航科技有族群脈絡可追蹤，落在 電子零組件（約 3.2%）；但目前買點條件還沒到位，先等價格確認。\n\n為什麼入選：\n- 上方空間小於下方風險，只能等拉回或重新確認，所以今天只能列為等待名單。\n- 達航科技需要等價格回到合理區間，或看到承接確認後再評估。\n\n怎麼看：\n- 觀察區間：127.00 ~ 128.91 元，但現在空間不夠漂亮（RR 約 0.36）。\n- 短線執行停損先看 123.19 元。\n- 趨勢失效價另看 91.81 元，不要把它當成追高停損。\n- 等拉回後仍有承接，或重新站穩再看。\n\n白話翻譯：\n其他電子這檔目前上方空間不夠，先等價格回到合理區間並觀察承接，不急著動作。\n提醒：上方空間小於下方風險，現在不適合追，等拉回或重新站穩。\n\n風險提醒\n- Top10 內有風險扣分，需看停損與部位上限。\n\n資料狀態\n- 排名使用的資料更新到 2026-10-22。\n",
+  "message_stats": {
+    "characters": 4886,
+    "listed_items": 10
+  },
+  "artifacts": {
+    "payload": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/artifacts/clawd_publish_payload_2026-10-22.json",
+    "message": "/Volumes/VibeCode/TOP10new-runtime-validation-tmp/ai-core-top10-market-round-02-ef410c813e434035bb7c9bce36c4f211/run/artifacts/clawd_publish_message_2026-10-22.md"
+  }
+}

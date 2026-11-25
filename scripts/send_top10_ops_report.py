@@ -4,16 +4,24 @@
 from __future__ import annotations
 
 import argparse
+import os
 import hashlib
 import json
 import re
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import yaml
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.automation.status_contract import daily_status_snapshot_path
 
 try:
     from openclaw_gateway_sender import DeliveryOutcomeUnknownError, GatewayPreflightError, adapter_command, gateway_health, gateway_send, normalize_message_id, protected_delivery_receipt, receipt_lock, stable_idempotency_key, write_non_send_status, write_send_status
@@ -32,7 +40,6 @@ except ModuleNotFoundError:
     from scripts.top10_agent_status import DEFAULT_MANIFEST_PATH, build_event, event_record_complete, owns_latest_run, read_manifest, rollup_lock, write_agent_event
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 STATUS_SCHEMA_VERSION = "top10-ops-report-send-status.v2"
 
@@ -53,11 +60,17 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    if os.environ.get("TOP10_BACKFILL") == "1":
+        print("BACKFILL_SEND_BLOCKED: 補跑禁止訊號與 ops 送達，保留既有收據")
+        return 2
     with exclusive_publish_access(PROJECT_ROOT):
         return _main_locked()
 
 
 def _main_locked() -> int:
+    if os.environ.get("TOP10_BACKFILL") == "1":
+        print("BACKFILL_SEND_BLOCKED: 補跑禁止訊號與 ops 送達，保留既有收據")
+        return 2
     args = parse_args()
     if args.run_id is not None and args.run_date is None:
         print("TOP10_OPS_SEND_BLOCKED --run-id requires --run-date")
@@ -321,6 +334,7 @@ def _run_locked(
     if send_allowed and (artifacts_dir != ARTIFACTS_DIR or output_path != canonical_output or output_path.is_symlink() or output_path.parent.is_symlink()):
         print(f"TOP10_OPS_SEND_BLOCKED live send requires canonical receipt={canonical_output}")
         return 2
+    annotate_rewrite_degraded_message(message_path, artifacts_dir, status["llm_rewrite_degraded_signal"])
     claimed = False
     try:
         presentation = read_presentation_payload(presentation_path) if presentation_path is not None else None
@@ -445,6 +459,63 @@ def resolve_message(path: Path | None, artifacts_dir: Path, run_date: str) -> Pa
     return artifacts_dir / f"ops_progress_message_{run_date}.md"
 
 
+def daily_rewrite_degraded_signal(artifacts_dir: Path, run_date: str) -> dict[str, Any]:
+    """只取同日正式 Daily snapshot；缺資料不阻斷 ops report。"""
+    path = daily_status_snapshot_path(artifacts_dir / "automation_status.json", run_date=run_date, dry_run=False)
+    signal: dict[str, Any] = {
+        "status": "NONE",
+        "reason": "MISSING_SAME_DAY_DAILY_STATUS",
+        "consecutive_fallback_days": None,
+        "daily_status_ref": safe_ref(path, artifacts_dir),
+    }
+    try:
+        daily = read_json(path)
+    except (OSError, UnicodeError, ValueError, TypeError):
+        return signal
+    if daily.get("run_date") != run_date or daily.get("mode") != "daily":
+        signal["reason"] = "DAILY_STATUS_IDENTITY_MISMATCH"
+        return signal
+    metadata = daily.get("metadata")
+    if not isinstance(metadata, dict) or "clawd_llm_rewrite_degraded" not in metadata:
+        signal["reason"] = "MISSING_DEGRADED_FIELD"
+        return signal
+    degraded = metadata["clawd_llm_rewrite_degraded"]
+    streak = metadata.get("clawd_llm_rewrite_consecutive_fallback_days")
+    if type(degraded) is not bool or type(streak) is not int or streak < 0:
+        signal["reason"] = "INVALID_DEGRADED_FIELD_TYPE"
+        return signal
+    signal["consecutive_fallback_days"] = streak
+    if degraded and streak >= 2:
+        signal.update(status="DEGRADED", reason="CONSECUTIVE_FALLBACK")
+    elif degraded:
+        signal["reason"] = "INCONSISTENT_DEGRADED_STREAK"
+    else:
+        signal["reason"] = "NOT_DEGRADED"
+    return signal
+
+
+def annotate_rewrite_degraded_message(message_path: Path, artifacts_dir: Path, signal: dict[str, Any]) -> None:
+    """沿用既有 ops 訊息檔；重入不重複加註，失敗不阻斷報告。"""
+    if signal.get("status") != "DEGRADED":
+        return
+    marker = "### Gemini 文案改寫降級"
+    try:
+        if message_path.is_symlink() or not message_path.resolve().is_relative_to(artifacts_dir.resolve()):
+            signal["message_annotation"] = "SKIPPED_UNSAFE_PATH"
+            return
+        content = message_path.read_text(encoding="utf-8")
+        if marker not in content:
+            with message_path.open("a", encoding="utf-8") as handle:
+                handle.write(
+                    f"\n\n{marker}\n"
+                    f"連續 {signal['consecutive_fallback_days']} 個 Daily 執行日 FALLBACK；"
+                    "請檢查 Gemini 文案改寫，Daily 仍照原判定執行。\n"
+                )
+        signal["message_annotation"] = "PRESENT"
+    except (OSError, UnicodeError):
+        signal["message_annotation"] = "FAILED"
+
+
 def initial_status(
     *,
     run_date: str,
@@ -489,6 +560,7 @@ def initial_status(
         "stdout": "",
         "stderr": "",
         "errors": [],
+        "llm_rewrite_degraded_signal": daily_rewrite_degraded_signal(artifacts_dir, run_date),
     }
 
 
@@ -576,17 +648,30 @@ def write_ops_event(status: dict[str, Any], *, artifacts_dir: Path, manifest_pat
 
 
 def _write_ops_event_locked(status: dict[str, Any], *, artifacts_dir: Path, manifest_path: Path) -> None:
+    rewrite_signal = status.get("llm_rewrite_degraded_signal")
+    rewrite_signal = rewrite_signal if isinstance(rewrite_signal, dict) else {}
+    rewrite_degraded = rewrite_signal.get("status") == "DEGRADED"
     event_status = (
-        "ok" if status.get("status") == "OK" and status.get("send_attempted") is True and status.get("dry_run") is False
-        else "degraded" if status.get("status") in {"DELIVERY_PENDING", "DELIVERY_UNKNOWN"}
+        "degraded" if status.get("status") in {"DELIVERY_PENDING", "DELIVERY_UNKNOWN"} or (
+            rewrite_degraded and status.get("status") in {"OK", "DRY_RUN"}
+        )
+        else "ok" if status.get("status") == "OK" and status.get("send_attempted") is True and status.get("dry_run") is False
         else "skipped" if status.get("status") == "DRY_RUN"
         else "failed"
     )
+    if event_status == "degraded" and unresolved_ops_event_complete(
+        artifacts_dir, str(status["run_date"]), str(status["run_id"])
+    ):
+        return
     decision = "pass" if event_status == "ok" else "not_applicable" if event_status == "skipped" else "stop"
     if event_status == "ok":
         next_action = None
     elif event_status == "degraded":
-        next_action = "遠端唯讀核對送達狀態；結果不明時禁止重送"
+        next_action = (
+            "遠端唯讀核對送達狀態；結果不明時禁止重送"
+            if status.get("status") in {"DELIVERY_PENDING", "DELIVERY_UNKNOWN"}
+            else "檢查 Gemini 文案改寫連續 FALLBACK；Daily 成敗判定維持原狀"
+        )
     elif event_status == "skipped":
         next_action = "dry-run 未送出；正式送出仍須通過設定與收據閘門"
     else:
@@ -599,11 +684,24 @@ def _write_ops_event_locked(status: dict[str, Any], *, artifacts_dir: Path, mani
         decision=decision,
         started_at=str(status["generated_at"]),
         finished_at=datetime.now(timezone.utc).isoformat(),
-        input_refs=[str(status["rollup_path"])],
+        input_refs=[
+            str(status["rollup_path"]),
+            *([str(rewrite_signal["daily_status_ref"])] if rewrite_degraded else []),
+        ],
         artifact_paths=[str(status["message_path"]), str(status["output_path"])],
-        failure_reason="; ".join(status.get("errors") or []) if event_status != "ok" else None,
+        failure_reason=(
+            "; ".join([
+                *(status.get("errors") or []),
+                *([f"Gemini 文案改寫連續 {rewrite_signal['consecutive_fallback_days']} 日 FALLBACK"] if rewrite_degraded else []),
+            ]) or None
+        ) if event_status != "ok" else None,
         next_action=next_action,
-        metrics={"dry_run": status.get("dry_run"), "send_attempted": status.get("send_attempted"), "exit_code": status.get("exit_code")},
+        metrics={
+            "dry_run": status.get("dry_run"), "send_attempted": status.get("send_attempted"),
+            "exit_code": status.get("exit_code"),
+            "llm_rewrite_degraded": rewrite_degraded,
+            "llm_rewrite_consecutive_fallback_days": rewrite_signal.get("consecutive_fallback_days"),
+        },
         discord_channel="ops_progress_channel",
         message_type="run_status" if event_status == "ok" else "blocker",
     )

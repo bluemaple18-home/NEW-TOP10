@@ -1,0 +1,66 @@
+[
+  {
+    "case": "before_disabled",
+    "exit": 1,
+    "expected": 1,
+    "helper_called": true,
+    "expected_called": true,
+    "pass": true
+  },
+  {
+    "case": "disabled",
+    "exit": 0,
+    "expected": 0,
+    "helper_called": false,
+    "expected_called": false,
+    "pass": true
+  },
+  {
+    "case": "enabled_failure",
+    "exit": 1,
+    "expected": 1,
+    "helper_called": true,
+    "expected_called": true,
+    "pass": true
+  },
+  {
+    "case": "enabled_success",
+    "exit": 0,
+    "expected": 0,
+    "helper_called": true,
+    "expected_called": true,
+    "pass": true
+  },
+  {
+    "case": "bad_config",
+    "exit": 64,
+    "expected": 64,
+    "helper_called": false,
+    "expected_called": false,
+    "pass": true
+  },
+  {
+    "case": "backfill",
+    "exit": 0,
+    "expected": 0,
+    "helper_called": false,
+    "expected_called": false,
+    "pass": true
+  },
+  {
+    "case": "missing",
+    "exit": 0,
+    "expected": 0,
+    "helper_called": false,
+    "expected_called": false,
+    "pass": true
+  },
+  {
+    "case": "string_false",
+    "exit": 0,
+    "expected": 0,
+    "helper_called": false,
+    "expected_called": false,
+    "pass": true
+  }
+]

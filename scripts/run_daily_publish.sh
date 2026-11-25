@@ -3,6 +3,15 @@
 
 set -uo pipefail
 
+# 單一 opt-in 契約會傳給 runner 與所有子程序；不等同 dry-run。
+for arg in "$@"; do
+  case "$arg" in
+    --backfill) export TOP10_BACKFILL=1 ;;
+    *) echo "不支援參數: $arg" >&2; exit 64 ;;
+  esac
+done
+
+
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 if [ "${TOP10_PUBLISH_LOCK_HELD:-}" != "1" ]; then
   mkdir -p "$PROJECT_DIR/logs"
@@ -31,6 +40,22 @@ RUN_DATE="${TOP10_RUN_DATE:-$(date +%F)}"
 export TOP10_RUN_DATE="$RUN_DATE"
 
 send_ops_report() {
+  if [ "${TOP10_BACKFILL:-0}" = "1" ]; then return 0; fi
+  # 沿既有旗標跳過已關閉的ops，避免無關入口錯誤改寫Daily送達結果。
+  OPS_EXIT_CODE=64
+  OPS_ENABLED="$("$PYTHON_BIN" -c '
+import sys
+from pathlib import Path
+import yaml
+config = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
+notify = config.get("notify") if isinstance(config.get("notify"), dict) else {}
+print("1" if notify.get("ops_clawd_enabled") is True else "0")
+' "$PROJECT_DIR/config/automation.yaml")" || return 64
+  case "$OPS_ENABLED" in
+    0) echo "ops progress report disabled; skip"; return 0 ;;
+    1) ;;
+    *) return 64 ;;
+  esac
   set +e
   OPS_ARGS=(scripts/send_top10_ops_report.py --run-date "$RUN_DATE" --send)
   if [ "$RUN_DATE" != "$(date +%F)" ]; then
@@ -70,6 +95,10 @@ try:
 except (OSError, ValueError, TypeError, RuntimeError):
     print("UNRESOLVED")
 ' "$PROJECT_DIR/artifacts/clawd_send_status_${RUN_DATE}.json")"
+if [ "${TOP10_BACKFILL:-0}" = "1" ] && [ "$PREVIOUS_SEND_STATE" != "UNPROTECTED" ]; then
+  echo "補跑保留既有送達收據，拒絕重建或恢復送達事件。" | tee -a "$LOG_FILE"
+  exit 2
+fi
 if [ "$PREVIOUS_SEND_STATE" = "CONFIRMED" ]; then
   MESSAGE_FILE="$PROJECT_DIR/artifacts/clawd_publish_message_${RUN_DATE}.md"
   set +e
@@ -104,6 +133,11 @@ DAILY_STARTED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 bash "$PROJECT_DIR/scripts/run_daily.sh" >> "$LOG_FILE" 2>&1
 DAILY_EXIT_CODE=$?
 set -e
+
+if [ "${TOP10_BACKFILL:-0}" = "1" ]; then
+  echo "補跑結束 exit_code=${DAILY_EXIT_CODE}；訊號與 ops 送達已禁用。" | tee -a "$LOG_FILE"
+  exit "$DAILY_EXIT_CODE"
+fi
 
 if [ "$DAILY_EXIT_CODE" -ne 0 ]; then
   echo "daily failed; skip Clawd send. exit_code=$DAILY_EXIT_CODE" | tee -a "$LOG_FILE"

@@ -16,10 +16,50 @@ import logging
 import json
 import os
 import requests
+import errno
+import ssl
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+def _is_retryable_quote_transport_error(exc: Exception) -> bool:
+    """僅重試暫時傳輸錯誤；憑證、DNS 與資料錯誤不得當成可恢復斷線。"""
+    if isinstance(exc, (ssl.SSLError, aiohttp.ClientSSLError, requests.exceptions.SSLError)):
+        return False
+    if isinstance(exc, (TimeoutError, requests.exceptions.Timeout, aiohttp.ClientPayloadError, aiohttp.ServerDisconnectedError)):
+        return True
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        return True
+    if isinstance(exc, (aiohttp.ClientOSError, ConnectionError)):
+        underlying = getattr(exc, 'os_error', exc)
+        return getattr(underlying, 'errno', None) in {
+            errno.ECONNRESET, errno.ECONNABORTED, errno.ETIMEDOUT, errno.EPIPE,
+        }
+    return False
+
+
+async def _run_quote_fallback(operation, *args):
+    """取消時也等既有唯讀 worker 收尾，避免留下背景取數。"""
+    worker = asyncio.create_task(asyncio.to_thread(operation, *args))
+    try:
+        return await asyncio.shield(worker)
+    except asyncio.CancelledError:
+        try:
+            await asyncio.shield(worker)
+        except Exception:
+            pass
+        raise
+
+
+def _fetch_quote_payload_with_requests(url, params, headers):
+    """同步連線、解碼及關閉皆在線程內完成；只把狀態與 payload 帶回。"""
+    response = requests.get(url, params=params, headers=headers, timeout=60, allow_redirects=True)
+    try:
+        return response.status_code, response.json() if response.status_code == 200 else None
+    finally:
+        response.close()
 
 
 class AsyncTWSEFetcher:
@@ -33,11 +73,13 @@ class AsyncTWSEFetcher:
     def __init__(self, session: aiohttp.ClientSession):
         self.session = session
         self.data_source_log = []
+        self.failure_reason = None
     
     async def fetch_daily_quotes(self, date: str) -> Optional[pd.DataFrame]:
         """
         擷取指定日期的上市股票日行情 (使用 RWD API 動態解析)
         """
+        self.failure_reason = None
         try:
             # 排除週末 (簡易防呆)
             dt = datetime.strptime(date, '%Y%m%d')
@@ -57,31 +99,48 @@ class AsyncTWSEFetcher:
             requests_fallback_reason = None
             retry_statuses = {301, 302, 303, 307, 308, 429, 503}
             for attempt in range(1, 5):
-                async with self.session.get(url, params=params, headers=self.REQUEST_HEADERS, timeout=30, allow_redirects=True) as response:
-                    if response.status == 200:
-                        try:
-                            data = await response.json()
-                        except Exception:
-                            last_error = "non-json response"
-                            if attempt == 4:
-                                break
-                            await asyncio.sleep(0.8 * attempt)
-                            continue
-                        break
-                        break
-                    if response.status not in retry_statuses:
+                stage = 'request'
+                try:
+                    async with self.session.get(url, params=params, headers=self.REQUEST_HEADERS, timeout=30, allow_redirects=True) as response:
+                        if response.status == 200:
+                            stage = 'body_read'
+                            try:
+                                data = await response.json()
+                            except Exception as exc:
+                                if _is_retryable_quote_transport_error(exc):
+                                    raise
+                                last_error = "non-json response"
+                                requests_fallback_reason = None
+                                if attempt == 4:
+                                    break
+                                await asyncio.sleep(0.8 * attempt)
+                                continue
+                            break
+                        if response.status not in retry_statuses:
+                            last_error = f"status {response.status}"
+                            requests_fallback_reason = None
+                            break
                         last_error = f"status {response.status}"
-                        break
-                    last_error = f"status {response.status}"
-                    if response.status == 307:
-                        requests_fallback_reason = last_error
-                    if attempt == 4:
-                        break
-                    await asyncio.sleep(0.8 * attempt)
+                        requests_fallback_reason = last_error if response.status == 307 else None
+                        if attempt == 4:
+                            break
+                        await asyncio.sleep(0.8 * attempt)
+                except Exception as exc:
+                    if not _is_retryable_quote_transport_error(exc):
+                        raise
+                    reason = f"stage={stage} exception_type={type(exc).__name__}"
+                    logger.warning("TWSE 暫時傳輸失敗 date=%s %s；沿用一次既有備援", date, reason)
+                    self.failure_reason = f'category=transport {reason}'
+                    # 不增加原重試迴圈；暫時傳輸失敗立即改走既有同日備援一次。
+                    frame = await _run_quote_fallback(self._fetch_daily_quotes_with_requests, date, reason)
+                    if frame is not None and not frame.empty:
+                        self.failure_reason = None
+                    return frame
 
             if data is None:
                 if requests_fallback_reason:
-                    return await asyncio.to_thread(self._fetch_daily_quotes_with_requests, date, requests_fallback_reason)
+                    return await _run_quote_fallback(self._fetch_daily_quotes_with_requests, date, requests_fallback_reason)
+                self.failure_reason = f'category=response reason={last_error or "no data"}'
                 logger.warning(f"TWSE 連線失敗 ({date}): {last_error or 'no data'}")
                 return None
 
@@ -93,20 +152,23 @@ class AsyncTWSEFetcher:
             return None
             
         except Exception as e:
+            self.failure_reason = f'category=request exception_type={type(e).__name__}'
             logger.error(f"擷取 TWSE {date} 失敗: {e}")
             return None
 
     def _fetch_daily_quotes_with_requests(self, date: str, reason: str) -> Optional[pd.DataFrame]:
-        """aiohttp 在 TWSE CDN 307 上偶發失敗時的同步備援。"""
+        """沿用同一端點、同一解析器，處理 CDN 307 或暫時傳輸失敗。"""
         url = f"{self.BASE_URL}/rwd/zh/afterTrading/MI_INDEX"
         params = {
             'date': date,
             'type': 'ALLBUT0999',
             'response': 'json'
         }
+        response = None
         try:
             response = requests.get(url, params=params, headers=self.REQUEST_HEADERS, timeout=30, allow_redirects=True)
             if response.status_code != 200:
+                self.failure_reason = f'category=response http_status={response.status_code}'
                 logger.warning(f"TWSE requests fallback 失敗 ({date}): Status {response.status_code}; async_reason={reason}")
                 return None
             data = response.json()
@@ -118,11 +180,29 @@ class AsyncTWSEFetcher:
             self._record_success(date, len(df), method='requests_fallback')
             return df
         except Exception as exc:
+            self.failure_reason = f'category=request exception_type={type(exc).__name__}'
             logger.warning(f"TWSE requests fallback 例外 ({date}): {exc}; async_reason={reason}")
             return None
+        finally:
+            if response is not None:
+                response.close()
 
     def _parse_daily_quotes_payload(self, date: str, data: dict) -> Optional[pd.DataFrame]:
+        if not isinstance(data, dict):
+            self.failure_reason = 'category=payload exception_type=InvalidPayload'
+            return None
         if data.get('stat') != 'OK':
+            return None
+        dt = datetime.strptime(date, '%Y%m%d')
+        expected_dates = {date, dt.strftime('%Y/%m/%d'), dt.strftime('%Y-%m-%d'),
+                          f'{dt.year - 1911}/{dt.month:02d}/{dt.day:02d}'}
+        response_dates = [str(data['date']).strip()] if data.get('date') is not None else []
+        for table in data.get('tables', []):
+            if isinstance(table, dict) and '每日收盤行情' in str(table.get('title', '')) and table.get('date') is not None:
+                response_dates.append(str(table['date']).strip())
+        if any(value not in expected_dates for value in response_dates):
+            self.failure_reason = 'category=payload_date exception_type=DateMismatch'
+            logger.warning('TWSE 回應日期不符 date=%s response_dates=%s', date, response_dates)
             return None
 
         target_table = None
@@ -191,8 +271,10 @@ class AsyncTPEXFetcher:
     def __init__(self, session: aiohttp.ClientSession):
         self.session = session
         self.data_source_log = []
+        self.failure_reason = None
     
     async def fetch_daily_quotes(self, date: str) -> Optional[pd.DataFrame]:
+        self.failure_reason = None
         try:
             dt = datetime.strptime(date, '%Y%m%d')
             if dt.weekday() > 4:
@@ -204,23 +286,82 @@ class AsyncTPEXFetcher:
             params = {
                 'l': 'zh-tw',
                 'd': roc_date,
-                'se': 'AL'
+                'se': 'EW'
             }
             
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
 
-            async with self.session.get(url, params=params, headers=headers, timeout=30) as response:
-                if response.status != 200:
-                    return None
+            for attempt in range(1, 4):
+                stage = 'request'
+                http_status = None
                 try:
-                    data = await response.json()
-                except:
-                    return None
-            
+                    # 第三次仍占原有額度；只在前兩次傳輸失敗後切換 transport，解析與日期契約共用。
+                    if attempt == 3:
+                        stage = 'requests_body'
+                        http_status, data = await _run_quote_fallback(
+                            _fetch_quote_payload_with_requests, url, params, headers,
+                        )
+                        if http_status != 200:
+                            self.failure_reason = f'category=response http_status={http_status}'
+                            logger.warning('TPEX 備援拒收 date=%s http_status=%s attempt=3/3', date, http_status)
+                            return None
+                    else:
+                        async with self.session.get(url, params=params, headers=headers, timeout=60) as response:
+                            http_status = response.status
+                            if http_status != 200:
+                                self.failure_reason = f'category=response http_status={http_status}'
+                                logger.warning(
+                                    "TPEX 擷取失敗 date=%s stage=response_status http_status=%s attempt=%s/3 exception_type=HTTPStatus",
+                                    date, http_status, attempt,
+                                )
+                                return None
+                            stage = 'body_read'
+                            data = await response.json()
+                    break
+                except Exception as exc:
+                    if not _is_retryable_quote_transport_error(exc):
+                        self.failure_reason = f'category={stage} exception_type={type(exc).__name__}'
+                        logger.warning(
+                            "TPEX 擷取失敗 date=%s stage=%s http_status=%s attempt=%s/3 exception_type=%s",
+                            date, stage, http_status, attempt, type(exc).__name__,
+                        )
+                        return None
+                    logger.warning(
+                        "TPEX 擷取暫時失敗 date=%s stage=%s http_status=%s attempt=%s/3 exception_type=%s retry_exhausted=%s",
+                        date, stage, http_status, attempt, type(exc).__name__, attempt == 3,
+                    )
+                    if attempt == 3:
+                        self.failure_reason = f'category=transport stage={stage} exception_type={type(exc).__name__}'
+                        return None
+                    await asyncio.sleep(0.8 * 2 ** (attempt - 1))
+
+            if not isinstance(data, dict):
+                self.failure_reason = 'category=payload exception_type=InvalidPayload'
+                logger.warning(
+                    "TPEX 擷取失敗 date=%s stage=payload http_status=200 attempt=%s/3 exception_type=InvalidPayload",
+                    date, attempt,
+                )
+                return None
+            response_dates = []
+            if data.get('date') is not None:
+                response_dates.append(str(data['date']).strip())
+            for table in data.get('tables', []):
+                if isinstance(table, dict) and '每日收盤行情' in str(table.get('title', '')) and table.get('date') is not None:
+                    response_dates.append(str(table['date']).strip())
+            expected_dates = {roc_date, dt.strftime('%Y%m%d'), dt.strftime('%Y/%m/%d'), dt.strftime('%Y-%m-%d')}
+            if any(value not in expected_dates for value in response_dates):
+                self.failure_reason = 'category=payload_date exception_type=DateMismatch'
+                logger.warning(
+                    "TPEX 回應日期不符 date=%s response_dates=%s stage=payload_date http_status=200 attempt=%s/3 exception_type=DateMismatch",
+                    date, response_dates, attempt,
+                )
+                return None
             df = self._extract_quote_table(data)
             if df is None or df.empty:
+                if attempt > 1:
+                    logger.warning("TPEX 重試後無有效行情 date=%s stage=quote_parse attempt=%s/3", date, attempt)
                 return None
             
             df['stock_id'] = df['stock_id'].str.strip()
@@ -232,14 +373,21 @@ class AsyncTPEXFetcher:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             
             df = df.dropna(subset=['close'])
+            if df.empty:
+                if attempt > 1:
+                    logger.warning("TPEX 重試後無有效行情 date=%s stage=quote_filter attempt=%s/3", date, attempt)
+                return None
             df['date'] = dt
             
             self.data_source_log.append({
                 'date': date,
                 'source': 'TPEX',
                 'records': len(df),
-                'status': 'success'
+                'status': 'success',
+                'method': 'requests_fallback' if attempt == 3 else 'aiohttp',
             })
+            if attempt > 1:
+                logger.info("TPEX 重試成功 date=%s attempt=%s/3 records=%s", date, attempt, len(df))
             
             return df
             
@@ -316,6 +464,11 @@ class DataFetcherOrchestrator:
                 tpex.fetch_daily_quotes(date_str)
             )
             
+            # 休市／無行情仍可為 None；明確擷取失敗不得悄悄變成單市場資料。
+            for market, fetcher in (('TWSE', twse), ('TPEX', tpex)):
+                if fetcher.failure_reason:
+                    raise RuntimeError(f'QUOTE_ACQUISITION_FAILED market={market} date={date_str} {fetcher.failure_reason}')
+
             valid_dfs = []
             if results[0] is not None and not results[0].empty:
                 results[0]['market'] = 'TWSE'
@@ -341,19 +494,19 @@ class DataFetcherOrchestrator:
         
         connector = aiohttp.TCPConnector(limit=5) # 限制全域連線數
         async with aiohttp.ClientSession(connector=connector) as session:
-            tasks = []
-            for date in date_range:
-                tasks.append(self._fetch_day_data(session, date))
-            
-            # 使用 tqdm 顯示進度
+            tasks = [asyncio.create_task(self._fetch_day_data(session, date)) for date in date_range]
             all_results = []
-            for f in tqdm.as_completed(tasks, desc="非同步資料回補中"):
-                day_dfs = await f
-                all_results.extend(day_dfs)
-                
-                # 每個 request 完成後稍微 sleep 一下避免被鎖 IP? 
-                # 其實 Semaphore 已經限制併發數，如果要更保險可以在 _fetch_day_data 加 sleep
-                
+            try:
+                for future in tqdm.as_completed(tasks, desc="非同步資料回補中"):
+                    day_dfs = await future
+                    all_results.extend(day_dfs)
+            finally:
+                # 首個失敗與外部取消均收回所有日期；不依賴呼叫端 event loop 幫忙清理。
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+
         if not all_results:
             logger.error("未擷取到任何有效資料。")
             return pd.DataFrame()

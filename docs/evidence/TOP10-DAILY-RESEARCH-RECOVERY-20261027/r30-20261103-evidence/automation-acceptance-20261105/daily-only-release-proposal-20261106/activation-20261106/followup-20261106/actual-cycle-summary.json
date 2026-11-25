@@ -1,0 +1,104 @@
+{
+  "tested_commit": "2882803c19e001856a5bd159726c85474f14ef0c",
+  "Daily_status": "OK",
+  "date": "2026-11-06",
+  "finmind": {
+    "by_dataset": {
+      "institutional": {
+        "expected_stock_count": 200,
+        "received_stock_count": 200,
+        "failed_stock_count": 0
+      },
+      "margin": {
+        "expected_stock_count": 200,
+        "received_stock_count": 200,
+        "failed_stock_count": 0
+      }
+    },
+    "expected_fetch_count": 400,
+    "failed_fetch_count": 0,
+    "failed_stock_count": 0,
+    "limit": 600,
+    "next_available_time": null,
+    "received_fetch_count": 400,
+    "remaining": 600,
+    "required_fetch_count": 401,
+    "used": 0,
+    "status": "ok"
+  },
+  "download_log_count": 400,
+  "download_first": [
+    "2026-11-06 19:11:13.467",
+    "TaiwanStockInstitutionalInvestorsBuySell"
+  ],
+  "download_last": [
+    "2026-11-06 19:12:12.915",
+    "TaiwanStockMarginPurchaseShortSale"
+  ],
+  "peak_rss_bytes": 3753066496,
+  "elapsed_seconds": 1238.3090617656708,
+  "guard_reasons": [],
+  "outer_exit": 1,
+  "market_context_status": "ok",
+  "taifex_source": {
+    "status": "ok",
+    "data_date": "2026-11-06",
+    "fallback_used": true,
+    "warnings": [],
+    "pcr_format": "html",
+    "source": "taifex_openapi_with_dated_fallback",
+    "dated_fallback": {
+      "futures": {
+        "source": "taifex_historical",
+        "data_date": "2026-11-06",
+        "status": "ok",
+        "fallback_used": false,
+        "csv_endpoint": "futDataDown",
+        "content_type": "text/html;charset=MS950",
+        "http_status": 200,
+        "csv_confirmed": true,
+        "format": "csv_big5",
+        "api_data_date": "2026-11-05"
+      },
+      "oi": {
+        "source": "taifex_historical",
+        "data_date": "2026-11-06",
+        "status": "ok",
+        "fallback_used": false,
+        "csv_endpoint": "futContractsDateDown",
+        "content_type": "text/html;charset=MS950",
+        "http_status": 200,
+        "csv_confirmed": true,
+        "format": "csv_big5",
+        "api_data_date": "2026-11-05"
+      }
+    },
+    "pcr_source": "taifex_pcRatioExcel",
+    "pcr_fallback_used": true
+  },
+  "data": [
+    {
+      "name": "features",
+      "sha256": "2030d63be1c977465a9a9f8fa96750326f46ea20b89e08c5cbd580a3991547fe",
+      "rows": 533467,
+      "columns": 120,
+      "max_date": "2026-11-06 00:00:00"
+    },
+    {
+      "name": "events",
+      "sha256": "5d0977c4c86c19ab904288730deab1888c14380520a23dbdb68c6d8f3ab811eb",
+      "rows": 533467,
+      "columns": 15,
+      "max_date": "2026-11-06 00:00:00"
+    },
+    {
+      "name": "universe",
+      "sha256": "b1d053d0b60713e6dd1e67876f7908836fad4b2f5b5f5dc3b57c6129c1a2e562",
+      "rows": 283566,
+      "columns": 120,
+      "max_date": "2026-11-06 00:00:00"
+    }
+  ],
+  "Discord_readback": "15 exact chunks; see discord-after.json",
+  "wrapper_tail_fix": "postsend-fix/manifest.json"
+}

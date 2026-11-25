@@ -25,9 +25,8 @@ class EventDetector:
             df: 包含所有技術指標的 DataFrame
             config_path: 訊號設定檔路徑
         """
-        self.df = df.copy()
-        # 確保依股票和日期排序
-        self.df = self.df.sort_values(['stock_id', 'date']).reset_index(drop=True)
+        # 排序已建立獨立工作表，同步重設索引以避免三張全寬表重疊。
+        self.df = df.sort_values(['stock_id', 'date'], ignore_index=True)
         self.config = self._load_config(config_path)
         
     def _load_config(self, config_path: str) -> Dict[str, Any]:

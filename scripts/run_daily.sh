@@ -5,6 +5,15 @@
 
 set -e  # setup 階段遇到錯誤立即停止
 
+# 單一 opt-in 契約會傳給 runner 與所有子程序；不等同 dry-run。
+for arg in "$@"; do
+  case "$arg" in
+    --backfill) export TOP10_BACKFILL=1 ;;
+    *) echo "不支援參數: $arg" >&2; exit 64 ;;
+  esac
+done
+
+
 # launchd / non-login shell 預設 PATH 很短，需明確納入 uv 常見安裝路徑。
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 export TOP10_SKIP_SIGNALS_PREVIEW=1
@@ -41,6 +50,10 @@ RUN_DATE="${TOP10_RUN_DATE:-$(date +%F)}"
 RUN_DATE_ARGS=()
 if [ -n "${TOP10_RUN_DATE:-}" ]; then
   RUN_DATE_ARGS=(--run-date "$TOP10_RUN_DATE")
+fi
+
+if [ "${TOP10_BACKFILL:-0}" = "1" ]; then
+  RUN_DATE_ARGS+=(--backfill)
 fi
 
 acquire_daily_lock() {
@@ -93,6 +106,9 @@ RUN_EXIT_CODE=$?
 set -e
 
 STATUS_PATH="$PROJECT_DIR/artifacts/automation_status.json"
+if [ "${TOP10_BACKFILL:-0}" = "1" ]; then
+  STATUS_PATH="$PROJECT_DIR/artifacts/automation_status_${RUN_DATE}.json"
+fi
 
 # 完成
 echo "" | tee -a "$LOG_FILE"
@@ -147,7 +163,7 @@ else
 fi
 
 set +e
-"${RUNNER_CMD[@]}" scripts/record_top10_daily_status_events.py --run-date "$RUN_DATE" >> "$LOG_FILE" 2>&1
+"${RUNNER_CMD[@]}" scripts/record_top10_daily_status_events.py --run-date "$RUN_DATE" --status "$STATUS_PATH" >> "$LOG_FILE" 2>&1
 STATUS_EVENT_EXIT_CODE=$?
 set -e
 if [ "$STATUS_EVENT_EXIT_CODE" -eq 0 ]; then

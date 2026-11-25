@@ -1786,15 +1786,18 @@ def ranking_dirs(min_ranking_files: int) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda item: (-int(item["count"]), str(item["repo_path"])))
 
 
-def latest_external_review_summary() -> tuple[dict[str, Any], str | None]:
-    root = ARTIFACTS_DIR / "external_review"
-    if not root.exists():
-        return {}, None
-    matches = sorted(root.rglob("external_review_summary_*.json"))
-    if not matches:
-        return {}, None
-    path = matches[-1]
-    return load_json(path), repo_path(path)
+def latest_external_review_summary(as_of_date: str) -> tuple[dict[str, Any], str | None]:
+    # 研究輸入只認同日固定路徑及摘要內日期，不從檔名排序回退。
+    path = ARTIFACTS_DIR / "external_review" / as_of_date / f"external_review_summary_{as_of_date}.json"
+    if not path.is_file():
+        return {"status": "PARTIAL", "reason": "MISSING_SAME_DAY_SUMMARY"}, None
+    summary = load_json(path)
+    if summary.get("review_date") != as_of_date:
+        return {"status": "PARTIAL", "reason": "REVIEW_DATE_MISMATCH"}, repo_path(path)
+    count = summary.get("valid_provider_count")
+    if type(count) is not int or count < 2:
+        return {"status": "PARTIAL", "reason": "INSUFFICIENT_VALID_REVIEWERS"}, repo_path(path)
+    return {**summary, "status": "OK"}, repo_path(path)
 
 
 def ledger_signals() -> tuple[list[str], list[str]]:
@@ -1813,8 +1816,10 @@ def ledger_signals() -> tuple[list[str], list[str]]:
     return sorted(set(candidates)), sources
 
 
-def external_review_signals() -> tuple[list[str], list[str]]:
-    summary, source = latest_external_review_summary()
+def external_review_signals(as_of_date: str) -> tuple[list[str], list[str]]:
+    summary, source = latest_external_review_summary(as_of_date)
+    if summary.get("status") != "OK":
+        return [], []
     signals = []
     sources = [source] if source else []
     for item in summary.get("research_hypotheses", []):
@@ -1993,7 +1998,7 @@ def topic_for_dir(
 
 def generate_all_topics(args: argparse.Namespace) -> list[ResearchTopic]:
     ledger_candidates, ledger_sources = ledger_signals()
-    external_signals, external_sources = external_review_signals()
+    external_signals, external_sources = external_review_signals(str(args.date))
     evidence_sources = ledger_sources + external_sources
     current_regime = None
     current_coverage = None
@@ -3950,7 +3955,7 @@ def main(
                     {
                         "status": "FAIL",
                         "reason_code": str(error).split(":", 1)[0],
-                        "research_batch_id": str(args.research_batch_id),
+                        "research_batch_id": str(getattr(args, "research_batch_id", "UNSCOPED")),
                     },
                     ensure_ascii=False,
                     sort_keys=True,

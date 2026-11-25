@@ -60,6 +60,7 @@ timezone: Asia/Taipei
 notify:
   clawd_enabled: true
   clawd_dry_run: false
+  ops_clawd_enabled: true
 """.lstrip(),
     )
     write_text(

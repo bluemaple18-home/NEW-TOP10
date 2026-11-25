@@ -1,0 +1,11 @@
+# FOG取樣診斷收據整合
+
+將固定的五段取樣觀測與最多兩筆逾時嘗試，經嚴格primitive schema與已載入來源/類別白名單寫入原internal_error及停損root receipt。保留原錯誤碼、cause、marker的inode與雜湊；不記錄message、argv、env或任意路徑。診斷失敗不影響原停損。
+
+此提交以最新main為基準，只增加兩個sanitize helper及一個exception cause block。移除這三處新AST後，完整模組AST與原上游完全相同；既有內建卷24/34 GiB、記憶體採樣/phys_footprint、LightGBM暫存guard與其他流程全部保留，沒有用較舊dirty工作檔覆蓋main。
+
+外接受控整合驗證：Core58＋diagnostic124＋cause10＋原上游boot/memory保護15，共207 passed、6 subtests；native parent Core與測試Core同d39固定來源。tests/test_sampling_observation_receipt.py及test_managed_cache_cause_receipt.py保留實測錯誤、redaction、spoof class/source、diagnostic failure與sticky-marker負例。測試需AI_CORE_DIR指向已驗的共享Core，以及既有外接owner/容量准入；不建立新環境。
+
+原版0d38自然兩輪已通過。共享Core新版d39已在既有runtime套用並安全重驗，但新版自己的兩輪自然驗收仍pending，不能挪用舊counter。這是Git整合，不更換正式runtime、改排程、限制、marker、資料或未提交工作。
+
+參考integration-proof.json與共享Core的docs/evidence/FOG-CACHE-TIMEOUT-20261120。原始lifecycle、CC與自然收據保存在local-only外接證據；跨機只從本相對路徑及固定SHA接續，不複製主機env。歷史三秒突波原因仍未確證。

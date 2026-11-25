@@ -15,6 +15,9 @@ import sys
 import time
 
 
+from app.lightgbm_temp_guard import owned_temp
+
+
 FIELDS = ("AI_CORE_CACHE_VOLUME", "AI_CORE_CACHE_IMAGE", "AI_CORE_CACHE_BACKING_VOLUME",
           "AI_CORE_CACHE_BACKING_UUID", "AI_CORE_CACHE_VOLUME_UUID", "AI_CORE_CACHE_MAX_BYTES")
 
@@ -166,8 +169,15 @@ class ExternalCache:
                 if path.is_symlink():
                     if not self.directory_mode or not path.resolve(strict=True).is_relative_to(self.root):
                         raise ExternalCacheError("EXTERNAL_CACHE_SYMLINK_DRIFT")
-            if enforce_retention and any((Path(directory) / name).stat().st_mtime < cutoff for name in files):
-                raise ExternalCacheError("EXTERNAL_CACHE_RETENTION_EXPIRED")
+            if enforce_retention:
+                for name in files:
+                    item = Path(directory) / name
+                    info = item.lstat()
+                    # 本層 LightGBM 檔交由 guard 的明確 dry-run/execute 契約管理。
+                    if item.parent == self.root / "tmp" and owned_temp(name, info):
+                        continue
+                    if info.st_mtime < cutoff:
+                        raise ExternalCacheError("EXTERNAL_CACHE_RETENTION_EXPIRED")
         payload["retention"] = {"seconds": self.retention_seconds, "automatic_cleanup": False,
                                 "expired_action": "deny-and-preserve"}
         return payload
@@ -219,6 +229,8 @@ class ExternalCache:
                 if info.st_mtime >= cutoff:
                     continue
                 parts = item.relative_to(self.root).parts
+                if parts == ("tmp", name) and owned_temp(name, info):
+                    continue
                 if (len(parts) != 3 or parts[:2] != ("cache", "matplotlib")
                         or not re.fullmatch(r"fontlist-v[0-9]+(?:\.[0-9]+)*\.json", name)):
                     raise ExternalCacheError("EXTERNAL_CACHE_RETENTION_UNOWNED")

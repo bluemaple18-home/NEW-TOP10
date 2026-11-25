@@ -1,0 +1,60 @@
+{
+  "selected_tests": [
+    "tests/test_taifex_daily_dated_fallback.py",
+    "tests/test_taifex_pcr_dated_fallback.py",
+    "tests/test_market_context_fetcher.py",
+    "tests/test_taifex_historical_20.py",
+    "tests/test_market_context_taifex_backfill_18.py",
+    "tests/test_taifex_pcr_source_contract_22.py",
+    "tests/test_market_context_resilience_18r1.py",
+    "tests/test_finmind_coverage_persist_19.py",
+    "tests/test_finmind_silent_loss_15.py",
+    "tests/test_finmind_token_wiring_16.py",
+    "tests/test_quote_transport_recovery_30.py",
+    "tests/test_tpex_quote_body_timeout_27.py",
+    "tests/test_event_detector_memory_30.py",
+    "tests/test_indicator_lifetime_memory_30.py",
+    "tests/test_pipeline_memory_30.py",
+    "tests/test_rewrite_structured_numeric_contract.py",
+    "tests/test_institutional_snapshot.py",
+    "tests/test_lightgbm_temp_guard.py",
+    "tests/test_openclaw_gateway_sender.py",
+    "tests/test_delivery_outcome_unknown.py"
+  ],
+  "test_dependency_closure": [
+    "tests/storage_safety_helpers.py",
+    "tests/test_delivery_outcome_unknown.py",
+    "tests/test_event_detector_memory_30.py",
+    "tests/test_external_cache_wiring.py",
+    "tests/test_finmind_coverage_persist_19.py",
+    "tests/test_finmind_silent_loss_15.py",
+    "tests/test_finmind_token_wiring_16.py",
+    "tests/test_indicator_lifetime_memory_30.py",
+    "tests/test_institutional_snapshot.py",
+    "tests/test_lightgbm_temp_guard.py",
+    "tests/test_market_context_fetcher.py",
+    "tests/test_market_context_resilience_18r1.py",
+    "tests/test_market_context_taifex_backfill_18.py",
+    "tests/test_openclaw_gateway_sender.py",
+    "tests/test_pipeline_memory_30.py",
+    "tests/test_quote_transport_recovery_30.py",
+    "tests/test_rewrite_structured_numeric_contract.py",
+    "tests/test_storage_safety.py",
+    "tests/test_taifex_daily_dated_fallback.py",
+    "tests/test_taifex_historical_20.py",
+    "tests/test_taifex_pcr_dated_fallback.py",
+    "tests/test_taifex_pcr_source_contract_22.py",
+    "tests/test_tpex_quote_body_timeout_27.py"
+  ],
+  "fixture_dirs": [
+    "tests/fixtures/market_context_official",
+    "tests/fixtures/taifex_historical_20",
+    "tests/fixtures/taifex_pcr_22",
+    "tests/fixtures/closed_choice_numeric_30"
+  ],
+  "portability_only_edits": [
+    "numeric test payload uses tests/fixtures path",
+    "memory component identity bound to checked-out project root rather than developer absolute path"
+  ],
+  "product_runtime_bytes_unchanged": true
+}

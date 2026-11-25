@@ -61,6 +61,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     run = subparsers.add_parser("run", help="在 guard 內執行 child command")
     run.add_argument("--job", required=True)
+    run.add_argument("--lightgbm-temp-cleanup", action="store_true",
+                     help="實刪本 job 暫存目錄內超過24小時的 LightGBM 檔；預設只盤點")
     run.add_argument("--startup-failure", action="store_true", help=argparse.SUPPRESS)
     run.add_argument(
         "--trigger-type",
@@ -349,6 +351,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         scheduled_at=(None if validation_only else args.scheduled_at),
         invocation_id=(None if validation_only else args.invocation_id),
+        lightgbm_temp_cleanup=(False if validation_only else args.lightgbm_temp_cleanup),
         external_cache_required=not validation_only,
         startup_failure=(False if validation_only else args.startup_failure),
     )

@@ -301,7 +301,7 @@ def run_validation_cycle(
     if not source_unchanged:
         runner.status.errors.append("source identity changed during validation cycle")
 
-    latest_date = runner._latest_feature_date()
+    latest_date = runner.run_date
     artifacts = {
         "ranking": _artifact_identity(output / "artifacts" / f"ranking_{latest_date}.csv"),
         "daily_report": _artifact_identity(output / "artifacts" / f"daily_report_{latest_date}.json"),

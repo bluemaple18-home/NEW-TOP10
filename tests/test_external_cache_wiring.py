@@ -16,7 +16,8 @@ from types import ModuleType
 import pytest
 
 from app.external_cache import ExternalCache, ExternalCacheError, FIELDS, MANAGED_FIELDS, runtime_environment
-from app.storage_safety import run_guarded_job, Sample, RetentionRule
+from app.storage_safety import run_guarded_job, RetentionRule
+from tests.storage_safety_helpers import HealthySample as Sample, healthy_sample
 from tests.test_storage_safety import fixture_global_policy, fixture_job_policy, wrapper_toolchain_fixture
 
 
@@ -243,7 +244,80 @@ def test_missing_volume_and_symlink_never_materialize_internal(tmp_path, externa
 
 
 def sample():
-    return Sample(time.time(), 0, 0, 10000000, 9000000, 0, 0)
+    return healthy_sample()
+
+
+@pytest.mark.parametrize("gaps,stops", [([16], False), ([16, 16], True), ([31], True),
+                                      ([30], False), ([16, 15, 16], False)])
+def test_memory_cadence_tolerance_contract_21r1(gaps, stops):
+    import app.storage_safety as guard
+    consecutive = 0
+    for gap in gaps:
+        consecutive, decision = guard._memory_cadence_decision(15, gap, consecutive)
+        assert ("MEMORY_SAMPLE_CADENCE_LOW" in decision.warnings) is (gap > 15)
+    assert decision.triggered is stops
+    assert ("MEMORY_SAMPLE_CADENCE_EXCEEDED" in decision.reasons) is stops
+
+
+@pytest.mark.parametrize("case", ["one_late", "two_late", "over_double", "exception"])
+def test_memory_cadence_receipt_and_stop_21r1(tmp_path, monkeypatch, case):
+    import app.storage_safety as guard
+    calls = []
+    def memory(template, pid):
+        calls.append(time.monotonic())
+        if case == "exception":
+            raise OSError("fixture memory probe unavailable")
+        if case == "over_double":
+            time.sleep(0.6)
+        elif case == "two_late" or len(calls) == 1:
+            time.sleep(0.35)
+        return replace(template, timestamp=time.time(), capacity_sampled=False)
+    monkeypatch.setattr(guard, "_take_memory_sample", memory)
+    code = run_guarded_job(tmp_path, replace(fixture_global_policy(), memory_sample_interval_seconds=0.4),
+                           fixture_job_policy(sample_interval_seconds=1), (),
+                           [sys.executable, "-c", "import time; time.sleep(1.8)"],
+                           sampler=lambda pid: sample(), invocation_id=f"cadence-{case}")
+    receipt = json.loads((tmp_path / "logs/storage_safety/daily_latest.json").read_text())
+    if case == "one_late":
+        assert code == 0, receipt["reasons"]
+        assert "MEMORY_SAMPLE_CADENCE_LOW" in receipt["warnings"]
+        assert "MEMORY_SAMPLE_CADENCE_EXCEEDED" not in receipt["reasons"]
+    else:
+        assert code == 70, receipt["reasons"]
+        expected = "MEMORY_SAMPLE_UNAVAILABLE" if case == "exception" else "MEMORY_SAMPLE_CADENCE_EXCEEDED"
+        assert expected in receipt["reasons"]
+        assert (tmp_path / "logs/storage_safety/restart_denied/daily.json").exists()
+        if case in {"exception", "over_double"}:
+            assert len(calls) == 1
+
+
+def test_memory_path_timeout_budget_capacity_path_unchanged_21r2(monkeypatch):
+    monkeypatch.delenv("TOP10_PROCESS_IDENTITY_MODE", raising=False)
+    import app.storage_safety as guard
+    calls = []
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs["timeout"]))
+        if argv[0] == "/bin/ps":
+            stdout = "123 1 10 fixture"
+        elif argv[-1] == "vm.swapusage":
+            stdout = "used = 0.00M"
+        elif argv[-1] == "kern.memorystatus_vm_pressure_level":
+            stdout = "1"
+        else:
+            import plistlib
+            stdout = plistlib.dumps({"APFSContainerReference": "disk3", "Internal": True})
+        return subprocess.CompletedProcess(argv, 0, stdout=stdout)
+    monkeypatch.setattr(guard.subprocess, "run", run)
+    monkeypatch.setattr(guard, "read_process_phys_footprint", lambda pid: None)
+    monkeypatch.setattr(guard.os.path, "ismount", lambda path: True)
+    measured = guard._take_memory_sample(sample(), 123)
+    assert measured.rss_bytes == 10 * 1024
+    assert len(calls) == 3 and all(timeout == guard._MEMORY_PROBE_TIMEOUT_SECONDS for argv, timeout in calls)
+    assert guard._volume_container(Path("/fixture")) == ("disk3", True)
+    assert calls[-1][1] == guard._HOST_PROBE_TIMEOUT_SECONDS
+    global_policy, _, _ = guard.load_policy(ROOT / "docs/operations/top10-storage-policy.json", "daily")
+    interval = global_policy.memory_sample_interval_seconds
+    assert 0.8 * interval + 3 * guard._MEMORY_PROBE_TIMEOUT_SECONDS <= 2 * interval
 
 
 def test_combined_job_quota_blocks_before_child(tmp_path, external):
@@ -645,26 +719,80 @@ def test_external_python_mapping_is_scoped_and_restored(tmp_path, external, monk
     assert os.environ["PYTHONPATH"] == "/fixture/caller-python-path"
 
 
-def test_real_lightgbm_consumer_fails_closed_with_missing_temp_in_output_cwd(tmp_path, external, monkeypatch):
+def test_real_lightgbm_consumer_fails_closed_with_missing_temp_in_output_cwd(tmp_path, external, monkeypatch, record_property):
     single_child_unit_without_nested_profile(monkeypatch)
     root = tmp_path / "repo"
     root.mkdir()
     (root / "artifacts").mkdir()
     code = (
-        "import os,pathlib; from lightgbm.basic import _TempFile; "
+        "import os,pathlib,json,time\n"
+        "started=time.monotonic()\n"
+        "def stage(name, **details):\n"
+        " print('TOP10_LGBM_STAGE '+json.dumps(dict(stage=name, elapsed_seconds=time.monotonic()-started, **details)), flush=True)\n"
+        "stage('import_begin')\n"
+        "from lightgbm.basic import _TempFile\n"
+        "stage('import_ready', import_seconds=time.monotonic()-started)\n"
+        "contract_started=time.monotonic(); stage('temp_contract_begin')\n"
         "original=pathlib.Path(os.environ['TMPDIR']); moved=original.with_name('tmp-offline'); "
         "original.rename(moved); os.chdir('artifacts'); blocked=False\n"
         "try:\n with _TempFile(): pass\n"
         "except FileNotFoundError:\n blocked=True\n"
         "finally:\n moved.rename(original)\n"
         "assert blocked\n"
-        "assert not list(pathlib.Path.cwd().glob('lightgbm_tmp_*'))\n"
+        "leftovers=sorted(str(p) for p in pathlib.Path.cwd().glob('lightgbm_tmp_*'))\n"
+        "assert not leftovers, leftovers[:20]\n"
+        "stage('temp_contract_pass', temp_contract_seconds=time.monotonic()-contract_started)\n"
     )
-    policy = replace(fixture_job_policy(), meter_paths=("artifacts", "logs"),
+    # 此處只驗暫存契約；避免一秒 fixture 的 50ms 排程餘裕干擾真實匯入。
+    policy = replace(fixture_job_policy(), sample_interval_seconds=5,
+                     meter_paths=("artifacts", "logs"),
                      registered_write_paths=("artifacts", "logs"))
-    assert run_guarded_job(root, fixture_global_policy(), policy, RULES,
+    # 驗暫存安全契約，不驗十秒效能；保留有限預算以涵蓋首次匯入。
+    exit_code = run_guarded_job(root, fixture_global_policy(), policy, RULES,
                            [sys.executable, "-B", "-c", code], sampler=lambda _: sample(),
-                           max_runtime_seconds=10, external_cache_required=True) == 0
+                           max_runtime_seconds=30, external_cache_required=True)
+
+    # 成功也保存分段時間；fixture 清理後仍可由 JUnit 查閱。
+    stages = []
+    stage_read_errors = []
+    for log in sorted((root / "logs").rglob("*.log")):
+        try:
+            with log.open("rb") as stream:
+                content = stream.read(65536).decode("utf-8", errors="replace")
+            for line in content.splitlines():
+                if line.startswith("TOP10_LGBM_STAGE "):
+                    stages.append(json.loads(line.removeprefix("TOP10_LGBM_STAGE ")))
+        except (OSError, ValueError) as exc:
+            stage_read_errors.append({"log": str(log.relative_to(root)), "error": str(exc)})
+    record_property("lightgbm_temp_timing", json.dumps({
+        "max_runtime_seconds": 30, "sample_interval_seconds": policy.sample_interval_seconds,
+        "guard_exit_code": exit_code,
+        "stages": stages, "read_errors": stage_read_errors,
+    }, ensure_ascii=False))
+
+    if exit_code != 0:
+        # 只在失敗後收證；清理 fixture 前讓 pytest 日誌保留實際原因。
+        safety = root / "logs/storage_safety"
+        evidence = {"guard_exit_code": exit_code, "files": {},
+                    "leftovers": sorted(str(p.relative_to(root)) for p in
+                                        (root / "artifacts").glob("lightgbm_tmp_*"))[:20]}
+        paths = [safety / "daily_latest.json", *sorted((root / "logs").rglob("*.log"))]
+        for path in paths:
+            try:
+                with path.open("rb") as stream:
+                    content = stream.read(65537)
+                evidence["files"][str(path.relative_to(root))] = {
+                    "text": content[:65536].decode("utf-8", errors="replace"),
+                    "truncated": len(content) > 65536,
+                }
+            except OSError as exc:
+                evidence["files"][str(path.relative_to(root))] = {"read_error": str(exc)}
+        pytest.fail(json.dumps(evidence, ensure_ascii=False, indent=2), pytrace=False)
+
+    assert not stage_read_errors, stage_read_errors
+    assert [event["stage"] for event in stages] == [
+        "import_begin", "import_ready", "temp_contract_begin", "temp_contract_pass",
+    ], stages
 
 
 def test_configured_missing_disk_rejects_isolated_entrypoints_before_mkdir(tmp_path, monkeypatch):

@@ -243,8 +243,8 @@ class StockRanker:
 
         logger.info(f"載入交易日: {target_trade_date.date()}")
         
-        # 優化：只保留最近 90 天以加速 Rolling 計算
-        features = features[features['trade_date'] >= start_date].copy()
+        # 僅保留指定交易日以前的 90 天，避免後續市場狀態讀入未來資料。
+        features = features[features['trade_date'].between(start_date, target_trade_date)].copy()
         
         # 預計算：壓力線 (近20日高點，不含今日)
         features['ref_high_20d'] = features.groupby('stock_id')['high'].transform(lambda x: x.shift(1).rolling(20).max())

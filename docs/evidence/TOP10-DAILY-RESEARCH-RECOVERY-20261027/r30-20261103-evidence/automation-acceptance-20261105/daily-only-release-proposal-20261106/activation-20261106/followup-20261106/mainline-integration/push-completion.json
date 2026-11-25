@@ -1,0 +1,28 @@
+{
+  "status": "MAINLINE_INTEGRATED_AND_PUSHED",
+  "integration_commit": "637be1693c69bfd529eb1ea544ea774264c6e861",
+  "parents": [
+    "25348435c5049c5d2ac486fe504c8c0abd4d19fd",
+    "99aa01f195f01913afcecac14f73edc0a4378f57"
+  ],
+  "remote": "https://github.com/bluemaple18-home/NEW-TOP10.git",
+  "remote_branch": "main",
+  "verified_remote_head_before_receipt_followup": "637be1693c69bfd529eb1ea544ea774264c6e861",
+  "verification": [
+    "git ls-remote origin refs/heads/main exact",
+    "GitHub connector fetch_commit returned same SHA and canonical URL"
+  ],
+  "github_status_checks": [],
+  "ci_pass_claimed": false,
+  "review": "PASS",
+  "tests": {
+    "passed": 464,
+    "failed_host_sandbox": 2
+  },
+  "runtime_commit_unchanged": "99aa01f195f01913afcecac14f73edc0a4378f57",
+  "auth_recovery": "初次預設mattclickforce被403拒絕；沿既有bluemaple18-home本機keyring token只對本次git程序授權成功，未變更全域登入或儲存憑證",
+  "finmind_calls": 0,
+  "discord_sends": 0,
+  "flags_or_schedules_changed": false,
+  "verified_at": "2026-11-06T13:00:28.973688+00:00"
+}
