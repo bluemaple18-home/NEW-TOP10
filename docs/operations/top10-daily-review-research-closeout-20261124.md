@@ -1,5 +1,5 @@
 # 每日報牌、外部 review、研究接收：2026-11-24 收尾
-狀態：本次有人在場的送收與研究交付完成；剩餘程式的本機版本整合以本文件所在 Git 提交及 final-integration-receipt.json 為準。正式 runtime 未部署，無人 review 排程未恢復，未 push。
+狀態：本次有人在場的送收與研究交付完成；剩餘程式的本機版本整合以本文件所在 Git 提交及 final-integration-receipt.json 為準。正式 runtime 未部署，無人 review 排程未恢復；主線已於2026-11-25依Owner明示確認公開推送至GitHub main（整合merge 3e7d45d）。
 
 ## 流程與已觀測結果
 | 節點 | 本次結果 | 證據／入口 |
@@ -63,7 +63,7 @@ FOG 外層 Python 保留 Core 的 temp hook；進入實際 owned root 後才清�
 詳見 ../evidence/ARCHIVE-20261124.md。
 624份歷史未追蹤證據，197546124 bytes、610362行，已外接封存並逐檔驗證SHA-256。原工作檔未刪。
 使用Git原生本機info/exclude只排除manifest中的精確歷史路徑，讓它們不再混入整合差異；app/、scripts/、tests/的其他未提交修改沒有被忽略。
-主工作區保留必要程式／測試、操作文件、封存索引與任務卡，以精確檔案清單提交本機 Git。歷史原件、另一份 working tree 的差異與回復備份保留；未 reset、clean、push 或部署。
+主工作區保留必要程式／測試、操作文件、封存索引與任務卡，以精確檔案清單提交本機 Git。歷史原件、另一份 working tree 的差異與回復備份保留；未 reset、clean 或部署；主線版本已於2026-11-25完成整合及公開推送。
 
 ## 證據位置
 本文件中的 evidence 目錄名均相對於：
@@ -78,3 +78,7 @@ FOG 外層 Python 保留 Core 的 temp hook；進入實際 owned root 後才清�
 ## 十項原生驗收補齊
 補驗與後續本機提交回執：<external-checks>/EXTERNAL-REVIEW-PATH-RESTORE-20261124/formal-review/native-10-acceptance-20261125/final-receipt.json。
 補驗CC回報：同 formal-review/CODEX-NATIVE-10-COMPLETE-TO-CC-20261125.md。先前回報中的十項「未驗」屬歷史狀態，以本次逐案證據補正；未部署runtime或恢復排程。
+
+## 主線整合與公開推送收尾
+原本機兩提交與遠端五提交已保留雙親合併，merge 3e7d45dbc7971c5758aeffc0c6acdb7de123a258 已推送至 https://github.com/bluemaple18-home/NEW-TOP10 的 main。合併後69份套件1356個唯一Python案例、44 Node、6 shell通過，兩份獨立複核GO；沒有部署runtime或重送報牌／review、恢復排程。
+最終本機／遠端SHA、文件收尾提交、失敗紀錄及公開推送確認見 <external-checks>/EXTERNAL-REVIEW-PATH-RESTORE-20261124/formal-review/push-integration-20261125/final-receipt.json。
