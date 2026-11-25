@@ -4,7 +4,7 @@
 set -euo pipefail
 
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-# 原 browser CLI 現只呼叫原生 MCP adapter；不保留 transport fallback。
+# 原 browser CLI 沿既有 host AppleScript；不啟用無人 review 排程。
 
 cd "$(dirname "$0")/.."
 PROJECT_DIR=$(pwd)

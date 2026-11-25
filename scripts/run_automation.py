@@ -1925,14 +1925,26 @@ class AutomationRunner:
         if self.validation_mode:
             env["TOP10_STORAGE_VALIDATION_MODE"] = "1"
             env["TOP10_LLM_REWRITE_ENABLED"] = "0"
+            from scripts.storage_validation.boundary import owned_validation_paths
+
+            owned_root = owned_validation_paths(
+                self.runtime_paths.output_root, self.runtime_paths.runtime_root
+            )
             cache_root = self.runtime_paths.runtime_root / "cache"
-            tmp_root = self.runtime_paths.runtime_root / "tmp"
-            env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
-            env.setdefault("TMPDIR", str(tmp_root))
-            env.setdefault("UV_CACHE_DIR", str(cache_root / "uv"))
-            env.setdefault("XDG_CACHE_HOME", str(cache_root / "xdg"))
-            env.setdefault("MPLCONFIGDIR", str(cache_root / "matplotlib"))
-            env.setdefault("JOBLIB_TEMP_FOLDER", str(tmp_root / "joblib"))
+            # parent 已清除共享 cache 契約；child 改沿既有本地鉤子固定 owned/tmp。
+            # 不讓 inherited Core sitecustomize 因缺契約拒絕，也不開放 tempfile fallback。
+            hook = str(PROJECT_ROOT / "app" / "_storage_python")
+            previous = env.get("PYTHONPATH", "").split(os.pathsep)
+            env["PYTHONPATH"] = os.pathsep.join(
+                [hook, *(path for path in previous if path and path != hook)]
+            )
+            env["TOP10_EXTERNAL_CACHE_ROOT"] = str(owned_root)
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
+            for name in ("TMPDIR", "TMP", "TEMP", "TEMPDIR", "JOBLIB_TEMP_FOLDER"):
+                env[name] = str(owned_root / "tmp")
+            env["UV_CACHE_DIR"] = str(cache_root / "uv")
+            env["XDG_CACHE_HOME"] = str(cache_root / "xdg")
+            env["MPLCONFIGDIR"] = str(cache_root / "matplotlib")
         if self._is_local_safe():
             for name in ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"]:
                 env.setdefault(name, "1")

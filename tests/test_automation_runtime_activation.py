@@ -9,6 +9,8 @@ import plistlib
 import shutil
 import signal
 import stat
+import subprocess
+import sys
 from pathlib import Path
 from typing import Callable
 
@@ -3518,3 +3520,532 @@ def test_dormant_retrain_mutation_failure_restores_disabled_unloaded_prestate(
     assert set(durable["out_of_scope_plists_before"]) >= {
         f"{label}.plist" for label in LEGACY_DEFAULT_LABELS
     }
+
+
+@pytest.fixture
+def source_transition_env(tmp_path: Path) -> dict:
+    """真 Git linked worktree；launchd 使用可觀察非冪等 fake，不碰正式服務。"""
+    source = tmp_path / "source"
+    runtime = tmp_path / "runtime"
+    agents = tmp_path / "LaunchAgents"
+    source.mkdir()
+    agents.mkdir()
+    git_env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+    def git(*args: str, root: Path = source) -> str:
+        return subprocess.check_output(
+            ["git", "-C", str(root), *args], env=git_env, text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+
+    git("init")
+    git("config", "user.name", "activation fixture")
+    git("config", "user.email", "activation@example.invalid")
+    git("config", "core.hooksPath", os.devnull)
+    (source / ".gitignore").write_text(".venv/\nlogs/\ndata/\nmodels/\nartifacts/\nignored-collision\n")
+    (source / "scripts").mkdir()
+    (source / "config").mkdir()
+    (source / "config/automation.yaml").write_text("daily:\n  market_coverage_enabled: false\n")
+    for _, _, template in activation.TARGET_JOBS:
+        shutil.copy2(PROJECT_ROOT / "scripts" / template, source / "scripts" / template)
+    (source / "uv.lock").write_text("fixture-lock\n")
+    (source / "pyproject.toml").write_text("[project]\nname='fixture'\nversion='0.0.0'\n")
+    (source / "code.txt").write_text("old\n")
+    git("add", ".")
+    git("commit", "-m", "fixture old")
+    old = git("rev-parse", "HEAD")
+    (source / "code.txt").write_text("accepted\n")
+    git("commit", "-am", "fixture accepted")
+    accepted = git("rev-parse", "HEAD")
+    git("worktree", "add", "--detach", str(runtime), old)
+    python = runtime / ".venv/bin/python"
+    python.parent.mkdir(parents=True)
+    python.write_text("#!/bin/sh\nexit 0\n")
+    python.chmod(0o755)
+    from dataclasses import asdict
+    from app.storage_safety import _spawn_verified_process_group
+
+    completed_child, completed_identity = _spawn_verified_process_group(
+        [sys.executable, "-B", "-c", "pass"], cwd=runtime,
+    )
+    assert completed_child.wait(timeout=5) == 0
+    completed_child.stdout.close()
+    for guard, label, template in activation.TARGET_JOBS[:2]:
+        (agents / f"{label}.plist").write_bytes(_render_template(template, runtime))
+        latest = runtime / "logs/storage_safety" / f"{guard}_latest.json"
+        latest.parent.mkdir(parents=True, exist_ok=True)
+        # 真 child 已退出／reap；每次驗證仍須由原 observer 核對同一 PG。
+        latest.write_text(json.dumps({"job": guard, "child_spawned": True,
+                                      "process_group_identity": asdict(completed_identity), "status": "OK"}))
+    hold = runtime / "logs/storage_safety/restart_denied/external-review-preflight.json"
+    hold.parent.mkdir()
+    hold.write_text('{"reason":"RECOVERY_READINESS_OWNER_HOLD"}\n')
+    runner = FakeCommandRunner(runtime)
+    for label in ("com.new-top10.fog-research-worker", RETRAIN_LABEL):
+        runner.states[label]["root"] = tmp_path / "unrelated-runtime"
+    before = {label: dict(state) for label, state in runner.states.items()}
+    receipt = tmp_path / "evidence/activation.json"
+
+    def run(command):
+        if command[0] == "git":
+            result = subprocess.run(command, env=git_env, text=True, capture_output=True)
+            return activation.CommandResult(result.returncode, result.stdout, result.stderr)
+        if command[1:] == ["print", "gui/999"]:
+            labels = "\n".join("0 - " + label for label, state in runner.states.items() if state["loaded"])
+            return activation.CommandResult(0, "services = {\n" + labels + "\n}\n")
+        return runner(command)
+
+    def build(**kwargs):
+        return activation.ActivationTransaction(
+            source_root=source, runtime_root=runtime, accepted_commit=accepted,
+            previous_commit=old, launch_agents_dir=agents, expected_old_root=runtime,
+            receipt_path=receipt, target_jobs=("daily",), launchctl_bin="launchctl",
+            plutil_bin="plutil", domain="gui/999", command_runner=run, **kwargs,
+        )
+
+    return dict(source=source, runtime=runtime, agents=agents, git=git, old=old,
+                accepted=accepted, runner=runner, before=before, receipt=receipt,
+                hold=hold, hold_bytes=hold.read_bytes(), build=build)
+
+
+def _assert_source_old(env: dict) -> None:
+    assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == env["old"]
+    assert (env["runtime"] / "code.txt").read_text() == "old\n"
+    assert env["runner"].states == env["before"]
+    assert env["hold"].read_bytes() == env["hold_bytes"]
+
+
+def _source_no_child_hold(env: dict) -> Path:
+    """重現真 host 的 legacy owner hold；不虛構 process group。"""
+    env["hold"].write_text(json.dumps({
+        "schema_version": "top10-storage-restart-denied.v1",
+        "job": "external-review-preflight", "automatic_clear_allowed": False,
+        "reasons": ["RECOVERY_READINESS_OWNER_HOLD"],
+    }))
+    env["hold_bytes"] = env["hold"].read_bytes()
+    latest = env["runtime"] / "logs/storage_safety/external-review-preflight_latest.json"
+    latest.write_text(json.dumps({
+        "schema_version": "top10-storage-guard-receipt.v1",
+        "job": "external-review-preflight", "status": "RESTART_DENIED",
+        "child_spawned": False, "process_group_identity": None,
+        "child_pid": None, "child_exit_code": None, "child_terminal_status": None,
+        "restart_denied": True, "lock_owner_status": "HELD", "launch_verified": True,
+        "invocation_id": "external-review-preflight-legacy-hold",
+        "reasons": ["RECOVERY_READINESS_OWNER_HOLD", "PERSISTENT_RESTART_DENIED_MARKER"],
+    }))
+    return latest
+
+
+@pytest.mark.parametrize("failure_event", [None, "after_source_checkout", "after_bootstrap"])
+def test_source_transition_no_child_hold(source_transition_env: dict, failure_event: str | None) -> None:
+    env = source_transition_env
+    latest = _source_no_child_hold(env)
+    original = latest.read_bytes()
+
+    def fault(event, job):
+        if event == failure_event:
+            raise RuntimeError("no-child rollback 反例")
+
+    transaction = env["build"](fault_hook=fault)
+    result = transaction.run()
+    if failure_event is None:
+        assert result == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING", transaction.failure
+        assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == env["accepted"]
+    else:
+        assert result == "ROLLED_BACK_NO_GO", transaction.failure
+        _assert_source_old(env)
+    assert env["hold"].read_bytes() == env["hold_bytes"]
+    assert latest.read_bytes() == original
+    assert env["runner"].states == env["before"]
+    assert not transaction._source_locks
+
+
+@pytest.mark.parametrize("failure", [
+    "status", "child_spawned", "child_pid", "job", "invocation_id", "lock_owner_status",
+    "launch_verified", "restart_denied", "hold_job", "hold_clear", "hold_reasons",
+    "root_binding", "unresolved", "unloaded", "running", "missing_pg", "missing_child_pid",
+    "guard_lock", "hold_drift", "receipt_drift",
+])
+def test_source_transition_no_child_rejects_missing_evidence(source_transition_env: dict, failure: str) -> None:
+    env = source_transition_env
+    latest = _source_no_child_hold(env)
+    receipt = json.loads(latest.read_bytes())
+    hold = json.loads(env["hold"].read_bytes())
+    bad = {"status": "OVERLAP_BLOCKED", "child_spawned": True, "child_pid": 123,
+           "job": "daily", "invocation_id": "", "lock_owner_status": "NOT_HELD",
+           "launch_verified": False, "restart_denied": False}
+    if failure in bad:
+        receipt[failure] = bad[failure]
+    elif failure == "hold_job":
+        hold["job"] = "daily"
+    elif failure == "hold_clear":
+        hold["automatic_clear_allowed"] = True
+    elif failure == "hold_reasons":
+        hold["reasons"] = ["unrelated"]
+    elif failure == "root_binding":
+        hold["root_invocation_id"] = "other"
+    elif failure == "unresolved":
+        claim = latest.parent / "receipts/external-review-preflight/unfinished.json"
+        claim.parent.mkdir(parents=True)
+        claim.write_text('{"schema_version":"top10-storage-invocation-claim.v1"}')
+    elif failure == "unloaded":
+        env["runner"].states["com.new-top10.external-review-preflight"]["loaded"] = False
+    elif failure == "running":
+        env["runner"].states["com.new-top10.external-review-preflight"]["running"] = True
+    elif failure == "missing_pg":
+        receipt.pop("process_group_identity")
+    elif failure == "missing_child_pid":
+        receipt.pop("child_pid")
+    latest.write_text(json.dumps(receipt))
+    env["hold"].write_text(json.dumps(hold))
+
+    def fault(event, job):
+        if event == "after_source_quiesce":
+            if failure == "hold_drift":
+                env["hold"].write_bytes(env["hold"].read_bytes() + b"\n")
+            elif failure == "receipt_drift":
+                latest.write_bytes(latest.read_bytes() + b"\n")
+
+    transaction = env["build"](fault_hook=fault)
+    held = None
+    if failure == "guard_lock":
+        import fcntl
+        held = (latest.parent / "external-review-preflight.lock").open("a+")
+        fcntl.flock(held.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    try:
+        assert transaction.run() != "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    finally:
+        if held is not None:
+            held.close()
+    assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == env["old"]
+    if not failure.endswith("drift"):
+        assert not any(op == "bootout" for op, _ in env["runner"].calls)
+    assert not transaction._source_locks
+
+
+@pytest.mark.parametrize("owner", ["venv", "cwd", "both", "alias"])
+def test_source_transition_module_helper_inventory(source_transition_env: dict, owner: str) -> None:
+    """未知 python -m helper 即使不含 /scripts 也必須在 mutation 前拒絕。"""
+    env = source_transition_env
+    label = "local.top10-module-helper"
+    root = env["runtime"]
+    if owner == "alias":
+        root = root.parent / "module-helper-alias"
+        root.symlink_to(env["runtime"], target_is_directory=True)
+    env["runner"].states[label] = dict(loaded=True, running=False, root=root, disabled=False)
+    transaction = env["build"]()
+    original = transaction.command_runner
+
+    def run(command):
+        if list(command[1:]) == ["print", f"gui/999/{label}"]:
+            program = root / ".venv/bin/python" if owner != "cwd" else Path("/usr/bin/python3")
+            cwd = f"working directory = {root}\n" if owner != "venv" else ""
+            return activation.CommandResult(0, f"service = {{\nstate = waiting\nprogram = {program}\n"
+                                             f"arguments = {{\n{program}\n-m\nhelper\n}}\n{cwd}}}\n")
+        return original(command)
+
+    transaction.command_runner = run
+    assert transaction.run() != "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    assert "live same-root job" in transaction.failure
+    assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == env["old"]
+    assert not any(op == "bootout" for op, _ in env["runner"].calls)
+
+
+def test_source_transition_real_git_alias_sibling(source_transition_env: dict) -> None:
+    """真 symlink alias sibling 必須先卸載，hold 與 plist bytes 全程保留。"""
+    env = source_transition_env
+    alias = env["runtime"].parent / "legacy-runtime-alias"
+    alias.symlink_to(env["runtime"], target_is_directory=True)
+    label = "com.new-top10.external-review-preflight"
+    path = env["agents"] / f"{label}.plist"
+    # 不呼叫會 resolve root 的 fixture renderer，保留真實 alias argv。
+    path.write_text((PROJECT_ROOT / "scripts/com.new-top10.external-review-preflight.plist")
+                    .read_text().replace("__PROJECT_DIR__", str(alias)))
+    before = path.read_bytes()
+    transaction = env["build"]()
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    assert label in transaction.source_jobs
+    assert ("bootout", label) in env["runner"].calls
+    assert ("bootstrap", label) in env["runner"].calls
+    assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == env["accepted"]
+    assert env["runner"].states == env["before"]
+    assert env["hold"].read_bytes() == env["hold_bytes"]
+    assert path.read_bytes() == before
+    assert not any(op in {"enable", "disable", "kickstart"} for op, _ in env["runner"].calls)
+    assert all(label not in {"com.new-top10.retrain", "com.new-top10.fog-research-worker"}
+               for op, label in env["runner"].calls if op in {"bootout", "bootstrap"})
+
+
+@pytest.mark.parametrize("event", ["after_source_bootout", "after_source_quiesce",
+                                  "after_source_checkout", "after_bootstrap",
+                                  "after_source_teardown"])
+def test_source_transition_real_git_failure(source_transition_env: dict, event: str) -> None:
+    env = source_transition_env
+    injected = False
+
+    def hook(actual, job):
+        nonlocal injected
+        if actual == event and not injected:
+            injected = True
+            raise activation.ActivationError("fixture source failure")
+
+    transaction = env["build"](fault_hook=hook)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert injected
+    _assert_source_old(env)
+    assert not transaction._source_locks
+
+
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
+@pytest.mark.parametrize("event", ["after_source_bootout", "after_source_checkout", "after_bootstrap", "after_source_teardown"])
+def test_source_transition_real_git_signal(source_transition_env: dict, event: str, signum: int) -> None:
+    """真 OS signal 送進既有 handler，checkout 前後均需退回 old。"""
+    env = source_transition_env
+    injected = False
+    handlers = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+
+    def hook(actual, job):
+        nonlocal injected
+        if actual == event and not injected:
+            injected = True
+            os.kill(os.getpid(), signum)
+
+    transaction = env["build"](fault_hook=hook)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert injected
+    _assert_source_old(env)
+    assert {sig: signal.getsignal(sig) for sig in handlers} == handlers
+
+
+@pytest.mark.parametrize("failure", ["seal", "durability", "teardown", "post_seal_signal"])
+def test_source_transition_real_git_terminal_failure(source_transition_env: dict, monkeypatch, failure: str) -> None:
+    env = source_transition_env
+    transaction = env["build"]()
+    commit = transaction._commit_receipt
+    disarm = transaction._disarm
+    injected = False
+
+    def fail_commit(staged):
+        nonlocal injected
+        if not injected:
+            injected = True
+            if failure == "seal":
+                raise OSError("fixture seal failed")
+            commit(staged)
+            if failure == "durability":
+                raise activation.ReceiptDurabilityError("fixture post-rename failure")
+            os.kill(os.getpid(), signal.SIGTERM)
+            return
+        commit(staged)
+
+    def fail_disarm():
+        nonlocal injected
+        if not injected:
+            injected = True
+            return False
+        return disarm()
+
+    if failure == "teardown":
+        monkeypatch.setattr(transaction, "_disarm", fail_disarm)
+    else:
+        monkeypatch.setattr(transaction, "_commit_receipt", fail_commit)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    assert injected
+    _assert_source_old(env)
+    assert not transaction._source_locks
+
+
+@pytest.mark.parametrize("failure", ["dirty", "dependency", "running", "missing_receipt", "guard_lock", "ignored_collision"])
+def test_source_transition_real_git_admission(source_transition_env: dict, failure: str) -> None:
+    env = source_transition_env
+    held = None
+    if failure == "dirty":
+        (env["runtime"] / "code.txt").write_text("unique dirty source\n")
+    elif failure == "dependency":
+        (env["source"] / "uv.lock").write_text("changed dependency\n")
+        env["git"]("commit", "-am", "fixture dependency drift")
+    elif failure == "running":
+        env["runner"].states["com.new-top10.external-review-preflight"]["running"] = True
+    elif failure == "missing_receipt":
+        (env["runtime"] / "logs/storage_safety/daily_latest.json").unlink()
+    elif failure == "guard_lock":
+        import fcntl
+        held = (env["runtime"] / "logs/storage_safety/daily.lock").open("a+")
+        fcntl.flock(held.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    else:
+        (env["source"] / "ignored-collision").write_text("new tracked file\n")
+        env["git"]("add", "-f", "ignored-collision")
+        env["git"]("commit", "-m", "fixture ignored collision")
+        (env["runtime"] / "ignored-collision").write_text("unique ignored bytes\n")
+    transaction = env["build"]()
+    if failure in {"dependency", "ignored_collision"}:
+        transaction.accepted_commit = env["git"]("rev-parse", "HEAD")
+    try:
+        assert transaction.run() != "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    finally:
+        if held is not None:
+            held.close()
+    assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == env["old"]
+    if failure != "ignored_collision":
+        assert not any(op == "bootout" for op, _ in env["runner"].calls)
+    else:
+        assert (env["runtime"] / "ignored-collision").read_text() == "unique ignored bytes\n"
+        assert all(not env["runner"].states[label]["loaded"] for label in transaction.source_jobs)
+    assert env["hold"].read_bytes() == env["hold_bytes"]
+
+
+def test_source_transition_real_git_release_failure(source_transition_env: dict, monkeypatch) -> None:
+    """Seal 後 lock cleanup 失敗也必須先卸載／退 source，不能只回 nonzero。"""
+    env = source_transition_env
+    transaction = env["build"]()
+
+    def fail_release():
+        raise OSError("fixture release failure")
+
+    monkeypatch.setattr(transaction, "_release_all_denial_locks", fail_release)
+    assert transaction.run() == "ROLLED_BACK_NO_GO"
+    _assert_source_old(env)
+    assert not transaction._source_locks
+
+
+def test_source_transition_real_git_unloaded_disabled_sibling(source_transition_env: dict) -> None:
+    env = source_transition_env
+    label = "com.new-top10.external-review-preflight"
+    env["runner"].states[label].update(loaded=False, disabled=True)
+    env["runner"].print_disabled_style = "explicit"
+    transaction = env["build"]()
+    assert transaction.run() == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    assert env["runner"].states[label]["loaded"] is False
+    assert env["runner"].states[label]["disabled"] is True
+    assert ("bootstrap", label) not in env["runner"].calls
+    assert env["hold"].read_bytes() == env["hold_bytes"]
+
+
+@pytest.mark.parametrize("failure", ["no_pg", "missing_live_plist", "unresolved_claim", "live_owner_drift", "other_label_alias"])
+def test_source_transition_real_git_inventory_evidence(source_transition_env: dict, failure: str) -> None:
+    env = source_transition_env
+    if failure == "no_pg":
+        (env["runtime"] / "logs/storage_safety/daily_latest.json").write_text(json.dumps({
+            "job": "daily", "status": "OVERLAP_BLOCKED", "child_spawned": False,
+            "process_group_identity": None,
+        }))
+    elif failure == "missing_live_plist":
+        env["runner"].states["com.new-top10.fog-research-worker"]["root"] = env["runtime"]
+    elif failure == "live_owner_drift":
+        env["runner"].states["com.new-top10.external-review-preflight"]["root"] = env["runtime"].parent / "other-runtime"
+    elif failure == "other_label_alias":
+        alias = env["runtime"].parent / "unknown-helper-alias"
+        alias.symlink_to(env["runtime"], target_is_directory=True)
+        env["runner"].states["local.top10-helper"] = dict(
+            loaded=True, running=False, root=alias, disabled=False,
+        )
+    else:
+        archive = env["runtime"] / "logs/storage_safety/receipts/daily/unfinished.json"
+        archive.parent.mkdir(parents=True)
+        archive.write_text('{"schema_version":"top10-storage-invocation-claim.v1"}')
+    transaction = env["build"]()
+    assert transaction.run() != "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
+    assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == env["old"]
+    assert not any(op == "bootout" for op, _ in env["runner"].calls)
+
+
+def test_source_transition_real_git_persistent_mask_failure(source_transition_env: dict, monkeypatch) -> None:
+    """Seal 後 SIG_BLOCK 持續壞掉也不得短路卸載／source 回退。"""
+    env = source_transition_env
+    transaction = env["build"]()
+    original = signal.pthread_sigmask
+
+    def fail_block(how, mask):
+        if transaction._receipt_sealed and how == signal.SIG_BLOCK and mask:
+            raise OSError("fixture persistent SIG_BLOCK failure")
+        return original(how, mask)
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(signal, "pthread_sigmask", fail_block)
+            assert transaction.run() == "ROLLED_BACK_NO_GO"
+        _assert_source_old(env)
+        assert "signal teardown still failed" in transaction.failure
+        assert not transaction._source_locks
+    finally:
+        # 模擬 syscall 恢復後只還原測試程序的原 handler/mask，不補做 activation。
+        transaction._disarm()
+
+
+@pytest.mark.parametrize("deny_checkout", [1, 2])
+def test_source_transition_real_git_volume_recheck(source_transition_env: dict, monkeypatch, deny_checkout: int) -> None:
+    from contextlib import contextmanager
+    from scripts.storage_validation import boundary
+
+    env = source_transition_env
+    original = boundary.external_paths
+    calls = []
+
+    @contextmanager
+    def checked(*paths, **kwargs):
+        calls.append(paths)
+        if len(calls) == deny_checkout:
+            raise ValueError("fixture external UUID/device changed")
+        with original(*paths, **kwargs) as cache:
+            yield cache
+
+    def hook(event, job):
+        if deny_checkout == 2 and event == "after_bootstrap":
+            raise activation.ActivationError("fixture rollback volume recheck")
+
+    monkeypatch.setattr(boundary, "external_paths", checked)
+    transaction = env["build"](fault_hook=hook)
+    assert transaction.run() == "ROLLBACK_VERIFICATION_FAILED"
+    assert len(calls) == deny_checkout
+    assert calls == [(env["runtime"],)] * deny_checkout
+    expected = env["old"] if deny_checkout == 1 else env["accepted"]
+    assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == expected
+    assert all(not env["runner"].states[label]["loaded"] for label in transaction.source_jobs)
+
+
+@pytest.mark.parametrize("failure", ["rollback_checkout", "live_pg", "new_marker"])
+def test_source_transition_real_git_rollback_boundary(source_transition_env: dict, monkeypatch, failure: str) -> None:
+    from dataclasses import asdict
+    from app.storage_safety import _spawn_verified_process_group
+
+    env = source_transition_env
+    child = None
+    transaction = env["build"]()
+    source_git = transaction._source_git
+
+    def git(*args):
+        if failure == "rollback_checkout" and args[0] == "checkout" and args[-1] == env["old"]:
+            raise activation.ActivationError("fixture rollback checkout failure")
+        return source_git(*args)
+
+    def hook(event, job):
+        nonlocal child
+        if event == "after_bootstrap" and job == "daily":
+            if failure == "live_pg":
+                child, identity = _spawn_verified_process_group(
+                    [sys.executable, "-B", "-c", "import time; time.sleep(60)"], cwd=env["runtime"],
+                )
+                (env["runtime"] / "logs/storage_safety/daily_latest.json").write_text(json.dumps({
+                    "job": "daily", "child_spawned": True, "process_group_identity": asdict(identity),
+                }))
+            elif failure == "new_marker":
+                (env["runtime"] / "logs/storage_safety/restart_denied/daily.json").write_text("new failure evidence\n")
+            raise activation.ActivationError("fixture rollback boundary")
+
+    monkeypatch.setattr(transaction, "_source_git", git)
+    transaction.fault_hook = hook
+    try:
+        status = transaction.run()
+        if failure == "new_marker":
+            assert status == "ROLLED_BACK_NO_GO"
+            _assert_source_old(env)
+            assert (env["runtime"] / "logs/storage_safety/restart_denied/daily.json").read_text() == "new failure evidence\n"
+        else:
+            assert status == "ROLLBACK_VERIFICATION_FAILED"
+            assert env["git"]("rev-parse", "HEAD", root=env["runtime"]) == env["accepted"]
+            assert all(not env["runner"].states[label]["loaded"] for label in transaction.source_jobs)
+    finally:
+        if child is not None:
+            child.terminate()
+            child.wait(timeout=5)
+            child.stdout.close()

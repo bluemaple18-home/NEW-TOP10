@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -25,6 +26,42 @@ def isolated_daily_cache_environment(monkeypatch):
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTRYPOINT = PROJECT_ROOT / "scripts" / "storage_validation" / "daily.py"
+
+
+def test_canonical_validation_child_pins_owned_temp_with_inherited_core_hook(tmp_path, monkeypatch):
+    """真 child 必須能啟動；錯誤暫存契約仍在 workload 前拒絕。"""
+    from scripts.run_automation import AutomationRunner
+    from scripts.storage_validation.boundary import owned_validation_paths
+
+    owned = owned_validation_paths(tmp_path)
+    output = tmp_path / "output"
+    runtime = output / "runtime"
+    output.mkdir()
+    runtime.mkdir()
+    core = Path(os.environ.get("AI_CORE_DIR", str(Path.home() / "ai-core")))
+    monkeypatch.setenv("PYTHONPATH", str(core / "scripts" / "_storage_python"))
+    runner = AutomationRunner(
+        mode="daily", resource_profile="standard", run_date="2026-09-01",
+        source_root=PROJECT_ROOT, output_root=output, runtime_root=runtime,
+        validation_mode=True,
+    )
+    env = runner._subprocess_env()
+    code = (
+        "import os,tempfile; from pathlib import Path; "
+        "assert Path(tempfile.gettempdir()) == Path(os.environ['TMP_ARTIFACT_ROOT'])/'tmp'; "
+        "f=tempfile.TemporaryFile(); f.write(b'owned'); f.close(); print('OWNED_TEMP_OK')"
+    )
+    child = subprocess.run([sys.executable, "-B", "-c", code], env=env,
+                           text=True, capture_output=True, timeout=15)
+    assert child.returncode == 0, child.stderr
+    assert child.stdout.strip() == "OWNED_TEMP_OK"
+    assert env["TOP10_EXTERNAL_CACHE_ROOT"] == str(owned)
+    assert Path(env["UV_CACHE_DIR"]).is_relative_to(runtime)
+    bad = {**env, "TMPDIR": str(runtime)}
+    child = subprocess.run([sys.executable, "-B", "-c", "print('MUST_NOT_RUN')"],
+                           env=bad, text=True, capture_output=True, timeout=15)
+    assert child.returncode == 78
+    assert "MUST_NOT_RUN" not in child.stdout
 
 
 def sha256(path: Path) -> str:

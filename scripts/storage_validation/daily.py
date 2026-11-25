@@ -40,6 +40,7 @@ SOURCE_IDENTITY_FILES = (
     "app/pipeline_cli.py",
     "app/pipeline/fetch_stage.py",
     "app/pipeline/validation_snapshot.py",
+    "app/_storage_python/sitecustomize.py",
     "scripts/generate_daily_report.py",
     "scripts/build_clawd_publish_payload.py",
     "models/latest_lgbm.pkl",

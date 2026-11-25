@@ -157,6 +157,7 @@ class ActivationTransaction:
         target_jobs: Sequence[str] | None = None,
         allow_dormant_target_activation: bool = False,
         allow_enabled_unloaded_target_activation: bool = False,
+        previous_commit: str | None = None,
     ) -> None:
         requested_jobs = (
             LEGACY_DEFAULT_TARGET_JOBS
@@ -236,6 +237,356 @@ class ActivationTransaction:
         self.status = "INITIALIZING"
         self.failure: str | None = None
         self.canonical_commit: str | None = None
+        # 僅明示 same-root 切換才承擔 source 回退；一般 activation 不使用這些狀態。
+        self.previous_commit = previous_commit
+        self.source_jobs: dict[str, dict] = {}
+        self.source_fingerprint: dict[str, str] = {}
+        self._source_locks: dict[str, TextIO] = {}
+        self._source_mutation_armed = False
+        self._source_checkout_attempted = False
+        self._source_checkout_failed = False
+
+    def _source_git(self, *args: str) -> str:
+        result = self._run(["git", "-C", str(self.runtime_root), *args])
+        if result.returncode != 0:
+            raise ActivationError(f"source Git {args[0]} failed: {result.stderr.strip()}")
+        return result.stdout.strip()
+
+    def _source_code_fingerprint(self) -> dict[str, str]:
+        if self._source_git("diff", "HEAD", "--name-only"):
+            raise ActivationError("same-root tracked source dirty；禁止覆寫")
+        result = {}
+        for name in self._source_git("ls-files", "-z").split("\0"):
+            if not name or Path(name).parts[0] in {"data", "models", "artifacts", "logs"}:
+                continue
+            path = self.runtime_root / name
+            data = os.readlink(path).encode() if path.is_symlink() else path.read_bytes()
+            result[name] = sha256_bytes(data)
+        return result
+
+    def _checkout_source(self, commit: str) -> None:
+        from scripts.storage_validation.boundary import external_paths
+
+        # 每個 Git writer 都重新沿既有外接卷契約取樣；不能沿用先前 admission 的卷身分。
+        with external_paths(self.runtime_root):
+            self._source_git("checkout", "--detach", "--no-overwrite-ignore", commit)
+
+    @staticmethod
+    def _live_script_roots(text: str) -> set[Path]:
+        roots = {Path(value.strip(' "')).resolve() for value in
+                 re.findall(r"(/[^{\n}]*?)/(?:scripts/|\.venv/bin/)", text)}
+        # python -m 沒有 /scripts；沿 launchctl 原生欄位辨識同 root helper。
+        roots.update(Path(value.strip(' "')).resolve() for value in
+                     re.findall(r"(?m)^\s*working directory\s*=\s*(/[^\n}]+)", text))
+        return roots
+
+    def _assert_source_inventory(self) -> None:
+        result = self._run([self.launchctl_bin, "print", self.domain])
+        if result.returncode != 0:
+            raise ActivationError("無法列出 live service inventory")
+        services = re.search(r"(?ms)^\s*services\s*=\s*\{[^\n]*\n(.*?)^\s*\}", result.stdout)
+        if services is None:
+            raise ActivationError("live services inventory 格式未知")
+        labels = set()
+        for line in services[1].splitlines():
+            if not line.strip():
+                continue
+            row = re.fullmatch(r"\s*(?:-|\d+)\s+(?:-|-?\d+)\s+(\S+)\s*", line)
+            if row is None:
+                raise ActivationError("live services inventory 不完整，拒絕猜 label")
+            labels.add(row[1])
+        labels.update(label for _, label, _ in TARGET_JOBS)
+        for label in sorted(labels | self.source_jobs.keys()):
+            loaded, _, text = self._probe(label)
+            if not loaded:
+                continue
+            roots = self._live_script_roots(text)
+            if label in self.source_jobs:
+                if roots != {self.runtime_root}:
+                    raise ActivationError(f"snapshot/live owner drift: {label}")
+            elif self.runtime_root in roots:
+                raise ActivationError(f"live same-root job 缺 installed snapshot: {label}")
+
+    def _lock_source_jobs(self) -> None:
+        for state in self.source_jobs.values():
+            identity = state["identity"]
+            if identity in self._source_locks:
+                if not self._source_locks[identity].closed:
+                    fcntl.flock(self._source_locks[identity].fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    continue
+                del self._source_locks[identity]
+            path = self.runtime_root / "logs/storage_safety" / f"{identity}.lock"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            handle = path.open("a+")
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BaseException:
+                handle.close()
+                raise
+            self._source_locks[identity] = handle
+
+    def _source_groups_quiescent(self) -> None:
+        # 沿既有 guard receipt 與 observer；缺少可驗身分不把 unloaded 當作靜止證明。
+        if str(SCRIPT_DIR.parent) not in sys.path:
+            sys.path.insert(0, str(SCRIPT_DIR.parent))
+        from app.storage_safety import (
+            ProcessGroupIdentity, process_group_is_quiescent, _unresolved_invocation_archive,
+        )
+
+        self._lock_source_jobs()
+        self._assert_source_inventory()
+        for label, state in self.source_jobs.items():
+            path = self.runtime_root / "logs/storage_safety" / f"{state['identity']}_latest.json"
+            receipt_raw = path.read_bytes()
+            receipt = json.loads(receipt_raw)
+            if receipt.get("job") != state["identity"]:
+                raise ActivationError(f"source guard receipt identity 不符: {path}")
+            identity = receipt.get("process_group_identity")
+            if _unresolved_invocation_archive(path.parent, state["identity"]) is not None:
+                raise ActivationError(f"source guard 存在未完成 invocation: {path}")
+            if identity is None:
+                # 僅接納原 hold 阻止 spawn 的既有 receipt；不是一般無 PG 的通行證。
+                marker = self._denial_path(self.runtime_root, state["identity"])
+                hold_raw = marker.read_bytes()
+                hold = json.loads(hold_raw)
+                loaded, running, _ = self._probe(label)
+                reasons = hold.get("reasons")
+                if not (
+                    state["loaded"] and not running
+                    and (loaded or self._source_mutation_armed)
+                    and state.get("hold_sha256") == sha256_bytes(hold_raw)
+                    and state.get("receipt_sha256") == sha256_bytes(receipt_raw)
+                    and hold.get("schema_version") == "top10-storage-restart-denied.v1"
+                    and hold.get("job") == state["identity"]
+                    and hold.get("automatic_clear_allowed") is False
+                    and not any(key in hold for key in (
+                        "root_invocation_id", "root_receipt_path", "root_receipt_sha256"))
+                    and isinstance(reasons, list) and reasons
+                    and all(isinstance(reason, str) and reason in receipt.get("reasons", [])
+                            for reason in reasons)
+                    and receipt.get("schema_version") == "top10-storage-guard-receipt.v1"
+                    and receipt.get("status") == "RESTART_DENIED"
+                    and receipt.get("restart_denied") is True
+                    and receipt.get("child_spawned") is False
+                    and all(key in receipt and receipt[key] is None for key in (
+                        "process_group_identity", "child_pid", "child_exit_code", "child_terminal_status"))
+                    and receipt.get("lock_owner_status") == "HELD"
+                    and receipt.get("launch_verified") is True
+                    and isinstance(receipt.get("invocation_id"), str)
+                    and bool(receipt["invocation_id"])
+                    and "PERSISTENT_RESTART_DENIED_MARKER" in receipt.get("reasons", [])
+                ):
+                    raise ActivationError(f"source guard no-child 證據不足: {path}")
+                continue
+            if not process_group_is_quiescent(ProcessGroupIdentity(**identity)):
+                raise ActivationError(f"source guard/child PG 尚未靜止: {path}")
+
+    def _prepare_source_transition(self) -> None:
+        if self.receipt_path.exists():
+            self._receipt_path_conflict = True
+            raise ActivationError("source transition receipt 必須為新路徑")
+        if (self.runtime_root != self.expected_old_root or self.source_root == self.runtime_root
+                or self.receipt_path.is_relative_to(self.runtime_root)
+                or self.environment_root is not None
+                or tuple(row[0] for row in self.target_jobs) != ("daily",)):
+            raise ActivationError("previous-commit 僅允許原生環境、same-root、單選 daily，receipt 位於 root 外")
+        if any(not re.fullmatch(r"[0-9a-f]{40}", value or "")
+               for value in (self.previous_commit, self.accepted_commit)):
+            raise ActivationError("source transition 必須指定兩個完整 SHA")
+        validate_runtime_checkout(self.source_root, self.runtime_root, self.previous_commit)
+        if (self.runtime_root / ".venv").is_symlink():
+            raise ActivationError("same-root 必須保留既有原生 .venv")
+        if self._source_git("rev-parse", "--verify", f"{self.accepted_commit}^{{commit}}") != self.accepted_commit:
+            raise ActivationError("accepted commit 身分不符")
+        if self.previous_commit == self.accepted_commit:
+            raise ActivationError("source transition 不接受相同 SHA")
+        if self._source_git("diff", "--name-only", self.previous_commit, self.accepted_commit,
+                            "--", "data", "models", "artifacts", "logs", ".venv", "uv.lock", "pyproject.toml"):
+            raise ActivationError("source transition 不得變更共用資料或環境依賴")
+        self.source_fingerprint = self._source_code_fingerprint()
+        known = {label: guard for guard, label, _ in TARGET_JOBS}
+        for path in sorted(self.launch_agents_dir.glob("*.plist")):
+            data = path.read_bytes()
+            try:
+                project_root = self._plist_project_root(data)
+            except Exception as exc:
+                if path.name.startswith("com.new-top10."):
+                    raise ActivationError(f"無法判定 plist owner: {path}") from exc
+                continue
+            # /Users 舊入口可能是外接 R 的 alias；owner 只依解析後的實體 root 判定。
+            if project_root != self.runtime_root:
+                continue
+            payload = plistlib.loads(data)
+            label = payload["Label"]
+            if label not in known or path.name != f"{label}.plist":
+                raise ActivationError(f"未知 same-root job，拒絕擴張 activation: {path}")
+            identity = self._old_plist_storage_identity(data, label=label, old_root=self.runtime_root)
+            if not re.fullmatch(r"[a-z][a-z0-9-]*", identity):
+                raise ActivationError("source storage identity 無效")
+            loaded, running, live_text = self._probe(label)
+            disabled, _ = self._probe_disabled(label)
+            if running:
+                raise ActivationError(f"source transition 拒絕 running job: {label}")
+            if loaded and self._live_script_roots(live_text) != {self.runtime_root}:
+                raise ActivationError(f"snapshot/live owner drift: {label}")
+            if loaded and disabled:
+                raise ActivationError(f"source transition 拒絕 loaded/disabled 混合 prestate: {label}")
+            marker = self._denial_path(self.runtime_root, identity)
+            latest = self.runtime_root / "logs/storage_safety" / f"{identity}_latest.json"
+            self.source_jobs[label] = {
+                "guard": known[label], "identity": identity, "path": str(path),
+                "plist_hex": data.hex(), "loaded": loaded, "disabled": disabled,
+                "hold_sha256": sha256_file(marker) if marker.is_file() else None,
+                "receipt_sha256": sha256_file(latest) if latest.is_file() else None,
+            }
+        if "com.new-top10.daily" not in self.source_jobs:
+            raise ActivationError("缺少 same-root daily snapshot")
+        if self.source_jobs["com.new-top10.daily"]["hold_sha256"] is not None:
+            raise ActivationError("same-root daily 已有 hold；禁止清除後啟用")
+        self._source_groups_quiescent()
+        snapshot = self.receipt_path.parent / f"{self.receipt_path.stem}.source-prestate.json"
+        if snapshot.exists():
+            raise ActivationError("source snapshot collision")
+        self._atomic_write(snapshot, json.dumps({
+            "previous_commit": self.previous_commit, "accepted_commit": self.accepted_commit,
+            "runtime_root": str(self.runtime_root), "fingerprint": self.source_fingerprint,
+            "jobs": self.source_jobs,
+        }, sort_keys=True).encode())
+        self._fsync_parent_directory(snapshot)
+        self._safe_point("before_source_quiesce")
+        # 此旗標先於第一個 bootout，涵蓋 syscall 成功但 bookkeeping 尚未完成的窄窗。
+        self._source_mutation_armed = True
+        self._unload_source_jobs()
+        self.fault_hook("after_source_quiesce", None)
+        self._safe_point("after_source_quiesce")
+        self._source_groups_quiescent()
+        if self._source_code_fingerprint() != self.source_fingerprint:
+            raise ActivationError("source snapshot 後內容改變")
+        self._source_checkout_attempted = True
+        try:
+            self._checkout_source(self.accepted_commit)
+        except Exception:
+            self._source_checkout_failed = True
+            raise
+        self.fault_hook("after_source_checkout", None)
+        self._safe_point("after_source_checkout")
+
+    def _unload_source_jobs(self) -> None:
+        errors = []
+        for label, state in self.source_jobs.items():
+            try:
+                loaded, running, text = self._probe(label)
+                if loaded and self._live_script_roots(text) != {self.runtime_root}:
+                    raise ActivationError(f"bootout 前 live owner drift: {label}")
+                if running and not self._rollback_in_progress:
+                    raise ActivationError(f"source snapshot 後 job 已啟動: {label}")
+                if loaded:
+                    result = self._run([self.launchctl_bin, "bootout", self.domain, state["path"]])
+                    self.fault_hook("after_source_bootout", state["guard"])
+                    if result.returncode != 0:
+                        raise ActivationError(f"source bootout failed: {label}")
+                if self._probe(label)[0]:
+                    raise ActivationError(f"source job 仍 loaded: {label}")
+            except Exception as exc:
+                errors.append(f"{label}: {exc}")
+        if errors:
+            raise RollbackVerificationError("; ".join(errors))
+
+    def _restore_source_jobs(self, *, include_daily: bool) -> None:
+        for label, state in self.source_jobs.items():
+            if not include_daily and state["guard"] == "daily":
+                continue
+            path = Path(state["path"])
+            expected = bytes.fromhex(state["plist_hex"])
+            if path.read_bytes() != expected:
+                if not include_daily:
+                    raise ActivationError(f"非目標 plist drift: {label}")
+                self._atomic_write(path, expected)
+                self._fsync_parent_directory(path)
+            disabled, _ = self._probe_disabled(label)
+            if disabled != state["disabled"]:
+                op = "disable" if state["disabled"] else "enable"
+                if self._run([self.launchctl_bin, op, f"{self.domain}/{label}"]).returncode:
+                    raise ActivationError(f"source disabled restore failed: {label}")
+            loaded, running, _ = self._probe(label)
+            if loaded != state["loaded"]:
+                op = "bootstrap" if state["loaded"] else "bootout"
+                if self._run([self.launchctl_bin, op, self.domain, str(path)]).returncode:
+                    raise ActivationError(f"source topology restore failed: {label}")
+            loaded, running, _ = self._probe(label)
+            if loaded != state["loaded"] or running or self._probe_disabled(label)[0] != state["disabled"]:
+                raise ActivationError(f"source restore readback failed: {label}")
+            # 從不寫回 hold bytes；新 failure marker 必須原樣保留。
+            marker = self._denial_path(self.runtime_root, state["identity"])
+            digest = sha256_file(marker) if marker.is_file() else None
+            if digest != state["hold_sha256"]:
+                if not include_daily:
+                    raise ActivationError(f"非目標 hold drift: {label}")
+                self.new_denial_preserved.append({"job": state["guard"], "path": str(marker), "sha256": digest})
+
+    def _rollback_source_transition(self) -> None:
+        if not self._source_mutation_armed:
+            return
+        # 所有新拓樸先停；任何步驟未知時不退 SHA、更不 bootstrap 舊拓樸。
+        self._unload_source_jobs()
+        self._source_groups_quiescent()
+        if self._source_checkout_failed:
+            raise RollbackVerificationError("source checkout 失敗，保持停止待人工核對")
+        if self._source_checkout_attempted:
+            self._checkout_source(self.previous_commit)
+        if (self._source_git("rev-parse", "HEAD") != self.previous_commit
+                or self._source_code_fingerprint() != self.source_fingerprint):
+            raise RollbackVerificationError("source rollback fingerprint/SHA 不符，保持停止")
+        try:
+            self._restore_source_jobs(include_daily=True)
+        except Exception:
+            self._unload_source_jobs()
+            raise
+        self._event("source_rollback_verified")
+
+    def _finish_source_transition(self) -> None:
+        errors = []
+        try:
+            self._cleanup_staging()
+            self._release_all_denial_locks()
+            for identity, handle in tuple(self._source_locks.items()):
+                handle.close()
+                del self._source_locks[identity]
+            # lock teardown 已完成，但此處仍持有 handler；真 signal 必須可進入補償。
+            self.fault_hook("after_source_teardown", None)
+            if self._first_signal is not None and self.status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING":
+                raise ActivationError("source transition 收尾前收到 signal")
+            # 最後才交回 signal ownership；成功後不再執行可失敗的 I/O 或 hook。
+            if not self._disarm():
+                raise ActivationError("source transition signal teardown 未確認")
+        except Exception as exc:
+            errors.append(str(exc))
+            # teardown 可能已交還原 handler；補償期間 block watched signals，使用同一 rollback。
+            try:
+                signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM})
+            except Exception as mask_exc:
+                errors.append(f"補償 signal block failed: {mask_exc}")
+            self._rollback_in_progress = True
+            try:
+                self._rollback_source_transition()
+                self.status = "ROLLED_BACK_NO_GO"
+            except Exception as rollback_exc:
+                self.status = "ROLLBACK_VERIFICATION_FAILED"
+                errors.append(str(rollback_exc))
+        finally:
+            for identity, handle in tuple(self._source_locks.items()):
+                try:
+                    handle.close()
+                    del self._source_locks[identity]
+                except Exception as exc:
+                    errors.append(str(exc))
+            if errors:
+                try:
+                    if not self._disarm():
+                        errors.append("signal teardown still unconfirmed")
+                except Exception as exc:
+                    errors.append(f"signal teardown still failed: {exc}")
+                self.failure = f"{self.failure or ''}; source finalization: {'; '.join(errors)}"
 
     def _event(
         self,
@@ -508,6 +859,11 @@ class ActivationTransaction:
                 )
 
             loaded, running, print_text = self._probe(label)
+            if self.previous_commit is not None:
+                before = self.source_jobs[label]
+                if loaded or running:
+                    raise ActivationError(f"source transition 後 job 應維持 unloaded: {label}")
+                loaded = before["loaded"]
             pre_disabled: bool | None = None
             if guard_name in DORMANT_TARGET_JOBS:
                 if loaded:
@@ -688,6 +1044,12 @@ class ActivationTransaction:
                 self._mask_restore_errors.append(
                     f"disarm mask block failed: {type(exc).__name__}: {exc}"
                 )
+                if self.previous_commit is not None:
+                    raise ActivationError("source teardown 無法 block watched signals") from exc
+        if self.previous_commit is not None:
+            self._drain_pending_watched_signals(watched)
+            if self._first_signal is not None and self.status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING":
+                raise ActivationError("source teardown 前收到 signal，必須回退")
         if self.status == "ACTIVATED_RECEIPT_DURABILITY_UNCONFIRMED_NO_GO":
             try:
                 self._drain_pending_watched_signals(watched)
@@ -729,6 +1091,10 @@ class ActivationTransaction:
         restore_mask = self._original_signal_mask
         mask_confirmed = restore_mask is None
         if restore_mask is not None and handlers_confirmed:
+            if self.previous_commit is not None:
+                self._drain_pending_watched_signals(watched)
+                if self._first_signal is not None and self.status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING":
+                    raise ActivationError("source handler handoff 前收到 signal，必須回退")
             # pending signals 在此點交給 exact restored handler；此前 staging、locks
             # 與 transaction-owned handler 都已釋放，故不會中斷 rollback/cleanup。
             for _ in range(2):
@@ -878,6 +1244,9 @@ class ActivationTransaction:
         self._old_denial_lock_handles[job.guard_name] = handle
 
     def _acquire_denial_locks(self) -> None:
+        if self.previous_commit is not None:
+            self._lock_source_jobs()
+            return
         self._safe_point("before_denial_lock_directory")
         runtime_dir = self.runtime_root / "logs" / "storage_safety"
         runtime_dir.mkdir(parents=True, exist_ok=True)
@@ -1260,6 +1629,11 @@ class ActivationTransaction:
         self.status = "ROLLING_BACK"
         self._event("rollback_started")
         self.fault_hook("rollback_started", None)
+        if self.previous_commit is not None:
+            self._rollback_source_transition()
+            self._cleanup_staging(record_errors=True)
+            self.status = "ROLLED_BACK_NO_GO"
+            return
         for job in reversed(self.jobs):
             try:
                 self._rollback_job(job)
@@ -1289,6 +1663,15 @@ class ActivationTransaction:
             "runtime_root": str(self.runtime_root),
             "accepted_commit": self.accepted_commit,
             "canonical_commit": self.canonical_commit,
+            **({"source_transition": {
+                "previous_commit": self.previous_commit,
+                "previous_fingerprint": self.source_fingerprint,
+                "shared_jobs": self.source_jobs,
+                "checkout_attempted": self._source_checkout_attempted,
+                "checkout_failed": self._source_checkout_failed,
+                "attestation": "REQUIRES_PROCESS_EXIT_STATUS_AND_LIVE_SHA_TOPOLOGY",
+                "post_seal_failure_policy": "unload all shared jobs; prove PG quiescence; restore old source before topology",
+            }} if self.previous_commit is not None else {}),
             "domain": self.domain,
             "target_labels": [label for _, label, _ in self.target_jobs],
             "jobs": {
@@ -1372,7 +1755,7 @@ class ActivationTransaction:
                 sort_keys=True,
             ).encode("utf-8") + b"\n"
             staged_receipt = self._stage_receipt_payload(payload)
-            if self.status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING":
+            if self.status == "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING" and self.previous_commit is None:
                 for attempt in range(2):
                     try:
                         self._handoff_signal_handlers()
@@ -1393,8 +1776,13 @@ class ActivationTransaction:
         teardown_confirmed = True
         protection_release_errors: list[str] = []
         try:
+            if self.previous_commit is not None:
+                self._arm()
+                self._safe_point("before_source_transition")
+                self._prepare_source_transition()
             self._prepare()
-            self._arm()
+            if self.previous_commit is None:
+                self._arm()
             self._safe_point("after_arm")
             self._persist_prestate_evidence()
             self._stage_and_lint_plists()
@@ -1403,18 +1791,23 @@ class ActivationTransaction:
             self._mirror_and_clear_denials()
             self._safe_point("after_denial_mirror")
             for job in self.jobs:
-                if job.pre_loaded:
+                if job.pre_loaded and self.previous_commit is None:
                     self._bootout(job)
                 self._replace_plist(job)
                 if job.pre_disabled:
                     self._enable_dormant_target(job)
                 self._bootstrap(job)
                 self._safe_point(f"after_job_mutations:{job.guard_name}")
+            if self.previous_commit is not None:
+                self._restore_source_jobs(include_daily=False)
+                self._safe_point("after_source_sibling_restore")
             self._verify_success()
             self._safe_point("before_success_commit")
             self.status = "ACTIVATED_PARTIAL_ACCEPTANCE_PENDING"
             self._event("transaction_committed")
             self._write_receipt()
+            if self.previous_commit is not None:
+                self._safe_point("after_source_receipt_seal")
         except Exception as exc:  # noqa: BLE001 - transaction boundary 必須統一進 rollback。
             # 必須先於 armed 判斷武裝，避免 truth-test 本身收到第二 signal。
             self._rollback_in_progress = True
@@ -1422,7 +1815,8 @@ class ActivationTransaction:
                 # exception handler 一接手即保護 restore，封住呼叫 _rollback() 前的 signal 窄窗。
                 self.status = "ROLLING_BACK"
             self.failure = f"{type(exc).__name__}: {exc}"
-            if isinstance(exc, ReceiptDurabilityError) and self._receipt_renamed:
+            if (isinstance(exc, ReceiptDurabilityError) and self._receipt_renamed
+                    and self.previous_commit is None):
                 # rename 已可見但 durability 未確認；one-seal 下不得 rollback 成
                 # success receipt／舊拓撲。CLI 維持 NO-GO，拓撲保持與 receipt 一致。
                 self.status = "ACTIVATED_RECEIPT_DURABILITY_UNCONFIRMED_NO_GO"
@@ -1449,19 +1843,21 @@ class ActivationTransaction:
                         f"{type(receipt_exc).__name__}: {receipt_exc}"
                     )
         finally:
+            if self.previous_commit is not None:
+                self._finish_source_transition()
             # B4 各步驟使用獨立 exception boundary；前一步失敗不得跳過後續
             # lock release 或 signal ownership teardown。
-            for name, release in (
+            for name, release in (() if self.previous_commit is not None else (
                 ("staging cleanup", self._cleanup_staging),
                 ("denial lock release", self._release_all_denial_locks),
-            ):
+            )):
                 try:
                     release()
                 except Exception as exc:  # noqa: BLE001 - 收斂後統一由 CLI fail closed。
                     protection_release_errors.append(
                         f"{name}: {type(exc).__name__}: {exc}"
                     )
-            if self.armed or self._old_signal_handlers or self._old_signal_mask is not None:
+            if self.previous_commit is None and (self.armed or self._old_signal_handlers or self._old_signal_mask is not None):
                 try:
                     teardown_confirmed = self._disarm()
                 except Exception as exc:  # noqa: BLE001 - 不得讓 teardown exception 冒充成功。
@@ -1483,6 +1879,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--runtime-root", type=Path, required=True)
     parser.add_argument("--accepted-commit", required=True)
+    parser.add_argument("--previous-commit", help="明示 same-root daily source transition 的舊完整 SHA；預設不切換 source")
     parser.add_argument("--environment-root", type=Path,
                         help="prepare 入口重用的既有外接 .venv；啟用前重驗依賴契約")
     parser.add_argument("--expected-old-root", type=Path, required=True)
@@ -1524,6 +1921,7 @@ def main() -> int:
             source_root=source_root,
             runtime_root=args.runtime_root,
             accepted_commit=args.accepted_commit,
+            previous_commit=getattr(args, "previous_commit", None),
             environment_root=getattr(args, "environment_root", None),
             launch_agents_dir=args.launch_agents_dir,
             expected_old_root=args.expected_old_root,

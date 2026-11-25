@@ -229,14 +229,7 @@ class ExternalReviewProviderPreflightTest(unittest.TestCase):
             self.assertEqual([], list(output.iterdir()))
 
 
-    def test_provider_wrappers_use_existing_native_adapter_without_legacy_executor(self) -> None:
-        root = Path(__file__).resolve().parents[1]
-        for name in ("review_chatgpt_chrome.sh", "review_gemini_chrome.sh"):
-            source = (root / "scripts" / name).read_text()
-            self.assertIn("external_review_mcp_adapter.py", source)
-            self.assertNotIn("osascript", source)
-            self.assertNotIn("write_probe_js", source)
-
+    # Owner 已明示恢復 AppleScript；移除綁死 MCP 實作名稱的靜態測試。
 
     # 同 marker、錯 user、packet mismatch 與結果未知只收件的可執行回歸，
     # 已轉到 test_external_review_mcp_adapter.mjs 的原生 adapter seam。
