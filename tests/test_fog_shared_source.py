@@ -1,4 +1,5 @@
 """FOG-IO-002 離線 shared-source 反例；不執行研究 workload。"""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -6,6 +7,7 @@ import subprocess
 import sys
 import time
 import tempfile
+import uuid
 from unittest import mock
 
 import pytest
@@ -359,32 +361,111 @@ def test_native_source_write_probe_single_child(tmp_path):
     assert target.read_text() == "original"
 
 
+def _native_source_hashes(source):
+    """逐項保存來源與 Git fixture；不追入重用環境的 symlink。"""
+    return {p.relative_to(source).as_posix():
+            "link:" + os.readlink(p) if p.is_symlink() else
+            hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else "directory"
+            for p in sorted(source.rglob("*"))}
+
+
+def _native_shared_cli_case(source, outcome):
+    """僅由原 lifecycle 啟動；guard 與所有原斷言都留在真實 owned root。"""
+    import signal
+    import threading
+    from scripts.storage_validation.boundary import owned_validation_paths
+
+    source = Path(source)
+    sandbox = Path(os.environ["TMP_ARTIFACT_ROOT"])
+    assert os.environ["AI_CORE_TMP_ARTIFACT_ACTIVE"] == "1"
+    # Python 完成原生啟動後才清 cache 欄位；保留 parent 的完整 ownership 身分。
+    for key in (*FIELDS, *(k for k in os.environ if k.startswith("AI_CORE_CACHE_")), "TOP10_EXTERNAL_CACHE_ROOT"):
+        os.environ.pop(key, None)
+    assert owned_validation_paths(sandbox) == sandbox
+    before = _native_source_hashes(source)
+    commit = subprocess.check_output(["/usr/bin/git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
+    launcher.copy_project(source, sandbox, source_commit=commit)
+    marker, contract = launcher.build_validation_contract(sandbox, commit, source_root=source)
+    cli.PROJECT_ROOT = source
+    cli.DEFAULT_POLICY = source / "docs/operations/top10-storage-policy.json"
+    args = cli_args((source, sandbox, marker, contract))
+    args[args.index("--max-runtime-seconds") + 1] = "3" if outcome == "timeout" else "8"
+    cancel, sent = threading.Event(), []
+    ready = sandbox / "artifacts/autonomous_research/native-probe"
+
+    def interrupt_probe_guard():
+        # ready 由真正 workload 寫出；只向本 guard process 發送訊號。
+        while not cancel.wait(0.01):
+            if ready.is_file():
+                sent.append(True)
+                os.kill(os.getpid(), signal.SIGTERM)
+                return
+
+    watcher = threading.Thread(target=interrupt_probe_guard, daemon=True) if outcome == "interrupt" else None
+    evidence = sandbox / "validation_evidence"
+    evidence.mkdir(exist_ok=True)
+    proof = {"outcome": outcome, "owned_root": str(sandbox), "assertions_passed": False}
+    try:
+        if watcher is not None:
+            watcher.start()
+        try:
+            result = cli.main(args)
+        finally:
+            cancel.set()
+            if watcher is not None:
+                watcher.join(timeout=2)
+                assert not watcher.is_alive()
+        receipt_path = sandbox / "logs/storage_safety/fog-research-worker_latest.json"
+        receipt = json.loads(receipt_path.read_text())
+        proof.update(result=result, receipt=receipt, sent=sent)
+        assert result == {"complete": 0, "failure": 17, "timeout": 70, "interrupt": 70}[outcome], receipt
+        assert receipt["status"] == {"complete": "OK", "failure": "CHILD_FAILED", "timeout": "STOPPED", "interrupt": "STOPPED"}[outcome]
+        if outcome in {"complete", "failure"}:
+            assert receipt["child_exit_code"] == (0 if outcome == "complete" else 17)
+        if outcome == "interrupt":
+            assert sent == [True]
+        assert receipt["final_process_group_quiescent"] is True
+        assert receipt["summary"]["unknown_changed_paths"] == []
+        denied = sandbox / "logs/storage_safety/restart_denied/fog-research-worker.json"
+        assert denied.exists() == (outcome in {"timeout", "interrupt"})
+        if outcome in {"timeout", "interrupt"}:
+            before_receipt = receipt_path.read_bytes()
+            assert cli.main(args) == 75
+            assert receipt_path.read_bytes() == before_receipt
+        assert (source / "protected.txt").read_text() == "original"
+        assert ready.read_text() == "source-protected"
+        assert not (source / "logs").exists()
+        assert not (sandbox / ".venv").exists()
+        assert _native_source_hashes(source) == before
+        proof.update(assertions_passed=True, source_unchanged=True)
+    finally:
+        proof["sent"] = sent
+        payload = json.dumps(proof, ensure_ascii=False, indent=2)
+        assert len(payload.encode()) < 2 * 1024**2
+        (evidence / f"native-fog-{outcome}.json").write_text(payload)
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="需要原生 Seatbelt")
 @pytest.mark.parametrize("outcome", ["complete", "failure", "timeout", "interrupt"])
-def test_native_cli_shared_helper_preserves_source(tmp_path, monkeypatch, outcome):
-    """實際 CLI→guard→helper；只用幾 KB fixture，不執行研究或複製 venv。"""
+def test_native_cli_shared_helper_preserves_source(tmp_path, outcome):
+    """未受限 host 只建小型控制 fixture；真正 payload 由原 lifecycle 首次隔離。"""
+    import signal
+    from scripts.storage_validation.boundary import core_module
+
+    env = core_module("cache_tool").load_environment(dict(os.environ))
+    for key in ("AI_CORE_TMP_ARTIFACT_ACTIVE", "TMP_ARTIFACT_ROOT", "AI_CORE_EXTERNAL_DEV_REPO"):
+        env.pop(key, None)
+    for key in ("TMPDIR", "TMP", "TEMP", "TEMPDIR", "JOBLIB_TEMP_FOLDER"):
+        env[key] = env["AI_CORE_CACHE_ROOT"]
     source = tiny_source(tmp_path / "source")
-    sandbox = tmp_path / "sandbox"
-    sandbox.mkdir()
-    for key in (*FIELDS, *(key for key in os.environ if key.startswith("AI_CORE_CACHE_")), "TOP10_EXTERNAL_CACHE_ROOT"):
-        monkeypatch.delenv(key, raising=False)
-    # 測試 venv 只含指向既有 interpreter 的 link 與設定；不安裝套件。
-    python_bin = source / ".venv/bin/python"
-    native_python = Path(sys.executable).resolve()
-    python_bin.unlink()
-    python_bin.symlink_to(native_python)
-    (source / ".venv/pyvenv.cfg").write_text(
-        f"home = {native_python.parent}\ninclude-system-site-packages = false\n"
-    )
-    (source / "scripts/storage_validation/fog_research_worker.py").write_bytes(
-        Path(helper.__file__).read_bytes()
-    )
-    # 空測試 repo 只放 synthetic HEAD；沒有 commit、沒有改動正式 .git。
-    subprocess.run(["/usr/bin/git", "init", "-q", str(source)], check=True)
-    commit = "a" * 40
-    (source / ".git/HEAD").write_text(commit + "\n")
-    protected = source / "protected.txt"
-    protected.write_text("original")
+    # 移除 tiny_source 的兩個假環境檔，只連結既有環境，不建立 pyvenv.cfg。
+    (source / ".venv/bin/python").unlink()
+    (source / ".venv/lib/libpython3.12.dylib").unlink()
+    for path in (source / ".venv/bin", source / ".venv/lib", source / ".venv"):
+        path.rmdir()
+    (source / ".venv").symlink_to(Path(sys.prefix), target_is_directory=True)
+    (source / "scripts/storage_validation/fog_research_worker.py").write_bytes(Path(helper.__file__).read_bytes())
+    (source / "protected.txt").write_text("original")
     (source / "scripts/run_fog_representative_validation.py").write_text(
         "from pathlib import Path\n"
         "def main(*, validation_root):\n"
@@ -396,74 +477,73 @@ def test_native_cli_shared_helper_preserves_source(tmp_path, monkeypatch, outcom
         "    output.parent.mkdir(parents=True, exist_ok=True)\n"
         "    output.write_text('source-protected')\n"
         + {
-            # complete/failure 必須留出一次 live sample；快速 child 無 live evidence
-            # 依 guard 契約應 fail closed，另由專用 regression test 覆蓋。
+            # 保留一次 live sample；timeout／interrupt 仍使用十秒 workload。
             "complete": "    import time\n    time.sleep(1)\n    return 0\n",
             "failure": "    import time\n    time.sleep(1)\n    return 17\n",
             "timeout": "    import time\n    time.sleep(10)\n    return 0\n",
             "interrupt": "    import time\n    time.sleep(10)\n    return 0\n",
         }[outcome]
     )
-    # 政策原樣保留；此微型探針只合成 admission 數字，不冒稱真實容量准入。
     policy_path = source / "docs/operations/top10-storage-policy.json"
-    policy = json.loads((launcher.PROJECT_ROOT / "docs/operations/top10-storage-policy.json").read_text())
-    policy_path.write_text(json.dumps(policy))
-    launcher.copy_project(source, sandbox, source_commit=commit)
-    marker, contract = launcher.build_validation_contract(sandbox, commit, source_root=source)
-    monkeypatch.setattr(cli, "PROJECT_ROOT", source)
-    monkeypatch.setattr(cli, "DEFAULT_POLICY", policy_path)
-    monkeypatch.setattr(sys, "executable", str(python_bin))
-    from dataclasses import replace
-    from app.storage_safety import take_sample as real_sample
-    def bounded_probe_sample(*args, **kwargs):
-        return replace(real_sample(*args, **kwargs), host_total_bytes=10**12,
-                       host_free_bytes=5 * 10**11)
-    monkeypatch.setattr(cli, "take_sample", bounded_probe_sample)
-    args = cli_args((source, sandbox, marker, contract))
-    args[args.index("--max-runtime-seconds") + 1] = "1" if outcome == "timeout" else "5"
-    import signal
-    import threading
-    cancel = threading.Event()
-    sent = []
-    ready = sandbox / "artifacts/autonomous_research/native-probe"
-    def interrupt_probe_guard():
-        # 只向本測試自身送訊號；等 child 已進入 guard 且寫出 ready 才觸發。
-        while not cancel.wait(0.01):
-            if ready.exists():
-                sent.append(True)
-                os.kill(os.getpid(), signal.SIGTERM)
-                return
-    watcher = threading.Thread(target=interrupt_probe_guard, daemon=True) if outcome == "interrupt" else None
-    if watcher is not None:
-        watcher.start()
+    policy_path.write_bytes((launcher.PROJECT_ROOT / "docs/operations/top10-storage-policy.json").read_bytes())
+    owner = tmp_path / "owner"
+    owner.mkdir()
+    for root in (source, owner):
+        subprocess.run(["/usr/bin/git", "init", "-q", "-b", "main", str(root)], check=True, env=env)
+    subprocess.run(["/usr/bin/git", "-C", str(source), "add", "."], check=True, env=env)
+    subprocess.run(["/usr/bin/git", "-C", str(source), "-c", "user.name=Fixture",
+                    "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null",
+                    "-c", "commit.gpgsign=false", "commit", "-q", "-m", "fixture"], check=True, env=env)
+    before = _native_source_hashes(source)
+    core = Path(env.get("AI_CORE_DIR", str(Path.home() / "ai-core")))
+    exported = owner / "export"
+    bootstrap = (f"import sys; sys.path.insert(0, {str(Path(__file__).resolve().parents[1])!r}); "
+                 "from tests.test_fog_shared_source import _native_shared_cli_case; "
+                 "_native_shared_cli_case(*sys.argv[1:])")
+    command = [str(core / ".venv/bin/python"), "-B", str(core / "scripts/tmp_artifact_lifecycle.py"),
+               "run", "--external-only", "--owned-root-writes-only", "--repo-root", str(owner),
+               "--policy", str(core / "config/project_sandbox_symlink_fixture_policy.json"),
+               "--purpose", "top10-native-fog-" + uuid.uuid4().hex,
+               "--max-bytes", "268435456", "--max-file-count", "12000", "--ttl-seconds", "90",
+               "--evidence-dir", str(exported), "--preserve", "validation_evidence", "--",
+               sys.executable, "-B", "-c", bootstrap, str(source), outcome]
+    process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout = stderr = ""
+    timed_out = False
     try:
-        with mock.patch.dict(os.environ):
-            result = cli.main(args)
-    finally:
-        cancel.set()
-        if watcher is not None:
-            watcher.join(timeout=2)
-            assert not watcher.is_alive()
-    receipt = json.loads((sandbox / "logs/storage_safety/fog-research-worker_latest.json").read_text())
-    outer_evidence = Path(os.environ["TMP_ARTIFACT_ROOT"]) / "evidence"
-    (outer_evidence / f"native-fog-{outcome}.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2))
-    assert result == {"complete": 0, "failure": 17, "timeout": 70, "interrupt": 70}[outcome], receipt
-    assert receipt["status"] == {"complete": "OK", "failure": "CHILD_FAILED", "timeout": "STOPPED", "interrupt": "STOPPED"}[outcome]
-    if outcome == "interrupt":
-        assert sent == [True]
-    assert receipt["final_process_group_quiescent"] is True
-    assert receipt["summary"]["unknown_changed_paths"] == []
-    denied = sandbox / "logs/storage_safety/restart_denied/fog-research-worker.json"
-    assert denied.exists() == (outcome in {"timeout", "interrupt"})
-    if outcome in {"timeout", "interrupt"}:
-        before_receipt = (sandbox / "logs/storage_safety/fog-research-worker_latest.json").read_bytes()
-        with mock.patch.dict(os.environ):
-            assert cli.main(args) == 75
-        assert (sandbox / "logs/storage_safety/fog-research-worker_latest.json").read_bytes() == before_receipt
-    assert protected.read_text() == "original"
-    assert (sandbox / "artifacts/autonomous_research/native-probe").read_text() == "source-protected"
-    assert not (source / "logs").exists()
-    assert not (sandbox / ".venv").exists()
+        stdout, stderr = process.communicate(timeout=100)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        # 只通知本次 lifecycle；root／marker 的清理或保留仍由原 parent 裁決。
+        process.send_signal(signal.SIGTERM)
+        try:
+            stdout, stderr = process.communicate(timeout=15)
+        except subprocess.TimeoutExpired as error:
+            stdout = (error.stdout or b"").decode(errors="replace")
+            stderr = (error.stderr or b"").decode(errors="replace")
+    after = _native_source_hashes(source)
+    proof_path = exported / "validation_evidence" / f"native-fog-{outcome}.json"
+    proof = json.loads(proof_path.read_text()) if proof_path.is_file() else {}
+    marker = owner / ".git/.ai-core-tmp-artifact-isolation.json"
+    try:
+        marker_state = json.loads(marker.read_text())
+    except FileNotFoundError:
+        marker_state = {}
+    (owner / "controller.json").write_text(json.dumps({
+        "outcome": outcome, "exit_code": process.returncode, "timed_out": timed_out,
+        "owned_root": proof.get("owned_root", marker_state.get("root")), "marker": marker_state,
+        "proof": proof, "source_before": before, "source_after": after,
+        "marker_exists": marker.exists(), "stdout": stdout[-4096:], "stderr": stderr[-4096:],
+    }, ensure_ascii=False, indent=2))
+    assert before == after
+    assert not timed_out and process.returncode == 0, (stdout, stderr)
+    assert proof["assertions_passed"] is True and proof["source_unchanged"] is True
+    assert proof["outcome"] == outcome
+    root = Path(proof["owned_root"])
+    assert root.parent == core_module("tmp_artifact_lifecycle").MANAGED_TMP_PARENT
+    assert not root.exists() and not marker.exists()
+    assert sum(p.stat().st_size for p in exported.rglob("*") if p.is_file()) < 2 * 1024**2
+    assert not any(p.name in {"data", ".venv"} for p in exported.rglob("*"))
 
 
 def test_shared_cli_sampler_keeps_host_and_output_separate(shared, monkeypatch):

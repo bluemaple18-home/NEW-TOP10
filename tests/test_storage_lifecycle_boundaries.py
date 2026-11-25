@@ -295,10 +295,15 @@ def test_daily_cli_lifecycle_cleanup_and_small_evidence(tmp_path, mode):
     if mode == "failure":
         runner.write_text("raise RuntimeError('injected failure')\n")
     elif mode == "signal":
-        runner.write_text("import time\ntime.sleep(90)\n")
+        runner.write_text("import os, time\nfrom pathlib import Path\n"
+                          "(Path(os.environ['TMP_ARTIFACT_ROOT']) / 'daily-signal-ready').write_text('ready')\n"
+                          "time.sleep(90)\n")
     evidence = owner / "receipt"
-    env = {key: value for key, value in os.environ.items()
-           if key not in ("AI_CORE_TMP_ARTIFACT_ACTIVE", "TMP_ARTIFACT_ROOT", "AI_CORE_EXTERNAL_DEV_REPO")}
+    env = boundary.core_module("cache_tool").load_environment(dict(os.environ))
+    for key in ("AI_CORE_TMP_ARTIFACT_ACTIVE", "TMP_ARTIFACT_ROOT", "AI_CORE_EXTERNAL_DEV_REPO"):
+        env.pop(key, None)
+    controller_evidence = Path(env["TOP10_NATIVE_TEST_EVIDENCE_ROOT"])
+    assert controller_evidence.is_absolute() and controller_evidence.is_dir()
     # 模擬 lifecycle 外的 bootstrap：仍指向已存在的受管外接 cache，保留 sitecustomize。
     # 進入新 lifecycle 後 helper 會重新固定為新 owned/tmp，不借用外層 root 身分。
     for key in ("TMPDIR", "TMP", "TEMP", "TEMPDIR", "JOBLIB_TEMP_FOLDER"):
@@ -309,26 +314,55 @@ def test_daily_cli_lifecycle_cleanup_and_small_evidence(tmp_path, mode):
     process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     marker = owner / ".git/.ai-core-tmp-artifact-isolation.json"
     root = None
+    sent = False
+    stdout = stderr = ""
+    timed_out = False
     deadline = time.monotonic() + 45
     try:
         while time.monotonic() < deadline and process.poll() is None:
-            if marker.exists():
+            try:
                 state = json.loads(marker.read_text())
-                if state.get("root"):
-                    root = Path(state["root"])
-                    if mode == "signal" and list(root.glob("evidence/daily-*/summary.json")):
-                        process.send_signal(signal.SIGTERM)
-                        break
+            except FileNotFoundError:
+                state = {}
+            if state.get("root"):
+                root = Path(state["root"])
+                if (mode == "signal" and state.get("status") == "active"
+                        and (root / "daily-signal-ready").is_file()
+                        and list(root.glob("evidence/daily-*/summary.json"))):
+                    process.send_signal(signal.SIGTERM)
+                    sent = True
+                    break
             time.sleep(0.1)
         stdout, stderr = process.communicate(timeout=45)
+    except subprocess.TimeoutExpired:
+        timed_out = True
     finally:
         if process.poll() is None:
             process.terminate()
-            process.communicate(timeout=15)
+            try:
+                stdout, stderr = process.communicate(timeout=15)
+            except subprocess.TimeoutExpired as error:
+                timed_out = True
+                stdout = (error.stdout or b"").decode(errors="replace")
+                stderr = (error.stderr or b"").decode(errors="replace")
+    summaries = list(evidence.glob("evidence/daily-*/summary.json"))
+    summary_payloads = [json.loads(p.read_text()) for p in summaries]
+    # 快速成功可能在兩次輪詢間完成；匯出的原 summary 仍保存實際 root 身分。
+    if root is None and summary_payloads:
+        root = Path(summary_payloads[0]["output_root"]).parent
+    kept = controller_evidence / ("daily-lifecycle-" + uuid.uuid4().hex + ".json")
+    kept.write_text(json.dumps({"mode": mode, "exit_code": process.returncode,
+                               "owned_root": str(root), "cleanup_removed": bool(root and not root.exists()),
+                               "marker_exists": marker.exists(), "sent": sent, "timed_out": timed_out,
+                               "summaries": summary_payloads,
+                               "stdout": stdout[-4096:], "stderr": stderr[-4096:],
+                               "receipts": [json.loads(p.read_text()) for p in evidence.rglob("daily_validation_*.json")]},
+                              ensure_ascii=False, indent=2))
+    assert not timed_out, (stdout, stderr)
     assert (process.returncode == 0) == (mode == "success"), (stdout, stderr)
     assert root is not None and not root.exists(), (stdout, stderr)
+    assert root.parent == boundary.core_module("tmp_artifact_lifecycle").MANAGED_TMP_PARENT
     assert not marker.exists()
-    summaries = list(evidence.glob("evidence/daily-*/summary.json"))
     assert summaries, (stdout, stderr)
     assert sum(p.stat().st_size for p in evidence.rglob("*") if p.is_file()) < 2 * 1024**2
     assert not any(p.name in {"data", ".venv"} for p in evidence.rglob("*"))
@@ -339,10 +373,9 @@ def test_daily_cli_lifecycle_cleanup_and_small_evidence(tmp_path, mode):
         receipt_bytes = retained.read_bytes()
         assert hashlib.sha256(receipt_bytes).hexdigest() == result["receipt_sha256"]
         assert json.loads(receipt_bytes)["status"] == "OK"
-    kept = Path(os.environ["TMP_ARTIFACT_ROOT"]) / "evidence" / ("daily-lifecycle-" + uuid.uuid4().hex + ".json")
-    kept.write_text(json.dumps({"mode": mode, "exit_code": process.returncode,
-                               "owned_root": str(root), "cleanup_removed": not root.exists(),
-                               "summaries": [json.loads(p.read_text()) for p in summaries],
-                               "stdout": stdout[-4096:], "stderr": stderr[-4096:],
-                               "receipts": [json.loads(p.read_text()) for p in evidence.rglob("daily_validation_*.json")]},
-                              ensure_ascii=False, indent=2))
+    elif mode == "failure":
+        assert process.returncode == 1 and "injected failure" in stderr
+        assert any(p.get("status") == "FAILED" and p.get("error") == "RuntimeError"
+                   for p in summary_payloads)
+    else:
+        assert sent and process.returncode == 128 + signal.SIGTERM, (stdout, stderr)
